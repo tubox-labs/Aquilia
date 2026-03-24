@@ -6,7 +6,7 @@ Separates the metaclass logic from the Model base class for cleaner architecture
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .fields_module import (
     BigAutoField,
@@ -17,7 +17,7 @@ from .manager import BaseManager, Manager
 from .options import Options
 
 if TYPE_CHECKING:
-    pass
+    from .base import Model
 
 __all__ = ["ModelMeta"]
 
@@ -84,66 +84,67 @@ class ModelMeta(type):
             has_pk = any(f.primary_key for f in fields.values())
             if not has_pk:
                 pk_field = BigAutoField()
-                pk_field.__set_name__(None, "id")
                 fields["id"] = pk_field
                 namespace["id"] = pk_field
 
         # Create class
         cls = super().__new__(mcs, name, bases, namespace)
+        model_cls = cast("type[Model]", cls)
 
         # Attach metadata
-        cls._fields = fields
-        cls._m2m_fields = m2m_fields
-        cls._meta = opts
-        cls._table_name = opts.table_name
-        cls._db = None
+        model_cls._fields = fields
+        model_cls._m2m_fields = m2m_fields
+        model_cls._meta = opts
+        model_cls._table_name = opts.table_name
+        model_cls._db = None
+        model_cls._reverse_fk_cache = None
 
         # Determine PK
-        cls._pk_name = "id"
-        cls._pk_attr = "id"
+        model_cls._pk_name = "id"
+        model_cls._pk_attr = "id"
         for fname, field in fields.items():
             if field.primary_key:
-                cls._pk_name = field.column_name
-                cls._pk_attr = fname
+                model_cls._pk_name = field.column_name
+                model_cls._pk_attr = fname
                 break
 
         # Set name on all fields
         for fname, field in new_fields.items():
-            field.__set_name__(cls, fname)
-            field.model = cls
+            field.__set_name__(model_cls, fname)
+            field.model = model_cls
 
         # Collect column names (excludes M2M)
-        cls._column_names = [f.column_name for f in fields.values() if not isinstance(f, ManyToManyField)]
+        model_cls._column_names = [f.column_name for f in fields.values() if not isinstance(f, ManyToManyField)]
 
         # Collect attr names (excludes M2M)
-        cls._attr_names = [fname for fname, f in fields.items() if not isinstance(f, ManyToManyField)]
+        model_cls._attr_names = [fname for fname, f in fields.items() if not isinstance(f, ManyToManyField)]
 
         # Pre-built list of (attr_name, field) for non-M2M fields.
         # Used by __init__, from_row, save, create etc. to avoid
         # isinstance(field, ManyToManyField) on every access.
-        cls._non_m2m_fields: list = [(fname, f) for fname, f in fields.items() if not isinstance(f, ManyToManyField)]
+        model_cls._non_m2m_fields = [(fname, f) for fname, f in fields.items() if not isinstance(f, ManyToManyField)]
 
         # Column-name → (attr_name, field) mapping for from_row()
-        cls._col_to_attr: dict = {}
-        for fname, f in cls._non_m2m_fields:
-            cls._col_to_attr[f.column_name] = (fname, f)
-            cls._col_to_attr[fname] = (fname, f)  # also allow attr-name lookup
+        model_cls._col_to_attr = {}
+        for fname, f in model_cls._non_m2m_fields:
+            model_cls._col_to_attr[f.column_name] = (fname, f)
+            model_cls._col_to_attr[fname] = (fname, f)  # also allow attr-name lookup
 
         # Auto-inject default Manager if none declared
         if not opts.abstract and not any(isinstance(v, BaseManager) for v in namespace.values()):
             mgr = Manager()
-            mgr.__set_name__(cls, "objects")
-            cls.objects = mgr
+            mgr.__set_name__(model_cls, "objects")
+            model_cls.objects = mgr
 
         # Register in global registry (skip abstract)
         if not opts.abstract:
             from .registry import ModelRegistry as _NewRegistry
 
-            _NewRegistry.register(cls)
+            _NewRegistry.register(model_cls)
 
             # Signal: class_prepared (fired after model class is fully created)
             from .signals import class_prepared
 
-            class_prepared.send_sync(sender=cls)
+            class_prepared.send_sync(sender=model_cls)
 
         return cls
