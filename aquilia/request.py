@@ -23,7 +23,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, cast, Protocol, TypedDict, TypeVar
 from urllib.parse import parse_qsl
 
 from ._datastructures import (
@@ -43,11 +43,13 @@ from ._uploads import (
     create_upload_file_from_path,
 )
 from .faults import Fault, FaultDomain, Severity
+from .typing import ASGIReceive, ASGIScope, RequestState
+from .typing.container import AsyncResolvableContainer, SyncResolvableContainer
 
 # Import python-multipart
 try:
-    from python_multipart import MultipartParser
-    from python_multipart.multipart import parse_options_header
+    from python_multipart import MultipartParser  # type: ignore[import-not-found]
+    from python_multipart.multipart import parse_options_header  # type: ignore[import-not-found]
 
     MULTIPART_AVAILABLE = True
 except ImportError:
@@ -75,7 +77,11 @@ CROUS_MAGIC = b"CROUSv1"
 
 # Type vars
 T = TypeVar("T")
+ModelT_co = TypeVar("ModelT_co", covariant=True)
 PathLike = str | Path
+
+_FD_IO = cast(FaultDomain, getattr(FaultDomain, "IO"))
+_FD_SECURITY = cast(FaultDomain, getattr(FaultDomain, "SECURITY"))
 
 
 # ============================================================================
@@ -86,7 +92,7 @@ PathLike = str | Path
 class RequestFault(Fault):
     """Base class for request-related faults."""
 
-    domain = FaultDomain.IO
+    domain = _FD_IO
     severity = Severity.ERROR
     public = True
 
@@ -97,7 +103,7 @@ class BadRequest(RequestFault):
     code = "BAD_REQUEST"
     message = "Bad request"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
@@ -107,7 +113,7 @@ class PayloadTooLarge(RequestFault):
     code = "PAYLOAD_TOO_LARGE"
     message = "Payload too large"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
@@ -117,7 +123,7 @@ class UnsupportedMediaType(RequestFault):
     code = "UNSUPPORTED_MEDIA_TYPE"
     message = "Unsupported media type"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
@@ -128,7 +134,7 @@ class ClientDisconnect(RequestFault):
     message = "Client disconnected"
     severity = Severity.WARN
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, severity=self.severity, metadata=metadata)
 
 
@@ -138,7 +144,7 @@ class InvalidJSON(RequestFault):
     code = "INVALID_JSON"
     message = "Invalid JSON"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
@@ -148,7 +154,7 @@ class InvalidCrous(RequestFault):
     code = "INVALID_CROUS"
     message = "Invalid CROUS payload"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
@@ -160,7 +166,7 @@ class CrousUnavailable(RequestFault):
     severity = Severity.ERROR
     public = False
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, severity=self.severity, metadata=metadata)
 
 
@@ -170,7 +176,7 @@ class InvalidHeader(RequestFault):
     code = "INVALID_HEADER"
     message = "Invalid header"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
@@ -180,8 +186,18 @@ class MultipartParseError(RequestFault):
     code = "MULTIPART_PARSE_ERROR"
     message = "Multipart parsing failed"
 
-    def __init__(self, message: str = None, **metadata):
+    def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
+
+
+class _PydanticLikeModel(Protocol[ModelT_co]):
+    @classmethod
+    def model_validate(cls, data: Any) -> ModelT_co: ...
+
+    @classmethod
+    def parse_obj(cls, data: Any) -> ModelT_co: ...
+
+    def __call__(self, *args: Any, **kwargs: Any) -> ModelT_co: ...
 
 
 # ============================================================================
@@ -242,9 +258,9 @@ class Request:
 
     def __init__(
         self,
-        scope: Mapping[str, Any],
-        receive: Callable[..., Awaitable[dict]],
-        send: Callable | None = None,
+        scope: ASGIScope,
+        receive: ASGIReceive,
+        send: Callable[..., Awaitable[None]] | None = None,
         *,
         max_body_size: int = 10_485_760,
         max_field_count: int = 1000,
@@ -272,7 +288,7 @@ class Request:
         self.form_memory_threshold = form_memory_threshold
 
         # State
-        self.state: dict[str, Any] = {}
+        self.state: RequestState = {}
 
         # Cached values (None = not yet computed)
         self._body: bytes | None = None
@@ -302,32 +318,38 @@ class Request:
     @property
     def method(self) -> str:
         """HTTP method (GET, POST, etc.)."""
-        return self.scope.get("method", "GET")
+        return cast(str, self.scope.get("method", "GET"))
 
     @property
     def http_version(self) -> str:
         """HTTP version (e.g., '1.1', '2')."""
-        return self.scope.get("http_version", "1.1")
+        return cast(str, self.scope.get("http_version", "1.1"))
 
     @property
     def path(self) -> str:
         """Request path (decoded)."""
-        return self.scope.get("path", "/")
+        return cast(str, self.scope.get("path", "/"))
 
     @property
     def raw_path(self) -> bytes:
         """Raw request path (as bytes from ASGI)."""
-        return self.scope.get("raw_path", b"/")
+        return cast(bytes, self.scope.get("raw_path", b"/"))
 
     @property
     def query_string(self) -> str:
         """Raw query string."""
-        return self.scope.get("query_string", b"").decode("utf-8")
+        query_value = self.scope.get("query_string", b"")
+        if isinstance(query_value, bytes):
+            return query_value.decode("utf-8")
+        if isinstance(query_value, str):
+            return query_value
+        return ""
 
     @property
     def client(self) -> tuple | None:
         """Client address (host, port)."""
-        return self.scope.get("client")
+        client_value = self.scope.get("client")
+        return client_value if isinstance(client_value, tuple) else None
 
     # ========================================================================
     # Query Parameters
@@ -358,7 +380,7 @@ class Request:
     def headers(self) -> Headers:
         """Get parsed headers."""
         if self._headers is None:
-            raw_headers = self.scope.get("headers", [])
+            raw_headers = cast(list[tuple[bytes, bytes]], self.scope.get("headers", []))
             self._headers = Headers(raw=raw_headers)
         return self._headers
 
@@ -399,7 +421,7 @@ class Request:
         """Get full request URL."""
         if self._url is None:
             scheme = self.scope.get("scheme", "http")
-            host = self.header("host", "localhost")
+            host = self.header("host", "localhost") or "localhost"
             path = self.path
             query = self.query_string
 
@@ -416,7 +438,7 @@ class Request:
                 port = None
 
             self._url = URL(
-                scheme=scheme,
+                scheme=cast(str, scheme),
                 host=host_part,
                 port=port,
                 path=path,
@@ -445,8 +467,8 @@ class Request:
         """
         # Hook for DI-injected URL builder
         url_builder = self.state.get("url_builder")
-        if url_builder:
-            return url_builder(route_name, **params)
+        if callable(url_builder):
+            return cast(str, url_builder(route_name, **params))
 
         # Fallback: return route name as placeholder
         return f"/{route_name}"
@@ -591,6 +613,8 @@ class Request:
             True if any media type is accepted
         """
         accept = self.header("accept", "*/*")
+        if accept is None:
+            accept = "*/*"
         accept_lower = accept.lower()
 
         return any(media_type.lower() in accept_lower or "*/*" in accept_lower for media_type in media_types)
@@ -703,7 +727,7 @@ class Request:
     # Body Reading (Streaming & Single-shot)
     # ========================================================================
 
-    async def _receive_message(self) -> dict:
+    async def _receive_message(self) -> dict[str, Any]:
         """
         Receive next ASGI message.
 
@@ -1045,17 +1069,18 @@ class Request:
     def _validate_json_model(self, data: Any, model: type[T]) -> T:
         """Validate JSON data against model."""
         try:
+            typed_model = cast(_PydanticLikeModel[T], model)
             # Pydantic v2
             if hasattr(model, "model_validate"):
-                return model.model_validate(data)
+                return cast(T, typed_model.model_validate(data))
             # Pydantic v1
             elif hasattr(model, "parse_obj"):
-                return model.parse_obj(data)
+                return cast(T, typed_model.parse_obj(data))
             # Dataclass or callable
             elif callable(model):
-                return model(**data) if isinstance(data, dict) else model(data)
+                return cast(T, typed_model(**data) if isinstance(data, dict) else typed_model(data))
             else:
-                return data
+                return cast(T, data)
         except Exception as e:
             raise BadRequest(f"JSON validation failed: {e}", model=model.__name__)
 
@@ -1169,7 +1194,13 @@ class Request:
         current_size = 0
 
         # Header tracking (use list to allow reassignment in nested functions)
-        header_state = {"field": bytearray(), "value": bytearray(), "headers": {}}
+        class _MultipartHeaderState(TypedDict):
+            field: bytearray
+            value: bytearray
+            headers: dict[str, str]
+
+        # Header tracking for callback-based parser events.
+        header_state: _MultipartHeaderState = {"field": bytearray(), "value": bytearray(), "headers": {}}
 
         def on_part_begin():
             """Called when a new multipart part begins."""
@@ -1445,7 +1476,7 @@ class Request:
                 await store.write_chunk(upload_id, chunk)
 
             # Finalize
-            metadata = {
+            metadata: dict[str, Any] = {
                 "filename": upload.filename,
                 "content_type": upload.content_type,
                 "size": upload.size,
@@ -1499,7 +1530,7 @@ class Request:
             raise Fault(
                 code="AUTH_REQUIRED",
                 message="Authentication required",
-                domain=FaultDomain.SECURITY,
+                domain=_FD_SECURITY,
                 severity=Severity.WARN,
                 metadata={"path": self.path, "method": self.method},
             )
@@ -1515,7 +1546,7 @@ class Request:
         Returns:
             True if identity has role, False otherwise
         """
-        return self.identity and hasattr(self.identity, "has_role") and self.identity.has_role(role)
+        return bool(self.identity and hasattr(self.identity, "has_role") and self.identity.has_role(role))
 
     def has_scope(self, scope: str) -> bool:
         """
@@ -1527,7 +1558,7 @@ class Request:
         Returns:
             True if identity has scope, False otherwise
         """
-        return self.identity and hasattr(self.identity, "has_scope") and self.identity.has_scope(scope)
+        return bool(self.identity and hasattr(self.identity, "has_scope") and self.identity.has_scope(scope))
 
     # ========================================================================
     # Session Integration
@@ -1565,7 +1596,7 @@ class Request:
             raise Fault(
                 code="SESSION_REQUIRED",
                 message="Session required",
-                domain=FaultDomain.IO,
+                domain=_FD_IO,
                 severity=Severity.WARN,
                 metadata={"path": self.path, "method": self.method},
             )
@@ -1587,14 +1618,15 @@ class Request:
     # ========================================================================
 
     @property
-    def container(self) -> Any | None:  # Returns Container | None
+    def container(self) -> AsyncResolvableContainer | SyncResolvableContainer | None:
         """
         Get request-scoped DI container.
 
         Returns:
             DI Container if available, None otherwise
         """
-        return self.state.get("di_container") or self.state.get("container")
+        container_value = self.state.get("di_container") or self.state.get("container")
+        return cast(AsyncResolvableContainer | SyncResolvableContainer | None, container_value)
 
     async def resolve(self, service_type: type[T], *, optional: bool = False) -> T | None:
         """
@@ -1623,13 +1655,14 @@ class Request:
 
         # Support both sync and async resolve
         if hasattr(container, "resolve_async"):
-            return await container.resolve_async(service_type, optional=optional)
+            async_container = container
+            return cast(T | None, await async_container.resolve_async(service_type, optional=optional))
         elif hasattr(container, "resolve"):
-            result = container.resolve(service_type, optional=optional)
-            # If result is awaitable, await it
+            sync_container = container
+            result = sync_container.resolve(service_type, optional=optional)
             if hasattr(result, "__await__"):
-                return await result
-            return result
+                return cast(T | None, await result)
+            return cast(T | None, result)
         else:
             if optional:
                 return None
@@ -1668,21 +1701,6 @@ class Request:
                 results[name] = None
         return results
 
-    @property
-    def identity(self) -> Any | None:
-        """Get authenticated identity from request state."""
-        return self.state.get("identity")
-
-    @property
-    def session(self) -> Any | None:
-        """Get session from request state."""
-        return self.state.get("session")
-
-    @property
-    def authenticated(self) -> bool:
-        """Check if request is authenticated."""
-        return self.state.get("authenticated", False)
-
     # ========================================================================
     # Template Context Integration
     # ========================================================================
@@ -1691,14 +1709,7 @@ class Request:
         """Get and clear flash messages from session."""
         if not self.session:
             return []
-        return self.session.data.pop("_flash_messages", [])
-
-    def has_role(self, role: str) -> bool:
-        """Check if authenticated identity has a specific role."""
-        if not self.identity:
-            return False
-        roles = self.identity.get_attribute("roles", [])
-        return role in roles
+        return cast(list[dict[str, Any]], self.session.data.pop("_flash_messages", []))
 
     def is_authenticated(self) -> bool:
         """Check if request is authenticated."""
@@ -1724,7 +1735,7 @@ class Request:
         Returns:
             Dict of template context variables
         """
-        context = self.state.get("template_context", {}).copy()
+        context = cast(dict[str, Any], self.state.get("template_context", {})).copy()
 
         # Auto-inject common variables
         context.setdefault("request", self)
@@ -1816,7 +1827,7 @@ class Request:
             return True
         flow_ctx = self.state.get("flow_context")
         if flow_ctx is not None and hasattr(flow_ctx, "has_effect"):
-            return flow_ctx.has_effect(name)
+            return bool(flow_ctx.has_effect(name))
         return False
 
     @property
@@ -1983,4 +1994,4 @@ class Request:
 
     def path_params(self) -> dict[str, Any]:
         """Get path parameters (set by router via state)."""
-        return self.state.get("path_params", {})
+        return cast(dict[str, Any], self.state.get("path_params", {}))

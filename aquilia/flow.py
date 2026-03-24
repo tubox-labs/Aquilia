@@ -41,6 +41,8 @@ from typing import (
     TypeVar,
 )
 
+from .typing.effects import EffectName
+
 if TYPE_CHECKING:
     from .effects import EffectRegistry
 
@@ -349,7 +351,10 @@ def requires(*effect_names: str) -> Callable:
 
     def decorator(func: Callable) -> Callable:
         existing = set(getattr(func, "__flow_effects__", []))
-        func.__flow_effects__ = list(existing | set(effect_names))
+        typed_names = [str(EffectName(name)) for name in effect_names]
+        typed_func = func
+        casted_func: Any = typed_func
+        casted_func.__flow_effects__ = list(existing | set(typed_names))
         return func
 
     return decorator
@@ -1164,7 +1169,7 @@ class FlowPipeline:
         if isinstance(callable_or_node, FlowNode):
             return callable_or_node
 
-        node_name = name or getattr(callable_or_node, "__name__", str(callable_or_node))
+        node_name = str(name or getattr(callable_or_node, "__name__", str(callable_or_node)))
         node_effects = effects or list(getattr(callable_or_node, "__flow_effects__", []))
 
         return FlowNode(
@@ -1221,7 +1226,7 @@ def guard(
     return FlowNode(
         type=FlowNodeType.GUARD,
         callable=fn,
-        name=name or getattr(fn, "__name__", "guard"),
+        name=str(name or getattr(fn, "__name__", "guard") or "guard"),
         priority=priority,
         effects=effects or list(getattr(fn, "__flow_effects__", [])),
     )
@@ -1238,7 +1243,7 @@ def transform(
     return FlowNode(
         type=FlowNodeType.TRANSFORM,
         callable=fn,
-        name=name or getattr(fn, "__name__", "transform"),
+        name=str(name or getattr(fn, "__name__", "transform") or "transform"),
         priority=priority,
         effects=effects or list(getattr(fn, "__flow_effects__", [])),
     )
@@ -1255,7 +1260,7 @@ def handler(
     return FlowNode(
         type=FlowNodeType.HANDLER,
         callable=fn,
-        name=name or getattr(fn, "__name__", "handler"),
+        name=str(name or getattr(fn, "__name__", "handler") or "handler"),
         priority=priority,
         effects=effects or list(getattr(fn, "__flow_effects__", [])),
     )
@@ -1272,7 +1277,7 @@ def hook(
     return FlowNode(
         type=FlowNodeType.HOOK,
         callable=fn,
-        name=name or getattr(fn, "__name__", "hook"),
+        name=str(name or getattr(fn, "__name__", "hook") or "hook"),
         priority=priority,
         effects=effects or list(getattr(fn, "__flow_effects__", [])),
     )

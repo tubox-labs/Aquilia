@@ -31,7 +31,9 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from .di import Container
+    from .typing.container import RequestContainer
+
+from .typing.container import CleanupCallback
 
 logger = logging.getLogger("aquilia.engine")
 
@@ -170,7 +172,7 @@ class RequestCtx:
 
     def __init__(
         self,
-        container: Container,
+        container: RequestContainer,
         request_id: str | None = None,
         state: dict[str, Any] | None = None,
     ) -> None:
@@ -178,7 +180,7 @@ class RequestCtx:
         self.request_id = request_id or _urandom(16).hex()
         self.state: dict[str, Any] = state if state is not None else {}
         self.started_at: float = time.monotonic()
-        self._cleanup_callbacks: list[Callable] = []
+        self._cleanup_callbacks: list[CleanupCallback] = []
         self._disposed: bool = False
         self._metrics: EngineMetrics = _engine_metrics
 
@@ -231,7 +233,7 @@ class RequestCtx:
 
     # -- Cleanup / disposal ------------------------------------------------
 
-    def add_cleanup(self, callback: Callable) -> None:
+    def add_cleanup(self, callback: CleanupCallback) -> None:
         """Register an async or sync callable to run on ``dispose()``.
 
         Callbacks execute in LIFO order (last registered runs first).

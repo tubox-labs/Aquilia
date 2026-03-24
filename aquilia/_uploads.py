@@ -61,10 +61,10 @@ class UploadFile:
         elif self._file_path is not None:
             # File on disk — use native async I/O
             if size == -1:
-                return await read_file(self._file_path)
+                return bytes(await read_file(self._file_path))
             else:
                 async with async_open(self._file_path, "rb") as f:
-                    return await f.read(size)
+                    return bytes(await f.read(size))
 
         return b""
 
@@ -139,6 +139,9 @@ class UploadFile:
                 os.unlink(self._file_path)
 
 
+FormValue = str | UploadFile
+
+
 # ============================================================================
 # FormData
 # ============================================================================
@@ -155,7 +158,7 @@ class FormData:
     fields: MultiDict = field(default_factory=MultiDict)
     files: dict[str, list[UploadFile]] = field(default_factory=dict)
 
-    def get(self, name: str, default: Any | None = None) -> Any | None:
+    def get(self, name: str, default: FormValue | None = None) -> FormValue | None:
         """
         Get field or file by name.
 

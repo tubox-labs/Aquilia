@@ -128,15 +128,16 @@ class RouteDecorator:
         Attaches metadata without executing anything.
         """
         # Attach metadata to function
-        if not hasattr(func, "__route_metadata__"):
-            func.__route_metadata__ = []
+        func_any: Any = func
+        if not hasattr(func_any, "__route_metadata__"):
+            func_any.__route_metadata__ = []
 
         # Deduplicate: don't add the same method+path twice
-        for existing in func.__route_metadata__:
+        for existing in func_any.__route_metadata__:
             if existing["http_method"] == self.method and existing["path"] == self.path:
                 return func
 
-        metadata = {
+        metadata: dict[str, Any] = {
             "http_method": self.method,
             "path": self.path,
             "pipeline": self.pipeline,
@@ -161,15 +162,15 @@ class RouteDecorator:
             "version": self.version,
         }
 
-        func.__route_metadata__.append(metadata)
+        func_any.__route_metadata__.append(metadata)
 
         # ── Versioning: store __version_metadata__ for server registration
         if self.version is not None:
-            if not hasattr(func, "__version_metadata__"):
-                func.__version_metadata__ = {}
+            if not hasattr(func_any, "__version_metadata__"):
+                func_any.__version_metadata__ = {}
             versions = self.version if isinstance(self.version, list) else [self.version]
-            existing = func.__version_metadata__.get("versions", [])
-            func.__version_metadata__["versions"] = list(
+            existing = func_any.__version_metadata__.get("versions", [])
+            func_any.__version_metadata__["versions"] = list(
                 dict.fromkeys(existing + versions),  # deduplicate, preserve order
             )
 

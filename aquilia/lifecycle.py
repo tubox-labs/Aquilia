@@ -11,9 +11,31 @@ import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Protocol, cast
 
 logger = logging.getLogger("aquilia.lifecycle")
+
+
+class _AppContextLike(Protocol):
+    name: str
+    on_startup: Callable[..., Any] | None
+    on_shutdown: Callable[..., Any] | None
+    config_namespace: dict[str, Any] | None
+
+
+class _RuntimeMetaLike(Protocol):
+    app_contexts: list[_AppContextLike]
+
+
+class _RuntimeLike(Protocol):
+    meta: _RuntimeMetaLike
+    di_containers: dict[str, Any]
+
+
+class _ConfigLike(Protocol):
+    def get(self, key: str, default: Any = None) -> Any: ...
+
+    def to_dict(self) -> dict[str, Any]: ...
 
 
 class LifecyclePhase(Enum):
@@ -55,7 +77,7 @@ class LifecycleCoordinator:
     - Emit lifecycle events
     """
 
-    def __init__(self, runtime: Any, config: Any = None):
+    def __init__(self, runtime: Any, config: _ConfigLike | None = None):
         """
         Initialize coordinator.
 
@@ -129,7 +151,7 @@ class LifecycleCoordinator:
 
             raise LifecycleError(f"Startup failed: {e}") from e
 
-    async def _startup_app(self, ctx: Any):
+    async def _startup_app(self, ctx: _AppContextLike):
         """
         Execute startup hook for a single app.
 
@@ -258,10 +280,12 @@ class LifecycleCoordinator:
             "total_apps": len(self.runtime.meta.app_contexts),
         }
 
-    def _resolve_hook(self, hook: Any) -> Callable | None:
+    def _resolve_hook(self, hook: Any) -> Callable[..., Any] | None:
         """Resolve hook string or return callable."""
-        if hook is None or callable(hook):
-            return hook
+        if hook is None:
+            return None
+        if callable(hook):
+            return cast(Callable[..., Any], hook)
 
         if not isinstance(hook, str):
             return None
@@ -275,7 +299,11 @@ class LifecycleCoordinator:
                 mod_path, func_name = hook.rsplit(".", 1)
 
             module = importlib.import_module(mod_path)
-            return getattr(module, func_name)
+            resolved = getattr(module, func_name)
+            if callable(resolved):
+                return cast(Callable[..., Any], resolved)
+            self.logger.error(f"Resolved lifecycle hook '{hook}' is not callable")
+            return None
         except (ImportError, AttributeError, ValueError) as e:
             self.logger.error(f"Failed to resolve lifecycle hook '{hook}': {e}")
             return None
@@ -292,7 +320,7 @@ class LifecycleManager:
         # Apps automatically shutdown
     """
 
-    def __init__(self, runtime: Any, config: Any = None):
+    def __init__(self, runtime: Any, config: _ConfigLike | None = None):
         """
         Initialize manager.
 
