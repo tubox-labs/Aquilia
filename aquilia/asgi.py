@@ -21,7 +21,7 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from .controller.base import _ctx_pool
 from .controller.router import ControllerRouter
@@ -144,12 +144,13 @@ class ASGIAdapter:
             controller_match = request.state.get("_controller_match")
 
             if controller_match:
-                return await self.controller_engine.execute(
+                response = await self.controller_engine.execute(
                     controller_match.route,
                     request,
                     controller_match.params,
                     ctx.container,
                 )
+                return cast(Response, response)
 
             # No controller matched -- 404
             accept = self._get_accept_from_request(request)
@@ -207,6 +208,38 @@ class ASGIAdapter:
         except Exception:
             return ""
 
+    def _resolve_route_inputs(self, request: Request, raw_path: str) -> tuple[str, Any | None]:
+        """Derive routing path + resolved API version before router matching.
+
+        This keeps URL strategy (e.g. /v2/users) routable even though
+        VersionMiddleware runs later in the middleware chain.
+        """
+        path_for_match = raw_path
+        api_version: Any | None = None
+
+        if not self.server:
+            return path_for_match, api_version
+
+        strategy = getattr(self.server, "_version_strategy", None)
+        if strategy is None:
+            return path_for_match, api_version
+
+        # Best-effort pre-resolution for route selection. Middleware remains
+        # the source of truth for request.state population and error responses.
+        try:
+            api_version = strategy.resolve(request)
+        except Exception:
+            api_version = None
+
+        try:
+            stripped = strategy.strip_version_from_path(request)
+            if isinstance(stripped, str):
+                path_for_match = stripped
+        except Exception:
+            pass
+
+        return path_for_match, api_version
+
     # ------------------------------------------------------------------
     # ASGI entry point
     # ------------------------------------------------------------------
@@ -237,6 +270,9 @@ class ASGIAdapter:
         # ── Build middleware chain once (idempotent) ──
         if self._cached_middleware_chain is None:
             self._build_cached_chain()
+        handler = self._cached_middleware_chain
+        if handler is None:
+            raise RuntimeError("Middleware chain was not initialized")
 
         path = scope.get("path", "/")
         method = scope.get("method", "GET")
@@ -252,13 +288,13 @@ class ASGIAdapter:
         # ── Create lean Request object ──
         request = Request(scope, receive)
 
+        # Pre-resolve version/path so URL strategy routes (e.g. /v2/users)
+        # can match before middleware chain execution.
+        route_path, _api_version = self._resolve_route_inputs(request, path)
+
         # ── Sync route matching (O(1) for static, O(k) for dynamic) ──
-        # If versioning middleware ran, it stored the resolved ApiVersion
-        # in request.state["api_version"].  Pass it to the router so
-        # version-filtered matching can discriminate versioned routes.
-        _api_version = request.state.get("api_version") if isinstance(request.state, dict) else None
         controller_match = self.controller_router.match_sync(
-            path,
+            route_path,
             method,
             api_version=_api_version,
         )
@@ -269,7 +305,7 @@ class ASGIAdapter:
             if method == "HEAD":
                 # HTTP/1.1 §9.4: HEAD must be supported wherever GET is.
                 controller_match = self.controller_router.match_sync(
-                    path,
+                    route_path,
                     "GET",
                     api_version=_api_version,
                 )
@@ -277,7 +313,7 @@ class ASGIAdapter:
                     is_head_fallback = True
 
             if controller_match is None:
-                allowed = self.controller_router.get_allowed_methods(path)
+                allowed = self.controller_router.get_allowed_methods(route_path)
                 if allowed:
                     # Path exists but method is not allowed → 405
                     if "GET" in allowed and "HEAD" not in allowed:
@@ -336,7 +372,7 @@ class ASGIAdapter:
 
         t0 = time.monotonic()
         try:
-            response = await self._cached_middleware_chain(request, ctx)
+            response = await handler(request, ctx)
         except Exception as e:
             metrics.request_errored()
             self.logger.error(f"Critical error in request pipeline: {e}", exc_info=True)

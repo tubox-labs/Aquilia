@@ -18,6 +18,7 @@ Tests cover all 11 submodules:
 import asyncio
 import pytest
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 
@@ -1341,3 +1342,174 @@ class TestEndToEnd:
 
         resp = await mw(req, ctx, handler)
         assert req.state["api_version"] == ApiVersion(3, 0)
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  13. ASGI ROUTING REGRESSIONS (Issue #12)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class _DummyRoute:
+    app_name = None
+    full_path = "/users"
+
+
+class _DummyMatch:
+    def __init__(self):
+        self.route = _DummyRoute()
+        self.params = {}
+        self.query = {}
+
+
+class TestASGIPreRoutingVersioning:
+    def _build_adapter(self, strategy):
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+
+        router = MagicMock()
+        engine = MagicMock()
+
+        server = SimpleNamespace(_version_strategy=strategy)
+
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=MiddlewareStack(),
+            server=server,
+        )
+        return adapter, router, engine
+
+    async def _run_http(self, adapter, scope):
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(message):
+            messages.append(message)
+
+        await adapter.handle_http(scope, receive, send)
+        return messages
+
+    @pytest.mark.asyncio
+    async def test_url_strategy_strips_prefix_before_match(self):
+        from aquilia.response import Response
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+        adapter, router, engine = self._build_adapter(strategy)
+
+        match_calls = []
+
+        def _match(path, method, api_version=None):
+            match_calls.append((path, method, api_version))
+            return _DummyMatch()
+
+        router.match_sync.side_effect = _match
+        router.get_allowed_methods.return_value = []
+        engine.execute = AsyncMock(return_value=Response.json({"ok": True}))
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v2/users",
+            "query_string": b"",
+            "headers": [],
+        }
+
+        await self._run_http(adapter, scope)
+
+        assert match_calls, "Router should be invoked"
+        path, method, version = match_calls[0]
+        assert path == "/users"
+        assert method == "GET"
+        assert version == ApiVersion(2, 0)
+
+    @pytest.mark.asyncio
+    async def test_url_strategy_uses_default_version_for_unversioned_path(self):
+        from aquilia.response import Response
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+        adapter, router, engine = self._build_adapter(strategy)
+
+        match_calls = []
+
+        def _match(path, method, api_version=None):
+            match_calls.append((path, method, api_version))
+            return _DummyMatch()
+
+        router.match_sync.side_effect = _match
+        router.get_allowed_methods.return_value = []
+        engine.execute = AsyncMock(return_value=Response.json({"ok": True}))
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/users",
+            "query_string": b"",
+            "headers": [],
+        }
+
+        await self._run_http(adapter, scope)
+
+        assert match_calls, "Router should be invoked"
+        path, method, version = match_calls[0]
+        assert path == "/users"
+        assert method == "GET"
+        assert version == ApiVersion(1, 0)
+
+    @pytest.mark.asyncio
+    async def test_url_strategy_preserves_dynamic_segments_after_strip(self):
+        from aquilia.response import Response
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+        adapter, router, engine = self._build_adapter(strategy)
+
+        match_calls = []
+
+        def _match(path, method, api_version=None):
+            match_calls.append((path, method, api_version))
+            return _DummyMatch()
+
+        router.match_sync.side_effect = _match
+        router.get_allowed_methods.return_value = []
+        engine.execute = AsyncMock(return_value=Response.json({"ok": True}))
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v2/users/123",
+            "query_string": b"",
+            "headers": [],
+        }
+
+        await self._run_http(adapter, scope)
+
+        assert match_calls, "Router should be invoked"
+        path, method, version = match_calls[0]
+        assert path == "/users/123"
+        assert method == "GET"
+        assert version == ApiVersion(2, 0)
