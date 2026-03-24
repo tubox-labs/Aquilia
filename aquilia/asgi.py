@@ -231,12 +231,13 @@ class ASGIAdapter:
         except Exception:
             api_version = None
 
-        try:
-            stripped = strategy.strip_version_from_path(request)
-            if isinstance(stripped, str):
-                path_for_match = stripped
-        except Exception:
-            pass
+        if api_version is not None:
+            try:
+                stripped = strategy.strip_version_from_path(request)
+                if isinstance(stripped, str):
+                    path_for_match = stripped
+            except Exception:
+                pass
 
         return path_for_match, api_version
 

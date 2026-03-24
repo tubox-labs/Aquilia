@@ -18,6 +18,8 @@ from .core import ApiVersion, VersionChannel
 from .errors import (
     InvalidVersionError,
     MissingVersionError,
+    UnsupportedVersionError,
+    VersionNegotiationError,
     VersionSunsetError,
 )
 from .graph import VersionGraph
@@ -357,11 +359,19 @@ class VersionStrategy:
         # Step 4: Parse
         version = self._parser.parse(raw_version)
 
-        # Step 5: Negotiate
-        version = self._negotiator.negotiate(
-            version,
-            fallback=self._default_version,
-        )
+        # Step 5: Negotiate.
+        # Important: once a client explicitly provides a version, do NOT
+        # silently fall back to defaults for unsupported values.
+        try:
+            version = self._negotiator.negotiate(
+                version,
+                fallback=None,
+            )
+        except VersionNegotiationError as exc:
+            raise UnsupportedVersionError(
+                version=version,
+                supported=self._graph.active_versions,
+            ) from exc
 
         # Step 6: Sunset check
         rejection = self._sunset_enforcer.check(version)

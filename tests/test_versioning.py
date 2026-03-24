@@ -782,6 +782,18 @@ class TestVersionStrategy:
         v = s.resolve(req)
         assert v == ApiVersion(3, 0)
 
+    def test_resolve_explicit_unsupported_url_version_raises(self):
+        from aquilia.versioning.errors import UnsupportedVersionError
+
+        s = self._build(
+            strategy="url",
+            versions=["1.0", "2.0"],
+            default_version="1.0",
+        )
+        req = _make_request(path="/v9/users")
+        with pytest.raises(UnsupportedVersionError):
+            s.resolve(req)
+
     def test_resolve_query_strategy(self):
         from aquilia.versioning.core import ApiVersion
         s = self._build(strategy="query")
@@ -937,6 +949,28 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+            return Response.json({"ok": True})
+
+        resp = await mw(req, ctx, next_handler)
+        assert resp.status == 400
+
+    @pytest.mark.asyncio
+    async def test_unsupported_url_version_returns_400(self):
+        from aquilia.versioning.middleware import VersionMiddleware
+
+        strategy = self._build_strategy(
+            strategy="url",
+            versions=["1.0", "2.0"],
+            default_version="1.0",
+        )
+        mw = VersionMiddleware(strategy)
+
+        req = _make_request(path="/v9/users")
+        ctx = MagicMock()
+
+        async def next_handler(r, c):
+            from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         resp = await mw(req, ctx, next_handler)
@@ -1513,3 +1547,43 @@ class TestASGIPreRoutingVersioning:
         assert path == "/users/123"
         assert method == "GET"
         assert version == ApiVersion(2, 0)
+
+    @pytest.mark.asyncio
+    async def test_unsupported_url_version_is_not_prestripped(self):
+        from aquilia.response import Response
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+        adapter, router, engine = self._build_adapter(strategy)
+
+        match_calls = []
+
+        def _match(path, method, api_version=None):
+            match_calls.append((path, method, api_version))
+            return None
+
+        router.match_sync.side_effect = _match
+        router.get_allowed_methods.return_value = []
+        engine.execute = AsyncMock(return_value=Response.json({"ok": True}))
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v9/auth",
+            "query_string": b"",
+            "headers": [],
+        }
+
+        await self._run_http(adapter, scope)
+
+        assert match_calls, "Router should be invoked"
+        path, method, version = match_calls[0]
+        assert path == "/v9/auth"
+        assert method == "GET"
+        assert version is None
