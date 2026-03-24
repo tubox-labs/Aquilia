@@ -166,7 +166,7 @@ class FormData:
         """
         # Try field first
         field_value = self.fields.get(name)
-        if field_value is not None:
+        if isinstance(field_value, str):
             return field_value
 
         # Try file
@@ -178,7 +178,8 @@ class FormData:
 
     def get_field(self, name: str, default: str | None = None) -> str | None:
         """Get form field value."""
-        return self.fields.get(name, default)
+        value = self.fields.get(name, default)
+        return value if isinstance(value, str) or value is None else default
 
     def get_all_fields(self, name: str) -> list[str]:
         """Get all values for a form field."""

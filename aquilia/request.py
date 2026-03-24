@@ -370,7 +370,8 @@ class Request:
 
     def query_param(self, name: str, default: str | None = None) -> str | None:
         """Get single query parameter."""
-        return self.query_params.get(name, default)
+        value = self.query_params.get(name, default)
+        return value if isinstance(value, str) or value is None else default
 
     # ========================================================================
     # Headers

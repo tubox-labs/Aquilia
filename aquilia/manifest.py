@@ -590,7 +590,7 @@ class AppManifest:
             if isinstance(ref, ComponentRef):
                 return ref.class_path
             if hasattr(ref, "class_path"):
-                return str(cast(Any, ref).class_path)
+                return cast(str, getattr(ref, "class_path"))
             return str(ref)
 
         result = {
