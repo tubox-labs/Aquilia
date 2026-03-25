@@ -15,9 +15,10 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, Optional
 
+from aquilia._datastructures import Headers, MultiDict
+from aquilia._uploads import FormData
+
 if TYPE_CHECKING:
-    from aquilia._datastructures import Headers, MultiDict
-    from aquilia._uploads import FormData
     from aquilia.auth.core import Identity
     from aquilia.request import Request
     from aquilia.response import Response
