@@ -459,7 +459,9 @@ class ASGIAdapter:
     # 405 Method Not Allowed response (ARCH-01)
     # ------------------------------------------------------------------
 
-    async def _send_method_not_allowed(self, send: ASGISend, allowed: list[str], scope: ASGIScope | None = None) -> None:
+    async def _send_method_not_allowed(
+        self, send: ASGISend, allowed: list[str], scope: ASGIScope | None = None
+    ) -> None:
         """Send a ``405 Method Not Allowed`` response with an ``Allow`` header.
 
         Renders the styled Tubox error page for browser clients and
