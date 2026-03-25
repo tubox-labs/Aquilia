@@ -18,12 +18,14 @@ from .pages import (
     DebugPageRenderer,
     render_debug_exception_page,
     render_http_error_page,
+    render_version_error_page,
     render_welcome_page,
 )
 
 __all__ = [
     "render_debug_exception_page",
     "render_http_error_page",
+    "render_version_error_page",
     "render_welcome_page",
     "DebugPageRenderer",
 ]

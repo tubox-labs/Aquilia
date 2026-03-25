@@ -831,7 +831,7 @@ class DebugPageRenderer:
         return render_http_error_page(status_code, message, detail, request, aquilia_version=aquilia_version)
 
     @staticmethod
-    def render_welcome(*, aquilia_version: str = "", system_info: dict[str, Any] = None) -> str:
+    def render_welcome(*, aquilia_version: str = "", system_info: dict[str, Any] | None = None) -> str:
         return render_welcome_page(aquilia_version=aquilia_version, system_info=system_info)
 
 
@@ -862,6 +862,7 @@ def _icon(name: str, cls: str = "icon") -> str:
         "lock": '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
         "cpu": '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><rect x="9" y="9" width="6" height="6"></rect><line x1="9" y1="1" x2="9" y2="4"></line><line x1="15" y1="1" x2="15" y2="4"></line><line x1="9" y1="20" x2="9" y2="23"></line><line x1="15" y1="20" x2="15" y2="23"></line><line x1="20" y1="9" x2="23" y2="9"></line><line x1="20" y1="14" x2="23" y2="14"></line><line x1="1" y1="9" x2="4" y2="9"></line><line x1="1" y1="14" x2="4" y2="14"></line>',
         "layout": '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line>',
+        "layers": '<polygon points="12 2 22 7 12 12 2 7 12 2"></polygon><polyline points="2 12 12 17 22 12"></polyline><polyline points="2 17 12 22 22 17"></polyline>',
     }
     return f'<svg class="{cls}" viewBox="0 0 24 24">{icons.get(name, "")}</svg>'
 
@@ -1043,7 +1044,64 @@ def render_http_error_page(
 </html>"""
 
 
-def render_welcome_page(*, aquilia_version: str = "", system_info: dict[str, Any] = None) -> str:
+def render_version_error_page(
+    status_code: int,
+    error_code: str,
+    message: str = "",
+    detail: str = "",
+    request: Any = None,
+    metadata: dict[str, Any] | None = None,
+    *,
+    aquilia_version: str = "",
+) -> str:
+    """Render a themed HTML page for API versioning errors."""
+    _ = metadata  # reserved for future use
+    _ = request
+
+    version_badge = f"<span class=\"badge green\">Aquilia { _esc(aquilia_version or 'dev') }</span>"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{status_code} API Version Error</title>
+    <style>{_BASE_CSS}</style>
+    <link rel="icon" type="image/x-icon" href="https://raw.githubusercontent.com/axiomchronicles/Aquilia/master/assets/favicon.ico">
+</head>
+<body>
+    <div class="bg-grid"></div>
+    <div class="bg-glow" style="opacity:0.5"></div>
+
+    <div class="http-page">
+        <div class="http-container">
+            <div style="display:flex;justify-content:center;margin-bottom:16px;color:var(--tx-accent);">
+                {_icon("layers", "icon icon-xl")}
+            </div>
+            <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+                <span class="badge green">{status_code}</span>
+                <span class="badge green">{_esc(error_code or 'API_VERSION_ERROR')}</span>
+                {version_badge}
+            </div>
+            <h1 class="http-title">API Version Error</h1>
+            <p class="http-desc">The requested API version cannot be served.</p>
+
+            <div style="display:flex;justify-content:center;gap:12px;margin-top:24px;flex-wrap:wrap;">
+                <a href="/" class="btn-primary" style="border-radius:8px;">{_icon("home")} Back Home</a>
+            </div>
+        </div>
+    </div>
+    <div style="position:fixed;top:24px;right:24px;">
+        <div class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">
+            <div id="icon-moon">{_icon("moon")}</div>
+            <div id="icon-sun" style="display:none">{_icon("sun")}</div>
+        </div>
+    </div>
+    <script>{_BASE_JS}</script>
+</body>
+</html>"""
+
+
+def render_welcome_page(*, aquilia_version: str = "", system_info: dict[str, Any] | None = None) -> str:
     str_version = f"v{aquilia_version}" if aquilia_version else "Dev"
     logo_url = "https://raw.githubusercontent.com/axiomchronicles/Aquilia/master/assets/logo.png"
 
