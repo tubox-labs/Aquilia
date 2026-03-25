@@ -16,9 +16,9 @@ import time
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from aquilia.auth.core import Identity
     from aquilia._datastructures import Headers, MultiDict
     from aquilia._uploads import FormData
+    from aquilia.auth.core import Identity
     from aquilia.request import Request
     from aquilia.response import Response
     from aquilia.sessions import Session

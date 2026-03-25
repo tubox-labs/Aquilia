@@ -11,10 +11,10 @@ Provides:
 
 from __future__ import annotations
 
-from datetime import datetime
 import re
 from collections.abc import Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
+from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlencode, urlparse, urlunparse

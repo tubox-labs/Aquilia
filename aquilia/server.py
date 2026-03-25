@@ -2811,9 +2811,10 @@ class AquiliaServer:
 
                             client = RenderClient(token=_token)
                             try:
+                                from pathlib import Path
+
                                 from aquilia.providers.render.deployer import RenderDeployer
                                 from aquilia.providers.render.types import RenderDeployConfig
-                                from pathlib import Path
 
                                 workspace_root = Path.cwd()
                                 render_config = RenderDeployConfig()
