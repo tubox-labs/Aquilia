@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
@@ -22,21 +21,21 @@ from .request import Request
 from .response import Response
 from .typing.middleware import MiddlewareCallable, RequestHandler
 
-_FD_SECURITY = cast(FaultDomain, getattr(FaultDomain, "SECURITY"))
-_FD_IO = cast(FaultDomain, getattr(FaultDomain, "IO"))
-_FD_ROUTING = cast(FaultDomain, getattr(FaultDomain, "ROUTING"))
-_FD_EFFECT = cast(FaultDomain, getattr(FaultDomain, "EFFECT"))
-_FD_MODEL = cast(FaultDomain, getattr(FaultDomain, "MODEL"))
-_FD_CACHE = cast(FaultDomain, getattr(FaultDomain, "CACHE"))
-_FD_CONFIG = cast(FaultDomain, getattr(FaultDomain, "CONFIG"))
-_FD_REGISTRY = cast(FaultDomain, getattr(FaultDomain, "REGISTRY"))
-_FD_DI = cast(FaultDomain, getattr(FaultDomain, "DI"))
-_FD_FLOW = cast(FaultDomain, getattr(FaultDomain, "FLOW"))
-_FD_SYSTEM = cast(FaultDomain, getattr(FaultDomain, "SYSTEM"))
-_FD_STORAGE = cast(FaultDomain, getattr(FaultDomain, "STORAGE"))
-_FD_TASKS = cast(FaultDomain, getattr(FaultDomain, "TASKS"))
-_FD_TEMPLATE = cast(FaultDomain, getattr(FaultDomain, "TEMPLATE"))
-_FD_HTTP = cast(FaultDomain, getattr(FaultDomain, "HTTP"))
+_FD_SECURITY = cast(FaultDomain, FaultDomain.SECURITY)
+_FD_IO = cast(FaultDomain, FaultDomain.IO)
+_FD_ROUTING = cast(FaultDomain, FaultDomain.ROUTING)
+_FD_EFFECT = cast(FaultDomain, FaultDomain.EFFECT)
+_FD_MODEL = cast(FaultDomain, FaultDomain.MODEL)
+_FD_CACHE = cast(FaultDomain, FaultDomain.CACHE)
+_FD_CONFIG = cast(FaultDomain, FaultDomain.CONFIG)
+_FD_REGISTRY = cast(FaultDomain, FaultDomain.REGISTRY)
+_FD_DI = cast(FaultDomain, FaultDomain.DI)
+_FD_FLOW = cast(FaultDomain, FaultDomain.FLOW)
+_FD_SYSTEM = cast(FaultDomain, FaultDomain.SYSTEM)
+_FD_STORAGE = cast(FaultDomain, FaultDomain.STORAGE)
+_FD_TASKS = cast(FaultDomain, FaultDomain.TASKS)
+_FD_TEMPLATE = cast(FaultDomain, FaultDomain.TEMPLATE)
+_FD_HTTP = cast(FaultDomain, FaultDomain.HTTP)
 
 if TYPE_CHECKING:
     from .controller.base import RequestCtx

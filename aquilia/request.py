@@ -23,7 +23,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any, cast, Protocol, TypedDict, TypeVar
+from typing import Any, Protocol, TypedDict, TypeVar, cast
 from urllib.parse import parse_qsl
 
 from ._datastructures import (
@@ -80,8 +80,8 @@ T = TypeVar("T")
 ModelT_co = TypeVar("ModelT_co", covariant=True)
 PathLike = str | Path
 
-_FD_IO = cast(FaultDomain, getattr(FaultDomain, "IO"))
-_FD_SECURITY = cast(FaultDomain, getattr(FaultDomain, "SECURITY"))
+_FD_IO = cast(FaultDomain, FaultDomain.IO)
+_FD_SECURITY = cast(FaultDomain, FaultDomain.SECURITY)
 
 
 # ============================================================================
@@ -1526,7 +1526,7 @@ class Request:
         identity = self.identity
         if not identity:
             # Import here to avoid circular dependency
-            from aquilia.faults import Fault, FaultDomain, Severity
+            from aquilia.faults import Fault, Severity
 
             raise Fault(
                 code="AUTH_REQUIRED",
@@ -1592,7 +1592,7 @@ class Request:
         """
         session = self.session
         if not session:
-            from aquilia.faults import Fault, FaultDomain, Severity
+            from aquilia.faults import Fault, Severity
 
             raise Fault(
                 code="SESSION_REQUIRED",

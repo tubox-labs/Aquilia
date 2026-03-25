@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import Any, Literal, Protocol, TypedDict, TypeAlias
+from typing import Any, Literal, Protocol, TypeAlias, TypedDict
 
 from .common import RawHeaderList
 

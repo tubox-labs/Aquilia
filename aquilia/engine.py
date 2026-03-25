@@ -23,7 +23,6 @@ import asyncio
 import logging
 import os
 import time
-from collections.abc import Callable
 from enum import Enum, auto
 from typing import (
     TYPE_CHECKING,

@@ -32,7 +32,7 @@ class ShutdownContainer(Protocol):
 
 
 class RequestScopeFactory(Protocol):
-    def create_request_scope(self) -> "RequestContainer":
+    def create_request_scope(self) -> RequestContainer:
         ...
 
 
