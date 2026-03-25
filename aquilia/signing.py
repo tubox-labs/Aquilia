@@ -68,6 +68,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac as _hmac
+import importlib.util
 import json
 import logging
 import struct
@@ -75,7 +76,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Literal
+from typing import Any, cast, Literal
 
 __all__ = [
     # Exceptions
@@ -271,9 +272,7 @@ def derive_key(secret: str | bytes, salt: str, algorithm: str = "HS256") -> byte
 
 def _require_cryptography(algorithm: str) -> None:
     """Raise :class:`UnsupportedAlgorithmError` if cryptography is not installed."""
-    try:
-        import cryptography  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("cryptography") is None:
         raise UnsupportedAlgorithmError(
             f"Algorithm '{algorithm}' requires the 'cryptography' package. "
             "Install it with:  pip install cryptography\n"
@@ -422,9 +421,9 @@ class AsymmetricSignerBackend(SignerBackend):
     def sign(self, message: bytes) -> bytes:
         if not self._private_key_pem:
             raise SigningError("No private key configured — cannot sign.")
-        from cryptography.hazmat.backends import default_backend
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import ec, padding
+        from cryptography.hazmat.backends import default_backend  # type: ignore[import-not-found]
+        from cryptography.hazmat.primitives import hashes, serialization  # type: ignore[import-not-found]
+        from cryptography.hazmat.primitives.asymmetric import ec, padding  # type: ignore[import-not-found]
 
         private_key = serialization.load_pem_private_key(
             self._private_key_pem.encode(),
@@ -432,11 +431,11 @@ class AsymmetricSignerBackend(SignerBackend):
             backend=default_backend(),
         )
         if self._algorithm == "RS256":
-            return private_key.sign(message, padding.PKCS1v15(), hashes.SHA256())
+            return cast(bytes, private_key.sign(message, padding.PKCS1v15(), hashes.SHA256()))
         elif self._algorithm == "ES256":
-            return private_key.sign(message, ec.ECDSA(hashes.SHA256()))
+            return cast(bytes, private_key.sign(message, ec.ECDSA(hashes.SHA256())))
         elif self._algorithm == "EdDSA":
-            return private_key.sign(message)
+            return cast(bytes, private_key.sign(message))
         else:
             raise UnsupportedAlgorithmError(f"Unknown algorithm: {self._algorithm}")
 
@@ -444,10 +443,10 @@ class AsymmetricSignerBackend(SignerBackend):
         pem = self._public_key_pem or self._private_key_pem
         if not pem:
             raise SigningError("No key configured for verification.")
-        from cryptography.exceptions import InvalidSignature
-        from cryptography.hazmat.backends import default_backend
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import ec, padding
+        from cryptography.exceptions import InvalidSignature  # type: ignore[import-not-found]
+        from cryptography.hazmat.backends import default_backend  # type: ignore[import-not-found]
+        from cryptography.hazmat.primitives import hashes, serialization  # type: ignore[import-not-found]
+        from cryptography.hazmat.primitives.asymmetric import ec, padding  # type: ignore[import-not-found]
 
         try:
             if self._public_key_pem:
@@ -538,7 +537,7 @@ class Signer:
 
     # ── Core sign / unsign ───────────────────────────────────────────
 
-    def sign(self, value: str) -> str:
+    def sign(self, value: str, **kwargs: Any) -> str:
         """
         Sign *value* and return ``"<value><sep><b64sig>"``.
 
@@ -559,7 +558,7 @@ class Signer:
         sig = self._backend.sign(value.encode("utf-8"))
         return f"{value}{self._sep}{b64_encode(sig)}"
 
-    def unsign(self, signed_value: str) -> str:
+    def unsign(self, signed_value: str, **kwargs: Any) -> str:
         """
         Verify and return the original value from a signed token.
 
@@ -637,7 +636,7 @@ class Signer:
             raise BadSignature("Byte signature verification failed.")
         return data
 
-    def sign_object(self, obj: Any) -> str:
+    def sign_object(self, obj: Any, **kwargs: Any) -> str:
         """
         Serialise *obj* to JSON, sign, and return a URL-safe token.
 
@@ -652,7 +651,7 @@ class Signer:
         payload = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
         return self.sign(b64_encode(payload.encode("utf-8")))
 
-    def unsign_object(self, token: str) -> Any:
+    def unsign_object(self, token: str, **kwargs: Any) -> Any:
         """
         Verify *token* and deserialise the embedded JSON payload.
 
@@ -776,7 +775,7 @@ class TimestampSigner(Signer):
 
     # ── Core methods ─────────────────────────────────────────────────
 
-    def sign(self, value: str, *, timestamp: datetime | None = None) -> str:  # type: ignore[override]
+    def sign(self, value: str, *, timestamp: datetime | None = None, **kwargs: Any) -> str:
         """
         Sign *value* with an embedded UTC timestamp.
 
@@ -792,10 +791,11 @@ class TimestampSigner(Signer):
         compound = f"{val_b64}{self._TS_SEP}{ts_b64}"
         return super().sign(compound)
 
-    def unsign(  # type: ignore[override]
+    def unsign(
         self,
         signed_value: str,
         max_age: float | int | timedelta | None = None,
+        **kwargs: Any,
     ) -> str:
         """
         Verify signature, optionally enforce ``max_age``, and return value.
@@ -845,18 +845,19 @@ class TimestampSigner(Signer):
             self._check_age(ts, max_age, signed_value)
         return value, ts
 
-    def sign_object(  # type: ignore[override]
-        self, obj: Any, *, timestamp: datetime | None = None
+    def sign_object(
+        self, obj: Any, *, timestamp: datetime | None = None, **kwargs: Any
     ) -> str:
         """Sign a JSON-serialisable object with an embedded timestamp."""
         payload = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
         encoded = b64_encode(payload.encode("utf-8"))
         return self.sign(encoded, timestamp=timestamp)
 
-    def unsign_object(  # type: ignore[override]
+    def unsign_object(
         self,
         token: str,
         max_age: float | int | timedelta | None = None,
+        **kwargs: Any,
     ) -> Any:
         """Verify and deserialise a JSON object from a timestamped token."""
         encoded = self.unsign(token, max_age=max_age)
@@ -982,6 +983,7 @@ class RotatingSigner:
         self,
         signed_value: str,
         max_age: float | int | timedelta | None = None,
+        **kwargs: Any,
     ) -> str:
         """
         Try each secret in order; return the value verified by the first match.
@@ -1381,10 +1383,11 @@ class ActivationLinkSigner(TimestampSigner):
             algorithm=algorithm,
         )
 
-    def unsign(  # type: ignore[override]
+    def unsign(
         self,
         signed_value: str,
         max_age: float | int | timedelta | None = None,
+        **kwargs: Any,
     ) -> str:
         """Unsign with a default 24-hour max_age unless overridden."""
         if max_age is None:

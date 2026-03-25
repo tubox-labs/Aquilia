@@ -11,6 +11,7 @@ Provides:
 
 from __future__ import annotations
 
+from datetime import datetime
 import re
 from collections.abc import Iterator, Mapping, MutableMapping
 from dataclasses import dataclass, field
@@ -72,7 +73,7 @@ class MultiDict(MutableMapping[str, list[str]]):
     def __repr__(self) -> str:
         return f"MultiDict({dict(self._data)})"
 
-    def get(self, key: str, default: str | None = None) -> str | None:
+    def get(self, key: str, default: Any = None) -> Any:
         """Get first value for a key."""
         values = self._data.get(key)
         return values[0] if values else default
@@ -273,7 +274,16 @@ class URL:
             "password": self.password,
         }
         data.update(kwargs)
-        return URL(**data)
+        return URL(
+            scheme=str(data["scheme"]),
+            host=str(data["host"]),
+            port=int(data["port"]) if data["port"] is not None else None,
+            path=str(data["path"]),
+            query=str(data["query"]),
+            fragment=str(data["fragment"]),
+            username=str(data["username"]) if data["username"] is not None else None,
+            password=str(data["password"]) if data["password"] is not None else None,
+        )
 
     def with_query(self, **params) -> URL:
         """Create new URL with updated query parameters."""
@@ -395,7 +405,7 @@ class Range:
 # ============================================================================
 
 
-def parse_date_header(date_str: str | None) -> Any | None:
+def parse_date_header(date_str: str | None) -> datetime | None:
     """
     Parse HTTP date header.
 

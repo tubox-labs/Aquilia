@@ -73,6 +73,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from .typing.manifest import ManifestCollection
+
 __all__ = ["app", "server", "create_app"]
 
 _logger = logging.getLogger("aquilia.entrypoint")
@@ -219,7 +221,7 @@ def create_app(
     if "apps" not in config.config_data:
         config.config_data["apps"] = {}
 
-    manifests: list[Any] = []
+    manifests: ManifestCollection = []
 
     # Static imports for declared modules
     for mod_name in module_names:

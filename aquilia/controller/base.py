@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
+    from aquilia._datastructures import Headers, MultiDict
+    from aquilia._uploads import FormData
     from aquilia.request import Request
     from aquilia.response import Response
     from aquilia.sessions import Session
@@ -65,7 +67,7 @@ class RequestCtx:
         self.identity = identity
         self.session = session
         self.container = container
-        self.state = state if state is not None else {}
+        self.state: dict[str, Any] = state if state is not None else {}
         self.request_id = request_id
         self._extra: dict[str, Any] | None = None
 
@@ -101,12 +103,12 @@ class RequestCtx:
         return self.request.method
 
     @property
-    def headers(self) -> dict[str, str]:
+    def headers(self) -> Headers:
         """Request headers."""
         return self.request.headers
 
     @property
-    def query_params(self) -> dict[str, list]:
+    def query_params(self) -> MultiDict:
         """Query parameters (parsed from query string)."""
         return self.request.query_params
 
@@ -122,7 +124,7 @@ class RequestCtx:
         """Read raw request body bytes."""
         return await self.request.body()
 
-    async def form(self) -> dict[str, Any]:
+    async def form(self) -> FormData:
         """Parse request body as form data."""
         return await self.request.form()
 
@@ -345,7 +347,7 @@ class Throttle:
         # Prefer the request object's validated client_ip()
         if hasattr(request, "client_ip") and callable(request.client_ip):
             try:
-                return request.client_ip()
+                return str(request.client_ip())
             except Exception:
                 pass
 

@@ -12,7 +12,7 @@ Architecture v2 additions:
 
 import contextlib
 import logging
-from typing import Any
+from typing import Any, cast
 
 from .aquilary import Aquilary, AquilaryRegistry, RegistryMode, RuntimeRegistry
 from .asgi import ASGIAdapter
@@ -43,6 +43,7 @@ from .templates.di_providers import register_template_providers
 
 # Template Integration
 from .templates.middleware import TemplateMiddleware
+from .typing.manifest import ManifestCollection
 
 
 class AquiliaServer:
@@ -62,7 +63,7 @@ class AquiliaServer:
 
     def __init__(
         self,
-        manifests: list[Any] | None = None,
+        manifests: ManifestCollection | None = None,
         config: ConfigLoader | None = None,
         mode: RegistryMode = RegistryMode.PROD,
         aquilary_registry: AquilaryRegistry | None = None,
@@ -113,7 +114,7 @@ class AquiliaServer:
             self.aquilary = Aquilary.from_manifests(
                 manifests=manifests,
                 config=self.config,
-                mode=mode,
+                mode=mode.value,
             )
 
         # Create runtime registry (lazy compilation phase)
@@ -181,6 +182,7 @@ class AquiliaServer:
         # Track startup state
         self._startup_complete = False
         self._startup_lock = None  # Will be created in async context
+        self._amdl_database: Any | None = None
 
         # Create ASGI app with server reference for lifecycle management
         # Note: self.aquila_sockets is initialized in _setup_middleware()
@@ -610,7 +612,7 @@ class AquiliaServer:
         if static_config:
             dirs = static_config.get("directories", {})
             if dirs:
-                return next(iter(dirs))
+                return cast(str, next(iter(dirs)))
         return "/static"
 
     def _discover_module_static_dirs(self) -> dict:
@@ -2216,7 +2218,7 @@ class AquiliaServer:
 
             # Helper: check if a module is enabled in the parsed config
             def _mod(name: str) -> bool:
-                return parsed_config.is_module_enabled(name)
+                return bool(parsed_config.is_module_enabled(name))
 
             # Define all admin routes: (method, path, handler_name, handler_func)
             # Static routes MUST appear before dynamic /{model}/ routes so the
@@ -2648,7 +2650,7 @@ class AquiliaServer:
                 num_bins=20,
             )
             try:
-                import numpy as _np
+                import numpy as _np  # type: ignore[import-not-found]
 
                 _rng = _np.random.default_rng(99)
                 ref_features = [
@@ -2717,10 +2719,10 @@ class AquiliaServer:
             plugin_host = PluginHost()
 
             # ── 10. Batch Queue ──────────────────────────────────────
-            batch_queue = AdaptiveBatchQueue(max_capacity=256)
+            batch_queue: Any = AdaptiveBatchQueue(max_capacity=256)
 
             # ── 11. LRU Cache (pre-warm) ─────────────────────────────
-            lru_cache = LRUCache(capacity=256)
+            lru_cache: Any = LRUCache(capacity=256)
             for i in range(50):
                 with contextlib.suppress(Exception):
                     lru_cache.put(f"inference:req_{i}", {"cached": True})
@@ -2762,19 +2764,19 @@ class AquiliaServer:
             # Try DI container
             if hasattr(self, "container") and self.container is not None:
                 try:
-                    from .artifacts.render import RenderClient
+                    from .providers.render import RenderClient
 
                     client = self.container.resolve(RenderClient)
                 except Exception:
                     pass
                 try:
-                    from .artifacts.render import RenderDeployer
+                    from .providers.render import RenderDeployer
 
                     deployer = self.container.resolve(RenderDeployer)
                 except Exception:
                     pass
                 try:
-                    from .artifacts.render import RenderCredentialStore
+                    from .providers.render import RenderCredentialStore
 
                     store = self.container.resolve(RenderCredentialStore)
                 except Exception:
@@ -2810,8 +2812,18 @@ class AquiliaServer:
                             client = RenderClient(token=_token)
                             try:
                                 from aquilia.providers.render.deployer import RenderDeployer
+                                from aquilia.providers.render.types import RenderDeployConfig
+                                from pathlib import Path
 
-                                deployer = RenderDeployer(client=client)
+                                workspace_root = Path.cwd()
+                                render_config = RenderDeployConfig()
+                                render_config.service_name = "aquilia-app"
+
+                                deployer = RenderDeployer(
+                                    client=client,
+                                    workspace_root=workspace_root,
+                                    config=render_config,
+                                )
                             except Exception:
                                 pass
                 except Exception:
