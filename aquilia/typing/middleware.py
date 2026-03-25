@@ -17,5 +17,4 @@ MiddlewareCallable: TypeAlias = Callable[["Request", "RequestCtx", RequestHandle
 
 
 class MiddlewareProtocol(Protocol):
-    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: RequestHandler) -> Response:
-        ...
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: RequestHandler) -> Response: ...

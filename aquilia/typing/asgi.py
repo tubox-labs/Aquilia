@@ -148,5 +148,4 @@ ASGISend: TypeAlias = Callable[[ASGISendEvent], Awaitable[None]]
 
 
 class ASGIApplication(Protocol):
-    async def __call__(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None:
-        ...
+    async def __call__(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None: ...

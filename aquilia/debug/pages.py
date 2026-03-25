@@ -1058,7 +1058,7 @@ def render_version_error_page(
     _ = metadata  # reserved for future use
     _ = request
 
-    version_badge = f"<span class=\"badge green\">Aquilia { _esc(aquilia_version or 'dev') }</span>"
+    version_badge = f'<span class="badge green">Aquilia {_esc(aquilia_version or "dev")}</span>'
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -1079,7 +1079,7 @@ def render_version_error_page(
             </div>
             <div style="display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
                 <span class="badge green">{status_code}</span>
-                <span class="badge green">{_esc(error_code or 'API_VERSION_ERROR')}</span>
+                <span class="badge green">{_esc(error_code or "API_VERSION_ERROR")}</span>
                 {version_badge}
             </div>
             <h1 class="http-title">API Version Error</h1>

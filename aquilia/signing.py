@@ -845,9 +845,7 @@ class TimestampSigner(Signer):
             self._check_age(ts, max_age, signed_value)
         return value, ts
 
-    def sign_object(
-        self, obj: Any, *, timestamp: datetime | None = None, **kwargs: Any
-    ) -> str:
+    def sign_object(self, obj: Any, *, timestamp: datetime | None = None, **kwargs: Any) -> str:
         """Sign a JSON-serialisable object with an embedded timestamp."""
         payload = json.dumps(obj, separators=(",", ":"), ensure_ascii=False)
         encoded = b64_encode(payload.encode("utf-8"))

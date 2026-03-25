@@ -12,28 +12,23 @@ CleanupCallback: TypeAlias = Callable[[], object | Awaitable[object]]
 
 
 class SyncResolvableContainer(Protocol):
-    def resolve(self, name: DIName, optional: DIOptionalFlag = False) -> DIResolvedValue:
-        ...
+    def resolve(self, name: DIName, optional: DIOptionalFlag = False) -> DIResolvedValue: ...
 
 
 class AsyncResolvableContainer(Protocol):
-    async def resolve_async(self, name: DIName, optional: DIOptionalFlag = False) -> DIResolvedValue:
-        ...
+    async def resolve_async(self, name: DIName, optional: DIOptionalFlag = False) -> DIResolvedValue: ...
 
 
 class StartupContainer(Protocol):
-    async def startup(self) -> None:
-        ...
+    async def startup(self) -> None: ...
 
 
 class ShutdownContainer(Protocol):
-    async def shutdown(self) -> None:
-        ...
+    async def shutdown(self) -> None: ...
 
 
 class RequestScopeFactory(Protocol):
-    def create_request_scope(self) -> RequestContainer:
-        ...
+    def create_request_scope(self) -> RequestContainer: ...
 
 
 class RequestContainer(AsyncResolvableContainer, SyncResolvableContainer, ShutdownContainer, Protocol):
