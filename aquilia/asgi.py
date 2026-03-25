@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
 from typing import Any, cast
 
 from .controller.base import _ctx_pool
@@ -29,6 +28,8 @@ from .engine import get_engine_metrics
 from .middleware import Handler, MiddlewareStack
 from .request import Request
 from .response import Response
+from .typing import ASGIReceive, ASGIScope, ASGISend
+from .typing.controller import ControllerRouteMatchLike
 
 
 class ASGIAdapter:
@@ -70,7 +71,7 @@ class ASGIAdapter:
         self._default_container = None
         self._debug: bool | None = None
         self._has_routes_cache: bool | None = None
-        self._server_runtime = None  # Cached after startup
+        self._server_runtime: Any | None = None  # Cached after startup
 
         if self.socket_runtime and self.server:
             self._setup_socket_di()
@@ -141,7 +142,7 @@ class ASGIAdapter:
 
         async def _final_handler(request: Request, ctx) -> Response:
             """Final handler that dispatches to matched controller."""
-            controller_match = request.state.get("_controller_match")
+            controller_match = cast(ControllerRouteMatchLike | None, request.state.get("_controller_match"))
 
             if controller_match:
                 response = await self.controller_engine.execute(
@@ -245,7 +246,7 @@ class ASGIAdapter:
     # ASGI entry point
     # ------------------------------------------------------------------
 
-    async def __call__(self, scope: dict, receive: Callable, send: Callable):
+    async def __call__(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None:
         scope_type = scope["type"]
         if scope_type == "http":
             await self.handle_http(scope, receive, send)
@@ -259,7 +260,7 @@ class ASGIAdapter:
                 scope_type,
             )
 
-    async def handle_http(self, scope: dict, receive: Callable, send: Callable):
+    async def handle_http(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None:
         """Handle HTTP request with optimized hot path.
 
         Performance (v3 — scalability):
@@ -458,12 +459,7 @@ class ASGIAdapter:
     # 405 Method Not Allowed response (ARCH-01)
     # ------------------------------------------------------------------
 
-    async def _send_method_not_allowed(
-        self,
-        send: Callable,
-        allowed: list,
-        scope: dict | None = None,
-    ) -> None:
+    async def _send_method_not_allowed(self, send: ASGISend, allowed: list[str], scope: ASGIScope | None = None) -> None:
         """Send a ``405 Method Not Allowed`` response with an ``Allow`` header.
 
         Renders the styled Tubox error page for browser clients and
@@ -496,9 +492,9 @@ class ASGIAdapter:
                     "type": "http.response.start",
                     "status": 405,
                     "headers": [
-                        [b"content-type", b"text/html; charset=utf-8"],
-                        [b"allow", allow_value.encode("utf-8")],
-                        [b"content-length", str(len(body)).encode()],
+                        (b"content-type", b"text/html; charset=utf-8"),
+                        (b"allow", allow_value.encode("utf-8")),
+                        (b"content-length", str(len(body)).encode()),
                     ],
                 }
             )
@@ -522,9 +518,9 @@ class ASGIAdapter:
                     "type": "http.response.start",
                     "status": 405,
                     "headers": [
-                        [b"content-type", b"application/json"],
-                        [b"allow", allow_value.encode("utf-8")],
-                        [b"content-length", str(len(body)).encode()],
+                        (b"content-type", b"application/json"),
+                        (b"allow", allow_value.encode("utf-8")),
+                        (b"content-length", str(len(body)).encode()),
                     ],
                 }
             )
@@ -534,7 +530,7 @@ class ASGIAdapter:
     # Built-in health endpoint (ARCH-03: method-restricted + optional auth)
     # ------------------------------------------------------------------
 
-    async def _serve_health(self, send: Callable, *, head_only: bool = False) -> None:
+    async def _serve_health(self, send: ASGISend, *, head_only: bool = False) -> None:
         """Serve ``GET /_health`` -- liveness probe + engine metrics.
 
         Returns JSON with:
@@ -572,11 +568,11 @@ class ASGIAdapter:
 
         # ARCH-07: Apply minimal security headers even though middleware is bypassed
         headers = [
-            [b"content-type", b"application/json"],
-            [b"cache-control", b"no-store"],
-            [b"content-length", str(len(payload)).encode()],
-            [b"x-content-type-options", b"nosniff"],
-            [b"x-frame-options", b"DENY"],
+            (b"content-type", b"application/json"),
+            (b"cache-control", b"no-store"),
+            (b"content-length", str(len(payload)).encode()),
+            (b"x-content-type-options", b"nosniff"),
+            (b"x-frame-options", b"DENY"),
         ]
 
         await send(
@@ -594,7 +590,7 @@ class ASGIAdapter:
             }
         )
 
-    async def handle_websocket(self, scope: dict, receive: Callable, send: Callable):
+    async def handle_websocket(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None:
         """Handle WebSocket connection."""
         if self.socket_runtime:
             await self.socket_runtime.handle_websocket(scope, receive, send)
@@ -602,7 +598,7 @@ class ASGIAdapter:
             self.logger.warning("WebSocket connection attempt but sockets are disabled")
             await send({"type": "websocket.close", "code": 1003})
 
-    async def handle_lifespan(self, scope: dict, receive: Callable, send: Callable):
+    async def handle_lifespan(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None:
         """Handle ASGI lifespan events."""
         while True:
             message = await receive()

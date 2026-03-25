@@ -33,7 +33,9 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, TypeVar, cast
+
+from .typing.effects import EffectMap, EffectName
 
 T = TypeVar("T")
 
@@ -62,7 +64,7 @@ class Effect(Generic[T]):
     """
 
     def __init__(self, name: str, mode: T | None = None, kind: EffectKind = EffectKind.CUSTOM):
-        self.name = name
+        self.name: EffectName = EffectName(name)
         self.mode = mode
         self.kind = kind
 
@@ -345,7 +347,7 @@ class HTTPProvider(EffectProvider):
     async def initialize(self):
         """Create HTTP client session."""
         try:
-            import aiohttp
+            import aiohttp  # type: ignore[import-not-found]
 
             self._session = aiohttp.ClientSession(
                 base_url=self.base_url,
@@ -485,7 +487,8 @@ class TaskQueueHandle:
         Returns:
             Job ID string
         """
-        return await self._manager.enqueue(func, *args, queue=self._queue, **kwargs)
+        job_id = await self._manager.enqueue(func, *args, queue=self._queue, **kwargs)
+        return cast(str, job_id)
 
     async def publish(self, payload: Any, *, headers: dict[str, str] | None = None):
         """Compatibility with QueueHandle -- enqueue payload as a task."""
@@ -605,6 +608,7 @@ class EffectRegistry:
         self.providers: dict[str, EffectProvider] = {}
         self._initialized = False
         self._metrics: dict[str, dict[str, int]] = {}  # per-effect acquire/release counts
+        self._acquired_resources: EffectMap = {}
 
     def register(self, effect_name: str, provider: EffectProvider):
         """Register an effect provider."""
@@ -656,6 +660,7 @@ class EffectRegistry:
         provider = self.get_provider(effect_name)
         try:
             resource = await provider.acquire(mode)
+            self._acquired_resources[effect_name] = resource
             metrics = self._metrics.get(effect_name)
             if metrics:
                 metrics["acquires"] += 1
@@ -684,6 +689,7 @@ class EffectRegistry:
         provider = self.get_provider(effect_name)
         try:
             await provider.release(resource, success=success)
+            self._acquired_resources.pop(effect_name, None)
             metrics = self._metrics.get(effect_name)
             if metrics:
                 metrics["releases"] += 1

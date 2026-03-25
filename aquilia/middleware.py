@@ -14,19 +14,36 @@ import logging
 import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from .faults import Fault, FaultDomain
 from .faults.domains import HTTPFault
 from .request import Request
 from .response import Response
+from .typing.middleware import MiddlewareCallable, RequestHandler
+
+_FD_SECURITY = cast(FaultDomain, getattr(FaultDomain, "SECURITY"))
+_FD_IO = cast(FaultDomain, getattr(FaultDomain, "IO"))
+_FD_ROUTING = cast(FaultDomain, getattr(FaultDomain, "ROUTING"))
+_FD_EFFECT = cast(FaultDomain, getattr(FaultDomain, "EFFECT"))
+_FD_MODEL = cast(FaultDomain, getattr(FaultDomain, "MODEL"))
+_FD_CACHE = cast(FaultDomain, getattr(FaultDomain, "CACHE"))
+_FD_CONFIG = cast(FaultDomain, getattr(FaultDomain, "CONFIG"))
+_FD_REGISTRY = cast(FaultDomain, getattr(FaultDomain, "REGISTRY"))
+_FD_DI = cast(FaultDomain, getattr(FaultDomain, "DI"))
+_FD_FLOW = cast(FaultDomain, getattr(FaultDomain, "FLOW"))
+_FD_SYSTEM = cast(FaultDomain, getattr(FaultDomain, "SYSTEM"))
+_FD_STORAGE = cast(FaultDomain, getattr(FaultDomain, "STORAGE"))
+_FD_TASKS = cast(FaultDomain, getattr(FaultDomain, "TASKS"))
+_FD_TEMPLATE = cast(FaultDomain, getattr(FaultDomain, "TEMPLATE"))
+_FD_HTTP = cast(FaultDomain, getattr(FaultDomain, "HTTP"))
 
 if TYPE_CHECKING:
     from .controller.base import RequestCtx
 
 # Type alias for middleware - use string annotation to avoid circular import
-Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
-Middleware = Callable[[Request, "RequestCtx", Handler], Awaitable[Response]]
+Handler = RequestHandler
+Middleware = MiddlewareCallable
 
 # Names of middleware that are safe to skip on the fast path.
 # Only non-essential (observability / timeout) middleware.
@@ -210,7 +227,7 @@ class ExceptionMiddleware:
             if hasattr(request, "headers"):
                 h = request.headers
                 if hasattr(h, "get"):
-                    accept = h.get("accept", "")
+                    accept = h.get("accept", "") or ""
                 elif isinstance(h, dict):
                     accept = h.get("accept", "") or h.get("Accept", "")
             return "text/html" in accept
@@ -288,8 +305,8 @@ class ExceptionMiddleware:
         except HTTPFault as e:
             # ── First-class HTTP error faults (explicit status code) ──
             status = e.status
-            reason = e.message
-            detail = e.detail or e.message
+            reason = str(e.message)
+            detail = str(e.detail or e.message)
 
             if status >= 500:
                 self.logger.error(f"HTTPFault {status} {e.code}: {reason}")
@@ -340,21 +357,21 @@ class ExceptionMiddleware:
             }
 
             status_map = {
-                FaultDomain.ROUTING: 404,
-                FaultDomain.SECURITY: 403,
-                FaultDomain.IO: 502,
-                FaultDomain.EFFECT: 503,
-                FaultDomain.MODEL: 404,  # DB Not Found usually
-                FaultDomain.CACHE: 502,
-                FaultDomain.CONFIG: 500,
-                FaultDomain.REGISTRY: 500,
-                FaultDomain.DI: 500,
-                FaultDomain.FLOW: 500,
-                FaultDomain.SYSTEM: 500,
-                FaultDomain.STORAGE: 502,
-                FaultDomain.TASKS: 503,
-                FaultDomain.TEMPLATE: 500,
-                FaultDomain.HTTP: 500,  # Fallback (HTTPFault caught above)
+                _FD_ROUTING: 404,
+                _FD_SECURITY: 403,
+                _FD_IO: 502,
+                _FD_EFFECT: 503,
+                _FD_MODEL: 404,  # DB Not Found usually
+                _FD_CACHE: 502,
+                _FD_CONFIG: 500,
+                _FD_REGISTRY: 500,
+                _FD_DI: 500,
+                _FD_FLOW: 500,
+                _FD_SYSTEM: 500,
+                _FD_STORAGE: 502,
+                _FD_TASKS: 503,
+                _FD_TEMPLATE: 500,
+                _FD_HTTP: 500,  # Fallback (HTTPFault caught above)
             }
 
             code = getattr(e, "code", None)
@@ -369,9 +386,11 @@ class ExceptionMiddleware:
             elif str(e.domain) == "auth":  # Catch-all for our custom AUTH domain
                 status = 401
             else:
-                status = status_map.get(e.domain, 500)
+                domain = e.domain if isinstance(e.domain, FaultDomain) else None
+                status = status_map[domain] if domain is not None and domain in status_map else 500
 
-            message = e.message if (e.public or self.debug) else "Internal server error"
+            message = str(e.message) if (e.public or self.debug) else "Internal server error"
+            code_text = str(e.code)
 
             if status >= 500:
                 self.logger.error(f"Fault {e.code}: {e.message}")
@@ -386,7 +405,7 @@ class ExceptionMiddleware:
                         return self._render_debug_exception(e, request)
                     else:
                         # Styled error page for all HTML clients (debug or production)
-                        return self._render_debug_http_error(status, e.code, message, request)
+                        return self._render_debug_http_error(status, code_text, message, request)
                 except Exception as render_exc:
                     self.logger.error(f"Error page renderer crashed: {render_exc}", exc_info=True)
                     return self._html_response(_FALLBACK_500_HTML, status)
@@ -396,7 +415,7 @@ class ExceptionMiddleware:
                     "error": {
                         "code": e.code,
                         "message": message,
-                        "domain": e.domain.value,
+                        "domain": e.domain.value if isinstance(e.domain, FaultDomain) else str(e.domain),
                     }
                 },
                 status=status,
@@ -498,9 +517,9 @@ class CORSMiddleware:
 
     def __init__(
         self,
-        allow_origins: list[str] = None,
-        allow_methods: list[str] = None,
-        allow_headers: list[str] = None,
+        allow_origins: list[str] | None = None,
+        allow_methods: list[str] | None = None,
+        allow_headers: list[str] | None = None,
         allow_credentials: bool = False,
         max_age: int = 3600,
     ):
@@ -584,7 +603,7 @@ class CompressionMiddleware:
         response = await next(request, ctx)
 
         # Check if client accepts gzip
-        accept_encoding = request.header("accept-encoding", "")
+        accept_encoding = request.header("accept-encoding", "") or ""
         if "gzip" not in accept_encoding.lower():
             return response
 

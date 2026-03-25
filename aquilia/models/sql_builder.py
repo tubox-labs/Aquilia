@@ -33,6 +33,8 @@ __all__ = [
     "UpdateBuilder",
     "DeleteBuilder",
     "CreateTableBuilder",
+    "UpsertBuilder",
+    "UpsertIgnoreBuilder",
 ]
 
 
@@ -512,6 +514,72 @@ class UpsertBuilder:
             sql = (
                 f'INSERT INTO "{self._table}" ({col_names}) VALUES ({placeholders}) '
                 f"ON CONFLICT ({conflict_cols}) DO UPDATE SET {update_parts}"
+            )
+
+        return sql, params
+
+
+class UpsertIgnoreBuilder:
+    """
+    INSERT ... ON CONFLICT DO NOTHING query builder -- dialect-aware.
+
+    Generates:
+    - SQLite/PostgreSQL: INSERT ... ON CONFLICT (...) DO NOTHING
+    - MySQL: INSERT IGNORE INTO ...
+
+    Used by find_or_create() for atomic insert-or-skip semantics.
+
+    Usage:
+        builder = UpsertIgnoreBuilder("users", dialect="postgresql")
+        builder.columns("id", "email", "name")
+        builder.values(1, "alice@example.com", "Alice")
+        builder.conflict_target("email")
+        sql, params = builder.build()
+    """
+
+    def __init__(self, table: str, dialect: str = "sqlite"):
+        self._table = table
+        self._dialect = dialect
+        self._columns: list[str] = []
+        self._values: list[Any] = []
+        self._conflict_columns: list[str] = []
+
+    def columns(self, *cols: str) -> UpsertIgnoreBuilder:
+        """Set the column names for the INSERT."""
+        self._columns = list(cols)
+        return self
+
+    def values(self, *vals: Any) -> UpsertIgnoreBuilder:
+        """Set the values for the INSERT."""
+        self._values = list(vals)
+        return self
+
+    def from_dict(self, data: dict[str, Any]) -> UpsertIgnoreBuilder:
+        """Set columns and values from a dict."""
+        self._columns = list(data.keys())
+        self._values = list(data.values())
+        return self
+
+    def conflict_target(self, *columns: str) -> UpsertIgnoreBuilder:
+        """Set the conflict detection columns (unique constraint)."""
+        self._conflict_columns = list(columns)
+        return self
+
+    def build(self) -> tuple[str, list[Any]]:
+        """Build the SQL statement and parameters."""
+        col_names = ", ".join(f'"{c}"' for c in self._columns)
+        placeholders = ", ".join("?" for _ in self._columns)
+        params = list(self._values)
+
+        if self._dialect == "mysql":
+            # MySQL: INSERT IGNORE INTO ...
+            sql = f'INSERT IGNORE INTO "{self._table}" ({col_names}) VALUES ({placeholders})'
+        else:
+            # SQLite / PostgreSQL: INSERT ... ON CONFLICT (...) DO NOTHING
+            conflict_cols = ", ".join(f'"{c}"' for c in self._conflict_columns)
+            sql = (
+                f'INSERT INTO "{self._table}" ({col_names}) VALUES ({placeholders}) '
+                f"ON CONFLICT ({conflict_cols}) DO NOTHING"
             )
 
         return sql, params

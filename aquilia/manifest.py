@@ -19,7 +19,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import Enum
-from typing import Any
+from typing import Any, cast
+
+from .typing.manifest import ManifestMetadata
 
 # ============================================================================
 # Component Classification (v2)
@@ -58,7 +60,7 @@ class ComponentRef:
 
     class_path: str  # "module.path:ClassName"
     kind: ComponentKind  # Component classification
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: ManifestMetadata = field(default_factory=dict)
 
     def __post_init__(self):
         if ":" not in self.class_path:
@@ -588,7 +590,7 @@ class AppManifest:
             if isinstance(ref, ComponentRef):
                 return ref.class_path
             if hasattr(ref, "class_path"):
-                return ref.class_path
+                return cast(str, getattr(ref, "class_path"))
             return str(ref)
 
         result = {
