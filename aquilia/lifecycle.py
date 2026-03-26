@@ -123,15 +123,17 @@ class LifecycleCoordinator:
         self._emit_event(LifecycleEvent(LifecyclePhase.STARTING))
 
         try:
+            base_container = next(iter(self.runtime.di_containers.values()), None)
+
             # 1. Execute global workspace-level startup hook if present
             global_startup = self.config.get("on_startup") if self.config else None
             if global_startup:
                 hook = self._resolve_hook(global_startup)
                 if hook:
                     if inspect.iscoroutinefunction(hook):
-                        await hook(self.config.to_dict() if self.config else {}, None)
+                        await hook(self.config.to_dict() if self.config else {}, base_container)
                     else:
-                        hook(self.config.to_dict() if self.config else {}, None)
+                        hook(self.config.to_dict() if self.config else {}, base_container)
 
             # 2. Execute app-level hooks
             # Apps are already in topological order from registry
@@ -210,12 +212,13 @@ class LifecycleCoordinator:
         global_shutdown = self.config.get("on_shutdown") if self.config else None
         if global_shutdown:
             try:
+                base_container = next(iter(self.runtime.di_containers.values()), None)
                 hook = self._resolve_hook(global_shutdown)
                 if hook:
                     if inspect.iscoroutinefunction(hook):
-                        await hook(self.config.to_dict() if self.config else {}, None)
+                        await hook(self.config.to_dict() if self.config else {}, base_container)
                     else:
-                        hook(self.config.to_dict() if self.config else {}, None)
+                        hook(self.config.to_dict() if self.config else {}, base_container)
             except Exception as e:
                 self.logger.error(f"Global shutdown hook error: {e}")
 
