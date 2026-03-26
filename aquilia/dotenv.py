@@ -562,10 +562,7 @@ class DotEnvLoader:
             workspace_root = _find_workspace_root()
 
             mode = _resolve_runtime_mode()
-            expanded_paths = [
-                p.format(mode=mode, env=mode) if "{" in p else p
-                for p in paths_to_try
-            ]
+            expanded_paths = [p.format(mode=mode, env=mode) if "{" in p else p for p in paths_to_try]
 
             # Parse all files first, then apply in a single pass so precedence is:
             # process env > dotenv merged values (or dotenv > process env if override=True).
