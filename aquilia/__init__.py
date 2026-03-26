@@ -252,6 +252,34 @@ from .config import Config, ConfigLoader
 from .config_builders import Integration, Module, Workspace
 
 # ============================================================================
+# Native Dotenv (zero-dependency .env loading)
+# ============================================================================
+from .dotenv import (
+    DotEnv,
+    DotEnvLoader,
+    dotenv_values,
+    ensure_dotenv_loaded,
+    find_dotenv,
+    is_dotenv_loaded,
+    load_dotenv,
+    reset_dotenv_state,
+)
+
+# ============================================================================
+# Python-native Configuration (pyconfig)
+# ============================================================================
+from .pyconfig import (
+    AquilaConfig,
+    ConfigValue,
+    Env,
+    EnvCaster,
+    EnvCastType,
+    PyConfigLoader,
+    Secret,
+    section,
+)
+
+# ============================================================================
 # Controller System (NEW - First-class controllers)
 # ============================================================================
 from .controller import (
@@ -943,6 +971,22 @@ __all__ = [
     "ConfigLoader",
     "Request",
     "Response",
+    # Native Dotenv
+    "load_dotenv",
+    "dotenv_values",
+    "find_dotenv",
+    "DotEnv",
+    "DotEnvLoader",
+    # Python-native Configuration (pyconfig)
+    "AquilaConfig",
+    "PyConfigLoader",
+    "Secret",
+    "Env",
+    "section",
+    "reset_dotenv_state",
+    "ConfigValue",
+    "EnvCaster",
+    "EnvCastType",
     # Signing engine
     "SigningError",
     "BadSignature",
