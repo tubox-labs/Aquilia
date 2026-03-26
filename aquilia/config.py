@@ -132,6 +132,16 @@ class ConfigLoader:
         if env_file:
             loader._load_env_file(env_file)
 
+        # Step 4.5: Native dotenv auto-load for default/legacy flows.
+        # For AquilaConfig users, this is typically already resolved by
+        # pyconfig class policy and remains idempotent here.
+        try:
+            from aquilia.dotenv import DotEnvLoader
+
+            DotEnvLoader.ensure_loaded()
+        except ImportError:
+            pass
+
         # Step 5: Load from environment variables
         loader._load_from_env()
 

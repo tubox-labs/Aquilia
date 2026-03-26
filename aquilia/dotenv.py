@@ -479,12 +479,10 @@ class DotEnvLoader:
     _loaded_values: dict[str, str] = {}
 
     # Configuration
-    _search_paths: list[str] = [
-        ".env",
-        ".env.local",
-    ]
+    _search_paths: list[str] | None = None
     _auto_load: bool = True
     _override: bool = False
+    _interpolate: bool = True
 
     def __new__(cls) -> DotEnvLoader:
         """Singleton pattern — return the same instance."""
@@ -501,6 +499,7 @@ class DotEnvLoader:
         search_paths: list[str] | None = None,
         auto_load: bool = True,
         override: bool = False,
+        interpolate: bool = True,
     ) -> None:
         """
         Configure the loader before loading.
@@ -511,6 +510,7 @@ class DotEnvLoader:
             search_paths: List of file paths to search for (in order).
             auto_load: Whether to auto-load when Env.resolve() is called.
             override: Whether to override existing environment variables.
+            interpolate: Whether to interpolate variables while parsing.
         """
         with cls._lock:
             if cls._loaded:
@@ -521,6 +521,7 @@ class DotEnvLoader:
                 cls._search_paths = search_paths
             cls._auto_load = auto_load
             cls._override = override
+            cls._interpolate = interpolate
 
     @classmethod
     def ensure_loaded(
@@ -546,7 +547,12 @@ class DotEnvLoader:
                 return cls._loaded_values.copy()
 
             cls._loaded = True
-            paths_to_try = search_paths or cls._search_paths
+            if search_paths is not None:
+                paths_to_try = list(search_paths)
+            elif cls._search_paths is not None:
+                paths_to_try = list(cls._search_paths)
+            else:
+                paths_to_try = _default_dotenv_search_paths()
 
             # If specific path provided, use only that
             if path is not None:
@@ -555,21 +561,36 @@ class DotEnvLoader:
             # Find workspace root
             workspace_root = _find_workspace_root()
 
-            for file_path in paths_to_try:
+            mode = _resolve_runtime_mode()
+            expanded_paths = [
+                p.format(mode=mode, env=mode) if "{" in p else p
+                for p in paths_to_try
+            ]
+
+            # Parse all files first, then apply in a single pass so precedence is:
+            # process env > dotenv merged values (or dotenv > process env if override=True).
+            merged_values: dict[str, str] = {}
+
+            for file_path in expanded_paths:
                 full_path = workspace_root / file_path if workspace_root else Path(file_path)
 
                 if full_path.exists():
                     try:
-                        loaded = DotEnv.load(
+                        loaded = DotEnv.parse(
                             full_path,
-                            override=cls._override,
-                            interpolate=True,
+                            interpolate=cls._interpolate,
                         )
                         cls._loaded_files.append(full_path)
-                        cls._loaded_values.update(loaded)
+                        merged_values.update(loaded)
                         log.info("Loaded environment from %s", full_path)
                     except Exception as exc:
                         log.error("Failed to load %s: %s", full_path, exc)
+
+            for key, value in merged_values.items():
+                if cls._override or key not in os.environ:
+                    os.environ[key] = value
+
+            cls._loaded_values = merged_values.copy()
 
             return cls._loaded_values.copy()
 
@@ -640,6 +661,40 @@ def _find_workspace_root() -> Path | None:
 
     # Fall back to current directory
     return cwd
+
+
+def _resolve_runtime_mode() -> str:
+    """Resolve runtime mode used for mode-specific dotenv path expansion."""
+    mode = os.environ.get("AQUILIA_ENV") or os.environ.get("AQ_ENV") or "dev"
+    mode = mode.lower().strip()
+    if mode == "production":
+        return "prod"
+    return mode or "dev"
+
+
+def _default_dotenv_search_paths(mode: str | None = None) -> list[str]:
+    """
+    Return default dotenv search paths when no explicit paths are configured.
+
+    Order defines precedence (later files override earlier dotenv files).
+    """
+    resolved_mode = (mode or _resolve_runtime_mode()).lower().strip() or "dev"
+    if resolved_mode == "production":
+        resolved_mode = "prod"
+
+    candidates = [
+        ".env",
+        ".env.example",
+        ".env.defaults",
+        ".env.default",
+        ".env.local",
+        f".env.{resolved_mode}",
+        f".env.{resolved_mode}.local",
+        "config/.env",
+        f"config/.env.{resolved_mode}",
+        f"config/.env.{resolved_mode}.local",
+    ]
+    return list(dict.fromkeys(candidates))
 
 
 def find_dotenv(

@@ -331,6 +331,30 @@ class TestDotEnvLoader:
         if "RESET_KEY" in os.environ:
             del os.environ["RESET_KEY"]
 
+    def test_default_known_paths_include_example_and_mode(self, tmp_path):
+        """Without explicit search paths, loader checks known defaults including .env.example and mode files."""
+        from aquilia.dotenv import DotEnvLoader
+
+        DotEnvLoader.reset()
+        (tmp_path / ".env.example").write_text("DEFAULT_CHAIN_KEY=from_example\n")
+        (tmp_path / ".env.prod").write_text("DEFAULT_CHAIN_KEY=from_mode\n")
+
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+        os.environ["AQUILIA_ENV"] = "prod"
+        if "DEFAULT_CHAIN_KEY" in os.environ:
+            del os.environ["DEFAULT_CHAIN_KEY"]
+
+        try:
+            loaded = DotEnvLoader.ensure_loaded()
+            assert loaded.get("DEFAULT_CHAIN_KEY") == "from_mode"
+            assert os.environ.get("DEFAULT_CHAIN_KEY") == "from_mode"
+        finally:
+            DotEnvLoader.reset()
+            del os.environ["AQUILIA_WORKSPACE"]
+            del os.environ["AQUILIA_ENV"]
+            if "DEFAULT_CHAIN_KEY" in os.environ:
+                del os.environ["DEFAULT_CHAIN_KEY"]
+
 
 # ============================================================================
 # ENV CLASS TESTS
@@ -947,6 +971,157 @@ WORKERS=4
             del os.environ["AQUILIA_WORKSPACE"]
             if "SINGLE_VALUE" in os.environ:
                 del os.environ["SINGLE_VALUE"]
+
+
+# ============================================================================
+# AQUILACONFIG DOTENV POLICY TESTS
+# ============================================================================
+
+
+class TestAquilaConfigDotenvPolicy:
+    """Tests for class-level AquilaConfig dotenv policy."""
+
+    def setup_method(self):
+        """Reset dotenv state before each test."""
+        from aquilia.dotenv import DotEnvLoader
+        from aquilia.pyconfig import reset_dotenv_state
+
+        reset_dotenv_state()
+        DotEnvLoader.reset()
+
+    def test_single_file_policy(self, tmp_path):
+        """AquilaConfig.dotenv.file loads a single explicit dotenv file."""
+        from aquilia.pyconfig import AquilaConfig, Env, reset_dotenv_state
+
+        (tmp_path / ".env.custom").write_text("SINGLE_POLICY_KEY=expected\n")
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+
+        try:
+            reset_dotenv_state()
+
+            class TestConfig(AquilaConfig):
+                class dotenv(AquilaConfig.Dotenv):
+                    file = ".env.custom"
+
+                value = Env("SINGLE_POLICY_KEY", default="missing")
+
+            assert TestConfig.to_dict()["value"] == "expected"
+        finally:
+            del os.environ["AQUILIA_WORKSPACE"]
+            if "SINGLE_POLICY_KEY" in os.environ:
+                del os.environ["SINGLE_POLICY_KEY"]
+
+    def test_multiple_files_fallback_order(self, tmp_path):
+        """Later dotenv files override earlier dotenv files by declaration order."""
+        from aquilia.pyconfig import AquilaConfig, Env, reset_dotenv_state
+
+        (tmp_path / ".env").write_text("ORDER_KEY=base\n")
+        (tmp_path / ".env.local").write_text("ORDER_KEY=local\n")
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+
+        try:
+            reset_dotenv_state()
+
+            class TestConfig(AquilaConfig):
+                class dotenv(AquilaConfig.Dotenv):
+                    files = [".env", ".env.local"]
+
+                value = Env("ORDER_KEY", default="missing")
+
+            assert TestConfig.to_dict()["value"] == "local"
+        finally:
+            del os.environ["AQUILIA_WORKSPACE"]
+            if "ORDER_KEY" in os.environ:
+                del os.environ["ORDER_KEY"]
+
+    def test_process_env_precedence_when_override_false(self, tmp_path):
+        """With override=False, process environment keeps precedence over dotenv."""
+        from aquilia.pyconfig import AquilaConfig, Env, reset_dotenv_state
+
+        (tmp_path / ".env").write_text("PRECEDENCE_KEY=dotenv\n")
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+        os.environ["PRECEDENCE_KEY"] = "process"
+
+        try:
+            reset_dotenv_state()
+
+            class TestConfig(AquilaConfig):
+                class dotenv(AquilaConfig.Dotenv):
+                    file = ".env"
+                    override = False
+
+                value = Env("PRECEDENCE_KEY", default="missing")
+
+            assert TestConfig.to_dict()["value"] == "process"
+        finally:
+            del os.environ["AQUILIA_WORKSPACE"]
+            del os.environ["PRECEDENCE_KEY"]
+
+    def test_process_env_overridden_when_override_true(self, tmp_path):
+        """With override=True, dotenv values replace existing process env values."""
+        from aquilia.pyconfig import AquilaConfig, Env, reset_dotenv_state
+
+        (tmp_path / ".env").write_text("OVERRIDE_POLICY_KEY=dotenv\n")
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+        os.environ["OVERRIDE_POLICY_KEY"] = "process"
+
+        try:
+            reset_dotenv_state()
+
+            class TestConfig(AquilaConfig):
+                class dotenv(AquilaConfig.Dotenv):
+                    file = ".env"
+                    override = True
+
+                value = Env("OVERRIDE_POLICY_KEY", default="missing")
+
+            assert TestConfig.to_dict()["value"] == "dotenv"
+        finally:
+            del os.environ["AQUILIA_WORKSPACE"]
+            del os.environ["OVERRIDE_POLICY_KEY"]
+
+    def test_required_dotenv_file_missing_raises(self, tmp_path):
+        """Required dotenv files raise ConfigMissingFault when absent."""
+        from aquilia.faults.domains import ConfigMissingFault
+        from aquilia.pyconfig import AquilaConfig, Env, reset_dotenv_state
+
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+
+        try:
+            reset_dotenv_state()
+
+            class TestConfig(AquilaConfig):
+                class dotenv(AquilaConfig.Dotenv):
+                    files = [AquilaConfig.EnvFile(".env.required", required=True)]
+
+                value = Env("REQUIRED_POLICY_KEY", default="missing")
+
+            with pytest.raises(ConfigMissingFault):
+                TestConfig.to_dict()
+        finally:
+            del os.environ["AQUILIA_WORKSPACE"]
+
+    def test_legacy_filename_alias_maps_to_dotenv(self, tmp_path):
+        """Deprecated __filename__ continues to work via dotenv section mapping."""
+        from aquilia.pyconfig import AquilaConfig, Env, reset_dotenv_state
+
+        (tmp_path / ".env.legacy").write_text("LEGACY_ALIAS_KEY=legacy\n")
+        os.environ["AQUILIA_WORKSPACE"] = str(tmp_path)
+
+        try:
+            reset_dotenv_state()
+
+            with pytest.warns(DeprecationWarning):
+
+                class TestConfig(AquilaConfig):
+                    __filename__ = ".env.legacy"
+                    value = Env("LEGACY_ALIAS_KEY", default="missing")
+
+            assert TestConfig.to_dict()["value"] == "legacy"
+        finally:
+            del os.environ["AQUILIA_WORKSPACE"]
+            if "LEGACY_ALIAS_KEY" in os.environ:
+                del os.environ["LEGACY_ALIAS_KEY"]
 
 
 # ============================================================================

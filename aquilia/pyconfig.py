@@ -78,10 +78,11 @@ import json
 import logging
 import os
 import threading
+import warnings
 from collections.abc import Callable
 from dataclasses import field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeVar, cast
 
 if TYPE_CHECKING:
     from aquilia.config import ConfigLoader
@@ -216,7 +217,132 @@ _dotenv_loaded: bool = False
 _dotenv_lock: bool = False  # Simple reentrant protection
 
 
-def _ensure_dotenv_loaded() -> None:
+def _resolve_dotenv_options(config_cls: type[Any] | None) -> dict[str, Any]:
+    """
+    Resolve dotenv loading options from an AquilaConfig class.
+
+    Returns default loader options when no class-specific policy exists.
+    """
+    default_env_name = str(getattr(config_cls, "env", os.environ.get("AQUILIA_ENV") or "dev"))
+
+    defaults: dict[str, Any] = {
+        "search_paths": [],
+        "auto_load": True,
+        "override": False,
+        "interpolate": True,
+        "required_paths": set(),
+    }
+
+    try:
+        from aquilia.dotenv import _default_dotenv_search_paths
+
+        defaults["search_paths"] = _default_dotenv_search_paths(default_env_name)
+    except ImportError:
+        defaults["search_paths"] = [
+            ".env",
+            ".env.example",
+            ".env.defaults",
+            ".env.default",
+            ".env.local",
+            f".env.{default_env_name}",
+            f".env.{default_env_name}.local",
+            "config/.env",
+            f"config/.env.{default_env_name}",
+            f"config/.env.{default_env_name}.local",
+        ]
+    if config_cls is None:
+        return defaults
+
+    dotenv_cfg = getattr(config_cls, "dotenv", None)
+    if not isinstance(dotenv_cfg, type):
+        return defaults
+
+    env_name = default_env_name
+    strict = bool(getattr(dotenv_cfg, "strict", False))
+
+    entries: list[Any] = []
+    single = getattr(dotenv_cfg, "file", None)
+    if single is not None:
+        entries.append(single)
+
+    many = getattr(dotenv_cfg, "files", None)
+    if many is not None:
+        if isinstance(many, (list, tuple)):
+            entries.extend(many)
+        else:
+            entries.append(many)
+
+    if not entries:
+        entries = defaults["search_paths"].copy()
+
+    search_paths: list[str] = []
+    required_paths: set[str] = set()
+
+    for entry in entries:
+        required = strict
+        raw_path: Any = entry
+
+        if hasattr(entry, "path"):
+            raw_path = getattr(entry, "path", None)
+            required = bool(getattr(entry, "required", strict))
+
+        if raw_path is None:
+            continue
+
+        path_str = str(raw_path)
+        if "{env}" in path_str:
+            path_str = path_str.format(env=env_name)
+
+        search_paths.append(path_str)
+        if required:
+            required_paths.add(path_str)
+
+    if not search_paths:
+        search_paths = defaults["search_paths"].copy()
+
+    auto_load = bool(getattr(dotenv_cfg, "auto_load", True))
+    override = bool(getattr(dotenv_cfg, "override", False))
+    interpolate = bool(getattr(dotenv_cfg, "interpolate", True))
+
+    return {
+        "search_paths": search_paths,
+        "auto_load": auto_load,
+        "override": override,
+        "interpolate": interpolate,
+        "required_paths": required_paths,
+    }
+
+
+def _validate_required_dotenv_files(search_paths: list[str], required_paths: set[str]) -> None:
+    """Validate required dotenv files before invoking the loader."""
+    if not required_paths:
+        return
+
+    from aquilia.dotenv import _find_workspace_root
+    from aquilia.faults.domains import ConfigMissingFault
+
+    workspace_root = _find_workspace_root()
+    missing: list[str] = []
+
+    for path in search_paths:
+        if path not in required_paths:
+            continue
+        file_path = Path(path)
+        if not file_path.is_absolute() and workspace_root is not None:
+            file_path = workspace_root / file_path
+        if not file_path.exists():
+            missing.append(path)
+
+    if missing:
+        raise ConfigMissingFault(
+            key="dotenv.files",
+            metadata={
+                "hint": f"Missing required dotenv file(s): {', '.join(missing)}",
+            },
+        )
+
+
+def _ensure_dotenv_loaded(*, config_cls: type[Any] | None = None) -> None:
     """
     Ensure .env files are loaded into os.environ.
 
@@ -233,13 +359,25 @@ def _ensure_dotenv_loaded() -> None:
     try:
         from aquilia.dotenv import DotEnvLoader
 
-        DotEnvLoader.ensure_loaded()
+        options = _resolve_dotenv_options(config_cls)
+        _validate_required_dotenv_files(options["search_paths"], options["required_paths"])
+        DotEnvLoader.configure(
+            search_paths=options["search_paths"],
+            auto_load=options["auto_load"],
+            override=options["override"],
+            interpolate=options["interpolate"],
+        )
+        DotEnvLoader.ensure_loaded(search_paths=options["search_paths"])
         _dotenv_loaded = True
     except ImportError:
         # Fallback if dotenv module is not available
         log.debug("aquilia.dotenv not available, skipping auto-load")
         _dotenv_loaded = True
     except Exception as exc:
+        from aquilia.faults.domains import ConfigMissingFault
+
+        if isinstance(exc, ConfigMissingFault):
+            raise
         log.warning("Failed to auto-load .env: %s", exc)
         _dotenv_loaded = True
     finally:
@@ -425,7 +563,7 @@ class Env:
         # Try JSON (for arrays and objects)
         if raw.startswith(("{", "[")):
             try:
-                return json.loads(raw)
+                return cast(ConfigValue, json.loads(raw))
             except json.JSONDecodeError:
                 pass
 
@@ -509,7 +647,7 @@ def _resolve_value(val: Any, *, use_cache: bool = True) -> ConfigValue:
         return val.resolve(use_cache=use_cache)
     if isinstance(val, Secret):
         return val.reveal()
-    return val
+    return cast(ConfigValue, val)
 
 
 def _class_to_dict(cls: type, *, use_cache: bool = True) -> dict[str, Any]:
@@ -606,6 +744,36 @@ class AquilaConfig:
 
     #: Which environment this config represents (arbitrary string label).
     env: str = "dev"
+
+    class EnvFile:
+        """Descriptor for dotenv file entries with optional required semantics."""
+
+        __slots__ = ("path", "required")
+
+        def __init__(self, path: str | Path, *, required: bool = False) -> None:
+            self.path = str(path)
+            self.required = required
+
+        def __repr__(self) -> str:
+            return f"EnvFile(path={self.path!r}, required={self.required})"
+
+    class Dotenv:
+        """Class-level dotenv loading policy for AquilaConfig subclasses."""
+
+        _is_aquila_section: bool = True
+
+        #: Single dotenv file path (alias for ``files=[...]``).
+        file: str | Path | None = None
+        #: Ordered list of dotenv files. Later files override earlier dotenv files.
+        files: list[str | Path | AquilaConfig.EnvFile] | tuple[str | Path | AquilaConfig.EnvFile, ...] | None = None
+        #: Enable automatic loading before resolving Env/Secret bindings.
+        auto_load: bool = True
+        #: If True, dotenv values can override process environment variables.
+        override: bool = False
+        #: Enable ${VAR} / $VAR interpolation while parsing dotenv files.
+        interpolate: bool = True
+        #: If True, all configured files are required.
+        strict: bool = False
 
     # ── Built-in nested section types ────────────────────────────────────
 
@@ -1124,7 +1292,7 @@ class AquilaConfig:
             Nested configuration dictionary.
         """
         # Ensure dotenv is loaded up front
-        _ensure_dotenv_loaded()
+        _ensure_dotenv_loaded(config_cls=cls)
 
         # Check class-level cache first
         if use_cache:
@@ -1136,6 +1304,8 @@ class AquilaConfig:
 
         for name in dir(cls):
             if name.startswith("_"):
+                continue
+            if name in ("env", "dotenv"):
                 continue
             val = getattr(cls, name, None)
             if val is None:
@@ -1231,7 +1401,7 @@ class AquilaConfig:
                 ph_instance = getattr(cls, "auth", None)
                 if ph_instance is not None:
                     ph_val = getattr(ph_instance, "password_hasher", None)
-                    if hasattr(ph_val, "to_dict"):
+                    if ph_val is not None and hasattr(ph_val, "to_dict"):
                         auth_data["password_hasher"] = ph_val.to_dict()
 
         loader._merge_dict(loader.config_data, data)
@@ -1316,6 +1486,36 @@ class AquilaConfig:
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
+
+        # Legacy compatibility: map deprecated filename dunder attributes.
+        legacy_single = cls.__dict__.get("__filename__")
+        legacy_many = cls.__dict__.get("__filenames__")
+        if legacy_single is not None or legacy_many is not None:
+            warnings.warn(
+                "AquilaConfig.__filename__ / __filenames__ are deprecated; "
+                "define class dotenv(AquilaConfig.Dotenv): files=[...] instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            if "dotenv" not in cls.__dict__:
+                legacy_files: list[Any] = []
+                if legacy_single is not None:
+                    legacy_files.append(legacy_single)
+                if legacy_many is not None:
+                    if isinstance(legacy_many, (list, tuple)):
+                        legacy_files.extend(legacy_many)
+                    else:
+                        legacy_files.append(legacy_many)
+                legacy_dotenv = type(
+                    "dotenv",
+                    (getattr(cls, "Dotenv", object),),
+                    {
+                        "files": legacy_files,
+                        "_is_aquila_section": True,
+                    },
+                )
+                cls.dotenv = legacy_dotenv
+
         # Inherit parent's nested section classes if the subclass doesn't define its own.
         parent_sections = [
             name
@@ -1409,7 +1609,7 @@ class PyConfigLoader:
         # Resolve the right environment variant
         env_name = env or os.environ.get(var, default_env)
         try:
-            resolved = base_cls.for_env(env_name)
+            resolved = base_cls.for_env(str(env_name))
         except ValueError:
             resolved = base_cls
 
