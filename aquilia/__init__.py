@@ -252,34 +252,6 @@ from .config import Config, ConfigLoader
 from .config_builders import Integration, Module, Workspace
 
 # ============================================================================
-# Native Dotenv (zero-dependency .env loading)
-# ============================================================================
-from .dotenv import (
-    DotEnv,
-    DotEnvLoader,
-    dotenv_values,
-    ensure_dotenv_loaded,
-    find_dotenv,
-    is_dotenv_loaded,
-    load_dotenv,
-    reset_dotenv_state,
-)
-
-# ============================================================================
-# Python-native Configuration (pyconfig)
-# ============================================================================
-from .pyconfig import (
-    AquilaConfig,
-    ConfigValue,
-    Env,
-    EnvCaster,
-    EnvCastType,
-    PyConfigLoader,
-    Secret,
-    section,
-)
-
-# ============================================================================
 # Controller System (NEW - First-class controllers)
 # ============================================================================
 from .controller import (
@@ -383,6 +355,20 @@ from .di import (
 # Discovery
 # ============================================================================
 from .discovery import PackageScanner
+
+# ============================================================================
+# Native Dotenv (zero-dependency .env loading)
+# ============================================================================
+from .dotenv import (
+    DotEnv,
+    DotEnvLoader,
+    dotenv_values,
+    ensure_dotenv_loaded,
+    find_dotenv,
+    is_dotenv_loaded,
+    load_dotenv,
+    reset_dotenv_state,
+)
 
 # ============================================================================
 # Effects & Patterns
@@ -715,6 +701,20 @@ from .patterns import (
 )
 from .patterns import (
     TypeRegistry as PatternTypeRegistry,
+)
+
+# ============================================================================
+# Python-native Configuration (pyconfig)
+# ============================================================================
+from .pyconfig import (
+    AquilaConfig,
+    ConfigValue,
+    Env,
+    EnvCaster,
+    EnvCastType,
+    PyConfigLoader,
+    Secret,
+    section,
 )
 from .request import Request
 from .response import Response
