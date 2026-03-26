@@ -1305,7 +1305,7 @@ class AquilaConfig:
         for name in dir(cls):
             if name.startswith("_"):
                 continue
-            if name in ("env", "dotenv"):
+            if name == "dotenv":
                 continue
             val = getattr(cls, name, None)
             if val is None:
