@@ -1514,7 +1514,7 @@ class AquilaConfig:
                         "_is_aquila_section": True,
                     },
                 )
-                cls.dotenv = legacy_dotenv
+                cls.dotenv = legacy_dotenv  # type: ignore[attr-defined]
 
         # Inherit parent's nested section classes if the subclass doesn't define its own.
         parent_sections = [
