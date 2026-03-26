@@ -9,7 +9,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,7 +20,7 @@ from aquilia.sessions.core import Session
 from .adapters import Adapter, InMemoryAdapter
 from .connection import Connection, ConnectionScope
 from .controller import SocketController
-from .envelope import JSONCodec, MessageEnvelope
+from .envelope import JSONCodec, MessageEnvelope, StreamChunk
 from .faults import (
     WS_MESSAGE_INVALID,
     WS_UNSUPPORTED_EVENT,
@@ -513,6 +513,20 @@ class AquilaSockets:
                     # Call handler
                     result = await method(controller, conn, envelope.payload)
 
+                    if self._is_stream_result(result):
+                        chunk_count = await self._send_stream_result(conn, event, result)
+                        ack_data = {"streamed": True, "chunks": chunk_count}
+                        handler_wants_ack = metadata.get("ack", False)
+                        if handler_wants_ack:
+                            await conn.send_json(ack_data)
+                        elif envelope.ack:
+                            await conn.send_ack(
+                                envelope.id,
+                                status="ok",
+                                data=ack_data,
+                            )
+                        return
+
                     # Send ack if handler or client requested it
                     handler_wants_ack = metadata.get("ack", False)
                     if handler_wants_ack or envelope.ack:
@@ -533,6 +547,63 @@ class AquilaSockets:
         # No handler found
         logger.warning(f"No handler for event: {event}")
         raise WS_UNSUPPORTED_EVENT(event)
+
+    @staticmethod
+    def _is_stream_result(result: Any) -> bool:
+        return isinstance(result, (AsyncIterator, Iterator))
+
+    async def _send_stream_result(self, conn: Connection, event: str, stream: Any) -> int:
+        chunk_count = 0
+
+        try:
+            if isinstance(stream, AsyncIterator):
+                async for chunk in stream:
+                    await self._send_stream_chunk(conn, event, chunk)
+                    chunk_count += 1
+            else:
+                for chunk in stream:
+                    await self._send_stream_chunk(conn, event, chunk)
+                    chunk_count += 1
+        finally:
+            if hasattr(stream, "aclose"):
+                with contextlib.suppress(Exception):
+                    await stream.aclose()
+            elif hasattr(stream, "close"):
+                with contextlib.suppress(Exception):
+                    stream.close()
+
+        await conn.send_event(f"{event}.end", {"chunks": chunk_count})
+        return chunk_count
+
+    async def _send_stream_chunk(self, conn: Connection, event: str, chunk: Any):
+        if isinstance(chunk, MessageEnvelope):
+            await conn.send_envelope(chunk)
+            return
+
+        if isinstance(chunk, StreamChunk):
+            payload = self._normalize_stream_payload(chunk.data)
+            payload.update(chunk.meta)
+            await conn.send_event(chunk.event or f"{event}.chunk", payload)
+            return
+
+        payload = self._normalize_stream_payload(chunk)
+        await conn.send_event(f"{event}.chunk", payload)
+
+    @staticmethod
+    def _normalize_stream_payload(chunk: dict[str, Any] | str | bytes) -> dict[str, Any]:
+        if isinstance(chunk, dict):
+            return chunk
+        if isinstance(chunk, str):
+            return {"text": chunk}
+        if isinstance(chunk, bytes):
+            import base64
+
+            return {
+                "data_b64": base64.b64encode(chunk).decode("ascii"),
+                "encoding": "base64",
+            }
+
+        raise WS_MESSAGE_INVALID(f"Unsupported stream chunk type: {type(chunk).__name__}")
 
     async def _disconnect_connection(self, conn: Connection, reason: str):
         """Disconnect connection."""

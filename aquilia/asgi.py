@@ -418,7 +418,7 @@ class ASGIAdapter:
                     status=500,
                     headers={"content-type": "text/html; charset=utf-8"},
                 )
-                await response.send_asgi(send)
+                await response.send_asgi(send, request)
                 return
             response = Response.json(
                 {"error": "Internal server error"},
@@ -453,7 +453,7 @@ class ASGIAdapter:
                 headers=dict(response.headers) if hasattr(response, "headers") else {},
             )
 
-        await response.send_asgi(send)
+        await response.send_asgi(send, request)
 
     # ------------------------------------------------------------------
     # 405 Method Not Allowed response (ARCH-01)

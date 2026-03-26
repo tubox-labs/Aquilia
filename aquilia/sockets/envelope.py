@@ -141,6 +141,15 @@ class AckEnvelope:
         )
 
 
+@dataclass
+class StreamChunk:
+    """Typed stream chunk payload for websocket event streaming."""
+
+    data: dict[str, Any] | str | bytes
+    event: str | None = None
+    meta: dict[str, Any] = field(default_factory=dict)
+
+
 # Schema validation
 
 

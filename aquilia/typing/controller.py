@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping, Sequence
 from typing import Any, Protocol, TypeAlias
 
 from .common import JSONValue
@@ -22,5 +22,15 @@ class ControllerRouteMatchLike(Protocol):
 
 
 ControllerHandler: TypeAlias = Callable[..., Awaitable[object]]
-ControllerReturnValue: TypeAlias = object
+ControllerStreamChunk: TypeAlias = bytes | str
+ControllerStreamIterator: TypeAlias = AsyncIterator[ControllerStreamChunk] | Iterator[ControllerStreamChunk]
+ControllerReturnValue: TypeAlias = (
+    JSONValue
+    | bytes
+    | str
+    | Mapping[str, Any]
+    | Sequence[Any]
+    | ControllerStreamIterator
+    | Awaitable[Any]
+)
 ControllerStateMap: TypeAlias = dict[str, JSONValue]

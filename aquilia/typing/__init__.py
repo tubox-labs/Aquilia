@@ -42,7 +42,17 @@ from .config import (
     SecretRevealable,
 )
 from .container import AppContainer, AsyncResolvableContainer, RequestContainer, SyncResolvableContainer
-from .controller import ControllerRouteMatchLike, HTTPMethod, RouteMetadataDict, RouteParams, RoutePath, RouteQuery
+from .controller import (
+    ControllerReturnValue,
+    ControllerRouteMatchLike,
+    ControllerStreamChunk,
+    ControllerStreamIterator,
+    HTTPMethod,
+    RouteMetadataDict,
+    RouteParams,
+    RoutePath,
+    RouteQuery,
+)
 from .effects import EffectMap, EffectMetadata, EffectMode, EffectName, EffectProviderProtocol
 from .manifest import ManifestCollection, ManifestDescriptor, ManifestLike, ManifestMetadata
 from .middleware import (
@@ -103,6 +113,9 @@ __all__ = [
     "SyncResolvableContainer",
     # Controller types
     "ControllerRouteMatchLike",
+    "ControllerReturnValue",
+    "ControllerStreamChunk",
+    "ControllerStreamIterator",
     "HTTPMethod",
     "RouteMetadataDict",
     "RouteParams",

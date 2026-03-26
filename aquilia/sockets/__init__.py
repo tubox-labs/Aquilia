@@ -50,6 +50,7 @@ from .envelope import (
     MessageEnvelope,
     MessageType,
     Schema,
+    StreamChunk,
 )
 from .faults import (
     WS_AUTH_REQUIRED,
@@ -97,6 +98,7 @@ __all__ = [
     "MessageCodec",
     "JSONCodec",
     "Schema",
+    "StreamChunk",
     # Connection
     "ConnectionState",
     "ConnectionScope",

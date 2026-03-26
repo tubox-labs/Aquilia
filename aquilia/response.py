@@ -19,6 +19,7 @@ Provides:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import hmac
 import inspect
@@ -155,6 +156,66 @@ class ServerSentEvent:
         return ("\n".join(lines) + "\n\n").encode("utf-8")
 
 
+@dataclass(frozen=True, slots=True)
+class MediaChunk:
+    """Type-safe media chunk container for streaming payloads."""
+
+    data: bytes | str
+    content_type: str | None = None
+    is_final: bool = False
+
+    def encode(self, encoding: str = "utf-8") -> bytes:
+        if isinstance(self.data, bytes):
+            return self.data
+        return self.data.encode(encoding)
+
+
+@dataclass(frozen=True, slots=True)
+class HLSSegment:
+    """Single media segment entry in an HLS media playlist."""
+
+    uri: str
+    duration: float
+    title: str | None = None
+    byte_range: str | None = None
+    discontinuity: bool = False
+
+    def render(self) -> list[str]:
+        lines: list[str] = []
+        if self.discontinuity:
+            lines.append("#EXT-X-DISCONTINUITY")
+        if self.byte_range:
+            lines.append(f"#EXT-X-BYTERANGE:{self.byte_range}")
+        title = self.title or ""
+        lines.append(f"#EXTINF:{self.duration:.3f},{title}")
+        lines.append(self.uri)
+        return lines
+
+
+@dataclass(frozen=True, slots=True)
+class HLSVariant:
+    """Variant stream descriptor for an HLS master playlist."""
+
+    uri: str
+    bandwidth: int
+    resolution: str | None = None
+    codecs: str | None = None
+    frame_rate: float | None = None
+    audio: str | None = None
+
+    def render(self) -> list[str]:
+        attrs = [f"BANDWIDTH={self.bandwidth}"]
+        if self.resolution:
+            attrs.append(f"RESOLUTION={self.resolution}")
+        if self.codecs:
+            attrs.append(f'CODECS="{self.codecs}"')
+        if self.frame_rate is not None:
+            attrs.append(f"FRAME-RATE={self.frame_rate:.3f}")
+        if self.audio:
+            attrs.append(f'AUDIO="{self.audio}"')
+        return [f"#EXT-X-STREAM-INF:{','.join(attrs)}", self.uri]
+
+
 class CookieSigner:
     """
     Cookie signer with HMAC-based signing and key rotation support.
@@ -269,6 +330,14 @@ class RangeNotSatisfiableError(Fault):
     code = "RANGE_NOT_SATISFIABLE"
     domain = FaultDomain.RESPONSE
     severity = Severity.WARN
+
+
+class HLSManifestError(Fault):
+    """Invalid HLS manifest payload or helper usage."""
+
+    code = "HLS_MANIFEST_ERROR"
+    domain = FaultDomain.RESPONSE
+    severity = Severity.ERROR
 
 
 # ============================================================================
@@ -463,6 +532,30 @@ class Response:
             Streaming response
         """
         return cls(content=iterator, status=status, media_type=media_type, **kwargs)
+
+    @classmethod
+    def media_stream(
+        cls,
+        chunks: AsyncIterator[MediaChunk] | Iterator[MediaChunk],
+        status: int = 200,
+        media_type: str = "application/octet-stream",
+        **kwargs,
+    ) -> Response:
+        """Create a type-safe media chunk streaming response."""
+
+        if hasattr(chunks, "__aiter__"):
+
+            async def _media_aiter() -> AsyncIterator[bytes]:
+                async for chunk in chunks:  # type: ignore[misc]
+                    yield chunk.encode()
+
+            return cls(content=_media_aiter(), status=status, media_type=media_type, **kwargs)
+
+        def _media_iter() -> Iterator[bytes]:
+            for chunk in chunks:  # type: ignore[misc]
+                yield chunk.encode()
+
+        return cls(content=_media_iter(), status=status, media_type=media_type, **kwargs)
 
     @classmethod
     def sse(cls, event_iter: AsyncIterator[ServerSentEvent], status: int = 200, **kwargs) -> Response:
@@ -719,6 +812,99 @@ class Response:
         response._file_size = file_size
 
         return response
+
+    @classmethod
+    def hls_playlist(
+        cls,
+        segments: Sequence[HLSSegment],
+        *,
+        target_duration: int | None = None,
+        media_sequence: int = 0,
+        version: int = 3,
+        endlist: bool = True,
+        status: int = 200,
+        headers: Mapping[str, str] | None = None,
+    ) -> Response:
+        """Create an HLS media playlist (.m3u8) response."""
+        if target_duration is None:
+            max_duration = max((seg.duration for seg in segments), default=1.0)
+            target_duration = max(1, int(max_duration) + (0 if float(max_duration).is_integer() else 1))
+        if target_duration < 1:
+            raise HLSManifestError(message="target_duration must be >= 1")
+
+        lines = [
+            "#EXTM3U",
+            f"#EXT-X-VERSION:{version}",
+            f"#EXT-X-TARGETDURATION:{target_duration}",
+            f"#EXT-X-MEDIA-SEQUENCE:{media_sequence}",
+        ]
+        for segment in segments:
+            lines.extend(segment.render())
+        if endlist:
+            lines.append("#EXT-X-ENDLIST")
+
+        playlist = "\n".join(lines) + "\n"
+        merged_headers = dict(headers or {})
+        merged_headers.setdefault("cache-control", "no-cache")
+        return cls(
+            content=playlist,
+            status=status,
+            headers=merged_headers,
+            media_type="application/vnd.apple.mpegurl; charset=utf-8",
+        )
+
+    @classmethod
+    def hls_master_playlist(
+        cls,
+        variants: Sequence[HLSVariant],
+        *,
+        version: int = 3,
+        status: int = 200,
+        headers: Mapping[str, str] | None = None,
+    ) -> Response:
+        """Create an HLS master playlist response."""
+        if not variants:
+            raise HLSManifestError(message="master playlist requires at least one variant")
+
+        lines = ["#EXTM3U", f"#EXT-X-VERSION:{version}"]
+        for variant in variants:
+            lines.extend(variant.render())
+        playlist = "\n".join(lines) + "\n"
+        merged_headers = dict(headers or {})
+        merged_headers.setdefault("cache-control", "no-cache")
+        return cls(
+            content=playlist,
+            status=status,
+            headers=merged_headers,
+            media_type="application/vnd.apple.mpegurl; charset=utf-8",
+        )
+
+    @classmethod
+    def hls_segment(
+        cls,
+        path: PathLike,
+        *,
+        status: int = 200,
+        chunk_size: int = 64 * 1024,
+        headers: Mapping[str, str] | None = None,
+    ) -> Response:
+        """Create an HLS segment file response with media-aware defaults."""
+        suffix = Path(path).suffix.lower()
+        if suffix == ".ts":
+            media_type = "video/mp2t"
+        elif suffix in {".m4s", ".cmfa"}:
+            media_type = "video/iso.segment"
+        elif suffix in {".aac"}:
+            media_type = "audio/aac"
+        else:
+            media_type = "application/octet-stream"
+        return cls.file(
+            path,
+            status=status,
+            media_type=media_type,
+            chunk_size=chunk_size,
+            headers=dict(headers or {}),
+        )
 
     @classmethod
     async def render(
@@ -1272,10 +1458,13 @@ class Response:
                 await self._run_background_tasks()
 
         except asyncio.CancelledError:
+            await self._aclose_if_possible(self._content)
             raise ClientDisconnectError(
                 message="Client disconnected",
                 details={"bytes_sent": self._bytes_sent},
             )
+        except ResponseStreamError:
+            raise
         except Exception as e:
             raise ResponseStreamError(
                 message=f"Response stream error: {e}",
@@ -1381,6 +1570,49 @@ class Response:
 
         return headers_list
 
+    def _is_sse_response(self) -> bool:
+        """Return True when this response is an SSE stream."""
+        content_type = self._headers.get("content-type")
+        if isinstance(content_type, list):
+            content_type = content_type[0] if content_type else ""
+        return isinstance(content_type, str) and content_type.lower().startswith("text/event-stream")
+
+    async def _emit_sse_error_frame(self, send: Callable[[dict], Awaitable[None]], exc: Exception) -> None:
+        """Best-effort SSE error frame emission for mid-stream failures."""
+        event = ServerSentEvent(event="error", data=f"stream_error: {type(exc).__name__}")
+        payload = event.encode()
+        self._bytes_sent += len(payload)
+        await send(
+            {
+                "type": "http.response.body",
+                "body": payload,
+                "more_body": True,
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": b"",
+                "more_body": False,
+            }
+        )
+
+    async def _aclose_if_possible(self, stream: Any) -> None:
+        """Close async generators/streams when available."""
+        close = getattr(stream, "aclose", None)
+        if close is None:
+            return
+        with contextlib.suppress(Exception):
+            await close()
+
+    def _close_if_possible(self, stream: Any) -> None:
+        """Close sync iterators/generators when available."""
+        close = getattr(stream, "close", None)
+        if close is None:
+            return
+        with contextlib.suppress(Exception):
+            close()
+
     async def _send_body(self, send: Callable[[dict], Awaitable[None]], request: Any | None) -> None:
         """Send response body based on content type.
 
@@ -1432,16 +1664,28 @@ class Response:
 
         # ── Async iterator (streaming) ──
         if hasattr(content, "__aiter__"):
-            async for chunk in content:
-                chunk_bytes = self._ensure_bytes(chunk)
-                self._bytes_sent += len(chunk_bytes)
-                await send(
-                    {
-                        "type": "http.response.body",
-                        "body": chunk_bytes,
-                        "more_body": True,
-                    }
+            stream = content
+            try:
+                async for chunk in stream:
+                    chunk_bytes = self._ensure_bytes(chunk)
+                    self._bytes_sent += len(chunk_bytes)
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": chunk_bytes,
+                            "more_body": True,
+                        }
+                    )
+            except Exception as exc:
+                if self._is_sse_response():
+                    await self._emit_sse_error_frame(send, exc)
+                    return
+                raise ResponseStreamError(
+                    message=f"Async stream failed: {exc}",
+                    details={"error": str(exc), "bytes_sent": self._bytes_sent},
                 )
+            finally:
+                await self._aclose_if_possible(stream)
             await send(
                 {
                     "type": "http.response.body",
@@ -1462,19 +1706,27 @@ class Response:
                     return None, False
 
             iterator = iter(content)
-            while True:
-                chunk, has_more = await loop.run_in_executor(None, _get_next_chunk, iterator)
-                if not has_more:
-                    break
-                chunk_bytes = self._ensure_bytes(chunk)
-                self._bytes_sent += len(chunk_bytes)
-                await send(
-                    {
-                        "type": "http.response.body",
-                        "body": chunk_bytes,
-                        "more_body": True,
-                    }
+            try:
+                while True:
+                    chunk, has_more = await loop.run_in_executor(None, _get_next_chunk, iterator)
+                    if not has_more:
+                        break
+                    chunk_bytes = self._ensure_bytes(chunk)
+                    self._bytes_sent += len(chunk_bytes)
+                    await send(
+                        {
+                            "type": "http.response.body",
+                            "body": chunk_bytes,
+                            "more_body": True,
+                        }
+                    )
+            except Exception as exc:
+                raise ResponseStreamError(
+                    message=f"Sync stream failed: {exc}",
+                    details={"error": str(exc), "bytes_sent": self._bytes_sent},
                 )
+            finally:
+                self._close_if_possible(iterator)
             await send(
                 {
                     "type": "http.response.body",
@@ -1740,12 +1992,16 @@ __all__ = [
     "BackgroundTask",
     "CallableBackgroundTask",
     "ServerSentEvent",
+    "MediaChunk",
+    "HLSSegment",
+    "HLSVariant",
     "CookieSigner",
     "ResponseStreamError",
     "TemplateRenderError",
     "InvalidHeaderError",
     "ClientDisconnectError",
     "RangeNotSatisfiableError",
+    "HLSManifestError",
     "Ok",
     "Created",
     "NoContent",
