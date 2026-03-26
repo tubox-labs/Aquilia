@@ -1195,12 +1195,6 @@ def configure(
     _GLOBAL_SECRETS = secrets_list
     _GLOBAL_ALGORITHM = algorithm
     _GLOBAL_SALT = salt
-    log.debug(
-        "aquilia.signing configured: algorithm=%s, secrets=%d (1 current + %d fallback)",
-        algorithm,
-        len(secrets_list),
-        len(secrets_list) - 1,
-    )
 
 
 def _get_global_secret() -> str | bytes:

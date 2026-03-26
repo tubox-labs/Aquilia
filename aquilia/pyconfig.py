@@ -371,7 +371,6 @@ def _ensure_dotenv_loaded(*, config_cls: type[Any] | None = None) -> None:
         _dotenv_loaded = True
     except ImportError:
         # Fallback if dotenv module is not available
-        log.debug("aquilia.dotenv not available, skipping auto-load")
         _dotenv_loaded = True
     except Exception as exc:
         from aquilia.faults.domains import ConfigMissingFault

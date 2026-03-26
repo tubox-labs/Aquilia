@@ -235,12 +235,10 @@ class DotEnv:
         if path is None:
             path = find_dotenv()
             if path is None:
-                log.debug("No .env file found")
                 return {}
 
         file_path = Path(path)
         if not file_path.exists():
-            log.debug(".env file not found: %s", path)
             return {}
 
         values = cls.parse(file_path, encoding=encoding, interpolate=interpolate)
@@ -250,9 +248,6 @@ class DotEnv:
             if override or key not in os.environ:
                 os.environ[key] = value
                 loaded[key] = value
-
-        if loaded:
-            log.debug("Loaded %d variables from %s", len(loaded), path)
 
         return loaded
 
@@ -579,7 +574,6 @@ class DotEnvLoader:
                         )
                         cls._loaded_files.append(full_path)
                         merged_values.update(loaded)
-                        log.info("Loaded environment from %s", full_path)
                     except Exception as exc:
                         log.error("Failed to load %s: %s", full_path, exc)
 
@@ -871,7 +865,6 @@ def ensure_dotenv_loaded(
         auto_load = auto_load_env in ("true", "1", "yes", "on")
 
     if not auto_load:
-        log.debug("Dotenv auto-loading disabled")
         return
 
     # Use the DotEnvLoader singleton
