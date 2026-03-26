@@ -550,6 +550,37 @@ def cmd_model_dump(
     return source
 
 
+def _configure_shell_line_editor(namespace: dict[str, object]) -> bool:
+    """
+    Configure readline/libedit so shell editing behaves like a normal REPL.
+
+    This prevents control-sequence leakage (for example ``^?``) when users
+    press Backspace/Delete in terminals that emit different key codes.
+    """
+    try:
+        import readline
+    except Exception:
+        return False
+
+    # Try to enable completion with shell-local symbols.
+    with contextlib.suppress(Exception):
+        import rlcompleter
+
+        readline.set_completer(rlcompleter.Completer(namespace).complete)
+
+    # GNU readline and libedit accept different subsets of bindings.
+    for binding in (
+        "tab: complete",
+        '"\\C-?": backward-delete-char',
+        '"\\C-h": backward-delete-char',
+        '"\\e[3~": delete-char',
+    ):
+        with contextlib.suppress(Exception):
+            readline.parse_and_bind(binding)
+
+    return True
+
+
 def cmd_shell(
     database_url: str = "sqlite:///db.sqlite3",
     verbose: bool = False,
@@ -619,6 +650,8 @@ def cmd_shell(
                 dim=True,
             )
         )
+
+        _configure_shell_line_editor(ns)
 
         code.interact(local=ns, banner="")
 
