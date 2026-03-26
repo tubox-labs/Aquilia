@@ -157,6 +157,12 @@ def create_app(
     This is the core factory function.  It can be called explicitly
     or is invoked automatically when this module is imported.
 
+    Dotenv Integration
+    ------------------
+    This function automatically loads ``.env`` files from the workspace
+    root before processing any configuration. You do NOT need to call
+    ``load_dotenv()`` manually.
+
     Args:
         workspace_root: Path to workspace directory (default: from env).
         mode: Runtime mode — ``dev``, ``test``, or ``prod`` (default: from env).
@@ -187,6 +193,21 @@ def create_app(
     os.environ.setdefault("AQUILIA_WORKSPACE", str(workspace_root))
 
     _setup_logging(mode)
+
+    # ── 2.5. Load .env files EARLY (before any config resolution) ────
+    # This is the key integration point: load .env before ConfigLoader
+    # so that Env() bindings in AquilaConfig can see the values.
+    from aquilia.dotenv import DotEnvLoader
+
+    DotEnvLoader.ensure_loaded(
+        search_paths=[
+            ".env",
+            ".env.local",
+            f".env.{mode}",         # e.g., .env.prod
+            f".env.{mode}.local",   # e.g., .env.prod.local
+        ]
+    )
+    _logger.debug("Dotenv loaded from workspace root: %s", workspace_root)
 
     # ── 3. Load workspace configuration ──────────────────────────────
     workspace_file = workspace_root / "workspace.py"
