@@ -148,6 +148,49 @@ def _discover_module_names(content: str) -> list[str]:
     return result
 
 
+def _load_workspace_modules(workspace_root: Path) -> dict[str, dict[str, Any]]:
+    """Load workspace.py and extract module configs keyed by module name.
+
+    This function loads the full Workspace object from workspace.py and
+    extracts the module configurations (including route_prefix) so they
+    can be threaded through to the runtime.
+
+    Returns:
+        Dict mapping module name to its workspace config dict.
+        Example: {"users": {"route_prefix": "/api/users", ...}, ...}
+    """
+    ws_file = workspace_root / "workspace.py"
+    if not ws_file.exists():
+        return {}
+
+    try:
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("_aq_workspace_loader", ws_file)
+        if spec is None or spec.loader is None:
+            _logger.warning("Failed to create module spec for workspace.py")
+            return {}
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        workspace = getattr(module, "workspace", None)
+        if workspace is None:
+            _logger.warning("No 'workspace' object found in workspace.py")
+            return {}
+
+        # Get the full workspace config dict
+        ws_dict = workspace.to_dict()
+        modules_list = ws_dict.get("modules", [])
+
+        # Build lookup by module name
+        return {m["name"]: m for m in modules_list if "name" in m}
+
+    except Exception as exc:
+        _logger.warning("Failed to load workspace modules: %s", exc)
+        return {}
+
+
 def create_app(
     workspace_root: Path | None = None,
     mode: str | None = None,
@@ -281,7 +324,12 @@ def create_app(
 
     config._build_apps_namespace()
 
-    # ── 5. Construct server ──────────────────────────────────────────
+    # ── 5. Load workspace module configs ─────────────────────────────
+    # Extract route_prefix and other module-level configs from workspace.py
+    workspace_modules = _load_workspace_modules(workspace_root)
+    _logger.debug("Loaded workspace module configs for %d module(s)", len(workspace_modules))
+
+    # ── 6. Construct server ──────────────────────────────────────────
     from aquilia import AquiliaServer
     from aquilia.aquilary.core import RegistryMode
 
@@ -292,6 +340,7 @@ def create_app(
         manifests=manifests,
         config=config,
         mode=registry_mode,
+        workspace_modules=workspace_modules,
     )
 
     _logger.info(

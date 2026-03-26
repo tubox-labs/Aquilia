@@ -305,6 +305,8 @@ class WorkspaceGenerator:
                 # Extract all module metadata
                 version = self._extract_field(manifest_content, r'version="([^"]+)"', "0.1.0")
                 description = self._extract_field(manifest_content, r'description="([^"]+)"', mod_name.capitalize())
+                # route_prefix is deprecated in manifest.py; workspace.py is source of truth
+                # This extraction is for backward compatibility with legacy manifests
                 route_prefix = self._extract_field(manifest_content, r'route_prefix="([^"]+)"', f"/{mod_name}")
                 author = self._extract_field(manifest_content, r'author="([^"]+)"', "")
                 tags = self._extract_list(manifest_content, r"tags=\[(.*?)\]", [])

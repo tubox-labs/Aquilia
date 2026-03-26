@@ -32,6 +32,9 @@ class AppContext:
     manifest: Any  # Original manifest object
     config_namespace: dict[str, Any]
 
+    # Routing (workspace-level source of truth)
+    route_prefix: str = "/"
+
     # Lazy-loaded resources (import paths only)
     controllers: list[str] = field(default_factory=list)
     services: list[str] = field(default_factory=list)
@@ -230,6 +233,7 @@ class Aquilary:
         *,
         allow_fs_autodiscovery: bool = False,
         freeze_manifest_path: str | None = None,
+        workspace_modules: dict[str, dict[str, Any]] | None = None,
     ) -> AquilaryRegistry:
         """
         Build and validate registry metadata (static phase).
@@ -242,6 +246,7 @@ class Aquilary:
             mode: Registry mode (dev/prod/test)
             allow_fs_autodiscovery: If True, scan filesystem for manifests
             freeze_manifest_path: If provided, load from frozen manifest
+            workspace_modules: Module configs from workspace.py (route_prefix, etc.)
 
         Returns:
             AquilaryRegistry with validated metadata
@@ -294,6 +299,8 @@ class Aquilary:
 
         # Phase 5: Build app contexts (ordered)
         app_contexts = []
+        ws_modules = workspace_modules or {}
+
         for i, app_name in enumerate(load_order):
             manifest = next(m for m in loaded_manifests if m.name == app_name)
 
@@ -302,12 +309,36 @@ class Aquilary:
             if hasattr(config, "apps") and hasattr(config.apps, app_name):
                 config_ns = getattr(config.apps, app_name).__dict__
 
+            # Determine route_prefix: workspace takes precedence
+            ws_module = ws_modules.get(app_name, {})
+            ws_prefix = ws_module.get("route_prefix")
+            manifest_prefix = getattr(manifest, "route_prefix", None)
+
+            # Use workspace prefix if set, otherwise fall back to /{module_name}
+            if ws_prefix:
+                route_prefix = ws_prefix
+            else:
+                route_prefix = f"/{app_name}"
+
+            # Emit deprecation warning if manifest defines non-default route_prefix
+            if manifest_prefix and manifest_prefix != "/":
+                import warnings
+
+                warnings.warn(
+                    f"AppManifest.route_prefix in '{app_name}' is deprecated. "
+                    f"Use Module.route_prefix() in workspace.py instead. "
+                    f"Workspace value '{route_prefix}' will be used.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+
             # Build context
             ctx = AppContext(
                 name=manifest.name,
                 version=manifest.version,
                 manifest=manifest,
                 config_namespace=config_ns,
+                route_prefix=route_prefix,
                 controllers=getattr(manifest, "controllers", []),
                 services=getattr(manifest, "services", []),
                 models=getattr(manifest, "models", []),

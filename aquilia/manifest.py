@@ -445,8 +445,8 @@ class AppManifest:
     # Middleware configuration
     middleware: list[str | MiddlewareConfig | ComponentRef] = field(default_factory=list)
 
-    # Routing
-    route_prefix: str = "/"  # Route prefix for module
+    # Routing (DEPRECATED: use Module.route_prefix() in workspace.py)
+    route_prefix: str = "/"  # Route prefix for module (deprecated - use workspace)
     base_path: str | None = None  # Optional base path override
 
     # Lifecycle management
@@ -546,6 +546,16 @@ class AppManifest:
                 stacklevel=2,
             )
             self.imports = list(self.depends_on)
+
+        # v2: Deprecate route_prefix in manifest (should be in workspace.py)
+        if self.route_prefix != "/":
+            warnings.warn(
+                f"AppManifest({self.name!r}).route_prefix is deprecated. "
+                "Use Module.route_prefix() in workspace.py instead. "
+                "The workspace value will take precedence at runtime.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
         # v2: Normalize string services to ServiceConfig
         normalized_services = []
