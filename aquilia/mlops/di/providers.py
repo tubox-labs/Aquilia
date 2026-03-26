@@ -390,7 +390,14 @@ def register_mlops_providers(
     )
 
     # Encryption Manager
-    enc_mgr = EncryptionManager(key=cfg.encryption_key)
+    enc_mgr: EncryptionManager | None = None
+    try:
+        enc_mgr = EncryptionManager(key=cfg.encryption_key)
+    except ModuleNotFoundError as exc:
+        logger.warning(
+            "EncryptionManager unavailable because optional dependency is missing: %s",
+            exc,
+        )
     container.register(
         ValueProvider(
             value=enc_mgr,
@@ -400,7 +407,14 @@ def register_mlops_providers(
     )
 
     # Blob Encryptor
-    blob_enc = BlobEncryptor(key=cfg.encryption_key)
+    blob_enc: BlobEncryptor | None = None
+    try:
+        blob_enc = BlobEncryptor(key=cfg.encryption_key)
+    except ModuleNotFoundError as exc:
+        logger.warning(
+            "BlobEncryptor unavailable because optional dependency is missing: %s",
+            exc,
+        )
     container.register(
         ValueProvider(
             value=blob_enc,

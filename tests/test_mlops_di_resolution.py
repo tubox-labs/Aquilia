@@ -79,6 +79,25 @@ async def test_register_mlops_providers_is_idempotent() -> None:
     assert first is second
 
 
+@pytest.mark.asyncio
+async def test_register_mlops_providers_without_cryptography_still_registers_orchestrator(monkeypatch) -> None:
+    """Missing cryptography should not break orchestrator DI registration path."""
+    import aquilia.mlops.security.encryption as enc_mod
+    import aquilia.mlops.security.signing as signing_mod
+
+    def _missing_dep(*_args, **_kwargs):
+        raise ModuleNotFoundError("No module named 'cryptography'")
+
+    monkeypatch.setattr(signing_mod.EncryptionManager, "__init__", _missing_dep)
+    monkeypatch.setattr(enc_mod.BlobEncryptor, "__init__", _missing_dep)
+
+    container = Container(scope="app")
+    register_mlops_providers(container, {"enabled": True, "plugin_auto_discover": False})
+
+    orchestrator = await container.resolve_async(ModelOrchestrator)
+    assert isinstance(orchestrator, ModelOrchestrator)
+
+
 @dataclass
 class _LifecycleTestConfig:
     """Small Config-like object for lifecycle tests."""
