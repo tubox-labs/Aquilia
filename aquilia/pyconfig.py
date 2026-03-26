@@ -77,14 +77,40 @@ import inspect
 import json
 import logging
 import os
+import threading
+from collections.abc import Callable
 from dataclasses import field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeVar
 
 if TYPE_CHECKING:
     from aquilia.config import ConfigLoader
 
 log = logging.getLogger(__name__)
+
+# ============================================================================
+# Type definitions for configuration values
+# ============================================================================
+
+#: Any value that can be used in configuration
+ConfigValue: TypeAlias = str | int | float | bool | list[Any] | dict[str, Any] | None
+
+#: Type variable for generic config value casting
+T = TypeVar("T")
+
+#: Callable that casts string environment values to typed values
+EnvCaster: TypeAlias = Callable[[str], Any]
+
+#: Valid cast types for Env class
+EnvCastType: TypeAlias = type | EnvCaster | None
+
+# ============================================================================
+# Module-level caching for resolved AquilaConfig classes
+# ============================================================================
+
+#: Cache for AquilaConfig.to_dict() results - dict[config_class, resolved_dict]
+_config_class_cache: dict[type, dict[str, Any]] = {}
+_config_cache_lock = threading.RLock()
 
 
 # ============================================================================
@@ -105,6 +131,12 @@ class Secret:
     serialised :func:`to_dict` output unless you call
     :meth:`reveal`.
 
+    Dotenv Integration
+    ------------------
+    When ``reveal()`` is called, the native dotenv loader is automatically
+    triggered to ensure ``.env`` files are loaded before resolving.
+    This means you do NOT need to call ``load_dotenv()`` manually.
+
     Examples::
 
         secret_key = Secret(env="AQ_SECRET_KEY", required=True)
@@ -112,7 +144,9 @@ class Secret:
         api_key     = Secret(value="sk-live-abc123")  # inline (dev only!)
     """
 
-    _REDACTED = "<secret>"
+    _REDACTED: Final[str] = "<secret>"
+
+    __slots__ = ("_literal", "_env_name", "_default", "_required")
 
     def __init__(
         self,
@@ -121,14 +155,21 @@ class Secret:
         env: str | None = None,
         default: str | None = None,
         required: bool = False,
-    ):
-        self._literal = value
-        self._env_name = env
-        self._default = default
-        self._required = required
+    ) -> None:
+        self._literal: str | None = value
+        self._env_name: str | None = env
+        self._default: str | None = default
+        self._required: bool = required
 
     def reveal(self) -> str | None:
-        """Return the actual secret value (use deliberately)."""
+        """
+        Return the actual secret value (use deliberately).
+
+        Automatically loads .env files if not already loaded.
+        """
+        # Ensure dotenv is loaded before resolving
+        _ensure_dotenv_loaded()
+
         if self._env_name:
             val = os.environ.get(self._env_name)
             if val is not None:
@@ -148,6 +189,16 @@ class Secret:
             )
         return None
 
+    @property
+    def env_name(self) -> str | None:
+        """Return the environment variable name, if any."""
+        return self._env_name
+
+    @property
+    def is_required(self) -> bool:
+        """Return whether this secret is required."""
+        return self._required
+
     def __repr__(self) -> str:
         env_hint = f"env={self._env_name!r}" if self._env_name else ""
         return f"Secret({env_hint or 'inline'}, {'*required*' if self._required else 'optional'})"
@@ -160,6 +211,56 @@ class Secret:
 # Env binding — transparently reads from environment variables
 # ============================================================================
 
+# Flag to track if dotenv has been loaded
+_dotenv_loaded: bool = False
+_dotenv_lock: bool = False  # Simple reentrant protection
+
+
+def _ensure_dotenv_loaded() -> None:
+    """
+    Ensure .env files are loaded into os.environ.
+
+    This is called automatically when Env.resolve() or Secret.reveal()
+    is invoked. Uses the DotEnvLoader singleton for thread-safe,
+    idempotent loading.
+    """
+    global _dotenv_loaded, _dotenv_lock
+
+    if _dotenv_loaded or _dotenv_lock:
+        return
+
+    _dotenv_lock = True
+    try:
+        from aquilia.dotenv import DotEnvLoader
+
+        DotEnvLoader.ensure_loaded()
+        _dotenv_loaded = True
+    except ImportError:
+        # Fallback if dotenv module is not available
+        log.debug("aquilia.dotenv not available, skipping auto-load")
+        _dotenv_loaded = True
+    except Exception as exc:
+        log.warning("Failed to auto-load .env: %s", exc)
+        _dotenv_loaded = True
+    finally:
+        _dotenv_lock = False
+
+
+def reset_dotenv_state() -> None:
+    """
+    Reset the dotenv loading state.
+
+    Use this in tests to allow .env reloading with different configuration.
+    """
+    global _dotenv_loaded
+    _dotenv_loaded = False
+    try:
+        from aquilia.dotenv import DotEnvLoader
+
+        DotEnvLoader.reset()
+    except ImportError:
+        pass
+
 
 class Env:
     """
@@ -168,58 +269,199 @@ class Env:
     Resolves at read time so runtime changes to the environment are
     reflected immediately (useful in test setups).
 
+    Dotenv Integration
+    ------------------
+    When ``resolve()`` is called, the native dotenv loader is automatically
+    triggered to ensure ``.env`` files are loaded. This means you do NOT
+    need to call ``load_dotenv()`` manually — it's handled automatically.
+
+    The loader respects existing environment variables (will not override).
+
+    Type Casting
+    ------------
+    - If ``cast`` is provided, it's applied to the raw string value.
+    - If ``cast`` is ``bool``, special handling converts common truthy/falsy strings.
+    - If no ``cast`` is provided, auto-casting is attempted:
+      int → float → JSON → str (in that order).
+
     Examples::
 
+        # These will automatically read from .env if present
         debug   = Env("AQ_DEBUG",   default=False,  cast=bool)
         workers = Env("AQ_WORKERS", default=4,       cast=int)
         host    = Env("AQ_HOST",    default="127.0.0.1")
+
+        # .env file contents:
+        # AQ_DEBUG=true
+        # AQ_WORKERS=8
+        # AQ_HOST=0.0.0.0
     """
 
-    _CAST_TRUE = {"1", "true", "yes", "on"}
-    _CAST_FALSE = {"0", "false", "no", "off"}
+    _CAST_TRUE: Final[frozenset[str]] = frozenset({"1", "true", "yes", "on"})
+    _CAST_FALSE: Final[frozenset[str]] = frozenset({"0", "false", "no", "off"})
+
+    # Class-level flag to control auto-loading behavior
+    _auto_load_enabled: bool = True
+
+    __slots__ = ("_name", "_default", "_cast", "_required", "_resolved_cache", "_cache_valid")
 
     def __init__(
         self,
         name: str,
         *,
-        default: Any = None,
-        cast: type | None = None,
-    ):
-        self._name = name
-        self._default = default
-        self._cast = cast
+        default: ConfigValue = None,
+        cast: EnvCastType = None,
+        required: bool = False,
+    ) -> None:
+        """
+        Initialize an environment variable binding.
 
-    def resolve(self) -> Any:
-        """Return the resolved value from the environment or default."""
+        Args:
+            name: Environment variable name (e.g., "DATABASE_URL").
+            default: Default value if the variable is not set.
+            cast: Type or callable to cast the string value.
+            required: If True, raise ConfigMissingFault when the variable
+                      is not set and no default is provided.
+        """
+        self._name: str = name
+        self._default: ConfigValue = default
+        self._cast: EnvCastType = cast
+        self._required: bool = required
+        # Cache to avoid repeated resolution during the same config load
+        self._resolved_cache: ConfigValue = None
+        self._cache_valid: bool = False
+
+    @property
+    def name(self) -> str:
+        """Return the environment variable name."""
+        return self._name
+
+    @property
+    def default(self) -> ConfigValue:
+        """Return the default value."""
+        return self._default
+
+    @property
+    def is_required(self) -> bool:
+        """Return whether this env var is required."""
+        return self._required
+
+    def resolve(self, *, use_cache: bool = False) -> ConfigValue:
+        """
+        Return the resolved value from the environment or default.
+
+        Automatically loads .env files on first call if auto-loading is enabled.
+
+        Args:
+            use_cache: If True, return cached value if available.
+                       Useful during config serialization to avoid
+                       resolving the same value multiple times.
+
+        Returns:
+            The resolved and cast value.
+        """
+        # Return cached value if requested and available
+        if use_cache and self._cache_valid:
+            return self._resolved_cache
+
+        # Ensure dotenv is loaded before resolving
+        if self._auto_load_enabled:
+            _ensure_dotenv_loaded()
+
         raw = os.environ.get(self._name)
+
         if raw is None:
-            return self._default
-        if self._cast is bool:
-            if raw.lower() in self._CAST_TRUE:
-                return True
-            if raw.lower() in self._CAST_FALSE:
-                return False
-            return bool(raw)
-        if self._cast is not None:
-            return self._cast(raw)
-        # Auto-cast: try int → float → json → str
+            # No value in environment - check if required
+            if self._required and self._default is None:
+                from aquilia.faults.domains import ConfigMissingFault
+
+                raise ConfigMissingFault(
+                    key=self._name,
+                    metadata={
+                        "hint": f"Set environment variable {self._name!r} or provide a default value.",
+                    },
+                )
+            value = self._default
+        elif self._cast is bool:
+            value = self._cast_bool(raw)
+        elif self._cast is not None:
+            value = self._cast(raw)
+        else:
+            value = self._auto_cast(raw)
+
+        # Cache the result
+        self._resolved_cache = value
+        self._cache_valid = True
+
+        return value
+
+    def _cast_bool(self, raw: str) -> bool:
+        """Cast a string to boolean with common truthy/falsy values."""
+        lower = raw.lower()
+        if lower in self._CAST_TRUE:
+            return True
+        if lower in self._CAST_FALSE:
+            return False
+        return bool(raw)
+
+    def _auto_cast(self, raw: str) -> ConfigValue:
+        """
+        Auto-cast a string value to the most appropriate type.
+
+        Tries: int → float → JSON → str (in that order).
+        """
+        # Try int
         try:
             return int(raw)
         except ValueError:
             pass
+
+        # Try float
         try:
             return float(raw)
         except ValueError:
             pass
+
+        # Try JSON (for arrays and objects)
         if raw.startswith(("{", "[")):
             try:
                 return json.loads(raw)
             except json.JSONDecodeError:
                 pass
+
+        # Fall back to string
         return raw
+
+    def invalidate_cache(self) -> None:
+        """Invalidate the cached resolved value."""
+        self._cache_valid = False
+        self._resolved_cache = None
+
+    @classmethod
+    def disable_auto_load(cls) -> None:
+        """
+        Disable automatic .env loading.
+
+        Use this if you want to control when .env files are loaded,
+        or if you're loading them through a different mechanism.
+        """
+        cls._auto_load_enabled = False
+
+    @classmethod
+    def enable_auto_load(cls) -> None:
+        """Enable automatic .env loading (default behavior)."""
+        cls._auto_load_enabled = True
 
     def __repr__(self) -> str:
         return f"Env({self._name!r}, default={self._default!r})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Env):
+            return NotImplemented
+        return self._name == other._name and self._default == other._default
+
+    def __hash__(self) -> int:
+        return hash((self._name, type(self._default)))
 
 
 # ============================================================================
@@ -252,16 +494,25 @@ def section(cls: type) -> type:
 # ============================================================================
 
 
-def _resolve_value(val: Any) -> Any:
-    """Unwrap ``Env`` and ``Secret`` wrappers to their runtime values."""
+def _resolve_value(val: Any, *, use_cache: bool = True) -> ConfigValue:
+    """
+    Unwrap ``Env`` and ``Secret`` wrappers to their runtime values.
+
+    Args:
+        val: The value to potentially unwrap.
+        use_cache: For Env values, use cached resolution if available.
+
+    Returns:
+        The resolved value.
+    """
     if isinstance(val, Env):
-        return val.resolve()
+        return val.resolve(use_cache=use_cache)
     if isinstance(val, Secret):
         return val.reveal()
     return val
 
 
-def _class_to_dict(cls: type) -> dict[str, Any]:
+def _class_to_dict(cls: type, *, use_cache: bool = True) -> dict[str, Any]:
     """
     Recursively convert a (nested) config class into a plain dict.
 
@@ -272,6 +523,15 @@ def _class_to_dict(cls: type) -> dict[str, Any]:
     - ``Secret`` instances are revealed (callers decide when to call this).
     - Callable attributes (methods) are skipped.
     - Dataclass/plain-class instances with a ``to_dict`` method are called.
+
+    Args:
+        cls: The config class to convert.
+        use_cache: For Env values, use cached resolution to avoid
+                   duplicate environment lookups during the same
+                   to_dict() call.
+
+    Returns:
+        Dictionary representation of the config class.
     """
     result: dict[str, Any] = {}
     for name, val in inspect.getmembers(cls):
@@ -281,9 +541,9 @@ def _class_to_dict(cls: type) -> dict[str, Any]:
             continue
         if isinstance(val, type):
             # Nested config class → recurse
-            result[name] = _class_to_dict(val)
+            result[name] = _class_to_dict(val, use_cache=use_cache)
         elif isinstance(val, Env):
-            result[name] = val.resolve()
+            result[name] = val.resolve(use_cache=use_cache)
         elif isinstance(val, Secret):
             result[name] = val.reveal()
         elif hasattr(val, "to_dict") and callable(val.to_dict):
@@ -833,7 +1093,7 @@ class AquilaConfig:
     # ── Class-level helpers ───────────────────────────────────────────────
 
     @classmethod
-    def to_dict(cls) -> dict[str, Any]:
+    def to_dict(cls, *, use_cache: bool = True) -> dict[str, Any]:
         """
         Serialise this config class into a plain nested dict.
 
@@ -841,9 +1101,37 @@ class AquilaConfig:
         and nested section classes are recursed.  The resulting dict is
         compatible with :class:`~aquilia.config.ConfigLoader`.
 
+        Caching
+        -------
+        When ``use_cache=True`` (default), the resolved dict is cached at
+        the class level. Subsequent calls return a copy of the cached result,
+        avoiding re-resolution of all ``Env`` bindings.
+
+        Use :meth:`invalidate_cache` to clear the cache when you need to
+        re-resolve values (e.g., after environment changes in tests).
+
+        Dotenv Integration
+        ------------------
+        When this method is called, the native dotenv loader is automatically
+        triggered to ensure ``.env`` files are loaded before resolving any
+        ``Env`` bindings. You do NOT need to call ``load_dotenv()`` manually.
+
+        Args:
+            use_cache: If True (default), use cached results if available
+                       and cache new results for future calls.
+
         Returns:
             Nested configuration dictionary.
         """
+        # Ensure dotenv is loaded up front
+        _ensure_dotenv_loaded()
+
+        # Check class-level cache first
+        if use_cache:
+            with _config_cache_lock:
+                if cls in _config_class_cache:
+                    return _config_class_cache[cls].copy()
+
         result: dict[str, Any] = {}
 
         for name in dir(cls):
@@ -861,9 +1149,9 @@ class AquilaConfig:
                 if val.__module__ != cls.__module__ and not getattr(val, "_is_aquila_section", False):
                     # Skip imported types from other modules that are not sections
                     continue
-                result[name] = _class_to_dict(val)
+                result[name] = _class_to_dict(val, use_cache=use_cache)
             elif isinstance(val, Env):
-                result[name] = val.resolve()
+                result[name] = val.resolve(use_cache=use_cache)
             elif isinstance(val, Secret):
                 result[name] = val.reveal()
             elif hasattr(val, "to_dict") and callable(val.to_dict):
@@ -871,7 +1159,41 @@ class AquilaConfig:
             elif isinstance(val, (str, int, float, bool, list, dict)):
                 result[name] = val
 
+        # Cache the result
+        if use_cache:
+            with _config_cache_lock:
+                _config_class_cache[cls] = result.copy()
+
         return result
+
+    @classmethod
+    def invalidate_cache(cls) -> None:
+        """
+        Invalidate the cached config dict for this class.
+
+        Call this after environment variables change to ensure the next
+        ``to_dict()`` or ``get()`` call re-resolves all values.
+
+        Example::
+
+            os.environ["MY_VAR"] = "new_value"
+            MyConfig.invalidate_cache()
+            print(MyConfig.get("my_var"))  # Uses new value
+        """
+        with _config_cache_lock:
+            _config_class_cache.pop(cls, None)
+
+    @classmethod
+    def clear_all_caches(cls) -> None:
+        """
+        Clear all config class caches.
+
+        Use this in test teardown to reset state between tests.
+        """
+        with _config_cache_lock:
+            _config_class_cache.clear()
+        # Also reset dotenv state
+        reset_dotenv_state()
 
     @classmethod
     def to_loader(cls) -> ConfigLoader:
@@ -1108,9 +1430,16 @@ class PyConfigLoader:
 # ============================================================================
 
 __all__ = [
+    # Core classes
     "AquilaConfig",
     "PyConfigLoader",
     "Secret",
     "Env",
     "section",
+    # Dotenv control functions
+    "reset_dotenv_state",
+    # Type aliases (from top of module)
+    "ConfigValue",
+    "EnvCaster",
+    "EnvCastType",
 ]
