@@ -18,9 +18,7 @@ from typing import Any, Protocol, TypeAlias, TypeVar, runtime_checkable
 ConfigPrimitive: TypeAlias = str | int | float | bool | None
 
 #: Any value that can be used in configuration (recursive)
-ConfigValue: TypeAlias = (
-    ConfigPrimitive | list["ConfigValue"] | dict[str, "ConfigValue"]
-)
+ConfigValue: TypeAlias = ConfigPrimitive | list["ConfigValue"] | dict[str, "ConfigValue"]
 
 #: A configuration dictionary
 ConfigDict: TypeAlias = dict[str, ConfigValue]

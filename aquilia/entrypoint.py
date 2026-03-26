@@ -203,8 +203,8 @@ def create_app(
         search_paths=[
             ".env",
             ".env.local",
-            f".env.{mode}",         # e.g., .env.prod
-            f".env.{mode}.local",   # e.g., .env.prod.local
+            f".env.{mode}",  # e.g., .env.prod
+            f".env.{mode}.local",  # e.g., .env.prod.local
         ]
     )
     _logger.debug("Dotenv loaded from workspace root: %s", workspace_root)
