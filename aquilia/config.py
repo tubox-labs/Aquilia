@@ -4,12 +4,15 @@ Supports dataclass/pydantic-like behavior with merge precedence.
 """
 
 import json
+import logging
 import os
 from dataclasses import MISSING, fields, is_dataclass
 from pathlib import Path
 from typing import Any, get_args, get_origin, get_type_hints
 
 from aquilia.faults.domains import ConfigInvalidFault
+
+log = logging.getLogger(__name__)
 
 
 class NestedNamespace:
@@ -275,24 +278,43 @@ class ConfigLoader:
         )
 
     def _load_env_file(self, path: str):
-        """Load config from .env file."""
-        env_path = Path(path)
-        if not env_path.exists():
+        """
+        Load config from .env file using native dotenv loader.
+
+        Loads ALL variables into os.environ (for Env() bindings in AquilaConfig),
+        and also processes AQ_ prefixed vars into config_data.
+        """
+        try:
+            from aquilia.dotenv import load_dotenv
+        except ImportError:
+            # Fallback to old implementation if dotenv not available
+            log.warning("Native dotenv module not available, using fallback")
+            env_path = Path(path)
+            if not env_path.exists():
+                return
+
+            with open(env_path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+
+                        if key.startswith(self.env_prefix):
+                            self._set_nested(key, value)
             return
 
-        with open(env_path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
+        # Use native dotenv loader - this populates os.environ with ALL variables
+        loaded = load_dotenv(path, override=False)
 
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip().strip('"').strip("'")
-
-                    if key.startswith(self.env_prefix):
-                        self._set_nested(key, value)
+        # Also process AQ_ prefixed vars into config_data
+        for key, value in loaded.items():
+            if key.startswith(self.env_prefix):
+                self._set_nested(key, value)
 
     def _load_from_env(self):
         """Load config from environment variables."""

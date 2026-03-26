@@ -66,6 +66,35 @@ class ConfigInvalidFault(ConfigFault):
         )
 
 
+class DotenvParseFault(ConfigFault):
+    """Dotenv file contains syntax errors."""
+
+    def __init__(self, path: str, line_number: int, reason: str, **kwargs):
+        super().__init__(
+            code="DOTENV_PARSE_ERROR",
+            message=f"Failed to parse .env file '{path}' at line {line_number}: {reason}",
+            severity=Severity.ERROR,
+            metadata={
+                "path": path,
+                "line_number": line_number,
+                "reason": reason,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class DotenvNotFoundFault(ConfigFault):
+    """Dotenv file not found when explicitly requested."""
+
+    def __init__(self, path: str, **kwargs):
+        super().__init__(
+            code="DOTENV_NOT_FOUND",
+            message=f"Dotenv file not found: '{path}'",
+            severity=Severity.WARN,
+            metadata={"path": path, **kwargs.get("metadata", {})},
+        )
+
+
 # ============================================================================
 # REGISTRY Faults
 # ============================================================================
