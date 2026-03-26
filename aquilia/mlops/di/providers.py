@@ -160,12 +160,15 @@ def register_mlops_providers(
         TokenBucketRateLimiter,
     )
     from .._types import DriftMethod
+    from ..api.model_class import set_global_registry
     from ..observe.drift import DriftDetector
     from ..observe.logger import PredictionLogger
     from ..observe.metrics import MetricsCollector
     from ..orchestrator.loader import ModelLoader
     from ..orchestrator.orchestrator import ModelOrchestrator
     from ..orchestrator.persistence import ModelPersistenceManager
+    from ..orchestrator.registry import ModelRegistry
+    from ..orchestrator.router import VersionRouter
     from ..plugins.host import PluginHost
     from ..registry.service import RegistryService
     from ..release.rollout import RolloutEngine
@@ -178,6 +181,15 @@ def register_mlops_providers(
     from ..serving.router import TrafficRouter
 
     cfg = MLOpsConfig(config)
+
+    if not cfg.enabled:
+        logger.info("MLOps integration disabled; skipping provider registration")
+        return
+
+    # Idempotency: a repeated startup path should not fail on duplicate providers.
+    if hasattr(container, "is_registered") and container.is_registered(ModelOrchestrator):
+        logger.debug("MLOps providers already registered; skipping duplicate registration")
+        return
 
     # Config singleton
     container.register(
@@ -242,6 +254,17 @@ def register_mlops_providers(
         )
     )
 
+    # Inference model registry used by orchestrator pipeline.
+    model_registry = ModelRegistry()
+    set_global_registry(model_registry)
+    container.register(
+        ValueProvider(
+            value=model_registry,
+            token=ModelRegistry,
+            scope="singleton",
+        )
+    )
+
     # Model Persistence Manager
     persistence = ModelPersistenceManager(root_dir=cfg.blob_root)
     container.register(
@@ -254,13 +277,23 @@ def register_mlops_providers(
 
     # Model Loader
     loader = ModelLoader(
-        registry=registry,
+        registry=model_registry,
         persistence_manager=persistence,
     )
     container.register(
         ValueProvider(
             value=loader,
             token=ModelLoader,
+            scope="singleton",
+        )
+    )
+
+    # Version Router (inference routing)
+    version_router = VersionRouter(model_registry)
+    container.register(
+        ValueProvider(
+            value=version_router,
+            token=VersionRouter,
             scope="singleton",
         )
     )
@@ -277,11 +310,11 @@ def register_mlops_providers(
         )
     )
 
-    # Traffic Router
-    router = TrafficRouter()
+    # Traffic Router (release/rollout routing)
+    traffic_router = TrafficRouter()
     container.register(
         ValueProvider(
-            value=router,
+            value=traffic_router,
             token=TrafficRouter,
             scope="singleton",
         )
@@ -289,8 +322,8 @@ def register_mlops_providers(
 
     # Model Orchestrator
     orchestrator = ModelOrchestrator(
-        registry=registry,
-        router=router,
+        registry=model_registry,
+        router=version_router,
         loader=loader,
     )
     container.register(
@@ -302,7 +335,7 @@ def register_mlops_providers(
     )
 
     # Rollout Engine
-    rollout_engine = RolloutEngine(router=router)
+    rollout_engine = RolloutEngine(router=traffic_router)
     container.register(
         ValueProvider(
             value=rollout_engine,
@@ -470,9 +503,11 @@ def register_mlops_providers(
 
             async def handle(self, ctx: FaultContext):
                 if isinstance(ctx.fault, MLOpsFault):
+                    domain = ctx.fault.domain
+                    domain_name = domain.name if (domain is not None and hasattr(domain, "name")) else str(domain)
                     logger.warning(
                         "MLOps fault [%s/%s]: %s",
-                        ctx.fault.domain.name if hasattr(ctx.fault.domain, "name") else ctx.fault.domain,
+                        domain_name,
                         ctx.fault.code,
                         ctx.fault.message,
                     )
