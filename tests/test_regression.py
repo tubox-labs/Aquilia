@@ -1254,7 +1254,7 @@ class TestFullImportChain:
     def test_import_aquilia_root(self):
         import aquilia
         assert hasattr(aquilia, "__version__")
-        assert aquilia.__version__ == "1.0.1a4"
+        assert aquilia.__version__ == "1.0.1"
 
     def test_import_server(self):
         from aquilia.server import AquiliaServer

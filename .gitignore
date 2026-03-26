@@ -76,6 +76,12 @@ myapp/*
 skills-lock.json
 .claude/
 .agents/
+.agent/
+skills/
+
+pr.md
 
 .github/copilot-instructions.md
 CLAUDE.md
+
+.mypy_cache/
