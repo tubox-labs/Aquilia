@@ -303,6 +303,9 @@ class Aquilary:
 
         for i, app_name in enumerate(load_order):
             manifest = next(m for m in loaded_manifests if m.name == app_name)
+            lifecycle_cfg = getattr(manifest, "lifecycle", None)
+            lifecycle_startup = getattr(lifecycle_cfg, "on_startup", None) if lifecycle_cfg else None
+            lifecycle_shutdown = getattr(lifecycle_cfg, "on_shutdown", None) if lifecycle_cfg else None
 
             # Extract config namespace
             config_ns = {}
@@ -345,8 +348,9 @@ class Aquilary:
                 # Prefer 'middleware' (new format) over 'middlewares' (legacy)
                 middlewares=getattr(manifest, "middleware", None) or getattr(manifest, "middlewares", []),
                 depends_on=getattr(manifest, "depends_on", []),
-                on_startup=getattr(manifest, "on_startup", None),
-                on_shutdown=getattr(manifest, "on_shutdown", None),
+                # Prefer lifecycle config hooks over legacy top-level hooks.
+                on_startup=lifecycle_startup or getattr(manifest, "on_startup", None),
+                on_shutdown=lifecycle_shutdown or getattr(manifest, "on_shutdown", None),
                 load_order=i,
             )
             app_contexts.append(ctx)
@@ -1280,7 +1284,7 @@ class RuntimeRegistry:
         """Resolve lifecycle hook import paths into callables."""
         import importlib
 
-        def _resolve(path: str) -> Callable | None:
+        def _resolve(path: str, ctx: AppContext) -> Callable | None:
             if not path or not isinstance(path, str):
                 return None
             try:
@@ -1289,9 +1293,36 @@ class RuntimeRegistry:
                 else:
                     mod_path, func_name = path.rsplit(".", 1)
 
-                module = importlib.import_module(mod_path)
-                func = getattr(module, func_name)
-                return func
+                manifest_module = getattr(getattr(ctx, "manifest", None), "__module__", "")
+                base_package = manifest_module.rsplit(".", 1)[0] if "." in manifest_module else ""
+
+                candidate_modules = [mod_path]
+                if mod_path and "." not in mod_path:
+                    if base_package:
+                        candidate_modules.insert(0, f"{base_package}.{mod_path}")
+                    if ctx.name:
+                        candidate_modules.append(f"modules.{ctx.name}.{mod_path}")
+
+                if mod_path.startswith(".") and base_package:
+                    module = importlib.import_module(mod_path, package=base_package)
+                    func = getattr(module, func_name)
+                    if callable(func):
+                        return func
+                    return None
+
+                last_error: Exception | None = None
+                for candidate in candidate_modules:
+                    try:
+                        module = importlib.import_module(candidate)
+                        func = getattr(module, func_name)
+                        if callable(func):
+                            return func
+                    except (ImportError, AttributeError) as e:
+                        last_error = e
+
+                if last_error is not None:
+                    raise last_error
+                return None
             except (ImportError, AttributeError, ValueError) as e:
                 import logging as _log
 
@@ -1300,6 +1331,6 @@ class RuntimeRegistry:
 
         for ctx in self.meta.app_contexts:
             if isinstance(ctx.on_startup, str):
-                ctx.on_startup = _resolve(ctx.on_startup)
+                ctx.on_startup = _resolve(ctx.on_startup, ctx)
             if isinstance(ctx.on_shutdown, str):
-                ctx.on_shutdown = _resolve(ctx.on_shutdown)
+                ctx.on_shutdown = _resolve(ctx.on_shutdown, ctx)
