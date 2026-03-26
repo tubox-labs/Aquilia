@@ -434,7 +434,7 @@ class BuildResult:
         # Build route index
         route_index = {}
         for actx in app_contexts:
-            prefix = getattr(actx.manifest, "route_prefix", f"/{actx.name}")
+            prefix = actx.route_prefix
             for ctrl in actx.controllers:
                 route_index[f"{prefix}/*"] = {"controller": ctrl, "module": actx.name}
 

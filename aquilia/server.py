@@ -67,6 +67,7 @@ class AquiliaServer:
         config: ConfigLoader | None = None,
         mode: RegistryMode = RegistryMode.PROD,
         aquilary_registry: AquilaryRegistry | None = None,
+        workspace_modules: dict[str, dict[str, Any]] | None = None,
     ):
         """
         Initialize AquiliaServer with Aquilary registry.
@@ -76,10 +77,12 @@ class AquiliaServer:
             config: Configuration loader
             mode: Registry mode (DEV, PROD, TEST)
             aquilary_registry: Pre-built AquilaryRegistry (advanced usage)
+            workspace_modules: Module configs from workspace.py (route_prefix, etc.)
         """
         self.config = config or ConfigLoader()
         self.logger = logging.getLogger("aquilia.server")
         self.mode = mode
+        self._workspace_modules = workspace_modules or {}
 
         # Bootstrap the signing engine from config so all subsystems
         # (sessions, CSRF, cache, activation links) share a consistent key.
@@ -115,6 +118,7 @@ class AquiliaServer:
                 manifests=manifests,
                 config=self.config,
                 mode=mode.value,
+                workspace_modules=self._workspace_modules,
             )
 
         # Create runtime registry (lazy compilation phase)
@@ -1928,8 +1932,8 @@ class AquiliaServer:
                 try:
                     controller_class = self._import_controller_class(controller_path)
 
-                    # Get route prefix from manifest if available
-                    route_prefix = getattr(app_ctx.manifest, "route_prefix", None)
+                    # Get route prefix from AppContext (workspace source of truth)
+                    route_prefix = app_ctx.route_prefix
 
                     # Compile controller
                     compiled = self.controller_compiler.compile_controller(
