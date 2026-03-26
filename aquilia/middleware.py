@@ -609,9 +609,7 @@ class CompressionMiddleware:
         # Don't compress streaming responses
         if hasattr(response._content, "__aiter__"):
             return response
-        if hasattr(response._content, "__iter__") and not isinstance(
-            response._content, (bytes, str, dict, list)
-        ):
+        if hasattr(response._content, "__iter__") and not isinstance(response._content, (bytes, str, dict, list)):
             return response
 
         # Get body

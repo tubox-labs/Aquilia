@@ -25,12 +25,6 @@ ControllerHandler: TypeAlias = Callable[..., Awaitable[object]]
 ControllerStreamChunk: TypeAlias = bytes | str
 ControllerStreamIterator: TypeAlias = AsyncIterator[ControllerStreamChunk] | Iterator[ControllerStreamChunk]
 ControllerReturnValue: TypeAlias = (
-    JSONValue
-    | bytes
-    | str
-    | Mapping[str, Any]
-    | Sequence[Any]
-    | ControllerStreamIterator
-    | Awaitable[Any]
+    JSONValue | bytes | str | Mapping[str, Any] | Sequence[Any] | ControllerStreamIterator | Awaitable[Any]
 )
 ControllerStateMap: TypeAlias = dict[str, JSONValue]
