@@ -68,8 +68,30 @@ def _extract_session(args, kwargs) -> Session | None:
 
     # Find RequestCtx in args
     for arg in args:
-        if hasattr(arg, "session") and hasattr(arg, "request"):
-            return arg.session
+        if not hasattr(arg, "request"):
+            continue
+
+        ctx_session = getattr(arg, "session", None)
+        if ctx_session is not None:
+            return ctx_session
+
+        request = getattr(arg, "request", None)
+        if request is None:
+            continue
+
+        state = getattr(request, "state", None)
+        if state is None:
+            continue
+
+        if isinstance(state, dict):
+            state_session = state.get("session")
+        elif hasattr(state, "get"):
+            state_session = state.get("session")
+        else:
+            state_session = getattr(state, "session", None)
+
+        if state_session is not None:
+            return state_session
 
     return None
 

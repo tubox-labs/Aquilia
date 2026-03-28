@@ -1492,6 +1492,56 @@ class TestSessionDecorators:
             await handler(ctx)
 
     @pytest.mark.asyncio
+    async def test_authenticated_decorator_uses_request_state_session_fallback(self):
+        from aquilia.sessions.decorators import authenticated
+
+        @authenticated
+        async def handler(ctx, user=None):
+            return user.id
+
+        sess = self._make_session(authenticated=True)
+        ctx = self._make_ctx(session=None)
+        ctx.request.state["session"] = sess
+
+        result = await handler(ctx)
+        assert result == "u1"
+
+    @pytest.mark.asyncio
+    async def test_require_authenticated_uses_request_state_session_fallback(self):
+        from aquilia.sessions.decorators import session as sess_dec
+
+        @sess_dec.require(authenticated=True)
+        async def handler(ctx, session=None):
+            return session.principal.id
+
+        sess = self._make_session(authenticated=True)
+        ctx = self._make_ctx(session=None)
+        ctx.request.state["session"] = sess
+
+        result = await handler(ctx)
+        assert result == "u1"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_decorator_with_ctx_without_session_attribute(self):
+        from aquilia.sessions.decorators import authenticated
+
+        class _CtxWithoutSession:
+            def __init__(self, request):
+                self.request = request
+
+        @authenticated
+        async def handler(ctx, user=None):
+            return user.id
+
+        sess = self._make_session(authenticated=True)
+        request = MagicMock()
+        request.state = {"session": sess}
+        ctx = _CtxWithoutSession(request=request)
+
+        result = await handler(ctx)
+        assert result == "u1"
+
+    @pytest.mark.asyncio
     async def test_stateful_decorator(self):
         from aquilia.sessions.decorators import stateful
         from aquilia.sessions.state import SessionState
