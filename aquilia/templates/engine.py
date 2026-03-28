@@ -16,6 +16,7 @@ from jinja2 import Template
 
 from .bytecode_cache import BytecodeCache, InMemoryBytecodeCache
 from .context import create_template_context
+from .extensions import StaticTagExtension
 from .loader import TemplateLoader
 from .security import SandboxPolicy, TemplateSandbox, create_safe_filters, create_safe_globals
 
@@ -71,6 +72,7 @@ class TemplateEngine:
         self.loader = loader
         self.bytecode_cache = bytecode_cache or InMemoryBytecodeCache()
         self.sandbox = sandbox
+        extension_list = self._with_default_extensions(extensions)
 
         # Create sandbox if enabled
         if sandbox:
@@ -103,7 +105,7 @@ class TemplateEngine:
             self.env = self._sandbox.create_environment(
                 loader=self.loader,
                 bytecode_cache=self.bytecode_cache,
-                extensions=extensions or [],
+                extensions=extension_list,
                 enable_async=enable_async,
             )
         else:
@@ -119,7 +121,7 @@ class TemplateEngine:
                 )
                 if autoescape
                 else False,
-                extensions=extensions or [],
+                extensions=extension_list,
                 enable_async=enable_async,
             )
 
@@ -135,9 +137,49 @@ class TemplateEngine:
             if globals:
                 self.env.globals.update(globals)
 
+        # Default URL fallbacks used by helpers and template tags.
+        self.env.aquilia_static_prefix = "/static"
+        self.env.aquilia_media_prefix = "/media"
+        if "static" not in self.env.globals:
+            self.env.globals["static"] = self._default_static_url
+        if "static_url" not in self.env.globals:
+            self.env.globals["static_url"] = self._default_static_url
+        if "asset" not in self.env.globals:
+            self.env.globals["asset"] = self._default_asset_url
+        if "asset_url" not in self.env.globals:
+            self.env.globals["asset_url"] = self._default_asset_url
+        if "media" not in self.env.globals:
+            self.env.globals["media"] = self._default_media_url
+        if "media_url" not in self.env.globals:
+            self.env.globals["media_url"] = self._default_media_url
+
         # Template cache (in addition to bytecode cache)
         self._template_cache: dict[str, Template] = {}
         self._cache_enabled = True
+
+    def _with_default_extensions(self, extensions: list | None) -> list:
+        """Ensure Aquilia's core template extensions are always enabled."""
+        ext_list = list(extensions or [])
+        if StaticTagExtension not in ext_list and "aquilia.templates.extensions.StaticTagExtension" not in ext_list:
+            ext_list.append(StaticTagExtension)
+        return ext_list
+
+    @staticmethod
+    def _default_static_url(path: Any) -> str:
+        return TemplateEngine._default_prefixed_url("/static", path)
+
+    @staticmethod
+    def _default_asset_url(path: Any) -> str:
+        return TemplateEngine._default_prefixed_url("/static", path)
+
+    @staticmethod
+    def _default_media_url(path: Any) -> str:
+        return TemplateEngine._default_prefixed_url("/media", path)
+
+    @staticmethod
+    def _default_prefixed_url(prefix: str, path: Any) -> str:
+        normalized = "" if path is None else str(path).lstrip("/")
+        return f"{prefix}/{normalized}"
 
     async def render(
         self, template_name: str, context: Mapping[str, Any] | None = None, request_ctx: Optional["RequestCtx"] = None

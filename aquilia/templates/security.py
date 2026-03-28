@@ -141,7 +141,12 @@ class SandboxPolicy:
             "namespace",
             # Framework-provided globals (to be registered)
             "url_for",
+            "static",
             "static_url",
+            "asset",
+            "asset_url",
+            "media",
+            "media_url",
             "csrf_token",
             "config",
         }

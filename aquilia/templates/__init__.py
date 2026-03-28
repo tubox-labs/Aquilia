@@ -46,6 +46,7 @@ from .di_providers import (
     register_template_providers,
 )
 from .engine import TemplateEngine
+from .extensions import StaticTagExtension
 from .faults import (
     TEMPLATE_DOMAIN,
     TemplateCacheIntegrityFault,
@@ -71,6 +72,7 @@ from .sessions_integration import (
 __all__ = [
     # Core
     "TemplateEngine",
+    "StaticTagExtension",
     "TemplateLoader",
     "PackageLoader",
     # Cache
