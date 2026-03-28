@@ -68,7 +68,9 @@ def _extract_session(args, kwargs) -> Session | None:
 
     # Find RequestCtx in args
     for arg in args:
-        if not hasattr(arg, "request"):
+        arg_dict = getattr(arg, "__dict__", None)
+        has_explicit_request = isinstance(arg_dict, dict) and "request" in arg_dict
+        if not has_explicit_request and not hasattr(type(arg), "request"):
             continue
 
         ctx_session = getattr(arg, "session", None)
@@ -92,6 +94,45 @@ def _extract_session(args, kwargs) -> Session | None:
 
         if state_session is not None:
             return state_session
+
+    return None
+
+
+def _extract_identity(args, kwargs):
+    """Extract identity from kwargs, RequestCtx, or request.state."""
+    identity = kwargs.get("identity")
+    if identity is not None:
+        return identity
+
+    for arg in args:
+        arg_dict = getattr(arg, "__dict__", None)
+        has_explicit_identity = isinstance(arg_dict, dict) and "identity" in arg_dict
+        if has_explicit_identity or hasattr(type(arg), "identity"):
+            ctx_identity = getattr(arg, "identity", None)
+            if ctx_identity is not None:
+                return ctx_identity
+
+        has_explicit_request = isinstance(arg_dict, dict) and "request" in arg_dict
+        if not has_explicit_request and not hasattr(type(arg), "request"):
+            continue
+
+        request = getattr(arg, "request", None)
+        if request is None:
+            continue
+
+        state = getattr(request, "state", None)
+        if state is None:
+            continue
+
+        if isinstance(state, dict):
+            state_identity = state.get("identity")
+        elif hasattr(state, "get"):
+            state_identity = state.get("identity")
+        else:
+            state_identity = getattr(state, "identity", None)
+
+        if state_identity is not None:
+            return state_identity
 
     return None
 
@@ -249,7 +290,17 @@ def authenticated(func: F) -> F:
         sess = _extract_session(args, func_kwargs)
 
         if sess is None:
-            raise SessionRequiredFault()
+            identity = _extract_identity(args, func_kwargs)
+            if identity is None:
+                raise SessionRequiredFault()
+
+            sig = inspect.signature(func)
+            if "user" in sig.parameters:
+                func_kwargs["user"] = identity
+            elif "principal" in sig.parameters:
+                func_kwargs["principal"] = identity
+
+            return await func(*args, **func_kwargs)
 
         if not sess.is_authenticated:
             raise AuthenticationRequiredFault()

@@ -1542,6 +1542,24 @@ class TestSessionDecorators:
         assert result == "u1"
 
     @pytest.mark.asyncio
+    async def test_authenticated_decorator_falls_back_to_ctx_identity(self):
+        from aquilia.sessions.decorators import authenticated
+
+        class _Identity:
+            def __init__(self, identity_id: str):
+                self.id = identity_id
+
+        @authenticated
+        async def handler(ctx, user=None):
+            return user.id
+
+        ctx = self._make_ctx(session=None)
+        ctx.identity = _Identity("identity-user")
+
+        result = await handler(ctx)
+        assert result == "identity-user"
+
+    @pytest.mark.asyncio
     async def test_stateful_decorator(self):
         from aquilia.sessions.decorators import stateful
         from aquilia.sessions.state import SessionState
