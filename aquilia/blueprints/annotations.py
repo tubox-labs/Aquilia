@@ -933,6 +933,8 @@ def introspect_annotations(
     cls: type,
     namespace: dict[str, Any],
     bases: tuple,
+    *,
+    include_explicit_facets: bool = False,
 ) -> dict[str, Facet]:
     """
     Introspect a Blueprint class's type annotations and produce Facet instances.
@@ -1073,8 +1075,10 @@ def introspect_annotations(
         if field_name.startswith("_"):
             continue
 
-        # Skip if there's already an explicit Facet declared
-        if field_name in namespace and isinstance(namespace[field_name], Facet):
+        # Skip if there's already an explicit Facet declared unless
+        # the caller requested overlap introspection for deterministic
+        # annotation+facet merge handling.
+        if not include_explicit_facets and field_name in namespace and isinstance(namespace[field_name], Facet):
             continue
 
         # Skip if it's a classmethod, staticmethod, property, or callable

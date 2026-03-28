@@ -18,7 +18,13 @@ from typing import (
 )
 
 from ..utils.data import DataObject
-from .annotations import Field, _ComputedMarker, introspect_annotations
+from .annotations import (
+    Field,
+    LazyBlueprintFacet,
+    NestedBlueprintFacet,
+    _ComputedMarker,
+    introspect_annotations,
+)
 from .exceptions import (
     CastFault,
     ImprintFault,
@@ -193,7 +199,12 @@ class BlueprintMeta(type):
                     val = namespace.get(fname, UNSET)
                     if val is not UNSET:
                         ann_namespace[fname] = val
-            annotated_facets = introspect_annotations(cls, ann_namespace, bases)
+            annotated_facets = introspect_annotations(
+                cls,
+                ann_namespace,
+                bases,
+                include_explicit_facets=True,
+            )
         except Exception as exc:
             warnings.warn(
                 f"Blueprint '{name}': annotation introspection failed: {exc}. "
@@ -203,6 +214,15 @@ class BlueprintMeta(type):
             )
 
         cls._annotated_facets = annotated_facets
+
+        # Deterministic merge for nested Blueprint fields declared via both
+        # annotation and explicit NestedBlueprintFacet.
+        declared_facets = mcs._merge_nested_annotation_facets(
+            name=name,
+            annotated_facets=annotated_facets,
+            declared_facets=declared_facets,
+        )
+        cls._declared_facets = declared_facets
 
         # If this is the base Blueprint class itself, skip model derivation
         if spec.model is None and not declared_facets and not annotated_facets:
@@ -267,6 +287,113 @@ class BlueprintMeta(type):
             _blueprint_registry[name] = cls
 
         return cls
+
+    @staticmethod
+    def _facet_target_tokens(facet: Facet) -> set[str]:
+        """Return normalized target identifiers for nested-blueprint facets."""
+        tokens: set[str] = set()
+
+        if isinstance(facet, NestedBlueprintFacet):
+            target = facet.target
+            tokens.add(target.__name__)
+            tokens.add(target.__qualname__)
+            tokens.add(f"{target.__module__}.{target.__qualname__}")
+            return tokens
+
+        if isinstance(facet, LazyBlueprintFacet):
+            ref = facet.ref
+            tokens.add(ref)
+            if "." in ref:
+                tokens.add(ref.split(".")[-1])
+            return tokens
+
+        return tokens
+
+    @staticmethod
+    def _merge_nested_annotation_facets(
+        *,
+        name: str,
+        annotated_facets: dict[str, Facet],
+        declared_facets: dict[str, Facet],
+    ) -> dict[str, Facet]:
+        """Merge annotation+explicit nested facets with explicit validation."""
+        from aquilia.faults.domains import ConfigInvalidFault
+
+        merged = dict(declared_facets)
+
+        for field_name, declared in declared_facets.items():
+            annotated = annotated_facets.get(field_name)
+            if annotated is None:
+                continue
+
+            declared_is_nested = isinstance(declared, (NestedBlueprintFacet, LazyBlueprintFacet))
+            annotated_is_nested = isinstance(annotated, (NestedBlueprintFacet, LazyBlueprintFacet))
+
+            if not declared_is_nested and not annotated_is_nested:
+                # Backward-compatible behavior for non-nested overlaps:
+                # explicit facet remains authoritative.
+                continue
+
+            if declared_is_nested != annotated_is_nested:
+                raise ConfigInvalidFault(
+                    key=f"blueprints.{name}.{field_name}",
+                    reason=(
+                        f"Conflicting field '{field_name}' definitions: annotation and explicit facet "
+                        "must both define a nested Blueprint field when combined."
+                    ),
+                )
+
+            # Both sides are nested facets. Annotation defines structure.
+            if declared.many != annotated.many:
+                raise ConfigInvalidFault(
+                    key=f"blueprints.{name}.{field_name}",
+                    reason=(
+                        f"Nested field '{field_name}' has conflicting cardinality: annotation implies "
+                        f"many={annotated.many}, explicit facet sets many={declared.many}."
+                    ),
+                )
+
+            declared_tokens = BlueprintMeta._facet_target_tokens(declared)
+            annotated_tokens = BlueprintMeta._facet_target_tokens(annotated)
+            if not (declared_tokens & annotated_tokens):
+                raise ConfigInvalidFault(
+                    key=f"blueprints.{name}.{field_name}",
+                    reason=(
+                        f"Nested field '{field_name}' annotation/facet type mismatch: "
+                        f"annotation={sorted(annotated_tokens)} facet={sorted(declared_tokens)}"
+                    ),
+                )
+
+            resolved = annotated.clone()
+
+            # Apply explicit-facet behavior/configuration over annotated structure.
+            if declared.source is not None and declared.source != field_name:
+                resolved.source = declared.source
+            if declared._required is not None:
+                resolved._required = declared._required
+            if declared.read_only:
+                resolved.read_only = True
+            if declared.write_only:
+                resolved.write_only = True
+            if declared.default is not UNSET:
+                resolved.default = declared.default
+            if declared.allow_null:
+                resolved.allow_null = True
+            if declared.allow_blank:
+                resolved.allow_blank = True
+            if declared.label is not None:
+                resolved.label = declared.label
+            if declared.help_text is not None:
+                resolved.help_text = declared.help_text
+            if declared.validators:
+                resolved.validators.extend(declared.validators)
+
+            if hasattr(declared, "_max_depth") and hasattr(resolved, "_max_depth"):
+                resolved._max_depth = declared._max_depth
+
+            merged[field_name] = resolved
+
+        return merged
 
     @staticmethod
     def _derive_model_facets(spec: _SpecData) -> dict[str, Facet]:
