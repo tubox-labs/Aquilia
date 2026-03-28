@@ -10,7 +10,10 @@ from __future__ import annotations
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
+
+from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.typing import JSONObject
 
 from .core import (
     ApiKeyCredential,
@@ -26,6 +29,8 @@ from .faults import (
     AUTH_KEY_EXPIRED,
     AUTH_KEY_REVOKED,
     AUTH_MFA_REQUIRED,
+    AUTH_REQUIRED,
+    AUTH_SESSION_REQUIRED,
 )
 from .hashing import PasswordHasher
 from .stores import MemoryCredentialStore, MemoryIdentityStore
@@ -112,6 +117,11 @@ class AuthManager:
     - Token refresh
     - Session management
     - Rate limiting
+
+    High-level Aquilia-native session APIs:
+    - sign_in(...): ergonomic request-aware login
+    - sign_out(...): scoped logout semantics (session/identity/all)
+    - resume_identity(...): restore principal from token or session context
     """
 
     def __init__(
@@ -141,6 +151,31 @@ class AuthManager:
             if runtime_ctx is None:
                 return None
             return runtime_ctx.session
+        except Exception:
+            return None
+
+    def current_session(self) -> Any | None:
+        """Return current runtime session if auth/session middleware is active."""
+        return self._get_runtime_session()
+
+    def has_active_session(self) -> bool:
+        """Check whether a runtime session is currently available."""
+        return self.current_session() is not None
+
+    def current_identity_id(self) -> str | None:
+        """
+        Return identity_id bound to the current runtime session, if available.
+
+        This is useful for service-layer checks without requiring token parsing.
+        """
+        session = self.current_session()
+        if session is None:
+            return None
+
+        try:
+            from .integration.aquila_sessions import get_identity_id
+
+            return get_identity_id(session)
         except Exception:
             return None
 
@@ -299,6 +334,51 @@ class AuthManager:
             },
         )
 
+    async def sign_in(
+        self,
+        *,
+        username: str,
+        password: str,
+        scopes: list[str] | None = None,
+        session: Literal["auto", "new"] | str = "auto",
+        client_metadata: dict[str, Any] | None = None,
+    ) -> AuthResult:
+        """
+        Aquilia-native high-level sign-in API.
+
+        Args:
+            username: Username or email
+            password: Plain text password
+            scopes: Optional requested scopes
+            session:
+                - "auto": bind to active runtime session if present, otherwise create one
+                - "new": force a new synthetic session id
+                - <str>: explicit session id
+            client_metadata: Optional client context metadata
+
+        Returns:
+            AuthResult including issued tokens and resolved session_id
+        """
+        if session == "auto":
+            explicit_session_id = None
+        elif session == "new":
+            explicit_session_id = f"sess_{secrets.token_urlsafe(32)}"
+        else:
+            if not session.strip():
+                raise ConfigInvalidFault(
+                    key="auth.sign_in.session",
+                    reason="Explicit session id cannot be empty",
+                )
+            explicit_session_id = session
+
+        return await self.authenticate_password(
+            username=username,
+            password=password,
+            scopes=scopes,
+            session_id=explicit_session_id,
+            client_metadata=client_metadata,
+        )
+
     async def authenticate_api_key(
         self,
         api_key: str,
@@ -450,6 +530,90 @@ class AuthManager:
                 runtime_session.clear_authentication()
             except Exception:
                 pass
+
+    async def sign_out(
+        self,
+        *,
+        scope: Literal["session", "identity", "all"] = "session",
+        identity_id: str | None = None,
+        session_id: str | None = None,
+    ) -> JSONObject:
+        """
+        Aquilia-native sign-out API with explicit scope semantics.
+
+        Args:
+            scope:
+                - "session": revoke tokens for current/target session only
+                - "identity": revoke tokens for a single identity (all sessions)
+                - "all": revoke by both identity and session when available
+            identity_id: Optional explicit identity id override
+            session_id: Optional explicit session id override
+
+        Returns:
+            Summary dict with resolved revocation scope.
+        """
+        valid_scopes = {"session", "identity", "all"}
+        if scope not in valid_scopes:
+            raise ConfigInvalidFault(
+                key="auth.sign_out.scope",
+                reason=f"Unsupported scope '{scope}'. Expected one of: {', '.join(sorted(valid_scopes))}",
+            )
+
+        runtime_identity_id = self.current_identity_id()
+        resolved_identity_id = identity_id or runtime_identity_id
+
+        runtime_session = self.current_session()
+        resolved_session_id = session_id
+        if resolved_session_id is None and runtime_session is not None and hasattr(runtime_session, "id"):
+            resolved_session_id = str(runtime_session.id)
+
+        if scope in ("identity", "all") and not resolved_identity_id:
+            raise AUTH_REQUIRED()
+
+        if scope in ("session", "all") and not resolved_session_id:
+            raise AUTH_SESSION_REQUIRED()
+
+        revoked_identity = False
+        revoked_session = False
+
+        if scope in ("identity", "all") and resolved_identity_id:
+            await self.token_manager.revoke_tokens_by_identity(resolved_identity_id)
+            revoked_identity = True
+
+        if scope in ("session", "all") and resolved_session_id:
+            await self.token_manager.revoke_tokens_by_session(resolved_session_id)
+            revoked_session = True
+
+        if runtime_session is not None and hasattr(runtime_session, "clear_authentication"):
+            try:
+                runtime_session.clear_authentication()
+            except Exception:
+                pass
+
+        return {
+            "scope": scope,
+            "identity_id": resolved_identity_id,
+            "session_id": resolved_session_id,
+            "revoked_identity": revoked_identity,
+            "revoked_session": revoked_session,
+        }
+
+    async def resume_identity(self, access_token: str | None = None) -> Identity | None:
+        """
+        Resolve the current identity from token or runtime session context.
+
+        Resolution order:
+        1) access token (if provided)
+        2) current runtime session identity binding
+        """
+        if access_token:
+            return await self.get_identity_from_token(access_token)
+
+        identity_id = self.current_identity_id()
+        if identity_id:
+            return await self.identity_store.get(identity_id)
+
+        return None
 
     async def verify_token(self, access_token: str) -> TokenClaims:
         """
