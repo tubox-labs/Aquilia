@@ -765,6 +765,107 @@ class TestEngineTimeout:
             await engine._execute_with_timeout(slow_handler, TimedOut, meta)
 
 
+class TestEngineAuthGuardClassTokenPipeline:
+    """Regression tests for AuthGuard class-token usage in controller pipelines."""
+
+    @staticmethod
+    def _make_container_with_auth_manager(auth_manager):
+        from aquilia.auth.manager import AuthManager
+        from aquilia.di import Container
+        from aquilia.di.providers import ValueProvider
+
+        container = Container(scope="request")
+        container.register(
+            ValueProvider(
+                value=auth_manager,
+                token=AuthManager,
+                scope="request",
+                name="auth_manager_for_tests",
+            )
+        )
+        return container
+
+    async def test_class_token_auth_guard_blocks_missing_bearer_token(self):
+        """pipeline=[AuthGuard] must execute guard and deny unauthenticated requests."""
+        from aquilia.auth.guards import AuthGuard
+        from aquilia.auth.faults import AUTH_REQUIRED
+
+        factory = ControllerFactory()
+        engine = ControllerEngine(factory)
+
+        fake_auth_manager = AsyncMock()
+        container = self._make_container_with_auth_manager(fake_auth_manager)
+
+        request = _make_request(method="GET", path="/protected")
+        ctx = RequestCtx(request=request, container=container, state={})
+
+        with pytest.raises(AUTH_REQUIRED):
+            await engine._execute_flow_pipeline(
+                [AuthGuard],
+                request,
+                ctx,
+                Controller(),
+                pipeline_name="auth.class.token",
+            )
+
+    async def test_class_token_auth_guard_populates_identity_and_claims(self):
+        """AuthGuard class token should resolve AuthManager and propagate identity to RequestCtx."""
+        from aquilia.auth.guards import AuthGuard
+
+        factory = ControllerFactory()
+        engine = ControllerEngine(factory)
+
+        fake_identity = object()
+        fake_claims = {"sub": "user-123"}
+
+        fake_auth_manager = AsyncMock()
+        fake_auth_manager.get_identity_from_token.return_value = fake_identity
+        fake_auth_manager.verify_token.return_value = fake_claims
+
+        container = self._make_container_with_auth_manager(fake_auth_manager)
+
+        request = _make_request(
+            method="GET",
+            path="/protected",
+            headers={"authorization": "Bearer token-123"},
+        )
+        ctx = RequestCtx(request=request, container=container, state={})
+
+        result = await engine._execute_flow_pipeline(
+            [AuthGuard],
+            request,
+            ctx,
+            Controller(),
+            pipeline_name="auth.class.token",
+        )
+
+        assert result is None
+        assert ctx.identity is fake_identity
+        assert ctx.state["token_claims"] == fake_claims
+
+    async def test_class_token_guard_missing_dependency_surfaces_di_fault(self):
+        """Missing constructor deps for class-token guards should raise an explicit DI fault."""
+        from aquilia.auth.guards import AuthGuard
+        from aquilia.di import Container
+        from aquilia.faults.domains import DIResolutionFault
+
+        factory = ControllerFactory()
+        engine = ControllerEngine(factory)
+
+        container = Container(scope="request")  # AuthManager intentionally not registered
+        request = _make_request(method="GET", path="/protected")
+        ctx = RequestCtx(request=request, container=container, state={})
+
+        with pytest.raises(DIResolutionFault, match="AuthGuard"):
+            await engine._execute_flow_pipeline(
+                [AuthGuard],
+                request,
+                ctx,
+                Controller(),
+                pipeline_name="auth.class.token",
+            )
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 8: Metadata
 # ═══════════════════════════════════════════════════════════════════════════
