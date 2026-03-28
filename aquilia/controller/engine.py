@@ -543,9 +543,17 @@ class ControllerEngine:
             for key, value in result.context.state.items():
                 if key != "controller":
                     ctx.state[key] = value
-            # Propagate identity if changed by a guard
-            if result.context.identity is not None:
-                ctx.identity = result.context.identity
+
+            # Guards may set identity either on FlowContext.identity or in
+            # FlowContext.state["identity"] (legacy dict-style guard behavior).
+            propagated_identity = result.context.state.get("identity", result.context.identity)
+            if propagated_identity is not None:
+                ctx.identity = propagated_identity
+                if isinstance(request.state, dict):
+                    request.state["identity"] = propagated_identity
+
+            if "authenticated" in result.context.state and isinstance(request.state, dict):
+                request.state["authenticated"] = result.context.state["authenticated"]
 
             # Make acquired effects available in request state
             if result.context.effects and isinstance(request.state, dict):

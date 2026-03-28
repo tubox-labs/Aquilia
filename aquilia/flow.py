@@ -32,7 +32,7 @@ import asyncio
 import inspect
 import logging
 import time
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
@@ -230,6 +230,59 @@ class FlowContext:
     def __repr__(self) -> str:
         effects = list(self.effects.keys())
         return f"<FlowContext effects={effects} elapsed={self.elapsed_ms:.1f}ms state_keys={list(self.state.keys())}>"
+
+
+class _FlowContextDictProxy:
+    """Dict-style adapter over FlowContext for legacy/context-dict guards."""
+
+    __slots__ = ("_context",)
+
+    def __init__(self, context: FlowContext) -> None:
+        self._context = context
+
+    def get(self, key: str, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __getitem__(self, key: str) -> Any:
+        if key == "request":
+            return self._context.request
+        if key == "container":
+            return self._context.container
+        if key == "identity":
+            return self._context.identity
+        if key == "session":
+            return self._context.session
+        if key == "effects":
+            return self._context.effects
+        return self._context.state[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        if key == "request":
+            self._context.request = value
+            return
+        if key == "container":
+            self._context.container = value
+            return
+        if key == "identity":
+            self._context.identity = value
+            self._context.state["identity"] = value
+            return
+        if key == "session":
+            self._context.session = value
+            self._context.state["session"] = value
+            return
+        if key == "effects":
+            self._context.effects = value
+            return
+        self._context.state[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        if key in {"request", "container", "identity", "session", "effects"}:
+            return True
+        return key in self._context.state
 
 
 # ============================================================================
@@ -1061,6 +1114,11 @@ class FlowPipeline:
         """
         callable_fn = node.callable
 
+        # Class tokens in pipeline lists are first-class: resolve via DI and
+        # instantiate per request when needed.
+        if inspect.isclass(callable_fn):
+            callable_fn = await self._resolve_class_token(callable_fn, context)
+
         # Handle FlowNode wrapping a class instance (e.g., FlowGuard)
         if callable(callable_fn) and not inspect.isfunction(callable_fn):
             # Instance with __call__ -- use it directly
@@ -1075,6 +1133,7 @@ class FlowPipeline:
             return await self._safe_call(callable_fn, context)
 
         param_names = set(params.keys())
+        context_proxy = _FlowContextDictProxy(context)
 
         # Remove 'self' for bound methods
         param_names.discard("self")
@@ -1092,7 +1151,24 @@ class FlowPipeline:
 
             # Type-hint-based injection
             annotation = param.annotation
+            wants_dict_context = False
             if annotation is not inspect.Parameter.empty:
+                try:
+                    from typing import get_origin
+
+                    origin = get_origin(annotation)
+                    if annotation is dict or origin in (dict, Mapping, MutableMapping):
+                        wants_dict_context = True
+                        kwargs[name] = context_proxy
+                        continue
+                except Exception:
+                    pass
+
+                if isinstance(annotation, str) and ("dict" in annotation.lower() or "mapping" in annotation.lower()):
+                    wants_dict_context = True
+                    kwargs[name] = context_proxy
+                    continue
+
                 if annotation is FlowContext or (isinstance(annotation, str) and "FlowContext" in annotation):
                     kwargs[name] = context
                     continue
@@ -1102,7 +1178,7 @@ class FlowPipeline:
 
             # Name-based injection
             if name in ("context", "ctx", "flow_context", "flow_ctx"):
-                kwargs[name] = context
+                kwargs[name] = context_proxy if wants_dict_context else context
             elif name in ("request", "req"):
                 kwargs[name] = context.request
             elif name in ("container", "di"):
@@ -1131,6 +1207,115 @@ class FlowPipeline:
                     kwargs[name] = context.state[name]
 
         return await self._safe_call(callable_fn, **kwargs)
+
+    async def _resolve_class_token(self, class_token: type, context: FlowContext) -> Any:
+        """Resolve a class-token pipeline node using request DI context."""
+        from .faults.domains import DIResolutionFault
+
+        cache = context.state.setdefault("__flow_class_token_cache__", {})
+        if class_token in cache:
+            return cache[class_token]
+
+        container = context.container
+        token_name = f"{class_token.__module__}.{class_token.__qualname__}"
+
+        # First, honor explicit provider registrations for the class token.
+        if container is not None and hasattr(container, "resolve_async"):
+            try:
+                resolved = await container.resolve_async(class_token, optional=True)
+                if resolved is not None:
+                    cache[class_token] = resolved
+                    return resolved
+            except Exception:
+                # Fallback to constructor DI below with richer diagnostics.
+                pass
+
+        # Fallback: instantiate the class with constructor dependency resolution.
+        init_fn = class_token.__init__  # pyright: ignore[reportGeneralTypeIssues]
+        try:
+            sig = inspect.signature(init_fn)
+        except (TypeError, ValueError) as exc:
+            raise DIResolutionFault(
+                provider=token_name,
+                reason=f"Cannot inspect constructor for class-token guard '{class_token.__name__}'",
+            ) from exc
+
+        try:
+            from typing import get_type_hints
+
+            resolved_hints = get_type_hints(init_fn, include_extras=True)
+        except Exception:
+            resolved_hints = {}
+
+        kwargs: dict[str, Any] = {}
+        for param_name, param in sig.parameters.items():
+            if param_name == "self":
+                continue
+            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                continue
+
+            has_default = param.default is not inspect.Parameter.empty
+            annotation = resolved_hints.get(param_name, param.annotation)
+
+            if annotation is inspect.Parameter.empty:
+                if has_default:
+                    kwargs[param_name] = param.default
+                    continue
+                raise DIResolutionFault(
+                    provider=token_name,
+                    reason=(
+                        "Class-token guard constructor parameter "
+                        f"'{param_name}' is missing a type annotation. "
+                        "Add a type annotation and register a matching DI provider."
+                    ),
+                )
+
+            if container is None or not hasattr(container, "resolve_async"):
+                if has_default:
+                    kwargs[param_name] = param.default
+                    continue
+                raise DIResolutionFault(
+                    provider=token_name,
+                    reason=(
+                        f"No request DI container available while resolving class-token guard parameter '{param_name}'."
+                    ),
+                )
+
+            try:
+                dependency = await container.resolve_async(annotation, optional=has_default)
+            except Exception as exc:
+                if has_default:
+                    kwargs[param_name] = param.default
+                    continue
+                raise DIResolutionFault(
+                    provider=token_name,
+                    reason=(
+                        "Failed to resolve class-token guard constructor parameter "
+                        f"'{param_name}' ({annotation!r}). Ensure the provider is registered."
+                    ),
+                ) from exc
+
+            if dependency is None and not has_default:
+                raise DIResolutionFault(
+                    provider=token_name,
+                    reason=(
+                        "Missing DI provider for class-token guard constructor parameter "
+                        f"'{param_name}' ({annotation!r})."
+                    ),
+                )
+
+            kwargs[param_name] = param.default if dependency is None else dependency
+
+        try:
+            instance = class_token(**kwargs)
+        except Exception as exc:
+            raise DIResolutionFault(
+                provider=token_name,
+                reason=f"Failed to instantiate class-token guard '{class_token.__name__}': {exc}",
+            ) from exc
+
+        cache[class_token] = instance
+        return instance
 
     async def _safe_call(self, fn: Callable, *args: Any, **kwargs: Any) -> Any:
         """Call a function, awaiting if it's a coroutine."""
