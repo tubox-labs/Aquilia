@@ -380,7 +380,7 @@ class BuildResult:
         if not self.success:
             from aquilia.faults.domains import SystemFault
 
-            raise SystemFault(message="Cannot create registry from failed build")
+            raise SystemFault(message="Cannot create registry from failed build", code="511")
 
         from aquilia.aquilary.core import (
             AppContext,

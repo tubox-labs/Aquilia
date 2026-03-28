@@ -776,6 +776,7 @@ class Blueprint(metaclass=BlueprintMeta):
 
         # Phase 3: Cross-field seals (seal_* methods)
         import inspect
+
         for method_name in self._seal_methods:
             method = getattr(self, method_name, None)
             if method is not None:
@@ -829,6 +830,7 @@ class Blueprint(metaclass=BlueprintMeta):
             5. Async seals: ``async_seal_*()`` methods
         """
         import inspect
+
         # Run sync pipeline, but skip coroutine seal methods
         if not self.is_sealed(raise_fault=False):
             if raise_fault:

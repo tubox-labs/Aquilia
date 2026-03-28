@@ -1201,6 +1201,35 @@ if _modules_dir.is_dir():
     config._build_apps_namespace()
 
 # ────────────────────────────────────────────────────────────────────────
+# 4b. Load workspace module configs (route_prefix, etc.)
+# ────────────────────────────────────────────────────────────────────────
+import importlib.util
+
+
+def _load_workspace_modules() -> dict:
+    """Load module configs from workspace.py."""
+    ws_file = _WORKSPACE_ROOT / "workspace.py"
+    if not ws_file.exists():
+        return {{}}
+    try:
+        spec = importlib.util.spec_from_file_location("_aq_ws_loader", ws_file)
+        if spec is None or spec.loader is None:
+            return {{}}
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        workspace = getattr(module, "workspace", None)
+        if workspace is None:
+            return {{}}
+        ws_dict = workspace.to_dict()
+        modules_list = ws_dict.get("modules", [])
+        return {{m["name"]: m for m in modules_list if "name" in m}}
+    except Exception:
+        return {{}}
+
+
+_workspace_modules = _load_workspace_modules()
+
+# ────────────────────────────────────────────────────────────────────────
 # 5. Server construction
 # ────────────────────────────────────────────────────────────────────────
 from aquilia import AquiliaServer
@@ -1213,6 +1242,7 @@ server = AquiliaServer(
     manifests=_manifests,
     config=config,
     mode=_registry_mode,
+    workspace_modules=_workspace_modules,
 )
 
 # ────────────────────────────────────────────────────────────────────────
