@@ -4,10 +4,14 @@ Core Aquilary types and main registry class.
 
 import contextlib
 import json
+import logging
+import os
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Literal
+
+logger = logging.getLogger("aquilia.aquilary")
 
 
 class RegistryMode(str, Enum):
@@ -598,6 +602,15 @@ class RuntimeRegistry:
             with contextlib.suppress(Exception):
                 self._discover_amdl_models(ctx)
 
+    def _workspace_root(self):
+        """Resolve workspace root deterministically (independent of process cwd)."""
+        from pathlib import Path
+
+        configured = os.environ.get("AQUILIA_WORKSPACE", "").strip()
+        if configured:
+            return Path(configured).resolve()
+        return Path.cwd().resolve()
+
     def compile_routes(self) -> None:
         """
         Lazily import controllers and compile route trees.
@@ -703,9 +716,7 @@ class RuntimeRegistry:
 
         Also honours DatabaseConfig.scan_dirs if present in manifest.
         """
-        from pathlib import Path
-
-        workspace_root = Path.cwd()
+        workspace_root = self._workspace_root()
 
         # Determine scan directories
         scan_dirs = []
@@ -803,18 +814,28 @@ class RuntimeRegistry:
         if hasattr(self, "_models_registered") and self._models_registered:
             return
 
-        # Collect all model paths from all app contexts
-        all_model_paths = []
+        # Collect all model references from app contexts.
+        # Entries can be:
+        #   - file paths (.py / .amdl), or
+        #   - manifest class refs (module.path:ModelClass)
+        all_model_refs: list[str] = []
         for ctx in self.meta.app_contexts:
-            all_model_paths.extend(ctx.models)
+            for model_ref in ctx.models:
+                if isinstance(model_ref, str):
+                    all_model_refs.append(model_ref)
+                elif hasattr(model_ref, "class_path"):
+                    all_model_refs.append(str(model_ref.class_path))
+                else:
+                    all_model_refs.append(str(model_ref))
 
-        if not all_model_paths:
+        if not all_model_refs:
             self._models_registered = True
             return
 
-        # Separate legacy .amdl from .py
-        amdl_paths = [p for p in all_model_paths if p.endswith(".amdl")]
-        py_paths = [p for p in all_model_paths if p.endswith(".py")]
+        # Separate legacy .amdl from .py and manifest class references.
+        amdl_paths = [p for p in all_model_refs if p.endswith(".amdl")]
+        py_paths = [p for p in all_model_refs if p.endswith(".py")]
+        class_refs = [p for p in all_model_refs if ":" in p and not p.endswith((".py", ".amdl"))]
 
         registered_count = 0
 
@@ -889,6 +910,63 @@ class RuntimeRegistry:
                                     scope="app",
                                 )
                             )
+
+        # --- Handle explicit manifest class refs (module.path:ModelName) ---
+        if class_refs:
+            try:
+                import importlib
+
+                from aquilia.faults.domains import ModelRegistrationFault
+                from aquilia.models.base import Model, ModelRegistry
+            except ImportError:
+                pass
+            else:
+                expected_model_names: list[str] = []
+
+                for class_ref in class_refs:
+                    module_path, class_name = class_ref.split(":", 1)
+                    expected_model_names.append(class_name)
+
+                    try:
+                        module = importlib.import_module(module_path)
+                    except Exception as exc:
+                        raise ModelRegistrationFault(
+                            model_name=class_name,
+                            reason=f"Unable to import manifest-declared model module '{module_path}': {exc}",
+                            metadata={"model_ref": class_ref},
+                        ) from exc
+
+                    model_cls = getattr(module, class_name, None)
+                    if not isinstance(model_cls, type) or not issubclass(model_cls, Model):
+                        raise ModelRegistrationFault(
+                            model_name=class_name,
+                            reason=f"Manifest model ref '{class_ref}' did not resolve to a Model subclass",
+                            metadata={"model_ref": class_ref},
+                        )
+
+                    # If metaclass registration was skipped due import edge-cases,
+                    # register explicitly to keep startup deterministic.
+                    if ModelRegistry.get(class_name) is None:
+                        ModelRegistry.register(model_cls)
+                        registered_count += 1
+
+                missing = [name for name in expected_model_names if ModelRegistry.get(name) is None]
+                if missing:
+                    missing_name = missing[0]
+                    raise ModelRegistrationFault(
+                        model_name=missing_name,
+                        reason=(
+                            "Manifest declared model was not present in ModelRegistry after import. "
+                            f"Missing={missing}. Registered={sorted(ModelRegistry.all_models().keys())}"
+                        ),
+                        metadata={"missing_models": missing, "declared_refs": class_refs},
+                    )
+
+                logger.info(
+                    "Model bootstrap diagnostics: declared=%s registered=%s",
+                    sorted(expected_model_names),
+                    sorted(ModelRegistry.all_models().keys()),
+                )
 
         self._models_registered = True
 

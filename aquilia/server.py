@@ -12,6 +12,7 @@ Architecture v2 additions:
 
 import contextlib
 import logging
+import os
 from typing import Any, cast
 
 from .aquilary import Aquilary, AquilaryRegistry, RegistryMode, RuntimeRegistry
@@ -3254,7 +3255,7 @@ class AquiliaServer:
 
         # ── Phase 1: Collect model paths ──────────────────────────────────
         model_files: list[Path] = []
-        workspace_root = Path.cwd()
+        workspace_root = self._workspace_root()
 
         # 1a. From AppContexts (populated by Aquilary auto-discovery + manifests)
         for ctx in self.runtime.meta.app_contexts:
@@ -3487,6 +3488,102 @@ class AquiliaServer:
         else:
             self._amdl_database = None
 
+    def _workspace_root(self):
+        """Resolve workspace root deterministically (independent of process cwd)."""
+        from pathlib import Path
+
+        configured = os.environ.get("AQUILIA_WORKSPACE", "").strip()
+        if configured:
+            return Path(configured).resolve()
+        return Path.cwd().resolve()
+
+    def _validate_manifest_model_registry(self) -> None:
+        """
+        Fail fast if manifest-declared models are not present in ModelRegistry.
+
+        This prevents serving traffic with a partially initialized model registry.
+        """
+        import importlib
+
+        from .faults.domains import ModelRegistrationFault
+        from .models.base import Model, ModelRegistry
+
+        registered = ModelRegistry.all_models()
+
+        # Structured diagnostics for observability.
+        diagnostics: list[dict[str, Any]] = []
+        missing: list[dict[str, str]] = []
+
+        for ctx in self.runtime.meta.app_contexts:
+            declared_refs: list[str] = []
+            expected_names: list[str] = []
+
+            for model_ref in ctx.models:
+                if isinstance(model_ref, str):
+                    ref = model_ref
+                elif hasattr(model_ref, "class_path"):
+                    ref = str(model_ref.class_path)
+                else:
+                    ref = str(model_ref)
+
+                declared_refs.append(ref)
+
+                # Validate explicit class refs directly.
+                if ":" not in ref or ref.endswith((".py", ".amdl")):
+                    continue
+
+                module_path, class_name = ref.split(":", 1)
+                expected_names.append(class_name)
+
+                try:
+                    module = importlib.import_module(module_path)
+                except Exception as exc:
+                    raise ModelRegistrationFault(
+                        model_name=class_name,
+                        reason=f"Failed importing manifest model module '{module_path}': {exc}",
+                        metadata={"app": ctx.name, "model_ref": ref},
+                    ) from exc
+
+                model_cls = getattr(module, class_name, None)
+                if not isinstance(model_cls, type) or not issubclass(model_cls, Model):
+                    raise ModelRegistrationFault(
+                        model_name=class_name,
+                        reason=f"Manifest model ref '{ref}' is not a Model subclass",
+                        metadata={"app": ctx.name, "model_ref": ref},
+                    )
+
+                if ModelRegistry.get(class_name) is None:
+                    missing.append({"app": ctx.name, "model": class_name, "ref": ref})
+
+            # Useful inventory in logs, even if app_label metadata is absent.
+            module_prefix = f"modules.{ctx.name}."
+            module_registered = sorted(
+                model_name
+                for model_name, model_cls in registered.items()
+                if getattr(model_cls, "__module__", "").startswith(module_prefix)
+            )
+            diagnostics.append(
+                {
+                    "app": ctx.name,
+                    "declared": sorted(expected_names),
+                    "registered": module_registered,
+                    "declared_refs": sorted(declared_refs),
+                }
+            )
+
+        self.logger.info("Model registry startup diagnostics: %s", diagnostics)
+
+        if missing:
+            first = missing[0]
+            raise ModelRegistrationFault(
+                model_name=first["model"],
+                reason=(
+                    "Manifest-declared model missing from registry at startup. "
+                    f"Missing={missing}; Registered={sorted(registered.keys())}"
+                ),
+                metadata={"missing": missing, "registered_models": sorted(registered.keys())},
+            )
+
     async def startup(self):
         """
         Execute startup sequence with Aquilary lifecycle management.
@@ -3542,6 +3639,9 @@ class AquiliaServer:
 
             # Step 3.1: Register AMDL models from apps (if any .amdl files exist)
             await self._register_amdl_models()
+
+            # Step 3.15: Verify manifest model registration completeness
+            self._validate_manifest_model_registry()
 
             # Step 3.2: Start mail subsystem (connect providers)
             if hasattr(self, "_mail_service") and self._mail_service is not None:
