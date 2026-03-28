@@ -1864,6 +1864,77 @@ class TestFromPipelineList:
         # Callables are treated as HANDLER by default
         assert len(p._nodes) == 2
 
+    @pytest.mark.asyncio
+    async def test_from_pipeline_list_class_token_resolves_dependencies(self):
+        from aquilia.di import Container
+        from aquilia.di.providers import ValueProvider
+        from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
+
+        class Dependency:
+            def __init__(self):
+                self.value = "ok"
+
+        class ClassTokenGuard:
+            def __init__(self, dep: Dependency):
+                self.dep = dep
+
+            async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
+                context["dep_value"] = self.dep.value
+                return context
+
+        container = Container(scope="request")
+        container.register(ValueProvider(value=Dependency(), token=Dependency, scope="request"))
+
+        pipeline = from_pipeline_list([ClassTokenGuard], name="class-token")
+        result = await pipeline.execute(FlowContext(container=container))
+
+        assert result.status == FlowStatus.SUCCESS
+        assert result.context is not None
+        assert result.context.state["dep_value"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_from_pipeline_list_class_token_instantiated_once_per_execution(self):
+        from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
+
+        class StatelessGuard:
+            init_count = 0
+
+            def __init__(self):
+                StatelessGuard.init_count += 1
+
+            async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
+                context["guard_hit"] = context.get("guard_hit", 0) + 1
+                return context
+
+        pipeline = from_pipeline_list([StatelessGuard, StatelessGuard], name="class-token-cache")
+        result = await pipeline.execute(FlowContext())
+
+        assert result.status == FlowStatus.SUCCESS
+        assert result.context is not None
+        assert result.context.state["guard_hit"] == 2
+        assert StatelessGuard.init_count == 1
+
+    @pytest.mark.asyncio
+    async def test_from_pipeline_list_class_token_missing_provider_raises_di_fault(self):
+        from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
+        from aquilia.faults.domains import DIResolutionFault
+
+        class MissingDependency:
+            pass
+
+        class GuardWithDependency:
+            def __init__(self, dep: MissingDependency):
+                self.dep = dep
+
+            async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
+                return context
+
+        pipeline = from_pipeline_list([GuardWithDependency], name="class-token-missing-di")
+        result = await pipeline.execute(FlowContext())
+
+        assert result.status == FlowStatus.GUARDED
+        assert isinstance(result.error, DIResolutionFault)
+
 
 class TestMockFlowContext:
     """Test MockFlowContext helper."""
