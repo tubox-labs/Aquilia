@@ -492,6 +492,34 @@ class PasswordPolicy:
             "654321",
         }
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> PasswordPolicy:
+        """Build a PasswordPolicy from a plain configuration dictionary."""
+        if not isinstance(data, dict):
+            return cls()
+
+        known_keys = {
+            "min_length",
+            "require_uppercase",
+            "require_lowercase",
+            "require_digit",
+            "require_special",
+            "check_breached",
+        }
+        filtered = {k: v for k, v in data.items() if k in known_keys}
+        return cls(**filtered)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize policy settings (excluding blacklist internals)."""
+        return {
+            "min_length": self.min_length,
+            "require_uppercase": self.require_uppercase,
+            "require_lowercase": self.require_lowercase,
+            "require_digit": self.require_digit,
+            "require_special": self.require_special,
+            "check_breached": self.check_breached,
+        }
+
     def validate(self, password: str) -> tuple[bool, list[str]]:
         """Validate password against policy. Returns (is_valid, errors)."""
         errors = []

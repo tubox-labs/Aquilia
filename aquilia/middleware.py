@@ -415,6 +415,16 @@ class ExceptionMiddleware:
                 "message": message,
                 "domain": e.domain.value if isinstance(e.domain, FaultDomain) else str(e.domain),
             }
+            # Include safe metadata for client-visible faults.
+            # - Always include for 4xx responses.
+            # - Include in debug mode for easier diagnosis.
+            # - Never include private/internal keys prefixed with "_".
+            fault_metadata = getattr(e, "metadata", None)
+            if isinstance(fault_metadata, dict) and (status < 500 or self.debug):
+                public_metadata = {k: v for k, v in fault_metadata.items() if not str(k).startswith("_")}
+                if public_metadata:
+                    error_obj["metadata"] = public_metadata
+
             # If SealFault and details present, include them
             if e.code == "BP200":
                 details = None

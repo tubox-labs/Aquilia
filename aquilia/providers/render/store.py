@@ -430,6 +430,7 @@ class RenderCredentialStore:
         _secure_zero(payload)
         del enc_key, sign_key, canary_key
         self._audit.log("save_complete")
+
     # ─── Load ────────────────────────────────────────────────────────
 
     def load(self) -> str | None:

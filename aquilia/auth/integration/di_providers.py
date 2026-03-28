@@ -28,7 +28,7 @@ from aquilia.sessions import (
 )
 
 from ..authz import ABACEngine, AuthzEngine, RBACEngine
-from ..hashing import PasswordHasher
+from ..hashing import PasswordHasher, PasswordPolicy
 from ..manager import AuthManager, RateLimiter
 from ..mfa import MFAManager, TOTPProvider
 from ..oauth import OAuth2Manager
@@ -62,6 +62,15 @@ class PasswordHasherProvider:
     def provide(self) -> PasswordHasher:
         """Provide PasswordHasher instance."""
         return PasswordHasher()
+
+
+@service(scope="app")
+class PasswordPolicyProvider:
+    """Provider for PasswordPolicy."""
+
+    def provide(self) -> PasswordPolicy:
+        """Provide PasswordPolicy instance."""
+        return PasswordPolicy()
 
 
 @service(scope="app")
@@ -372,6 +381,7 @@ def register_auth_providers(
 
     # Core components
     _register_provider_class(container, PasswordHasherProvider)
+    _register_provider_class(container, PasswordPolicyProvider)
     _register_provider_class(container, KeyRingProvider)
     _register_provider_class(container, TokenManagerProvider)
     _register_provider_class(container, RateLimiterProvider)
@@ -524,6 +534,7 @@ class AuthConfig:
 __all__ = [
     # Providers
     "PasswordHasherProvider",
+    "PasswordPolicyProvider",
     "KeyRingProvider",
     "TokenManagerProvider",
     "RateLimiterProvider",
