@@ -11,6 +11,7 @@ import functools
 from collections.abc import Callable, Coroutine
 from typing import Any
 
+from ..faults.domains import DIResolutionFault
 from .authz import AuthzContext, AuthzEngine
 from .faults import AUTH_REQUIRED, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
 from .manager import AuthManager
@@ -42,6 +43,56 @@ class Guard:
         """
         raise NotImplementedError
 
+    async def _resolve_required_dependency(self, context: dict[str, Any], token: type[Any], dependency_name: str) -> Any:
+        """Resolve a required dependency from flow context DI container."""
+        container = context.get("container")
+        if container is None:
+            raise DIResolutionFault(
+                provider=dependency_name,
+                reason=(
+                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no DI container is "
+                    "available in flow context."
+                ),
+            )
+
+        try:
+            if hasattr(container, "resolve_async"):
+                resolved = await container.resolve_async(token, optional=True)
+            elif hasattr(container, "resolve"):
+                maybe_resolved = container.resolve(token, optional=True)
+                if hasattr(maybe_resolved, "__await__"):
+                    resolved = await maybe_resolved
+                else:
+                    resolved = maybe_resolved
+            else:
+                raise DIResolutionFault(
+                    provider=dependency_name,
+                    reason=(
+                        f"Guard '{self.__class__.__name__}' could not resolve {dependency_name}: "
+                        "container does not expose resolve APIs."
+                    ),
+                )
+        except DIResolutionFault:
+            raise
+        except Exception as exc:
+            raise DIResolutionFault(
+                provider=dependency_name,
+                reason=(
+                    f"Guard '{self.__class__.__name__}' failed resolving {dependency_name}. "
+                    "Ensure a provider is registered."
+                ),
+            ) from exc
+
+        if resolved is None:
+            raise DIResolutionFault(
+                provider=dependency_name,
+                reason=(
+                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."
+                ),
+            )
+
+        return resolved
+
 
 # ============================================================================
 # Authentication Guards
@@ -55,12 +106,12 @@ class AuthGuard(Guard):
     Extracts identity from token and injects into context.
     """
 
-    def __init__(self, auth_manager: AuthManager, optional: bool = False):
+    def __init__(self, auth_manager: AuthManager | None = None, optional: bool = False):
         """
         Initialize auth guard.
 
         Args:
-            auth_manager: Authentication manager
+            auth_manager: Authentication manager (optional when DI container is available)
             optional: If True, don't raise on missing auth
         """
         self.auth_manager = auth_manager
@@ -68,6 +119,9 @@ class AuthGuard(Guard):
 
     async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
         """Extract and verify authentication."""
+        if self.auth_manager is None:
+            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+
         # Extract token from context (request headers)
         request = context.get("request")
         if not request:
@@ -121,12 +175,12 @@ class ApiKeyGuard(Guard):
     Extracts API key and authenticates.
     """
 
-    def __init__(self, auth_manager: AuthManager, required_scopes: list[str] | None = None):
+    def __init__(self, auth_manager: AuthManager | None = None, required_scopes: list[str] | None = None):
         """
         Initialize API key guard.
 
         Args:
-            auth_manager: Authentication manager
+            auth_manager: Authentication manager (optional when DI container is available)
             required_scopes: Required scopes for this endpoint
         """
         self.auth_manager = auth_manager
@@ -134,6 +188,9 @@ class ApiKeyGuard(Guard):
 
     async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
         """Extract and verify API key."""
+        if self.auth_manager is None:
+            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+
         request = context.get("request")
         if not request:
             raise AUTH_REQUIRED()
@@ -170,7 +227,7 @@ class AuthzGuard(Guard):
 
     def __init__(
         self,
-        authz_engine: AuthzEngine,
+        authz_engine: AuthzEngine | None = None,
         resource_extractor: Callable[[dict[str, Any]], str] | None = None,
         action: str | None = None,
         required_scopes: list[str] | None = None,
@@ -181,7 +238,7 @@ class AuthzGuard(Guard):
         Initialize authorization guard.
 
         Args:
-            authz_engine: Authorization engine
+            authz_engine: Authorization engine (optional when DI container is available)
             resource_extractor: Function to extract resource from context
             action: Action being performed
             required_scopes: Required OAuth scopes
@@ -197,6 +254,9 @@ class AuthzGuard(Guard):
 
     async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
         """Check authorization."""
+        if self.authz_engine is None:
+            self.authz_engine = await self._resolve_required_dependency(context, AuthzEngine, "AuthzEngine")
+
         # Get identity from context (injected by AuthGuard)
         identity = context.get("identity")
         if not identity:

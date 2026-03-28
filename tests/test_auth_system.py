@@ -1492,6 +1492,141 @@ class TestFlowGuards:
         with pytest.raises(Exception):
             await guard(context)
 
+    @staticmethod
+    def _build_guard_context(*, header_map: dict[str, str] | None = None, session: Any = None, auth_manager: Any = None):
+        from aquilia.auth.manager import AuthManager
+        from aquilia.di import Container
+        from aquilia.di.providers import ValueProvider
+
+        request = MagicMock()
+        request.state = {}
+        if session is not None:
+            request.state["session"] = session
+
+        headers = header_map or {}
+        request.header = lambda name, default="": headers.get(name, default)
+
+        container = Container(scope="request")
+        if auth_manager is not None:
+            container.register(
+                ValueProvider(
+                    value=auth_manager,
+                    token=AuthManager,
+                    scope="request",
+                    name="auth_manager_for_flow_guard_tests",
+                )
+            )
+
+        return {"request": request, "container": container}
+
+    @pytest.mark.asyncio
+    async def test_require_token_auth_guard_resolves_auth_manager_from_context_container(self):
+        from aquilia.auth.integration.flow_guards import RequireTokenAuthGuard
+
+        fake_identity = object()
+        fake_claims = {"sub": "u-1"}
+
+        auth_manager = AsyncMock()
+        auth_manager.get_identity_from_token.return_value = fake_identity
+        auth_manager.verify_token.return_value = fake_claims
+
+        guard = RequireTokenAuthGuard()
+        context = self._build_guard_context(
+            header_map={"authorization": "Bearer token-1"},
+            auth_manager=auth_manager,
+        )
+
+        result = await guard(context)
+
+        assert result["token_claims"] == fake_claims
+        assert context["request"].state["identity"] is fake_identity
+        assert context["request"].state["authenticated"] is True
+
+    @pytest.mark.asyncio
+    async def test_require_session_auth_guard_resolves_auth_manager_from_context_container(self):
+        from aquilia.auth.integration.flow_guards import RequireSessionAuthGuard
+
+        fake_session = MagicMock()
+        fake_identity = object()
+
+        auth_manager = AsyncMock()
+        auth_manager.identity_store.get_identity.return_value = fake_identity
+
+        with patch("aquilia.auth.integration.flow_guards.get_identity_id", return_value="identity-1"):
+            guard = RequireSessionAuthGuard()
+            context = self._build_guard_context(session=fake_session, auth_manager=auth_manager)
+            await guard(context)
+
+        assert context["request"].state["identity"] is fake_identity
+        assert context["request"].state["authenticated"] is True
+
+    @pytest.mark.asyncio
+    async def test_require_api_key_guard_without_provider_raises_di_resolution_fault(self):
+        from aquilia.auth.integration.flow_guards import RequireApiKeyGuard
+        from aquilia.faults.domains import DIResolutionFault
+
+        guard = RequireApiKeyGuard()
+        context = self._build_guard_context(header_map={"x-api-key": "k1"}, auth_manager=None)
+
+        with pytest.raises(DIResolutionFault, match="AuthManager"):
+            await guard(context)
+
+
+class TestCoreAuthGuards:
+    """Test core auth guards in direct/dict flow contexts."""
+
+    @staticmethod
+    def _build_context(*, auth_header: str = "", auth_manager: Any = None) -> dict[str, Any]:
+        from aquilia.auth.manager import AuthManager
+        from aquilia.di import Container
+        from aquilia.di.providers import ValueProvider
+
+        request = MagicMock()
+        request.headers = {"authorization": auth_header}
+
+        container = Container(scope="request")
+        if auth_manager is not None:
+            container.register(
+                ValueProvider(
+                    value=auth_manager,
+                    token=AuthManager,
+                    scope="request",
+                    name="auth_manager_for_core_guard_tests",
+                )
+            )
+
+        return {"request": request, "container": container}
+
+    @pytest.mark.asyncio
+    async def test_auth_guard_resolves_auth_manager_from_context_container(self):
+        from aquilia.auth.guards import AuthGuard
+
+        fake_identity = object()
+        fake_claims = {"sub": "u-1"}
+
+        auth_manager = AsyncMock()
+        auth_manager.get_identity_from_token.return_value = fake_identity
+        auth_manager.verify_token.return_value = fake_claims
+
+        guard = AuthGuard()
+        context = self._build_context(auth_header="Bearer token-123", auth_manager=auth_manager)
+
+        result = await guard(context)
+
+        assert result["identity"] is fake_identity
+        assert result["token_claims"] == fake_claims
+
+    @pytest.mark.asyncio
+    async def test_auth_guard_without_provider_raises_di_resolution_fault(self):
+        from aquilia.auth.guards import AuthGuard
+        from aquilia.faults.domains import DIResolutionFault
+
+        guard = AuthGuard()
+        context = self._build_context(auth_header="Bearer token-123", auth_manager=None)
+
+        with pytest.raises(DIResolutionFault, match="AuthManager"):
+            await guard(context)
+
 
 # ============================================================================
 # 9. CONTROLLER CLEARANCE WIRING TESTS

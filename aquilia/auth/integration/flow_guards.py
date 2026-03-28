@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 from aquilia.flow import FlowNode, FlowNodeType
 from aquilia.request import Request
 
+from ...faults.domains import DIResolutionFault
 from ..authz import AuthzContext, AuthzEngine
 from ..core import Identity
 from ..faults import (
@@ -113,6 +114,60 @@ class FlowGuard:
         """
         raise NotImplementedError
 
+    async def _resolve_required_dependency(self, context: Any, token: type[Any], dependency_name: str) -> Any:
+        """Resolve a required dependency from flow context DI container."""
+        if isinstance(context, dict):
+            container = context.get("container")
+        else:
+            container = getattr(context, "container", None)
+
+        if container is None:
+            raise DIResolutionFault(
+                provider=dependency_name,
+                reason=(
+                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no DI container is "
+                    "available in flow context."
+                ),
+            )
+
+        try:
+            if hasattr(container, "resolve_async"):
+                resolved = await container.resolve_async(token, optional=True)
+            elif hasattr(container, "resolve"):
+                maybe_resolved = container.resolve(token, optional=True)
+                if hasattr(maybe_resolved, "__await__"):
+                    resolved = await maybe_resolved
+                else:
+                    resolved = maybe_resolved
+            else:
+                raise DIResolutionFault(
+                    provider=dependency_name,
+                    reason=(
+                        f"Guard '{self.__class__.__name__}' could not resolve {dependency_name}: "
+                        "container does not expose resolve APIs."
+                    ),
+                )
+        except DIResolutionFault:
+            raise
+        except Exception as exc:
+            raise DIResolutionFault(
+                provider=dependency_name,
+                reason=(
+                    f"Guard '{self.__class__.__name__}' failed resolving {dependency_name}. "
+                    "Ensure a provider is registered."
+                ),
+            ) from exc
+
+        if resolved is None:
+            raise DIResolutionFault(
+                provider=dependency_name,
+                reason=(
+                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."
+                ),
+            )
+
+        return resolved
+
     def as_flow_node(self, name: str | None = None, priority: int = 50) -> FlowNode:
         """
         Convert guard to FlowNode.
@@ -197,17 +252,20 @@ class RequireSessionAuthGuard(FlowGuard):
     Checks that session has valid identity binding.
     """
 
-    def __init__(self, auth_manager: AuthManager):
+    def __init__(self, auth_manager: AuthManager | None = None):
         """
         Initialize guard.
 
         Args:
-            auth_manager: AuthManager instance
+            auth_manager: AuthManager instance (optional when DI container is available)
         """
         self.auth_manager = auth_manager
 
     async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
         """Verify session authentication."""
+        if self.auth_manager is None:
+            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+
         session = get_session(context)
 
         if not session:
@@ -237,17 +295,20 @@ class RequireTokenAuthGuard(FlowGuard):
     Extracts and validates token from Authorization header.
     """
 
-    def __init__(self, auth_manager: AuthManager):
+    def __init__(self, auth_manager: AuthManager | None = None):
         """
         Initialize guard.
 
         Args:
-            auth_manager: AuthManager instance
+            auth_manager: AuthManager instance (optional when DI container is available)
         """
         self.auth_manager = auth_manager
 
     async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
         """Verify token authentication."""
+        if self.auth_manager is None:
+            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+
         request = context.get("request")
         if not request:
             raise AUTH_REQUIRED()
@@ -281,14 +342,14 @@ class RequireApiKeyGuard(FlowGuard):
 
     def __init__(
         self,
-        auth_manager: AuthManager,
+        auth_manager: AuthManager | None = None,
         required_scopes: list[str] | None = None,
     ):
         """
         Initialize guard.
 
         Args:
-            auth_manager: AuthManager instance
+            auth_manager: AuthManager instance (optional when DI container is available)
             required_scopes: Required scopes for this endpoint
         """
         self.auth_manager = auth_manager
@@ -296,6 +357,9 @@ class RequireApiKeyGuard(FlowGuard):
 
     async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
         """Verify API key authentication."""
+        if self.auth_manager is None:
+            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+
         request = context.get("request")
         if not request:
             raise AUTH_REQUIRED()
