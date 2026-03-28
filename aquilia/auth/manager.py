@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.sessions import SessionScope
 from aquilia.typing import JSONObject
 
 from .core import (
@@ -212,11 +213,53 @@ class AuthManager:
             # Auth should continue even if optional session integration is unavailable.
             return
 
+    def _normalize_scopes(
+        self,
+        scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None,
+        *,
+        key: str,
+    ) -> list[str] | None:
+        """Normalize mixed scope inputs into a list of non-empty string values."""
+        if scopes is None:
+            return None
+
+        if isinstance(scopes, (SessionScope, str)):
+            scope_items: list[SessionScope | str] = [scopes]
+        elif isinstance(scopes, (list, tuple, set)):
+            scope_items = list(scopes)
+        else:
+            raise ConfigInvalidFault(
+                key=key,
+                reason="Scopes must be a SessionScope, string, or an iterable of those values",
+            )
+
+        normalized: list[str] = []
+        for item in scope_items:
+            if isinstance(item, SessionScope):
+                value = item.value
+            elif isinstance(item, str):
+                value = item
+            else:
+                raise ConfigInvalidFault(
+                    key=key,
+                    reason="Scopes must contain only SessionScope or string values",
+                )
+
+            trimmed = value.strip()
+            if not trimmed:
+                raise ConfigInvalidFault(
+                    key=key,
+                    reason="Scope values cannot be empty",
+                )
+            normalized.append(trimmed)
+
+        return normalized
+
     async def authenticate_password(
         self,
         username: str,
         password: str,
-        scopes: list[str] | None = None,
+        scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
         session_id: str | None = None,
         client_metadata: dict[str, Any] | None = None,
     ) -> AuthResult:
@@ -226,7 +269,7 @@ class AuthManager:
         Args:
             username: Username or email
             password: Plain text password
-            scopes: Requested scopes
+            scopes: Requested scopes as SessionScope/string or collection of values
             session_id: Optional session ID to bind token to
             client_metadata: Client info (IP, user agent, etc.)
 
@@ -295,6 +338,7 @@ class AuthManager:
 
         # Resolve session ID from explicit value or active runtime session.
         session_id = self._derive_session_id(session_id)
+        normalized_scopes = self._normalize_scopes(scopes, key="auth.authenticate_password.scopes")
 
         # Get roles from identity
         roles = identity.get_attribute("roles", [])
@@ -306,7 +350,7 @@ class AuthManager:
         # Issue tokens
         access_token = await self.token_manager.issue_access_token(
             identity_id=identity.id,
-            scopes=scopes or ["profile"],
+            scopes=normalized_scopes or ["profile"],
             roles=roles,
             session_id=session_id,
             tenant_id=identity.tenant_id,
@@ -314,7 +358,7 @@ class AuthManager:
 
         refresh_token = await self.token_manager.issue_refresh_token(
             identity_id=identity.id,
-            scopes=scopes or ["profile"],
+            scopes=normalized_scopes or ["profile"],
             session_id=session_id,
         )
 
@@ -339,7 +383,7 @@ class AuthManager:
         *,
         username: str,
         password: str,
-        scopes: list[str] | None = None,
+        scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
         session: Literal["auto", "new"] | str = "auto",
         client_metadata: dict[str, Any] | None = None,
     ) -> AuthResult:
@@ -349,7 +393,7 @@ class AuthManager:
         Args:
             username: Username or email
             password: Plain text password
-            scopes: Optional requested scopes
+            scopes: Optional requested scopes as SessionScope/string or collection of values
             session:
                 - "auto": bind to active runtime session if present, otherwise create one
                 - "new": force a new synthetic session id
@@ -382,14 +426,14 @@ class AuthManager:
     async def authenticate_api_key(
         self,
         api_key: str,
-        required_scopes: list[str] | None = None,
+        required_scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
     ) -> AuthResult:
         """
         Authenticate using API key.
 
         Args:
             api_key: API key string
-            required_scopes: Scopes required for this request
+            required_scopes: Scopes required for this request as SessionScope/string or collection of values
 
         Returns:
             AuthResult with identity and scopes
@@ -424,13 +468,17 @@ class AuthManager:
             raise AUTH_KEY_REVOKED(key_id=credential.key_id)
 
         # Check scopes
-        if required_scopes:
+        normalized_required_scopes = self._normalize_scopes(
+            required_scopes,
+            key="auth.authenticate_api_key.required_scopes",
+        )
+        if normalized_required_scopes:
             from .faults import AUTHZ_INSUFFICIENT_SCOPE
 
-            missing_scopes = set(required_scopes) - set(credential.scopes)
+            missing_scopes = set(normalized_required_scopes) - set(credential.scopes)
             if missing_scopes:
                 raise AUTHZ_INSUFFICIENT_SCOPE(
-                    required_scopes=required_scopes,
+                    required_scopes=normalized_required_scopes,
                     available_scopes=credential.scopes,
                 )
 

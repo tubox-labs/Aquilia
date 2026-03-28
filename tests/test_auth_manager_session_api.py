@@ -3,6 +3,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from aquilia.sessions import SessionScope
 
 
 @pytest.fixture
@@ -63,6 +64,7 @@ async def test_sign_in_with_new_session_forces_new_sid(auth_stack):
     result = await auth_stack["manager"].sign_in(
         username="session@example.com",
         password="top-secret",
+        scopes=SessionScope.USER,
         session="new",
     )
 
@@ -91,6 +93,7 @@ async def test_sign_out_scope_identity_revokes_identity_tokens(auth_stack):
     result = await auth_stack["manager"].authenticate_password(
         username="session@example.com",
         password="top-secret",
+        scopes=SessionScope.USER,
     )
 
     summary = await auth_stack["manager"].sign_out(
