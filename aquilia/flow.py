@@ -1489,9 +1489,55 @@ def from_pipeline_list(
     This bridges the controller ``pipeline=[]`` syntax with the
     full Flow pipeline executor.
     """
+
+    def _maybe_materialize_pipeline_factory(item: Any) -> Any:
+        """Materialize zero-arg factory references into concrete pipeline items.
+
+        Supports declarative controller pipelines like:
+            pipeline = [controller_require_auth, controller_require_scopes("orders:read")]
+
+        Safety constraints:
+        - Only plain functions are considered (not classes/instances)
+        - No required args and no *args/**kwargs
+        - Return annotation must look like a pipeline object
+        """
+        if not inspect.isfunction(item):
+            return item
+
+        try:
+            sig = inspect.signature(item)
+        except (TypeError, ValueError):
+            return item
+
+        for param in sig.parameters.values():
+            if param.kind in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD):
+                return item
+            if param.default is inspect.Parameter.empty:
+                return item
+
+        return_ann = sig.return_annotation
+        if return_ann is inspect.Signature.empty:
+            return item
+
+        ann_text = str(return_ann)
+        if not any(name in ann_text for name in ("ControllerGuardAdapter", "FlowNode", "FlowPipeline")):
+            return item
+
+        try:
+            produced = item()
+        except Exception:
+            # Keep legacy behavior; callable will execute during pipeline runtime.
+            return item
+
+        if isinstance(produced, (FlowNode, FlowPipeline)) or hasattr(produced, "as_flow_node") or callable(produced):
+            return produced
+        return item
+
     pipe = FlowPipeline(name)
 
     for item in nodes:
+        item = _maybe_materialize_pipeline_factory(item)
+
         if isinstance(item, FlowNode):
             pipe.add_node(item)
         elif isinstance(item, FlowPipeline):

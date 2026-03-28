@@ -4,6 +4,7 @@ Provider implementations for different instantiation strategies.
 
 import asyncio
 import inspect
+import types
 from collections.abc import Callable, Coroutine
 from contextlib import asynccontextmanager, suppress
 from typing import Any, TypeVar
@@ -12,6 +13,33 @@ from .core import Provider, ProviderMeta, ResolveCtx
 from .errors import DIError
 
 T = TypeVar("T")
+
+
+def _normalize_optional_token(annotation: Any) -> tuple[Any, bool]:
+    """Normalize Optional/union annotations for DI token lookup.
+
+    Returns:
+        (normalized_token, is_optional_annotation)
+    """
+    from typing import Union, get_args, get_origin
+
+    origin = get_origin(annotation)
+    if origin in (Union, types.UnionType):
+        args = get_args(annotation)
+        if not args:
+            return annotation, False
+
+        non_none_args = [arg for arg in args if arg is not type(None)]
+        has_none = len(non_none_args) != len(args)
+
+        # Optional[T] -> resolve by T and mark optional.
+        if has_none and len(non_none_args) == 1:
+            return non_none_args[0], True
+
+        # Complex unions (A | B | None) remain unchanged to avoid ambiguity.
+        return annotation, has_none
+
+    return annotation, False
 
 
 class ClassProvider:
@@ -109,16 +137,21 @@ class ClassProvider:
             return deps
 
         try:
-            # SEC-DI-02: Use eval_str=False to prevent code execution via
-            # string annotations.  Fall back to typing.get_type_hints()
-            # which performs eval() in a controlled namespace.
+            # SEC-DI-02: Start with eval_str=False to avoid arbitrary evaluation.
+            # If postponed annotations are strings, attempt a controlled
+            # get_type_hints() resolution using the function's namespaces.
             type_hints = inspect.get_annotations(cls.__init__, eval_str=False)
+
+            if any(isinstance(v, str) for v in type_hints.values()):
+                from typing import get_type_hints
+
+                type_hints = get_type_hints(cls.__init__, include_extras=True)
         except Exception:
-            # Fallback for older python or failure
+            # Fallback for older python or hint resolution failure.
             try:
                 from typing import get_type_hints
 
-                type_hints = get_type_hints(cls.__init__)
+                type_hints = get_type_hints(cls.__init__, include_extras=True)
             except Exception:
                 type_hints = {}
 
@@ -143,7 +176,7 @@ class ClassProvider:
 
             # Check for Inject metadata
             dep_info = self._parse_annotation(annotation)
-            dep_info["optional"] = param.default != inspect.Parameter.empty
+            dep_info["optional"] = dep_info.get("optional", False) or param.default != inspect.Parameter.empty
 
             deps[param_name] = dep_info
 
@@ -164,7 +197,8 @@ class ClassProvider:
                 metadata = args[1:] if len(args) > 1 else ()
 
                 # Look for Inject marker
-                result = {"token": base_type}
+                normalized_base, optional_from_type = _normalize_optional_token(base_type)
+                result = {"token": normalized_base, "optional": optional_from_type}
                 for meta in metadata:
                     if hasattr(meta, "_inject_token") and meta._inject_token is not None:
                         result["token"] = meta._inject_token
@@ -175,7 +209,8 @@ class ClassProvider:
                 return result
 
         # Plain type annotation
-        return {"token": annotation}
+        normalized, optional_from_type = _normalize_optional_token(annotation)
+        return {"token": normalized, "optional": optional_from_type}
 
 
 class FactoryProvider:
@@ -281,7 +316,7 @@ class FactoryProvider:
                 continue
 
             dep_info = self._parse_annotation(annotation)
-            dep_info["optional"] = param.default != inspect.Parameter.empty
+            dep_info["optional"] = dep_info.get("optional", False) or param.default != inspect.Parameter.empty
             deps[param_name] = dep_info
 
         return deps
@@ -302,7 +337,8 @@ class FactoryProvider:
                 if origin is Annotated:
                     args = get_args(annotation)
                     base_type = args[0]
-                    result = {"token": base_type}
+                    normalized_base, optional_from_type = _normalize_optional_token(base_type)
+                    result = {"token": normalized_base, "optional": optional_from_type}
                     for meta in args[1:]:
                         if hasattr(meta, "_inject_token") and meta._inject_token is not None:
                             result["token"] = meta._inject_token
@@ -314,7 +350,8 @@ class FactoryProvider:
             except ImportError:
                 pass
 
-        return {"token": annotation}
+        normalized, optional_from_type = _normalize_optional_token(annotation)
+        return {"token": normalized, "optional": optional_from_type}
 
 
 class ValueProvider:

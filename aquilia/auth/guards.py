@@ -43,7 +43,9 @@ class Guard:
         """
         raise NotImplementedError
 
-    async def _resolve_required_dependency(self, context: dict[str, Any], token: type[Any], dependency_name: str) -> Any:
+    async def _resolve_required_dependency(
+        self, context: dict[str, Any], token: type[Any], dependency_name: str
+    ) -> Any:
         """Resolve a required dependency from flow context DI container."""
         container = context.get("container")
         if container is None:
@@ -86,9 +88,7 @@ class Guard:
         if resolved is None:
             raise DIResolutionFault(
                 provider=dependency_name,
-                reason=(
-                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."
-                ),
+                reason=(f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."),
             )
 
         return resolved

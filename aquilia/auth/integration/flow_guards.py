@@ -161,9 +161,7 @@ class FlowGuard:
         if resolved is None:
             raise DIResolutionFault(
                 provider=dependency_name,
-                reason=(
-                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."
-                ),
+                reason=(f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."),
             )
 
         return resolved

@@ -41,7 +41,15 @@ from aquilia.controller.base import (
     _ControllerMeta,
 )
 from aquilia.controller.decorators import (
-    GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, TRACE, WS,
+    GET,
+    POST,
+    PUT,
+    PATCH,
+    DELETE,
+    HEAD,
+    OPTIONS,
+    TRACE,
+    WS,
     RouteDecorator,
     route,
     VALID_HTTP_METHODS,
@@ -105,9 +113,14 @@ from aquilia.controller.openapi import (
 #  Helpers / Fixtures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _make_request(
-    method="GET", path="/", headers=None, query_string=b"",
-    body=None, state=None,
+    method="GET",
+    path="/",
+    headers=None,
+    query_string=b"",
+    body=None,
+    state=None,
 ):
     """Create a mock request object."""
     from aquilia.request import Request
@@ -149,6 +162,7 @@ def _make_ctx(request=None, **kwargs):
 #  SECTION 1: Base — Controller & RequestCtx
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRequestCtx:
     """Tests for RequestCtx."""
 
@@ -189,6 +203,7 @@ class TestRequestCtx:
 
     async def test_form_delegation(self):
         from aquilia.request import UnsupportedMediaType
+
         req = _make_request()
         ctx = RequestCtx(request=req)
         # No Content-Type header → UnsupportedMediaType
@@ -201,6 +216,7 @@ class TestControllerMutableDefaultFix:
 
     def test_pipeline_not_shared(self):
         """BUG FIX: Each subclass gets its own pipeline list."""
+
         class ControllerA(Controller):
             prefix = "/a"
             pipeline = ["guard_a"]
@@ -215,6 +231,7 @@ class TestControllerMutableDefaultFix:
 
     def test_tags_not_shared(self):
         """BUG FIX: Each subclass gets its own tags list."""
+
         class TaggedA(Controller):
             tags = ["alpha"]
 
@@ -227,6 +244,7 @@ class TestControllerMutableDefaultFix:
 
     def test_mutation_doesnt_leak(self):
         """Appending to one controller's pipeline doesn't affect others."""
+
         class Parent(Controller):
             pipeline = ["base"]
 
@@ -244,15 +262,19 @@ class TestControllerMutableDefaultFix:
     def test_interceptors_not_shared(self):
         class A(Controller):
             interceptors = ["i1"]
+
         class B(Controller):
             interceptors = ["i2"]
+
         assert A.interceptors is not B.interceptors
 
     def test_exception_filters_not_shared(self):
         class A(Controller):
             exception_filters = ["f1"]
+
         class B(Controller):
             exception_filters = ["f2"]
+
         assert A.exception_filters is not B.exception_filters
 
 
@@ -280,11 +302,13 @@ class TestControllerNewFeatures:
     def test_custom_version(self):
         class V2(Controller):
             version = "v2"
+
         assert V2.version == "v2"
 
     def test_custom_timeout(self):
         class Slow(Controller):
             timeout = 30.0
+
         assert Slow.timeout == 30.0
 
 
@@ -310,53 +334,73 @@ class TestControllerLifecycle:
 #  SECTION 2: Decorators
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestDecorators:
     """Tests for HTTP method decorators."""
 
     def test_get_sets_method(self):
         @GET("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "GET"
 
     def test_post_sets_method(self):
         @POST("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "POST"
 
     def test_put_sets_method(self):
         @PUT("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "PUT"
 
     def test_patch_sets_method(self):
         @PATCH("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "PATCH"
 
     def test_delete_sets_method(self):
         @DELETE("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "DELETE"
 
     def test_head_sets_method(self):
         @HEAD("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "HEAD"
 
     def test_options_sets_method(self):
         @OPTIONS("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "OPTIONS"
 
     def test_trace_sets_method(self):
         """NEW: TRACE method support."""
+
         @TRACE("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "TRACE"
 
     def test_ws_sets_method(self):
         @WS("/ws")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "WS"
 
     def test_method_set_before_call(self):
@@ -366,7 +410,8 @@ class TestDecorators:
 
     def test_route_metadata_contains_all_fields(self):
         @GET("/", summary="List items", tags=["items"], deprecated=True)
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
 
         meta = handler.__route_metadata__[0]
         assert meta["summary"] == "List items"
@@ -377,40 +422,56 @@ class TestDecorators:
 
     def test_deduplication(self):
         """FIX: Same method+path shouldn't be added twice."""
+
         @GET("/")
         @GET("/")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert len(handler.__route_metadata__) == 1
 
     def test_throttle_in_metadata(self):
         """NEW: Per-route throttle."""
         t = Throttle(limit=10, window=60)
+
         @GET("/", throttle=t)
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["throttle"] is t
 
     def test_timeout_in_metadata(self):
         """NEW: Per-route timeout."""
+
         @GET("/", timeout=5.0)
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["timeout"] == 5.0
 
     def test_route_function_single_method(self):
         @route("GET", "/items")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["http_method"] == "GET"
 
     def test_route_function_multi_method(self):
         @route(["GET", "POST"], "/items")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         methods = {m["http_method"] for m in handler.__route_metadata__}
         assert methods == {"GET", "POST"}
 
     def test_route_function_invalid_method(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="Invalid HTTP method"):
+
             @route("INVALID", "/")
-            async def handler(self, ctx): pass
+            async def handler(self, ctx):
+                pass
 
     def test_valid_http_methods_constant(self):
         assert "GET" in VALID_HTTP_METHODS
@@ -431,6 +492,7 @@ class TestDecorators:
 
     def test_unknown_kwarg_still_fails_fast(self):
         with pytest.raises(TypeError):
+
             @GET("/", unsupported_option=True)
             async def handler(self, ctx):
                 pass
@@ -439,6 +501,7 @@ class TestDecorators:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 3: Throttle
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestThrottle:
     """Tests for Throttle rate limiter."""
@@ -485,6 +548,7 @@ class TestThrottle:
 #  SECTION 4: ExceptionFilter
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestExceptionFilter:
     """Tests for ExceptionFilter base class."""
 
@@ -499,6 +563,7 @@ class TestExceptionFilter:
 
             async def catch(self, exception, ctx):
                 from aquilia.response import Response
+
                 return Response.json({"error": "Not found"}, status=404)
 
         ef = NotFoundFilter()
@@ -510,6 +575,7 @@ class TestExceptionFilter:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 5: Interceptor
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestInterceptor:
     """Tests for Interceptor base class."""
@@ -547,6 +613,7 @@ class TestInterceptor:
 #  SECTION 6: Factory
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestControllerFactory:
     """Tests for ControllerFactory."""
 
@@ -582,6 +649,7 @@ class TestControllerFactory:
 
     async def test_shutdown_uses_logger(self):
         """FIX: shutdown() uses logger instead of print()."""
+
         class Failing(Controller):
             async def on_shutdown(self, ctx):
                 raise RuntimeError("shutdown error")
@@ -600,6 +668,7 @@ class TestControllerFactory:
     async def test_simple_resolve_raises_on_abstract(self):
         """FIX: _simple_resolve raises TypeError instead of crashing."""
         import abc
+
         class Abstract(abc.ABC):
             @abc.abstractmethod
             def method(self): ...
@@ -612,6 +681,7 @@ class TestControllerFactory:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 7: Engine — Cache Management
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestEngineCaches:
     """Tests for ControllerEngine cache management."""
@@ -681,9 +751,7 @@ class TestEngineExceptionFilters:
         class NoFilters(Controller):
             pass
 
-        result = await engine._apply_exception_filters(
-            Exception("test"), NoFilters, MagicMock(), _make_ctx()
-        )
+        result = await engine._apply_exception_filters(Exception("test"), NoFilters, MagicMock(), _make_ctx())
         assert result is None
 
     async def test_matching_filter_handles_exception(self):
@@ -695,14 +763,13 @@ class TestEngineExceptionFilters:
 
             async def catch(self, exception, ctx):
                 from aquilia.response import Response
+
                 return Response.json({"error": str(exception)}, status=422)
 
         class Filtered(Controller):
             exception_filters = [MyFilter()]
 
-        result = await engine._apply_exception_filters(
-            ValueError("bad input"), Filtered, MagicMock(), _make_ctx()
-        )
+        result = await engine._apply_exception_filters(ValueError("bad input"), Filtered, MagicMock(), _make_ctx())
         assert result is not None
         assert result.status == 422
 
@@ -715,14 +782,13 @@ class TestEngineExceptionFilters:
 
             async def catch(self, exception, ctx):
                 from aquilia.response import Response
+
                 return Response.json({"error": "handled"}, status=422)
 
         class Filtered(Controller):
             exception_filters = [MyFilter()]
 
-        result = await engine._apply_exception_filters(
-            KeyError("wrong type"), Filtered, MagicMock(), _make_ctx()
-        )
+        result = await engine._apply_exception_filters(KeyError("wrong type"), Filtered, MagicMock(), _make_ctx())
         assert result is None
 
 
@@ -866,9 +932,57 @@ class TestEngineAuthGuardClassTokenPipeline:
             )
 
 
+class TestEngineControllerPipelineFactoryReference:
+    """Regression tests for bare controller guard factory references."""
+
+    async def test_bare_controller_require_auth_reference_denies_unauthenticated(self):
+        from aquilia.auth.faults import AUTH_REQUIRED
+        from aquilia.auth.integration.flow_guards import controller_require_auth
+
+        factory = ControllerFactory()
+        engine = ControllerEngine(factory)
+
+        request = _make_request(method="GET", path="/orders")
+        ctx = RequestCtx(request=request, container=None, state={})
+
+        with pytest.raises(AUTH_REQUIRED):
+            await engine._execute_flow_pipeline(
+                [controller_require_auth],
+                request,
+                ctx,
+                Controller(),
+                pipeline_name="controller.factory.reference.unauth",
+            )
+
+    async def test_bare_controller_require_auth_reference_allows_authenticated(self):
+        from aquilia.auth.integration.flow_guards import controller_require_auth, controller_require_scopes
+
+        factory = ControllerFactory()
+        engine = ControllerEngine(factory)
+
+        identity = type("IdentityStub", (), {"scopes": ["orders:read"]})()
+        request = _make_request(method="GET", path="/orders", state={"identity": identity})
+        ctx = RequestCtx(request=request, container=None, state={"identity": identity})
+
+        result = await engine._execute_flow_pipeline(
+            [
+                controller_require_auth,
+                controller_require_scopes("orders:read"),
+            ],
+            request,
+            ctx,
+            Controller(),
+            pipeline_name="controller.factory.reference.authenticated",
+        )
+
+        assert result is None
+        assert ctx.state.get("authenticated") is True
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 8: Metadata
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestMetadata:
     """Tests for metadata extraction."""
@@ -879,13 +993,16 @@ class TestMetadata:
             tags = ["users"]
 
             @GET("/")
-            async def list(self, ctx): pass
+            async def list(self, ctx):
+                pass
 
             @GET("/<id:int>")
-            async def get(self, ctx, id: int): pass
+            async def get(self, ctx, id: int):
+                pass
 
             @POST("/")
-            async def create(self, ctx): pass
+            async def create(self, ctx):
+                pass
 
         meta = extract_controller_metadata(UsersController, "test:UsersController")
         assert meta.class_name == "UsersController"
@@ -905,12 +1022,16 @@ class TestMetadata:
 
     def test_static_segment_higher_specificity(self):
         static = RouteMetadata(
-            http_method="GET", path_template="/users/me",
-            full_path="/users/me", handler_name="me",
+            http_method="GET",
+            path_template="/users/me",
+            full_path="/users/me",
+            handler_name="me",
         )
         dynamic = RouteMetadata(
-            http_method="GET", path_template="/users/<id>",
-            full_path="/users/<id>", handler_name="get",
+            http_method="GET",
+            path_template="/users/<id>",
+            full_path="/users/<id>",
+            handler_name="get",
         )
         static.compute_specificity()
         dynamic.compute_specificity()
@@ -928,11 +1049,15 @@ class TestMetadata:
 
     def test_controller_metadata_get_route(self):
         rm = RouteMetadata(
-            http_method="GET", path_template="/", full_path="/users/",
+            http_method="GET",
+            path_template="/",
+            full_path="/users/",
             handler_name="list",
         )
         cm = ControllerMetadata(
-            class_name="Users", module_path="test", prefix="/users",
+            class_name="Users",
+            module_path="test",
+            prefix="/users",
             routes=[rm],
         )
         found = cm.get_route("GET", "/users/")
@@ -941,11 +1066,15 @@ class TestMetadata:
 
     def test_controller_metadata_has_conflict(self):
         rm1 = RouteMetadata(
-            http_method="GET", path_template="/", full_path="/api/",
+            http_method="GET",
+            path_template="/",
+            full_path="/api/",
             handler_name="list",
         )
         rm2 = RouteMetadata(
-            http_method="GET", path_template="/", full_path="/api/",
+            http_method="GET",
+            path_template="/",
+            full_path="/api/",
             handler_name="other_list",
         )
         cm1 = ControllerMetadata(class_name="A", module_path="a", prefix="/api", routes=[rm1])
@@ -955,6 +1084,7 @@ class TestMetadata:
 
     def test_prefix_type_robustness(self):
         """Handles non-string prefix values gracefully."""
+
         class WeirdPrefix(Controller):
             prefix = ["/api"]  # type: ignore
 
@@ -965,6 +1095,7 @@ class TestMetadata:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 9: Filters
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFilters:
     """Tests for the filter system."""
@@ -1163,6 +1294,7 @@ class TestOrderingFilter:
 #  SECTION 10: Pagination
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def _make_paginated_request(query_string_dict=None):
     """Create a mock request with dict-based query_params for pagination tests."""
     req = MagicMock()
@@ -1284,6 +1416,7 @@ class TestCursorPagination:
 #  SECTION 11: Renderers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestRenderers:
     """Tests for renderer system."""
 
@@ -1398,6 +1531,7 @@ class TestNegotiateFunction:
 #  SECTION 12: OpenAPI
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestOpenAPITypeMapping:
     """Tests for Python type → JSON Schema mapping."""
 
@@ -1474,11 +1608,13 @@ class TestOpenAPIConfig:
         assert config.enabled is True
 
     def test_from_dict(self):
-        config = OpenAPIConfig.from_dict({
-            "title": "My API",
-            "version": "2.0.0",
-            "description": "Test API",
-        })
+        config = OpenAPIConfig.from_dict(
+            {
+                "title": "My API",
+                "version": "2.0.0",
+                "description": "Test API",
+            }
+        )
         assert config.title == "My API"
         assert config.version == "2.0.0"
 
@@ -1517,6 +1653,7 @@ class TestRedocHTML:
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 13: Integration — Controller + Decorators + Metadata
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestControllerIntegration:
     """Integration tests combining Controller + Decorators + Metadata."""
@@ -1573,6 +1710,7 @@ class TestControllerIntegration:
     def test_controller_with_exception_filters(self):
         class NotFoundFilter(ExceptionFilter):
             catches = [KeyError]
+
             async def catch(self, exception, ctx):
                 pass
 
@@ -1610,11 +1748,13 @@ class TestControllerIntegration:
 #  SECTION 14: Edge Cases & Regression Guards
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     """Edge case tests and regression guards."""
 
     def test_empty_controller(self):
         """Controller with no routes should work."""
+
         class EmptyController(Controller):
             prefix = "/empty"
 
@@ -1623,6 +1763,7 @@ class TestEdgeCases:
 
     def test_controller_none_prefix(self):
         """Handles None prefix gracefully."""
+
         class NonePrefix(Controller):
             prefix = None  # type: ignore
 
@@ -1631,15 +1772,21 @@ class TestEdgeCases:
 
     def test_decorator_no_path(self):
         """Decorator with no path derives from method name."""
+
         @GET()
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         assert handler.__route_metadata__[0]["path"] is None
 
     def test_multiple_decorators_different_methods(self):
         """Multiple decorators on one method."""
+
         @GET("/items")
         @POST("/items")
-        async def handler(self, ctx): pass
+        async def handler(self, ctx):
+            pass
+
         methods = {m["http_method"] for m in handler.__route_metadata__}
         assert methods == {"GET", "POST"}
 

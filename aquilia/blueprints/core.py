@@ -15,6 +15,10 @@ import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
+    Generic,
+    TypeVar,
+    cast,
+    overload,
 )
 
 from ..utils.data import DataObject
@@ -39,6 +43,8 @@ if TYPE_CHECKING:
 
 
 __all__ = ["Blueprint", "BlueprintMeta", "_blueprint_registry"]
+
+ModelT = TypeVar("ModelT")
 
 # Global registry for resolving forward/lazy Blueprint references by string name
 _blueprint_registry: dict[str, type[Blueprint]] = {}
@@ -441,14 +447,22 @@ class BlueprintMeta(type):
 
         return facets
 
-    def __getitem__(cls, projection: str) -> _ProjectedRef:
+    def __getitem__(cls, projection: Any) -> Any:
         """
-        Enable ``Blueprint["projection_name"]`` syntax.
+        Enable projection refs for concrete Blueprints while preserving typing subscripts.
 
         Returns a _ProjectedRef that can be passed to Lens or used
         as a response_blueprint in route decorators.
         """
-        return _ProjectedRef(cls, projection)
+        if isinstance(projection, str) and cls.__name__ != "Blueprint":
+            return _ProjectedRef(cls, projection)
+
+        # Defer non-projection subscripts (e.g., Blueprint[UserModel]) to typing.
+        class_getitem = getattr(cls, "__class_getitem__", None)
+        if callable(class_getitem):
+            return class_getitem(projection)
+
+        raise TypeError(f"Unsupported Blueprint subscript: {projection!r}")
 
     def __repr__(cls) -> str:
         model_name = cls._spec.model.__name__ if cls._spec and cls._spec.model else "None"
@@ -484,7 +498,7 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
 # ── Blueprint Base Class ─────────────────────────────────────────────────
 
 
-class Blueprint(metaclass=BlueprintMeta):
+class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
     """
     The Blueprint -- a contract between a Model and the outside world.
 
@@ -530,7 +544,7 @@ class Blueprint(metaclass=BlueprintMeta):
 
     def __init__(
         self,
-        instance: Any = None,
+        instance: ModelT | list[ModelT] | None = None,
         *,
         data: Any = UNSET,
         many: bool = False,
@@ -961,12 +975,36 @@ class Blueprint(metaclass=BlueprintMeta):
 
     # ── Write: Imprint ───────────────────────────────────────────────
 
+    @overload
     async def imprint(
         self,
-        instance: Any = None,
+        instance: None = None,
         *,
         partial: bool | None = None,
-    ) -> Any:
+    ) -> ModelT | list[ModelT]: ...
+
+    @overload
+    async def imprint(
+        self,
+        instance: ModelT,
+        *,
+        partial: bool | None = None,
+    ) -> ModelT: ...
+
+    @overload
+    async def imprint(
+        self,
+        instance: list[ModelT],
+        *,
+        partial: bool | None = None,
+    ) -> list[ModelT]: ...
+
+    async def imprint(
+        self,
+        instance: ModelT | list[ModelT] | None = None,
+        *,
+        partial: bool | None = None,
+    ) -> ModelT | list[ModelT]:
         """
         Write validated data back to a model instance.
 
@@ -994,7 +1032,7 @@ class Blueprint(metaclass=BlueprintMeta):
             return await self._imprint_update(target, is_partial)
         return await self._imprint_create()
 
-    async def _imprint_create(self) -> Any:
+    async def _imprint_create(self) -> ModelT:
         """Create a new model instance from validated data."""
         model_cls = self._spec.model
         if model_cls is None:
@@ -1006,14 +1044,14 @@ class Blueprint(metaclass=BlueprintMeta):
         try:
             instance = model_cls(**create_data)
             await instance.save()
-            return instance
+            return cast(ModelT, instance)
         except Exception as exc:
             raise ImprintFault(
                 message=f"Failed to create {model_cls.__name__}: {exc}",
                 metadata={"model": model_cls.__name__, "error": str(exc)},
             ) from exc
 
-    async def _imprint_update(self, instance: Any, partial: bool) -> Any:
+    async def _imprint_update(self, instance: ModelT, partial: bool) -> ModelT:
         """Update an existing model instance."""
         update_data = self._filter_imprint_data(self._validated_data)
         update_fields = []
@@ -1033,7 +1071,7 @@ class Blueprint(metaclass=BlueprintMeta):
                 metadata={"model": model_name, "error": str(exc)},
             ) from exc
 
-    async def _imprint_many(self, instances: Any = None) -> list[Any]:
+    async def _imprint_many(self, instances: list[ModelT] | None = None) -> list[ModelT]:
         """Create or update multiple instances."""
         results = []
         for i, item_data in enumerate(self._validated_data):
@@ -1047,7 +1085,7 @@ class Blueprint(metaclass=BlueprintMeta):
             child._is_sealed = True
             result = await child.imprint()
             results.append(result)
-        return results
+        return cast(list[ModelT], results)
 
     def _filter_imprint_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """

@@ -330,7 +330,14 @@ class AquiliaServer:
                         name="auth",
                     )
 
+                    from .auth.hashing import PasswordPolicy
                     from .di.providers import ValueProvider
+
+                    security_cfg = auth_config.get("security", {}) if isinstance(auth_config, dict) else {}
+                    policy_cfg = security_cfg.get("password_policy", {}) if isinstance(security_cfg, dict) else {}
+                    password_policy = (
+                        PasswordPolicy.from_dict(policy_cfg) if isinstance(policy_cfg, dict) else PasswordPolicy()
+                    )
 
                     for container in self.runtime.di_containers.values():
                         # Core manager
@@ -364,6 +371,13 @@ class AquiliaServer:
                             ValueProvider(
                                 value=auth_manager.password_hasher,
                                 token="aquilia.auth.hashing.PasswordHasher",
+                                scope="app",
+                            )
+                        )
+                        container.register(
+                            ValueProvider(
+                                value=password_policy,
+                                token=PasswordPolicy,
                                 scope="app",
                             )
                         )

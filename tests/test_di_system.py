@@ -113,8 +113,10 @@ from aquilia.di.compat import (
 # Helpers & Fixtures
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class DummyService:
     """Simple dummy service for DI tests."""
+
     def __init__(self):
         self.started = False
         self.stopped = False
@@ -128,24 +130,35 @@ class DummyService:
 
 class DummyRepo:
     """Repo with no dependencies."""
+
     pass
 
 
 class DummyServiceWithDep:
     """Service depending on DummyRepo."""
+
     def __init__(self, repo: DummyRepo):
         self.repo = repo
 
 
 class DummyServiceOptional:
     """Service with optional dep."""
+
     def __init__(self, repo: DummyRepo, cache: Optional[str] = None):
         self.repo = repo
         self.cache = cache
 
 
+class DummyServiceOptionalUnion:
+    """Service with PEP 604 optional union dep."""
+
+    def __init__(self, repo: DummyRepo | None = None):
+        self.repo = repo
+
+
 class DummyNone:
     """Service whose factory returns None — tests sentinel caching."""
+
     pass
 
 
@@ -163,6 +176,7 @@ def diagnostics():
 # ═══════════════════════════════════════════════════════════════════════
 # 1. Container Core
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestContainer:
     """Tests for core Container operations."""
@@ -404,6 +418,7 @@ class TestContainer:
 # 2. Providers
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestValueProvider:
     """Tests for ValueProvider."""
 
@@ -445,6 +460,16 @@ class TestClassProvider:
         assert "cache" in cp._dependencies
         assert cp._dependencies["cache"]["optional"] is True
 
+    async def test_optional_union_dep_resolves_registered_type(self):
+        container = Container(scope="app")
+        repo = DummyRepo()
+        container.register(ValueProvider(repo, DummyRepo))
+        container.register(ClassProvider(DummyServiceOptionalUnion, scope="app"))
+
+        svc = await container.resolve_async(DummyServiceOptionalUnion)
+        assert isinstance(svc, DummyServiceOptionalUnion)
+        assert svc.repo is repo
+
     async def test_instantiate_resolves_deps(self):
         container = Container(scope="app")
         repo = DummyRepo()
@@ -462,9 +487,11 @@ class TestClassProvider:
 
     async def test_async_init_called(self):
         """If class has async_init(), it's called after __init__."""
+
         class WithAsyncInit:
             def __init__(self):
                 self.initialized = False
+
             async def async_init(self):
                 self.initialized = True
 
@@ -508,6 +535,18 @@ class TestFactoryProvider:
         result = await container.resolve_async("svc_factory")
         assert isinstance(result, DummyServiceWithDep)
 
+    async def test_factory_optional_union_dep_resolves_registered_type(self):
+        async def create_service(repo: DummyRepo | None = None):
+            return repo
+
+        container = Container(scope="app")
+        repo = DummyRepo()
+        container.register(ValueProvider(repo, DummyRepo))
+        container.register(FactoryProvider(create_service, scope="app", name="svc_factory_union_optional"))
+
+        result = await container.resolve_async("svc_factory_union_optional")
+        assert result is repo
+
     def test_meta_uses_explicit_name(self):
         def my_func():
             return 1
@@ -546,6 +585,7 @@ class TestPoolProvider:
 
     async def test_pool_max_size_blocks(self):
         """When pool is exhausted and max_size reached, instantiate waits."""
+
         async def make():
             return object()
 
@@ -567,6 +607,7 @@ class TestPoolProvider:
 
     async def test_pool_acquire_context_manager(self):
         """acquire() auto-releases on exit."""
+
         async def make():
             return "resource"
 
@@ -692,6 +733,7 @@ class TestScopedProvider:
 # 3. Lifecycle
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestLifecycle:
     """Tests for Lifecycle hooks, finalizers, and disposal strategies."""
 
@@ -809,6 +851,7 @@ class TestLifecycle:
 # 4. DependencyGraph
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestDependencyGraph:
     """Tests for graph analysis: cycles, topo sort, DOT export, tree view."""
 
@@ -922,6 +965,7 @@ class TestDependencyGraph:
 # 5. Scopes
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestScopes:
     """Tests for scope validation and rules."""
 
@@ -995,6 +1039,7 @@ class TestScopes:
 # ═══════════════════════════════════════════════════════════════════════
 # 6. Dep Descriptor
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDep:
     """Tests for Dep descriptor and annotation helpers."""
@@ -1099,6 +1144,7 @@ class TestDep:
         req = MagicMock()
         req.headers = {}
         from aquilia.faults.domains import BadRequestFault
+
         with pytest.raises(BadRequestFault, match="Missing required header"):
             h.resolve({"request": req})
 
@@ -1137,6 +1183,7 @@ class TestDep:
 # 7. RequestDAG
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestRequestDAG:
     """Tests for per-request DAG resolution."""
 
@@ -1151,6 +1198,7 @@ class TestRequestDAG:
 
     async def test_resolve_async_callable(self):
         """Dep(call=fn) calls the function."""
+
         async def get_val():
             return 42
 
@@ -1161,6 +1209,7 @@ class TestRequestDAG:
 
     async def test_resolve_sync_callable(self):
         """Dep with sync callable."""
+
         def make():
             return "sync"
 
@@ -1269,6 +1318,7 @@ class TestRequestDAG:
 
     async def test_header_extraction(self):
         """RequestDAG extracts Header values from request."""
+
         async def handler(auth: Annotated[str, Header("Authorization")]):
             return auth
 
@@ -1284,6 +1334,7 @@ class TestRequestDAG:
 
     async def test_query_extraction(self):
         """RequestDAG extracts Query values from request."""
+
         async def handler(page: Annotated[int, Query("page", default=1)]):
             return page
 
@@ -1302,6 +1353,7 @@ class TestRequestDAG:
 # ═══════════════════════════════════════════════════════════════════════
 # 8. Decorators
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDecorators:
     """Tests for DI decorators."""
@@ -1355,6 +1407,7 @@ class TestDecorators:
         set_request_container(container)
 
         try:
+
             @auto_inject
             async def handler(db: str):
                 return db
@@ -1367,6 +1420,7 @@ class TestDecorators:
     async def test_auto_inject_no_container_raises(self):
         """auto_inject raises if no request container set."""
         from aquilia.di.compat import clear_request_container
+
         clear_request_container()
 
         @auto_inject
@@ -1380,6 +1434,7 @@ class TestDecorators:
 # ═══════════════════════════════════════════════════════════════════════
 # 9. Testing Utilities
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestTestingUtils:
     """Tests for MockProvider, TestRegistry, override_container."""
@@ -1440,6 +1495,7 @@ class TestTestingUtils:
 # ═══════════════════════════════════════════════════════════════════════
 # 10. Diagnostics
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestDiagnostics:
     """Tests for DI observability system."""
@@ -1567,6 +1623,7 @@ class TestDiagnostics:
 # 11. Errors
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestDIErrors:
     """Tests for DI error types and their diagnostic messages."""
 
@@ -1675,6 +1732,7 @@ class TestDIErrors:
 # 12. Compat
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestCompat:
     """Tests for legacy compatibility layer."""
 
@@ -1753,6 +1811,7 @@ class TestCompat:
 # 13. ResolveCtx
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestResolveCtx:
     """Tests for ResolveCtx stack/cycle tracking."""
 
@@ -1783,6 +1842,7 @@ class TestResolveCtx:
 # 14. ProviderMeta
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestProviderMeta:
     """Tests for ProviderMeta dataclass."""
 
@@ -1812,6 +1872,7 @@ class TestProviderMeta:
 # ═══════════════════════════════════════════════════════════════════════
 # 15. _CACHE_SENTINEL
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestCacheSentinel:
     """Tests for the sentinel-based cache check."""
@@ -1848,6 +1909,7 @@ class TestCacheSentinel:
 # 16. _NullLifecycle
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestNullLifecycle:
     """Tests for the lightweight null lifecycle used in request containers."""
 
@@ -1866,6 +1928,7 @@ class TestNullLifecycle:
 # 17. Lambda Capture Fix Verification
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestLambdaCaptureFix:
     """Verify the lambda late-binding closure fix in _check_lifecycle_hooks."""
 
@@ -1876,12 +1939,14 @@ class TestLambdaCaptureFix:
         class SvcA:
             async def on_startup(self):
                 pass
+
             async def on_shutdown(self):
                 pass
 
         class SvcB:
             async def on_startup(self):
                 pass
+
             async def on_shutdown(self):
                 pass
 
@@ -1899,6 +1964,7 @@ class TestLambdaCaptureFix:
 # ═══════════════════════════════════════════════════════════════════════
 # 18. Request Scope Provider Isolation
 # ═══════════════════════════════════════════════════════════════════════
+
 
 class TestRequestScopeIsolation:
     """Verify child._providers is a copy (not shared reference)."""
@@ -1933,6 +1999,7 @@ class TestRequestScopeIsolation:
 # 19. Integration: End-to-End DI Flow
 # ═══════════════════════════════════════════════════════════════════════
 
+
 class TestDIIntegration:
     """End-to-end integration tests for the DI system."""
 
@@ -1963,6 +2030,7 @@ class TestDIIntegration:
 
     async def test_dag_with_sub_dependencies(self):
         """RequestDAG resolves nested Dep chains."""
+
         async def get_config():
             return {"db_url": "sqlite://"}
 
@@ -1996,8 +2064,10 @@ class TestDIIntegration:
 # Async helper
 # ═══════════════════════════════════════════════════════════════════════
 
+
 async def _async_append(lst, value):
     lst.append(value)
+
 
 async def _async_noop():
     pass
