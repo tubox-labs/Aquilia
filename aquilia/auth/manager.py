@@ -128,6 +128,55 @@ class AuthManager:
         self.password_hasher = password_hasher or PasswordHasher()
         self.rate_limiter = rate_limiter or RateLimiter()
 
+    def _get_runtime_session(self) -> Any | None:
+        """
+        Best-effort access to request-scoped session set by auth middleware.
+
+        This keeps AuthManager decoupled from sessions when integrations are not enabled.
+        """
+        try:
+            from .integration.runtime_context import get_auth_runtime_context
+
+            runtime_ctx = get_auth_runtime_context()
+            if runtime_ctx is None:
+                return None
+            return runtime_ctx.session
+        except Exception:
+            return None
+
+    def _derive_session_id(self, explicit_session_id: str | None) -> str:
+        """Resolve session ID with runtime session fallback."""
+        if explicit_session_id:
+            return explicit_session_id
+
+        runtime_session = self._get_runtime_session()
+        if runtime_session is not None and hasattr(runtime_session, "id"):
+            return str(runtime_session.id)
+
+        return f"sess_{secrets.token_urlsafe(32)}"
+
+    def _bind_identity_to_runtime_session(self, identity: Identity, explicit_session_id: str | None) -> None:
+        """
+        Bind authenticated identity to the current request session if available.
+
+        Binding is skipped when caller provides a different explicit session ID.
+        """
+        runtime_session = self._get_runtime_session()
+        if runtime_session is None or not hasattr(runtime_session, "id"):
+            return
+
+        runtime_session_id = str(runtime_session.id)
+        if explicit_session_id and explicit_session_id != runtime_session_id:
+            return
+
+        try:
+            from .integration.aquila_sessions import bind_identity
+
+            bind_identity(runtime_session, identity)
+        except Exception:
+            # Auth should continue even if optional session integration is unavailable.
+            return
+
     async def authenticate_password(
         self,
         username: str,
@@ -209,9 +258,8 @@ class AuthManager:
                 available_methods=[c.mfa_type for c in mfa_creds],
             )
 
-        # Generate session ID if not provided
-        if not session_id:
-            session_id = f"sess_{secrets.token_urlsafe(32)}"
+        # Resolve session ID from explicit value or active runtime session.
+        session_id = self._derive_session_id(session_id)
 
         # Get roles from identity
         roles = identity.get_attribute("roles", [])
@@ -234,6 +282,10 @@ class AuthManager:
             scopes=scopes or ["profile"],
             session_id=session_id,
         )
+
+        # Django-like ergonomics for Aquilia: when auth runs inside request scope,
+        # the identity is bound to the active session automatically.
+        self._bind_identity_to_runtime_session(identity, explicit_session_id=session_id)
 
         return AuthResult(
             identity=identity,
@@ -311,6 +363,9 @@ class AuthManager:
         if identity.status != IdentityStatus.ACTIVE:
             raise AUTH_ACCOUNT_SUSPENDED(identity_id=identity.id)
 
+        # Bind identity to active runtime session if one exists.
+        self._bind_identity_to_runtime_session(identity, explicit_session_id=None)
+
         # API keys don't get refresh tokens
         return AuthResult(
             identity=identity,
@@ -382,8 +437,19 @@ class AuthManager:
         if identity_id:
             await self.token_manager.revoke_tokens_by_identity(identity_id)
 
-        if session_id:
-            await self.token_manager.revoke_tokens_by_session(session_id)
+        resolved_session_id = session_id
+        runtime_session = self._get_runtime_session()
+        if resolved_session_id is None and runtime_session is not None and hasattr(runtime_session, "id"):
+            resolved_session_id = str(runtime_session.id)
+
+        if resolved_session_id:
+            await self.token_manager.revoke_tokens_by_session(resolved_session_id)
+
+        if runtime_session is not None and hasattr(runtime_session, "clear_authentication"):
+            try:
+                runtime_session.clear_authentication()
+            except Exception:
+                pass
 
     async def verify_token(self, access_token: str) -> TokenClaims:
         """

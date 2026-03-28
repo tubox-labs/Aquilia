@@ -32,6 +32,7 @@ from .aquila_sessions import (
     bind_token_claims,
     get_identity_id,
 )
+from .runtime_context import AuthRuntimeContext, reset_auth_runtime_context, set_auth_runtime_context
 
 if TYPE_CHECKING:
     from aquilia.di import RequestCtx
@@ -114,78 +115,91 @@ class AquilAuthMiddleware:
         # Also set on ctx for template rendering
         ctx.session = session
 
-        # Phase 2: Resolve identity (Bearer token overrides session)
-        identity = None
+        runtime_context = AuthRuntimeContext(
+            request=request,
+            session=session,
+            container=container,
+        )
+        runtime_token = set_auth_runtime_context(runtime_context)
 
-        # 1. Try Authorization header
-        auth_header = request.header("authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            try:
-                identity = await self.auth_manager.get_identity_from_token(token)
-                if identity:
-                    # Sync identity to session
-                    bind_identity(session, identity)
-
-                    # Sync token claims to session
-                    claims = await self.auth_manager.verify_token(token)
-                    if claims:
-                        bind_token_claims(session, claims)
-            except Exception as e:
-                self.logger.warning(f"Token authentication failed: {e}")
-                # Continue and try session
-
-        # 2. If no token, use identity from session
-        if not identity:
-            identity_id = get_identity_id(session)
-            if identity_id:
-                try:
-                    identity = await self.auth_manager.identity_store.get(identity_id)
-                except Exception as e:
-                    self.logger.warning(f"Failed to load identity from session: {e}")
-                    # Continue without identity
-
-        # Phase 3: Check authentication requirement
-        if self.require_auth and not identity:
-            # No identity and auth required
-            response = self._handle_auth_required()
-            await self.session_engine.commit(session, response)
-            return response
-
-        initial_auth_state = session.is_authenticated
-
-        # Phase 4: Inject identity into request and DI
-        request.state["identity"] = identity
-        request.state["authenticated"] = identity is not None
-
-        # Also set on ctx for template rendering
-        ctx.identity = identity
-
-        if container and identity:
-            # Register identity in DI container for injection
-            if not container.is_registered(Identity):
-                await container.register_instance(
-                    Identity,
-                    identity,
-                    scope="request",
-                )
-
-        # Phase 5: Execute handler
         try:
-            response = await next(request, ctx)
-        except Exception:
-            # Let all exceptions propagate to ExceptionMiddleware
-            # which properly maps Faults to HTTP status codes.
-            # The fault_engine is used for auth-specific operations
-            # (e.g., _handle_auth_required) not for general exception handling.
-            raise
+            # Phase 2: Resolve identity (Bearer token overrides session)
+            identity = None
 
-        # Phase 6: Commit session
-        # Check if privilege changed (transitioned from anonymous to authenticated or vice versa)
-        privilege_changed = session.is_authenticated != initial_auth_state
-        await self.session_engine.commit(session, response, privilege_changed=privilege_changed)
+            # 1. Try Authorization header
+            auth_header = request.header("authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+                try:
+                    identity = await self.auth_manager.get_identity_from_token(token)
+                    if identity:
+                        # Sync identity to session
+                        bind_identity(session, identity)
 
-        return response
+                        # Sync token claims to session
+                        claims = await self.auth_manager.verify_token(token)
+                        if claims:
+                            bind_token_claims(session, claims)
+                except Exception as e:
+                    self.logger.warning(f"Token authentication failed: {e}")
+                    # Continue and try session
+
+            # 2. If no token, use identity from session
+            if not identity:
+                identity_id = get_identity_id(session)
+                if identity_id:
+                    try:
+                        identity = await self.auth_manager.identity_store.get(identity_id)
+                    except Exception as e:
+                        self.logger.warning(f"Failed to load identity from session: {e}")
+                        # Continue without identity
+
+            # Phase 3: Check authentication requirement
+            if self.require_auth and not identity:
+                # No identity and auth required
+                response = self._handle_auth_required()
+                runtime_context.response = response
+                await self.session_engine.commit(session, response)
+                return response
+
+            initial_auth_state = session.is_authenticated
+
+            # Phase 4: Inject identity into request and DI
+            request.state["identity"] = identity
+            request.state["authenticated"] = identity is not None
+
+            # Also set on ctx for template rendering
+            ctx.identity = identity
+
+            if container and identity:
+                # Register identity in DI container for injection
+                if not container.is_registered(Identity):
+                    await container.register_instance(
+                        Identity,
+                        identity,
+                        scope="request",
+                    )
+
+            # Phase 5: Execute handler
+            try:
+                response = await next(request, ctx)
+            except Exception:
+                # Let all exceptions propagate to ExceptionMiddleware
+                # which properly maps Faults to HTTP status codes.
+                # The fault_engine is used for auth-specific operations
+                # (e.g., _handle_auth_required) not for general exception handling.
+                raise
+
+            runtime_context.response = response
+
+            # Phase 6: Commit session
+            # Check if privilege changed (transitioned from anonymous to authenticated or vice versa)
+            privilege_changed = session.is_authenticated != initial_auth_state
+            await self.session_engine.commit(session, response, privilege_changed=privilege_changed)
+
+            return response
+        finally:
+            reset_auth_runtime_context(runtime_token)
 
     def _handle_auth_required(self) -> Response:
         """Create response for missing authentication."""
