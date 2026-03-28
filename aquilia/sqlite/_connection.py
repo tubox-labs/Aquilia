@@ -535,4 +535,4 @@ class AsyncConnection:
     def _log_sql(self, sql: str, params: Any) -> None:
         """Log SQL if echo is enabled."""
         if self._config.echo:
-            logger.info("[conn-%d] %s  params=%s", self._conn_id, sql, params)
+            return

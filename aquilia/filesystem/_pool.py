@@ -96,10 +96,6 @@ class FileSystemPool:
             thread_name_prefix="aquilia-fs",
         )
         self._initialized = True
-        logger.debug(
-            "FileSystem pool initialized (max_workers=%d)",
-            max_workers,
-        )
 
     async def run(self, fn: Callable[..., T], *args: Any) -> T:
         """
@@ -151,8 +147,6 @@ class FileSystemPool:
         if not self._initialized or self._executor is None:
             return
 
-        logger.debug("FileSystem pool shutting down (timeout=%.1fs)", timeout)
-
         # ThreadPoolExecutor.shutdown(wait=True) blocks the calling thread,
         # so we run it in a thread to keep the event loop responsive.
         loop = asyncio.get_running_loop()
@@ -174,4 +168,3 @@ class FileSystemPool:
 
         self._executor = None
         self._initialized = False
-        logger.debug("FileSystem pool shut down")

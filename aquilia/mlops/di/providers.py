@@ -183,12 +183,10 @@ def register_mlops_providers(
     cfg = MLOpsConfig(config)
 
     if not cfg.enabled:
-        logger.info("MLOps integration disabled; skipping provider registration")
         return
 
     # Idempotency: a repeated startup path should not fail on duplicate providers.
     if hasattr(container, "is_registered") and container.is_registered(ModelOrchestrator):
-        logger.debug("MLOps providers already registered; skipping duplicate registration")
         return
 
     # Config singleton

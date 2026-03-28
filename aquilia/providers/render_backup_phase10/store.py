@@ -196,8 +196,6 @@ class RenderCredentialStore:
         with contextlib.suppress(OSError):
             os.chmod(self._config_file, 0o600)
 
-        _logger.info("Render credentials stored at %s", self._creds_file)
-
     # ─── Load ────────────────────────────────────────────────────────
 
     def load(self) -> str | None:
@@ -211,7 +209,6 @@ class RenderCredentialStore:
                 tampered with, or cannot be read.
         """
         if not self._creds_file.exists():
-            _logger.debug("No credentials file found at %s", self._creds_file)
             return None
 
         try:
@@ -331,8 +328,6 @@ class RenderCredentialStore:
         if self._config_file.exists():
             with contextlib.suppress(OSError):
                 self._config_file.unlink()
-
-        _logger.info("Render credentials cleared")
 
     # ─── Utility ─────────────────────────────────────────────────────
 

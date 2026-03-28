@@ -91,6 +91,5 @@ def apply_pragmas(
     for pragma in pragmas:
         try:
             conn.execute(pragma)
-            logger.debug("Applied: %s", pragma)
         except sqlite3.Error as exc:
             logger.warning("Failed to apply %s: %s", pragma, exc)

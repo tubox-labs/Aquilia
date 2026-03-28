@@ -1098,13 +1098,6 @@ class AquiliaServer:
                 name="versioning",
             )
 
-            self.logger.info(
-                "Versioning enabled: strategy=%s, versions=%s, default=%s",
-                config.strategy,
-                config.versions,
-                config.default_version,
-            )
-
         except Exception as e:
             self.logger.error(
                 "Failed to initialize versioning subsystem: %s",
@@ -3570,8 +3563,6 @@ class AquiliaServer:
                     "declared_refs": sorted(declared_refs),
                 }
             )
-
-        self.logger.info("Model registry startup diagnostics: %s", diagnostics)
 
         if missing:
             first = missing[0]

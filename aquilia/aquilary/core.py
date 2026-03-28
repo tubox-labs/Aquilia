@@ -962,12 +962,6 @@ class RuntimeRegistry:
                         metadata={"missing_models": missing, "declared_refs": class_refs},
                     )
 
-                logger.info(
-                    "Model bootstrap diagnostics: declared=%s registered=%s",
-                    sorted(expected_model_names),
-                    sorted(ModelRegistry.all_models().keys()),
-                )
-
         self._models_registered = True
 
     def _register_services(self):

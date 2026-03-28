@@ -144,11 +144,6 @@ class ConnectionPool:
         self._metrics.pool_size = 1 + len(self._readers)
         self._metrics.pool_idle = len(self._readers)
         self._opened = True
-        logger.info(
-            "Pool opened: %d readers + 1 writer (path=%s)",
-            len(self._readers),
-            self._config.path,
-        )
 
     async def close(self) -> None:
         """
@@ -176,7 +171,6 @@ class ConnectionPool:
         self._metrics.pool_size = 0
         self._metrics.pool_idle = 0
         self._opened = False
-        logger.info("Pool closed (path=%s)", self._config.path)
 
     async def __aenter__(self) -> ConnectionPool:
         await self.open()
@@ -437,12 +431,6 @@ class ConnectionPool:
             metrics=self._metrics,
             readonly=readonly,
             conn_id=conn_id,
-        )
-        logger.debug(
-            "Opened connection #%d (readonly=%s, path=%s)",
-            conn_id,
-            readonly,
-            self._config.path,
         )
         return conn
 

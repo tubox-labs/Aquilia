@@ -71,7 +71,6 @@ class SqliteService:
 
         self._pool = ConnectionPool(self._config, metrics=self._metrics)
         await self._pool.open()
-        logger.info("SqliteService started (path=%s)", self._config.path)
 
     async def shutdown(self) -> None:
         """
@@ -82,7 +81,6 @@ class SqliteService:
         if self._pool is not None:
             await self._pool.close()
             self._pool = None
-            logger.info("SqliteService stopped")
 
     @property
     def pool(self) -> ConnectionPool:

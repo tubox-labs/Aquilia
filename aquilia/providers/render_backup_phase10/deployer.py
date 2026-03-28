@@ -123,7 +123,6 @@ class RenderDeployer:
         """Record and report a deployment step."""
         self._steps.append(f"[{phase}] {message}")
         self._on_step(phase, message)
-        _logger.info("[%s] %s", phase, message)
 
     def _error(self, message: str) -> None:
         """Record an error."""
@@ -357,7 +356,7 @@ class RenderDeployer:
                 self._step("service", "Service updated")
                 return updated
         except ProviderAPIFault as e:
-            _logger.debug("Service lookup error: %s", e)
+            pass
 
         # Create new service
         self._step("service", f"Creating service: {service_name}")

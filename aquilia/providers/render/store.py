@@ -430,8 +430,6 @@ class RenderCredentialStore:
         _secure_zero(payload)
         del enc_key, sign_key, canary_key
         self._audit.log("save_complete")
-        _logger.info("Render credentials stored at %s", self._creds_file)
-
     # ─── Load ────────────────────────────────────────────────────────
 
     def load(self) -> str | None:
@@ -440,7 +438,6 @@ class RenderCredentialStore:
         Automatically detects Crous v1 (legacy) and v2 formats.
         """
         if not self._creds_file.exists():
-            _logger.debug("No credentials file found at %s", self._creds_file)
             return None
 
         self._audit.log("load_start")
@@ -629,7 +626,6 @@ class RenderCredentialStore:
                 owner_name=config.get("owner_name"),
                 default_region=config.get("default_region", "oregon"),
             )
-            _logger.info("Auto-migrated credentials from v1 to v2")
         except Exception as e:
             _logger.warning("Could not auto-migrate credentials: %s", e)
         return token
@@ -693,7 +689,6 @@ class RenderCredentialStore:
             with contextlib.suppress(OSError):
                 self._config_file.unlink()
         self._audit.log("clear_complete")
-        _logger.info("Render credentials cleared")
 
     # ─── Rotate ──────────────────────────────────────────────────────
 

@@ -56,4 +56,3 @@ async def backup_database(
             source.close()
 
     await loop.run_in_executor(executor, _do_backup)
-    logger.info("Backup complete: %s → %s", source_path, target_path)

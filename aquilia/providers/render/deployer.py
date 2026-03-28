@@ -125,7 +125,6 @@ class RenderDeployer:
     def _step(self, phase: str, message: str) -> None:
         self._steps.append(f"[{phase}] {message}")
         self._on_step(phase, message)
-        _logger.info("[%s] %s", phase, message)
 
     def _error(self, message: str) -> None:
         self._errors.append(message)
@@ -299,7 +298,7 @@ class RenderDeployer:
                 self._step("service", "Service updated")
                 return updated
         except ProviderAPIFault as e:
-            _logger.debug("Service lookup error: %s", e)
+            pass
 
         self._step("service", f"Creating service: {service_name}")
         try:
@@ -358,8 +357,8 @@ class RenderDeployer:
         for header in self._config.headers:
             try:
                 self._client.add_header(service.id, header.to_dict())
-            except ProviderAPIFault as e:
-                _logger.debug("Could not apply header %s: %s", header.name, e)
+            except ProviderAPIFault:
+                pass
         self._step("headers", "Security headers applied")
 
     def _trigger_and_wait(self, service: RenderService) -> RenderDeploy | None:

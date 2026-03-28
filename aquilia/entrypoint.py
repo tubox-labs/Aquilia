@@ -263,13 +263,6 @@ def create_app(
     workspace_name = _discover_workspace_name(workspace_content)
     module_names = _discover_module_names(workspace_content)
 
-    _logger.info(
-        "Entrypoint: workspace=%s mode=%s modules=%d",
-        workspace_name,
-        mode,
-        len(module_names),
-    )
-
     # Ensure apps namespace
     if "apps" not in config.config_data:
         config.config_data["apps"] = {}
@@ -284,7 +277,6 @@ def create_app(
             manifest = getattr(mod, "manifest", None)
             if manifest is not None:
                 manifests.append(manifest)
-                _logger.debug("Loaded manifest: %s", mod_name)
             else:
                 _logger.warning("No 'manifest' attribute in modules.%s.manifest", mod_name)
         except Exception as exc:
@@ -307,7 +299,6 @@ def create_app(
                     if m is not None:
                         manifests.append(m)
                         config.config_data["apps"].setdefault(pkg.name, {})
-                        _logger.info("Dynamically discovered module: %s", pkg.name)
                 except Exception as exc:
                     _logger.warning("Could not import manifest for %s: %s", pkg.name, exc)
 
@@ -316,7 +307,6 @@ def create_app(
     # ── 5. Load workspace module configs ─────────────────────────────
     # Extract route_prefix and other module-level configs from workspace.py
     workspace_modules = _load_workspace_modules(workspace_root)
-    _logger.debug("Loaded workspace module configs for %d module(s)", len(workspace_modules))
 
     # ── 6. Construct server ──────────────────────────────────────────
     from aquilia import AquiliaServer
@@ -330,13 +320,6 @@ def create_app(
         config=config,
         mode=registry_mode,
         workspace_modules=workspace_modules,
-    )
-
-    _logger.info(
-        "Aquilia %s ready — %s mode, %d module(s)",
-        workspace_name,
-        mode,
-        len(manifests),
     )
 
     return _server
