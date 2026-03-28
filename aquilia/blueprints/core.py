@@ -775,13 +775,17 @@ class Blueprint(metaclass=BlueprintMeta):
             return False
 
         # Phase 3: Cross-field seals (seal_* methods)
+        import inspect
         for method_name in self._seal_methods:
             method = getattr(self, method_name, None)
             if method is not None:
                 try:
-                    method(validated)
+                    if inspect.iscoroutinefunction(method):
+                        # In sync context, skip coroutine seal methods (they will be run in async context)
+                        continue
+                    else:
+                        method(validated)
                 except CastFault as exc:
-                    # Extract field from the fault
                     self._errors.setdefault(exc.field, []).append(str(exc))
                 except (ValueError, TypeError) as exc:
                     self._errors.setdefault("__all__", []).append(str(exc))
@@ -798,7 +802,7 @@ class Blueprint(metaclass=BlueprintMeta):
         except CastFault as exc:
             self._errors.setdefault(exc.field, []).append(str(exc))
         except SealFault as exc:
-            if exc.field_errors:
+            if hasattr(exc, "field_errors") and exc.field_errors:
                 for field, msgs in exc.field_errors.items():
                     self._errors.setdefault(field, []).extend(msgs)
             else:
@@ -824,18 +828,32 @@ class Blueprint(metaclass=BlueprintMeta):
             1-4. Same as is_sealed()
             5. Async seals: ``async_seal_*()`` methods
         """
-        # Run sync pipeline first
+        import inspect
+        # Run sync pipeline, but skip coroutine seal methods
         if not self.is_sealed(raise_fault=False):
             if raise_fault:
                 raise SealFault(message="Blueprint validation failed", errors=self._errors)
             return False
 
-        # Phase 5: Async seals
+        # Phase 5: Async seals and coroutine seal_* methods
+        for method_name in self._seal_methods:
+            method = getattr(self, method_name, None)
+            if method is not None and inspect.iscoroutinefunction(method):
+                try:
+                    await method(self._validated_data)
+                except CastFault as exc:
+                    self._errors.setdefault(exc.field, []).append(str(exc))
+                except (ValueError, TypeError) as exc:
+                    self._errors.setdefault("__all__", []).append(str(exc))
+
         for method_name in self._async_seal_methods:
             method = getattr(self, method_name, None)
             if method is not None:
                 try:
-                    await method(self._validated_data)
+                    if inspect.iscoroutinefunction(method):
+                        await method(self._validated_data)
+                    else:
+                        method(self._validated_data)
                 except CastFault as exc:
                     self._errors.setdefault(exc.field, []).append(str(exc))
                 except (ValueError, TypeError) as exc:

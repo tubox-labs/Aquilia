@@ -81,8 +81,25 @@ class CastFault(BlueprintFault):
 
 class SealFault(BlueprintFault):
     """Raised when a validation seal is broken."""
-
     code = "BP200"
+
+    def __init__(self, message: str = "Blueprint validation failed", *, errors: dict[str, list[str]] | None = None, code: str | None = None, metadata: dict[str, Any] | None = None):
+        # Flatten errors for details if possible
+        details = None
+        if errors:
+            # If only one field failed, show that field and its reason
+            if len(errors) == 1:
+                field, reasons = next(iter(errors.items()))
+                details = {"field": field, "reason": reasons[0] if reasons else "Validation failed"}
+            else:
+                # Multiple fields: show all
+                details = {"fields": [
+                    {"field": f, "reasons": rs} for f, rs in errors.items()
+                ]}
+        meta = dict(metadata or {})
+        if details:
+            meta["details"] = details
+        super().__init__(message=message, errors=errors, code=code, metadata=meta)
 
 
 class ImprintFault(BlueprintFault):
