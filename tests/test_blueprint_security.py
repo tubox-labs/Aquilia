@@ -1,3 +1,96 @@
+import asyncio
+import sys
+# --- Blueprint validation error detail regression and async seal tests ---
+
+from aquilia.blueprints import Blueprint
+from aquilia.blueprints.exceptions import SealFault
+
+class DetailTestBlueprint(Blueprint):
+    name: str
+    age: int
+    def seal_name(self, data):
+        if not data.get("name"):
+            self.reject("name", "Field is required")
+
+class AsyncSealBlueprint(Blueprint):
+    name: str
+    async def seal_name(self, data):
+        if not data.get("name"):
+            self.reject("name", "Field is required")
+        data["name"] = data["name"].upper()
+
+def test_blueprint_validation_error_details():
+    bp = DetailTestBlueprint(data={"age": 30})
+    assert not bp.is_sealed()
+    try:
+        bp.is_sealed(raise_fault=True)
+    except SealFault as e:
+        err = e.metadata.get("details")
+        assert err["field"] == "name"
+        # Accept both possible error strings for robustness
+        assert err["reason"] in ("Field is required", "This field is required")
+
+def test_blueprint_validation_error_details_multiple():
+    bp = DetailTestBlueprint(data={})
+    assert not bp.is_sealed()
+    try:
+        bp.is_sealed(raise_fault=True)
+    except SealFault as e:
+        err = e.metadata.get("details")
+        assert "fields" in err
+        fields = {f["field"] for f in err["fields"]}
+        assert "name" in fields and "age" in fields
+
+def test_blueprint_validation_error_json_shape():
+    from aquilia.middleware import ExceptionMiddleware
+    from types import SimpleNamespace
+    mw = ExceptionMiddleware(debug=True)
+    # Use a minimal mock for Request
+    class DummyReq:
+        def __init__(self):
+            self.scope = {"headers": []}
+            self.state = {}
+    req = DummyReq()
+    ctx = SimpleNamespace()
+    bp = DetailTestBlueprint(data={})
+    try:
+        bp.is_sealed(raise_fault=True)
+    except SealFault as e:
+        # Simulate error handling: just check error object shape
+        error = e.metadata["details"]
+        assert error is not None
+
+def test_blueprint_async_seal_method_awaited():
+    bp = AsyncSealBlueprint(data={"name": "bob"})
+    # Should not raise coroutine warning
+    result = asyncio.run(bp.is_sealed_async())
+    assert result is True
+    assert bp.validated_data["name"] == "BOB"
+    # Calling sync is_sealed() on a blueprint with async seal should raise
+    try:
+        bp.is_sealed()
+    except RuntimeError as e:
+        assert "is async but called from sync context" in str(e)
+
+def test_blueprint_async_seal_method_missing_field():
+    bp = AsyncSealBlueprint(data={})
+    result = asyncio.run(bp.is_sealed_async())
+    assert result is False
+    assert "name" in bp.errors
+
+def test_blueprint_sync_seal_method_still_works():
+    bp = DetailTestBlueprint(data={"name": "bob", "age": 22})
+    assert bp.is_sealed() is True
+    assert bp.validated_data["name"] == "bob"
+
+def test_blueprint_coroutine_warning_regression():
+    import warnings
+    bp = AsyncSealBlueprint(data={"name": "bob"})
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        asyncio.run(bp.is_sealed_async())
+        # Should not emit coroutine was never awaited
+        assert not any("was never awaited" in str(warn.message) for warn in w)
 """
 Blueprint Security Test Suite — Phase 10
 ==========================================

@@ -409,16 +409,21 @@ class ExceptionMiddleware:
                     self.logger.error(f"Error page renderer crashed: {render_exc}", exc_info=True)
                     return self._html_response(_FALLBACK_500_HTML, status)
 
-            return Response.json(
-                {
-                    "error": {
-                        "code": e.code,
-                        "message": message,
-                        "domain": e.domain.value if isinstance(e.domain, FaultDomain) else str(e.domain),
-                    }
-                },
-                status=status,
-            )
+            # Special handling for Blueprint validation errors (BP200)
+            error_obj = {
+                "code": e.code,
+                "message": message,
+                "domain": e.domain.value if isinstance(e.domain, FaultDomain) else str(e.domain),
+            }
+            # If SealFault and details present, include them
+            if e.code == "BP200":
+                details = None
+                # Try to extract details from metadata
+                if hasattr(e, "metadata") and e.metadata:
+                    details = e.metadata.get("details")
+                if details:
+                    error_obj["details"] = details
+            return Response.json({"error": error_obj}, status=status)
 
         except Exception as e:
             # Internal error -- 500
