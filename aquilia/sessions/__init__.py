@@ -25,15 +25,11 @@ from .core import (
     SessionScope,
 )
 
-# Session decorators + guards (includes merged enhanced.py features)
+# Session decorators + guards (session-scoped only)
 from .decorators import (
-    AdminGuard,
-    AuthenticationRequiredFault,
     SessionContext,
     SessionGuard,
     SessionRequiredFault,
-    VerifiedEmailGuard,
-    authenticated,
     requires,
     session,
     stateful,
@@ -133,15 +129,11 @@ __all__ = [
     "SessionLockedFault",
     # Decorators + Guards
     "session",
-    "authenticated",
     "stateful",
     "SessionRequiredFault",
-    "AuthenticationRequiredFault",
     "SessionContext",
     "SessionGuard",
     "requires",
-    "AdminGuard",
-    "VerifiedEmailGuard",
     # State
     "SessionState",
     "Field",

@@ -74,6 +74,7 @@ from .artifacts import (
     TemplateArtifact,
     register_artifact_kind,
 )
+from .auth import AdminGuard, VerifiedEmailGuard, authenticated
 
 # Audit Trail
 from .auth.audit import (
@@ -297,6 +298,7 @@ from .controller import (
     extract_controller_metadata,
     route,
 )
+from .ctx import ctx
 from .db import (
     AquiliaDatabase,
     DatabaseError,
@@ -718,12 +720,12 @@ from .pyconfig import (
 )
 from .request import Request
 from .response import Response
-from .server import AquiliaServer
 
 # ============================================================================
 # Runtime Management
 # ============================================================================
 from .runtime import AquiliaRuntime, RuntimeConfig, RuntimePhase
+from .server import AquiliaServer
 
 # ============================================================================
 # Sessions System
@@ -746,13 +748,9 @@ from .sessions import (
 # Session decorators and state (NEW - Unique Aquilia syntax)
 # Session guards & context managers (merged from enhanced.py into decorators)
 from .sessions.decorators import (
-    AdminGuard,
-    AuthenticationRequiredFault,
     SessionContext,
     SessionGuard,
     SessionRequiredFault,
-    VerifiedEmailGuard,
-    authenticated,
     requires,
     session,
     stateful,
@@ -1156,6 +1154,7 @@ __all__ = [
     "VerifiedEmailGuard",
     # Config builders (NEW - Python config)
     "Workspace",
+    "ctx",
     "Module",
     "Integration",
     # Typed Integration configs (modern API)

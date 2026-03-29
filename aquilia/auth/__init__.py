@@ -67,6 +67,7 @@ from .core import (
     PasswordCredential,
     TokenClaims,
 )
+from .decorators import AdminGuard, VerifiedEmailGuard, authenticated
 
 # Faults
 from .faults import (
@@ -193,6 +194,9 @@ __all__ = [
     "MFACredential",
     "TokenClaims",
     "AuthResult",
+    "authenticated",
+    "AdminGuard",
+    "VerifiedEmailGuard",
     # Password hashing
     "PasswordHasher",
     "PasswordPolicy",

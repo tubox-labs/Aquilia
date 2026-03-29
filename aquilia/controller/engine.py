@@ -862,9 +862,9 @@ class ControllerEngine:
 
                             raise SessionRequiredFault()
                         elif is_identity_param:
-                            from aquilia.sessions.decorators import AuthenticationRequiredFault
+                            from aquilia.auth.faults import AUTH_REQUIRED
 
-                            raise AuthenticationRequiredFault()
+                            raise AUTH_REQUIRED()
 
                     if value is not None:
                         kwargs[param_name] = value
@@ -872,9 +872,10 @@ class ControllerEngine:
                         kwargs[param_name] = param.default
                 except Exception as e:
                     # Reraise session/auth faults
-                    from aquilia.sessions.decorators import AuthenticationRequiredFault, SessionRequiredFault
+                    from aquilia.auth.faults import AUTH_REQUIRED
+                    from aquilia.sessions.decorators import SessionRequiredFault
 
-                    if isinstance(e, (SessionRequiredFault, AuthenticationRequiredFault)):
+                    if isinstance(e, (SessionRequiredFault, AUTH_REQUIRED)):
                         raise
 
                     if not param.required and param.default is not inspect.Parameter.empty:
