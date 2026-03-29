@@ -298,7 +298,6 @@ from .controller import (
     extract_controller_metadata,
     route,
 )
-from .ctx import ctx
 from .db import (
     AquiliaDatabase,
     DatabaseError,
@@ -1154,7 +1153,6 @@ __all__ = [
     "VerifiedEmailGuard",
     # Config builders (NEW - Python config)
     "Workspace",
-    "ctx",
     "Module",
     "Integration",
     # Typed Integration configs (modern API)

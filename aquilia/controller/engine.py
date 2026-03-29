@@ -102,7 +102,9 @@ class ControllerEngine:
                 request=request,
                 identity=request.state.get("identity"),
                 session=request.state.get("session"),
+                auth=request.state.get("auth"),
                 container=container,
+                state=request.state,
             )
             # Inject any path params the handler declares as positional args
             if path_params:
@@ -123,6 +125,7 @@ class ControllerEngine:
             request=request,
             identity=request.state.get("identity"),
             session=request.state.get("session"),
+            auth=request.state.get("auth"),
             container=container,
             state=request.state,
         )

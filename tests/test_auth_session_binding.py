@@ -211,8 +211,7 @@ async def test_auth_manager_auto_provisions_identity_and_credential_stores():
 
 
 @pytest.mark.asyncio
-async def test_auth_middleware_sets_and_resets_global_ctx_proxy():
-    from aquilia import ctx as global_ctx
+async def test_auth_middleware_populates_request_and_ctx_auth_data():
     from aquilia.auth.integration.middleware import AquilAuthMiddleware
 
     session = MagicMock()
@@ -235,16 +234,17 @@ async def test_auth_middleware_sets_and_resets_global_ctx_proxy():
     ctx.container = None
     ctx.session = None
     ctx.identity = None
+    ctx.auth = None
 
     async def next_handler(_request, _ctx):
-        assert global_ctx.request is request
-        assert global_ctx.session is session
-        assert global_ctx.auth is not None
+        assert _request.state["session"] is session
+        assert "auth" in _request.state
+        assert _ctx.session is session
+        assert _ctx.auth is _request.state["auth"]
         return MagicMock()
 
     response = await middleware(request, ctx, next_handler)
 
     assert response is not None
-    assert global_ctx.request is None
-    assert global_ctx.session is None
-    assert global_ctx.auth is None
+    assert request.state["session"] is session
+    assert "auth" in request.state

@@ -49,6 +49,7 @@ class RequestCtx:
         "request",
         "identity",
         "session",
+        "auth",
         "container",
         "state",
         "request_id",
@@ -60,6 +61,7 @@ class RequestCtx:
         request: "Request",
         identity: Optional["Identity"] = None,
         session: Optional["Session"] = None,
+        auth: Any | None = None,
         container: Any | None = None,
         state: dict[str, Any] | None = None,
         request_id: str | None = None,
@@ -67,6 +69,7 @@ class RequestCtx:
         self.request = request
         self.identity = identity
         self.session = session
+        self.auth = auth
         self.container = container
         self.state: dict[str, Any] = state if state is not None else {}
         self.request_id = request_id
@@ -164,6 +167,7 @@ class _RequestCtxPool:
         request: "Request",
         identity: Optional["Identity"] = None,
         session: Optional["Session"] = None,
+        auth: Any | None = None,
         container: Any | None = None,
         state: dict[str, Any] | None = None,
         request_id: str | None = None,
@@ -184,6 +188,7 @@ class _RequestCtxPool:
             ctx.request = request
             ctx.identity = identity
             ctx.session = session
+            ctx.auth = auth
             ctx.container = container
             ctx.state = state if state is not None else {}
             ctx.request_id = request_id
@@ -193,6 +198,7 @@ class _RequestCtxPool:
             request=request,
             identity=identity,
             session=session,
+            auth=auth,
             container=container,
             state=state,
             request_id=request_id,
@@ -205,6 +211,7 @@ class _RequestCtxPool:
             ctx.request = None  # type: ignore[assignment]
             ctx.identity = None
             ctx.session = None
+            ctx.auth = None
             ctx.container = None
             ctx.state = _EMPTY_STATE
             ctx.request_id = None

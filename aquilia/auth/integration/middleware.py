@@ -16,7 +16,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from aquilia.ctx import reset_context, set_context, update_context
 from aquilia.di import Container
 from aquilia.faults import FaultEngine
 from aquilia.middleware import Handler, Middleware
@@ -132,12 +131,6 @@ class AquilAuthMiddleware:
             container=container,
         )
         runtime_token = set_auth_runtime_context(runtime_context)
-        ctx_token = set_context(
-            request=request,
-            session=session,
-            auth=auth_context,
-            container=container,
-        )
 
         try:
             # Phase 2: Resolve identity (Bearer token overrides session)
@@ -188,7 +181,6 @@ class AquilAuthMiddleware:
             # Also set on ctx for template rendering
             ctx.identity = identity
             runtime_context.identity = identity
-            update_context(identity=identity)
 
             if container and identity:
                 # Register identity in DI container for injection
@@ -218,12 +210,64 @@ class AquilAuthMiddleware:
 
             return response
         finally:
-            reset_context(ctx_token)
             reset_auth_runtime_context(runtime_token)
+
+    def _handle_auth_required(self) -> Response:
+        """Create response for missing authentication."""
+        if self.fault_engine:
+            fault = AUTH_REQUIRED()
+            # Convert to response
+            return Response.json(
+                {
+                    "error": {
+                        "code": fault.error_code,
+                        "message": fault.public_message,
+                        "retryable": fault.retryable,
+                    }
+                },
+                status=401,
+            )
+        else:
+            return Response.json(
+                {"error": "Authentication required"},
+                status=401,
+            )
+
+    def _fault_to_response(self, fault_result: Any) -> Response:
+        """Convert fault result to HTTP response."""
+        from aquilia.faults import Fault, FaultDomain
+
+        # If the result is a Resolved with a response, use it
+        if hasattr(fault_result, "value") and isinstance(fault_result.value, Response):
+            return fault_result.value
+
+        # If the result wraps a Fault, map to status code
+        fault = getattr(fault_result, "fault", None) or getattr(fault_result, "original", None)
+        if isinstance(fault, Fault):
+            status_map = {
+                FaultDomain.ROUTING: 404,
+                FaultDomain.SECURITY: 401,  # Auth failures -> 401 (OWASP)
+                FaultDomain.IO: 502,
+                FaultDomain.EFFECT: 503,
+            }
+            status = status_map.get(fault.domain, 500)
+
+            # Use public_message for client-facing response (never leak internals)
+            message = getattr(fault, "public_message", None) or "Internal server error"
+            return Response.json(
+                {"error": {"code": fault.code, "message": message, "domain": fault.domain.value}},
+                status=status,
+            )
+
+        # Fallback
+        return Response.json(
+            {"error": "Internal server error"},
+            status=500,
+        )
 
 
 class _RequestAuthContext:
-    """Request-scoped auth facade exposed via request.state and aquilia.ctx."""
+    """Request-scoped auth facade exposed via request.state and RequestCtx."""
 
     def __init__(self, manager: AuthManager, request: Request, session: Any | None):
         self._manager = manager
@@ -262,59 +306,6 @@ class _RequestAuthContext:
 
     async def resume_identity(self, access_token: str | None = None) -> Any:
         return await self._manager.resume_identity(access_token=access_token)
-
-    def _handle_auth_required(self) -> Response:
-        """Create response for missing authentication."""
-        if self.fault_engine:
-            fault = AUTH_REQUIRED()
-            # Convert to response
-            return Response.json(
-                {
-                    "error": {
-                        "code": fault.error_code,
-                        "message": fault.public_message,
-                        "retryable": fault.retryable,
-                    }
-                },
-                status=401,
-            )
-        else:
-            return Response.json(
-                {"error": "Authentication required"},
-                status=401,
-            )
-
-    def _fault_to_response(self, fault_result: Any) -> Response:
-        """Convert fault result to HTTP response."""
-        from aquilia.faults import Fault, FaultDomain
-
-        # If the result is a Resolved with a response, use it
-        if hasattr(fault_result, "value") and isinstance(fault_result.value, Response):
-            return fault_result.value
-
-        # If the result wraps a Fault, map to status code
-        fault = getattr(fault_result, "fault", None) or getattr(fault_result, "original", None)
-        if isinstance(fault, Fault):
-            status_map = {
-                FaultDomain.ROUTING: 404,
-                FaultDomain.SECURITY: 401,  # Auth failures → 401 (OWASP)
-                FaultDomain.IO: 502,
-                FaultDomain.EFFECT: 503,
-            }
-            status = status_map.get(fault.domain, 500)
-
-            # Use public_message for client-facing response (never leak internals)
-            message = getattr(fault, "public_message", None) or "Internal server error"
-            return Response.json(
-                {"error": {"code": fault.code, "message": message, "domain": fault.domain.value}},
-                status=status,
-            )
-
-        # Fallback
-        return Response.json(
-            {"error": "Internal server error"},
-            status=500,
-        )
 
 
 # ============================================================================
