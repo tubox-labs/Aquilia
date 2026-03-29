@@ -371,7 +371,12 @@ class AuthManager:
 
     def _normalize_scopes(
         self,
-        scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None,
+        scopes: SessionScope
+        | str
+        | list[SessionScope | str]
+        | tuple[SessionScope | str, ...]
+        | set[SessionScope | str]
+        | None,
         *,
         key: str,
     ) -> list[str] | None:
@@ -415,7 +420,12 @@ class AuthManager:
         self,
         username: str,
         password: str,
-        scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
+        scopes: SessionScope
+        | str
+        | list[SessionScope | str]
+        | tuple[SessionScope | str, ...]
+        | set[SessionScope | str]
+        | None = None,
         session_id: str | None = None,
         client_metadata: dict[str, Any] | None = None,
     ) -> AuthResult:
@@ -540,7 +550,12 @@ class AuthManager:
         *,
         username: str,
         password: str,
-        scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
+        scopes: SessionScope
+        | str
+        | list[SessionScope | str]
+        | tuple[SessionScope | str, ...]
+        | set[SessionScope | str]
+        | None = None,
         session: Literal["auto", "new"] | str = "auto",
         client_metadata: dict[str, Any] | None = None,
         identity: Identity | None = None,
@@ -819,7 +834,12 @@ class AuthManager:
     async def authenticate_api_key(
         self,
         api_key: str,
-        required_scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
+        required_scopes: SessionScope
+        | str
+        | list[SessionScope | str]
+        | tuple[SessionScope | str, ...]
+        | set[SessionScope | str]
+        | None = None,
     ) -> AuthResult:
         """
         Authenticate using API key.
@@ -974,7 +994,9 @@ class AuthManager:
             refresh_token=refresh_token,
         )
 
-    async def _extract_token_subject_context(self, access_token: str | None) -> tuple[str | None, str | None, str | None]:
+    async def _extract_token_subject_context(
+        self, access_token: str | None
+    ) -> tuple[str | None, str | None, str | None]:
         """Best-effort extraction of identity/session/jti from an access token."""
         if not access_token:
             return (None, None, None)

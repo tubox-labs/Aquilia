@@ -365,9 +365,7 @@ def require_identity(
                         actual_value = identity.attributes.get(key)
 
                     if actual_value != expected_value:
-                        raise AuthorizationRequiredFault(
-                            reason=f"Required attribute '{key}' not satisfied"
-                        )
+                        raise AuthorizationRequiredFault(reason=f"Required attribute '{key}' not satisfied")
 
             # Inject identity
             sig = inspect.signature(func)

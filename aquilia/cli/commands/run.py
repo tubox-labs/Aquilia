@@ -1092,7 +1092,6 @@ app = runtime.app
     return code
 
 
-
 def _find_app_module(workspace_root: Path, verbose: bool = False) -> str | None:
     """
     Find the ASGI app module.

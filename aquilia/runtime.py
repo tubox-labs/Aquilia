@@ -133,9 +133,7 @@ class RuntimeConfig:
     def __post_init__(self) -> None:
         # Normalise workspace_root to an absolute path
         if not self.workspace_root.is_absolute():
-            object.__setattr__(
-                self, "workspace_root", self.workspace_root.resolve()
-            )
+            object.__setattr__(self, "workspace_root", self.workspace_root.resolve())
 
         # Derive debug from mode when not explicitly set
         if self.debug is None:
@@ -166,10 +164,10 @@ class _ColorFormatter(logging.Formatter):
     """Coloured log formatter for terminal output (dev mode)."""
 
     _COLORS: dict[int, str] = {
-        logging.DEBUG: "\033[36m",     # cyan
-        logging.INFO: "\033[32m",      # green
-        logging.WARNING: "\033[33m",   # yellow
-        logging.ERROR: "\033[31m",     # red
+        logging.DEBUG: "\033[36m",  # cyan
+        logging.INFO: "\033[32m",  # green
+        logging.WARNING: "\033[33m",  # yellow
+        logging.ERROR: "\033[31m",  # red
         logging.CRITICAL: "\033[1;31m",  # bold red
     }
     _RESET = "\033[0m"
@@ -237,17 +235,15 @@ class AquiliaRuntime:
             TypeError: If *config* is not a :class:`RuntimeConfig`.
         """
         if not isinstance(config, RuntimeConfig):
-            raise TypeError(
-                f"Expected RuntimeConfig, got {type(config).__name__}"
-            )
+            raise TypeError(f"Expected RuntimeConfig, got {type(config).__name__}")
         self.config: RuntimeConfig = config
         self._phase: RuntimePhase = RuntimePhase.CREATED
 
         # Populated during lifecycle phases
-        self._config_loader: Any = None       # ConfigLoader
+        self._config_loader: Any = None  # ConfigLoader
         self._manifests: ManifestCollection = []
         self._workspace_modules: dict[str, dict[str, Any]] = {}
-        self._server: Any = None              # AquiliaServer
+        self._server: Any = None  # AquiliaServer
         self._workspace_name: str = "aquilia-app"
         self._module_names: list[str] = []
 
@@ -272,8 +268,7 @@ class AquiliaRuntime:
             RuntimePhase.RUNNING,
         ):
             raise RuntimeError(
-                f"Cannot access 'app' in phase '{self._phase.value}'. "
-                f"Call configure().discover().bootstrap() first."
+                f"Cannot access 'app' in phase '{self._phase.value}'. Call configure().discover().bootstrap() first."
             )
         return self._server.app
 
@@ -289,8 +284,7 @@ class AquiliaRuntime:
             RuntimePhase.RUNNING,
         ):
             raise RuntimeError(
-                f"Cannot access 'server' in phase '{self._phase.value}'. "
-                f"Call configure().discover().bootstrap() first."
+                f"Cannot access 'server' in phase '{self._phase.value}'. Call configure().discover().bootstrap() first."
             )
         return self._server
 
@@ -391,23 +385,19 @@ class AquiliaRuntime:
             RuntimeError: If :meth:`configure` has not been called.
         """
         if self._phase == RuntimePhase.CREATED:
-            raise RuntimeError(
-                "Cannot discover before configure(). "
-                "Call runtime.configure().discover()."
-            )
-        if _PHASE_ORDER[self._phase] >= _PHASE_ORDER[RuntimePhase.DISCOVERING] and self._phase != RuntimePhase.CONFIGURING:
+            raise RuntimeError("Cannot discover before configure(). Call runtime.configure().discover().")
+        if (
+            _PHASE_ORDER[self._phase] >= _PHASE_ORDER[RuntimePhase.DISCOVERING]
+            and self._phase != RuntimePhase.CONFIGURING
+        ):
             return self
 
         self._phase = RuntimePhase.DISCOVERING
         try:
-            workspace_content = self.config.workspace_file.read_text(
-                encoding="utf-8"
-            )
+            workspace_content = self.config.workspace_file.read_text(encoding="utf-8")
 
             # 1. Extract workspace name
-            self._workspace_name = self._extract_workspace_name(
-                workspace_content
-            )
+            self._workspace_name = self._extract_workspace_name(workspace_content)
 
             # 2. Extract declared module names
             self._module_names = self._extract_module_names(workspace_content)
@@ -419,13 +409,9 @@ class AquiliaRuntime:
             # 4. Import static manifests
             self._manifests = []
             for mod_name in self._module_names:
-                self._config_loader.config_data["apps"].setdefault(
-                    mod_name, {}
-                )
+                self._config_loader.config_data["apps"].setdefault(mod_name, {})
                 try:
-                    mod = importlib.import_module(
-                        f"modules.{mod_name}.manifest"
-                    )
+                    mod = importlib.import_module(f"modules.{mod_name}.manifest")
                     manifest = getattr(mod, "manifest", None)
                     if manifest is not None:
                         self._manifests.append(manifest)
@@ -452,15 +438,11 @@ class AquiliaRuntime:
                         and not pkg.name.startswith(("_", "."))
                     ):
                         try:
-                            mod = importlib.import_module(
-                                f"modules.{pkg.name}.manifest"
-                            )
+                            mod = importlib.import_module(f"modules.{pkg.name}.manifest")
                             m = getattr(mod, "manifest", None)
                             if m is not None:
                                 self._manifests.append(m)
-                                self._config_loader.config_data[
-                                    "apps"
-                                ].setdefault(pkg.name, {})
+                                self._config_loader.config_data["apps"].setdefault(pkg.name, {})
                                 self._module_names.append(pkg.name)
                         except Exception as exc:
                             _logger.warning(
@@ -502,11 +484,11 @@ class AquiliaRuntime:
             RuntimeError: If :meth:`discover` has not been called.
         """
         if self._phase in (RuntimePhase.CREATED, RuntimePhase.CONFIGURING):
-            raise RuntimeError(
-                "Cannot bootstrap before discover(). "
-                "Call runtime.configure().discover().bootstrap()."
-            )
-        if _PHASE_ORDER[self._phase] >= _PHASE_ORDER[RuntimePhase.BOOTSTRAPPING] and self._phase != RuntimePhase.DISCOVERING:
+            raise RuntimeError("Cannot bootstrap before discover(). Call runtime.configure().discover().bootstrap().")
+        if (
+            _PHASE_ORDER[self._phase] >= _PHASE_ORDER[RuntimePhase.BOOTSTRAPPING]
+            and self._phase != RuntimePhase.DISCOVERING
+        ):
             return self
 
         self._phase = RuntimePhase.BOOTSTRAPPING
@@ -585,8 +567,7 @@ class AquiliaRuntime:
         valid_modes = {"dev", "test", "prod"}
         if mode not in valid_modes:
             _logger.warning(
-                "Invalid mode %r, falling back to 'prod'. "
-                "Valid modes: %s",
+                "Invalid mode %r, falling back to 'prod'. Valid modes: %s",
                 mode,
                 ", ".join(sorted(valid_modes)),
             )
@@ -676,11 +657,7 @@ class AquiliaRuntime:
     @staticmethod
     def _extract_module_names(content: str) -> list[str]:
         """Extract module names from ``workspace.py``, excluding comments."""
-        clean_lines = [
-            line
-            for line in content.splitlines()
-            if not line.strip().startswith("#")
-        ]
+        clean_lines = [line for line in content.splitlines() if not line.strip().startswith("#")]
         clean = "\n".join(clean_lines)
 
         modules = re.findall(
@@ -704,13 +681,9 @@ class AquiliaRuntime:
             return {}
 
         try:
-            spec = importlib.util.spec_from_file_location(
-                "_aq_runtime_ws_loader", ws_file
-            )
+            spec = importlib.util.spec_from_file_location("_aq_runtime_ws_loader", ws_file)
             if spec is None or spec.loader is None:
-                _logger.warning(
-                    "Failed to create module spec for workspace.py"
-                )
+                _logger.warning("Failed to create module spec for workspace.py")
                 return {}
 
             module = importlib.util.module_from_spec(spec)
@@ -718,9 +691,7 @@ class AquiliaRuntime:
 
             workspace = getattr(module, "workspace", None)
             if workspace is None:
-                _logger.warning(
-                    "No 'workspace' object found in workspace.py"
-                )
+                _logger.warning("No 'workspace' object found in workspace.py")
                 return {}
 
             ws_dict = workspace.to_dict()
@@ -745,7 +716,4 @@ class AquiliaRuntime:
         )
 
     def __str__(self) -> str:
-        return (
-            f"AquiliaRuntime({self._workspace_name}, "
-            f"mode={self.config.mode}, phase={self._phase.value})"
-        )
+        return f"AquiliaRuntime({self._workspace_name}, mode={self.config.mode}, phase={self._phase.value})"

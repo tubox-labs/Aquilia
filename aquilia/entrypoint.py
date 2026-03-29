@@ -128,7 +128,8 @@ def create_app(
 
     if mode is None:
         mode = _sanitise_env(
-            "AQUILIA_ENV", "prod",
+            "AQUILIA_ENV",
+            "prod",
             allowed={"dev", "test", "prod", "production"},
         )
         if mode == "production":
