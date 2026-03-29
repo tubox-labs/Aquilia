@@ -1556,6 +1556,25 @@ class TestSessionDecorators:
         assert result == "identity-user"
 
     @pytest.mark.asyncio
+    async def test_authenticated_decorator_ignores_non_context_identity_attributes(self):
+        from aquilia.auth.decorators import authenticated
+        from aquilia.auth.faults import AUTH_REQUIRED
+
+        class Service:
+            def __init__(self):
+                self.identity = object()
+
+            @authenticated
+            async def handler(self, ctx):
+                return "ok"
+
+        sess = self._make_session(authenticated=False)
+        ctx = self._make_ctx(session=sess)
+
+        with pytest.raises(AUTH_REQUIRED):
+            await Service().handler(ctx)
+
+    @pytest.mark.asyncio
     async def test_stateful_decorator(self):
         from aquilia.sessions.decorators import stateful
         from aquilia.sessions.state import SessionState

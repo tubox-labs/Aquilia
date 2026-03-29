@@ -140,7 +140,7 @@ from .hashing import (
 )
 
 # Manager
-from .manager import AuthManager, RateLimiter
+from .manager import AuthManager, RateLimiter, SignInProvisionPolicy
 
 # MFA
 from .mfa import MFAManager
@@ -253,6 +253,7 @@ __all__ = [
     # Manager
     "AuthManager",
     "RateLimiter",
+    "SignInProvisionPolicy",
     # Authorization
     "AuthzEngine",
     "RBACEngine",

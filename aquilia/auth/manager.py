@@ -7,12 +7,15 @@ Orchestrates identity verification, token issuance, and session management.
 
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
 import secrets
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
-from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.faults.domains import ConfigInvalidFault, ConflictFault, TooManyRequestsFault
 from aquilia.sessions import SessionScope
 from aquilia.typing import JSONObject
 
@@ -23,6 +26,8 @@ from .core import (
     Identity,
     IdentityStatus,
     IdentityStore,
+    IdentityType,
+    PasswordCredential,
     TokenClaims,
 )
 from .faults import (
@@ -110,6 +115,37 @@ class RateLimiter:
 # ============================================================================
 
 
+@dataclass(frozen=True)
+class SignInProvisionPolicy:
+    """
+    Provisioning policy for sign_in bootstrap behavior.
+
+    Secure defaults:
+    - Bootstrap is only used when a trusted Identity seed is provided.
+    - Missing identity and password credential are backfilled once.
+    - Existing credentials are never overwritten unless explicitly requested.
+    """
+
+    enable_identity_seed: bool = True
+    create_identity_if_missing: bool = True
+    backfill_password_credential: bool = True
+    overwrite_password_credential: bool = False
+    allow_username_bootstrap: bool = True
+
+    @classmethod
+    def secure_defaults(cls, env: str | None = None) -> SignInProvisionPolicy:
+        """
+        Environment-aware secure defaults.
+
+        - prod/production: disable implicit username bootstrap.
+        - dev/test/other: keep ergonomic bootstrap enabled.
+        """
+        normalized_env = (env or os.getenv("AQUILIA_ENV", "prod")).strip().lower()
+        if normalized_env in {"prod", "production"}:
+            return cls(allow_username_bootstrap=False)
+        return cls()
+
+
 class AuthManager:
     """
     Central authentication manager.
@@ -134,6 +170,7 @@ class AuthManager:
         credential_store: CredentialStore | None = None,
         password_hasher: PasswordHasher | None = None,
         rate_limiter: RateLimiter | None = None,
+        login_identifier_attributes: tuple[str, ...] | list[str] | None = None,
     ):
         # Auto-provision default in-memory stores when callers omit explicit storage wiring.
         # This keeps sign_in ergonomic in tests, scripts, and lightweight setups.
@@ -142,6 +179,121 @@ class AuthManager:
         self.token_manager = token_manager
         self.password_hasher = password_hasher or PasswordHasher()
         self.rate_limiter = rate_limiter or RateLimiter()
+        default_identifiers = ("email", "username", "login", "identity_id")
+        attrs = tuple(login_identifier_attributes or default_identifiers)
+        if not attrs:
+            attrs = default_identifiers
+        self.login_identifier_attributes = attrs
+
+    async def _resolve_target_identity_id_for_sign_in(
+        self,
+        username: str,
+        identity_seed: Identity | None,
+    ) -> str | None:
+        """Resolve target identity id for a sign_in attempt."""
+        if identity_seed is not None:
+            return identity_seed.id
+
+        identity = await self._resolve_identity_for_identifier(username)
+        return identity.id if identity else None
+
+    async def _resolve_identity_for_identifier(self, identifier: str) -> Identity | None:
+        """
+        Resolve an identity from a login identifier using configured lookup attributes.
+
+        Supports direct ID lookups and attribute-based resolution. Raises ConflictFault
+        if the identifier maps to multiple distinct identities.
+        """
+        candidates: dict[str, Identity] = {}
+
+        # Direct id lookup path.
+        direct = await self.identity_store.get(identifier)
+        if direct is not None:
+            candidates[direct.id] = direct
+
+        for attr in self.login_identifier_attributes:
+            if attr == "id":
+                continue
+            found = await self.identity_store.get_by_attribute(attr, identifier)
+            if found is not None:
+                candidates[found.id] = found
+
+        if not candidates:
+            return None
+
+        if len(candidates) > 1:
+            raise ConflictFault(detail="Ambiguous login identifier")
+
+        return next(iter(candidates.values()))
+
+    def _collect_identity_identifiers(self, identity: Identity | None, session: Any | None) -> set[str]:
+        """Collect normalized login identifiers from runtime identity/session state."""
+        values: set[str] = set()
+
+        def _add(value: Any) -> None:
+            if isinstance(value, str):
+                normalized = self._normalize_username_identifier(value, key="auth.runtime.identifier")
+                values.add(normalized)
+
+        if identity is not None:
+            _add(identity.id)
+            for attr in self.login_identifier_attributes:
+                _add(identity.get_attribute(attr))
+
+        if session is None:
+            return values
+
+        data = getattr(session, "data", None)
+        if isinstance(data, dict):
+            _add(data.get("identity_id"))
+            for attr in self.login_identifier_attributes:
+                _add(data.get(attr))
+
+            attrs = data.get("attributes")
+            if isinstance(attrs, dict):
+                for attr in self.login_identifier_attributes:
+                    _add(attrs.get(attr))
+
+        principal = getattr(session, "principal", None)
+        if principal is not None:
+            _add(getattr(principal, "id", None))
+
+        return values
+
+    def _normalize_username_identifier(self, username: str, *, key: str) -> str:
+        """Normalize and validate username/email input."""
+        if not isinstance(username, str):
+            raise ConfigInvalidFault(
+                key=key,
+                reason="username must be a string",
+            )
+
+        normalized = username.strip()
+        if not normalized:
+            raise ConfigInvalidFault(
+                key=key,
+                reason="username cannot be empty",
+            )
+
+        # Email local-part may be case sensitive, but production identity stores are
+        # almost always case-insensitive for email identifiers.
+        if "@" in normalized:
+            normalized = normalized.lower()
+
+        return normalized
+
+    def _validate_password_input(self, password: str, *, key: str) -> None:
+        """Validate password input shape for auth entrypoints."""
+        if not isinstance(password, str):
+            raise ConfigInvalidFault(
+                key=key,
+                reason="password must be a string",
+            )
+        if not password:
+            raise ConfigInvalidFault(
+                key=key,
+                reason="password cannot be empty",
+            )
 
     def _get_runtime_session(self) -> Any | None:
         """
@@ -286,6 +438,9 @@ class AuthManager:
             AUTH_ACCOUNT_SUSPENDED: Account is suspended
             AUTH_MFA_REQUIRED: MFA verification needed
         """
+        username = self._normalize_username_identifier(username, key="auth.authenticate_password.username")
+        self._validate_password_input(password, key="auth.authenticate_password.password")
+
         # Rate limiting check
         rate_key = f"auth:password:{username}"
         if self.rate_limiter.is_locked_out(rate_key):
@@ -294,10 +449,8 @@ class AuthManager:
                 retry_after=self.rate_limiter.lockout_duration,
             )
 
-        # Get identity by username/email
-        identity = await self.identity_store.get_by_attribute("email", username)
-        if not identity:
-            identity = await self.identity_store.get_by_attribute("username", username)
+        # Resolve identity using configured identifier attributes.
+        identity = await self._resolve_identity_for_identifier(username)
 
         if not identity:
             self.rate_limiter.record_attempt(rate_key)
@@ -390,6 +543,9 @@ class AuthManager:
         scopes: SessionScope | str | list[SessionScope | str] | tuple[SessionScope | str, ...] | set[SessionScope | str] | None = None,
         session: Literal["auto", "new"] | str = "auto",
         client_metadata: dict[str, Any] | None = None,
+        identity: Identity | None = None,
+        password_hash: str | None = None,
+        provision: SignInProvisionPolicy | None = None,
     ) -> AuthResult:
         """
         Aquilia-native high-level sign-in API.
@@ -403,10 +559,37 @@ class AuthManager:
                 - "new": force a new synthetic session id
                 - <str>: explicit session id
             client_metadata: Optional client context metadata
+            identity: Optional trusted identity seed used to bootstrap auth stores
+            password_hash: Optional pre-hashed password to store when backfilling credentials
+            provision: Optional provisioning policy (secure defaults applied when omitted)
 
         Returns:
             AuthResult including issued tokens and resolved session_id
         """
+        username = self._normalize_username_identifier(username, key="auth.sign_in.username")
+        self._validate_password_input(password, key="auth.sign_in.password")
+
+        runtime_identity_id = self.current_identity_id()
+        if runtime_identity_id:
+            target_identity_id = await self._resolve_target_identity_id_for_sign_in(username, identity)
+            if target_identity_id == runtime_identity_id:
+                raise ConflictFault(detail="Identity is already signed in for the current session")
+
+            runtime_session = self.current_session()
+            runtime_ctx_identity = None
+            try:
+                from .integration.runtime_context import get_auth_runtime_context
+
+                runtime_ctx = get_auth_runtime_context()
+                if runtime_ctx is not None:
+                    runtime_ctx_identity = runtime_ctx.identity
+            except Exception:
+                runtime_ctx_identity = None
+
+            runtime_identifiers = self._collect_identity_identifiers(runtime_ctx_identity, runtime_session)
+            if username in runtime_identifiers:
+                raise ConflictFault(detail="Identity is already signed in for the current session")
+
         if session == "auto":
             explicit_session_id = None
         elif session == "new":
@@ -419,13 +602,219 @@ class AuthManager:
                 )
             explicit_session_id = session
 
-        return await self.authenticate_password(
+        policy = provision or SignInProvisionPolicy.secure_defaults()
+        if identity is not None and not isinstance(identity, Identity):
+            raise ConfigInvalidFault(
+                key="auth.sign_in.identity",
+                reason="Identity seed must be an Identity instance",
+            )
+
+        if password_hash is not None:
+            if not isinstance(password_hash, str) or not password_hash.strip():
+                raise ConfigInvalidFault(
+                    key="auth.sign_in.password_hash",
+                    reason="password_hash must be a non-empty string when provided",
+                )
+
+        await self._provision_from_identity_seed(
             username=username,
             password=password,
-            scopes=scopes,
-            session_id=explicit_session_id,
-            client_metadata=client_metadata,
+            identity_seed=identity,
+            password_hash=password_hash,
+            policy=policy,
         )
+
+        try:
+            return await self.authenticate_password(
+                username=username,
+                password=password,
+                scopes=scopes,
+                session_id=explicit_session_id,
+                client_metadata=client_metadata,
+            )
+        except AUTH_INVALID_CREDENTIALS:
+            # Secure-default ergonomics: when auth stores are empty/misaligned,
+            # bootstrap a local identity+credential from username/password once.
+            # This makes sign_in(username, password) work out-of-the-box.
+            if not policy.allow_username_bootstrap:
+                raise
+
+            provisioned = await self._provision_from_username_credentials(
+                username=username,
+                password=password,
+                policy=policy,
+            )
+            if not provisioned:
+                raise
+
+            return await self.authenticate_password(
+                username=username,
+                password=password,
+                scopes=scopes,
+                session_id=explicit_session_id,
+                client_metadata=client_metadata,
+            )
+
+    async def _provision_from_identity_seed(
+        self,
+        *,
+        username: str,
+        password: str,
+        identity_seed: Identity | None,
+        password_hash: str | None,
+        policy: SignInProvisionPolicy,
+    ) -> None:
+        """Provision missing auth records from a trusted identity seed."""
+        if not policy.enable_identity_seed or identity_seed is None:
+            return
+
+        runtime_identity_id = self.current_identity_id()
+        if runtime_identity_id and runtime_identity_id != identity_seed.id:
+            raise TooManyRequestsFault(
+                detail="Active authenticated session cannot provision a different identity",
+                retry_after=60,
+                metadata={
+                    "current_identity_id": runtime_identity_id,
+                    "target_identity_id": identity_seed.id,
+                },
+            )
+
+        existing_identity = await self.identity_store.get(identity_seed.id)
+        if existing_identity is None and policy.create_identity_if_missing:
+            try:
+                await self.identity_store.create(identity_seed)
+            except Exception:
+                # Handle benign races where another worker creates the same seed.
+                existing_identity = await self.identity_store.get(identity_seed.id)
+                if existing_identity is None:
+                    raise
+
+        # Keep attribute indexes warm for username/email lookup in stores that rely on them.
+        identity_for_lookup = await self.identity_store.get(identity_seed.id)
+        if identity_for_lookup is not None:
+            existing_by_email = await self.identity_store.get_by_attribute("email", username)
+            existing_by_username = await self.identity_store.get_by_attribute("username", username)
+            if existing_by_email is None and existing_by_username is None:
+                # Best-effort consistency update for stores that support update().
+                merged_attributes = dict(identity_for_lookup.attributes)
+                if "@" in username and "email" not in merged_attributes:
+                    merged_attributes["email"] = username
+                if "@" not in username and "username" not in merged_attributes:
+                    merged_attributes["username"] = username
+                if "login" not in merged_attributes:
+                    merged_attributes["login"] = username
+
+                if merged_attributes != identity_for_lookup.attributes:
+                    updated_identity = Identity(
+                        id=identity_for_lookup.id,
+                        type=identity_for_lookup.type,
+                        attributes=merged_attributes,
+                        status=identity_for_lookup.status,
+                        tenant_id=identity_for_lookup.tenant_id,
+                        created_at=identity_for_lookup.created_at,
+                        updated_at=datetime.now(timezone.utc),
+                    )
+                    try:
+                        await self.identity_store.update(updated_identity)
+                    except Exception:
+                        pass
+
+        if not policy.backfill_password_credential:
+            return
+
+        identity_id = identity_seed.id
+        existing_password = await self.credential_store.get_password(identity_id)
+
+        if existing_password is not None and not policy.overwrite_password_credential:
+            return
+
+        materialized_hash = password_hash or self.password_hasher.hash(password)
+        await self.credential_store.save_password(
+            PasswordCredential(identity_id=identity_id, password_hash=materialized_hash)
+        )
+
+    async def _provision_from_username_credentials(
+        self,
+        *,
+        username: str,
+        password: str,
+        policy: SignInProvisionPolicy,
+    ) -> bool:
+        """
+        Bootstrap missing identity/password records directly from sign-in credentials.
+
+        Returns True when provisioning changed store state and auth can be retried.
+        Returns False when no safe provisioning action is possible.
+        """
+        runtime_identity_id = self.current_identity_id()
+
+        # Resolve by configured login identifier attributes.
+        identity = await self._resolve_identity_for_identifier(username)
+
+        if runtime_identity_id and identity is not None and identity.id != runtime_identity_id:
+            raise TooManyRequestsFault(
+                detail="Active authenticated session cannot switch identity during sign-in",
+                retry_after=60,
+                metadata={
+                    "current_identity_id": runtime_identity_id,
+                    "target_identity_id": identity.id,
+                    "username": username,
+                },
+            )
+
+        changed = False
+
+        if identity is None and policy.create_identity_if_missing:
+            if runtime_identity_id:
+                raise TooManyRequestsFault(
+                    detail="Active authenticated session cannot create a new identity",
+                    retry_after=60,
+                    metadata={
+                        "current_identity_id": runtime_identity_id,
+                        "username": username,
+                    },
+                )
+
+            # Stable, non-guessable deterministic ID for same username across retries.
+            digest = hashlib.sha256(username.encode("utf-8")).hexdigest()[:24]
+            identity_id = f"usr_{digest}"
+
+            attributes: dict[str, Any]
+            if "@" in username:
+                attributes = {"email": username, "login": username}
+            else:
+                attributes = {"username": username, "login": username}
+
+            identity = Identity(
+                id=identity_id,
+                type=IdentityType.USER,
+                attributes=attributes,
+                status=IdentityStatus.ACTIVE,
+            )
+
+            try:
+                await self.identity_store.create(identity)
+                changed = True
+            except Exception:
+                # Possible race with parallel bootstrap; re-load and continue.
+                identity = await self.identity_store.get(identity_id)
+                if identity is None:
+                    return False
+
+        if identity is None:
+            return changed
+
+        if not policy.backfill_password_credential:
+            return changed
+
+        password_cred = await self.credential_store.get_password(identity.id)
+        if password_cred is not None and not policy.overwrite_password_credential:
+            return changed
+
+        await self.credential_store.save_password(
+            PasswordCredential(identity_id=identity.id, password_hash=self.password_hasher.hash(password))
+        )
+        return True
 
     async def authenticate_api_key(
         self,
@@ -558,6 +947,8 @@ class AuthManager:
         self,
         identity_id: str | None = None,
         session_id: str | None = None,
+        access_token: str | None = None,
+        refresh_token: str | None = None,
     ) -> None:
         """
         Logout user by revoking all tokens.
@@ -565,23 +956,116 @@ class AuthManager:
         Args:
             identity_id: Revoke all tokens for this identity
             session_id: Revoke all tokens for this session
+            access_token: Optional access token for deriving subject/session
+            refresh_token: Optional refresh token to revoke directly
         """
-        if identity_id:
-            await self.token_manager.revoke_tokens_by_identity(identity_id)
+        if identity_id and session_id:
+            scope: Literal["session", "identity", "all"] = "all"
+        elif identity_id:
+            scope = "identity"
+        else:
+            scope = "session"
 
-        resolved_session_id = session_id
-        runtime_session = self._get_runtime_session()
-        if resolved_session_id is None and runtime_session is not None and hasattr(runtime_session, "id"):
-            resolved_session_id = str(runtime_session.id)
+        await self.sign_out(
+            scope=scope,
+            identity_id=identity_id,
+            session_id=session_id,
+            access_token=access_token,
+            refresh_token=refresh_token,
+        )
 
-        if resolved_session_id:
-            await self.token_manager.revoke_tokens_by_session(resolved_session_id)
+    async def _extract_token_subject_context(self, access_token: str | None) -> tuple[str | None, str | None, str | None]:
+        """Best-effort extraction of identity/session/jti from an access token."""
+        if not access_token:
+            return (None, None, None)
 
-        if runtime_session is not None and hasattr(runtime_session, "clear_authentication"):
-            try:
-                runtime_session.clear_authentication()
-            except Exception:
-                pass
+        try:
+            claims = await self.token_manager.validate_access_token(access_token)
+        except Exception:
+            return (None, None, None)
+
+        return (
+            claims.get("sub"),
+            claims.get("sid"),
+            claims.get("jti"),
+        )
+
+    def _clear_runtime_auth_state(self) -> dict[str, bool]:
+        """Clear request/session auth state for current runtime context."""
+        runtime_ctx = None
+        try:
+            from .integration.runtime_context import get_auth_runtime_context
+
+            runtime_ctx = get_auth_runtime_context()
+        except Exception:
+            runtime_ctx = None
+
+        if runtime_ctx is None:
+            return {
+                "runtime_context_cleared": False,
+                "request_state_cleared": False,
+                "session_state_cleared": False,
+            }
+
+        request_cleared = False
+        request = getattr(runtime_ctx, "request", None)
+        if request is not None:
+            state = getattr(request, "state", None)
+            if isinstance(state, dict):
+                state.pop("identity", None)
+                state.pop("auth", None)
+                state["authenticated"] = False
+                request_cleared = True
+            elif state is not None:
+                try:
+                    if hasattr(state, "pop"):
+                        state.pop("identity", None)
+                        state.pop("auth", None)
+                    if hasattr(state, "__setitem__"):
+                        state["authenticated"] = False
+                    elif hasattr(state, "authenticated"):
+                        state.authenticated = False
+                    request_cleared = True
+                except Exception:
+                    request_cleared = False
+
+        session_cleared = False
+        runtime_session = getattr(runtime_ctx, "session", None)
+        if runtime_session is not None:
+            if hasattr(runtime_session, "clear_authentication"):
+                try:
+                    runtime_session.clear_authentication()
+                    session_cleared = True
+                except Exception:
+                    session_cleared = False
+
+            # Remove auth-bound session payload keys to prevent stale auth context.
+            data = getattr(runtime_session, "data", None)
+            if data is not None and hasattr(data, "pop"):
+                for key in (
+                    "identity_id",
+                    "tenant_id",
+                    "roles",
+                    "scopes",
+                    "status",
+                    "attributes",
+                    "token_claims",
+                    "mfa_verified",
+                ):
+                    try:
+                        data.pop(key, None)
+                        session_cleared = True
+                    except Exception:
+                        pass
+
+        runtime_ctx.identity = None
+        runtime_ctx.auth = None
+
+        return {
+            "runtime_context_cleared": True,
+            "request_state_cleared": request_cleared,
+            "session_state_cleared": session_cleared,
+        }
 
     async def sign_out(
         self,
@@ -589,6 +1073,8 @@ class AuthManager:
         scope: Literal["session", "identity", "all"] = "session",
         identity_id: str | None = None,
         session_id: str | None = None,
+        access_token: str | None = None,
+        refresh_token: str | None = None,
     ) -> JSONObject:
         """
         Aquilia-native sign-out API with explicit scope semantics.
@@ -600,6 +1086,8 @@ class AuthManager:
                 - "all": revoke by both identity and session when available
             identity_id: Optional explicit identity id override
             session_id: Optional explicit session id override
+            access_token: Optional access token used to derive identity/session and revoke JTI
+            refresh_token: Optional refresh token revoked directly
 
         Returns:
             Summary dict with resolved revocation scope.
@@ -611,13 +1099,17 @@ class AuthManager:
                 reason=f"Unsupported scope '{scope}'. Expected one of: {', '.join(sorted(valid_scopes))}",
             )
 
+        token_identity_id, token_session_id, token_jti = await self._extract_token_subject_context(access_token)
+
         runtime_identity_id = self.current_identity_id()
-        resolved_identity_id = identity_id or runtime_identity_id
+        resolved_identity_id = identity_id or runtime_identity_id or token_identity_id
 
         runtime_session = self.current_session()
         resolved_session_id = session_id
         if resolved_session_id is None and runtime_session is not None and hasattr(runtime_session, "id"):
             resolved_session_id = str(runtime_session.id)
+        if resolved_session_id is None:
+            resolved_session_id = token_session_id
 
         if scope in ("identity", "all") and not resolved_identity_id:
             raise AUTH_REQUIRED()
@@ -627,20 +1119,27 @@ class AuthManager:
 
         revoked_identity = False
         revoked_session = False
+        revoked_access = False
+        revoked_refresh = False
 
-        if scope in ("identity", "all") and resolved_identity_id:
-            await self.token_manager.revoke_tokens_by_identity(resolved_identity_id)
-            revoked_identity = True
+        try:
+            if scope in ("identity", "all") and resolved_identity_id:
+                await self.token_manager.revoke_tokens_by_identity(resolved_identity_id)
+                revoked_identity = True
 
-        if scope in ("session", "all") and resolved_session_id:
-            await self.token_manager.revoke_tokens_by_session(resolved_session_id)
-            revoked_session = True
+            if scope in ("session", "all") and resolved_session_id:
+                await self.token_manager.revoke_tokens_by_session(resolved_session_id)
+                revoked_session = True
 
-        if runtime_session is not None and hasattr(runtime_session, "clear_authentication"):
-            try:
-                runtime_session.clear_authentication()
-            except Exception:
-                pass
+            if token_jti:
+                await self.token_manager.revoke_token(token_jti)
+                revoked_access = True
+
+            if refresh_token:
+                await self.token_manager.revoke_token(refresh_token)
+                revoked_refresh = True
+        finally:
+            cleanup = self._clear_runtime_auth_state()
 
         return {
             "scope": scope,
@@ -648,6 +1147,9 @@ class AuthManager:
             "session_id": resolved_session_id,
             "revoked_identity": revoked_identity,
             "revoked_session": revoked_session,
+            "revoked_access": revoked_access,
+            "revoked_refresh": revoked_refresh,
+            **cleanup,
         }
 
     async def resume_identity(self, access_token: str | None = None) -> Identity | None:

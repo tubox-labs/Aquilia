@@ -20,6 +20,7 @@ import inspect
 from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypeVar
+from unittest.mock import Mock
 
 from aquilia.faults import Fault, FaultDomain
 
@@ -66,20 +67,19 @@ def _extract_identity(args: tuple, kwargs: dict) -> Identity | None:
     4. AuthRuntimeContext identity
     """
     identity = kwargs.get("identity")
-    if identity is not None:
+    if _is_identity_like(identity):
         return identity
 
     for arg in args:
         arg_dict = getattr(arg, "__dict__", None)
-        has_explicit_identity = isinstance(arg_dict, dict) and "identity" in arg_dict
-        if has_explicit_identity or hasattr(type(arg), "identity"):
-            ctx_identity = getattr(arg, "identity", None)
-            if ctx_identity is not None:
-                return ctx_identity
-
         has_explicit_request = isinstance(arg_dict, dict) and "request" in arg_dict
         if not has_explicit_request and not hasattr(type(arg), "request"):
             continue
+
+        # Only trust identity values on RequestCtx-like objects carrying request context.
+        ctx_identity = getattr(arg, "identity", None)
+        if _is_identity_like(ctx_identity):
+            return ctx_identity
 
         request = getattr(arg, "request", None)
         if request is None:
@@ -94,7 +94,7 @@ def _extract_identity(args: tuple, kwargs: dict) -> Identity | None:
         else:
             state_identity = getattr(state, "identity", None)
 
-        if state_identity is not None:
+        if _is_identity_like(state_identity):
             return state_identity
 
     # Fallback: try runtime context
@@ -107,11 +107,41 @@ def _extract_identity(args: tuple, kwargs: dict) -> Identity | None:
             if session is not None and hasattr(session, "data"):
                 identity_id = session.data.get("identity_id")
                 if identity_id:
-                    return getattr(runtime_ctx, "identity", None)
+                    runtime_identity = getattr(runtime_ctx, "identity", None)
+                    if _is_identity_like(runtime_identity):
+                        return runtime_identity
     except Exception:
         pass
 
     return None
+
+
+def _is_identity_like(value: Any) -> bool:
+    """Return True only for values that look like real identity/principal objects."""
+    if value is None:
+        return False
+
+    # Test doubles / placeholders should never satisfy authentication.
+    if isinstance(value, Mock):
+        return False
+
+    # Primitive/container values are not valid identities.
+    if isinstance(value, (bool, str, bytes, int, float, dict, list, tuple, set, frozenset)):
+        return False
+
+    # Accept common identity/principal shapes used across auth/session bridges.
+    if hasattr(value, "id"):
+        return True
+    if hasattr(value, "identity_id"):
+        return True
+    if hasattr(value, "get_attribute") and callable(getattr(value, "get_attribute", None)):
+        return True
+    if hasattr(value, "attributes"):
+        return True
+    if hasattr(value, "has_role") and callable(getattr(value, "has_role", None)):
+        return True
+
+    return False
 
 
 def _extract_session(args: tuple, kwargs: dict) -> Session | None:
