@@ -102,7 +102,9 @@ class ControllerEngine:
                 request=request,
                 identity=request.state.get("identity"),
                 session=request.state.get("session"),
+                auth=request.state.get("auth"),
                 container=container,
+                state=request.state,
             )
             # Inject any path params the handler declares as positional args
             if path_params:
@@ -123,6 +125,7 @@ class ControllerEngine:
             request=request,
             identity=request.state.get("identity"),
             session=request.state.get("session"),
+            auth=request.state.get("auth"),
             container=container,
             state=request.state,
         )
@@ -862,9 +865,9 @@ class ControllerEngine:
 
                             raise SessionRequiredFault()
                         elif is_identity_param:
-                            from aquilia.sessions.decorators import AuthenticationRequiredFault
+                            from aquilia.auth.faults import AUTH_REQUIRED
 
-                            raise AuthenticationRequiredFault()
+                            raise AUTH_REQUIRED()
 
                     if value is not None:
                         kwargs[param_name] = value
@@ -872,9 +875,10 @@ class ControllerEngine:
                         kwargs[param_name] = param.default
                 except Exception as e:
                     # Reraise session/auth faults
-                    from aquilia.sessions.decorators import AuthenticationRequiredFault, SessionRequiredFault
+                    from aquilia.auth.faults import AUTH_REQUIRED
+                    from aquilia.sessions.decorators import SessionRequiredFault
 
-                    if isinstance(e, (SessionRequiredFault, AuthenticationRequiredFault)):
+                    if isinstance(e, (SessionRequiredFault, AUTH_REQUIRED)):
                         raise
 
                     if not param.required and param.default is not inspect.Parameter.empty:

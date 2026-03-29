@@ -115,9 +115,19 @@ class AquilAuthMiddleware:
         # Also set on ctx for template rendering
         ctx.session = session
 
+        auth_context = _RequestAuthContext(
+            manager=self.auth_manager,
+            request=request,
+            session=session,
+        )
+
+        request.state["auth"] = auth_context
+        ctx.auth = auth_context
+
         runtime_context = AuthRuntimeContext(
             request=request,
             session=session,
+            auth=auth_context,
             container=container,
         )
         runtime_token = set_auth_runtime_context(runtime_context)
@@ -170,6 +180,7 @@ class AquilAuthMiddleware:
 
             # Also set on ctx for template rendering
             ctx.identity = identity
+            runtime_context.identity = identity
 
             if container and identity:
                 # Register identity in DI container for injection
@@ -235,7 +246,7 @@ class AquilAuthMiddleware:
         if isinstance(fault, Fault):
             status_map = {
                 FaultDomain.ROUTING: 404,
-                FaultDomain.SECURITY: 401,  # Auth failures → 401 (OWASP)
+                FaultDomain.SECURITY: 401,  # Auth failures -> 401 (OWASP)
                 FaultDomain.IO: 502,
                 FaultDomain.EFFECT: 503,
             }
@@ -253,6 +264,48 @@ class AquilAuthMiddleware:
             {"error": "Internal server error"},
             status=500,
         )
+
+
+class _RequestAuthContext:
+    """Request-scoped auth facade exposed via request.state and RequestCtx."""
+
+    def __init__(self, manager: AuthManager, request: Request, session: Any | None):
+        self._manager = manager
+        self._request = request
+        self._session = session
+
+    async def sign_in(
+        self,
+        *,
+        username: str,
+        password: str,
+        scopes: Any = None,
+        session: str = "auto",
+        client_metadata: dict[str, Any] | None = None,
+    ) -> Any:
+        return await self._manager.sign_in(
+            username=username,
+            password=password,
+            scopes=scopes,
+            session=session,
+            client_metadata=client_metadata,
+        )
+
+    async def sign_out(
+        self,
+        *,
+        scope: str = "session",
+        identity_id: str | None = None,
+        session_id: str | None = None,
+    ) -> Any:
+        return await self._manager.sign_out(
+            scope=scope,
+            identity_id=identity_id,
+            session_id=session_id,
+        )
+
+    async def resume_identity(self, access_token: str | None = None) -> Any:
+        return await self._manager.resume_identity(access_token=access_token)
 
 
 # ============================================================================

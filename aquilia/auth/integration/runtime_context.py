@@ -19,6 +19,8 @@ class AuthRuntimeContext:
 
     request: Any
     session: Any | None = None
+    identity: Any | None = None
+    auth: Any | None = None
     response: Any | None = None
     container: Any | None = None
 

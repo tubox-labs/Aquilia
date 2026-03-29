@@ -8,11 +8,9 @@ Features:
 - @session.require() - Require session with specific properties
 - @session.ensure() - Ensure session exists (create if missing)
 - @session.optional() - Session is optional
-- @authenticated - Shorthand for authenticated sessions
 - @stateful - Shorthand for stateful sessions
-- SessionContext - Scoped session access (authenticated, ensure, transactional)
+- SessionContext - Scoped session access (ensure, transactional)
 - SessionGuard / requires() - Advanced session guards
-- AdminGuard, VerifiedEmailGuard - Built-in guards
 """
 
 import inspect
@@ -38,19 +36,6 @@ class SessionRequiredFault(Fault):
         super().__init__(
             code="SESSION_REQUIRED",
             message="Session required for this endpoint",
-            domain=FaultDomain.SECURITY,
-        )
-
-
-class AuthenticationRequiredFault(Fault):
-    """Raised when authentication is required but session is not authenticated."""
-
-    def __init__(self):
-        from aquilia.faults import FaultDomain
-
-        super().__init__(
-            code="AUTHENTICATION_REQUIRED",
-            message="Authentication required for this endpoint",
             domain=FaultDomain.SECURITY,
         )
 
@@ -85,54 +70,13 @@ def _extract_session(args, kwargs) -> Session | None:
         if state is None:
             continue
 
-        if isinstance(state, dict):
-            state_session = state.get("session")
-        elif hasattr(state, "get"):
+        if isinstance(state, dict) or hasattr(state, "get"):
             state_session = state.get("session")
         else:
             state_session = getattr(state, "session", None)
 
         if state_session is not None:
             return state_session
-
-    return None
-
-
-def _extract_identity(args, kwargs):
-    """Extract identity from kwargs, RequestCtx, or request.state."""
-    identity = kwargs.get("identity")
-    if identity is not None:
-        return identity
-
-    for arg in args:
-        arg_dict = getattr(arg, "__dict__", None)
-        has_explicit_identity = isinstance(arg_dict, dict) and "identity" in arg_dict
-        if has_explicit_identity or hasattr(type(arg), "identity"):
-            ctx_identity = getattr(arg, "identity", None)
-            if ctx_identity is not None:
-                return ctx_identity
-
-        has_explicit_request = isinstance(arg_dict, dict) and "request" in arg_dict
-        if not has_explicit_request and not hasattr(type(arg), "request"):
-            continue
-
-        request = getattr(arg, "request", None)
-        if request is None:
-            continue
-
-        state = getattr(request, "state", None)
-        if state is None:
-            continue
-
-        if isinstance(state, dict):
-            state_identity = state.get("identity")
-        elif hasattr(state, "get"):
-            state_identity = state.get("identity")
-        else:
-            state_identity = getattr(state, "identity", None)
-
-        if state_identity is not None:
-            return state_identity
 
     return None
 
@@ -165,7 +109,9 @@ class SessionDecorators:
                     raise SessionRequiredFault()
 
                 if authenticated and not sess.is_authenticated:
-                    raise AuthenticationRequiredFault()
+                    from aquilia.auth.faults import AUTH_REQUIRED
+
+                    raise AUTH_REQUIRED()
 
                 if "session" not in func_kwargs:
                     sig = inspect.signature(func)
@@ -275,50 +221,6 @@ class SessionDecorators:
 session = SessionDecorators()
 
 
-def authenticated(func: F) -> F:
-    """
-    Shorthand decorator for authenticated sessions.
-
-    Example:
-        >>> @authenticated
-        >>> async def profile(ctx, user: SessionPrincipal):
-        ...     return {"user_id": user.id}
-    """
-
-    @wraps(func)
-    async def wrapper(*args, **func_kwargs):
-        sess = _extract_session(args, func_kwargs)
-
-        if sess is None:
-            identity = _extract_identity(args, func_kwargs)
-            if identity is None:
-                raise SessionRequiredFault()
-
-            sig = inspect.signature(func)
-            if "user" in sig.parameters:
-                func_kwargs["user"] = identity
-            elif "principal" in sig.parameters:
-                func_kwargs["principal"] = identity
-
-            return await func(*args, **func_kwargs)
-
-        if not sess.is_authenticated:
-            raise AuthenticationRequiredFault()
-
-        sig = inspect.signature(func)
-        if "user" in sig.parameters:
-            func_kwargs["user"] = sess.principal
-        elif "principal" in sig.parameters:
-            func_kwargs["principal"] = sess.principal
-        elif "session" in sig.parameters:
-            func_kwargs["session"] = sess
-
-        return await func(*args, **func_kwargs)
-
-    wrapper.__authenticated__ = True
-    return wrapper
-
-
 def stateful(func: F) -> F:
     """
     Shorthand decorator for stateful sessions.
@@ -388,7 +290,9 @@ class SessionContextManager:
             raise SessionRequiredFault()
 
         if not sess.is_authenticated:
-            raise AuthenticationRequiredFault()
+            from aquilia.auth.faults import AUTH_REQUIRED
+
+            raise AUTH_REQUIRED()
 
         try:
             yield sess
@@ -462,11 +366,11 @@ class SessionGuard:
     Advanced session guards for complex authorization logic.
 
     Example:
-        >>> class AdminGuard(SessionGuard):
+        >>> class FeatureGuard(SessionGuard):
         ...     async def check(self, session: Session) -> bool:
-        ...         return session.principal.has_role("admin")
+        ...         return bool(session.data.get("feature_enabled"))
 
-        >>> @requires(AdminGuard())
+        >>> @requires(FeatureGuard())
         >>> async def admin_panel(ctx, session: Session):
         ...     ...
     """
@@ -499,7 +403,7 @@ def requires(*guards: SessionGuard):
     Decorator to require multiple session guards.
 
     Example:
-        >>> @requires(AdminGuard(), VerifiedEmailGuard())
+        >>> @requires(GuardA(), GuardB())
         >>> async def sensitive_operation(ctx, session: Session):
         ...     ...
     """
@@ -527,43 +431,12 @@ def requires(*guards: SessionGuard):
     return decorator
 
 
-# ============================================================================
-# Built-in Guards
-# ============================================================================
-
-
-class AdminGuard(SessionGuard):
-    """Guard that requires admin role."""
-
-    async def check(self, session: Session) -> bool:
-        if not session.is_authenticated:
-            return False
-        if hasattr(session.principal, "role"):
-            return session.principal.role == "admin"
-        return session.principal.get_attribute("role") == "admin"
-
-
-class VerifiedEmailGuard(SessionGuard):
-    """Guard that requires verified email."""
-
-    async def check(self, session: Session) -> bool:
-        if not session.is_authenticated:
-            return False
-        if hasattr(session.principal, "email_verified"):
-            return session.principal.email_verified
-        return session.principal.get_attribute("email_verified", False)
-
-
 __all__ = [
     "session",
-    "authenticated",
     "stateful",
     "SessionRequiredFault",
-    "AuthenticationRequiredFault",
     # Merged from enhanced.py
     "SessionContext",
     "SessionGuard",
     "requires",
-    "AdminGuard",
-    "VerifiedEmailGuard",
 ]

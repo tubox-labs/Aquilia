@@ -67,6 +67,7 @@ from .core import (
     PasswordCredential,
     TokenClaims,
 )
+from .decorators import AdminGuard, VerifiedEmailGuard, authenticated
 
 # Faults
 from .faults import (
@@ -139,7 +140,7 @@ from .hashing import (
 )
 
 # Manager
-from .manager import AuthManager, RateLimiter
+from .manager import AuthManager, RateLimiter, SignInProvisionPolicy
 
 # MFA
 from .mfa import MFAManager
@@ -193,6 +194,9 @@ __all__ = [
     "MFACredential",
     "TokenClaims",
     "AuthResult",
+    "authenticated",
+    "AdminGuard",
+    "VerifiedEmailGuard",
     # Password hashing
     "PasswordHasher",
     "PasswordPolicy",
@@ -249,6 +253,7 @@ __all__ = [
     # Manager
     "AuthManager",
     "RateLimiter",
+    "SignInProvisionPolicy",
     # Authorization
     "AuthzEngine",
     "RBACEngine",

@@ -161,7 +161,8 @@ def _generate_test_controller(name: str, prefix: str) -> str:
 
         from aquilia import Controller, GET, POST
         from aquilia.sessions import Session, SessionPrincipal
-        from aquilia.sessions.decorators import session, authenticated
+        from aquilia.sessions.decorators import session
+        from aquilia.auth import authenticated
 
 
         class {name}Controller(Controller):

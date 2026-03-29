@@ -193,3 +193,58 @@ async def test_auth_middleware_sets_and_resets_runtime_context():
     assert response is not None
     assert get_auth_runtime_context() is None
     session_engine.commit.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_auth_manager_auto_provisions_identity_and_credential_stores():
+    from aquilia.auth.manager import AuthManager
+    from aquilia.auth.stores import MemoryTokenStore
+    from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenManager
+
+    key = KeyDescriptor.generate(kid="test-key", algorithm="HS256", secret="unit-test-secret")
+    token_manager = TokenManager(key_ring=KeyRing(keys=[key]), token_store=MemoryTokenStore())
+
+    manager = AuthManager(token_manager=token_manager)
+
+    assert manager.identity_store is not None
+    assert manager.credential_store is not None
+
+
+@pytest.mark.asyncio
+async def test_auth_middleware_populates_request_and_ctx_auth_data():
+    from aquilia.auth.integration.middleware import AquilAuthMiddleware
+
+    session = MagicMock()
+    session.is_authenticated = False
+
+    session_engine = MagicMock()
+    session_engine.resolve = AsyncMock(return_value=session)
+    session_engine.commit = AsyncMock(return_value=None)
+
+    auth_manager = MagicMock()
+    auth_manager.get_identity_from_token = AsyncMock(return_value=None)
+
+    middleware = AquilAuthMiddleware(session_engine=session_engine, auth_manager=auth_manager)
+
+    request = MagicMock()
+    request.state = {}
+    request.header = lambda _name: None
+
+    ctx = MagicMock()
+    ctx.container = None
+    ctx.session = None
+    ctx.identity = None
+    ctx.auth = None
+
+    async def next_handler(_request, _ctx):
+        assert _request.state["session"] is session
+        assert "auth" in _request.state
+        assert _ctx.session is session
+        assert _ctx.auth is _request.state["auth"]
+        return MagicMock()
+
+    response = await middleware(request, ctx, next_handler)
+
+    assert response is not None
+    assert request.state["session"] is session
+    assert "auth" in request.state
