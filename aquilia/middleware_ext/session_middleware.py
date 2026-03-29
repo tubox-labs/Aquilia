@@ -11,6 +11,7 @@ This middleware orchestrates the complete session lifecycle:
 import logging
 from typing import TYPE_CHECKING, Optional
 
+from aquilia.ctx import reset_context, set_context
 from aquilia.di import RequestCtx
 from aquilia.faults.domains import ConfigInvalidFault
 from aquilia.middleware import Handler
@@ -113,6 +114,8 @@ class SessionMiddleware:
             except Exception as e:
                 self.logger.warning(f"Failed to register session in DI: {e}")
 
+        ctx_token = set_context(request=request, session=session, container=container)
+
         # Check concurrency limits (if authenticated)
         if session.is_authenticated:
             # Concurrency check is enforced based on policy behavior (reject/evict)
@@ -123,7 +126,10 @@ class SessionMiddleware:
         privilege_before = session.is_authenticated
 
         # Process request
-        response = await next_handler(request, ctx)
+        try:
+            response = await next_handler(request, ctx)
+        finally:
+            reset_context(ctx_token)
 
         # Track privilege state after handler
         privilege_after = session.is_authenticated

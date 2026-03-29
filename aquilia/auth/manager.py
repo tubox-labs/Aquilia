@@ -19,8 +19,10 @@ from aquilia.typing import JSONObject
 from .core import (
     ApiKeyCredential,
     AuthResult,
+    CredentialStore,
     Identity,
     IdentityStatus,
+    IdentityStore,
     TokenClaims,
 )
 from .faults import (
@@ -127,14 +129,16 @@ class AuthManager:
 
     def __init__(
         self,
-        identity_store: MemoryIdentityStore,
-        credential_store: MemoryCredentialStore,
         token_manager: TokenManager,
+        identity_store: IdentityStore | None = None,
+        credential_store: CredentialStore | None = None,
         password_hasher: PasswordHasher | None = None,
         rate_limiter: RateLimiter | None = None,
     ):
-        self.identity_store = identity_store
-        self.credential_store = credential_store
+        # Auto-provision default in-memory stores when callers omit explicit storage wiring.
+        # This keeps sign_in ergonomic in tests, scripts, and lightweight setups.
+        self.identity_store = identity_store or MemoryIdentityStore()
+        self.credential_store = credential_store or MemoryCredentialStore()
         self.token_manager = token_manager
         self.password_hasher = password_hasher or PasswordHasher()
         self.rate_limiter = rate_limiter or RateLimiter()

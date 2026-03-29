@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aquilia.ctx import reset_context, set_context, update_context
 from aquilia.di import Container
 from aquilia.faults import FaultEngine
 from aquilia.middleware import Handler, Middleware
@@ -115,12 +116,28 @@ class AquilAuthMiddleware:
         # Also set on ctx for template rendering
         ctx.session = session
 
+        auth_context = _RequestAuthContext(
+            manager=self.auth_manager,
+            request=request,
+            session=session,
+        )
+
+        request.state["auth"] = auth_context
+        ctx.auth = auth_context
+
         runtime_context = AuthRuntimeContext(
             request=request,
             session=session,
+            auth=auth_context,
             container=container,
         )
         runtime_token = set_auth_runtime_context(runtime_context)
+        ctx_token = set_context(
+            request=request,
+            session=session,
+            auth=auth_context,
+            container=container,
+        )
 
         try:
             # Phase 2: Resolve identity (Bearer token overrides session)
@@ -170,6 +187,8 @@ class AquilAuthMiddleware:
 
             # Also set on ctx for template rendering
             ctx.identity = identity
+            runtime_context.identity = identity
+            update_context(identity=identity)
 
             if container and identity:
                 # Register identity in DI container for injection
@@ -199,7 +218,50 @@ class AquilAuthMiddleware:
 
             return response
         finally:
+            reset_context(ctx_token)
             reset_auth_runtime_context(runtime_token)
+
+
+class _RequestAuthContext:
+    """Request-scoped auth facade exposed via request.state and aquilia.ctx."""
+
+    def __init__(self, manager: AuthManager, request: Request, session: Any | None):
+        self._manager = manager
+        self._request = request
+        self._session = session
+
+    async def sign_in(
+        self,
+        *,
+        username: str,
+        password: str,
+        scopes: Any = None,
+        session: str = "auto",
+        client_metadata: dict[str, Any] | None = None,
+    ) -> Any:
+        return await self._manager.sign_in(
+            username=username,
+            password=password,
+            scopes=scopes,
+            session=session,
+            client_metadata=client_metadata,
+        )
+
+    async def sign_out(
+        self,
+        *,
+        scope: str = "session",
+        identity_id: str | None = None,
+        session_id: str | None = None,
+    ) -> Any:
+        return await self._manager.sign_out(
+            scope=scope,
+            identity_id=identity_id,
+            session_id=session_id,
+        )
+
+    async def resume_identity(self, access_token: str | None = None) -> Any:
+        return await self._manager.resume_identity(access_token=access_token)
 
     def _handle_auth_required(self) -> Response:
         """Create response for missing authentication."""
