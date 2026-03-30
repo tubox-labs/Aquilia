@@ -25,7 +25,7 @@ from typing import Any
 from ..di import Container
 from ..request import Request
 from ..response import Response
-from .base import Controller, RequestCtx
+from .base import Controller, RequestCtx, _reset_current_request_ctx, _set_current_request_ctx
 from .compiler import CompiledRoute
 from .factory import ControllerFactory, InstantiationMode
 
@@ -106,19 +106,23 @@ class ControllerEngine:
                 container=container,
                 state=request.state,
             )
-            # Inject any path params the handler declares as positional args
-            if path_params:
-                import inspect as _inspect
+            ctx_token = _set_current_request_ctx(ctx)
+            try:
+                # Inject any path params the handler declares as positional args
+                if path_params:
+                    import inspect as _inspect
 
-                try:
-                    sig = _inspect.signature(route.handler)
-                    extra = {k: v for k, v in path_params.items() if k in sig.parameters}
-                except (ValueError, TypeError):
-                    extra = {}
-                result = await route.handler(request, ctx, **extra)
-            else:
-                result = await route.handler(request, ctx)
-            return self._to_response(result)
+                    try:
+                        sig = _inspect.signature(route.handler)
+                        extra = {k: v for k, v in path_params.items() if k in sig.parameters}
+                    except (ValueError, TypeError):
+                        extra = {}
+                    result = await route.handler(request, ctx, **extra)
+                else:
+                    result = await route.handler(request, ctx)
+                return self._to_response(result)
+            finally:
+                _reset_current_request_ctx(ctx_token)
 
         # Build RequestCtx
         ctx = RequestCtx(
@@ -129,137 +133,228 @@ class ControllerEngine:
             container=container,
             state=request.state,
         )
+        ctx_token = _set_current_request_ctx(ctx)
 
-        # ── Throttle enforcement ──
-        throttle_response = self._check_throttle(controller_class, route_metadata, request)
-        if throttle_response is not None:
-            return throttle_response
+        try:
+            # ── Throttle enforcement ──
+            throttle_response = self._check_throttle(controller_class, route_metadata, request)
+            if throttle_response is not None:
+                return throttle_response
 
-        # ── Body size limit enforcement ──
-        max_body = getattr(controller_class, "max_body_size", 0)
-        if max_body > 0:
-            content_length = 0
-            if hasattr(request, "headers"):
-                hdrs = request.headers
-                cl = hdrs.get("content-length") if hasattr(hdrs, "get") else None
-                if cl:
-                    with contextlib.suppress(ValueError, TypeError):
-                        content_length = int(cl)
-            if content_length > max_body:
-                from ..faults.domains import PayloadTooLargeFault
+            # ── Body size limit enforcement ──
+            max_body = getattr(controller_class, "max_body_size", 0)
+            if max_body > 0:
+                content_length = 0
+                if hasattr(request, "headers"):
+                    hdrs = request.headers
+                    cl = hdrs.get("content-length") if hasattr(hdrs, "get") else None
+                    if cl:
+                        with contextlib.suppress(ValueError, TypeError):
+                            content_length = int(cl)
+                if content_length > max_body:
+                    from ..faults.domains import PayloadTooLargeFault
 
-                raise PayloadTooLargeFault(
-                    detail=f"Request body too large ({content_length} bytes, max {max_body})",
+                    raise PayloadTooLargeFault(
+                        detail=f"Request body too large ({content_length} bytes, max {max_body})",
+                    )
+
+            # Singleton lifecycle init (once per controller class)
+            is_singleton = getattr(controller_class, "instantiation_mode", "per_request") == "singleton"
+            if self.enable_lifecycle and is_singleton and controller_class not in self._lifecycle_initialized:
+                await self._init_controller_lifecycle(controller_class, container)
+                self._lifecycle_initialized.add(controller_class)
+
+            # Instantiate controller
+            controller = await self.factory.create(
+                controller_class,
+                mode=InstantiationMode.PER_REQUEST,
+                request_container=container,
+                ctx=ctx,
+            )
+
+            # Execute class-level pipeline via FlowPipeline
+            if route.controller_metadata.pipeline:
+                pipeline_result = await self._execute_flow_pipeline(
+                    route.controller_metadata.pipeline,
+                    request,
+                    ctx,
+                    controller,
+                    pipeline_name=f"{controller_class.__name__}.class_pipeline",
                 )
+                if isinstance(pipeline_result, Response):
+                    return pipeline_result
 
-        # Singleton lifecycle init (once per controller class)
-        is_singleton = getattr(controller_class, "instantiation_mode", "per_request") == "singleton"
-        if self.enable_lifecycle and is_singleton and controller_class not in self._lifecycle_initialized:
-            await self._init_controller_lifecycle(controller_class, container)
-            self._lifecycle_initialized.add(controller_class)
+            # Execute method-level pipeline via FlowPipeline
+            if route_metadata.pipeline:
+                pipeline_result = await self._execute_flow_pipeline(
+                    route_metadata.pipeline,
+                    request,
+                    ctx,
+                    controller,
+                    pipeline_name=f"{controller_class.__name__}.{route_metadata.handler_name}",
+                )
+                if isinstance(pipeline_result, Response):
+                    return pipeline_result
 
-        # Instantiate controller
-        controller = await self.factory.create(
-            controller_class,
-            mode=InstantiationMode.PER_REQUEST,
-            request_container=container,
-            ctx=ctx,
-        )
+            # Get handler method
+            handler_method = getattr(controller, route_metadata.handler_name)
 
-        # Execute class-level pipeline via FlowPipeline
-        if route.controller_metadata.pipeline:
-            pipeline_result = await self._execute_flow_pipeline(
-                route.controller_metadata.pipeline,
+            # ── Clearance evaluation ──
+            # Check class-level + method-level clearance requirements
+            clearance_result = await self._evaluate_clearance(
+                route,
+                controller_class,
+                handler_method,
                 request,
                 ctx,
-                controller,
-                pipeline_name=f"{controller_class.__name__}.class_pipeline",
             )
-            if isinstance(pipeline_result, Response):
-                return pipeline_result
+            if isinstance(clearance_result, Response):
+                return clearance_result
 
-        # Execute method-level pipeline via FlowPipeline
-        if route_metadata.pipeline:
-            pipeline_result = await self._execute_flow_pipeline(
-                route_metadata.pipeline,
+            # ── Fast path for simple handlers ──
+            # Handlers with no pipeline, no blueprint, and only ctx/path params
+            # can skip the full _bind_parameters machinery.
+            route_id = id(route)
+            is_simple = ControllerEngine._simple_route_cache.get(route_id)
+            if is_simple is None:
+                params = route_metadata.parameters
+                has_blueprint = getattr(route_metadata, "request_blueprint", None) or getattr(
+                    route_metadata, "response_blueprint", None
+                )
+                has_filters_or_pagination = (
+                    getattr(route_metadata, "filterset_class", None)
+                    or getattr(route_metadata, "filterset_fields", None)
+                    or getattr(route_metadata, "search_fields", None)
+                    or getattr(route_metadata, "ordering_fields", None)
+                    or getattr(route_metadata, "pagination_class", None)
+                    or getattr(route_metadata, "renderer_classes", None)
+                )
+                is_simple = (
+                    not route.controller_metadata.pipeline
+                    and not route_metadata.pipeline
+                    and not has_blueprint
+                    and not has_filters_or_pagination
+                    and (not params or all(p.name == "ctx" or p.source == "path" for p in params))
+                )
+                ControllerEngine._simple_route_cache[route_id] = is_simple
+
+            if is_simple:
+                # Direct call -- skip _bind_parameters, lifecycle hooks, blueprint
+                try:
+                    # Signature-aware call
+                    sig = self._get_cached_signature(handler_method)
+                    has_ctx = "ctx" in sig.parameters or "context" in sig.parameters
+
+                    final_kwargs = {**path_params}
+                    if has_ctx:
+                        ctx_key = "ctx" if "ctx" in sig.parameters else "context"
+                        final_kwargs[ctx_key] = ctx
+
+                    # Run interceptors before
+                    interceptors = self._get_interceptors(controller_class, route_metadata)
+                    for interceptor in interceptors:
+                        short = await self._safe_call(interceptor.before, ctx)
+                        if isinstance(short, Response):
+                            return short
+
+                    result = await self._execute_with_timeout(
+                        handler_method, controller_class, route_metadata, **final_kwargs
+                    )
+
+                    # Run interceptors after
+                    for interceptor in reversed(interceptors):
+                        result = await self._safe_call(interceptor.after, ctx, result)
+
+                    return self._to_response(result)
+                except Exception as e:
+                    # Try exception filters first
+                    filtered = await self._apply_exception_filters(e, controller_class, route_metadata, ctx)
+                    if filtered is not None:
+                        return filtered
+
+                    self.logger.error(
+                        f"Error executing {controller_class.__name__}.{route_metadata.handler_name}: {e}",
+                        exc_info=True,
+                    )
+                    if self.fault_engine:
+                        try:
+                            app_name = getattr(route, "app_name", None)
+                            rid = request.state.get("request_id") if isinstance(request.state, dict) else None
+                            await self.fault_engine.process(
+                                e,
+                                app=app_name,
+                                route=route.full_path,
+                                request_id=rid,
+                            )
+                        except Exception:
+                            pass
+                    raise
+
+            # Bind parameters
+            kwargs, request_dag = await self._bind_parameters(
+                route_metadata,
                 request,
                 ctx,
-                controller,
-                pipeline_name=f"{controller_class.__name__}.{route_metadata.handler_name}",
+                path_params,
+                container,
             )
-            if isinstance(pipeline_result, Response):
-                return pipeline_result
 
-        # Get handler method
-        handler_method = getattr(controller, route_metadata.handler_name)
-
-        # ── Clearance evaluation ──
-        # Check class-level + method-level clearance requirements
-        clearance_result = await self._evaluate_clearance(
-            route,
-            controller_class,
-            handler_method,
-            request,
-            ctx,
-        )
-        if isinstance(clearance_result, Response):
-            return clearance_result
-
-        # ── Fast path for simple handlers ──
-        # Handlers with no pipeline, no blueprint, and only ctx/path params
-        # can skip the full _bind_parameters machinery.
-        route_id = id(route)
-        is_simple = ControllerEngine._simple_route_cache.get(route_id)
-        if is_simple is None:
-            params = route_metadata.parameters
-            has_blueprint = getattr(route_metadata, "request_blueprint", None) or getattr(
-                route_metadata, "response_blueprint", None
-            )
-            has_filters_or_pagination = (
-                getattr(route_metadata, "filterset_class", None)
-                or getattr(route_metadata, "filterset_fields", None)
-                or getattr(route_metadata, "search_fields", None)
-                or getattr(route_metadata, "ordering_fields", None)
-                or getattr(route_metadata, "pagination_class", None)
-                or getattr(route_metadata, "renderer_classes", None)
-            )
-            is_simple = (
-                not route.controller_metadata.pipeline
-                and not route_metadata.pipeline
-                and not has_blueprint
-                and not has_filters_or_pagination
-                and (not params or all(p.name == "ctx" or p.source == "path" for p in params))
-            )
-            ControllerEngine._simple_route_cache[route_id] = is_simple
-
-        if is_simple:
-            # Direct call -- skip _bind_parameters, lifecycle hooks, blueprint
+            # Execute handler
             try:
-                # Signature-aware call
-                sig = self._get_cached_signature(handler_method)
-                has_ctx = "ctx" in sig.parameters or "context" in sig.parameters
+                # Check lifecycle hooks (cached per class)
+                # We check if the method is actually OVERRIDDEN from Controller base,
+                # since Controller defines on_request/on_response as no-ops.
+                hooks = ControllerEngine._has_lifecycle_hooks.get(controller_class)
+                if hooks is None:
+                    has_on_request = "on_request" in controller_class.__dict__ or any(
+                        "on_request" in B.__dict__
+                        for B in controller_class.__mro__[1:]
+                        if B is not Controller and B is not object
+                    )
+                    has_on_response = "on_response" in controller_class.__dict__ or any(
+                        "on_response" in B.__dict__
+                        for B in controller_class.__mro__[1:]
+                        if B is not Controller and B is not object
+                    )
+                    hooks = (has_on_request, has_on_response)
+                    ControllerEngine._has_lifecycle_hooks[controller_class] = hooks
 
-                final_kwargs = {**path_params}
-                if has_ctx:
-                    ctx_key = "ctx" if "ctx" in sig.parameters else "context"
-                    final_kwargs[ctx_key] = ctx
+                has_on_request, has_on_response = hooks
 
-                # Run interceptors before
+                if has_on_request:
+                    await self._safe_call(controller.on_request, ctx)
+
+                # Run interceptors before handler
                 interceptors = self._get_interceptors(controller_class, route_metadata)
                 for interceptor in interceptors:
                     short = await self._safe_call(interceptor.before, ctx)
                     if isinstance(short, Response):
                         return short
 
-                result = await self._execute_with_timeout(
-                    handler_method, controller_class, route_metadata, **final_kwargs
-                )
+                # Signature-aware call
+                sig = self._get_cached_signature(handler_method)
+                has_ctx = "ctx" in sig.parameters or "context" in sig.parameters
+                if has_ctx:
+                    ctx_key = "ctx" if "ctx" in sig.parameters else "context"
+                    kwargs[ctx_key] = ctx
 
-                # Run interceptors after
+                result = await self._execute_with_timeout(handler_method, controller_class, route_metadata, **kwargs)
+
+                # Run interceptors after handler (in reverse order)
                 for interceptor in reversed(interceptors):
                     result = await self._safe_call(interceptor.after, ctx, result)
 
-                return self._to_response(result)
+                result = await self._apply_filters_and_pagination(result, route_metadata, request)
+                result = self._apply_response_blueprint(result, route_metadata, ctx)
+                response = self._apply_content_negotiation(result, route_metadata, request)
+                if response is None:
+                    response = self._to_response(result)
+
+                if has_on_response:
+                    await self._safe_call(controller.on_response, ctx, response)
+
+                return response
+
             except Exception as e:
                 # Try exception filters first
                 filtered = await self._apply_exception_filters(e, controller_class, route_metadata, ctx)
@@ -283,99 +378,12 @@ class ControllerEngine:
                     except Exception:
                         pass
                 raise
-
-        # Bind parameters
-        kwargs, request_dag = await self._bind_parameters(
-            route_metadata,
-            request,
-            ctx,
-            path_params,
-            container,
-        )
-
-        # Execute handler
-        try:
-            # Check lifecycle hooks (cached per class)
-            # We check if the method is actually OVERRIDDEN from Controller base,
-            # since Controller defines on_request/on_response as no-ops.
-            hooks = ControllerEngine._has_lifecycle_hooks.get(controller_class)
-            if hooks is None:
-                has_on_request = "on_request" in controller_class.__dict__ or any(
-                    "on_request" in B.__dict__
-                    for B in controller_class.__mro__[1:]
-                    if B is not Controller and B is not object
-                )
-                has_on_response = "on_response" in controller_class.__dict__ or any(
-                    "on_response" in B.__dict__
-                    for B in controller_class.__mro__[1:]
-                    if B is not Controller and B is not object
-                )
-                hooks = (has_on_request, has_on_response)
-                ControllerEngine._has_lifecycle_hooks[controller_class] = hooks
-
-            has_on_request, has_on_response = hooks
-
-            if has_on_request:
-                await self._safe_call(controller.on_request, ctx)
-
-            # Run interceptors before handler
-            interceptors = self._get_interceptors(controller_class, route_metadata)
-            for interceptor in interceptors:
-                short = await self._safe_call(interceptor.before, ctx)
-                if isinstance(short, Response):
-                    return short
-
-            # Signature-aware call
-            sig = self._get_cached_signature(handler_method)
-            has_ctx = "ctx" in sig.parameters or "context" in sig.parameters
-            if has_ctx:
-                ctx_key = "ctx" if "ctx" in sig.parameters else "context"
-                kwargs[ctx_key] = ctx
-
-            result = await self._execute_with_timeout(handler_method, controller_class, route_metadata, **kwargs)
-
-            # Run interceptors after handler (in reverse order)
-            for interceptor in reversed(interceptors):
-                result = await self._safe_call(interceptor.after, ctx, result)
-
-            result = await self._apply_filters_and_pagination(result, route_metadata, request)
-            result = self._apply_response_blueprint(result, route_metadata, ctx)
-            response = self._apply_content_negotiation(result, route_metadata, request)
-            if response is None:
-                response = self._to_response(result)
-
-            if has_on_response:
-                await self._safe_call(controller.on_response, ctx, response)
-
-            return response
-
-        except Exception as e:
-            # Try exception filters first
-            filtered = await self._apply_exception_filters(e, controller_class, route_metadata, ctx)
-            if filtered is not None:
-                return filtered
-
-            self.logger.error(
-                f"Error executing {controller_class.__name__}.{route_metadata.handler_name}: {e}",
-                exc_info=True,
-            )
-            if self.fault_engine:
-                try:
-                    app_name = getattr(route, "app_name", None)
-                    rid = request.state.get("request_id") if isinstance(request.state, dict) else None
-                    await self.fault_engine.process(
-                        e,
-                        app=app_name,
-                        route=route.full_path,
-                        request_id=rid,
-                    )
-                except Exception:
-                    pass
-            raise
+            finally:
+                # Teardown generator deps from RequestDAG
+                if request_dag is not None:
+                    await request_dag.teardown()
         finally:
-            # Teardown generator deps from RequestDAG
-            if request_dag is not None:
-                await request_dag.teardown()
+            _reset_current_request_ctx(ctx_token)
 
     async def _init_controller_lifecycle(
         self,
@@ -454,8 +462,8 @@ class ControllerEngine:
         Returns a 401/403 Response if denied, None if allowed.
         """
         from ..auth.clearance import (
-            AccessLevel,
             ClearanceEngine,
+            _build_clearance_denied_response,
             build_merged_clearance,
         )
 
@@ -480,18 +488,7 @@ class ControllerEngine:
         verdict = await engine.evaluate(cached, identity, request, ctx)
 
         if not verdict.granted:
-            status = 401 if not verdict.level_ok and cached.level > AccessLevel.PUBLIC else 403
-            return Response.json(
-                {
-                    "error": {
-                        "code": "CLEARANCE_DENIED",
-                        "message": verdict.message,
-                        "missing_entitlements": list(verdict.missing_entitlements),
-                        "failed_conditions": list(verdict.failed_conditions),
-                    }
-                },
-                status=status,
-            )
+            return _build_clearance_denied_response(cached, verdict, request)
 
         # Store verdict in ctx for downstream use
         if isinstance(ctx.state, dict):

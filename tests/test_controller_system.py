@@ -38,6 +38,8 @@ from aquilia.controller.base import (
     ExceptionFilter,
     Interceptor,
     Throttle,
+    _reset_current_request_ctx,
+    _set_current_request_ctx,
     _ControllerMeta,
 )
 from aquilia.controller.decorators import (
@@ -258,6 +260,47 @@ class TestControllerMutableDefaultFix:
         assert "extra" in Child1.pipeline
         assert "extra" not in Child2.pipeline
         assert "extra" not in Parent.pipeline
+
+
+class TestControllerRender:
+    """Tests for Controller.render template integration."""
+
+    async def test_render_uses_current_ctx_when_request_ctx_omitted(self):
+        """Controller.render() should infer request_ctx from task-local context."""
+
+        class _EngineStub:
+            def __init__(self):
+                self.request_ctx = None
+                self.template_name = ""
+                self.context = {}
+
+            async def render(self, template_name, context, request_ctx=None):
+                self.request_ctx = request_ctx
+                self.template_name = template_name
+                self.context = dict(context)
+                return "<h1>ok</h1>"
+
+        class RenderController(Controller):
+            pass
+
+        engine = _EngineStub()
+        controller = RenderController()
+        controller.templates = engine
+
+        req = _make_request()
+        ctx = RequestCtx(request=req, state=req.state)
+        token = _set_current_request_ctx(ctx)
+
+        try:
+            response = await controller.render("index.html", {"name": "Aquilia"})
+        finally:
+            _reset_current_request_ctx(token)
+
+        assert response.status == 200
+        assert response.headers["content-type"] == "text/html; charset=utf-8"
+        assert engine.request_ctx is ctx
+        assert engine.template_name == "index.html"
+        assert engine.context["name"] == "Aquilia"
 
     def test_interceptors_not_shared(self):
         class A(Controller):

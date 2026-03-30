@@ -415,6 +415,75 @@ def get_method_clearance(method: Any) -> Clearance | None:
     return getattr(method, _CLEARANCE_ATTR, None)
 
 
+def _request_wants_html(request: Any) -> bool:
+    """Return True when request Accept header includes text/html."""
+    try:
+        if request is None:
+            return False
+
+        if hasattr(request, "header") and callable(request.header):
+            accept = request.header("accept", "") or ""
+            return "text/html" in str(accept).lower()
+
+        headers = getattr(request, "headers", None)
+        if headers is None:
+            return False
+
+        if hasattr(headers, "get"):
+            accept = headers.get("accept", "") or headers.get("Accept", "")
+            return "text/html" in str(accept).lower()
+    except Exception:
+        return False
+
+    return False
+
+
+def _get_aquilia_version() -> str:
+    """Best-effort Aquilia version lookup for error page rendering."""
+    try:
+        from aquilia import __version__
+
+        return str(__version__)
+    except Exception:
+        return ""
+
+
+def _build_clearance_denied_response(
+    clearance: Clearance,
+    verdict: ClearanceVerdict,
+    request: Any,
+) -> Any:
+    """Build clearance denied response via content negotiation."""
+    from ..response import Response
+
+    status = 401 if not verdict.level_ok and clearance.level > AccessLevel.PUBLIC else 403
+
+    if _request_wants_html(request):
+        from ..debug.pages import render_http_error_page
+
+        title = "Unauthorized" if status == 401 else "Forbidden"
+        html_body = render_http_error_page(
+            status,
+            title,
+            verdict.message,
+            request,
+            aquilia_version=_get_aquilia_version(),
+        )
+        return Response.html(html_body, status=status)
+
+    return Response.json(
+        {
+            "error": {
+                "code": "CLEARANCE_DENIED",
+                "message": verdict.message,
+                "missing_entitlements": list(verdict.missing_entitlements),
+                "failed_conditions": list(verdict.failed_conditions),
+            }
+        },
+        status=status,
+    )
+
+
 # ============================================================================
 # Clearance Engine
 # ============================================================================
@@ -721,20 +790,7 @@ class ClearanceGuard:
             if ctx and hasattr(ctx, "state") and isinstance(ctx.state, dict):
                 ctx.state["clearance_verdict"] = verdict
 
-            from ..response import Response
-
-            status = 401 if not verdict.level_ok and self.clearance.level > AccessLevel.PUBLIC else 403
-            return Response.json(
-                {
-                    "error": {
-                        "code": "CLEARANCE_DENIED",
-                        "message": verdict.message,
-                        "missing_entitlements": list(verdict.missing_entitlements),
-                        "failed_conditions": list(verdict.failed_conditions),
-                    }
-                },
-                status=status,
-            )
+            return _build_clearance_denied_response(self.clearance, verdict, request)
 
         # Store successful verdict
         if ctx and hasattr(ctx, "state") and isinstance(ctx.state, dict):

@@ -22,21 +22,25 @@ import pytest
 # Core Types Tests
 # ============================================================================
 
+
 class TestSessionID:
     """Tests for SessionID cryptographic identifier."""
 
     def test_generates_unique_ids(self):
         from aquilia.sessions.core import SessionID
+
         ids = {str(SessionID()) for _ in range(100)}
         assert len(ids) == 100  # All unique
 
     def test_id_has_prefix(self):
         from aquilia.sessions.core import SessionID
+
         sid = SessionID()
         assert str(sid).startswith("sess_")
 
     def test_id_has_sufficient_entropy(self):
         from aquilia.sessions.core import SessionID
+
         sid = SessionID()
         # 32 bytes = 256 bits > OWASP minimum of 64 bits
         raw = str(sid).removeprefix("sess_")
@@ -44,6 +48,7 @@ class TestSessionID:
 
     def test_from_string_roundtrip(self):
         from aquilia.sessions.core import SessionID
+
         sid = SessionID()
         restored = SessionID.from_string(str(sid))
         assert str(sid) == str(restored)
@@ -51,29 +56,34 @@ class TestSessionID:
     def test_from_string_rejects_invalid(self):
         from aquilia.sessions.core import SessionID
         from aquilia.sessions.faults import SessionInvalidFault
+
         with pytest.raises(SessionInvalidFault):
             SessionID.from_string("not_a_valid_session_id")
 
     def test_from_string_rejects_wrong_prefix(self):
         from aquilia.sessions.core import SessionID
         from aquilia.sessions.faults import SessionInvalidFault
+
         with pytest.raises(SessionInvalidFault):
             SessionID.from_string("bad_prefix_" + "a" * 43)
 
     def test_constant_time_comparison(self):
         from aquilia.sessions.core import SessionID
+
         sid = SessionID()
         same = SessionID.from_string(str(sid))
         assert sid == same  # uses secrets.compare_digest
 
     def test_inequality(self):
         from aquilia.sessions.core import SessionID
+
         a = SessionID()
         b = SessionID()
         assert a != b
 
     def test_fingerprint_for_logging(self):
         from aquilia.sessions.core import SessionID
+
         sid = SessionID()
         fp = sid.fingerprint()
         assert fp.startswith("sha256:")
@@ -83,6 +93,7 @@ class TestSessionID:
 
     def test_hash_consistent(self):
         from aquilia.sessions.core import SessionID
+
         sid = SessionID()
         assert hash(sid) == hash(sid)
 
@@ -92,6 +103,7 @@ class TestSessionScope:
 
     def test_scope_values(self):
         from aquilia.sessions.core import SessionScope
+
         assert SessionScope.USER.value == "user"
         assert SessionScope.REQUEST.value == "request"
         assert SessionScope.CONNECTION.value == "connection"
@@ -99,6 +111,7 @@ class TestSessionScope:
 
     def test_requires_persistence(self):
         from aquilia.sessions.core import SessionScope
+
         assert SessionScope.USER.requires_persistence() is True
         assert SessionScope.DEVICE.requires_persistence() is True
         assert SessionScope.CONNECTION.requires_persistence() is True
@@ -110,8 +123,14 @@ class TestSessionFlag:
 
     def test_flag_values_exist(self):
         from aquilia.sessions.core import SessionFlag
-        flags = {SessionFlag.AUTHENTICATED, SessionFlag.RENEWABLE,
-                 SessionFlag.EPHEMERAL, SessionFlag.LOCKED, SessionFlag.READ_ONLY}
+
+        flags = {
+            SessionFlag.AUTHENTICATED,
+            SessionFlag.RENEWABLE,
+            SessionFlag.EPHEMERAL,
+            SessionFlag.LOCKED,
+            SessionFlag.READ_ONLY,
+        }
         assert len(flags) == 5
 
 
@@ -120,18 +139,21 @@ class TestSessionPrincipal:
 
     def test_create_principal(self):
         from aquilia.sessions.core import SessionPrincipal
+
         p = SessionPrincipal(id="user-1", kind="user")
         assert p.id == "user-1"
         assert p.kind == "user"
 
     def test_principal_attributes(self):
         from aquilia.sessions.core import SessionPrincipal
+
         p = SessionPrincipal(id="u1", kind="user", attributes={"role": "admin"})
         assert p.get_attribute("role") == "admin"
         assert p.get_attribute("missing", "default") == "default"
 
     def test_principal_kind_checks(self):
         from aquilia.sessions.core import SessionPrincipal
+
         p = SessionPrincipal(id="u1", kind="user")
         assert p.is_user() is True
         assert p.is_service() is False
@@ -144,6 +166,7 @@ class TestSession:
 
     def _make_session(self, **kwargs):
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         defaults = dict(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -244,6 +267,7 @@ class TestSession:
     def test_dirty_tracking_data_serialization(self):
         """_DirtyTrackingDict must serialize to dict correctly."""
         import json
+
         s = self._make_session()
         s.data["foo"] = "bar"
         s.data["num"] = 42
@@ -254,6 +278,7 @@ class TestSession:
     def test_dirty_tracking_data_from_dict_roundtrip(self):
         """Session.from_dict must wrap data in _DirtyTrackingDict."""
         from aquilia.sessions.core import _DirtyTrackingDict
+
         s = self._make_session()
         s.data["key"] = "value"
         d = s.to_dict()
@@ -265,6 +290,7 @@ class TestSession:
 
     def test_dirty_tracking_principal(self):
         from aquilia.sessions.core import SessionPrincipal
+
         s = self._make_session()
         s.mark_clean()
         s.principal = SessionPrincipal(id="u1", kind="user")
@@ -287,6 +313,7 @@ class TestSession:
     def test_read_only_enforcement(self):
         from aquilia.sessions.core import SessionFlag
         from aquilia.sessions.faults import SessionLockedFault
+
         s = self._make_session()
         s.flags.add(SessionFlag.READ_ONLY)
         with pytest.raises(SessionLockedFault):
@@ -326,6 +353,7 @@ class TestSession:
 
     def test_is_authenticated(self):
         from aquilia.sessions.core import SessionFlag, SessionPrincipal
+
         s = self._make_session()
         assert s.is_authenticated is False
 
@@ -335,6 +363,7 @@ class TestSession:
 
     def test_is_ephemeral(self):
         from aquilia.sessions.core import SessionFlag
+
         s = self._make_session()
         assert s.is_ephemeral is False
         s.flags.add(SessionFlag.EPHEMERAL)
@@ -354,6 +383,7 @@ class TestSession:
 
     def test_to_dict_from_dict_roundtrip(self):
         from aquilia.sessions.core import SessionPrincipal
+
         s = self._make_session()
         s.principal = SessionPrincipal(id="u1", kind="user")
         s.data["cart"] = ["item1"]
@@ -376,16 +406,19 @@ class TestSession:
 # Store Tests
 # ============================================================================
 
+
 class TestMemoryStore:
     """Tests for MemoryStore with O(1) LRU via OrderedDict."""
 
     @pytest.fixture
     def store(self):
         from aquilia.sessions.store import MemoryStore
+
         return MemoryStore(max_sessions=5)
 
     def _make_session(self, **kwargs):
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         defaults = dict(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -454,6 +487,7 @@ class TestMemoryStore:
     @pytest.mark.asyncio
     async def test_principal_index(self, store):
         from aquilia.sessions.core import SessionPrincipal
+
         s1 = self._make_session()
         s1.principal = SessionPrincipal(id="alice", kind="user")
         s2 = self._make_session()
@@ -468,9 +502,7 @@ class TestMemoryStore:
 
     @pytest.mark.asyncio
     async def test_cleanup_expired(self, store):
-        expired = self._make_session(
-            expires_at=datetime.now(timezone.utc) - timedelta(hours=1)
-        )
+        expired = self._make_session(expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
         valid = self._make_session()
 
         await store.save(expired)
@@ -498,6 +530,7 @@ class TestMemoryStore:
 
     def test_factory_methods(self):
         from aquilia.sessions.store import MemoryStore
+
         assert MemoryStore.web_optimized().max_sessions == 25000
         assert MemoryStore.api_optimized().max_sessions == 15000
         assert MemoryStore.development_focused().max_sessions == 1000
@@ -510,10 +543,12 @@ class TestFileStore:
     @pytest.fixture
     def store(self, tmp_path):
         from aquilia.sessions.store import FileStore
+
         return FileStore(tmp_path / "sessions")
 
     def _make_session(self, **kwargs):
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         defaults = dict(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -551,11 +586,13 @@ class TestFileStore:
 # Policy Tests
 # ============================================================================
 
+
 class TestSessionPolicy:
     """Tests for SessionPolicy and sub-policies."""
 
     def _make_session(self, **kwargs):
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         defaults = dict(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -568,6 +605,7 @@ class TestSessionPolicy:
 
     def test_default_sub_policies(self):
         from aquilia.sessions.policy import ConcurrencyPolicy, PersistencePolicy, SessionPolicy, TransportPolicy
+
         p = SessionPolicy(name="test")
         assert isinstance(p.persistence, PersistencePolicy)
         assert isinstance(p.concurrency, ConcurrencyPolicy)
@@ -575,6 +613,7 @@ class TestSessionPolicy:
 
     def test_calculate_expiry(self):
         from aquilia.sessions.policy import SessionPolicy
+
         now = datetime(2025, 1, 1, tzinfo=timezone.utc)
         p = SessionPolicy(name="test", ttl=timedelta(hours=2))
         exp = p.calculate_expiry(now)
@@ -582,11 +621,13 @@ class TestSessionPolicy:
 
     def test_calculate_expiry_no_ttl(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", ttl=None)
         assert p.calculate_expiry() is None
 
     def test_is_valid_expired(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", ttl=timedelta(hours=1))
         s = self._make_session(expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
         valid, reason = p.is_valid(s)
@@ -595,6 +636,7 @@ class TestSessionPolicy:
 
     def test_is_valid_idle_timeout(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", idle_timeout=timedelta(minutes=5))
         old_access = datetime.now(timezone.utc) - timedelta(minutes=10)
         s = self._make_session(last_accessed_at=old_access)
@@ -604,6 +646,7 @@ class TestSessionPolicy:
 
     def test_is_valid_absolute_timeout(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", absolute_timeout=timedelta(hours=2))
         old_created = datetime.now(timezone.utc) - timedelta(hours=3)
         s = self._make_session(created_at=old_created)
@@ -613,6 +656,7 @@ class TestSessionPolicy:
 
     def test_is_valid_ok(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", ttl=timedelta(hours=1))
         s = self._make_session()
         valid, reason = p.is_valid(s)
@@ -621,6 +665,7 @@ class TestSessionPolicy:
 
     def test_should_rotate_on_privilege_change(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", rotate_on_privilege_change=True)
         s = self._make_session()
         assert p.should_rotate(s, privilege_changed=True) is True
@@ -628,17 +673,20 @@ class TestSessionPolicy:
 
     def test_should_rotate_on_use(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", rotate_on_use=True)
         s = self._make_session()
         assert p.should_rotate(s) is True
 
     def test_fingerprint_binding_field(self):
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", fingerprint_binding=True)
         assert p.fingerprint_binding is True
 
     def test_from_dict(self):
         from aquilia.sessions.policy import SessionPolicy
+
         config = {
             "ttl": 3600,
             "idle_timeout": 600,
@@ -666,6 +714,7 @@ class TestConcurrencyPolicy:
     def test_no_limit(self):
         from aquilia.sessions.core import SessionPrincipal
         from aquilia.sessions.policy import ConcurrencyPolicy
+
         p = ConcurrencyPolicy(max_sessions_per_principal=None)
         principal = SessionPrincipal(id="u1", kind="user")
         assert p.violated(principal, 100) is False
@@ -673,6 +722,7 @@ class TestConcurrencyPolicy:
     def test_limit_violated(self):
         from aquilia.sessions.core import SessionPrincipal
         from aquilia.sessions.policy import ConcurrencyPolicy
+
         p = ConcurrencyPolicy(max_sessions_per_principal=3)
         principal = SessionPrincipal(id="u1", kind="user")
         assert p.violated(principal, 4) is True
@@ -680,6 +730,7 @@ class TestConcurrencyPolicy:
 
     def test_behavior_flags(self):
         from aquilia.sessions.policy import ConcurrencyPolicy
+
         assert ConcurrencyPolicy(behavior_on_limit="reject").should_reject() is True
         assert ConcurrencyPolicy(behavior_on_limit="evict_oldest").should_evict_oldest() is True
         assert ConcurrencyPolicy(behavior_on_limit="evict_all").should_evict_all() is True
@@ -690,12 +741,14 @@ class TestSessionPolicyBuilder:
 
     def test_web_defaults(self):
         from aquilia.sessions.policy import SessionPolicyBuilder
+
         p = SessionPolicyBuilder().web_defaults().build()
         assert p.name == "web_session"
         assert p.ttl == timedelta(days=7)
 
     def test_api_defaults(self):
         from aquilia.sessions.policy import SessionPolicyBuilder
+
         p = SessionPolicyBuilder().api_defaults().build()
         assert p.name == "api_session"
         assert p.ttl == timedelta(hours=1)
@@ -703,6 +756,7 @@ class TestSessionPolicyBuilder:
 
     def test_admin_defaults_with_fingerprinting(self):
         from aquilia.sessions.policy import SessionPolicyBuilder
+
         p = SessionPolicyBuilder().admin_defaults().build()
         assert p.name == "admin_session"
         assert p.fingerprint_binding is True
@@ -711,15 +765,18 @@ class TestSessionPolicyBuilder:
 
     def test_fluent_chaining(self):
         from aquilia.sessions.policy import SessionPolicyBuilder
-        p = (SessionPolicyBuilder()
-             .named("custom")
-             .lasting(days=3)
-             .idle_timeout(minutes=15)
-             .absolute_timeout(hours=24)
-             .with_fingerprint_binding()
-             .rotating_on_auth()
-             .max_concurrent(2)
-             .build())
+
+        p = (
+            SessionPolicyBuilder()
+            .named("custom")
+            .lasting(days=3)
+            .idle_timeout(minutes=15)
+            .absolute_timeout(hours=24)
+            .with_fingerprint_binding()
+            .rotating_on_auth()
+            .max_concurrent(2)
+            .build()
+        )
         assert p.name == "custom"
         assert p.ttl == timedelta(days=3)
         assert p.idle_timeout == timedelta(minutes=15)
@@ -729,11 +786,13 @@ class TestSessionPolicyBuilder:
 
     def test_callable_shorthand(self):
         from aquilia.sessions.policy import SessionPolicyBuilder
+
         p = SessionPolicyBuilder().web_defaults()()
         assert p.name == "web_session"
 
     def test_factory_methods_on_policy(self):
         from aquilia.sessions.policy import SessionPolicy
+
         builder = SessionPolicy.for_web_users()
         p = builder.build()
         assert p.name == "web_session"
@@ -744,20 +803,24 @@ class TestBuiltInPolicies:
 
     def test_default_user_policy(self):
         from aquilia.sessions.policy import DEFAULT_USER_POLICY
+
         assert DEFAULT_USER_POLICY.name == "user_default"
         assert DEFAULT_USER_POLICY.ttl == timedelta(days=7)
 
     def test_api_token_policy(self):
         from aquilia.sessions.policy import API_TOKEN_POLICY
+
         assert API_TOKEN_POLICY.name == "api_token"
         assert API_TOKEN_POLICY.idle_timeout is None
 
     def test_ephemeral_policy(self):
         from aquilia.sessions.policy import EPHEMERAL_POLICY
+
         assert EPHEMERAL_POLICY.persistence.enabled is False
 
     def test_admin_policy(self):
         from aquilia.sessions.policy import ADMIN_POLICY
+
         assert ADMIN_POLICY.fingerprint_binding is True
         assert ADMIN_POLICY.absolute_timeout == timedelta(hours=12)
         assert ADMIN_POLICY.rotate_on_use is True
@@ -767,12 +830,14 @@ class TestBuiltInPolicies:
 # Transport Tests
 # ============================================================================
 
+
 class TestCookieTransport:
     """Tests for CookieTransport."""
 
     def _make_transport(self):
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import CookieTransport
+
         policy = TransportPolicy(
             adapter="cookie",
             cookie_name="test_session",
@@ -785,6 +850,7 @@ class TestCookieTransport:
 
     def _make_session(self):
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         return Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -820,15 +886,16 @@ class TestCookieTransport:
 
         response.set_cookie.assert_called_once()
         call_kwargs = response.set_cookie.call_args
-        assert call_kwargs.kwargs['name'] == "test_session"
-        assert call_kwargs.kwargs['secure'] is True
-        assert call_kwargs.kwargs['httponly'] is True
+        assert call_kwargs.kwargs["name"] == "test_session"
+        assert call_kwargs.kwargs["secure"] is True
+        assert call_kwargs.kwargs["httponly"] is True
 
     def test_inject_no_expires(self):
         """max_age should be None when session has no expires_at."""
         transport = self._make_transport()
         response = MagicMock()
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         session = Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -839,7 +906,7 @@ class TestCookieTransport:
 
         transport.inject(response, session)
         call_kwargs = response.set_cookie.call_args
-        assert call_kwargs.kwargs['max_age'] is None
+        assert call_kwargs.kwargs["max_age"] is None
 
     def test_clear_calls_delete_cookie(self):
         transport = self._make_transport()
@@ -851,6 +918,7 @@ class TestCookieTransport:
 
     def test_factory_methods(self):
         from aquilia.sessions.transport import CookieTransport
+
         assert CookieTransport.for_web_browsers().cookie_name == "aquilia_web_session"
         assert CookieTransport.for_spa_applications().cookie_name == "aquilia_spa_session"
         assert CookieTransport.for_mobile_webviews().cookie_name == "aquilia_mobile_session"
@@ -863,6 +931,7 @@ class TestHeaderTransport:
     def test_extract_from_header(self):
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import HeaderTransport
+
         policy = TransportPolicy(adapter="header", header_name="X-Session-ID")
         transport = HeaderTransport(policy)
 
@@ -892,6 +961,7 @@ class TestHeaderTransport:
 
     def test_factory_methods(self):
         from aquilia.sessions.transport import HeaderTransport
+
         assert HeaderTransport.for_rest_apis().header_name == "X-Session-ID"
         assert HeaderTransport.for_graphql_apis().header_name == "X-GraphQL-Session"
         assert HeaderTransport.for_microservices().header_name == "X-Service-Session"
@@ -903,12 +973,14 @@ class TestCreateTransport:
     def test_creates_cookie_transport(self):
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import CookieTransport, create_transport
+
         t = create_transport(TransportPolicy(adapter="cookie"))
         assert isinstance(t, CookieTransport)
 
     def test_creates_header_transport(self):
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import HeaderTransport, create_transport
+
         t = create_transport(TransportPolicy(adapter="header"))
         assert isinstance(t, HeaderTransport)
 
@@ -916,6 +988,7 @@ class TestCreateTransport:
         from aquilia.sessions.faults import SessionTransportFault
         from aquilia.sessions.policy import TransportPolicy
         from aquilia.sessions.transport import create_transport
+
         with pytest.raises(SessionTransportFault):
             create_transport(TransportPolicy(adapter="unknown"))
 
@@ -923,6 +996,7 @@ class TestCreateTransport:
 # ============================================================================
 # Engine Tests
 # ============================================================================
+
 
 class TestSessionEngine:
     """Tests for SessionEngine lifecycle orchestrator."""
@@ -1131,9 +1205,7 @@ class TestSessionEngine:
 
     @pytest.mark.asyncio
     async def test_absolute_timeout_creates_new(self):
-        engine, store, transport = self._make_engine(
-            absolute_timeout=timedelta(hours=2)
-        )
+        engine, store, transport = self._make_engine(absolute_timeout=timedelta(hours=2))
         from aquilia.sessions.core import Session, SessionID, SessionScope
 
         # Session created 3 hours ago
@@ -1179,11 +1251,13 @@ class TestSessionEngine:
 # Fault Tests
 # ============================================================================
 
+
 class TestSessionFaults:
     """Tests for all session fault types."""
 
     def test_session_expired_fault(self):
         from aquilia.sessions.faults import SessionExpiredFault
+
         f = SessionExpiredFault(session_id="sess_abc123", expires_at="2025-01-01T00:00:00Z")
         assert f.code == "SESSION_EXPIRED"
         assert f.session_id_hash is not None
@@ -1191,52 +1265,62 @@ class TestSessionFaults:
 
     def test_session_idle_timeout_fault(self):
         from aquilia.sessions.faults import SessionIdleTimeoutFault
+
         f = SessionIdleTimeoutFault()
         assert f.code == "SESSION_IDLE_TIMEOUT"
 
     def test_session_absolute_timeout_fault(self):
         from aquilia.sessions.faults import SessionAbsoluteTimeoutFault
+
         f = SessionAbsoluteTimeoutFault()
         assert f.code == "SESSION_ABSOLUTE_TIMEOUT"
 
     def test_session_invalid_fault(self):
         from aquilia.sessions.faults import SessionInvalidFault
+
         f = SessionInvalidFault()
         assert f.code == "SESSION_INVALID"
 
     def test_session_not_found_fault(self):
         from aquilia.sessions.faults import SessionNotFoundFault
+
         f = SessionNotFoundFault()
         assert f.code == "SESSION_NOT_FOUND"
 
     def test_policy_violation_fault(self):
         from aquilia.sessions.faults import SessionPolicyViolationFault
+
         f = SessionPolicyViolationFault(violation="too many", policy_name="test")
         assert "too many" in f.message
 
     def test_concurrency_violation_fault(self):
         from aquilia.sessions.faults import SessionConcurrencyViolationFault
+
         f = SessionConcurrencyViolationFault(principal_id="u1", active_count=6, max_allowed=5)
         assert "6/5" in f.message
 
     def test_session_locked_fault(self):
         from aquilia.sessions.faults import SessionLockedFault
+
         f = SessionLockedFault()
         assert f.code == "SESSION_LOCKED"
 
     def test_store_unavailable_fault(self):
         from aquilia.sessions.faults import SessionStoreUnavailableFault
+
         f = SessionStoreUnavailableFault(store_name="redis", cause="connection refused")
         assert "redis" in f.message
 
     def test_store_corrupted_fault(self):
         from aquilia.sessions.faults import SessionStoreCorruptedFault
+
         f = SessionStoreCorruptedFault(message="bad json", session_id="sess_abc")
         assert f.message == "bad json"
         assert f.session_id_hash.startswith("sha256:")
 
     def test_rotation_failed_fault_uses_own_hash(self):
         from aquilia.sessions.faults import SessionRotationFailedFault
+
         f = SessionRotationFailedFault(old_id="old_sess", new_id="new_sess", cause="disk full")
         assert f.old_id_hash.startswith("sha256:")
         assert f.new_id_hash.startswith("sha256:")
@@ -1244,21 +1328,25 @@ class TestSessionFaults:
 
     def test_transport_fault(self):
         from aquilia.sessions.faults import SessionTransportFault
+
         f = SessionTransportFault(transport_type="cookie", cause="malformed")
         assert "cookie" in f.message
 
     def test_forgery_attempt_fault(self):
         from aquilia.sessions.faults import SessionForgeryAttemptFault
+
         f = SessionForgeryAttemptFault(reason="invalid HMAC")
         assert f.code == "SESSION_FORGERY_ATTEMPT"
 
     def test_hijack_attempt_fault(self):
         from aquilia.sessions.faults import SessionHijackAttemptFault
+
         f = SessionHijackAttemptFault(reason="IP mismatch")
         assert f.code == "SESSION_HIJACK_ATTEMPT"
 
     def test_fingerprint_mismatch_fault(self):
         from aquilia.sessions.faults import SessionFingerprintMismatchFault
+
         f = SessionFingerprintMismatchFault(session_id="sess_xyz")
         assert f.code == "SESSION_FINGERPRINT_MISMATCH"
         assert f.session_id_hash.startswith("sha256:")
@@ -1268,11 +1356,13 @@ class TestSessionFaults:
 # State Tests
 # ============================================================================
 
+
 class TestSessionState:
     """Tests for typed session state."""
 
     def test_cart_state_defaults(self):
         from aquilia.sessions.state import CartState
+
         data = {}
         cart = CartState(data)
         assert cart.items == []
@@ -1281,6 +1371,7 @@ class TestSessionState:
 
     def test_cart_state_sync(self):
         from aquilia.sessions.state import CartState
+
         data = {}
         cart = CartState(data)
         cart.items = ["item1", "item2"]
@@ -1290,6 +1381,7 @@ class TestSessionState:
 
     def test_state_from_existing_data(self):
         from aquilia.sessions.state import CartState
+
         data = {"items": ["x"], "total": 10.0, "currency": "EUR"}
         cart = CartState(data)
         assert cart.items == ["x"]
@@ -1297,24 +1389,28 @@ class TestSessionState:
 
     def test_state_repr(self):
         from aquilia.sessions.state import CartState
+
         cart = CartState({})
         r = repr(cart)
         assert "CartState(" in r
 
     def test_state_equality(self):
         from aquilia.sessions.state import CartState
+
         a = CartState({"items": ["x"], "total": 10.0, "currency": "USD"})
         b = CartState({"items": ["x"], "total": 10.0, "currency": "USD"})
         assert a == b
 
     def test_state_inequality(self):
         from aquilia.sessions.state import CartState
+
         a = CartState({"items": ["x"], "total": 10.0, "currency": "USD"})
         b = CartState({"items": ["y"], "total": 20.0, "currency": "USD"})
         assert a != b
 
     def test_state_getitem_setitem(self):
         from aquilia.sessions.state import SessionState
+
         data = {"key": "value"}
         state = SessionState(data)
         assert state["key"] == "value"
@@ -1323,11 +1419,13 @@ class TestSessionState:
 
     def test_state_get_with_default(self):
         from aquilia.sessions.state import SessionState
+
         state = SessionState({})
         assert state.get("missing", "default") == "default"
 
     def test_state_to_dict(self):
         from aquilia.sessions.state import CartState
+
         cart = CartState({})
         cart.total = 42.0
         d = cart.to_dict()
@@ -1335,6 +1433,7 @@ class TestSessionState:
 
     def test_user_preferences_state(self):
         from aquilia.sessions.state import UserPreferencesState
+
         prefs = UserPreferencesState({})
         assert prefs.theme == "light"
         assert prefs.language == "en"
@@ -1343,6 +1442,7 @@ class TestSessionState:
 
     def test_field_graceful_missing(self):
         from aquilia.sessions.state import Field
+
         f = Field(default="fallback")
         f.__set_name__(None, "test")
 
@@ -1359,6 +1459,7 @@ class TestSessionState:
 # Decorators & Guards Tests
 # ============================================================================
 
+
 class TestSessionDecorators:
     """Tests for session decorators."""
 
@@ -1368,11 +1469,12 @@ class TestSessionDecorators:
         ctx.request = MagicMock()
         ctx.request.state = {}
         if session:
-            ctx.request.state['session'] = session
+            ctx.request.state["session"] = session
         return ctx
 
     def _make_session(self, authenticated=False):
         from aquilia.sessions.core import Session, SessionFlag, SessionID, SessionPrincipal, SessionScope
+
         s = Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -1488,6 +1590,168 @@ class TestSessionDecorators:
             await handler(ctx)
 
     @pytest.mark.asyncio
+    async def test_authenticated_redirects_html_clients_to_login(self):
+        from aquilia.auth.decorators import authenticated
+
+        @authenticated(login_url="/login", redirect_if_html=True)
+        async def handler(ctx, user=None):
+            return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "text/html" if str(name).lower() == "accept" else default
+        ctx.request.path = "/dashboard"
+        ctx.request.query_string = "tab=usage"
+
+        response = await handler(ctx)
+
+        assert response.status == 303
+        assert response.headers.get("content-type") == "application/octet-stream"
+        assert response.headers.get("location") == "/login?next=%2Fdashboard%3Ftab%3Dusage"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_login_url_enables_redirect_challenge_by_default(self):
+        from aquilia.auth.decorators import authenticated
+
+        @authenticated(login_url="/v1/auth/login")
+        async def handler(ctx, user=None):
+            return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "text/html" if str(name).lower() == "accept" else default
+        ctx.request.path = "/auth/logout"
+        ctx.request.query_string = ""
+
+        response = await handler(ctx)
+
+        assert response.status == 303
+        assert response.headers.get("location") == "/v1/auth/login?next=%2Fauth%2Flogout"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_login_url_redirects_for_wildcard_accept(self):
+        from aquilia.auth.decorators import authenticated
+
+        @authenticated(login_url="/v1/auth/login")
+        async def handler(ctx, user=None):
+            return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "*/*" if str(name).lower() == "accept" else default
+        ctx.request.path = "/auth/logout"
+        ctx.request.query_string = ""
+
+        response = await handler(ctx)
+
+        assert response.status == 303
+        assert response.headers.get("location") == "/v1/auth/login?next=%2Fauth%2Flogout"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_login_url_redirects_when_accept_missing(self):
+        from aquilia.auth.decorators import authenticated
+
+        @authenticated(login_url="/v1/auth/login")
+        async def handler(ctx, user=None):
+            return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "" if str(name).lower() == "accept" else default
+        ctx.request.path = "/auth/logout"
+        ctx.request.query_string = ""
+
+        response = await handler(ctx)
+
+        assert response.status == 303
+        assert response.headers.get("location") == "/v1/auth/login?next=%2Fauth%2Flogout"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_login_url_redirects_with_keyword_ctx(self):
+        from aquilia.auth.decorators import authenticated
+
+        class Service:
+            @authenticated(login_url="/v1/auth/login", redirect_if_html=True)
+            async def handler(self, ctx, user=None):
+                return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "text/html" if str(name).lower() == "accept" else default
+        ctx.request.path = "/auth/logout"
+        ctx.request.query_string = ""
+
+        response = await Service().handler(ctx=ctx)
+
+        assert response.status == 303
+        assert response.headers.get("location") == "/v1/auth/login?next=%2Fauth%2Flogout"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_raises_with_keyword_ctx_for_json_clients(self):
+        from aquilia.auth.decorators import authenticated
+        from aquilia.auth.faults import AUTH_REQUIRED
+
+        class Service:
+            @authenticated(login_url="/v1/auth/login", redirect_if_html=True)
+            async def handler(self, ctx, user=None):
+                return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "application/json" if str(name).lower() == "accept" else default
+
+        with pytest.raises(AUTH_REQUIRED):
+            await Service().handler(ctx=ctx)
+
+    @pytest.mark.asyncio
+    async def test_authenticated_redirect_html_uses_controller_login_hint(self):
+        from aquilia.auth.decorators import authenticated
+
+        class Service:
+            auth_login_url = "/custom-login"
+
+            @authenticated(redirect_if_html=True)
+            async def handler(self, ctx, user=None):
+                return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "text/html" if str(name).lower() == "accept" else default
+        ctx.request.path = "/private"
+        ctx.request.query_string = ""
+
+        response = await Service().handler(ctx)
+
+        assert response.status == 303
+        assert response.headers.get("location") == "/custom-login?next=%2Fprivate"
+
+    @pytest.mark.asyncio
+    async def test_authenticated_redirect_does_not_change_json_clients(self):
+        from aquilia.auth.decorators import authenticated
+        from aquilia.auth.faults import AUTH_REQUIRED
+
+        @authenticated(login_url="/login", redirect_if_html=True)
+        async def handler(ctx, user=None):
+            return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "application/json" if str(name).lower() == "accept" else default
+
+        with pytest.raises(AUTH_REQUIRED):
+            await handler(ctx)
+
+    @pytest.mark.asyncio
+    async def test_require_identity_redirects_html_clients_to_login(self):
+        from aquilia.auth.decorators import require_identity
+
+        @require_identity(roles=["admin"], login_url="/login", redirect_if_html=True)
+        async def handler(ctx, identity=None):
+            return "ok"
+
+        ctx = self._make_ctx(session=None)
+        ctx.request.header = lambda name, default="": "text/html" if str(name).lower() == "accept" else default
+        ctx.request.path = "/admin"
+        ctx.request.query_string = "section=users"
+
+        response = await handler(ctx)
+
+        assert response.status == 303
+        assert response.headers.get("location") == "/login?next=%2Fadmin%3Fsection%3Dusers"
+
+    @pytest.mark.asyncio
     async def test_authenticated_decorator_uses_request_state_session_fallback(self):
         from aquilia.auth.decorators import authenticated
 
@@ -1598,11 +1862,12 @@ class TestSessionContext:
         ctx.request = MagicMock()
         ctx.request.state = {}
         if session:
-            ctx.request.state['session'] = session
+            ctx.request.state["session"] = session
         return ctx
 
     def _make_session(self, authenticated=False):
         from aquilia.sessions.core import Session, SessionFlag, SessionID, SessionPrincipal, SessionScope
+
         s = Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -1678,6 +1943,7 @@ class TestSessionGuards:
 
     def _make_session(self, role=None, email_verified=False):
         from aquilia.sessions.core import Session, SessionFlag, SessionID, SessionPrincipal, SessionScope
+
         s = Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -1693,6 +1959,7 @@ class TestSessionGuards:
     @pytest.mark.asyncio
     async def test_admin_guard_passes(self):
         from aquilia.auth.decorators import AdminGuard
+
         guard = AdminGuard()
         sess = self._make_session(role="admin")
         assert await guard.check(sess) is True
@@ -1700,6 +1967,7 @@ class TestSessionGuards:
     @pytest.mark.asyncio
     async def test_admin_guard_fails(self):
         from aquilia.auth.decorators import AdminGuard
+
         guard = AdminGuard()
         sess = self._make_session(role="user")
         assert await guard.check(sess) is False
@@ -1707,6 +1975,7 @@ class TestSessionGuards:
     @pytest.mark.asyncio
     async def test_verified_email_guard(self):
         from aquilia.auth.decorators import VerifiedEmailGuard
+
         guard = VerifiedEmailGuard()
 
         sess_verified = self._make_session(role="user", email_verified=True)
@@ -1745,17 +2014,20 @@ class TestSessionGuards:
 # Integration / OWASP Compliance Tests
 # ============================================================================
 
+
 class TestOWASPCompliance:
     """Tests verifying OWASP Session Management compliance."""
 
     def test_session_id_entropy_256_bits(self):
         """OWASP requires minimum 64 bits, we use 256 bits."""
         from aquilia.sessions.core import SessionID
+
         assert SessionID.ENTROPY_BYTES == 32  # 32 bytes = 256 bits
 
     def test_constant_time_comparison(self):
         """Session IDs must use constant-time comparison to prevent timing attacks."""
         from aquilia.sessions.core import SessionID
+
         a = SessionID()
         b = SessionID.from_string(str(a))
         # This uses secrets.compare_digest internally
@@ -1764,6 +2036,7 @@ class TestOWASPCompliance:
     def test_fingerprint_binding_available(self):
         """OWASP recommends binding sessions to client characteristics."""
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         s = Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -1777,20 +2050,24 @@ class TestOWASPCompliance:
     def test_absolute_timeout_supported(self):
         """OWASP requires absolute timeout (max total session lifetime)."""
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", absolute_timeout=timedelta(hours=8))
         assert p.absolute_timeout == timedelta(hours=8)
 
     def test_idle_timeout_supported(self):
         """OWASP requires idle timeout."""
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", idle_timeout=timedelta(minutes=15))
         assert p.idle_timeout == timedelta(minutes=15)
 
     def test_session_rotation_on_privilege_change(self):
         """OWASP: regenerate session ID after privilege level change."""
         from aquilia.sessions.policy import SessionPolicy
+
         p = SessionPolicy(name="test", rotate_on_privilege_change=True)
         from aquilia.sessions.core import Session, SessionID, SessionScope
+
         s = Session(
             id=SessionID(),
             created_at=datetime.now(timezone.utc),
@@ -1802,6 +2079,7 @@ class TestOWASPCompliance:
     def test_cookie_security_flags(self):
         """OWASP: HttpOnly, Secure, SameSite flags on session cookies."""
         from aquilia.sessions.transport import CookieTransport
+
         t = CookieTransport.for_web_browsers()
         assert t.policy.cookie_httponly is True
         assert t.policy.cookie_secure is True
@@ -1810,6 +2088,7 @@ class TestOWASPCompliance:
     def test_fingerprint_mismatch_fault_exists(self):
         """OWASP: detect session hijacking via fingerprint."""
         from aquilia.sessions.faults import SessionFingerprintMismatchFault
+
         f = SessionFingerprintMismatchFault()
         assert f.code == "SESSION_FINGERPRINT_MISMATCH"
 
@@ -1818,29 +2097,35 @@ class TestOWASPCompliance:
 # __init__.py Export Tests
 # ============================================================================
 
+
 class TestSessionExports:
     """Tests that all important types are exported from aquilia.sessions."""
 
     def test_core_types_exported(self):
         from aquilia.sessions import Session, SessionFlag, SessionID, SessionPrincipal, SessionScope
+
         assert all(t is not None for t in [Session, SessionID, SessionPrincipal, SessionScope, SessionFlag])
 
     def test_policy_types_exported(self):
         from aquilia.sessions import (
             DEFAULT_USER_POLICY,
         )
+
         assert DEFAULT_USER_POLICY.name == "user_default"
 
     def test_store_types_exported(self):
         from aquilia.sessions import FileStore, MemoryStore, SessionStore
+
         assert all(t is not None for t in [SessionStore, MemoryStore, FileStore])
 
     def test_transport_types_exported(self):
         from aquilia.sessions import CookieTransport, HeaderTransport, SessionTransport, create_transport
+
         assert all(t is not None for t in [SessionTransport, CookieTransport, HeaderTransport, create_transport])
 
     def test_engine_exported(self):
         from aquilia.sessions import SessionEngine
+
         assert SessionEngine is not None
 
     def test_fault_types_exported(self):

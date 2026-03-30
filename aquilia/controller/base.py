@@ -13,6 +13,7 @@ Performance (v3 — scalability):
 
 import logging
 import time
+from contextvars import ContextVar, Token
 from typing import TYPE_CHECKING, Any, Optional
 
 from aquilia._datastructures import Headers, MultiDict
@@ -28,6 +29,22 @@ logger = logging.getLogger("aquilia.controller")
 
 # Reusable empty dict to avoid allocation when state is unused
 _EMPTY_STATE: dict[str, Any] = {}
+_CURRENT_REQUEST_CTX: ContextVar["RequestCtx | None"] = ContextVar("aquilia_controller_request_ctx", default=None)
+
+
+def _set_current_request_ctx(ctx: "RequestCtx") -> Token["RequestCtx | None"]:
+    """Bind the current request context for helper APIs invoked during handler execution."""
+    return _CURRENT_REQUEST_CTX.set(ctx)
+
+
+def _reset_current_request_ctx(token: Token["RequestCtx | None"]) -> None:
+    """Reset the bound request context token."""
+    _CURRENT_REQUEST_CTX.reset(token)
+
+
+def _get_current_request_ctx() -> "RequestCtx | None":
+    """Get the current request context for the active task, if any."""
+    return _CURRENT_REQUEST_CTX.get()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -568,6 +585,10 @@ class Controller(metaclass=_ControllerMeta):
                 return await self.render("profile.html", {"user": user}, ctx)
         """
         from aquilia.response import Response
+
+        # Allow render(...) to work without explicitly passing ctx from handlers.
+        if request_ctx is None:
+            request_ctx = _get_current_request_ctx()
 
         # Get template engine (if not provided as parameter)
         if engine is None:

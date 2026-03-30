@@ -21,6 +21,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TYPE_CHECKING, Any, TypeVar
 from unittest.mock import Mock
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from aquilia.faults import Fault, FaultDomain
 
@@ -69,6 +70,31 @@ def _extract_identity(args: tuple, kwargs: dict) -> Identity | None:
     identity = kwargs.get("identity")
     if _is_identity_like(identity):
         return identity
+
+    # Support keyword-invoked handlers (e.g., handler(ctx=ctx)).
+    for value in kwargs.values():
+        if _is_identity_like(value):
+            return value
+
+        value_identity = getattr(value, "identity", None)
+        if _is_identity_like(value_identity):
+            return value_identity
+
+        value_request = getattr(value, "request", None)
+        if value_request is None:
+            continue
+
+        state = getattr(value_request, "state", None)
+        if state is None:
+            continue
+
+        if isinstance(state, dict) or hasattr(state, "get"):
+            state_identity = state.get("identity")
+        else:
+            state_identity = getattr(state, "identity", None)
+
+        if _is_identity_like(state_identity):
+            return state_identity
 
     for arg in args:
         arg_dict = getattr(arg, "__dict__", None)
@@ -158,6 +184,28 @@ def _extract_session(args: tuple, kwargs: dict) -> Session | None:
     if session is not None:
         return session
 
+    # Support keyword-invoked handlers (e.g., handler(ctx=ctx)).
+    for value in kwargs.values():
+        value_session = getattr(value, "session", None)
+        if value_session is not None:
+            return value_session
+
+        value_request = getattr(value, "request", None)
+        if value_request is None:
+            continue
+
+        state = getattr(value_request, "state", None)
+        if state is None:
+            continue
+
+        if isinstance(state, dict) or hasattr(state, "get"):
+            state_session = state.get("session")
+        else:
+            state_session = getattr(state, "session", None)
+
+        if state_session is not None:
+            return state_session
+
     for arg in args:
         arg_dict = getattr(arg, "__dict__", None)
         has_explicit_request = isinstance(arg_dict, dict) and "request" in arg_dict
@@ -197,12 +245,158 @@ def _extract_session(args: tuple, kwargs: dict) -> Session | None:
     return None
 
 
+def _extract_request(args: tuple, kwargs: dict) -> Any | None:
+    """Extract request object from args/kwargs when available."""
+    request = kwargs.get("request")
+    if request is not None:
+        return request
+
+    # Support keyword-invoked handlers (e.g., handler(ctx=ctx)).
+    for value in kwargs.values():
+        value_request = getattr(value, "request", None)
+        if value_request is not None:
+            return value_request
+
+    for arg in args:
+        request = getattr(arg, "request", None)
+        if request is not None:
+            return request
+
+    return None
+
+
+def _request_accepts_html(request: Any | None) -> bool:
+    """Return True when request should receive browser-style redirect challenge."""
+    if request is None:
+        return False
+
+    accept = ""
+    try:
+        if hasattr(request, "header") and callable(getattr(request, "header", None)):
+            accept = request.header("accept", "") or ""
+        else:
+            headers = getattr(request, "headers", None)
+            if headers is not None and hasattr(headers, "get"):
+                accept = headers.get("accept", "") or headers.get("Accept", "")
+    except Exception:
+        return False
+
+    accept_l = str(accept).lower().strip()
+
+    # Explicit JSON/CROUS API clients should keep fault behavior.
+    if "application/json" in accept_l and "text/html" not in accept_l:
+        return False
+    if "application/x-crous" in accept_l and "text/html" not in accept_l:
+        return False
+
+    # Browser-style requests usually send text/html, */*, or no Accept header.
+    if "text/html" in accept_l:
+        return True
+    if "*/*" in accept_l:
+        return True
+    if not accept_l:
+        return True
+
+    return False
+
+
+def _resolve_login_url(args: tuple, kwargs: dict, configured_login_url: str | None) -> str | None:
+    """Resolve login URL from decorator override, context state, or controller hints."""
+    if configured_login_url:
+        return configured_login_url
+
+    request = _extract_request(args, kwargs)
+    if request is not None:
+        try:
+            state = getattr(request, "state", None)
+            if isinstance(state, dict):
+                state_login_url = state.get("auth_login_url") or state.get("login_url")
+                if isinstance(state_login_url, str) and state_login_url:
+                    return state_login_url
+        except Exception:
+            pass
+
+    # Optional controller-level convention: `auth_login_url = "/login"`
+    if args:
+        owner = args[0]
+        owner_login_url = getattr(owner, "auth_login_url", None)
+        if isinstance(owner_login_url, str) and owner_login_url:
+            return owner_login_url
+
+    return None
+
+
+def _append_next_param(login_url: str, request: Any | None, next_param: str) -> str:
+    """Append current request path/query to login URL as next parameter."""
+    if request is None:
+        return login_url
+
+    try:
+        path = getattr(request, "path", None)
+        query_string = getattr(request, "query_string", "") or ""
+        if not path:
+            return login_url
+
+        next_value = str(path)
+        if query_string:
+            next_value = f"{next_value}?{query_string}"
+
+        split = urlsplit(login_url)
+        query_items = parse_qsl(split.query, keep_blank_values=True)
+        query_items = [(k, v) for k, v in query_items if k != next_param]
+        query_items.append((next_param, next_value))
+        rebuilt_query = urlencode(query_items, doseq=True)
+        return urlunsplit((split.scheme, split.netloc, split.path, rebuilt_query, split.fragment))
+    except Exception:
+        return login_url
+
+
+def _build_auth_challenge_response(
+    args: tuple,
+    kwargs: dict,
+    *,
+    login_url: str | None,
+    redirect_if_html: bool,
+    include_next: bool,
+    next_param: str,
+    redirect_status: int,
+) -> Any | None:
+    """Build redirect response for browser clients or return None to raise AUTH_REQUIRED."""
+    # Aquilia convention: providing login_url implies browser redirect challenge.
+    effective_redirect = redirect_if_html or bool(login_url)
+    if not effective_redirect:
+        return None
+
+    request = _extract_request(args, kwargs)
+    if not _request_accepts_html(request):
+        return None
+
+    resolved_login = _resolve_login_url(args, kwargs, login_url)
+    if not resolved_login:
+        return None
+
+    if include_next:
+        resolved_login = _append_next_param(resolved_login, request, next_param)
+
+    from aquilia.response import Response
+
+    return Response.redirect(resolved_login, status=redirect_status)
+
+
 # ============================================================================
 # @authenticated Decorator
 # ============================================================================
 
 
-def authenticated(func: F) -> F:
+def authenticated(
+    func: F | None = None,
+    *,
+    login_url: str | None = None,
+    redirect_if_html: bool = False,
+    include_next: bool = True,
+    next_param: str = "next",
+    redirect_status: int = 303,
+) -> F | Callable[[F], F]:
     """
     Decorator requiring authenticated identity.
 
@@ -219,43 +413,63 @@ def authenticated(func: F) -> F:
             return {"principal": principal.id}
     """
 
-    @wraps(func)
-    async def wrapper(*args, **func_kwargs):
-        # Try to get identity directly first
-        identity = _extract_identity(args, func_kwargs)
+    def decorator(inner_func: F) -> F:
+        @wraps(inner_func)
+        async def wrapper(*args, **func_kwargs):
+            # Try to get identity directly first
+            identity = _extract_identity(args, func_kwargs)
 
-        if identity is not None:
-            sig = inspect.signature(func)
+            if identity is not None:
+                sig = inspect.signature(inner_func)
+                if "user" in sig.parameters:
+                    func_kwargs["user"] = identity
+                elif "identity" in sig.parameters:
+                    func_kwargs["identity"] = identity
+                elif "principal" in sig.parameters:
+                    func_kwargs["principal"] = identity
+                return await inner_func(*args, **func_kwargs)
+
+            # Fall back to session-based authentication
+            session = _extract_session(args, func_kwargs)
+
+            if session is None or not getattr(session, "is_authenticated", False):
+                redirect_response = _build_auth_challenge_response(
+                    args,
+                    func_kwargs,
+                    login_url=login_url,
+                    redirect_if_html=redirect_if_html,
+                    include_next=include_next,
+                    next_param=next_param,
+                    redirect_status=redirect_status,
+                )
+                if redirect_response is not None:
+                    return redirect_response
+                raise AUTH_REQUIRED()
+
+            # Inject principal/user/session based on signature
+            sig = inspect.signature(inner_func)
             if "user" in sig.parameters:
-                func_kwargs["user"] = identity
-            elif "identity" in sig.parameters:
-                func_kwargs["identity"] = identity
+                func_kwargs["user"] = session.principal
             elif "principal" in sig.parameters:
-                func_kwargs["principal"] = identity
-            return await func(*args, **func_kwargs)
+                func_kwargs["principal"] = session.principal
+            elif "session" in sig.parameters:
+                func_kwargs["session"] = session
 
-        # Fall back to session-based authentication
-        session = _extract_session(args, func_kwargs)
+            return await inner_func(*args, **func_kwargs)
 
-        if session is None:
-            raise AUTH_REQUIRED()
+        wrapper.__authenticated__ = True
+        wrapper.__auth_challenge__ = {
+            "login_url": login_url,
+            "redirect_if_html": redirect_if_html,
+            "include_next": include_next,
+            "next_param": next_param,
+            "redirect_status": redirect_status,
+        }
+        return wrapper
 
-        if not getattr(session, "is_authenticated", False):
-            raise AUTH_REQUIRED()
-
-        # Inject principal/user/session based on signature
-        sig = inspect.signature(func)
-        if "user" in sig.parameters:
-            func_kwargs["user"] = session.principal
-        elif "principal" in sig.parameters:
-            func_kwargs["principal"] = session.principal
-        elif "session" in sig.parameters:
-            func_kwargs["session"] = session
-
-        return await func(*args, **func_kwargs)
-
-    wrapper.__authenticated__ = True
-    return wrapper
+    if func is not None and callable(func):
+        return decorator(func)
+    return decorator
 
 
 # ============================================================================
@@ -270,6 +484,11 @@ def require_identity(
     attributes: dict[str, Any] | None = None,
     require_all_roles: bool = False,
     require_all_scopes: bool = True,
+    login_url: str | None = None,
+    redirect_if_html: bool = False,
+    include_next: bool = True,
+    next_param: str = "next",
+    redirect_status: int = 303,
 ) -> Callable[[F], F]:
     """
     Decorator requiring identity with specific attributes.
@@ -294,6 +513,17 @@ def require_identity(
                 if session is not None and getattr(session, "is_authenticated", False):
                     identity = session.principal
                 else:
+                    redirect_response = _build_auth_challenge_response(
+                        args,
+                        func_kwargs,
+                        login_url=login_url,
+                        redirect_if_html=redirect_if_html,
+                        include_next=include_next,
+                        next_param=next_param,
+                        redirect_status=redirect_status,
+                    )
+                    if redirect_response is not None:
+                        return redirect_response
                     raise AUTH_REQUIRED()
 
             if identity is None:

@@ -979,6 +979,21 @@ class Response:
                 if engine is None:
                     engine = request.state.get("template_engine")
 
+        # Fallback: resolve TemplateEngine from request context container.
+        if engine is None and request_ctx is not None:
+            container = getattr(request_ctx, "container", None)
+            if container is not None:
+                try:
+                    from aquilia.templates.engine import TemplateEngine
+
+                    if hasattr(container, "resolve"):
+                        resolved = container.resolve(TemplateEngine, optional=True)
+                        engine = await resolved if inspect.isawaitable(resolved) else resolved
+                    elif hasattr(container, "resolve_async"):
+                        engine = await container.resolve_async(TemplateEngine, optional=True)
+                except Exception:
+                    pass
+
         if engine is None:
             raise TemplateRenderError(
                 "No TemplateEngine available. Ensure TemplateMiddleware is installed or pass engine parameter."
@@ -986,7 +1001,7 @@ class Response:
 
         # Render template
         try:
-            html = await engine.render(template_name, final_context)
+            html = await engine.render(template_name, final_context, request_ctx=request_ctx)
         except Exception as e:
             raise TemplateRenderError(f"Template rendering failed: {e}")
 
