@@ -131,8 +131,10 @@ class RuntimeConfig:
     config_overrides: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
-        # Normalise workspace_root to an absolute path
-        if not self.workspace_root.is_absolute():
+        # Normalise workspace_root to an absolute path.
+        # On Windows, rooted paths like '/app' are intentionally preserved
+        # (rooted on current drive) to keep cross-platform semantics stable.
+        if not self.workspace_root.is_absolute() and not self.workspace_root.root:
             object.__setattr__(self, "workspace_root", self.workspace_root.resolve())
 
         # Derive debug from mode when not explicitly set
