@@ -65,6 +65,7 @@ from aquilia.sessions.engine import SessionEngine
 # Helpers
 # ============================================================================
 
+
 def _make_session(**kwargs) -> Session:
     defaults = dict(
         id=SessionID(),
@@ -110,6 +111,7 @@ def _make_engine(policy=None, store=None, transport=None):
 # ============================================================================
 # SEC-SESS-01: SessionID Cryptographic Security
 # ============================================================================
+
 
 class TestSessionIDSecurity:
     """Tests for SessionID cryptographic hardening."""
@@ -179,6 +181,7 @@ class TestSessionIDSecurity:
 # ============================================================================
 # SEC-SESS-02: Session Data Mutation Security
 # ============================================================================
+
 
 class TestSessionDataSecurity:
     """Tests for session data mutation guards."""
@@ -259,6 +262,7 @@ class TestSessionDataSecurity:
 # SEC-SESS-03: Session Serialization Security
 # ============================================================================
 
+
 class TestSessionSerializationSecurity:
     """Tests for session serialization/deserialization hardening."""
 
@@ -280,62 +284,74 @@ class TestSessionSerializationSecurity:
 
     def test_from_dict_rejects_missing_id(self):
         with pytest.raises(SessionStoreCorruptedFault):
-            Session.from_dict({
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "last_accessed_at": datetime.now(timezone.utc).isoformat(),
-                "scope": "user",
-            })
+            Session.from_dict(
+                {
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "last_accessed_at": datetime.now(timezone.utc).isoformat(),
+                    "scope": "user",
+                }
+            )
 
     def test_from_dict_rejects_missing_created_at(self):
         sid = SessionID()
         with pytest.raises(SessionStoreCorruptedFault):
-            Session.from_dict({
-                "id": str(sid),
-                "last_accessed_at": datetime.now(timezone.utc).isoformat(),
-                "scope": "user",
-            })
+            Session.from_dict(
+                {
+                    "id": str(sid),
+                    "last_accessed_at": datetime.now(timezone.utc).isoformat(),
+                    "scope": "user",
+                }
+            )
 
     def test_from_dict_rejects_invalid_timestamp(self):
         sid = SessionID()
         with pytest.raises(SessionStoreCorruptedFault):
-            Session.from_dict({
-                "id": str(sid),
-                "created_at": "not-a-date",
-                "last_accessed_at": datetime.now(timezone.utc).isoformat(),
-                "scope": "user",
-            })
+            Session.from_dict(
+                {
+                    "id": str(sid),
+                    "created_at": "not-a-date",
+                    "last_accessed_at": datetime.now(timezone.utc).isoformat(),
+                    "scope": "user",
+                }
+            )
 
     def test_from_dict_rejects_invalid_scope(self):
         sid = SessionID()
         with pytest.raises(SessionStoreCorruptedFault):
-            Session.from_dict({
-                "id": str(sid),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "last_accessed_at": datetime.now(timezone.utc).isoformat(),
-                "scope": "hacked_scope",
-            })
+            Session.from_dict(
+                {
+                    "id": str(sid),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "last_accessed_at": datetime.now(timezone.utc).isoformat(),
+                    "scope": "hacked_scope",
+                }
+            )
 
     def test_from_dict_rejects_invalid_principal(self):
         sid = SessionID()
         with pytest.raises(SessionStoreCorruptedFault):
-            Session.from_dict({
-                "id": str(sid),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "last_accessed_at": datetime.now(timezone.utc).isoformat(),
-                "scope": "user",
-                "principal": "not_a_dict",
-            })
+            Session.from_dict(
+                {
+                    "id": str(sid),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "last_accessed_at": datetime.now(timezone.utc).isoformat(),
+                    "scope": "user",
+                    "principal": "not_a_dict",
+                }
+            )
 
     def test_from_dict_rejects_non_dict_data(self):
         sid = SessionID()
         with pytest.raises(SessionStoreCorruptedFault):
-            Session.from_dict({
-                "id": str(sid),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "last_accessed_at": datetime.now(timezone.utc).isoformat(),
-                "scope": "user",
-                "data": "not_a_dict",
-            })
+            Session.from_dict(
+                {
+                    "id": str(sid),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "last_accessed_at": datetime.now(timezone.utc).isoformat(),
+                    "scope": "user",
+                    "data": "not_a_dict",
+                }
+            )
 
     def test_from_dict_ignores_unknown_flags(self):
         s = _make_session()
@@ -359,6 +375,7 @@ class TestSessionSerializationSecurity:
 # ============================================================================
 # SEC-SESS-04: Cookie Transport Security
 # ============================================================================
+
 
 class TestCookieTransportSecurity:
     """Tests for cookie transport hardening."""
@@ -419,6 +436,7 @@ class TestCookieTransportSecurity:
 # SEC-SESS-05: Header Transport Security
 # ============================================================================
 
+
 class TestHeaderTransportSecurity:
     """Tests for header transport hardening."""
 
@@ -450,6 +468,7 @@ class TestHeaderTransportSecurity:
 # SEC-SESS-06: Transport Factory Security
 # ============================================================================
 
+
 class TestTransportFactorySecurity:
     """Tests for create_transport fault integration."""
 
@@ -473,6 +492,7 @@ class TestTransportFactorySecurity:
 # ============================================================================
 # SEC-SESS-07: FileStore Path Traversal Protection
 # ============================================================================
+
 
 class TestFileStorePathTraversalSecurity:
     """Tests for FileStore path traversal hardening."""
@@ -498,6 +518,7 @@ class TestFileStorePathTraversalSecurity:
 # ============================================================================
 # SEC-SESS-08: MemoryStore Security
 # ============================================================================
+
 
 class TestMemoryStoreSecurity:
     """Tests for MemoryStore security properties."""
@@ -579,6 +600,7 @@ class TestMemoryStoreSecurity:
 # ============================================================================
 # SEC-SESS-09: Engine Security - Lifecycle
 # ============================================================================
+
 
 class TestEngineLifecycleSecurity:
     """Tests for SessionEngine lifecycle security."""
@@ -685,9 +707,7 @@ class TestEngineLifecycleSecurity:
         engine = _make_engine(policy=policy, store=store)
 
         # Create s1 with explicit older timestamp
-        s1 = _make_session(
-            last_accessed_at=datetime.now(timezone.utc) - timedelta(seconds=10)
-        )
+        s1 = _make_session(last_accessed_at=datetime.now(timezone.utc) - timedelta(seconds=10))
         s1.principal = SessionPrincipal(kind="user", id="user-1")
         await store.save(s1)
 
@@ -769,6 +789,7 @@ class TestEngineLifecycleSecurity:
 # SEC-SESS-10: Policy Security
 # ============================================================================
 
+
 class TestPolicySecurity:
     """Tests for session policy security properties."""
 
@@ -817,6 +838,7 @@ class TestPolicySecurity:
 # SEC-SESS-11: Fingerprint Security
 # ============================================================================
 
+
 class TestFingerprintSecurity:
     """Tests for session fingerprint binding (OWASP)."""
 
@@ -858,6 +880,7 @@ class TestFingerprintSecurity:
 # SEC-SESS-12: Fault Integration Security
 # ============================================================================
 
+
 class TestFaultIntegrationSecurity:
     """Tests that all session errors use structured Aquilia faults."""
 
@@ -872,20 +895,25 @@ class TestFaultIntegrationSecurity:
 
     def test_concurrency_violation_includes_counts(self):
         fault = SessionConcurrencyViolationFault(
-            principal_id="user-1", active_count=5, max_allowed=3,
+            principal_id="user-1",
+            active_count=5,
+            max_allowed=3,
         )
         assert "5" in fault.message
         assert "3" in fault.message
 
     def test_store_corrupted_includes_hashed_id(self):
         fault = SessionStoreCorruptedFault(
-            message="bad data", session_id="sess_abc",
+            message="bad data",
+            session_id="sess_abc",
         )
         assert fault.session_id_hash is not None
 
     def test_rotation_failed_hashes_both_ids(self):
         fault = SessionRotationFailedFault(
-            old_id="sess_old", new_id="sess_new", cause="disk error",
+            old_id="sess_old",
+            new_id="sess_new",
+            cause="disk error",
         )
         assert "sess_old" not in fault.old_id_hash
         assert "sess_new" not in fault.new_id_hash
@@ -902,6 +930,7 @@ class TestFaultIntegrationSecurity:
 # ============================================================================
 # SEC-SESS-13: OWASP Session Compliance
 # ============================================================================
+
 
 class TestOWASPSessionCompliance:
     """Tests verifying OWASP session management recommendations."""

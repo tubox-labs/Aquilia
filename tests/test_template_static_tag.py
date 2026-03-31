@@ -21,7 +21,7 @@ async def test_static_tag_renders_with_default_prefix(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html")
 
-    assert '/static/css/styles.css' in html
+    assert "/static/css/styles.css" in html
 
 
 async def test_static_tag_supports_assignment_form(tmp_path):
@@ -34,7 +34,7 @@ async def test_static_tag_supports_assignment_form(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html")
 
-    assert '/static/js/app.js' in html
+    assert "/static/js/app.js" in html
 
 
 async def test_static_tag_uses_context_static_function(tmp_path):
@@ -47,7 +47,7 @@ async def test_static_tag_uses_context_static_function(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html", {"static": lambda path: f"/assets/{path}"})
 
-    assert '/assets/js/app.js' in html
+    assert "/assets/js/app.js" in html
 
 
 async def test_asset_tag_renders_with_static_prefix(tmp_path):
@@ -60,7 +60,7 @@ async def test_asset_tag_renders_with_static_prefix(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html")
 
-    assert '/static/js/app.js' in html
+    assert "/static/js/app.js" in html
 
 
 async def test_media_tag_renders_with_media_prefix(tmp_path):
@@ -73,7 +73,7 @@ async def test_media_tag_renders_with_media_prefix(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html")
 
-    assert '/media/avatars/me.png' in html
+    assert "/media/avatars/me.png" in html
 
 
 async def test_media_tag_supports_assignment_form(tmp_path):
@@ -86,7 +86,7 @@ async def test_media_tag_supports_assignment_form(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html")
 
-    assert '/media/avatars/me.png' in html
+    assert "/media/avatars/me.png" in html
 
 
 async def test_static_tag_normalizes_unsafe_segments(tmp_path):
@@ -99,7 +99,7 @@ async def test_static_tag_normalizes_unsafe_segments(tmp_path):
     engine = TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)]))
     html = await engine.render("index.html")
 
-    assert '/static/css/app.css' in html
+    assert "/static/css/app.css" in html
 
 
 def test_static_tag_requires_argument(tmp_path):

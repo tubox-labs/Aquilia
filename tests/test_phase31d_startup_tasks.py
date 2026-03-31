@@ -402,11 +402,21 @@ class TestIntegrationTasksConfig:
 
         config = Integration.tasks()
         expected = {
-            "_integration_type", "enabled", "backend", "num_workers",
-            "default_queue", "cleanup_interval", "cleanup_max_age",
-            "max_retries", "retry_delay", "retry_backoff",
-            "retry_max_delay", "default_timeout", "auto_start",
-            "dead_letter_max", "scheduler_tick",
+            "_integration_type",
+            "enabled",
+            "backend",
+            "num_workers",
+            "default_queue",
+            "cleanup_interval",
+            "cleanup_max_age",
+            "max_retries",
+            "retry_delay",
+            "retry_backoff",
+            "retry_max_delay",
+            "default_timeout",
+            "auto_start",
+            "dead_letter_max",
+            "scheduler_tick",
         }
         assert expected.issubset(set(config.keys()))
 
@@ -516,9 +526,15 @@ class TestSEOFiles:
     def test_sitemap_has_doc_routes(self):
         content = self._read_file("aqdocx/public/sitemap.xml")
         for section in [
-            "/docs/installation", "/docs/quickstart", "/docs/server",
-            "/docs/controllers", "/docs/models", "/docs/database",
-            "/docs/auth", "/docs/di", "/docs/middleware",
+            "/docs/installation",
+            "/docs/quickstart",
+            "/docs/server",
+            "/docs/controllers",
+            "/docs/models",
+            "/docs/database",
+            "/docs/auth",
+            "/docs/di",
+            "/docs/middleware",
         ]:
             assert section in content, f"Missing: {section}"
 

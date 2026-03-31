@@ -1,4 +1,5 @@
 """Smoke tests for aquilia.filesystem — native async file I/O module."""
+
 import asyncio
 import os
 import shutil
@@ -7,9 +8,17 @@ import tempfile
 import pytest
 
 from aquilia.filesystem import (
-    write_file, read_file, file_exists, delete_file,
-    async_open, FileSystem, async_tempfile, async_tempdir,
-    stream_read, AsyncPath, file_stat,
+    write_file,
+    read_file,
+    file_exists,
+    delete_file,
+    async_open,
+    FileSystem,
+    async_tempfile,
+    async_tempdir,
+    stream_read,
+    AsyncPath,
+    file_stat,
 )
 
 

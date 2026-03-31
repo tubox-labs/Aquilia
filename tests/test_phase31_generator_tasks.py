@@ -64,9 +64,7 @@ class TestModuleGeneratorInitFile:
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
-            assert not line.startswith("    "), (
-                f"Line {i} has unexpected leading whitespace: {line!r}"
-            )
+            assert not line.startswith("    "), f"Line {i} has unexpected leading whitespace: {line!r}"
 
     def test_init_file_with_tests_no_leading_whitespace(self):
         """Full mode WITH test routes — the fix target. No 16-space indent."""
@@ -76,9 +74,7 @@ class TestModuleGeneratorInitFile:
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
-            assert not line.startswith("    "), (
-                f"Line {i} has unexpected leading whitespace: {line!r}"
-            )
+            assert not line.startswith("    "), f"Line {i} has unexpected leading whitespace: {line!r}"
 
     def test_init_file_minimal_no_leading_whitespace(self):
         """Minimal mode — must also be clean."""
@@ -88,9 +84,7 @@ class TestModuleGeneratorInitFile:
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
-            assert not line.startswith("    "), (
-                f"Line {i} has unexpected leading whitespace: {line!r}"
-            )
+            assert not line.startswith("    "), f"Line {i} has unexpected leading whitespace: {line!r}"
 
     # ── Content correctness ──────────────────────────────────────────
 
@@ -167,9 +161,7 @@ class TestModuleGeneratorInitFile:
         for i, line in enumerate(content.split("\n"), 1):
             if line.strip() == "":
                 continue
-            assert not line.startswith("    "), (
-                f"Module '{name}', line {i} has leading whitespace: {line!r}"
-            )
+            assert not line.startswith("    "), f"Module '{name}', line {i} has leading whitespace: {line!r}"
         assert f'__module_name__ = "{name}"' in content
         assert "from .test_routes import *" in content
 
@@ -264,21 +256,22 @@ class TestConfigNamespaceValidation:
         assert len(report.warnings) == 0
 
 
-
-
 class TestBackgroundTaskConfig:
     """Verify BackgroundTaskConfig dataclass and manifest integration."""
 
     def test_import_from_manifest_module(self):
         from aquilia.manifest import BackgroundTaskConfig
+
         assert BackgroundTaskConfig is not None
 
     def test_import_from_aquilia_root(self):
         from aquilia import BackgroundTaskConfig
+
         assert BackgroundTaskConfig is not None
 
     def test_default_values(self):
         from aquilia.manifest import BackgroundTaskConfig
+
         cfg = BackgroundTaskConfig()
         assert cfg.tasks == []
         assert cfg.default_queue == "default"
@@ -287,6 +280,7 @@ class TestBackgroundTaskConfig:
 
     def test_custom_values(self):
         from aquilia.manifest import BackgroundTaskConfig
+
         cfg = BackgroundTaskConfig(
             tasks=["mod.tasks:do_stuff"],
             default_queue="high",
@@ -299,6 +293,7 @@ class TestBackgroundTaskConfig:
 
     def test_to_dict(self):
         from aquilia.manifest import BackgroundTaskConfig
+
         cfg = BackgroundTaskConfig(
             tasks=["a:b", "c:d"],
             default_queue="q",
@@ -327,6 +322,7 @@ class TestBackgroundTaskConfig:
 
     def test_app_manifest_default_none(self):
         from aquilia import AppManifest
+
         m = AppManifest(name="no_bg", version="0.1.0")
         assert m.background_tasks is None
 
@@ -347,6 +343,7 @@ class TestBackgroundTaskConfig:
 
     def test_app_manifest_to_dict_omits_when_none(self):
         from aquilia import AppManifest
+
         m = AppManifest(name="no_bg", version="0.1.0")
         d = m.to_dict()
         assert "background_tasks" not in d
@@ -354,6 +351,7 @@ class TestBackgroundTaskConfig:
     def test_discover_patterns_includes_tasks(self):
         """Default discover_patterns must include 'tasks'."""
         from aquilia import AppManifest
+
         m = AppManifest(name="dp", version="0.1.0")
         assert "tasks" in m.discover_patterns
 
@@ -430,7 +428,6 @@ class TestAdminGetTasksDataRegisteredTasks:
         data = await site.get_tasks_data()
         assert data["registered_tasks"] == []
         assert data["available"] is False
-
 
 
 class TestRenderTasksPageRegisteredTasks:
@@ -683,18 +680,14 @@ class TestTasksTemplateRegisteredSection:
 
     def test_template_has_registered_tasks_section(self):
         """tasks.html should contain 'Registered Tasks' heading."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "Registered Tasks" in content
 
     def test_template_iterates_registered_tasks(self):
         """tasks.html should iterate over registered_tasks."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "registered_tasks" in content
@@ -702,63 +695,49 @@ class TestTasksTemplateRegisteredSection:
 
     def test_template_shows_task_name(self):
         """tasks.html should display t.name."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.name" in content
 
     def test_template_shows_task_queue(self):
         """tasks.html should display t.queue."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.queue" in content
 
     def test_template_shows_task_priority(self):
         """tasks.html should display t.priority."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.priority" in content
 
     def test_template_shows_task_tags(self):
         """tasks.html should display t.tags."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "t.tags" in content
 
     def test_template_discovered_count(self):
         """tasks.html should show discovered count."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "discovered" in content
 
     def test_template_improved_empty_state(self):
         """tasks.html should show 'tasks registered' message when tasks exist but no jobs."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "manager.enqueue()" in content
 
     def test_template_metric_card_shows_registered_count(self):
         """tasks.html should show registered task count in the metric card."""
-        template_path = os.path.join(
-            REPO_ROOT, "aquilia", "admin", "templates", "tasks.html"
-        )
+        template_path = os.path.join(REPO_ROOT, "aquilia", "admin", "templates", "tasks.html")
         with open(template_path, encoding="utf-8") as f:
             content = f.read()
         assert "registered" in content
@@ -774,6 +753,7 @@ class TestTestingSnippetsSyntaxHighlight:
 
     def _render(self, **overrides):
         from aquilia.admin.templates import render_testing_page
+
         base = {
             "available": True,
             "framework_version": "1.0.0",
@@ -783,8 +763,9 @@ class TestTestingSnippetsSyntaxHighlight:
             "total_assertions": 1,
             "fixtures": [{"name": "client", "async": True}],
             "total_fixtures": 1,
-            "mock_infra": [{"name": "MockFaultEngine", "module": "faults",
-                           "description": "Faults", "features": ["emit"]}],
+            "mock_infra": [
+                {"name": "MockFaultEngine", "module": "faults", "description": "Faults", "features": ["emit"]}
+            ],
             "total_mocks": 1,
             "utilities": [{"name": "make_scope", "description": "scope"}],
             "total_utilities": 1,
@@ -794,14 +775,25 @@ class TestTestingSnippetsSyntaxHighlight:
             "total_components": 1,
             "covered_components": 1,
             "summary": {
-                "total_test_cases": 1, "total_assertions": 1, "total_fixtures": 1,
-                "total_mocks": 1, "total_utilities": 1, "total_test_files": 0,
-                "total_test_functions": 0, "total_test_classes": 0, "total_lines": 0,
-                "total_components": 1, "covered_components": 1,
-                "total_assert_stmts": 0, "avg_tests_per_file": 0,
-                "avg_loc_per_test": 0, "avg_density": 0,
-                "total_async_tests": 0, "total_sync_tests": 0,
-                "category_breakdown": {}, "imports_usage": {},
+                "total_test_cases": 1,
+                "total_assertions": 1,
+                "total_fixtures": 1,
+                "total_mocks": 1,
+                "total_utilities": 1,
+                "total_test_files": 0,
+                "total_test_functions": 0,
+                "total_test_classes": 0,
+                "total_lines": 0,
+                "total_components": 1,
+                "covered_components": 1,
+                "total_assert_stmts": 0,
+                "avg_tests_per_file": 0,
+                "avg_loc_per_test": 0,
+                "avg_density": 0,
+                "total_async_tests": 0,
+                "total_sync_tests": 0,
+                "category_breakdown": {},
+                "imports_usage": {},
             },
             "charts": {
                 "test_distribution": {"labels": [], "values": []},
@@ -885,6 +877,7 @@ class TestTasksPageDrawer:
 
     def _render(self, registered_tasks=None, jobs=None, available=True):
         from aquilia.admin.templates import render_tasks_page
+
         tasks_data = {
             "available": available,
             "stats": {
@@ -896,20 +889,25 @@ class TestTasksPageDrawer:
                 "pending_count": 0,
                 "dead_letter_count": 0,
                 "success_rate": 100,
-                "p50_ms": 0, "p95_ms": 0, "p99_ms": 0,
+                "p50_ms": 0,
+                "p95_ms": 0,
+                "p99_ms": 0,
                 "avg_duration_ms": 0,
                 "manager": {
-                    "running": True, "num_workers": 4,
-                    "total_enqueued": 0, "total_completed": 0,
-                    "total_failed": 0, "uptime_seconds": 100,
-                    "queues": ["default"], "backend": "MemoryBackend",
+                    "running": True,
+                    "num_workers": 4,
+                    "total_enqueued": 0,
+                    "total_completed": 0,
+                    "total_failed": 0,
+                    "uptime_seconds": 100,
+                    "queues": ["default"],
+                    "backend": "MemoryBackend",
                 },
                 "charts": {
                     "throughput": {"labels": [], "completed": [], "failed": []},
                     "duration_histogram": {"labels": [], "values": []},
                     "state_doughnut": {"labels": [], "values": []},
-                    "queue_breakdown": {"labels": [], "pending": [], "running": [],
-                                       "completed": [], "failed": []},
+                    "queue_breakdown": {"labels": [], "pending": [], "running": [], "completed": [], "failed": []},
                 },
             },
             "jobs": jobs or [],
@@ -947,18 +945,38 @@ class TestTasksPageDrawer:
     # ── Registered task clickable rows ──
 
     def test_task_row_clickable_class(self):
-        tasks = [{"name": "my_task", "queue": "default", "priority": "NORMAL",
-                  "max_retries": 3, "timeout": 300, "retry_delay": 1.0,
-                  "retry_backoff": 2.0, "tags": ["email"], "schedule": "on-demand",
-                  "dispatch": "on-demand"}]
+        tasks = [
+            {
+                "name": "my_task",
+                "queue": "default",
+                "priority": "NORMAL",
+                "max_retries": 3,
+                "timeout": 300,
+                "retry_delay": 1.0,
+                "retry_backoff": 2.0,
+                "tags": ["email"],
+                "schedule": "on-demand",
+                "dispatch": "on-demand",
+            }
+        ]
         html = self._render(registered_tasks=tasks)
         assert "task-row-clickable" in html
 
     def test_task_row_has_data_attributes(self):
-        tasks = [{"name": "send_email", "queue": "mail", "priority": "HIGH",
-                  "max_retries": 5, "timeout": 60, "retry_delay": 2.0,
-                  "retry_backoff": 3.0, "tags": ["email", "notify"],
-                  "schedule": "every 30m", "dispatch": "periodic"}]
+        tasks = [
+            {
+                "name": "send_email",
+                "queue": "mail",
+                "priority": "HIGH",
+                "max_retries": 5,
+                "timeout": 60,
+                "retry_delay": 2.0,
+                "retry_backoff": 3.0,
+                "tags": ["email", "notify"],
+                "schedule": "every 30m",
+                "dispatch": "periodic",
+            }
+        ]
         html = self._render(registered_tasks=tasks)
         assert 'data-task-name="send_email"' in html
         assert 'data-task-queue="mail"' in html
@@ -969,36 +987,76 @@ class TestTasksPageDrawer:
         assert 'data-task-dispatch="periodic"' in html
 
     def test_task_row_onclick_handler(self):
-        tasks = [{"name": "t", "queue": "q", "priority": "NORMAL",
-                  "max_retries": 3, "timeout": 300, "retry_delay": 1.0,
-                  "retry_backoff": 2.0, "tags": [], "schedule": "on-demand",
-                  "dispatch": "on-demand"}]
+        tasks = [
+            {
+                "name": "t",
+                "queue": "q",
+                "priority": "NORMAL",
+                "max_retries": 3,
+                "timeout": 300,
+                "retry_delay": 1.0,
+                "retry_backoff": 2.0,
+                "tags": [],
+                "schedule": "on-demand",
+                "dispatch": "on-demand",
+            }
+        ]
         html = self._render(registered_tasks=tasks)
         assert "openTaskDrawer(this)" in html
 
     # ── Job clickable rows ──
 
     def test_job_row_clickable_class(self):
-        jobs = [{"id": "abc123def456", "name": "my_job", "func_ref": "mod:fn",
-                 "queue": "default", "priority": "NORMAL", "state": "completed",
-                 "retry_count": 0, "max_retries": 3, "duration_ms": 42.5,
-                 "created_at": "2026-03-06T10:00:00", "started_at": "2026-03-06T10:00:01",
-                 "completed_at": "2026-03-06T10:00:02", "scheduled_at": None,
-                 "timeout": 300, "is_terminal": True, "can_retry": False,
-                 "fingerprint": "abc123", "tags": [], "result": None}]
+        jobs = [
+            {
+                "id": "abc123def456",
+                "name": "my_job",
+                "func_ref": "mod:fn",
+                "queue": "default",
+                "priority": "NORMAL",
+                "state": "completed",
+                "retry_count": 0,
+                "max_retries": 3,
+                "duration_ms": 42.5,
+                "created_at": "2026-03-06T10:00:00",
+                "started_at": "2026-03-06T10:00:01",
+                "completed_at": "2026-03-06T10:00:02",
+                "scheduled_at": None,
+                "timeout": 300,
+                "is_terminal": True,
+                "can_retry": False,
+                "fingerprint": "abc123",
+                "tags": [],
+                "result": None,
+            }
+        ]
         html = self._render(jobs=jobs)
         assert "job-row-clickable" in html
 
     def test_job_row_has_data_attributes(self):
-        jobs = [{"id": "job123456789a", "name": "process_data", "func_ref": "m:fn",
-                 "queue": "high", "priority": "CRITICAL", "state": "failed",
-                 "retry_count": 2, "max_retries": 5, "duration_ms": 1500.0,
-                 "created_at": "2026-03-06T10:00:00", "started_at": "2026-03-06T10:00:01",
-                 "completed_at": "2026-03-06T10:00:03", "scheduled_at": None,
-                 "timeout": 60, "is_terminal": True, "can_retry": True,
-                 "fingerprint": "fp1234", "tags": ["critical"],
-                 "result": {"error": "timeout", "error_type": "TimeoutError",
-                           "traceback": "Traceback...\nTimeoutError"}}]
+        jobs = [
+            {
+                "id": "job123456789a",
+                "name": "process_data",
+                "func_ref": "m:fn",
+                "queue": "high",
+                "priority": "CRITICAL",
+                "state": "failed",
+                "retry_count": 2,
+                "max_retries": 5,
+                "duration_ms": 1500.0,
+                "created_at": "2026-03-06T10:00:00",
+                "started_at": "2026-03-06T10:00:01",
+                "completed_at": "2026-03-06T10:00:03",
+                "scheduled_at": None,
+                "timeout": 60,
+                "is_terminal": True,
+                "can_retry": True,
+                "fingerprint": "fp1234",
+                "tags": ["critical"],
+                "result": {"error": "timeout", "error_type": "TimeoutError", "traceback": "Traceback...\nTimeoutError"},
+            }
+        ]
         html = self._render(jobs=jobs)
         assert 'data-job-id="job123456789a"' in html
         assert 'data-job-name="process_data"' in html
@@ -1008,25 +1066,60 @@ class TestTasksPageDrawer:
         assert 'data-job-fingerprint="fp1234"' in html
 
     def test_job_row_onclick_handler(self):
-        jobs = [{"id": "j1", "name": "n", "func_ref": "f", "queue": "q",
-                 "priority": "NORMAL", "state": "pending", "retry_count": 0,
-                 "max_retries": 3, "duration_ms": None, "created_at": "2026-01-01",
-                 "started_at": None, "completed_at": None, "scheduled_at": None,
-                 "timeout": 300, "is_terminal": False, "can_retry": True,
-                 "fingerprint": "fp", "tags": [], "result": None}]
+        jobs = [
+            {
+                "id": "j1",
+                "name": "n",
+                "func_ref": "f",
+                "queue": "q",
+                "priority": "NORMAL",
+                "state": "pending",
+                "retry_count": 0,
+                "max_retries": 3,
+                "duration_ms": None,
+                "created_at": "2026-01-01",
+                "started_at": None,
+                "completed_at": None,
+                "scheduled_at": None,
+                "timeout": 300,
+                "is_terminal": False,
+                "can_retry": True,
+                "fingerprint": "fp",
+                "tags": [],
+                "result": None,
+            }
+        ]
         html = self._render(jobs=jobs)
         assert "openJobDrawer(this)" in html
 
     def test_job_row_error_data_attributes(self):
-        jobs = [{"id": "j2", "name": "bad_job", "func_ref": "m:bad",
-                 "queue": "default", "priority": "NORMAL", "state": "dead",
-                 "retry_count": 3, "max_retries": 3, "duration_ms": 50.0,
-                 "created_at": "2026-03-06T10:00:00", "started_at": "2026-03-06T10:00:01",
-                 "completed_at": "2026-03-06T10:00:02", "scheduled_at": None,
-                 "timeout": 300, "is_terminal": True, "can_retry": False,
-                 "fingerprint": "dead1", "tags": [],
-                 "result": {"error": "Connection refused", "error_type": "ConnectionError",
-                           "traceback": "File \"x.py\"...\nConnectionError"}}]
+        jobs = [
+            {
+                "id": "j2",
+                "name": "bad_job",
+                "func_ref": "m:bad",
+                "queue": "default",
+                "priority": "NORMAL",
+                "state": "dead",
+                "retry_count": 3,
+                "max_retries": 3,
+                "duration_ms": 50.0,
+                "created_at": "2026-03-06T10:00:00",
+                "started_at": "2026-03-06T10:00:01",
+                "completed_at": "2026-03-06T10:00:02",
+                "scheduled_at": None,
+                "timeout": 300,
+                "is_terminal": True,
+                "can_retry": False,
+                "fingerprint": "dead1",
+                "tags": [],
+                "result": {
+                    "error": "Connection refused",
+                    "error_type": "ConnectionError",
+                    "traceback": 'File "x.py"...\nConnectionError',
+                },
+            }
+        ]
         html = self._render(jobs=jobs)
         assert 'data-job-error-type="ConnectionError"' in html
         assert 'data-job-error="Connection refused"' in html

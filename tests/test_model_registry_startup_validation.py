@@ -8,7 +8,7 @@ import pytest
 from aquilia.aquilary.core import RegistryMode
 from aquilia.config import ConfigLoader
 from aquilia.faults.domains import ModelNotFoundFault, ModelRegistrationFault
-from aquilia.manifest import AppManifest, DatabaseConfig
+from aquilia.manifest import AppManifest
 from aquilia.models.base import ModelRegistry
 from aquilia.server import AquiliaServer
 
@@ -87,8 +87,7 @@ class Review(Model):
     return models_mod
 
 
-def _build_auth_manifest(tmp_path) -> AppManifest:
-    db_path = tmp_path / "registry_validation.sqlite3"
+def _build_auth_manifest() -> AppManifest:
     return AppManifest(
         name="authentication",
         version="1.0.0",
@@ -99,7 +98,6 @@ def _build_auth_manifest(tmp_path) -> AppManifest:
             "modules.authentication.models:Product",
             "modules.authentication.models:Review",
         ],
-        database=DatabaseConfig(url=f"sqlite:///{db_path}", auto_create=True),
     )
 
 
@@ -110,6 +108,10 @@ async def _running_server(manifest: AppManifest):
     cfg.config_data = {
         "debug": True,
         "runtime": {"mode": "test"},
+        "database": {
+            "url": "sqlite:///:memory:",
+            "auto_create": True,
+        },
         "middleware_chain": [],
         "integrations": {
             "cache": {"enabled": False},
@@ -152,7 +154,7 @@ def _reset_model_registry():
 @pytest.mark.asyncio
 async def test_clean_boot_registers_manifest_models_and_category(monkeypatch: pytest.MonkeyPatch, tmp_path):
     models_mod = _install_auth_models_module(monkeypatch)
-    manifest = _build_auth_manifest(tmp_path)
+    manifest = _build_auth_manifest()
 
     async with _running_server(manifest):
         # Deterministic startup inventory should include all manifest models.
@@ -166,7 +168,7 @@ async def test_clean_boot_registers_manifest_models_and_category(monkeypatch: py
 @pytest.mark.asyncio
 async def test_product_create_valid_category_id_succeeds(monkeypatch: pytest.MonkeyPatch, tmp_path):
     models_mod = _install_auth_models_module(monkeypatch)
-    manifest = _build_auth_manifest(tmp_path)
+    manifest = _build_auth_manifest()
 
     async with _running_server(manifest):
         category = await models_mod.Category.objects.create(name="Peripherals")
@@ -186,7 +188,7 @@ async def test_product_create_invalid_category_id_returns_business_error_not_mod
     tmp_path,
 ):
     models_mod = _install_auth_models_module(monkeypatch)
-    manifest = _build_auth_manifest(tmp_path)
+    manifest = _build_auth_manifest()
 
     async with _running_server(manifest):
         with pytest.raises(AuthenticationValidationFault):
@@ -221,7 +223,6 @@ class Product(Model):
     monkeypatch.setitem(sys.modules, "modules.authentication", auth_pkg)
     monkeypatch.setitem(sys.modules, "modules.authentication.models", models_mod)
 
-    db_path = tmp_path / "missing_model.sqlite3"
     manifest = AppManifest(
         name="authentication",
         version="1.0.0",
@@ -229,7 +230,6 @@ class Product(Model):
             "modules.authentication.models:Product",
             "modules.authentication.models:Category",
         ],
-        database=DatabaseConfig(url=f"sqlite:///{db_path}", auto_create=True),
     )
 
     with pytest.raises(ModelRegistrationFault) as exc_info:
@@ -250,7 +250,7 @@ async def test_registry_bootstrap_not_dependent_on_current_working_directory(
     monkeypatch.delenv("AQUILIA_WORKSPACE", raising=False)
 
     _install_auth_models_module(monkeypatch)
-    manifest = _build_auth_manifest(tmp_path)
+    manifest = _build_auth_manifest()
 
     async with _running_server(manifest):
         assert ModelRegistry.get("Category") is not None
@@ -260,12 +260,16 @@ async def test_registry_bootstrap_not_dependent_on_current_working_directory(
 @pytest.mark.asyncio
 async def test_reload_keeps_registry_complete_for_declared_models(monkeypatch: pytest.MonkeyPatch, tmp_path):
     _install_auth_models_module(monkeypatch)
-    manifest = _build_auth_manifest(tmp_path)
+    manifest = _build_auth_manifest()
 
     cfg = ConfigLoader()
     cfg.config_data = {
         "debug": True,
         "runtime": {"mode": "test"},
+        "database": {
+            "url": "sqlite:///:memory:",
+            "auto_create": True,
+        },
         "middleware_chain": [],
     }
     server = AquiliaServer(manifests=[manifest], config=cfg, mode=RegistryMode.TEST)
@@ -281,6 +285,10 @@ async def test_reload_keeps_registry_complete_for_declared_models(monkeypatch: p
     cfg2.config_data = {
         "debug": True,
         "runtime": {"mode": "test"},
+        "database": {
+            "url": "sqlite:///:memory:",
+            "auto_create": True,
+        },
         "middleware_chain": [],
     }
     server2 = AquiliaServer(manifests=[manifest], config=cfg2, mode=RegistryMode.TEST)

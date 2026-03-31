@@ -3388,28 +3388,28 @@ class AquiliaServer:
         auto_migrate = False
         migrations_dir = "migrations"
 
-        # 3a. Check manifest DatabaseConfig across all app contexts
+        # 3a. Manifest-level database config is deprecated and ignored.
+        # Database must be configured at workspace/integration level.
         for ctx in self.runtime.meta.app_contexts:
             manifest = ctx.manifest
             if manifest and hasattr(manifest, "database") and manifest.database:
-                db_cfg = manifest.database
-                db_url = db_url or getattr(db_cfg, "url", None)
-                auto_create = auto_create or getattr(db_cfg, "auto_create", False)
-                auto_migrate = auto_migrate or getattr(db_cfg, "auto_migrate", False)
-                migrations_dir = getattr(db_cfg, "migrations_dir", migrations_dir)
+                self.logger.warning(
+                    "AppManifest.database in '%s' is deprecated and ignored. "
+                    "Configure database via Workspace.database() / Integration.database().",
+                    ctx.name,
+                )
 
-        # 3b. Check config dict (Workspace.database() / Integration.database())
-        if not db_url:
-            if hasattr(self.config, "get"):
-                db_url = self.config.get("database.url", None)
-                auto_create = auto_create or self.config.get("database.auto_create", False)
-                auto_migrate = auto_migrate or self.config.get("database.auto_migrate", False)
-            elif hasattr(self.config, "to_dict"):
-                cfg_dict = self.config.to_dict()
-                db_section = cfg_dict.get("database", {})
-                db_url = db_url or db_section.get("url")
-                auto_create = auto_create or db_section.get("auto_create", False)
-                auto_migrate = auto_migrate or db_section.get("auto_migrate", False)
+        # 3b. Resolve config dict (Workspace.database() / Integration.database())
+        if hasattr(self.config, "get"):
+            db_url = self.config.get("database.url", None)
+            auto_create = auto_create or self.config.get("database.auto_create", False)
+            auto_migrate = auto_migrate or self.config.get("database.auto_migrate", False)
+        elif hasattr(self.config, "to_dict"):
+            cfg_dict = self.config.to_dict()
+            db_section = cfg_dict.get("database", {})
+            db_url = db_section.get("url")
+            auto_create = auto_create or db_section.get("auto_create", False)
+            auto_migrate = auto_migrate or db_section.get("auto_migrate", False)
 
         # ── Phase 3b: Startup guard -- warn if DB missing / stale ────────
         if db_url and not auto_migrate:

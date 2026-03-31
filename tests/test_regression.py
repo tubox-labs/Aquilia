@@ -60,11 +60,17 @@ class TestTraceRemoval:
     def test_trace_not_in_aquilia_all(self):
         """Trace symbols must not be in aquilia.__all__."""
         import aquilia
+
         all_symbols = getattr(aquilia, "__all__", [])
         trace_symbols = [
-            "AquiliaTrace", "TraceManifest", "TraceRouteMap",
-            "TraceDIGraph", "TraceSchemaLedger", "TraceLifecycleJournal",
-            "TraceConfigSnapshot", "TraceDiagnostics",
+            "AquiliaTrace",
+            "TraceManifest",
+            "TraceRouteMap",
+            "TraceDIGraph",
+            "TraceSchemaLedger",
+            "TraceLifecycleJournal",
+            "TraceConfigSnapshot",
+            "TraceDiagnostics",
         ]
         for sym in trace_symbols:
             assert sym not in all_symbols, f"'{sym}' still in aquilia.__all__"
@@ -72,21 +78,24 @@ class TestTraceRemoval:
     def test_trace_not_in_commands_init(self):
         """'trace' must not be in cli/commands/__init__.py imports."""
         from aquilia.cli import commands
-        assert "trace" not in dir(commands) or not hasattr(commands, "trace"), \
+
+        assert "trace" not in dir(commands) or not hasattr(commands, "trace"), (
             "'trace' still importable from aquilia.cli.commands"
+        )
 
     def test_trace_not_in_cli_categories(self):
         """'trace' must not appear in any CLI category."""
         from aquilia.cli.__main__ import AquiliaGroup
+
         categories = AquiliaGroup._CATEGORIES
         for cat_name, commands in categories.items():
-            assert "trace" not in commands, \
-                f"'trace' still in CLI category '{cat_name}'"
+            assert "trace" not in commands, f"'trace' still in CLI category '{cat_name}'"
 
     def test_server_has_no_trace_attribute(self):
         """AquiliaServer must not have a .trace attribute in __init__."""
         import inspect
         from aquilia.server import AquiliaServer
+
         source = inspect.getsource(AquiliaServer.__init__)
         assert "self.trace" not in source, "server.__init__ still references self.trace"
         assert "AquiliaTrace" not in source, "server.__init__ still references AquiliaTrace"
@@ -95,6 +104,7 @@ class TestTraceRemoval:
         """AquiliaServer.startup() must not call trace.journal."""
         import inspect
         from aquilia.server import AquiliaServer
+
         source = inspect.getsource(AquiliaServer.startup)
         assert "self.trace" not in source, "startup() still references self.trace"
         assert "trace.journal" not in source, "startup() still references trace.journal"
@@ -103,6 +113,7 @@ class TestTraceRemoval:
         """AquiliaServer.shutdown() must not call trace.journal."""
         import inspect
         from aquilia.server import AquiliaServer
+
         source = inspect.getsource(AquiliaServer.shutdown)
         assert "self.trace" not in source, "shutdown() still references self.trace"
         assert "trace.journal" not in source, "shutdown() still references trace.journal"
@@ -112,6 +123,7 @@ class TestTraceRemoval:
         """startup() should not reference old trace system."""
         import inspect
         from aquilia.server import AquiliaServer
+
         source = inspect.getsource(AquiliaServer.startup)
         assert "self.trace" not in source, "startup() still references self.trace"
         assert "trace.journal" not in source, "startup() still references trace.journal"
@@ -120,6 +132,7 @@ class TestTraceRemoval:
         """cmd_cache_stats() must not reference .aquilia/diagnostics.json."""
         import inspect
         from aquilia.cli.commands.cache import cmd_cache_stats
+
         source = inspect.getsource(cmd_cache_stats)
         assert ".aquilia" not in source, "cache stats still references .aquilia directory"
         assert "diagnostics.json" not in source, "cache stats still reads diagnostics.json"
@@ -149,6 +162,7 @@ class TestBuildSystemImports:
             BuildResolver,
             ResolvedBuild,
         )
+
         # All imports succeed — verify they are the right types
         assert BuildPhase.DISCOVERY.value == "discovery"
         assert BuildPhase.BUNDLING.value == "bundling"
@@ -156,12 +170,21 @@ class TestBuildSystemImports:
 
     def test_build_all_exports(self):
         from aquilia import build
+
         expected = [
-            "AquiliaBuildPipeline", "BuildResult", "BuildConfig",
-            "BuildPhase", "BuildError", "BuildManifest",
-            "StaticChecker", "CheckResult", "CheckError",
-            "CrousBundler", "BundleManifest",
-            "BuildResolver", "ResolvedBuild",
+            "AquiliaBuildPipeline",
+            "BuildResult",
+            "BuildConfig",
+            "BuildPhase",
+            "BuildError",
+            "BuildManifest",
+            "StaticChecker",
+            "CheckResult",
+            "CheckError",
+            "CrousBundler",
+            "BundleManifest",
+            "BuildResolver",
+            "ResolvedBuild",
         ]
         for name in expected:
             assert name in build.__all__, f"'{name}' not in build.__all__"
@@ -172,12 +195,14 @@ class TestStaticChecker:
 
     def test_check_severity_values(self):
         from aquilia.build.checker import CheckSeverity
+
         assert CheckSeverity.ERROR.value == "error"
         assert CheckSeverity.WARNING.value == "warning"
         assert CheckSeverity.INFO.value == "info"
 
     def test_check_error_str_with_location(self):
         from aquilia.build.checker import CheckError, CheckSeverity
+
         err = CheckError(
             severity=CheckSeverity.ERROR,
             message="Syntax error",
@@ -194,6 +219,7 @@ class TestStaticChecker:
 
     def test_check_error_str_without_location(self):
         from aquilia.build.checker import CheckError, CheckSeverity
+
         err = CheckError(
             severity=CheckSeverity.WARNING,
             message="Unused import",
@@ -204,6 +230,7 @@ class TestStaticChecker:
 
     def test_check_error_with_hint(self):
         from aquilia.build.checker import CheckError, CheckSeverity
+
         err = CheckError(
             severity=CheckSeverity.ERROR,
             message="Module not found",
@@ -214,6 +241,7 @@ class TestStaticChecker:
 
     def test_check_result_counts(self):
         from aquilia.build.checker import CheckResult, CheckError, CheckSeverity
+
         result = CheckResult()
         result.add(CheckError(severity=CheckSeverity.ERROR, message="err1"))
         result.add(CheckError(severity=CheckSeverity.WARNING, message="warn1"))
@@ -227,6 +255,7 @@ class TestStaticChecker:
 
     def test_check_result_no_errors(self):
         from aquilia.build.checker import CheckResult, CheckError, CheckSeverity
+
         result = CheckResult()
         result.add(CheckError(severity=CheckSeverity.INFO, message="info"))
         assert result.has_errors is False
@@ -234,6 +263,7 @@ class TestStaticChecker:
 
     def test_check_result_merge(self):
         from aquilia.build.checker import CheckResult, CheckError, CheckSeverity
+
         r1 = CheckResult(files_checked=3)
         r1.add(CheckError(severity=CheckSeverity.ERROR, message="e1"))
         r2 = CheckResult(files_checked=5)
@@ -244,12 +274,14 @@ class TestStaticChecker:
 
     def test_static_checker_instantiation(self):
         from aquilia.build.checker import StaticChecker
+
         checker = StaticChecker(workspace_root=Path("/tmp/fake-workspace"))
         assert checker is not None
 
     def test_checker_on_valid_python_file(self):
         """StaticChecker should not error on valid Python syntax."""
         from aquilia.build.checker import StaticChecker, CheckResult
+
         with tempfile.TemporaryDirectory() as tmpdir:
             # StaticChecker.check_all() expects a workspace.py at root
             ws_file = Path(tmpdir) / "workspace.py"
@@ -266,6 +298,7 @@ class TestStaticChecker:
     def test_checker_on_invalid_python_file(self):
         """StaticChecker should detect syntax errors."""
         from aquilia.build.checker import StaticChecker
+
         with tempfile.TemporaryDirectory() as tmpdir:
             modules_dir = Path(tmpdir) / "modules"
             modules_dir.mkdir()
@@ -283,6 +316,7 @@ class TestCrousBundler:
     def test_encode_single_roundtrip(self):
         """encode_single should produce bytes that can be decoded back."""
         from aquilia.build.bundler import CrousBundler
+
         data = {"routes": ["/api/users", "/api/posts"], "count": 2}
         binary = CrousBundler.encode_single(data)
         assert isinstance(binary, bytes)
@@ -299,6 +333,7 @@ class TestCrousBundler:
     def test_encode_single_complex_data(self):
         """encode_single handles nested dicts, lists, strings, ints, floats, bools, None."""
         from aquilia.build.bundler import CrousBundler
+
         data = {
             "name": "test-app",
             "version": "1.0.0",
@@ -328,6 +363,7 @@ class TestCrousBundler:
 
     def test_encode_single_empty_dict(self):
         from aquilia.build.bundler import CrousBundler
+
         binary = CrousBundler.encode_single({})
         try:
             import _crous_native as backend
@@ -338,12 +374,14 @@ class TestCrousBundler:
     def test_crous_backend_initialization(self):
         """_CrousBackend should init with native or pure Python."""
         from aquilia.build.bundler import _CrousBackend
+
         backend = _CrousBackend()
         assert backend._mod is not None
         assert isinstance(backend.is_native, bool)
 
     def test_crous_backend_encode_decode(self):
         from aquilia.build.bundler import _CrousBackend
+
         backend = _CrousBackend()
         data = {"key": "value", "list": [1, 2, 3]}
         encoded = backend.encode(data)
@@ -352,6 +390,7 @@ class TestCrousBundler:
 
     def test_bundle_manifest_creation(self):
         from aquilia.build.bundler import BundleManifest
+
         manifest = BundleManifest(
             workspace_name="test-app",
             workspace_version="1.0.0",
@@ -372,6 +411,7 @@ class TestBuildConfig:
 
     def test_default_config(self):
         from aquilia.build.pipeline import BuildConfig
+
         cfg = BuildConfig()
         assert cfg.mode == "dev"
         assert cfg.compression == "none"
@@ -381,6 +421,7 @@ class TestBuildConfig:
 
     def test_dev_config(self):
         from aquilia.build.pipeline import BuildConfig
+
         cfg = BuildConfig.dev("/workspace", verbose=True)
         assert cfg.mode == "dev"
         assert cfg.compression == "none"
@@ -389,6 +430,7 @@ class TestBuildConfig:
 
     def test_prod_config(self):
         from aquilia.build.pipeline import BuildConfig
+
         cfg = BuildConfig.prod("/workspace")
         assert cfg.mode == "prod"
         assert cfg.compression == "lz4"
@@ -400,6 +442,7 @@ class TestBuildResult:
 
     def test_successful_build_summary(self):
         from aquilia.build.pipeline import BuildResult
+
         result = BuildResult(
             success=True,
             total_ms=150.5,
@@ -416,6 +459,7 @@ class TestBuildResult:
 
     def test_failed_build_summary(self):
         from aquilia.build.pipeline import BuildResult, BuildError, BuildPhase
+
         result = BuildResult(
             success=False,
             total_ms=50.0,
@@ -430,6 +474,7 @@ class TestBuildResult:
 
     def test_build_error_str(self):
         from aquilia.build.pipeline import BuildError, BuildPhase
+
         err = BuildError(
             phase=BuildPhase.COMPILATION,
             message="Module not found",
@@ -445,6 +490,7 @@ class TestBuildResult:
 
     def test_build_phases_enum(self):
         from aquilia.build.pipeline import BuildPhase
+
         phases = list(BuildPhase)
         phase_values = [p.value for p in phases]
         assert "discovery" in phase_values
@@ -460,6 +506,7 @@ class TestBuildResolver:
 
     def test_resolved_build_dataclass(self):
         from aquilia.build.resolver import ResolvedBuild
+
         rb = ResolvedBuild(
             workspace_name="test-app",
             workspace_version="1.0.0",
@@ -474,6 +521,7 @@ class TestBuildResolver:
     def test_resolver_with_empty_directory(self):
         """Resolver should raise FileNotFoundError for empty build dir."""
         from aquilia.build.resolver import BuildResolver
+
         with tempfile.TemporaryDirectory() as tmpdir:
             resolver = BuildResolver(Path(tmpdir))
             with pytest.raises(FileNotFoundError):
@@ -491,18 +539,22 @@ class TestArtifactStoreCrous:
     @pytest.fixture
     def store(self, tmp_path):
         from aquilia.artifacts.store import FilesystemArtifactStore
+
         return FilesystemArtifactStore(root=str(tmp_path / "artifacts"))
 
     @pytest.fixture
     def sample_artifact(self):
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
-        return Artifact(ArtifactEnvelope(
-            kind="config",
-            name="test-config",
-            version="1.0.0",
-            integrity=ArtifactIntegrity(algorithm="sha256", digest="abc123"),
-            payload={"key": "value", "nested": {"a": 1}},
-        ))
+
+        return Artifact(
+            ArtifactEnvelope(
+                kind="config",
+                name="test-config",
+                version="1.0.0",
+                integrity=ArtifactIntegrity(algorithm="sha256", digest="abc123"),
+                payload={"key": "value", "nested": {"a": 1}},
+            )
+        )
 
     def test_store_saves_crous_binary(self, store, sample_artifact):
         """save() should write a .crous file as primary."""
@@ -552,14 +604,17 @@ class TestArtifactStoreCrous:
 
     def test_store_list_artifacts(self, store):
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
+
         for i in range(3):
-            a = Artifact(ArtifactEnvelope(
-                kind="config" if i < 2 else "module",
-                name=f"art-{i}",
-                version="1.0.0",
-                integrity=ArtifactIntegrity(digest=f"digest{i}"),
-                payload={"i": i},
-            ))
+            a = Artifact(
+                ArtifactEnvelope(
+                    kind="config" if i < 2 else "module",
+                    name=f"art-{i}",
+                    version="1.0.0",
+                    integrity=ArtifactIntegrity(digest=f"digest{i}"),
+                    payload={"i": i},
+                )
+            )
             store.save(a)
         all_arts = store.list_artifacts()
         assert len(all_arts) == 3
@@ -578,16 +633,25 @@ class TestArtifactStoreCrous:
 
     def test_store_gc(self, store):
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
-        a1 = Artifact(ArtifactEnvelope(
-            kind="config", name="keep", version="1.0.0",
-            integrity=ArtifactIntegrity(digest="keep_digest"),
-            payload={},
-        ))
-        a2 = Artifact(ArtifactEnvelope(
-            kind="config", name="remove", version="1.0.0",
-            integrity=ArtifactIntegrity(digest="remove_digest"),
-            payload={},
-        ))
+
+        a1 = Artifact(
+            ArtifactEnvelope(
+                kind="config",
+                name="keep",
+                version="1.0.0",
+                integrity=ArtifactIntegrity(digest="keep_digest"),
+                payload={},
+            )
+        )
+        a2 = Artifact(
+            ArtifactEnvelope(
+                kind="config",
+                name="remove",
+                version="1.0.0",
+                integrity=ArtifactIntegrity(digest="remove_digest"),
+                payload={},
+            )
+        )
         store.save(a1)
         store.save(a2)
         assert len(store) == 2
@@ -600,11 +664,16 @@ class TestArtifactStoreCrous:
 
     def test_store_count(self, store):
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
-        a = Artifact(ArtifactEnvelope(
-            kind="config", name="test", version="1.0.0",
-            integrity=ArtifactIntegrity(digest="d1"),
-            payload={},
-        ))
+
+        a = Artifact(
+            ArtifactEnvelope(
+                kind="config",
+                name="test",
+                version="1.0.0",
+                integrity=ArtifactIntegrity(digest="d1"),
+                payload={},
+            )
+        )
         store.save(a)
         assert store.count() == 1
         assert store.count(kind="config") == 1
@@ -662,13 +731,18 @@ class TestMemoryArtifactStore:
     def test_memory_store_crud(self):
         from aquilia.artifacts.store import MemoryArtifactStore
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
+
         store = MemoryArtifactStore()
 
-        art = Artifact(ArtifactEnvelope(
-            kind="config", name="mem-test", version="1.0.0",
-            integrity=ArtifactIntegrity(digest="mem_digest"),
-            payload={"memory": True},
-        ))
+        art = Artifact(
+            ArtifactEnvelope(
+                kind="config",
+                name="mem-test",
+                version="1.0.0",
+                integrity=ArtifactIntegrity(digest="mem_digest"),
+                payload={"memory": True},
+            )
+        )
 
         store.save(art)
         assert store.exists("mem-test")
@@ -692,6 +766,7 @@ class TestAquilaryCrousMigration:
 
     def test_aquilary_core_importable(self):
         from aquilia.aquilary.core import Aquilary, AquilaryRegistry
+
         assert Aquilary is not None
         assert AquilaryRegistry is not None
 
@@ -699,25 +774,22 @@ class TestAquilaryCrousMigration:
         """AquilaryRegistry.export_manifest() should write .crous binary when Crous is available."""
         import inspect
         from aquilia.aquilary.core import AquilaryRegistry
+
         # The freeze/export method is export_manifest on AquilaryRegistry
-        assert hasattr(AquilaryRegistry, 'export_manifest'), \
-            "AquilaryRegistry should have an export_manifest() method"
+        assert hasattr(AquilaryRegistry, "export_manifest"), "AquilaryRegistry should have an export_manifest() method"
         source = inspect.getsource(AquilaryRegistry.export_manifest)
-        assert "crous" in source.lower(), \
-            "export_manifest() should reference Crous encoding"
+        assert "crous" in source.lower(), "export_manifest() should reference Crous encoding"
 
     def test_from_frozen_reads_crous_format(self):
         """Aquilary._from_frozen_manifest() should read .crous binary."""
         import inspect
         from aquilia.aquilary.core import Aquilary
+
         # _from_frozen_manifest is a classmethod on Aquilary, not AquilaryRegistry
-        assert hasattr(Aquilary, '_from_frozen_manifest'), \
-            "Aquilary should have a _from_frozen_manifest() classmethod"
+        assert hasattr(Aquilary, "_from_frozen_manifest"), "Aquilary should have a _from_frozen_manifest() classmethod"
         source = inspect.getsource(Aquilary._from_frozen_manifest)
-        assert "crous" in source.lower(), \
-            "_from_frozen_manifest() should reference Crous decoding"
-        assert "json" in source.lower(), \
-            "_from_frozen_manifest() should have JSON fallback"
+        assert "crous" in source.lower(), "_from_frozen_manifest() should reference Crous decoding"
+        assert "json" in source.lower(), "_from_frozen_manifest() should have JSON fallback"
 
 
 class TestAquilaryLoaderCrous:
@@ -727,27 +799,27 @@ class TestAquilaryLoaderCrous:
         """ManifestLoader should accept .crous files in its loading logic."""
         import inspect
         from aquilia.aquilary.loader import ManifestLoader
+
         # Check the full class source for .crous support
         source = inspect.getsource(ManifestLoader)
-        assert ".crous" in source, \
-            "ManifestLoader should support .crous extension"
+        assert ".crous" in source, "ManifestLoader should support .crous extension"
 
     def test_loader_load_dsl_supports_crous(self):
         """_load_from_dsl_file should decode .crous files."""
         import inspect
         from aquilia.aquilary.loader import ManifestLoader
+
         source = inspect.getsource(ManifestLoader._load_from_dsl_file)
-        assert ".crous" in source, \
-            "_load_from_dsl_file should handle .crous format"
+        assert ".crous" in source, "_load_from_dsl_file should handle .crous format"
 
     def test_loader_directory_scan_includes_crous(self):
         """Directory scanning should look for manifest.crous."""
         import inspect
         from aquilia.aquilary.loader import ManifestLoader
+
         # Check the full class source for manifest.crous file discovery
         source = inspect.getsource(ManifestLoader)
-        assert "manifest.crous" in source or ".crous" in source, \
-            "ManifestLoader should discover manifest.crous files"
+        assert "manifest.crous" in source or ".crous" in source, "ManifestLoader should discover manifest.crous files"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -762,11 +834,13 @@ class TestCrousBackend:
         """At least one Crous backend must be installed."""
         try:
             import _crous_native
+
             return  # native is available
         except ImportError:
             pass
         try:
             import crous
+
             return  # pure Python is available
         except ImportError:
             pytest.fail("Neither _crous_native nor crous is installed")
@@ -784,13 +858,7 @@ class TestCrousBackend:
             import _crous_native as backend
         except ImportError:
             import crous as backend
-        data = {
-            "level1": {
-                "level2": {
-                    "level3": [{"value": i} for i in range(10)]
-                }
-            }
-        }
+        data = {"level1": {"level2": {"level3": [{"value": i} for i in range(10)]}}}
         assert backend.decode(backend.encode(data)) == data
 
     def test_encode_decode_types(self):
@@ -834,10 +902,7 @@ class TestCrousBackend:
         except ImportError:
             import crous as backend
         data = {
-            "routes": [
-                {"path": f"/api/resource/{i}", "method": "GET", "handler": f"handler_{i}"}
-                for i in range(500)
-            ]
+            "routes": [{"path": f"/api/resource/{i}", "method": "GET", "handler": f"handler_{i}"} for i in range(500)]
         }
         encoded = backend.encode(data)
         decoded = backend.decode(encoded)
@@ -857,6 +922,7 @@ class TestServeCommand:
         """serve_production should accept gunicorn params."""
         import inspect
         from aquilia.cli.commands.serve import serve_production
+
         sig = inspect.signature(serve_production)
         params = list(sig.parameters.keys())
         assert "use_gunicorn" in params
@@ -874,6 +940,7 @@ class TestServeCommand:
         """
         import inspect
         from aquilia.cli.commands.serve import serve_production
+
         sig = inspect.signature(serve_production)
         assert sig.parameters["use_gunicorn"].default is False
         assert sig.parameters["timeout"].default == 120
@@ -884,16 +951,19 @@ class TestServeCommand:
 
     def test_serve_gunicorn_function_exists(self):
         from aquilia.cli.commands.serve import _serve_with_gunicorn
+
         assert callable(_serve_with_gunicorn)
 
     def test_serve_uvicorn_function_exists(self):
         from aquilia.cli.commands.serve import _serve_with_uvicorn
+
         assert callable(_serve_with_uvicorn)
 
     def test_serve_cli_has_gunicorn_options(self):
         """CLI 'serve' command should have --use-gunicorn flag."""
         from click.testing import CliRunner
         from aquilia.cli.__main__ import cli
+
         runner = CliRunner()
         result = runner.invoke(cli, ["serve", "--help"], catch_exceptions=False)
         assert "--use-gunicorn" in result.output
@@ -908,11 +978,13 @@ class TestServeDocstring:
     def test_serve_docstring_mentions_gunicorn(self):
         import inspect
         from aquilia.cli.commands.serve import serve_production
+
         doc = inspect.getdoc(serve_production)
         assert "gunicorn" in doc.lower()
 
     def test_serve_module_docstring_mentions_backends(self):
         from aquilia.cli.commands import serve
+
         doc = serve.__doc__
         assert "gunicorn" in doc.lower()
         assert "uvicorn" in doc.lower()
@@ -953,12 +1025,14 @@ class TestRuntimeConfigResolution:
     def test_load_workspace_runtime_config_empty_on_missing(self, tmp_path):
         """Returns empty dict when workspace.py does not exist."""
         from aquilia.cli.commands.run import _load_workspace_runtime_config
+
         assert _load_workspace_runtime_config(tmp_path) == {}
 
     def test_run_dev_server_signature_uses_none_defaults(self):
         """run_dev_server accepts None for host/port/reload (resolved from config)."""
         import inspect
         from aquilia.cli.commands.run import run_dev_server
+
         sig = inspect.signature(run_dev_server)
         assert sig.parameters["host"].default is None
         assert sig.parameters["port"].default is None
@@ -968,6 +1042,7 @@ class TestRuntimeConfigResolution:
         """AquiliaServer.run() accepts None for host/port/reload."""
         import inspect
         from aquilia.server import AquiliaServer
+
         sig = inspect.signature(AquiliaServer.run)
         assert sig.parameters["host"].default is None
         assert sig.parameters["port"].default is None
@@ -986,59 +1061,61 @@ class TestDeploymentGenerator:
         """Production Dockerfile should not create .aquilia/ directory."""
         import inspect
         from aquilia.cli.generators.deployment import DockerfileGenerator
+
         source = inspect.getsource(DockerfileGenerator.generate_dockerfile)
-        assert ".aquilia" not in source, \
-            "Production Dockerfile still references .aquilia directory"
+        assert ".aquilia" not in source, "Production Dockerfile still references .aquilia directory"
 
     def test_dockerfile_uses_uvicorn(self):
         """Production Dockerfile CMD should use uvicorn."""
         import inspect
         from aquilia.cli.generators.deployment import DockerfileGenerator
+
         source = inspect.getsource(DockerfileGenerator.generate_dockerfile)
-        assert "uvicorn" in source, \
-            "Production Dockerfile should use uvicorn in CMD"
+        assert "uvicorn" in source, "Production Dockerfile should use uvicorn in CMD"
 
     def test_dockerignore_no_aquilia_dir(self):
         """Dockerignore should not reference .aquilia/."""
         import inspect
         from aquilia.cli.generators.deployment import DockerfileGenerator
+
         source = inspect.getsource(DockerfileGenerator.generate_dockerignore)
-        assert ".aquilia/" not in source, \
-            ".dockerignore still references .aquilia/"
+        assert ".aquilia/" not in source, ".dockerignore still references .aquilia/"
 
     def test_compose_no_trace_volume(self):
         """Compose generator should not have app-trace volume."""
         import inspect
         from aquilia.cli.generators.deployment import ComposeGenerator
+
         source = inspect.getsource(ComposeGenerator.generate_compose)
-        assert "app-trace" not in source, \
-            "Docker Compose still has app-trace volume"
+        assert "app-trace" not in source, "Docker Compose still has app-trace volume"
 
     def test_kubernetes_no_trace_volume(self):
         """K8s deployment should not have trace volume mounts."""
         import inspect
         from aquilia.cli.generators.deployment import KubernetesGenerator
+
         source = inspect.getsource(KubernetesGenerator.generate_deployment)
-        assert "trace" not in source.lower() or "torch" in source.lower() or \
-            source.lower().count("trace") == 0, \
+        assert "trace" not in source.lower() or "torch" in source.lower() or source.lower().count("trace") == 0, (
             "K8s deployment still has trace volume mount"
+        )
 
     def test_makefile_uses_build_command(self):
         """Makefile compile target should use 'aq build' not 'aq compile'."""
         import inspect
         from aquilia.cli.generators.deployment import MakefileGenerator
+
         source = inspect.getsource(MakefileGenerator.generate_makefile)
-        assert "aq build" in source or "aquilia.cli build" in source or \
-            "build --mode" in source, \
+        assert "aq build" in source or "aquilia.cli build" in source or "build --mode" in source, (
             "Makefile compile target should use build command"
+        )
 
     def test_makefile_clean_no_aquilia(self):
         """Makefile clean target should not reference .aquilia/."""
         import inspect
         from aquilia.cli.generators.deployment import MakefileGenerator
+
         source = inspect.getsource(MakefileGenerator.generate_makefile)
-        assert ".aquilia/" not in source, \
-            "Makefile clean target still references .aquilia/"
+        assert ".aquilia/" not in source, "Makefile clean target still references .aquilia/"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1053,29 +1130,27 @@ class TestAnalyticsCrous:
         """DiscoveryAnalytics cache_dir should be build/.cache, not .aquilia/discovery."""
         import inspect
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
+
         source = inspect.getsource(DiscoveryAnalytics.__init__)
-        assert ".aquilia" not in source, \
-            "Analytics init still references .aquilia directory"
-        assert "build" in source, \
-            "Analytics init should use build/.cache directory"
+        assert ".aquilia" not in source, "Analytics init still references .aquilia directory"
+        assert "build" in source, "Analytics init should use build/.cache directory"
 
     def test_analytics_cache_writes_crous(self):
         """_cache_analysis should write Crous binary format."""
         import inspect
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
+
         source = inspect.getsource(DiscoveryAnalytics._cache_analysis)
-        assert "crous" in source.lower(), \
-            "_cache_analysis should write Crous format"
+        assert "crous" in source.lower(), "_cache_analysis should write Crous format"
 
     def test_analytics_cache_reads_crous(self):
         """get_cached_analysis should read Crous binary format."""
         import inspect
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
+
         source = inspect.getsource(DiscoveryAnalytics.get_cached_analysis)
-        assert "crous" in source.lower(), \
-            "get_cached_analysis should read Crous format"
-        assert "json" in source.lower(), \
-            "get_cached_analysis should have JSON fallback"
+        assert "crous" in source.lower(), "get_cached_analysis should read Crous format"
+        assert "json" in source.lower(), "get_cached_analysis should have JSON fallback"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1089,6 +1164,7 @@ class TestCLICommands:
     def test_build_command_registered(self):
         from click.testing import CliRunner
         from aquilia.cli.__main__ import cli
+
         runner = CliRunner()
         result = runner.invoke(cli, ["build", "--help"], catch_exceptions=False)
         assert result.exit_code == 0
@@ -1097,6 +1173,7 @@ class TestCLICommands:
     def test_serve_command_registered(self):
         from click.testing import CliRunner
         from aquilia.cli.__main__ import cli
+
         runner = CliRunner()
         result = runner.invoke(cli, ["serve", "--help"], catch_exceptions=False)
         assert result.exit_code == 0
@@ -1105,24 +1182,24 @@ class TestCLICommands:
         """'aq trace' should not exist."""
         from click.testing import CliRunner
         from aquilia.cli.__main__ import cli
+
         runner = CliRunner()
         result = runner.invoke(cli, ["trace", "--help"])
         # Should fail because trace command doesn't exist
-        assert result.exit_code != 0 or "No such command" in result.output or \
-            "Error" in result.output
+        assert result.exit_code != 0 or "No such command" in result.output or "Error" in result.output
 
     def test_main_help_no_trace(self):
         """'aq --help' should not mention trace."""
         from click.testing import CliRunner
         from aquilia.cli.__main__ import cli
+
         runner = CliRunner()
         result = runner.invoke(cli, ["--help"], catch_exceptions=False)
         lines = result.output.lower().split("\n")
         # Filter out any line that's just the "subsystems" header
         command_lines = [l for l in lines if "trace" in l and "subsystem" not in l]
         # 'trace' as a standalone command shouldn't appear
-        assert not any("  trace " in l for l in lines), \
-            "'trace' command still appears in aq --help"
+        assert not any("  trace " in l for l in lines), "'trace' command still appears in aq --help"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1172,6 +1249,7 @@ class TestArtifactCore:
 
     def test_artifact_integrity_compute(self):
         from aquilia.artifacts.core import ArtifactIntegrity
+
         data = b"hello world"
         integrity = ArtifactIntegrity.compute(data)
         assert integrity.algorithm == "sha256"
@@ -1179,6 +1257,7 @@ class TestArtifactCore:
 
     def test_artifact_integrity_verify(self):
         from aquilia.artifacts.core import ArtifactIntegrity
+
         data = b"hello world"
         integrity = ArtifactIntegrity.compute(data)
         assert integrity.verify(data) is True
@@ -1186,6 +1265,7 @@ class TestArtifactCore:
 
     def test_artifact_integrity_roundtrip(self):
         from aquilia.artifacts.core import ArtifactIntegrity
+
         original = ArtifactIntegrity(algorithm="sha256", digest="abc123")
         d = original.to_dict()
         restored = ArtifactIntegrity.from_dict(d)
@@ -1194,6 +1274,7 @@ class TestArtifactCore:
 
     def test_artifact_provenance_auto(self):
         from aquilia.artifacts.core import ArtifactProvenance
+
         prov = ArtifactProvenance.auto("/some/path")
         assert prov.created_at != ""
         assert prov.created_by != ""
@@ -1202,6 +1283,7 @@ class TestArtifactCore:
 
     def test_artifact_envelope_roundtrip(self):
         from aquilia.artifacts.core import ArtifactEnvelope, ArtifactIntegrity
+
         env = ArtifactEnvelope(
             kind="config",
             name="test",
@@ -1219,19 +1301,25 @@ class TestArtifactCore:
 
     def test_artifact_kind_enum(self):
         from aquilia.artifacts.core import ArtifactKind
+
         assert ArtifactKind.CONFIG.value == "config"
         assert ArtifactKind.BUNDLE.value == "bundle"
         assert ArtifactKind.ROUTE.value == "route"
 
     def test_artifact_properties(self):
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
-        art = Artifact(ArtifactEnvelope(
-            kind="module", name="auth", version="2.0.0",
-            integrity=ArtifactIntegrity(digest="xyz"),
-            payload={"handlers": 5},
-            tags={"team": "backend"},
-            metadata={"description": "Auth module"},
-        ))
+
+        art = Artifact(
+            ArtifactEnvelope(
+                kind="module",
+                name="auth",
+                version="2.0.0",
+                integrity=ArtifactIntegrity(digest="xyz"),
+                payload={"handlers": 5},
+                tags={"team": "backend"},
+                metadata={"description": "Auth module"},
+            )
+        )
         assert art.name == "auth"
         assert art.version == "2.0.0"
         assert art.kind == "module"
@@ -1253,22 +1341,30 @@ class TestFullImportChain:
 
     def test_import_aquilia_root(self):
         import aquilia
+
         assert hasattr(aquilia, "__version__")
         assert aquilia.__version__ == "1.0.1"
 
     def test_import_server(self):
         from aquilia.server import AquiliaServer
+
         assert AquiliaServer is not None
 
     def test_import_build_system(self):
         from aquilia.build import (
-            AquiliaBuildPipeline, BuildResult, BuildConfig,
-            StaticChecker, CrousBundler, BuildResolver,
+            AquiliaBuildPipeline,
+            BuildResult,
+            BuildConfig,
+            StaticChecker,
+            CrousBundler,
+            BuildResolver,
         )
 
     def test_import_artifact_system(self):
         from aquilia.artifacts.store import (
-            FilesystemArtifactStore, MemoryArtifactStore, ArtifactStore,
+            FilesystemArtifactStore,
+            MemoryArtifactStore,
+            ArtifactStore,
         )
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
 
@@ -1293,10 +1389,10 @@ class TestFullImportChain:
         # Clear any cached trace module
         keys_before = set(sys.modules.keys())
         import aquilia  # noqa: F811
+
         keys_after = set(sys.modules.keys())
         trace_modules = [k for k in keys_after if "aquilia.trace" in k]
-        assert len(trace_modules) == 0, \
-            f"Trace modules found in sys.modules: {trace_modules}"
+        assert len(trace_modules) == 0, f"Trace modules found in sys.modules: {trace_modules}"
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -1315,17 +1411,20 @@ class TestHasProductionBuild:
     def test_returns_false_when_build_dir_missing(self, tmp_path):
         """No build/ directory at all → False."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         assert _has_production_build(tmp_path) is False
 
     def test_returns_false_when_build_dir_empty(self, tmp_path):
         """Empty build/ directory → False."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         (tmp_path / "build").mkdir()
         assert _has_production_build(tmp_path) is False
 
     def test_returns_false_with_only_manifest(self, tmp_path):
         """Only manifest.json present (no bundle.crous) → False."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").write_text("{}")
@@ -1334,6 +1433,7 @@ class TestHasProductionBuild:
     def test_returns_false_with_only_bundle(self, tmp_path):
         """Only bundle.crous present (no manifest.json) → False."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "bundle.crous").write_bytes(b"\x00CROUS\x00")
@@ -1342,6 +1442,7 @@ class TestHasProductionBuild:
     def test_returns_true_with_both_artifacts(self, tmp_path):
         """Both manifest.json and bundle.crous present → True."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").write_text('{"__format__": "aquilia-build-manifest"}')
@@ -1351,6 +1452,7 @@ class TestHasProductionBuild:
     def test_ignores_extra_files_in_build_dir(self, tmp_path):
         """Extra files in build/ don't affect the check."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").write_text("{}")
@@ -1363,6 +1465,7 @@ class TestHasProductionBuild:
         """manifest.json as a directory (not file) → False (exists() is True
         for dirs, but this shouldn't matter because both need to exist)."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").mkdir()  # directory, not file
@@ -1374,6 +1477,7 @@ class TestHasProductionBuild:
     def test_empty_files_still_count_as_existing(self, tmp_path):
         """Zero-byte files still pass the existence check."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").write_text("")
@@ -1383,6 +1487,7 @@ class TestHasProductionBuild:
     def test_nested_build_dir_not_detected(self, tmp_path):
         """build/ inside a subdirectory is NOT detected."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         nested = tmp_path / "sub" / "build"
         nested.mkdir(parents=True)
         (nested / "manifest.json").write_text("{}")
@@ -1393,6 +1498,7 @@ class TestHasProductionBuild:
     def test_symlinked_build_artifacts(self, tmp_path):
         """Symlinks to build artifacts are considered valid."""
         from aquilia.cli.commands.deploy_gen import _has_production_build
+
         real_dir = tmp_path / "real_build"
         real_dir.mkdir()
         (real_dir / "manifest.json").write_text("{}")
@@ -1416,16 +1522,19 @@ class TestIsBuildStale:
     def test_stale_when_no_manifest(self, tmp_path):
         """No manifest.json at all → always stale."""
         from aquilia.cli.commands.deploy_gen import _is_build_stale
+
         assert _is_build_stale(tmp_path) is True
 
     def test_stale_when_manifest_dir_missing(self, tmp_path):
         """No build/ directory → stale."""
         from aquilia.cli.commands.deploy_gen import _is_build_stale
+
         assert _is_build_stale(tmp_path) is True
 
     def test_fresh_when_no_source_files(self, tmp_path):
         """Manifest exists but no source files → fresh (nothing to compare)."""
         from aquilia.cli.commands.deploy_gen import _is_build_stale
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").write_text("{}")
@@ -1610,6 +1719,7 @@ class TestEnsureProductionBuild:
     def test_skip_flag_bypasses_all_checks(self):
         """skip_build_check=True → always returns True, even for /nonexistent."""
         from aquilia.cli.commands.deploy_gen import _ensure_production_build
+
         result = _ensure_production_build(
             Path("/absolutely/nonexistent/path"),
             interactive=False,
@@ -1620,13 +1730,16 @@ class TestEnsureProductionBuild:
     def test_fresh_build_returns_true_immediately(self, tmp_path):
         """Fresh build (both artifacts, nothing stale) → True without prompts."""
         from aquilia.cli.commands.deploy_gen import _ensure_production_build
+
         build_dir = tmp_path / "build"
         build_dir.mkdir()
         (build_dir / "manifest.json").write_text("{}")
         (build_dir / "bundle.crous").write_bytes(b"CROUS")
 
         result = _ensure_production_build(
-            tmp_path, interactive=False, skip_build_check=False,
+            tmp_path,
+            interactive=False,
+            skip_build_check=False,
         )
         assert result is True
 
@@ -1638,7 +1751,9 @@ class TestEnsureProductionBuild:
             with patch("aquilia.cli.commands.deploy_gen.panel"):
                 with patch("aquilia.cli.commands.deploy_gen.info"):
                     result = _ensure_production_build(
-                        tmp_path, interactive=False, skip_build_check=False,
+                        tmp_path,
+                        interactive=False,
+                        skip_build_check=False,
                     )
         assert result is True
         mock_build.assert_called_once_with(tmp_path)
@@ -1652,7 +1767,9 @@ class TestEnsureProductionBuild:
                 with patch("aquilia.cli.commands.deploy_gen.info"):
                     with patch("aquilia.cli.commands.deploy_gen.error"):
                         result = _ensure_production_build(
-                            tmp_path, interactive=False, skip_build_check=False,
+                            tmp_path,
+                            interactive=False,
+                            skip_build_check=False,
                         )
         assert result is False
         mock_build.assert_called_once()
@@ -1666,7 +1783,9 @@ class TestEnsureProductionBuild:
                 with patch("aquilia.cli.commands.deploy_gen.error"):
                     with patch("aquilia.cli.commands.deploy_gen.info"):
                         result = _ensure_production_build(
-                            tmp_path, interactive=True, skip_build_check=False,
+                            tmp_path,
+                            interactive=True,
+                            skip_build_check=False,
                         )
         assert result is False
 
@@ -1678,7 +1797,9 @@ class TestEnsureProductionBuild:
             with patch("aquilia.cli.commands.deploy_gen._auto_build", return_value=True):
                 with patch("aquilia.cli.commands.deploy_gen.panel"):
                     result = _ensure_production_build(
-                        tmp_path, interactive=True, skip_build_check=False,
+                        tmp_path,
+                        interactive=True,
+                        skip_build_check=False,
                     )
         assert result is True
 
@@ -1691,7 +1812,9 @@ class TestEnsureProductionBuild:
                 with patch("aquilia.cli.commands.deploy_gen.panel"):
                     with patch("aquilia.cli.commands.deploy_gen.error"):
                         result = _ensure_production_build(
-                            tmp_path, interactive=True, skip_build_check=False,
+                            tmp_path,
+                            interactive=True,
+                            skip_build_check=False,
                         )
         assert result is False
 
@@ -1713,7 +1836,9 @@ class TestEnsureProductionBuild:
             with patch("aquilia.cli.commands.deploy_gen.panel"):
                 with patch("aquilia.cli.commands.deploy_gen.warning"):
                     result = _ensure_production_build(
-                        tmp_path, interactive=True, skip_build_check=False,
+                        tmp_path,
+                        interactive=True,
+                        skip_build_check=False,
                     )
         # Stale build but user declined → continues with warning
         assert result is True
@@ -1734,7 +1859,9 @@ class TestEnsureProductionBuild:
             with patch("aquilia.cli.commands.deploy_gen.panel"):
                 with patch("aquilia.cli.commands.deploy_gen.info"):
                     result = _ensure_production_build(
-                        tmp_path, interactive=False, skip_build_check=False,
+                        tmp_path,
+                        interactive=False,
+                        skip_build_check=False,
                     )
         assert result is True
         mock_build.assert_called_once_with(tmp_path)
@@ -1755,7 +1882,9 @@ class TestEnsureProductionBuild:
             with patch("aquilia.cli.commands.deploy_gen._auto_build", return_value=True):
                 with patch("aquilia.cli.commands.deploy_gen.panel"):
                     result = _ensure_production_build(
-                        tmp_path, interactive=True, skip_build_check=False,
+                        tmp_path,
+                        interactive=True,
+                        skip_build_check=False,
                     )
         assert result is True
 
@@ -2065,9 +2194,15 @@ class TestBuildManifest:
                 {"name": "orders", "controllers": ["OrderController"], "services": []},
             ],
             "features": {
-                "db": True, "cache": True, "sessions": True,
-                "websockets": False, "mlops": False, "mail": True,
-                "auth": True, "templates": False, "static": True,
+                "db": True,
+                "cache": True,
+                "sessions": True,
+                "websockets": False,
+                "mlops": False,
+                "mail": True,
+                "auth": True,
+                "templates": False,
+                "static": True,
             },
             "dependency_graph": {"orders": ["products"]},
             "artifacts": [{"type": "bundle", "path": "bundle.crous", "size": 1024}],
@@ -2236,15 +2371,21 @@ class TestBuildManifest:
         assert m0.to_deploy_context(tmp_path)["workers"] == 2
 
         # 4 modules → workers = max(2, 2 + 4//4) = 3
-        m4 = BuildManifest(workspace_name="b", modules=[{"name": f"m{i}", "controllers": [], "services": []} for i in range(4)])
+        m4 = BuildManifest(
+            workspace_name="b", modules=[{"name": f"m{i}", "controllers": [], "services": []} for i in range(4)]
+        )
         assert m4.to_deploy_context(tmp_path)["workers"] == 3
 
         # 24 modules → workers = min(8, max(2, 2 + 24//4)) = min(8, 8) = 8
-        m24 = BuildManifest(workspace_name="c", modules=[{"name": f"m{i}", "controllers": [], "services": []} for i in range(24)])
+        m24 = BuildManifest(
+            workspace_name="c", modules=[{"name": f"m{i}", "controllers": [], "services": []} for i in range(24)]
+        )
         assert m24.to_deploy_context(tmp_path)["workers"] == 8
 
         # 100 modules → capped at 8
-        m100 = BuildManifest(workspace_name="d", modules=[{"name": f"m{i}", "controllers": [], "services": []} for i in range(100)])
+        m100 = BuildManifest(
+            workspace_name="d", modules=[{"name": f"m{i}", "controllers": [], "services": []} for i in range(100)]
+        )
         assert m100.to_deploy_context(tmp_path)["workers"] == 8
 
     def test_to_deploy_context_all_feature_flags(self, tmp_path):
@@ -2252,11 +2393,22 @@ class TestBuildManifest:
         from aquilia.build.pipeline import BuildManifest
 
         features = {
-            "db": True, "cache": True, "sessions": True,
-            "websockets": True, "mlops": True, "mail": True,
-            "auth": True, "templates": True, "static": True,
-            "migrations": True, "effects": True, "faults": True,
-            "cors": True, "csrf": True, "tracing": True, "metrics": True,
+            "db": True,
+            "cache": True,
+            "sessions": True,
+            "websockets": True,
+            "mlops": True,
+            "mail": True,
+            "auth": True,
+            "templates": True,
+            "static": True,
+            "migrations": True,
+            "effects": True,
+            "faults": True,
+            "cors": True,
+            "csrf": True,
+            "tracing": True,
+            "metrics": True,
         }
         m = BuildManifest(workspace_name="full", features=features)
         ctx = m.to_deploy_context(tmp_path)
@@ -2383,16 +2535,19 @@ class TestDeployGroupCLI:
         """deploy_gen_group is a Click group."""
         import click
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         assert isinstance(deploy_gen_group, click.Group)
 
     def test_deploy_group_invokes_without_command(self):
         """Group has invoke_without_command=True."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         assert deploy_gen_group.invoke_without_command is True
 
     def test_deploy_group_has_required_options(self):
         """Group exposes --force, --dry-run, --yes, --skip-build-check."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         param_names = [p.name for p in deploy_gen_group.params]
         assert "force" in param_names
         assert "dry_run" in param_names
@@ -2402,6 +2557,7 @@ class TestDeployGroupCLI:
     def test_all_nine_subcommands_registered(self):
         """All 9 subcommands are registered on the deploy group."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         expected = {"dockerfile", "compose", "kubernetes", "nginx", "ci", "monitoring", "env", "all", "makefile"}
         actual = set(deploy_gen_group.commands.keys())
         assert expected.issubset(actual), f"Missing: {expected - actual}"
@@ -2410,12 +2566,14 @@ class TestDeployGroupCLI:
         """Each registered subcommand is a click.Command instance."""
         import click
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         for name, cmd in deploy_gen_group.commands.items():
             assert isinstance(cmd, click.Command), f"{name} is not a click.Command"
 
     def test_dockerfile_subcommand_has_dev_and_mlops_flags(self):
         """aq deploy dockerfile has --dev and --mlops flags."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         cmd = deploy_gen_group.commands["dockerfile"]
         param_names = [p.name for p in cmd.params]
         assert "dev_mode" in param_names
@@ -2424,6 +2582,7 @@ class TestDeployGroupCLI:
     def test_compose_subcommand_has_monitoring_flag(self):
         """aq deploy compose has --monitoring flag."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         cmd = deploy_gen_group.commands["compose"]
         param_names = [p.name for p in cmd.params]
         assert "monitoring" in param_names
@@ -2431,6 +2590,7 @@ class TestDeployGroupCLI:
     def test_kubernetes_subcommand_has_mlops_flag(self):
         """aq deploy kubernetes has --mlops flag."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         cmd = deploy_gen_group.commands["kubernetes"]
         param_names = [p.name for p in cmd.params]
         assert "mlops" in param_names
@@ -2439,6 +2599,7 @@ class TestDeployGroupCLI:
         """aq deploy ci has --provider with github/gitlab choices."""
         import click
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         cmd = deploy_gen_group.commands["ci"]
         provider_param = None
         for p in cmd.params:
@@ -2452,6 +2613,7 @@ class TestDeployGroupCLI:
     def test_all_subcommand_has_ci_provider_and_monitoring(self):
         """aq deploy all has --ci-provider and --monitoring."""
         from aquilia.cli.commands.deploy_gen import deploy_gen_group
+
         cmd = deploy_gen_group.commands["all"]
         param_names = [p.name for p in cmd.params]
         assert "ci_provider" in param_names
@@ -2565,18 +2727,50 @@ class TestDeployContextIntegration:
 
         # Required keys that generators depend on
         required_keys = [
-            "name", "version", "python_version", "port", "host", "workers",
-            "modules", "module_count", "controller_count", "service_count",
-            "has_db", "db_driver", "has_cache", "cache_backend",
-            "has_sessions", "session_store", "has_websockets", "has_mlops",
-            "has_mail", "has_auth", "has_templates", "has_static",
-            "has_migrations", "has_openapi", "has_effects", "has_faults",
-            "cors_enabled", "csrf_protection", "helmet_enabled", "rate_limiting",
-            "tracing_enabled", "metrics_enabled", "logging_enabled",
-            "has_pyproject", "dependencies", "has_requirements_txt",
-            "has_dockerfile", "has_compose", "has_k8s",
-            "build_fingerprint", "build_mode", "build_timestamp",
-            "generated_at", "_from_build_manifest",
+            "name",
+            "version",
+            "python_version",
+            "port",
+            "host",
+            "workers",
+            "modules",
+            "module_count",
+            "controller_count",
+            "service_count",
+            "has_db",
+            "db_driver",
+            "has_cache",
+            "cache_backend",
+            "has_sessions",
+            "session_store",
+            "has_websockets",
+            "has_mlops",
+            "has_mail",
+            "has_auth",
+            "has_templates",
+            "has_static",
+            "has_migrations",
+            "has_openapi",
+            "has_effects",
+            "has_faults",
+            "cors_enabled",
+            "csrf_protection",
+            "helmet_enabled",
+            "rate_limiting",
+            "tracing_enabled",
+            "metrics_enabled",
+            "logging_enabled",
+            "has_pyproject",
+            "dependencies",
+            "has_requirements_txt",
+            "has_dockerfile",
+            "has_compose",
+            "has_k8s",
+            "build_fingerprint",
+            "build_mode",
+            "build_timestamp",
+            "generated_at",
+            "_from_build_manifest",
         ]
         for key in required_keys:
             assert key in ctx, f"Missing required key: {key}"
@@ -2596,6 +2790,7 @@ class TestBuildPhaseEnum:
     def test_phases_are_strings(self):
         """BuildPhase values are strings (str, Enum)."""
         from aquilia.build.pipeline import BuildPhase
+
         for phase in BuildPhase:
             assert isinstance(phase, str)
             assert isinstance(phase.value, str)
@@ -2603,6 +2798,7 @@ class TestBuildPhaseEnum:
     def test_phase_ordering(self):
         """Phases can be compared as strings."""
         from aquilia.build.pipeline import BuildPhase
+
         assert BuildPhase.DISCOVERY.value == "discovery"
         assert BuildPhase.DONE.value == "done"
 
@@ -2621,25 +2817,35 @@ class TestBuildGateImportsAndAPI:
             _get_ctx,
             _write_file,
         )
-        for fn in [_has_production_build, _is_build_stale, _auto_build,
-                    _ensure_production_build, _subcommand_build_gate,
-                    _get_ctx, _write_file]:
+
+        for fn in [
+            _has_production_build,
+            _is_build_stale,
+            _auto_build,
+            _ensure_production_build,
+            _subcommand_build_gate,
+            _get_ctx,
+            _write_file,
+        ]:
             assert callable(fn)
 
     def test_build_manifest_importable_from_build_package(self):
         """BuildManifest is in the aquilia.build public API."""
         from aquilia.build import BuildManifest
+
         assert hasattr(BuildManifest, "load")
         assert hasattr(BuildManifest, "to_deploy_context")
 
     def test_build_pipeline_importable(self):
         """AquiliaBuildPipeline is in the aquilia.build public API."""
         from aquilia.build import AquiliaBuildPipeline
+
         assert hasattr(AquiliaBuildPipeline, "build")
 
     def test_deploy_gen_module_docstring(self):
         """deploy_gen module has a docstring describing build-first."""
         import aquilia.cli.commands.deploy_gen as mod
+
         assert mod.__doc__ is not None
         assert "build" in mod.__doc__.lower()
         assert "deploy" in mod.__doc__.lower()
@@ -2647,11 +2853,13 @@ class TestBuildGateImportsAndAPI:
     def test_deploy_options_decorator_exists(self):
         """deploy_options decorator is defined and callable."""
         from aquilia.cli.commands.deploy_gen import deploy_options
+
         assert callable(deploy_options)
 
     def test_has_command_utility(self):
         """_has_command checks PATH for CLI tools."""
         from aquilia.cli.commands.deploy_gen import _has_command
+
         # 'python' should exist in any test environment
         assert _has_command("python3") is True or _has_command("python") is True
         # Non-existent command
@@ -2664,6 +2872,7 @@ class TestExecutionHelpers:
     def test_has_command_returns_bool(self):
         """_has_command always returns a boolean."""
         from aquilia.cli.commands.deploy_gen import _has_command
+
         result = _has_command("ls")
         assert isinstance(result, bool)
 
@@ -2757,6 +2966,7 @@ class TestExecutionHelpers:
     def test_exec_compose_audit_no_compose(self, tmp_path):
         """_exec_compose_audit without compose file → returns False."""
         from aquilia.cli.commands.deploy_gen import _exec_compose_audit
+
         result = _exec_compose_audit(tmp_path, dry_run=False)
         assert result is False
 
@@ -2771,5 +2981,6 @@ class TestExecutionHelpers:
     def test_k8s_cluster_reachable_returns_bool(self):
         """_k8s_cluster_reachable always returns a boolean."""
         from aquilia.cli.commands.deploy_gen import _k8s_cluster_reachable
+
         result = _k8s_cluster_reachable()
         assert isinstance(result, bool)

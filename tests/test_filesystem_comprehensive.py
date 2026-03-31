@@ -115,6 +115,7 @@ from aquilia.filesystem import (
 # Fixtures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture()
 def sandbox(tmp_path):
     """Sandbox directory that all file operations are confined to."""
@@ -132,6 +133,7 @@ def pool():
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. FileSystemConfig
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFileSystemConfig:
     """Comprehensive tests for the frozen dataclass config."""
@@ -215,6 +217,7 @@ class TestFileSystemConfig:
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. AsyncFile — Full handle coverage
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAsyncFileTextMode:
     """Text-mode AsyncFile operations."""
@@ -462,6 +465,7 @@ class TestAsyncFileEdgeCases:
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. AsyncPath
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAsyncPathSyncProperties:
     """Synchronous (no-I/O) AsyncPath properties and arithmetic."""
@@ -732,6 +736,7 @@ class TestAsyncPathAsyncIO:
 # 4. File Operations (module-level convenience functions)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestReadFile:
     """read_file — text and binary modes."""
 
@@ -897,9 +902,7 @@ class TestDeleteFile:
 
     @pytest.mark.asyncio
     async def test_delete_nonexistent_missing_ok(self, sandbox):
-        result = await delete_file(
-            str(sandbox / "nope.txt"), missing_ok=True, sandbox=str(sandbox)
-        )
+        result = await delete_file(str(sandbox / "nope.txt"), missing_ok=True, sandbox=str(sandbox))
         assert result is False
 
     @pytest.mark.asyncio
@@ -960,6 +963,7 @@ class TestFileExistsAndStat:
 # ═══════════════════════════════════════════════════════════════════════════
 # 5. Streaming
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestStreamRead:
     """stream_read — chunked file streaming."""
@@ -1061,6 +1065,7 @@ class TestAsyncWriteStream:
 # ═══════════════════════════════════════════════════════════════════════════
 # 6. Directory Operations
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestListDir:
     @pytest.mark.asyncio
@@ -1187,6 +1192,7 @@ class TestWalk:
 # 7. Temporary Files
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestAsyncTempfile:
     @pytest.mark.asyncio
     async def test_tempfile_create_and_cleanup(self, sandbox):
@@ -1242,6 +1248,7 @@ class TestAsyncTempdir:
 # ═══════════════════════════════════════════════════════════════════════════
 # 8. File Locking
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestAsyncFileLock:
     @pytest.mark.asyncio
@@ -1304,6 +1311,7 @@ class TestAsyncFileLock:
 # ═══════════════════════════════════════════════════════════════════════════
 # 9. Security — validate_path / sanitize_filename
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestValidatePath:
     """Path validation security tests."""
@@ -1411,6 +1419,7 @@ class TestSanitizeFilename:
 # 10. Error Hierarchy
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestErrorHierarchy:
     """All filesystem fault types."""
 
@@ -1493,9 +1502,14 @@ class TestErrorHierarchy:
 
     def test_all_faults_are_exceptions(self):
         for fault_cls in [
-            FileNotFoundFault, PermissionDeniedFault, FileExistsFault,
-            IsDirectoryFault, NotDirectoryFault, DiskFullFault,
-            PathTraversalFault, FileClosedFault,
+            FileNotFoundFault,
+            PermissionDeniedFault,
+            FileExistsFault,
+            IsDirectoryFault,
+            NotDirectoryFault,
+            DiskFullFault,
+            PathTraversalFault,
+            FileClosedFault,
         ]:
             f = fault_cls(operation="test", path="/test")
             assert isinstance(f, Exception)
@@ -1505,6 +1519,7 @@ class TestErrorHierarchy:
 # ═══════════════════════════════════════════════════════════════════════════
 # 11. Metrics
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFileSystemMetrics:
     def test_default_counters(self):
@@ -1546,6 +1561,7 @@ class TestFileSystemMetrics:
 # ═══════════════════════════════════════════════════════════════════════════
 # 12. FileSystem Service
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFileSystemService:
     """DI-injectable FileSystem service lifecycle and operations."""
@@ -1607,6 +1623,7 @@ class TestFileSystemService:
 # 13. Edge Cases & Stress Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     """Edge cases that break naive implementations."""
 
@@ -1647,10 +1664,7 @@ class TestEdgeCases:
     async def test_concurrent_reads(self, sandbox):
         p = sandbox / "concurrent.txt"
         await write_file(str(p), "shared data", sandbox=str(sandbox))
-        results = await asyncio.gather(*[
-            read_file(str(p), encoding="utf-8", sandbox=str(sandbox))
-            for _ in range(20)
-        ])
+        results = await asyncio.gather(*[read_file(str(p), encoding="utf-8", sandbox=str(sandbox)) for _ in range(20)])
         assert all(r == "shared data" for r in results)
 
     @pytest.mark.asyncio
@@ -1728,8 +1742,11 @@ class TestDirEntry:
 
     def test_direntry_frozen(self):
         de = DirEntry(
-            name="test", path="/test",
-            is_file_cached=True, is_dir_cached=False, is_symlink_cached=False,
+            name="test",
+            path="/test",
+            is_file_cached=True,
+            is_dir_cached=False,
+            is_symlink_cached=False,
         )
         with pytest.raises(AttributeError):
             de.name = "changed"  # type: ignore
@@ -1738,6 +1755,7 @@ class TestDirEntry:
 # ═══════════════════════════════════════════════════════════════════════════
 # 14. FileStat
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestFileStat:
     def test_filstat_fields(self):
@@ -1761,9 +1779,16 @@ class TestFileStat:
     def test_time_properties(self):
         ns = 1_700_000_000_000_000_000
         st = FileStat(
-            size=0, mode=0, uid=0, gid=0,
-            atime_ns=ns, mtime_ns=ns, ctime_ns=ns,
-            is_file=True, is_dir=False, is_symlink=False,
+            size=0,
+            mode=0,
+            uid=0,
+            gid=0,
+            atime_ns=ns,
+            mtime_ns=ns,
+            ctime_ns=ns,
+            is_file=True,
+            is_dir=False,
+            is_symlink=False,
         )
         assert st.atime == ns / 1_000_000_000
         assert st.mtime == ns / 1_000_000_000
@@ -1771,9 +1796,16 @@ class TestFileStat:
 
     def test_frozen(self):
         st = FileStat(
-            size=0, mode=0, uid=0, gid=0,
-            atime_ns=0, mtime_ns=0, ctime_ns=0,
-            is_file=True, is_dir=False, is_symlink=False,
+            size=0,
+            mode=0,
+            uid=0,
+            gid=0,
+            atime_ns=0,
+            mtime_ns=0,
+            ctime_ns=0,
+            is_file=True,
+            is_dir=False,
+            is_symlink=False,
         )
         with pytest.raises(AttributeError):
             st.size = 999  # type: ignore

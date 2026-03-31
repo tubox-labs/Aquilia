@@ -905,7 +905,7 @@ class WorkspaceGenerator:
             class StarterController(Controller):
                 """Default welcome page controller.
 
-                Renders the built-in Aquilia welcome page using MongoDB Atlas
+                Renders the built-in Aquilia welcome page using Atlas
                 colors with dark/light mode support.
 
                 Remove this controller once you've added your own modules.

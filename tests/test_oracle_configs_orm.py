@@ -114,12 +114,14 @@ class TestDatabaseConfigBase:
 
     def test_from_url_sqlite(self):
         from aquilia.db.configs import DatabaseConfig, SqliteConfig
+
         config = DatabaseConfig.from_url("sqlite:///test.db")
         assert isinstance(config, SqliteConfig)
         assert config.path == "test.db"
 
     def test_from_url_postgresql(self):
         from aquilia.db.configs import DatabaseConfig, PostgresConfig
+
         config = DatabaseConfig.from_url("postgresql://user:pass@host:5432/db")
         assert isinstance(config, PostgresConfig)
         assert config.host == "host"
@@ -130,11 +132,13 @@ class TestDatabaseConfigBase:
 
     def test_from_url_postgres_alias(self):
         from aquilia.db.configs import DatabaseConfig, PostgresConfig
+
         config = DatabaseConfig.from_url("postgres://u:p@h/d")
         assert isinstance(config, PostgresConfig)
 
     def test_from_url_mysql(self):
         from aquilia.db.configs import DatabaseConfig, MysqlConfig
+
         config = DatabaseConfig.from_url("mysql://user:pass@host:3306/db")
         assert isinstance(config, MysqlConfig)
         assert config.host == "host"
@@ -143,6 +147,7 @@ class TestDatabaseConfigBase:
 
     def test_from_url_oracle(self):
         from aquilia.db.configs import DatabaseConfig, OracleConfig
+
         config = DatabaseConfig.from_url("oracle://user:pass@host:1521/ORCL")
         assert isinstance(config, OracleConfig)
         assert config.host == "host"
@@ -152,17 +157,20 @@ class TestDatabaseConfigBase:
     def test_from_url_unsupported_scheme(self):
         from aquilia.db.configs import DatabaseConfig
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="Unsupported database URL"):
             DatabaseConfig.from_url("mongodb://host/db")
 
     def test_base_to_url_raises(self):
         from aquilia.db.configs import DatabaseConfig
+
         config = DatabaseConfig()
         with pytest.raises(NotImplementedError):
             config.to_url()
 
     def test_base_repr(self):
         from aquilia.db.configs import DatabaseConfig
+
         config = DatabaseConfig()
         assert "DatabaseConfig" in repr(config)
 
@@ -172,6 +180,7 @@ class TestSqliteConfig:
 
     def test_defaults(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig()
         assert config.engine == "sqlite"
         assert config.path == "db.sqlite3"
@@ -181,31 +190,37 @@ class TestSqliteConfig:
 
     def test_to_url_file(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="data/app.db")
         assert config.to_url() == "sqlite:///data/app.db"
 
     def test_to_url_memory(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path=":memory:")
         assert config.to_url() == "sqlite:///:memory:"
 
     def test_from_url_file(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig.from_url("sqlite:///myapp.db")
         assert config.path == "myapp.db"
 
     def test_from_url_memory(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig.from_url("sqlite:///:memory:")
         assert config.path == ":memory:"
 
     def test_from_url_empty_path(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig.from_url("sqlite://")
         assert config.path == ":memory:"
 
     def test_to_dict(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="test.db")
         d = config.to_dict()
         assert d["engine"] == "sqlite"
@@ -216,22 +231,26 @@ class TestSqliteConfig:
 
     def test_repr(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="test.db")
         assert "test.db" in repr(config)
 
     def test_custom_pool_size(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(pool_size=10)
         assert config.pool_size == 10
 
     def test_auto_migrate_flag(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(auto_migrate=True)
         d = config.to_dict()
         assert d["auto_migrate"] is True
 
     def test_from_url_with_overrides(self):
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig.from_url("sqlite:///db.sqlite3", auto_migrate=True)
         assert config.auto_migrate is True
 
@@ -241,6 +260,7 @@ class TestPostgresConfig:
 
     def test_defaults(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig()
         assert config.engine == "postgresql"
         assert config.host == "localhost"
@@ -250,6 +270,7 @@ class TestPostgresConfig:
 
     def test_to_url_basic(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
             host="localhost",
             port=5432,
@@ -266,6 +287,7 @@ class TestPostgresConfig:
 
     def test_to_url_special_chars_in_password(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
             host="localhost",
             name="db",
@@ -278,6 +300,7 @@ class TestPostgresConfig:
 
     def test_to_url_no_auth(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(host="localhost", name="db")
         url = config.to_url()
         assert "postgresql://localhost" in url
@@ -285,9 +308,8 @@ class TestPostgresConfig:
 
     def test_from_url(self):
         from aquilia.db.configs import PostgresConfig
-        config = PostgresConfig.from_url(
-            "postgresql://admin:pass@db.example.com:5433/prod_db"
-        )
+
+        config = PostgresConfig.from_url("postgresql://admin:pass@db.example.com:5433/prod_db")
         assert config.host == "db.example.com"
         assert config.port == 5433
         assert config.name == "prod_db"
@@ -296,6 +318,7 @@ class TestPostgresConfig:
 
     def test_from_url_defaults(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig.from_url("postgresql://localhost/testdb")
         assert config.host == "localhost"
         assert config.port == 5432
@@ -303,9 +326,8 @@ class TestPostgresConfig:
 
     def test_to_dict(self):
         from aquilia.db.configs import PostgresConfig
-        config = PostgresConfig(
-            host="localhost", name="mydb", user="admin", password="secret"
-        )
+
+        config = PostgresConfig(host="localhost", name="mydb", user="admin", password="secret")
         d = config.to_dict()
         assert d["engine"] == "postgresql"
         assert "postgresql://" in d["url"]
@@ -313,18 +335,21 @@ class TestPostgresConfig:
 
     def test_get_engine_options_ssl(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(sslmode="require")
         opts = config.get_engine_options()
         assert opts["ssl"] == "require"
 
     def test_get_engine_options_no_ssl(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(sslmode="prefer")
         opts = config.get_engine_options()
         assert "ssl" not in opts
 
     def test_get_engine_options_pool(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(pool_min_size=5, pool_max_size=50)
         opts = config.get_engine_options()
         assert opts["pool_min_size"] == 5
@@ -332,6 +357,7 @@ class TestPostgresConfig:
 
     def test_repr(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(host="db.example.com", name="prod")
         r = repr(config)
         assert "db.example.com" in r
@@ -339,6 +365,7 @@ class TestPostgresConfig:
 
     def test_conn_resilience_options(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
             connect_retries=5,
             connect_retry_delay=1.0,
@@ -357,6 +384,7 @@ class TestMysqlConfig:
 
     def test_defaults(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig()
         assert config.engine == "mysql"
         assert config.host == "localhost"
@@ -366,6 +394,7 @@ class TestMysqlConfig:
 
     def test_to_url(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig(
             host="mysql.example.com",
             port=3307,
@@ -381,6 +410,7 @@ class TestMysqlConfig:
 
     def test_from_url(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig.from_url("mysql://user:pass@host:3306/mydb")
         assert config.host == "host"
         assert config.port == 3306
@@ -390,11 +420,13 @@ class TestMysqlConfig:
 
     def test_from_url_default_port(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig.from_url("mysql://user:pass@host/db")
         assert config.port == 3306
 
     def test_to_dict(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig(host="localhost", name="db", user="root")
         d = config.to_dict()
         assert d["engine"] == "mysql"
@@ -402,17 +434,20 @@ class TestMysqlConfig:
 
     def test_get_engine_options(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig(charset="latin1")
         opts = config.get_engine_options()
         assert opts["charset"] == "latin1"
 
     def test_repr(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig(host="db.host", name="mydb", user="root")
         assert "db.host" in repr(config)
 
     def test_options_dict(self):
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig(options={"ssl": True})
         d = config.to_dict()
         assert d["options"] == {"ssl": True}
@@ -423,6 +458,7 @@ class TestOracleConfig:
 
     def test_defaults(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig()
         assert config.engine == "oracle"
         assert config.host == "localhost"
@@ -433,6 +469,7 @@ class TestOracleConfig:
 
     def test_to_url(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(
             host="oracle.example.com",
             port=1521,
@@ -448,6 +485,7 @@ class TestOracleConfig:
 
     def test_to_url_sid(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(
             host="localhost",
             service_name="",
@@ -460,6 +498,7 @@ class TestOracleConfig:
 
     def test_from_url(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig.from_url("oracle://scott:tiger@host:1521/SERVICE")
         assert config.host == "host"
         assert config.port == 1521
@@ -469,6 +508,7 @@ class TestOracleConfig:
 
     def test_from_url_defaults(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig.from_url("oracle://localhost/ORCL")
         assert config.host == "localhost"
         assert config.port == 1521
@@ -476,6 +516,7 @@ class TestOracleConfig:
 
     def test_get_dsn(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(
             host="oracle.example.com",
             port=1521,
@@ -486,6 +527,7 @@ class TestOracleConfig:
 
     def test_to_dict(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(
             host="oracle.example.com",
             service_name="PROD",
@@ -498,6 +540,7 @@ class TestOracleConfig:
 
     def test_get_engine_options(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(pool_min_size=3, pool_max_size=30)
         opts = config.get_engine_options()
         assert opts["pool_min_size"] == 3
@@ -505,6 +548,7 @@ class TestOracleConfig:
 
     def test_repr(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(host="oracle.host", service_name="SVC")
         r = repr(config)
         assert "oracle.host" in r
@@ -512,9 +556,8 @@ class TestOracleConfig:
 
     def test_from_url_with_overrides(self):
         from aquilia.db.configs import OracleConfig
-        config = OracleConfig.from_url(
-            "oracle://u:p@host/SVC", pool_size=20, auto_migrate=True
-        )
+
+        config = OracleConfig.from_url("oracle://u:p@host/SVC", pool_size=20, auto_migrate=True)
         assert config.pool_size == 20
         assert config.auto_migrate is True
 
@@ -524,6 +567,7 @@ class TestConfigCrossCompatibility:
 
     def test_sqlite_roundtrip(self):
         from aquilia.db.configs import SqliteConfig
+
         config1 = SqliteConfig(path="test.db")
         url = config1.to_url()
         config2 = SqliteConfig.from_url(url)
@@ -531,9 +575,8 @@ class TestConfigCrossCompatibility:
 
     def test_postgres_roundtrip(self):
         from aquilia.db.configs import PostgresConfig
-        config1 = PostgresConfig(
-            host="localhost", port=5432, name="db", user="admin", password="pass"
-        )
+
+        config1 = PostgresConfig(host="localhost", port=5432, name="db", user="admin", password="pass")
         url = config1.to_url()
         config2 = PostgresConfig.from_url(url)
         assert config2.host == "localhost"
@@ -542,9 +585,8 @@ class TestConfigCrossCompatibility:
 
     def test_mysql_roundtrip(self):
         from aquilia.db.configs import MysqlConfig
-        config1 = MysqlConfig(
-            host="localhost", port=3306, name="db", user="root", password="pass"
-        )
+
+        config1 = MysqlConfig(host="localhost", port=3306, name="db", user="root", password="pass")
         url = config1.to_url()
         config2 = MysqlConfig.from_url(url)
         assert config2.host == "localhost"
@@ -553,9 +595,8 @@ class TestConfigCrossCompatibility:
 
     def test_oracle_roundtrip(self):
         from aquilia.db.configs import OracleConfig
-        config1 = OracleConfig(
-            host="host", port=1521, service_name="SVC", user="u", password="p"
-        )
+
+        config1 = OracleConfig(host="host", port=1521, service_name="SVC", user="u", password="p")
         url = config1.to_url()
         config2 = OracleConfig.from_url(url)
         assert config2.host == "host"
@@ -563,6 +604,7 @@ class TestConfigCrossCompatibility:
 
     def test_all_configs_have_enabled_in_dict(self):
         from aquilia.db.configs import SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
+
         for cls in [SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig]:
             config = cls()
             d = config.to_dict()
@@ -572,6 +614,7 @@ class TestConfigCrossCompatibility:
 
     def test_all_configs_produce_valid_url_scheme(self):
         from aquilia.db.configs import SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
+
         assert SqliteConfig().to_url().startswith("sqlite:")
         assert PostgresConfig().to_url().startswith("postgresql:")
         assert MysqlConfig().to_url().startswith("mysql:")
@@ -588,6 +631,7 @@ class TestOracleAdapterCapabilities:
 
     def test_capabilities(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         caps = adapter.capabilities
         assert caps.name == "oracle"
@@ -603,17 +647,20 @@ class TestOracleAdapterCapabilities:
 
     def test_dialect_property(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         assert adapter.dialect == "oracle"
 
     def test_is_connected_default(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         assert adapter.is_connected is False
 
     def test_not_connected_raises(self):
         from aquilia.db.backends.oracle import OracleAdapter
         from aquilia.faults.domains import DatabaseConnectionFault
+
         adapter = OracleAdapter()
         with pytest.raises(DatabaseConnectionFault):
             asyncio.run(adapter.execute("SELECT 1"))
@@ -624,24 +671,27 @@ class TestOracleAdaptSQL:
 
     def test_basic_placeholder(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
-        assert adapter.adapt_sql("SELECT * FROM t WHERE id = ?") == \
-            "SELECT * FROM t WHERE id = :1"
+        assert adapter.adapt_sql("SELECT * FROM t WHERE id = ?") == "SELECT * FROM t WHERE id = :1"
 
     def test_multiple_placeholders(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         result = adapter.adapt_sql("INSERT INTO t (a, b, c) VALUES (?, ?, ?)")
         assert result == "INSERT INTO t (a, b, c) VALUES (:1, :2, :3)"
 
     def test_no_placeholders(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         sql = "SELECT * FROM t"
         assert adapter.adapt_sql(sql) == sql
 
     def test_string_literal_safe(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         sql = "SELECT * FROM t WHERE name = '?' AND id = ?"
         result = adapter.adapt_sql(sql)
@@ -649,6 +699,7 @@ class TestOracleAdaptSQL:
 
     def test_escaped_quote(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         sql = "SELECT * FROM t WHERE name = 'it''s' AND id = ?"
         result = adapter.adapt_sql(sql)
@@ -656,6 +707,7 @@ class TestOracleAdaptSQL:
 
     def test_empty_sql(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         assert adapter.adapt_sql("") == ""
 
@@ -665,6 +717,7 @@ class TestOracleURLParsing:
 
     def test_full_url(self):
         from aquilia.db.backends.oracle import _parse_oracle_url
+
         result = _parse_oracle_url("oracle://scott:tiger@db.example.com:1521/ORCL")
         assert result["user"] == "scott"
         assert result["password"] == "tiger"
@@ -672,16 +725,19 @@ class TestOracleURLParsing:
 
     def test_default_port(self):
         from aquilia.db.backends.oracle import _parse_oracle_url
+
         result = _parse_oracle_url("oracle://scott:tiger@db.example.com/ORCL")
         assert result["dsn"] == "db.example.com:1521/ORCL"
 
     def test_default_service(self):
         from aquilia.db.backends.oracle import _parse_oracle_url
+
         result = _parse_oracle_url("oracle://scott:tiger@localhost")
         assert "ORCL" in result["dsn"]
 
     def test_no_auth(self):
         from aquilia.db.backends.oracle import _parse_oracle_url
+
         result = _parse_oracle_url("oracle://localhost:1521/XE")
         assert "user" not in result
         assert "password" not in result
@@ -689,6 +745,7 @@ class TestOracleURLParsing:
 
     def test_thin_scheme(self):
         from aquilia.db.backends.oracle import _parse_oracle_url
+
         result = _parse_oracle_url("oracle+thin://scott:tiger@host:1521/SVC")
         assert result["user"] == "scott"
 
@@ -698,9 +755,11 @@ class TestOracleAdapterImportGuard:
 
     def test_import_error_on_connect(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         # oracledb is likely not installed in test env
         import aquilia.db.backends.oracle as oracle_mod
+
         original = oracle_mod._HAS_ORACLEDB
         oracle_mod._HAS_ORACLEDB = False
         try:
@@ -712,12 +771,14 @@ class TestOracleAdapterImportGuard:
     def test_savepoint_validation(self):
         from aquilia.db.backends.oracle import OracleAdapter
         from aquilia.faults.domains import QueryFault, DatabaseConnectionFault
+
         adapter = OracleAdapter()
         with pytest.raises((QueryFault, DatabaseConnectionFault)):
             asyncio.run(adapter.savepoint("invalid name!"))
 
     def test_release_savepoint_no_op(self):
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
         # Oracle doesn't support RELEASE SAVEPOINT — should be a no-op
         asyncio.run(adapter.release_savepoint("valid_name"))
@@ -734,30 +795,35 @@ class TestCreateAdapterFactory:
     def test_sqlite(self):
         from aquilia.db.engine import _create_adapter
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = _create_adapter("sqlite")
         assert isinstance(adapter, SQLiteAdapter)
 
     def test_postgresql(self):
         from aquilia.db.engine import _create_adapter
         from aquilia.db.backends.postgres import PostgresAdapter
+
         adapter = _create_adapter("postgresql")
         assert isinstance(adapter, PostgresAdapter)
 
     def test_mysql(self):
         from aquilia.db.engine import _create_adapter
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = _create_adapter("mysql")
         assert isinstance(adapter, MySQLAdapter)
 
     def test_oracle(self):
         from aquilia.db.engine import _create_adapter
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = _create_adapter("oracle")
         assert isinstance(adapter, OracleAdapter)
 
     def test_unsupported_driver(self):
         from aquilia.db.engine import _create_adapter
         from aquilia.faults.domains import DatabaseConnectionFault
+
         with pytest.raises(DatabaseConnectionFault):
             _create_adapter("mssql")
 
@@ -767,31 +833,38 @@ class TestDetectDriver:
 
     def test_sqlite_url(self):
         from aquilia.db.engine import AquiliaDatabase
+
         assert AquiliaDatabase._detect_driver("sqlite:///db.sqlite3") == "sqlite"
 
     def test_sqlite_memory(self):
         from aquilia.db.engine import AquiliaDatabase
+
         assert AquiliaDatabase._detect_driver("sqlite:///:memory:") == "sqlite"
 
     def test_postgresql_url(self):
         from aquilia.db.engine import AquiliaDatabase
+
         assert AquiliaDatabase._detect_driver("postgresql://u:p@h/d") == "postgresql"
 
     def test_postgres_alias_url(self):
         from aquilia.db.engine import AquiliaDatabase
+
         assert AquiliaDatabase._detect_driver("postgres://u:p@h/d") == "postgresql"
 
     def test_mysql_url(self):
         from aquilia.db.engine import AquiliaDatabase
+
         assert AquiliaDatabase._detect_driver("mysql://u:p@h/d") == "mysql"
 
     def test_oracle_url(self):
         from aquilia.db.engine import AquiliaDatabase
+
         assert AquiliaDatabase._detect_driver("oracle://u:p@h/d") == "oracle"
 
     def test_unsupported_url(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.faults.domains import DatabaseConnectionFault
+
         with pytest.raises(DatabaseConnectionFault):
             AquiliaDatabase._detect_driver("mssql://host/db")
 
@@ -802,6 +875,7 @@ class TestAquiliaDatabaseWithConfig:
     def test_init_with_sqlite_config(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="test.db")
         db = AquiliaDatabase(config=config)
         assert db.url == "sqlite:///test.db"
@@ -811,9 +885,13 @@ class TestAquiliaDatabaseWithConfig:
     def test_init_with_postgres_config(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
-            host="localhost", port=5432, name="mydb",
-            user="admin", password="secret",
+            host="localhost",
+            port=5432,
+            name="mydb",
+            user="admin",
+            password="secret",
         )
         db = AquiliaDatabase(config=config)
         assert db.driver == "postgresql"
@@ -823,9 +901,13 @@ class TestAquiliaDatabaseWithConfig:
     def test_init_with_mysql_config(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.db.configs import MysqlConfig
+
         config = MysqlConfig(
-            host="localhost", port=3306, name="mydb",
-            user="root", password="pass",
+            host="localhost",
+            port=3306,
+            name="mydb",
+            user="root",
+            password="pass",
         )
         db = AquiliaDatabase(config=config)
         assert db.driver == "mysql"
@@ -834,6 +916,7 @@ class TestAquiliaDatabaseWithConfig:
     def test_init_with_oracle_config(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(
             host="oracle.example.com",
             service_name="PROD",
@@ -847,12 +930,14 @@ class TestAquiliaDatabaseWithConfig:
 
     def test_init_with_url_backward_compat(self):
         from aquilia.db.engine import AquiliaDatabase
+
         db = AquiliaDatabase("sqlite:///db.sqlite3")
         assert db.url == "sqlite:///db.sqlite3"
         assert db.driver == "sqlite"
 
     def test_init_default(self):
         from aquilia.db.engine import AquiliaDatabase
+
         db = AquiliaDatabase()
         assert db.url == "sqlite:///db.sqlite3"
         assert db.driver == "sqlite"
@@ -860,6 +945,7 @@ class TestAquiliaDatabaseWithConfig:
     def test_config_overrides_url(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="from_config.db")
         db = AquiliaDatabase("sqlite:///from_url.db", config=config)
         # Config takes precedence
@@ -868,9 +954,13 @@ class TestAquiliaDatabaseWithConfig:
     def test_config_engine_options_merged(self):
         from aquilia.db.engine import AquiliaDatabase
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
-            host="localhost", name="db", user="u",
-            connect_retries=5, connect_retry_delay=2.0,
+            host="localhost",
+            name="db",
+            user="u",
+            connect_retries=5,
+            connect_retry_delay=2.0,
         )
         db = AquiliaDatabase(config=config)
         assert db._connect_retries == 5
@@ -883,6 +973,7 @@ class TestConfigureDatabaseWithConfig:
     def test_configure_with_config(self):
         from aquilia.db.engine import configure_database, _database_registry
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path=":memory:")
         db = configure_database(config=config, alias="test_config")
         assert "test_config" in _database_registry
@@ -892,6 +983,7 @@ class TestConfigureDatabaseWithConfig:
 
     def test_configure_with_url_backward_compat(self):
         from aquilia.db.engine import configure_database, _database_registry
+
         db = configure_database("sqlite:///test.db", alias="test_url")
         assert db.url == "sqlite:///test.db"
         # Cleanup
@@ -900,6 +992,7 @@ class TestConfigureDatabaseWithConfig:
     def test_configure_default_alias(self):
         from aquilia.db.engine import configure_database, get_database, _database_registry, _default_database
         import aquilia.db.engine as engine_mod
+
         old_default = engine_mod._default_database
         try:
             db = configure_database("sqlite:///:memory:", alias="default")
@@ -911,6 +1004,7 @@ class TestConfigureDatabaseWithConfig:
     def test_multi_database_aliases(self):
         from aquilia.db.engine import configure_database, get_database, _database_registry
         from aquilia.db.configs import SqliteConfig
+
         try:
             db1 = configure_database(config=SqliteConfig(path="primary.db"), alias="primary")
             db2 = configure_database(config=SqliteConfig(path="cache.db"), alias="cache")
@@ -932,21 +1026,25 @@ class TestAutoFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField()
         assert f.sql_type("postgresql") == "SERIAL"
 
     def test_mysql(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField()
         assert f.sql_type("mysql") == "INTEGER"
 
     def test_oracle(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField()
         assert f.sql_type("oracle") == "NUMBER(10)"
 
@@ -956,21 +1054,25 @@ class TestBigAutoFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import BigAutoField
+
         f = BigAutoField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import BigAutoField
+
         f = BigAutoField()
         assert f.sql_type("postgresql") == "BIGSERIAL"
 
     def test_mysql(self):
         from aquilia.models.fields_module import BigAutoField
+
         f = BigAutoField()
         assert f.sql_type("mysql") == "INTEGER"
 
     def test_oracle(self):
         from aquilia.models.fields_module import BigAutoField
+
         f = BigAutoField()
         assert f.sql_type("oracle") == "NUMBER(19)"
 
@@ -980,16 +1082,19 @@ class TestSmallAutoFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import SmallAutoField
+
         f = SmallAutoField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import SmallAutoField
+
         f = SmallAutoField()
         assert f.sql_type("postgresql") == "SMALLSERIAL"
 
     def test_oracle(self):
         from aquilia.models.fields_module import SmallAutoField
+
         f = SmallAutoField()
         assert f.sql_type("oracle") == "NUMBER(5)"
 
@@ -999,21 +1104,25 @@ class TestTextFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField()
         assert f.sql_type("sqlite") == "TEXT"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField()
         assert f.sql_type("postgresql") == "TEXT"
 
     def test_mysql(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField()
         assert f.sql_type("mysql") == "TEXT"
 
     def test_oracle(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField()
         assert f.sql_type("oracle") == "CLOB"
 
@@ -1023,21 +1132,25 @@ class TestBooleanFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField()
         assert f.sql_type("postgresql") == "BOOLEAN"
 
     def test_mysql(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField()
         assert f.sql_type("mysql") == "INTEGER"
 
     def test_oracle(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField()
         assert f.sql_type("oracle") == "NUMBER(1)"
 
@@ -1047,16 +1160,19 @@ class TestBinaryFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import BinaryField
+
         f = BinaryField()
         assert f.sql_type("sqlite") == "BLOB"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import BinaryField
+
         f = BinaryField()
         assert f.sql_type("postgresql") == "BYTEA"
 
     def test_oracle(self):
         from aquilia.models.fields_module import BinaryField
+
         f = BinaryField()
         assert f.sql_type("oracle") == "BLOB"
 
@@ -1066,16 +1182,19 @@ class TestFloatFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import FloatField
+
         f = FloatField()
         assert f.sql_type("sqlite") == "REAL"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import FloatField
+
         f = FloatField()
         assert f.sql_type("postgresql") == "DOUBLE PRECISION"
 
     def test_oracle(self):
         from aquilia.models.fields_module import FloatField
+
         f = FloatField()
         assert f.sql_type("oracle") == "BINARY_DOUBLE"
 
@@ -1085,21 +1204,25 @@ class TestJSONFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import JSONField
+
         f = JSONField()
         assert f.sql_type("sqlite") == "TEXT"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import JSONField
+
         f = JSONField()
         assert f.sql_type("postgresql") == "JSONB"
 
     def test_mysql(self):
         from aquilia.models.fields_module import JSONField
+
         f = JSONField()
         assert f.sql_type("mysql") == "TEXT"
 
     def test_oracle(self):
         from aquilia.models.fields_module import JSONField
+
         f = JSONField()
         assert f.sql_type("oracle") == "CLOB"
 
@@ -1109,16 +1232,19 @@ class TestDateTimeFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField()
         assert f.sql_type("sqlite") == "TIMESTAMP"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField()
         assert f.sql_type("postgresql") == "TIMESTAMP WITH TIME ZONE"
 
     def test_oracle(self):
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField()
         assert f.sql_type("oracle") == "TIMESTAMP WITH TIME ZONE"
 
@@ -1128,16 +1254,19 @@ class TestDurationFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import DurationField
+
         f = DurationField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import DurationField
+
         f = DurationField()
         assert f.sql_type("postgresql") == "INTERVAL"
 
     def test_oracle(self):
         from aquilia.models.fields_module import DurationField
+
         f = DurationField()
         assert f.sql_type("oracle") == "INTERVAL DAY TO SECOND"
 
@@ -1147,16 +1276,19 @@ class TestUUIDFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import UUIDField
+
         f = UUIDField()
         assert f.sql_type("sqlite") == "VARCHAR(36)"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import UUIDField
+
         f = UUIDField()
         assert f.sql_type("postgresql") == "UUID"
 
     def test_oracle(self):
         from aquilia.models.fields_module import UUIDField
+
         f = UUIDField()
         assert f.sql_type("oracle") == "VARCHAR2(36)"
 
@@ -1166,16 +1298,19 @@ class TestCharFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import CharField
+
         f = CharField(max_length=100)
         assert f.sql_type("sqlite") == "VARCHAR(100)"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import CharField
+
         f = CharField(max_length=100)
         assert f.sql_type("postgresql") == "VARCHAR(100)"
 
     def test_oracle(self):
         from aquilia.models.fields_module import CharField
+
         f = CharField(max_length=100)
         assert f.sql_type("oracle") == "VARCHAR2(100)"
 
@@ -1185,11 +1320,13 @@ class TestDecimalFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import DecimalField
+
         f = DecimalField(max_digits=10, decimal_places=2)
         assert f.sql_type("sqlite") == "DECIMAL(10,2)"
 
     def test_oracle(self):
         from aquilia.models.fields_module import DecimalField
+
         f = DecimalField(max_digits=10, decimal_places=2)
         assert f.sql_type("oracle") == "NUMBER(10,2)"
 
@@ -1199,16 +1336,19 @@ class TestIntegerFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import IntegerField
+
         f = IntegerField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import IntegerField
+
         f = IntegerField()
         assert f.sql_type("postgresql") == "INTEGER"
 
     def test_oracle(self):
         from aquilia.models.fields_module import IntegerField
+
         f = IntegerField()
         assert f.sql_type("oracle") == "NUMBER(10)"
 
@@ -1218,16 +1358,19 @@ class TestBigIntegerFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import BigIntegerField
+
         f = BigIntegerField()
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import BigIntegerField
+
         f = BigIntegerField()
         assert f.sql_type("postgresql") == "BIGINT"
 
     def test_oracle(self):
         from aquilia.models.fields_module import BigIntegerField
+
         f = BigIntegerField()
         assert f.sql_type("oracle") == "NUMBER(19)"
 
@@ -1237,6 +1380,7 @@ class TestSmallIntegerFieldSqlType:
 
     def test_oracle(self):
         from aquilia.models.fields_module import SmallIntegerField
+
         f = SmallIntegerField()
         assert f.sql_type("oracle") == "NUMBER(5)"
 
@@ -1246,6 +1390,7 @@ class TestPositiveIntegerFieldSqlType:
 
     def test_oracle(self):
         from aquilia.models.fields_module import PositiveIntegerField
+
         f = PositiveIntegerField()
         assert f.sql_type("oracle") == "NUMBER(10)"
 
@@ -1255,6 +1400,7 @@ class TestPositiveBigIntegerFieldSqlType:
 
     def test_oracle(self):
         from aquilia.models.fields_module import PositiveBigIntegerField
+
         f = PositiveBigIntegerField()
         assert f.sql_type("oracle") == "NUMBER(19)"
 
@@ -1264,11 +1410,13 @@ class TestForeignKeyFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import ForeignKey
+
         f = ForeignKey("OtherModel")
         assert f.sql_type("sqlite") == "INTEGER"
 
     def test_oracle(self):
         from aquilia.models.fields_module import ForeignKey
+
         f = ForeignKey("OtherModel")
         assert f.sql_type("oracle") == "NUMBER(10)"
 
@@ -1278,16 +1426,19 @@ class TestGenericIPAddressFieldSqlType:
 
     def test_sqlite(self):
         from aquilia.models.fields_module import GenericIPAddressField
+
         f = GenericIPAddressField()
         assert f.sql_type("sqlite") == "VARCHAR(39)"
 
     def test_postgresql(self):
         from aquilia.models.fields_module import GenericIPAddressField
+
         f = GenericIPAddressField()
         assert f.sql_type("postgresql") == "INET"
 
     def test_oracle(self):
         from aquilia.models.fields_module import GenericIPAddressField
+
         f = GenericIPAddressField()
         assert f.sql_type("oracle") == "VARCHAR2(39)"
 
@@ -1297,6 +1448,7 @@ class TestSqlColumnDefAutoincrement:
 
     def test_sqlite_autoincrement(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField(primary_key=True)
         f.name = "id"
         f.attr_name = "id"
@@ -1306,6 +1458,7 @@ class TestSqlColumnDefAutoincrement:
 
     def test_postgresql_serial(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField(primary_key=True)
         f.name = "id"
         f.attr_name = "id"
@@ -1316,6 +1469,7 @@ class TestSqlColumnDefAutoincrement:
 
     def test_mysql_auto_increment(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField(primary_key=True)
         f.name = "id"
         f.attr_name = "id"
@@ -1325,6 +1479,7 @@ class TestSqlColumnDefAutoincrement:
 
     def test_oracle_identity(self):
         from aquilia.models.fields_module import AutoField
+
         f = AutoField(primary_key=True)
         f.name = "id"
         f.attr_name = "id"
@@ -1340,6 +1495,7 @@ class TestSqlDefaultBoolean:
 
     def test_postgresql_true(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "active"
         f.attr_name = "active"
@@ -1347,6 +1503,7 @@ class TestSqlDefaultBoolean:
 
     def test_postgresql_false(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "active"
         f.attr_name = "active"
@@ -1354,6 +1511,7 @@ class TestSqlDefaultBoolean:
 
     def test_sqlite_true(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "active"
         f.attr_name = "active"
@@ -1361,6 +1519,7 @@ class TestSqlDefaultBoolean:
 
     def test_sqlite_false(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "active"
         f.attr_name = "active"
@@ -1378,39 +1537,89 @@ class TestTypeMaps:
     def test_sqlite_type_map_complete(self):
         from aquilia.models.runtime import SQLITE_TYPE_MAP
         from aquilia.models.ast_nodes import FieldType
-        for ft in [FieldType.AUTO, FieldType.INT, FieldType.BIGINT, FieldType.STR,
-                    FieldType.TEXT, FieldType.BOOL, FieldType.FLOAT, FieldType.DECIMAL,
-                    FieldType.JSON, FieldType.BYTES, FieldType.DATETIME, FieldType.DATE,
-                    FieldType.TIME, FieldType.UUID, FieldType.ENUM, FieldType.FOREIGN_KEY]:
+
+        for ft in [
+            FieldType.AUTO,
+            FieldType.INT,
+            FieldType.BIGINT,
+            FieldType.STR,
+            FieldType.TEXT,
+            FieldType.BOOL,
+            FieldType.FLOAT,
+            FieldType.DECIMAL,
+            FieldType.JSON,
+            FieldType.BYTES,
+            FieldType.DATETIME,
+            FieldType.DATE,
+            FieldType.TIME,
+            FieldType.UUID,
+            FieldType.ENUM,
+            FieldType.FOREIGN_KEY,
+        ]:
             assert ft in SQLITE_TYPE_MAP, f"Missing {ft} in SQLITE_TYPE_MAP"
 
     def test_postgres_type_map_complete(self):
         from aquilia.models.runtime import POSTGRES_TYPE_MAP
         from aquilia.models.ast_nodes import FieldType
-        for ft in [FieldType.AUTO, FieldType.INT, FieldType.STR, FieldType.TEXT,
-                    FieldType.BOOL, FieldType.FLOAT, FieldType.JSON, FieldType.BYTES,
-                    FieldType.DATETIME, FieldType.UUID]:
+
+        for ft in [
+            FieldType.AUTO,
+            FieldType.INT,
+            FieldType.STR,
+            FieldType.TEXT,
+            FieldType.BOOL,
+            FieldType.FLOAT,
+            FieldType.JSON,
+            FieldType.BYTES,
+            FieldType.DATETIME,
+            FieldType.UUID,
+        ]:
             assert ft in POSTGRES_TYPE_MAP
 
     def test_mysql_type_map_complete(self):
         from aquilia.models.runtime import MYSQL_TYPE_MAP
         from aquilia.models.ast_nodes import FieldType
-        for ft in [FieldType.AUTO, FieldType.INT, FieldType.STR, FieldType.TEXT,
-                    FieldType.BOOL, FieldType.FLOAT, FieldType.JSON, FieldType.BYTES]:
+
+        for ft in [
+            FieldType.AUTO,
+            FieldType.INT,
+            FieldType.STR,
+            FieldType.TEXT,
+            FieldType.BOOL,
+            FieldType.FLOAT,
+            FieldType.JSON,
+            FieldType.BYTES,
+        ]:
             assert ft in MYSQL_TYPE_MAP
 
     def test_oracle_type_map_complete(self):
         from aquilia.models.runtime import ORACLE_TYPE_MAP
         from aquilia.models.ast_nodes import FieldType
-        for ft in [FieldType.AUTO, FieldType.INT, FieldType.BIGINT, FieldType.STR,
-                    FieldType.TEXT, FieldType.BOOL, FieldType.FLOAT, FieldType.DECIMAL,
-                    FieldType.JSON, FieldType.BYTES, FieldType.DATETIME, FieldType.DATE,
-                    FieldType.TIME, FieldType.UUID, FieldType.ENUM, FieldType.FOREIGN_KEY]:
+
+        for ft in [
+            FieldType.AUTO,
+            FieldType.INT,
+            FieldType.BIGINT,
+            FieldType.STR,
+            FieldType.TEXT,
+            FieldType.BOOL,
+            FieldType.FLOAT,
+            FieldType.DECIMAL,
+            FieldType.JSON,
+            FieldType.BYTES,
+            FieldType.DATETIME,
+            FieldType.DATE,
+            FieldType.TIME,
+            FieldType.UUID,
+            FieldType.ENUM,
+            FieldType.FOREIGN_KEY,
+        ]:
             assert ft in ORACLE_TYPE_MAP, f"Missing {ft} in ORACLE_TYPE_MAP"
 
     def test_oracle_type_map_values(self):
         from aquilia.models.runtime import ORACLE_TYPE_MAP
         from aquilia.models.ast_nodes import FieldType
+
         assert ORACLE_TYPE_MAP[FieldType.AUTO] == "NUMBER(10)"
         assert ORACLE_TYPE_MAP[FieldType.INT] == "NUMBER(10)"
         assert ORACLE_TYPE_MAP[FieldType.BIGINT] == "NUMBER(19)"
@@ -1424,26 +1633,32 @@ class TestTypeMaps:
 
     def test_get_type_map_sqlite(self):
         from aquilia.models.runtime import _get_type_map, SQLITE_TYPE_MAP
+
         assert _get_type_map("sqlite") is SQLITE_TYPE_MAP
 
     def test_get_type_map_postgresql(self):
         from aquilia.models.runtime import _get_type_map, POSTGRES_TYPE_MAP
+
         assert _get_type_map("postgresql") is POSTGRES_TYPE_MAP
 
     def test_get_type_map_mysql(self):
         from aquilia.models.runtime import _get_type_map, MYSQL_TYPE_MAP
+
         assert _get_type_map("mysql") is MYSQL_TYPE_MAP
 
     def test_get_type_map_oracle(self):
         from aquilia.models.runtime import _get_type_map, ORACLE_TYPE_MAP
+
         assert _get_type_map("oracle") is ORACLE_TYPE_MAP
 
     def test_get_type_map_unknown_falls_back_to_sqlite(self):
         from aquilia.models.runtime import _get_type_map, SQLITE_TYPE_MAP
+
         assert _get_type_map("unknown") is SQLITE_TYPE_MAP
 
     def test_type_maps_in_registry(self):
         from aquilia.models.runtime import _TYPE_MAPS
+
         assert "sqlite" in _TYPE_MAPS
         assert "postgresql" in _TYPE_MAPS
         assert "mysql" in _TYPE_MAPS
@@ -1579,9 +1794,12 @@ class TestColumnDefToSqlOracle:
 
     def test_oracle_autoincrement_pk(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="id", col_type="INTEGER",
-            primary_key=True, autoincrement=True,
+            name="id",
+            col_type="INTEGER",
+            primary_key=True,
+            autoincrement=True,
         )
         sql = col.to_sql("oracle")
         assert "GENERATED ALWAYS AS IDENTITY" in sql
@@ -1591,8 +1809,10 @@ class TestColumnDefToSqlOracle:
 
     def test_oracle_regular_column(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="name", col_type="VARCHAR(255)",
+            name="name",
+            col_type="VARCHAR(255)",
             nullable=False,
         )
         sql = col.to_sql("oracle")
@@ -1601,9 +1821,12 @@ class TestColumnDefToSqlOracle:
 
     def test_sqlite_autoincrement_pk(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="id", col_type="INTEGER",
-            primary_key=True, autoincrement=True,
+            name="id",
+            col_type="INTEGER",
+            primary_key=True,
+            autoincrement=True,
         )
         sql = col.to_sql("sqlite")
         assert "AUTOINCREMENT" in sql
@@ -1611,9 +1834,12 @@ class TestColumnDefToSqlOracle:
 
     def test_postgresql_serial_pk(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="id", col_type="INTEGER",
-            primary_key=True, autoincrement=True,
+            name="id",
+            col_type="INTEGER",
+            primary_key=True,
+            autoincrement=True,
         )
         sql = col.to_sql("postgresql")
         assert "SERIAL" in sql
@@ -1622,9 +1848,12 @@ class TestColumnDefToSqlOracle:
 
     def test_mysql_auto_increment_pk(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="id", col_type="INTEGER",
-            primary_key=True, autoincrement=True,
+            name="id",
+            col_type="INTEGER",
+            primary_key=True,
+            autoincrement=True,
         )
         sql = col.to_sql("mysql")
         assert "AUTO_INCREMENT" in sql
@@ -1636,48 +1865,59 @@ class TestResolveTypeOracle:
 
     def test_oracle_autoincrement(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="id", col_type="INTEGER",
-            primary_key=True, autoincrement=True,
+            name="id",
+            col_type="INTEGER",
+            primary_key=True,
+            autoincrement=True,
         )
         resolved = col._resolve_type("oracle")
         assert resolved == "NUMBER(10) GENERATED ALWAYS AS IDENTITY"
 
     def test_oracle_big_autoincrement(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(
-            name="id", col_type="BIGINTEGER",
-            primary_key=True, autoincrement=True,
+            name="id",
+            col_type="BIGINTEGER",
+            primary_key=True,
+            autoincrement=True,
         )
         resolved = col._resolve_type("oracle")
         assert resolved == "NUMBER(19) GENERATED ALWAYS AS IDENTITY"
 
     def test_oracle_blob_stays_blob(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="data", col_type="BLOB")
         resolved = col._resolve_type("oracle")
         assert resolved == "BLOB"
 
     def test_oracle_real_becomes_binary_double(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="val", col_type="REAL")
         resolved = col._resolve_type("oracle")
         assert resolved == "BINARY_DOUBLE"
 
     def test_oracle_text_becomes_clob(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="content", col_type="TEXT")
         resolved = col._resolve_type("oracle")
         assert resolved == "CLOB"
 
     def test_oracle_boolean_becomes_number(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="active", col_type="BOOLEAN")
         resolved = col._resolve_type("oracle")
         assert resolved == "NUMBER(1)"
 
     def test_postgresql_blob_becomes_bytea(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="data", col_type="BLOB")
         resolved = col._resolve_type("postgresql")
         assert resolved == "BYTEA"
@@ -1693,6 +1933,7 @@ class TestMigrationRunnerEnsureTrackingTable:
 
     def test_oracle_tracking_table(self):
         from aquilia.models.migration_runner import MigrationRunner
+
         db = MagicMock()
         db.execute = AsyncMock()
         runner = MigrationRunner(db, dialect="oracle")
@@ -1704,6 +1945,7 @@ class TestMigrationRunnerEnsureTrackingTable:
 
     def test_postgresql_tracking_table(self):
         from aquilia.models.migration_runner import MigrationRunner
+
         db = MagicMock()
         db.execute = AsyncMock()
         runner = MigrationRunner(db, dialect="postgresql")
@@ -1714,6 +1956,7 @@ class TestMigrationRunnerEnsureTrackingTable:
 
     def test_mysql_tracking_table(self):
         from aquilia.models.migration_runner import MigrationRunner
+
         db = MagicMock()
         db.execute = AsyncMock()
         runner = MigrationRunner(db, dialect="mysql")
@@ -1723,6 +1966,7 @@ class TestMigrationRunnerEnsureTrackingTable:
 
     def test_sqlite_tracking_table(self):
         from aquilia.models.migration_runner import MigrationRunner
+
         db = MagicMock()
         db.execute = AsyncMock()
         runner = MigrationRunner(db, dialect="sqlite")
@@ -1736,6 +1980,7 @@ class TestMigrationOpsPkOracle:
 
     def test_pk_oracle(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.pk("id", dialect="oracle")
         assert "NUMBER(10)" in result
         assert "GENERATED ALWAYS AS IDENTITY" in result
@@ -1743,22 +1988,26 @@ class TestMigrationOpsPkOracle:
 
     def test_pk_postgresql(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.pk("id", dialect="postgresql")
         assert "SERIAL" in result
         assert "PRIMARY KEY" in result
 
     def test_pk_mysql(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.pk("id", dialect="mysql")
         assert "AUTO_INCREMENT" in result
 
     def test_pk_sqlite_default(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.pk("id")
         assert "AUTOINCREMENT" in result
 
     def test_bigpk_oracle(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.bigpk("id", dialect="oracle")
         assert "NUMBER(19)" in result
         assert "GENERATED ALWAYS AS IDENTITY" in result
@@ -1766,11 +2015,13 @@ class TestMigrationOpsPkOracle:
 
     def test_bigpk_postgresql(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.bigpk("id", dialect="postgresql")
         assert "BIGSERIAL" in result
 
     def test_bigpk_mysql(self):
         from aquilia.models.migrations import MigrationOps
+
         result = MigrationOps.bigpk("id", dialect="mysql")
         assert "BIGINT" in result
         assert "AUTO_INCREMENT" in result
@@ -1781,6 +2032,7 @@ class TestLegacyMigrationRunnerOracle:
 
     def test_oracle_tracking_table_legacy(self):
         from aquilia.models.migrations import MigrationRunner as LegacyRunner
+
         db = MagicMock()
         db.dialect = "oracle"
         db.execute = AsyncMock()
@@ -1792,6 +2044,7 @@ class TestLegacyMigrationRunnerOracle:
 
     def test_postgresql_tracking_table_legacy(self):
         from aquilia.models.migrations import MigrationRunner as LegacyRunner
+
         db = MagicMock()
         db.dialect = "postgresql"
         db.execute = AsyncMock()
@@ -1802,6 +2055,7 @@ class TestLegacyMigrationRunnerOracle:
 
     def test_mysql_tracking_table_legacy(self):
         from aquilia.models.migrations import MigrationRunner as LegacyRunner
+
         db = MagicMock()
         db.dialect = "mysql"
         db.execute = AsyncMock()
@@ -1816,6 +2070,7 @@ class TestMigrationOpsAlterColumnOracle:
 
     def test_alter_column_oracle_type(self):
         from aquilia.models.migrations import MigrationOps
+
         # Oracle alter_column is not explicitly handled — falls through
         # without generating SQL (no oracle branch in alter_column)
         ops = MigrationOps(dialect="oracle")
@@ -1826,6 +2081,7 @@ class TestMigrationOpsAlterColumnOracle:
 
     def test_alter_column_postgresql(self):
         from aquilia.models.migrations import MigrationOps
+
         ops = MigrationOps(dialect="postgresql")
         ops.alter_column("users", "email", type="VARCHAR(500)")
         stmts = ops._statements
@@ -1833,6 +2089,7 @@ class TestMigrationOpsAlterColumnOracle:
 
     def test_alter_column_sqlite_comment(self):
         from aquilia.models.migrations import MigrationOps
+
         ops = MigrationOps(dialect="sqlite")
         ops.alter_column("users", "email", type="VARCHAR(500)")
         stmts = ops._statements
@@ -1856,12 +2113,14 @@ class TestGenerateM2mSqlOracle:
         class Tag(Model):
             class Meta:
                 table_name = "tag"
+
             id = AutoField(primary_key=True)
             name = CharField(max_length=100)
 
         class Article(Model):
             class Meta:
                 table_name = "article"
+
             id = AutoField(primary_key=True)
             title = CharField(max_length=200)
             tags = ManyToManyField("Tag")
@@ -1881,12 +2140,14 @@ class TestGenerateM2mSqlOracle:
         class TagPg(Model):
             class Meta:
                 table_name = "tag_pg"
+
             id = AutoField(primary_key=True)
             name = CharField(max_length=100)
 
         class ArticlePg(Model):
             class Meta:
                 table_name = "article_pg"
+
             id = AutoField(primary_key=True)
             title = CharField(max_length=200)
             tags = ManyToManyField("TagPg")
@@ -1902,12 +2163,14 @@ class TestGenerateM2mSqlOracle:
         class TagMy(Model):
             class Meta:
                 table_name = "tag_my"
+
             id = AutoField(primary_key=True)
             name = CharField(max_length=100)
 
         class ArticleMy(Model):
             class Meta:
                 table_name = "article_my"
+
             id = AutoField(primary_key=True)
             title = CharField(max_length=200)
             tags = ManyToManyField("TagMy")
@@ -1928,6 +2191,7 @@ class TestIntegrationDatabaseWithConfig:
     def test_with_sqlite_config(self):
         from aquilia.config_builders import Integration
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="app.db")
         result = Integration.database(config=config)
         assert result["enabled"] is True
@@ -1936,8 +2200,12 @@ class TestIntegrationDatabaseWithConfig:
     def test_with_postgres_config(self):
         from aquilia.config_builders import Integration
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
-            host="localhost", name="mydb", user="admin", password="secret",
+            host="localhost",
+            name="mydb",
+            user="admin",
+            password="secret",
         )
         result = Integration.database(config=config)
         assert result["enabled"] is True
@@ -1947,36 +2215,45 @@ class TestIntegrationDatabaseWithConfig:
     def test_with_oracle_config(self):
         from aquilia.config_builders import Integration
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(
-            host="oracle.host", service_name="PROD",
-            user="scott", password="tiger",
+            host="oracle.host",
+            service_name="PROD",
+            user="scott",
+            password="tiger",
         )
         result = Integration.database(config=config)
         assert "oracle://" in result["url"]
 
     def test_with_url_backward_compat(self):
         from aquilia.config_builders import Integration
+
         result = Integration.database(url="sqlite:///legacy.db")
         assert result["url"] == "sqlite:///legacy.db"
         assert result["enabled"] is True
 
     def test_default_no_config_no_url(self):
         from aquilia.config_builders import Integration
+
         result = Integration.database()
         assert result["url"] == "sqlite:///db.sqlite3"
 
     def test_config_with_overrides(self):
         from aquilia.config_builders import Integration
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="base.db")
         result = Integration.database(
-            config=config, auto_migrate=True, pool_size=20,
+            config=config,
+            auto_migrate=True,
+            pool_size=20,
         )
         assert result["auto_migrate"] is True
         assert result["pool_size"] == 20
 
     def test_scan_dirs_preserved(self):
         from aquilia.config_builders import Integration
+
         result = Integration.database(
             url="sqlite:///db.sqlite3",
             scan_dirs=["models", "modules/*/models"],
@@ -1990,8 +2267,12 @@ class TestWorkspaceDatabaseWithConfig:
     def test_workspace_with_config(self):
         from aquilia.config_builders import Workspace
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(
-            host="localhost", name="mydb", user="admin", password="secret",
+            host="localhost",
+            name="mydb",
+            user="admin",
+            password="secret",
         )
         ws = Workspace("test").database(config=config)
         d = ws.to_dict()
@@ -2001,12 +2282,14 @@ class TestWorkspaceDatabaseWithConfig:
 
     def test_workspace_with_url_backward_compat(self):
         from aquilia.config_builders import Workspace
+
         ws = Workspace("test").database(url="sqlite:///test.db")
         d = ws.to_dict()
         assert d["database"]["url"] == "sqlite:///test.db"
 
     def test_workspace_database_in_integrations(self):
         from aquilia.config_builders import Workspace
+
         ws = Workspace("test").database(url="sqlite:///test.db")
         d = ws.to_dict()
         assert "database" in d["integrations"]
@@ -2018,6 +2301,7 @@ class TestModuleDatabaseWithConfig:
     def test_module_with_config(self):
         from aquilia.config_builders import Module
         from aquilia.db.configs import SqliteConfig
+
         config = SqliteConfig(path="module.db")
         mod = Module("users").database(config=config)
         built = mod.build()
@@ -2027,6 +2311,7 @@ class TestModuleDatabaseWithConfig:
 
     def test_module_with_url_backward_compat(self):
         from aquilia.config_builders import Module
+
         mod = Module("users").database(url="sqlite:///users.db")
         built = mod.build()
         assert built.database["url"] == "sqlite:///users.db"
@@ -2042,13 +2327,18 @@ class TestPackageExports:
 
     def test_db_exports_oracle_adapter(self):
         from aquilia.db import OracleAdapter
+
         assert OracleAdapter is not None
 
     def test_db_exports_config_classes(self):
         from aquilia.db import (
-            DatabaseConfig, SqliteConfig, PostgresConfig,
-            MysqlConfig, OracleConfig,
+            DatabaseConfig,
+            SqliteConfig,
+            PostgresConfig,
+            MysqlConfig,
+            OracleConfig,
         )
+
         assert DatabaseConfig is not None
         assert SqliteConfig is not None
         assert PostgresConfig is not None
@@ -2057,10 +2347,12 @@ class TestPackageExports:
 
     def test_backends_exports_oracle(self):
         from aquilia.db.backends import OracleAdapter
+
         assert OracleAdapter is not None
 
     def test_configs_module_all(self):
         from aquilia.db.configs import __all__
+
         assert "DatabaseConfig" in __all__
         assert "SqliteConfig" in __all__
         assert "PostgresConfig" in __all__
@@ -2069,10 +2361,12 @@ class TestPackageExports:
 
     def test_db_all_contains_oracle(self):
         from aquilia.db import __all__ as db_all
+
         assert "OracleAdapter" in db_all
 
     def test_db_all_contains_configs(self):
         from aquilia.db import __all__ as db_all
+
         assert "DatabaseConfig" in db_all
         assert "SqliteConfig" in db_all
         assert "PostgresConfig" in db_all
@@ -2081,21 +2375,25 @@ class TestPackageExports:
 
     def test_config_builders_exports(self):
         from aquilia.config_builders import __all__ as cb_all
+
         assert "Workspace" in cb_all
         assert "Integration" in cb_all
         assert "Module" in cb_all
 
     def test_backends_all_contains_oracle(self):
         from aquilia.db.backends import __all__ as backends_all
+
         assert "OracleAdapter" in backends_all
 
     def test_engine_exports_configure_database(self):
         from aquilia.db.engine import configure_database
+
         assert callable(configure_database)
 
     def test_oracle_adapter_is_database_adapter(self):
         from aquilia.db.backends.oracle import OracleAdapter
         from aquilia.db.backends.base import DatabaseAdapter
+
         adapter = OracleAdapter()
         assert isinstance(adapter, DatabaseAdapter)
 
@@ -2191,34 +2489,40 @@ class TestEdgeCases:
 
     def test_config_with_empty_password(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(host="localhost", name="db", user="admin", password="")
         url = config.to_url()
         assert "admin" in url
 
     def test_config_with_no_user(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(host="localhost", name="db")
         url = config.to_url()
         assert "@" not in url
 
     def test_oracle_config_sid_fallback(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(host="h", service_name="", sid="XE")
         assert config.get_dsn() == "h:1521/XE"
 
     def test_oracle_config_default_service(self):
         from aquilia.db.configs import OracleConfig
+
         config = OracleConfig(host="h", service_name="", sid="")
         assert "ORCL" in config.get_dsn()
 
     def test_config_options_in_dict(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig(options={"statement_timeout": "30s"})
         d = config.to_dict()
         assert d["options"]["statement_timeout"] == "30s"
 
     def test_config_no_options_no_key(self):
         from aquilia.db.configs import PostgresConfig
+
         config = PostgresConfig()
         d = config.to_dict()
         assert "options" not in d
@@ -2226,6 +2530,7 @@ class TestEdgeCases:
     def test_multiple_adapters_independent(self):
         """Each adapter instance is independent."""
         from aquilia.db.backends.oracle import OracleAdapter
+
         a1 = OracleAdapter()
         a2 = OracleAdapter()
         assert a1 is not a2
@@ -2235,12 +2540,9 @@ class TestEdgeCases:
     def test_oracle_adapt_sql_complex(self):
         """Test complex SQL with mixed placeholders and strings."""
         from aquilia.db.backends.oracle import OracleAdapter
+
         adapter = OracleAdapter()
-        sql = (
-            "INSERT INTO users (name, email, bio) "
-            "VALUES (?, ?, 'default ''bio'' text') "
-            "WHERE id = ?"
-        )
+        sql = "INSERT INTO users (name, email, bio) VALUES (?, ?, 'default ''bio'' text') WHERE id = ?"
         result = adapter.adapt_sql(sql)
         assert ":1" in result
         assert ":2" in result
@@ -2249,6 +2551,7 @@ class TestEdgeCases:
 
     def test_detect_driver_edge_cases(self):
         from aquilia.db.engine import AquiliaDatabase
+
         # Various oracle URL formats
         assert AquiliaDatabase._detect_driver("oracle+thin://h/s") == "oracle"
         assert AquiliaDatabase._detect_driver("oracle+thick://h/s") == "oracle"
@@ -2256,12 +2559,14 @@ class TestEdgeCases:
     def test_all_field_types_have_oracle_mapping(self):
         """Ensure every FieldType used in SQLITE_TYPE_MAP also exists in ORACLE_TYPE_MAP."""
         from aquilia.models.runtime import SQLITE_TYPE_MAP, ORACLE_TYPE_MAP
+
         for ft in SQLITE_TYPE_MAP:
             assert ft in ORACLE_TYPE_MAP, f"FieldType {ft} missing from ORACLE_TYPE_MAP"
 
     def test_database_config_from_url_dispatches_correctly(self):
         """Verify factory dispatch for all URL schemes."""
         from aquilia.db.configs import DatabaseConfig, SqliteConfig, PostgresConfig, MysqlConfig, OracleConfig
+
         dispatch_map = {
             "sqlite:///test.db": SqliteConfig,
             "postgresql://h/d": PostgresConfig,
@@ -2271,8 +2576,9 @@ class TestEdgeCases:
         }
         for url, expected_cls in dispatch_map.items():
             config = DatabaseConfig.from_url(url)
-            assert isinstance(config, expected_cls), \
+            assert isinstance(config, expected_cls), (
                 f"URL {url} should produce {expected_cls.__name__}, got {type(config).__name__}"
+            )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -2285,11 +2591,13 @@ class TestBooleanColumnDSL:
 
     def test_boolean_col_type_is_boolean(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("flag")
         assert col.col_type == "BOOLEAN"
 
     def test_boolean_resolves_to_integer_on_sqlite(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("active", default=True)
         sql = col.to_sql("sqlite")
         assert '"active" INTEGER' in sql
@@ -2298,6 +2606,7 @@ class TestBooleanColumnDSL:
 
     def test_boolean_resolves_to_boolean_on_postgresql(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("active", default=True)
         sql = col.to_sql("postgresql")
         assert '"active" BOOLEAN' in sql
@@ -2305,6 +2614,7 @@ class TestBooleanColumnDSL:
 
     def test_boolean_resolves_to_integer_on_mysql(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("active", default=True)
         sql = col.to_sql("mysql")
         assert '"active" INTEGER' in sql
@@ -2313,6 +2623,7 @@ class TestBooleanColumnDSL:
 
     def test_boolean_resolves_to_number1_on_oracle(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("active", default=True)
         sql = col.to_sql("oracle")
         assert '"active" NUMBER(1)' in sql
@@ -2320,30 +2631,35 @@ class TestBooleanColumnDSL:
 
     def test_boolean_false_default_sqlite(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("is_admin", default=False)
         sql = col.to_sql("sqlite")
         assert "DEFAULT 0" in sql
 
     def test_boolean_false_default_postgresql(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("is_admin", default=False)
         sql = col.to_sql("postgresql")
         assert "DEFAULT FALSE" in sql
 
     def test_boolean_false_default_oracle(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("is_admin", default=False)
         sql = col.to_sql("oracle")
         assert "DEFAULT 0" in sql
 
     def test_boolean_nullable(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("flag", null=True)
         sql = col.to_sql("sqlite")
         assert "NOT NULL" not in sql
 
     def test_boolean_not_null_default(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("flag")
         sql = col.to_sql("sqlite")
         assert "NOT NULL" in sql
@@ -2354,6 +2670,7 @@ class TestBooleanFieldSqlColumnDef:
 
     def test_bool_field_def_sqlite(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "is_superuser"
         f.attr_name = "is_superuser"
@@ -2363,6 +2680,7 @@ class TestBooleanFieldSqlColumnDef:
 
     def test_bool_field_def_postgresql(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "is_superuser"
         f.attr_name = "is_superuser"
@@ -2374,6 +2692,7 @@ class TestBooleanFieldSqlColumnDef:
 
     def test_bool_field_def_postgresql_true(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "is_active"
         f.attr_name = "is_active"
@@ -2383,6 +2702,7 @@ class TestBooleanFieldSqlColumnDef:
 
     def test_bool_field_def_oracle(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "is_active"
         f.attr_name = "is_active"
@@ -2393,6 +2713,7 @@ class TestBooleanFieldSqlColumnDef:
 
     def test_bool_field_def_mysql(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "is_staff"
         f.attr_name = "is_staff"
@@ -2407,6 +2728,7 @@ class TestIntegerWithBoolDefaultSafety:
     def test_integer_bool_default_postgresql(self):
         """C.integer('flag', default=True) must NOT produce DEFAULT TRUE on PG."""
         from aquilia.models.migration_dsl import columns as C
+
         col = C.integer("flag", default=True)
         sql = col.to_sql("postgresql")
         # INTEGER column on PostgreSQL cannot have DEFAULT TRUE
@@ -2415,6 +2737,7 @@ class TestIntegerWithBoolDefaultSafety:
 
     def test_integer_bool_false_default_postgresql(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.integer("flag", default=False)
         sql = col.to_sql("postgresql")
         assert "DEFAULT 0" in sql
@@ -2423,6 +2746,7 @@ class TestIntegerWithBoolDefaultSafety:
     def test_integer_int_default_postgresql(self):
         """Regular int defaults on INTEGER columns should work as before."""
         from aquilia.models.migration_dsl import columns as C
+
         col = C.integer("count", default=0)
         sql = col.to_sql("postgresql")
         assert "DEFAULT 0" in sql
@@ -2430,6 +2754,7 @@ class TestIntegerWithBoolDefaultSafety:
     def test_integer_bool_default_sqlite(self):
         """SQLite INTEGER with bool default — always 0/1."""
         from aquilia.models.migration_dsl import columns as C
+
         col = C.integer("flag", default=True)
         sql = col.to_sql("sqlite")
         assert "DEFAULT 1" in sql
@@ -2437,6 +2762,7 @@ class TestIntegerWithBoolDefaultSafety:
     def test_integer_bool_default_oracle(self):
         """Oracle NUMBER(10) with bool default — always 0/1."""
         from aquilia.models.migration_dsl import columns as C
+
         col = C.integer("flag", default=True)
         sql = col.to_sql("oracle")
         assert "DEFAULT 1" in sql
@@ -2448,21 +2774,25 @@ class TestResolveTypeBooleanDialects:
 
     def test_boolean_sqlite(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="flag", col_type="BOOLEAN")
         assert col._resolve_type("sqlite") == "INTEGER"
 
     def test_boolean_postgresql(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="flag", col_type="BOOLEAN")
         assert col._resolve_type("postgresql") == "BOOLEAN"
 
     def test_boolean_mysql(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="flag", col_type="BOOLEAN")
         assert col._resolve_type("mysql") == "INTEGER"
 
     def test_boolean_oracle(self):
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="flag", col_type="BOOLEAN")
         assert col._resolve_type("oracle") == "NUMBER(1)"
 
@@ -2472,47 +2802,58 @@ class TestFormatDefaultDialectAware:
 
     def test_bool_true_on_boolean_col_postgresql(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(True, "postgresql", "BOOLEAN") == "TRUE"
 
     def test_bool_false_on_boolean_col_postgresql(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(False, "postgresql", "BOOLEAN") == "FALSE"
 
     def test_bool_true_on_integer_col_postgresql(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(True, "postgresql", "INTEGER") == "1"
 
     def test_bool_false_on_integer_col_postgresql(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(False, "postgresql", "INTEGER") == "0"
 
     def test_bool_true_on_integer_col_sqlite(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(True, "sqlite", "INTEGER") == "1"
 
     def test_bool_true_on_number1_col_oracle(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(True, "oracle", "NUMBER(1)") == "1"
 
     def test_bool_default_no_col_type_postgresql(self):
         """When col_type not specified, PostgreSQL defaults to TRUE/FALSE."""
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(True, "postgresql") == "TRUE"
 
     def test_int_default_unchanged(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(42, "postgresql", "INTEGER") == "42"
 
     def test_str_default_quoted(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default("hello", "postgresql") == "'hello'"
 
     def test_str_with_quotes_escaped(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default("it's", "sqlite") == "'it''s'"
 
     def test_none_default(self):
         from aquilia.models.migration_dsl import _format_default
+
         assert _format_default(None, "postgresql") == "NULL"
 
 
@@ -2521,21 +2862,25 @@ class TestMigrationOpsFormatDefault:
 
     def test_bool_default_postgresql(self):
         from aquilia.models.migrations import _format_default
+
         assert _format_default(True, "postgresql") == "TRUE"
         assert _format_default(False, "postgresql") == "FALSE"
 
     def test_bool_default_mysql(self):
         from aquilia.models.migrations import _format_default
+
         assert _format_default(True, "mysql") == "1"
         assert _format_default(False, "mysql") == "0"
 
     def test_bool_default_sqlite(self):
         from aquilia.models.migrations import _format_default
+
         assert _format_default(True, "sqlite") == "1"
         assert _format_default(False, "sqlite") == "0"
 
     def test_bool_default_oracle(self):
         from aquilia.models.migrations import _format_default
+
         assert _format_default(True, "oracle") == "1"
         assert _format_default(False, "oracle") == "0"
 
@@ -2546,12 +2891,14 @@ class TestSchemaSnapshotBooleanField:
     def test_boolean_field_maps_to_boolean(self):
         from aquilia.models.schema_snapshot import _field_to_sql_type
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         assert _field_to_sql_type(f) == "BOOLEAN"
 
     def test_integer_field_maps_to_integer(self):
         from aquilia.models.schema_snapshot import _field_to_sql_type
         from aquilia.models.fields_module import IntegerField
+
         f = IntegerField()
         assert _field_to_sql_type(f) == "INTEGER"
 
@@ -2562,6 +2909,7 @@ class TestMigrationGenBooleanField:
     def test_boolean_col_renders_c_boolean(self):
         from aquilia.models.migration_dsl import ColumnDef, _SentinelType
         from aquilia.models.migration_gen import _render_column_def
+
         _SENTINEL = _SentinelType()
         col = ColumnDef(name="is_active", col_type="BOOLEAN", default=True)
         rendered = _render_column_def(col)
@@ -2570,6 +2918,7 @@ class TestMigrationGenBooleanField:
     def test_boolean_col_false_renders_c_boolean(self):
         from aquilia.models.migration_dsl import ColumnDef
         from aquilia.models.migration_gen import _render_column_def
+
         col = ColumnDef(name="is_superuser", col_type="BOOLEAN", default=False)
         rendered = _render_column_def(col)
         assert rendered == 'C.boolean("is_superuser", default=False)'
@@ -2577,6 +2926,7 @@ class TestMigrationGenBooleanField:
     def test_integer_col_still_renders_c_integer(self):
         from aquilia.models.migration_dsl import ColumnDef
         from aquilia.models.migration_gen import _render_column_def
+
         col = ColumnDef(name="action_flag", col_type="INTEGER")
         rendered = _render_column_def(col)
         assert rendered == 'C.integer("action_flag")'
@@ -2584,6 +2934,7 @@ class TestMigrationGenBooleanField:
     def test_boolean_nullable_renders_correctly(self):
         from aquilia.models.migration_dsl import ColumnDef
         from aquilia.models.migration_gen import _render_column_def
+
         col = ColumnDef(name="flag", col_type="BOOLEAN", nullable=True, default=False)
         rendered = _render_column_def(col)
         assert "C.boolean(" in rendered
@@ -2597,6 +2948,7 @@ class TestAdminUserMigrationIntegrity:
     def test_admin_user_is_superuser_postgresql(self):
         """is_superuser must produce BOOLEAN NOT NULL DEFAULT FALSE on PostgreSQL."""
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "is_superuser"
         f.attr_name = "is_superuser"
@@ -2609,6 +2961,7 @@ class TestAdminUserMigrationIntegrity:
     def test_admin_user_is_staff_postgresql(self):
         """is_staff must produce BOOLEAN NOT NULL DEFAULT TRUE on PostgreSQL."""
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "is_staff"
         f.attr_name = "is_staff"
@@ -2618,6 +2971,7 @@ class TestAdminUserMigrationIntegrity:
 
     def test_admin_user_is_active_postgresql(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "is_active"
         f.attr_name = "is_active"
@@ -2628,6 +2982,7 @@ class TestAdminUserMigrationIntegrity:
     def test_admin_user_boolean_fields_sqlite(self):
         """SQLite: BooleanField → INTEGER DEFAULT 0/1."""
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "is_superuser"
         f.attr_name = "is_superuser"
@@ -2638,6 +2993,7 @@ class TestAdminUserMigrationIntegrity:
     def test_admin_user_boolean_fields_oracle(self):
         """Oracle: BooleanField → NUMBER(1) DEFAULT 0/1."""
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "is_staff"
         f.attr_name = "is_staff"
@@ -2648,6 +3004,7 @@ class TestAdminUserMigrationIntegrity:
     def test_migration_dsl_boolean_postgresql_no_type_mismatch(self):
         """The exact error scenario: C.boolean with bool default on PostgreSQL."""
         from aquilia.models.migration_dsl import columns as C
+
         col_superuser = C.boolean("is_superuser", default=False)
         col_staff = C.boolean("is_staff", default=True)
         col_active = C.boolean("is_active", default=True)
@@ -2663,6 +3020,7 @@ class TestAdminUserMigrationIntegrity:
 
     def test_migration_dsl_boolean_sqlite_no_type_mismatch(self):
         from aquilia.models.migration_dsl import columns as C
+
         col = C.boolean("is_superuser", default=False)
         sql = col.to_sql("sqlite")
         assert '"is_superuser" INTEGER NOT NULL DEFAULT 0' == sql
@@ -2679,6 +3037,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_postgresql_true_returns_bool(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         result = f.to_db(True, dialect="postgresql")
@@ -2687,6 +3046,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_postgresql_false_returns_bool(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         result = f.to_db(False, dialect="postgresql")
@@ -2695,6 +3055,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_sqlite_true_returns_int(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         result = f.to_db(True, dialect="sqlite")
@@ -2703,6 +3064,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_sqlite_false_returns_int(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         result = f.to_db(False, dialect="sqlite")
@@ -2711,6 +3073,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_mysql_returns_int(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         assert f.to_db(True, dialect="mysql") == 1
@@ -2719,6 +3082,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_oracle_returns_int(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         assert f.to_db(True, dialect="oracle") == 1
@@ -2727,6 +3091,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_none_returns_none(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(null=True)
         f.name = "flag"
         assert f.to_db(None, dialect="postgresql") is None
@@ -2735,6 +3100,7 @@ class TestBooleanFieldToDbDialectAware:
     def test_to_db_default_dialect_is_sqlite(self):
         """Default dialect should be sqlite (backward compat)."""
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=True)
         f.name = "flag"
         result = f.to_db(True)
@@ -2744,6 +3110,7 @@ class TestBooleanFieldToDbDialectAware:
     def test_to_db_postgresql_truthy_int_returns_bool(self):
         """Even passing int 1 should return bool True for postgresql."""
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         assert f.to_db(1, dialect="postgresql") is True
@@ -2751,6 +3118,7 @@ class TestBooleanFieldToDbDialectAware:
 
     def test_to_db_sqlite_truthy_int_returns_int(self):
         from aquilia.models.fields_module import BooleanField
+
         f = BooleanField(default=False)
         f.name = "flag"
         assert f.to_db(1, dialect="sqlite") == 1
@@ -2762,6 +3130,7 @@ class TestFieldToDbDialectSignature:
 
     def test_base_field_accepts_dialect(self):
         from aquilia.models.fields_module import CharField
+
         f = CharField(max_length=100)
         f.name = "name"
         assert f.to_db("hello", dialect="postgresql") == "hello"
@@ -2769,20 +3138,24 @@ class TestFieldToDbDialectSignature:
 
     def test_integer_field_accepts_dialect(self):
         from aquilia.models.fields_module import IntegerField
+
         f = IntegerField()
         f.name = "count"
         assert f.to_db(42, dialect="postgresql") == 42
 
     def test_decimal_field_accepts_dialect(self):
         from aquilia.models.fields_module import DecimalField
+
         f = DecimalField(max_digits=10, decimal_places=2)
         f.name = "price"
         import decimal
+
         assert f.to_db(decimal.Decimal("9.99"), dialect="postgresql") == "9.99"
 
     def test_uuid_field_accepts_dialect(self):
         from aquilia.models.fields_module import UUIDField
         import uuid
+
         f = UUIDField()
         f.name = "uid"
         u = uuid.uuid4()
@@ -2790,6 +3163,7 @@ class TestFieldToDbDialectSignature:
 
     def test_json_field_accepts_dialect(self):
         from aquilia.models.fields_module import JSONField
+
         f = JSONField()
         f.name = "data"
         assert f.to_db({"a": 1}, dialect="postgresql") == '{"a": 1}'
@@ -2797,6 +3171,7 @@ class TestFieldToDbDialectSignature:
     def test_date_field_accepts_dialect(self):
         from aquilia.models.fields_module import DateField
         import datetime
+
         f = DateField()
         f.name = "dt"
         d = datetime.date(2025, 1, 1)
@@ -2811,6 +3186,7 @@ class TestAdminSuperuserCreateBindParams:
 
     def test_superuser_boolean_bind_params_postgresql(self):
         from aquilia.models.fields_module import BooleanField
+
         # Simulate what base.py create() does:
         fields = {
             "is_superuser": BooleanField(default=False),
@@ -2835,6 +3211,7 @@ class TestAdminSuperuserCreateBindParams:
 
     def test_superuser_boolean_bind_params_sqlite(self):
         from aquilia.models.fields_module import BooleanField
+
         fields = {
             "is_superuser": BooleanField(default=False),
             "is_staff": BooleanField(default=True),
@@ -2866,7 +3243,9 @@ class TestDateTimeFieldToDbDialectAware:
     def test_to_db_postgresql_returns_native_datetime(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "created_at"
+
+        f = DateTimeField()
+        f.name = "created_at"
         dt = datetime.datetime(2026, 3, 5, 15, 49, 38, tzinfo=datetime.timezone.utc)
         result = f.to_db(dt, dialect="postgresql")
         assert result is dt
@@ -2875,7 +3254,9 @@ class TestDateTimeFieldToDbDialectAware:
     def test_to_db_sqlite_returns_iso_string(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "created_at"
+
+        f = DateTimeField()
+        f.name = "created_at"
         dt = datetime.datetime(2026, 3, 5, 15, 49, 38, tzinfo=datetime.timezone.utc)
         result = f.to_db(dt, dialect="sqlite")
         assert isinstance(result, str)
@@ -2884,7 +3265,9 @@ class TestDateTimeFieldToDbDialectAware:
     def test_to_db_mysql_returns_native_datetime(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "created_at"
+
+        f = DateTimeField()
+        f.name = "created_at"
         dt = datetime.datetime(2026, 3, 5, 15, 49, 38)
         result = f.to_db(dt, dialect="mysql")
         assert result is dt
@@ -2892,14 +3275,18 @@ class TestDateTimeFieldToDbDialectAware:
     def test_to_db_oracle_returns_native_datetime(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "created_at"
+
+        f = DateTimeField()
+        f.name = "created_at"
         dt = datetime.datetime(2026, 3, 5, 15, 49, 38)
         result = f.to_db(dt, dialect="oracle")
         assert result is dt
 
     def test_to_db_none(self):
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(null=True); f.name = "x"
+
+        f = DateTimeField(null=True)
+        f.name = "x"
         assert f.to_db(None, dialect="postgresql") is None
         assert f.to_db(None, dialect="sqlite") is None
 
@@ -2910,7 +3297,9 @@ class TestDateFieldToDbDialectAware:
     def test_to_db_postgresql_returns_native_date(self):
         import datetime
         from aquilia.models.fields_module import DateField
-        f = DateField(); f.name = "born"
+
+        f = DateField()
+        f.name = "born"
         d = datetime.date(2026, 3, 5)
         result = f.to_db(d, dialect="postgresql")
         assert result is d
@@ -2919,7 +3308,9 @@ class TestDateFieldToDbDialectAware:
     def test_to_db_sqlite_returns_iso_string(self):
         import datetime
         from aquilia.models.fields_module import DateField
-        f = DateField(); f.name = "born"
+
+        f = DateField()
+        f.name = "born"
         d = datetime.date(2026, 3, 5)
         result = f.to_db(d, dialect="sqlite")
         assert result == "2026-03-05"
@@ -2928,14 +3319,18 @@ class TestDateFieldToDbDialectAware:
     def test_to_db_mysql_returns_native_date(self):
         import datetime
         from aquilia.models.fields_module import DateField
-        f = DateField(); f.name = "born"
+
+        f = DateField()
+        f.name = "born"
         d = datetime.date(2026, 3, 5)
         assert f.to_db(d, dialect="mysql") is d
 
     def test_to_db_oracle_returns_native_date(self):
         import datetime
         from aquilia.models.fields_module import DateField
-        f = DateField(); f.name = "born"
+
+        f = DateField()
+        f.name = "born"
         d = datetime.date(2026, 3, 5)
         assert f.to_db(d, dialect="oracle") is d
 
@@ -2946,7 +3341,9 @@ class TestTimeFieldToDbDialectAware:
     def test_to_db_postgresql_returns_native_time(self):
         import datetime
         from aquilia.models.fields_module import TimeField
-        f = TimeField(); f.name = "start"
+
+        f = TimeField()
+        f.name = "start"
         t = datetime.time(15, 49, 38)
         result = f.to_db(t, dialect="postgresql")
         assert result is t
@@ -2955,7 +3352,9 @@ class TestTimeFieldToDbDialectAware:
     def test_to_db_sqlite_returns_iso_string(self):
         import datetime
         from aquilia.models.fields_module import TimeField
-        f = TimeField(); f.name = "start"
+
+        f = TimeField()
+        f.name = "start"
         t = datetime.time(15, 49, 38)
         result = f.to_db(t, dialect="sqlite")
         assert result == "15:49:38"
@@ -2964,7 +3363,9 @@ class TestTimeFieldToDbDialectAware:
     def test_to_db_mysql_returns_native_time(self):
         import datetime
         from aquilia.models.fields_module import TimeField
-        f = TimeField(); f.name = "start"
+
+        f = TimeField()
+        f.name = "start"
         t = datetime.time(15, 49, 38)
         assert f.to_db(t, dialect="mysql") is t
 
@@ -2975,7 +3376,10 @@ class TestAdminCreateSuperuserDatetimeBindParams:
     def test_datetime_bind_params_postgresql(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(auto_now_add=True); f.name = "date_joined"; f.attr_name = "date_joined"
+
+        f = DateTimeField(auto_now_add=True)
+        f.name = "date_joined"
+        f.attr_name = "date_joined"
         dt = datetime.datetime(2026, 3, 5, 15, 49, 38, 634367, tzinfo=datetime.timezone.utc)
         result = f.to_db(dt, dialect="postgresql")
         # asyncpg requires native datetime for TIMESTAMP columns
@@ -2985,7 +3389,10 @@ class TestAdminCreateSuperuserDatetimeBindParams:
     def test_datetime_bind_params_sqlite(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(auto_now_add=True); f.name = "date_joined"; f.attr_name = "date_joined"
+
+        f = DateTimeField(auto_now_add=True)
+        f.name = "date_joined"
+        f.attr_name = "date_joined"
         dt = datetime.datetime(2026, 3, 5, 15, 49, 38, 634367, tzinfo=datetime.timezone.utc)
         result = f.to_db(dt, dialect="sqlite")
         assert isinstance(result, str)
@@ -2993,47 +3400,55 @@ class TestAdminCreateSuperuserDatetimeBindParams:
 
 # ── Module 16: TIMESTAMP WITH TIME ZONE resolution & naive-datetime hardening ─
 
+
 class TestTimestampWithTimeZoneResolution:
     """_resolve_type() must map TIMESTAMP → TIMESTAMP WITH TIME ZONE on PG & Oracle."""
 
     def test_postgresql_timestamp_resolves_to_timestamptz(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         resolved = col._resolve_type("postgresql")
         assert resolved == "TIMESTAMP WITH TIME ZONE"
 
     def test_oracle_timestamp_resolves_to_timestamptz(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         resolved = col._resolve_type("oracle")
         assert resolved == "TIMESTAMP WITH TIME ZONE"
 
     def test_sqlite_timestamp_stays_timestamp(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         resolved = col._resolve_type("sqlite")
         assert resolved == "TIMESTAMP"
 
     def test_mysql_timestamp_stays_timestamp(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         resolved = col._resolve_type("mysql")
         assert resolved == "TIMESTAMP"
 
     def test_postgresql_timestamp_in_rendered_sql(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         sql = col.to_sql("postgresql")
         assert "TIMESTAMP WITH TIME ZONE" in sql
 
     def test_oracle_timestamp_in_rendered_sql(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         sql = col.to_sql("oracle")
         assert "TIMESTAMP WITH TIME ZONE" in sql
 
     def test_sqlite_timestamp_in_rendered_sql(self):
         from aquilia.models.migration_dsl import C
+
         col = C.timestamp("created")
         sql = col.to_sql("sqlite")
         assert "TIMESTAMP" in sql
@@ -3046,7 +3461,9 @@ class TestDateTimeFieldNaiveDatetimeHardening:
     def test_naive_datetime_gets_utc_on_postgresql(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "ts"
+
+        f = DateTimeField()
+        f.name = "ts"
         naive = datetime.datetime(2026, 3, 5, 15, 53, 20, 123456)
         assert naive.tzinfo is None
         result = f.to_db(naive, dialect="postgresql")
@@ -3059,7 +3476,9 @@ class TestDateTimeFieldNaiveDatetimeHardening:
     def test_aware_datetime_unchanged_on_postgresql(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "ts"
+
+        f = DateTimeField()
+        f.name = "ts"
         aware = datetime.datetime(2026, 3, 5, 15, 53, 20, tzinfo=datetime.timezone.utc)
         result = f.to_db(aware, dialect="postgresql")
         assert result is aware  # exact same object, no copy
@@ -3067,7 +3486,9 @@ class TestDateTimeFieldNaiveDatetimeHardening:
     def test_naive_datetime_unchanged_on_sqlite(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "ts"
+
+        f = DateTimeField()
+        f.name = "ts"
         naive = datetime.datetime(2026, 3, 5, 15, 53, 20)
         result = f.to_db(naive, dialect="sqlite")
         # SQLite gets ISO string, no tzinfo patching needed
@@ -3076,7 +3497,9 @@ class TestDateTimeFieldNaiveDatetimeHardening:
     def test_naive_datetime_unchanged_on_mysql(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "ts"
+
+        f = DateTimeField()
+        f.name = "ts"
         naive = datetime.datetime(2026, 3, 5, 15, 53, 20)
         result = f.to_db(naive, dialect="mysql")
         # MySQL returns the native datetime as-is (no tzinfo patching)
@@ -3085,7 +3508,9 @@ class TestDateTimeFieldNaiveDatetimeHardening:
     def test_naive_datetime_unchanged_on_oracle(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
-        f = DateTimeField(); f.name = "ts"
+
+        f = DateTimeField()
+        f.name = "ts"
         naive = datetime.datetime(2026, 3, 5, 15, 53, 20)
         result = f.to_db(naive, dialect="oracle")
         assert result is naive
@@ -3096,12 +3521,14 @@ class TestDateTimeFieldAutoNowAddDefault:
 
     def test_auto_now_add_sets_default(self):
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField(auto_now_add=True)
         assert f.has_default()
 
     def test_auto_now_add_default_produces_utc_datetime(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField(auto_now_add=True)
         val = f.get_default()
         assert isinstance(val, datetime.datetime)
@@ -3110,6 +3537,7 @@ class TestDateTimeFieldAutoNowAddDefault:
     def test_auto_now_add_with_explicit_default_preserves_it(self):
         import datetime
         from aquilia.models.fields_module import DateTimeField
+
         sentinel = datetime.datetime(2000, 1, 1, tzinfo=datetime.timezone.utc)
         f = DateTimeField(auto_now_add=True, default=sentinel)
         # get_default() returns deepcopy, so use == not is
@@ -3118,32 +3546,37 @@ class TestDateTimeFieldAutoNowAddDefault:
 
     def test_auto_now_not_add_no_default(self):
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField(auto_now=True)
         # auto_now alone does not set a default
         assert not f.has_default()
 
     def test_plain_datetime_field_no_default(self):
         from aquilia.models.fields_module import DateTimeField
+
         f = DateTimeField()
         assert not f.has_default()
 
 
 # ── Module 17: MySQL adapter identifier quoting ──────────────────────────────
 
+
 class TestMySQLAdaptSqlIdentifierQuoting:
     """MySQL adapt_sql() must convert double-quoted identifiers to backticks."""
 
     def test_create_table_identifiers(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = 'CREATE TABLE IF NOT EXISTS "users" (\n  "id" INTEGER PRIMARY KEY\n);'
         result = adapter.adapt_sql(sql)
-        assert '`users`' in result
-        assert '`id`' in result
+        assert "`users`" in result
+        assert "`id`" in result
         assert '"' not in result
 
     def test_insert_identifiers_and_placeholders(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = 'INSERT INTO "users" ("name", "email") VALUES (?, ?)'
         result = adapter.adapt_sql(sql)
@@ -3151,6 +3584,7 @@ class TestMySQLAdaptSqlIdentifierQuoting:
 
     def test_string_literals_preserved(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = """SELECT * FROM "users" WHERE "name" = 'O''Brien' AND "id" = ?"""
         result = adapter.adapt_sql(sql)
@@ -3162,22 +3596,24 @@ class TestMySQLAdaptSqlIdentifierQuoting:
 
     def test_fk_references_converted(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = '"user_id" INTEGER REFERENCES "users"("id") ON DELETE CASCADE'
         result = adapter.adapt_sql(sql)
-        assert '`user_id`' in result
-        assert '`users`' in result
-        assert '`id`' in result
+        assert "`user_id`" in result
+        assert "`users`" in result
+        assert "`id`" in result
 
     def test_no_double_quotes_remain(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = (
             'CREATE TABLE "admin_users" (\n'
             '  "id" INTEGER PRIMARY KEY AUTO_INCREMENT,\n'
             '  "username" VARCHAR(150) NOT NULL UNIQUE,\n'
             '  "is_active" INTEGER NOT NULL DEFAULT 1\n'
-            ');'
+            ");"
         )
         result = adapter.adapt_sql(sql)
         assert '"' not in result
@@ -3190,6 +3626,7 @@ class TestPostgresAdaptSqlPreservesQuotes:
 
     def test_identifiers_stay_double_quoted(self):
         from aquilia.db.backends.postgres import PostgresAdapter
+
         adapter = PostgresAdapter()
         sql = 'INSERT INTO "users" ("name") VALUES (?)'
         result = adapter.adapt_sql(sql)
@@ -3213,26 +3650,31 @@ class TestPostgresConfigDatabaseAlias:
 
     def test_database_sets_name(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", database="mydb", user="u", password="p")
         assert cfg.name == "mydb"
 
     def test_database_field_cleared_after_init(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", database="mydb", user="u", password="p")
         assert cfg.database == ""
 
     def test_name_still_works(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", name="mydb", user="u", password="p")
         assert cfg.name == "mydb"
 
     def test_name_takes_precedence_over_database(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", name="explicit", database="alias", user="u", password="p")
         assert cfg.name == "explicit"
 
     def test_to_url_with_database(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", port=5432, database="mydb", user="u", password="p")
         url = cfg.to_url()
         assert "mydb" in url
@@ -3240,6 +3682,7 @@ class TestPostgresConfigDatabaseAlias:
 
     def test_to_dict_excludes_database_alias(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", database="mydb", user="u", password="p")
         d = cfg.to_dict()
         # `database` should NOT appear as a standalone key
@@ -3249,6 +3692,7 @@ class TestPostgresConfigDatabaseAlias:
 
     def test_repr_shows_database_label(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="localhost", database="mydb", user="u", password="p")
         r = repr(cfg)
         assert "database=" in r
@@ -3256,6 +3700,7 @@ class TestPostgresConfigDatabaseAlias:
 
     def test_from_url_roundtrip_with_database(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg1 = PostgresConfig(host="localhost", port=5432, database="mydb", user="u", password="p")
         url = cfg1.to_url()
         cfg2 = PostgresConfig.from_url(url)
@@ -3267,26 +3712,31 @@ class TestMysqlConfigDatabaseAlias:
 
     def test_database_sets_name(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", database="mydb", user="u", password="p")
         assert cfg.name == "mydb"
 
     def test_database_field_cleared_after_init(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", database="mydb", user="u", password="p")
         assert cfg.database == ""
 
     def test_name_still_works(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", name="mydb", user="u", password="p")
         assert cfg.name == "mydb"
 
     def test_name_takes_precedence_over_database(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", name="explicit", database="alias", user="u", password="p")
         assert cfg.name == "explicit"
 
     def test_to_url_with_database(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", port=3306, database="mydb", user="u", password="p")
         url = cfg.to_url()
         assert "mydb" in url
@@ -3294,6 +3744,7 @@ class TestMysqlConfigDatabaseAlias:
 
     def test_to_dict_excludes_database_alias(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", database="mydb", user="u", password="p")
         d = cfg.to_dict()
         assert "database" not in d
@@ -3301,6 +3752,7 @@ class TestMysqlConfigDatabaseAlias:
 
     def test_repr_shows_database_label(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="localhost", database="mydb", user="u", password="p")
         r = repr(cfg)
         assert "database=" in r
@@ -3312,26 +3764,31 @@ class TestOracleConfigDatabaseAlias:
 
     def test_database_sets_service_name(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", database="PROD", user="u", password="p")
         assert cfg.service_name == "PROD"
 
     def test_database_field_cleared_after_init(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", database="PROD", user="u", password="p")
         assert cfg.database == ""
 
     def test_service_name_still_works(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", service_name="PROD", user="u", password="p")
         assert cfg.service_name == "PROD"
 
     def test_service_name_takes_precedence_over_database(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", service_name="explicit", database="alias", user="u", password="p")
         assert cfg.service_name == "explicit"
 
     def test_to_url_with_database(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", port=1521, database="PROD", user="u", password="p")
         url = cfg.to_url()
         assert "PROD" in url
@@ -3339,6 +3796,7 @@ class TestOracleConfigDatabaseAlias:
 
     def test_to_dict_excludes_database_alias(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", database="PROD", user="u", password="p")
         d = cfg.to_dict()
         assert "database" not in d
@@ -3346,6 +3804,7 @@ class TestOracleConfigDatabaseAlias:
 
     def test_repr_shows_database_label(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="localhost", database="PROD", user="u", password="p")
         r = repr(cfg)
         assert "database=" in r
@@ -3357,24 +3816,28 @@ class TestDatabaseAliasBackwardCompat:
 
     def test_postgres_name_unchanged(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="h", name="db1", user="u", password="p")
         assert cfg.name == "db1"
         assert cfg.to_url() == "postgresql://u:p@h:5432/db1"
 
     def test_mysql_name_unchanged(self):
         from aquilia.db.configs import MysqlConfig
+
         cfg = MysqlConfig(host="h", name="db1", user="u", password="p")
         assert cfg.name == "db1"
         assert cfg.to_url() == "mysql://u:p@h:3306/db1"
 
     def test_oracle_service_name_unchanged(self):
         from aquilia.db.configs import OracleConfig
+
         cfg = OracleConfig(host="h", service_name="SVC", user="u", password="p")
         assert cfg.service_name == "SVC"
         assert cfg.to_url() == "oracle://u:p@h:1521/SVC"
 
     def test_neither_database_nor_name_defaults_empty(self):
         from aquilia.db.configs import PostgresConfig
+
         cfg = PostgresConfig(host="h", user="u", password="p")
         assert cfg.name == ""
         assert cfg.database == ""
@@ -3395,6 +3858,7 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
     def test_adapt_sql_strips_if_not_exists(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = 'CREATE INDEX IF NOT EXISTS "idx_foo" ON "bar" ("col");'
         result = adapter.adapt_sql(sql)
@@ -3404,6 +3868,7 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
     def test_adapt_sql_strips_unique_index_if_not_exists(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = 'CREATE UNIQUE INDEX IF NOT EXISTS "idx_foo" ON "bar" ("col");'
         result = adapter.adapt_sql(sql)
@@ -3412,6 +3877,7 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
     def test_adapt_sql_preserves_create_table_if_not_exists(self):
         from aquilia.db.backends.mysql import MySQLAdapter
+
         adapter = MySQLAdapter()
         sql = 'CREATE TABLE IF NOT EXISTS "users" ("id" INTEGER PRIMARY KEY);'
         result = adapter.adapt_sql(sql)
@@ -3419,6 +3885,7 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
     def test_index_sql_mysql_dialect_no_if_not_exists(self):
         from aquilia.models.fields_module import Index
+
         idx = Index(fields=["email"], name="idx_email")
         sql = idx.sql("users", dialect="mysql")
         assert "IF NOT EXISTS" not in sql
@@ -3427,18 +3894,21 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
     def test_index_sql_sqlite_dialect_has_if_not_exists(self):
         from aquilia.models.fields_module import Index
+
         idx = Index(fields=["email"], name="idx_email")
         sql = idx.sql("users", dialect="sqlite")
         assert "IF NOT EXISTS" in sql
 
     def test_index_sql_postgresql_dialect_has_if_not_exists(self):
         from aquilia.models.fields_module import Index
+
         idx = Index(fields=["email"], name="idx_email")
         sql = idx.sql("users", dialect="postgresql")
         assert "IF NOT EXISTS" in sql
 
     def test_unique_index_sql_mysql_no_if_not_exists(self):
         from aquilia.models.fields_module import Index
+
         idx = Index(fields=["email"], name="idx_email", unique=True)
         sql = idx.sql("users", dialect="mysql")
         assert "IF NOT EXISTS" not in sql
@@ -3451,6 +3921,7 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
         class _IdxTestModel(Model):
             email = CharField(max_length=255, db_index=True)
+
             class Meta:
                 table_name = "idx_test"
 
@@ -3465,6 +3936,7 @@ class TestMySQLCreateIndexIfNotExistsStripping:
 
         class _IdxTestModel2(Model):
             email = CharField(max_length=255, db_index=True)
+
             class Meta:
                 table_name = "idx_test2"
 
@@ -3478,6 +3950,7 @@ class TestPostgresOnlyIndexMySQLFallback:
 
     def test_gin_index_mysql_fallback(self):
         from aquilia.models.index import GinIndex
+
         idx = GinIndex(fields=["data"], name="idx_data_gin")
         sql = idx.sql("docs", dialect="mysql")
         assert "IF NOT EXISTS" not in sql
@@ -3486,6 +3959,7 @@ class TestPostgresOnlyIndexMySQLFallback:
 
     def test_gin_index_postgres_uses_gin(self):
         from aquilia.models.index import GinIndex
+
         idx = GinIndex(fields=["data"], name="idx_data_gin")
         sql = idx.sql("docs", dialect="postgresql")
         assert "IF NOT EXISTS" in sql
@@ -3493,6 +3967,7 @@ class TestPostgresOnlyIndexMySQLFallback:
 
     def test_functional_index_mysql_no_if_not_exists(self):
         from aquilia.models.index import FunctionalIndex
+
         idx = FunctionalIndex(expression='LOWER("email")', name="idx_email_lower")
         sql = idx.sql("users", dialect="mysql")
         assert "IF NOT EXISTS" not in sql
@@ -3500,6 +3975,7 @@ class TestPostgresOnlyIndexMySQLFallback:
 
     def test_functional_index_sqlite_has_if_not_exists(self):
         from aquilia.models.index import FunctionalIndex
+
         idx = FunctionalIndex(expression='LOWER("email")', name="idx_email_lower")
         sql = idx.sql("users", dialect="sqlite")
         assert "IF NOT EXISTS" in sql
@@ -3519,6 +3995,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_text_field_no_default_mysql(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField(blank=True, default="")
         f.name = "bio"
         result = f._sql_default(dialect="mysql")
@@ -3526,6 +4003,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_text_field_default_sqlite(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField(blank=True, default="")
         f.name = "bio"
         result = f._sql_default(dialect="sqlite")
@@ -3533,6 +4011,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_text_field_default_postgresql(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField(blank=True, default="")
         f.name = "bio"
         result = f._sql_default(dialect="postgresql")
@@ -3540,6 +4019,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_text_field_sql_column_def_mysql_no_default(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField(blank=True, default="", null=True)
         f.name = "bio"
         sql = f.sql_column_def(dialect="mysql")
@@ -3547,6 +4027,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_text_field_sql_column_def_sqlite_has_default(self):
         from aquilia.models.fields_module import TextField
+
         f = TextField(blank=True, default="", null=True)
         f.name = "bio"
         sql = f.sql_column_def(dialect="sqlite")
@@ -3554,6 +4035,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_json_field_no_default_mysql(self):
         from aquilia.models.fields_module import JSONField
+
         f = JSONField(default={})
         f.name = "data"
         result = f._sql_default(dialect="mysql")
@@ -3561,6 +4043,7 @@ class TestMySQLTextDefaultSuppression:
 
     def test_binary_field_no_default_mysql(self):
         from aquilia.models.fields_module import BinaryField
+
         f = BinaryField(default=b"")
         f.name = "payload"
         # BinaryField sql_type is BLOB on MySQL
@@ -3573,6 +4056,7 @@ class TestMySQLTextDefaultSuppression:
     def test_migration_dsl_column_def_text_mysql(self):
         """ColumnDef.to_sql() must omit DEFAULT for TEXT on MySQL."""
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="bio", col_type="TEXT", nullable=True, default="")
         sql = col.to_sql(dialect="mysql")
         assert "DEFAULT" not in sql
@@ -3580,6 +4064,7 @@ class TestMySQLTextDefaultSuppression:
     def test_migration_dsl_column_def_text_sqlite(self):
         """ColumnDef.to_sql() must include DEFAULT for TEXT on SQLite."""
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="bio", col_type="TEXT", nullable=True, default="")
         sql = col.to_sql(dialect="sqlite")
         assert "DEFAULT ''" in sql
@@ -3587,6 +4072,7 @@ class TestMySQLTextDefaultSuppression:
     def test_migration_dsl_varchar_default_mysql_ok(self):
         """VARCHAR DEFAULT is fine on MySQL -- not suppressed."""
         from aquilia.models.migration_dsl import ColumnDef
+
         col = ColumnDef(name="name", col_type="VARCHAR(255)", nullable=True, default="")
         sql = col.to_sql(dialect="mysql")
         assert "DEFAULT ''" in sql
@@ -3602,14 +4088,17 @@ class TestAdminModelObjectIdField:
 
     def test_object_id_is_char_field(self):
         from aquilia.admin.models import AdminLogEntry
+
         # AdminLogEntry is a stub — verify it has _HAS_ORM = False
         assert AdminLogEntry._HAS_ORM is False
         # The replacement model (AdminAuditEntry) uses resource_id
         from aquilia.admin.models import AdminAuditEntry
+
         assert hasattr(AdminAuditEntry, "resource_id")
 
     def test_object_id_max_length(self):
         from aquilia.admin.models import AdminAuditEntry
+
         # AdminAuditEntry.resource_id is a CharField(max_length=128)
         assert hasattr(AdminAuditEntry, "resource_id")
 
@@ -3637,33 +4126,39 @@ class TestCheckMigrationsAppliedNonSQLite:
 
     def test_mysql_url_returns_true(self):
         from aquilia.models.migration_runner import check_migrations_applied
+
         result = check_migrations_applied("mysql://user:pass@localhost:3306/mydb")
         assert result is True
 
     def test_postgresql_url_returns_true(self):
         from aquilia.models.migration_runner import check_migrations_applied
+
         result = check_migrations_applied("postgresql://user:pass@localhost:5432/mydb")
         assert result is True
 
     def test_oracle_url_returns_true(self):
         from aquilia.models.migration_runner import check_migrations_applied
+
         result = check_migrations_applied("oracle://user:pass@localhost:1521/orcl")
         assert result is True
 
     def test_postgres_asyncpg_url_returns_true(self):
         from aquilia.models.migration_runner import check_migrations_applied
+
         result = check_migrations_applied("postgresql+asyncpg://u:p@host/db")
         assert result is True
 
     def test_sqlite_url_still_probed(self, tmp_path):
         """SQLite URLs should still go through the probe logic."""
         from aquilia.models.migration_runner import check_migrations_applied
+
         # Non-existent SQLite file → check_db_exists returns False → returns False
         result = check_migrations_applied(f"sqlite:///{tmp_path / 'nonexistent.db'}")
         assert result is False
 
     def test_sqlite_memory_returns_true(self):
         from aquilia.models.migration_runner import check_migrations_applied
+
         result = check_migrations_applied("sqlite:///:memory:")
         assert result is True
 
@@ -3674,18 +4169,20 @@ class TestDetectWorkspaceDbUrl:
     def _run_detect(self, workspace_content: str, tmp_path):
         """Helper: write workspace.py, chdir, call _detect_workspace_db_url."""
         import os
+
         ws_file = tmp_path / "workspace.py"
         ws_file.write_text(workspace_content)
         old_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
             from aquilia.cli.__main__ import _detect_workspace_db_url
+
             return _detect_workspace_db_url()
         finally:
             os.chdir(old_cwd)
 
     def test_mysql_config_detected(self, tmp_path):
-        content = '''
+        content = """
 from aquilia.db.configs import MysqlConfig
 app.database(
     config=MysqlConfig(
@@ -3696,12 +4193,12 @@ app.database(
         database="shop",
     )
 )
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "mysql://root:secret@db.example.com:3307/shop"
 
     def test_postgres_config_detected(self, tmp_path):
-        content = '''
+        content = """
 from aquilia.db.configs import PostgresConfig
 app.database(
     config=PostgresConfig(
@@ -3712,12 +4209,12 @@ app.database(
         name="analytics",
     )
 )
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "postgresql://pguser:pgpass@pg.local:5433/analytics"
 
     def test_oracle_config_detected(self, tmp_path):
-        content = '''
+        content = """
 from aquilia.db.configs import OracleConfig
 app.database(
     config=OracleConfig(
@@ -3728,50 +4225,52 @@ app.database(
         service_name="ORCL",
     )
 )
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "oracle://sys:oracle123@oracle.prod:1522/ORCL"
 
     def test_mysql_config_database_alias(self, tmp_path):
         """database= alias is picked up."""
-        content = '''
+        content = """
 app.database(config=MysqlConfig(host="localhost", port=3306, user="admin", password="admin123", database="mydb"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "mysql://admin:admin123@localhost:3306/mydb"
 
     def test_mysql_config_name_field(self, tmp_path):
         """name= field works too."""
-        content = '''
+        content = """
 app.database(config=MysqlConfig(host="localhost", port=3306, user="admin", password="pw", name="testdb"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "mysql://admin:pw@localhost:3306/testdb"
 
     def test_url_pattern_still_works(self, tmp_path):
         """The original .database(url="...") pattern still works."""
-        content = '''
+        content = """
 app.database(url="sqlite:///mytest.db")
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "sqlite:///mytest.db"
 
     def test_url_pattern_takes_priority(self, tmp_path):
         """If both url= and config= are present, url= wins."""
-        content = '''
+        content = """
 app.database(url="sqlite:///priority.db")
 app.database(config=MysqlConfig(host="localhost", port=3306, user="u", password="p", name="db"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "sqlite:///priority.db"
 
     def test_no_workspace_file_returns_default(self, tmp_path):
         """Missing workspace.py returns the default SQLite URL."""
         import os
+
         old_cwd = os.getcwd()
         try:
             os.chdir(tmp_path)
             from aquilia.cli.__main__ import _detect_workspace_db_url
+
             url = _detect_workspace_db_url()
             assert url == "sqlite:///db.sqlite3"
         finally:
@@ -3779,31 +4278,31 @@ app.database(config=MysqlConfig(host="localhost", port=3306, user="u", password=
 
     def test_defaults_for_mysql_port(self, tmp_path):
         """Port defaults to 3306 for MySQL when not specified."""
-        content = '''
+        content = """
 app.database(config=MysqlConfig(host="localhost", user="u", password="p", database="db"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert ":3306/" in url
 
     def test_defaults_for_postgres_port(self, tmp_path):
         """Port defaults to 5432 for PostgreSQL when not specified."""
-        content = '''
+        content = """
 app.database(config=PostgresConfig(host="localhost", user="u", password="p", name="db"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert ":5432/" in url
 
     def test_defaults_for_oracle_port(self, tmp_path):
         """Port defaults to 1521 for Oracle when not specified."""
-        content = '''
+        content = """
 app.database(config=OracleConfig(host="localhost", user="u", password="p", service_name="XE"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert ":1521/" in url
 
     def test_multiline_config_block(self, tmp_path):
         """Config spread across many lines is still parsed."""
-        content = '''
+        content = """
 app.database(
     config=MysqlConfig(
         host="myhost",
@@ -3813,15 +4312,15 @@ app.database(
         database="mydb",
     )
 )
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "mysql://myuser:mypass@myhost:3308/mydb"
 
     def test_no_user_no_creds_in_url(self, tmp_path):
         """If user is empty, no credentials section in URL."""
-        content = '''
+        content = """
 app.database(config=MysqlConfig(host="localhost", port=3306, database="testdb"))
-'''
+"""
         url = self._run_detect(content, tmp_path)
         assert url == "mysql://localhost:3306/testdb"
         assert "@" not in url
@@ -3899,8 +4398,10 @@ class TestMigrationRunnerMySQLDuplicateIndex:
             models=["TestModel"],
             operations=[
                 CreateIndex(
-                    name="idx_foo", table="test_table",
-                    columns=["col_a"], unique=False,
+                    name="idx_foo",
+                    table="test_table",
+                    columns=["col_a"],
+                    unique=False,
                 ),
             ],
         )
@@ -3933,8 +4434,10 @@ class TestMigrationRunnerMySQLDuplicateIndex:
             models=["TestModel"],
             operations=[
                 CreateIndex(
-                    name="idx_bad", table="test_table",
-                    columns=["bad_col"], unique=False,
+                    name="idx_bad",
+                    table="test_table",
+                    columns=["bad_col"],
+                    unique=False,
                 ),
             ],
         )
@@ -3969,8 +4472,10 @@ class TestMigrationRunnerMySQLDuplicateIndex:
             models=["TestModel"],
             operations=[
                 CreateIndex(
-                    name="idx_foo", table="test_table",
-                    columns=["col_a"], unique=False,
+                    name="idx_foo",
+                    table="test_table",
+                    columns=["col_a"],
+                    unique=False,
                 ),
             ],
         )
@@ -4016,7 +4521,9 @@ class TestMigrationRunnerMySQLDuplicateIndex:
         """CREATE TABLE succeeds, then duplicate CREATE INDEX is skipped."""
         from aquilia.models.migration_runner import MigrationRunner
         from aquilia.models.migration_dsl import (
-            Migration, CreateModel, CreateIndex,
+            Migration,
+            CreateModel,
+            CreateIndex,
         )
         from aquilia.models.migration_dsl import columns as C
 
@@ -4039,11 +4546,13 @@ class TestMigrationRunnerMySQLDuplicateIndex:
             models=["TestModel"],
             operations=[
                 CreateModel(
-                    name="TestModel", table="test_table",
+                    name="TestModel",
+                    table="test_table",
                     fields=[C.auto("id"), C.varchar("name", 100)],
                 ),
                 CreateIndex(
-                    name="idx_name", table="test_table",
+                    name="idx_name",
+                    table="test_table",
                     columns=["name"],
                 ),
             ],
@@ -4076,7 +4585,8 @@ class TestMigrationRunnerMySQLDuplicateIndex:
             models=["TestModel"],
             operations=[
                 CreateIndex(
-                    name="idx_gone", table="test_table",
+                    name="idx_gone",
+                    table="test_table",
                     columns=["col_a"],
                 ),
             ],

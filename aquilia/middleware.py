@@ -207,7 +207,7 @@ class ExceptionMiddleware:
 
     When ``debug=True`` and the request ``Accept`` header includes
     ``text/html``, renders beautiful React-style debug pages using the
-    MongoDB Atlas color palette with dark/light mode support.
+    Atlas color palette with dark/light mode support.
     Otherwise, returns structured JSON error responses.
     """
 

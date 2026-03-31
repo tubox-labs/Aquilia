@@ -407,12 +407,7 @@ class TestAdminSecurityBuilder:
 
     def test_csrf_configuration(self):
         """Fluent CSRF configuration."""
-        sec = (
-            Integration.AdminSecurity()
-            .csrf_enabled(True)
-            .csrf_max_age(3600)
-            .csrf_token_length(64)
-        )
+        sec = Integration.AdminSecurity().csrf_enabled(True).csrf_max_age(3600).csrf_token_length(64)
         d = sec.to_dict()
         assert d["csrf"]["max_age"] == 3600
         assert d["csrf"]["token_length"] == 64
@@ -446,11 +441,7 @@ class TestAdminSecurityBuilder:
     def test_progressive_lockout_tiers(self):
         """Custom lockout tiers."""
         tiers = [[3, 120], [10, 600]]
-        sec = (
-            Integration.AdminSecurity()
-            .progressive_lockout(True)
-            .lockout_tiers(tiers)
-        )
+        sec = Integration.AdminSecurity().progressive_lockout(True).lockout_tiers(tiers)
         d = sec.to_dict()
         assert d["rate_limit"]["lockout_tiers"] == tiers
 
@@ -543,12 +534,12 @@ class TestAdminSecurityBuilder:
         """Values are clamped to minimum bounds."""
         sec = (
             Integration.AdminSecurity()
-            .csrf_max_age(1)        # min 60
-            .csrf_token_length(1)   # min 16
+            .csrf_max_age(1)  # min 60
+            .csrf_token_length(1)  # min 16
             .rate_limit_max_attempts(0)  # min 1
-            .rate_limit_window(1)        # min 10
-            .password_min_length(1)      # min 4
-            .event_tracker_max_events(1) # min 100
+            .rate_limit_window(1)  # min 10
+            .password_min_length(1)  # min 4
+            .event_tracker_max_events(1)  # min 100
         )
         d = sec.to_dict()
         assert d["csrf"]["max_age"] >= 60
@@ -571,12 +562,7 @@ class TestIntegrationAdminSecurity:
 
     def test_admin_with_custom_security_builder(self):
         """Custom AdminSecurity builder is wired into Integration.admin()."""
-        sec = (
-            Integration.AdminSecurity()
-            .csrf_max_age(1800)
-            .rate_limit_max_attempts(10)
-            .password_min_length(16)
-        )
+        sec = Integration.AdminSecurity().csrf_max_age(1800).rate_limit_max_attempts(10).password_min_length(16)
         config = Integration.admin(security=sec)
         assert config["security_config"]["csrf"]["max_age"] == 1800
         assert config["security_config"]["rate_limit"]["max_login_attempts"] == 10
@@ -623,12 +609,7 @@ class TestAdminConfigSecurity:
 
     def test_admin_config_from_dict_custom_security(self):
         """AdminConfig.from_dict() respects custom security config."""
-        sec_builder = (
-            Integration.AdminSecurity()
-            .csrf_max_age(900)
-            .rate_limit_max_attempts(3)
-            .password_min_length(16)
-        )
+        sec_builder = Integration.AdminSecurity().csrf_max_age(900).rate_limit_max_attempts(3).password_min_length(16)
         raw = Integration.admin(security=sec_builder)
         config = AdminConfig.from_dict(raw)
         sec = config.security_config
@@ -675,12 +656,22 @@ class TestAdminSecurityPolicyFromConfig:
         """from_config respects CSRF settings."""
         config = {
             "csrf": {"enabled": True, "max_age": 1800, "token_length": 48},
-            "rate_limit": {"enabled": True, "max_login_attempts": 5, "login_window": 900,
-                          "sensitive_op_limit": 30, "sensitive_op_window": 300,
-                          "progressive_lockout": True},
-            "password": {"min_length": 10, "max_length": 128,
-                        "require_upper": True, "require_lower": True,
-                        "require_digit": True, "require_special": True},
+            "rate_limit": {
+                "enabled": True,
+                "max_login_attempts": 5,
+                "login_window": 900,
+                "sensitive_op_limit": 30,
+                "sensitive_op_window": 300,
+                "progressive_lockout": True,
+            },
+            "password": {
+                "min_length": 10,
+                "max_length": 128,
+                "require_upper": True,
+                "require_lower": True,
+                "require_digit": True,
+                "require_special": True,
+            },
             "headers": {"enabled": True, "frame_options": "DENY"},
             "session_fixation_protection": True,
             "event_tracker_max_events": 1000,
@@ -693,12 +684,22 @@ class TestAdminSecurityPolicyFromConfig:
         """from_config respects rate limit settings."""
         config = {
             "csrf": {"enabled": True, "max_age": 7200, "token_length": 32},
-            "rate_limit": {"enabled": True, "max_login_attempts": 10, "login_window": 1800,
-                          "sensitive_op_limit": 50, "sensitive_op_window": 600,
-                          "progressive_lockout": True},
-            "password": {"min_length": 10, "max_length": 128,
-                        "require_upper": True, "require_lower": True,
-                        "require_digit": True, "require_special": True},
+            "rate_limit": {
+                "enabled": True,
+                "max_login_attempts": 10,
+                "login_window": 1800,
+                "sensitive_op_limit": 50,
+                "sensitive_op_window": 600,
+                "progressive_lockout": True,
+            },
+            "password": {
+                "min_length": 10,
+                "max_length": 128,
+                "require_upper": True,
+                "require_lower": True,
+                "require_digit": True,
+                "require_special": True,
+            },
             "headers": {"enabled": True, "frame_options": "DENY"},
             "session_fixation_protection": True,
             "event_tracker_max_events": 1000,
@@ -711,12 +712,22 @@ class TestAdminSecurityPolicyFromConfig:
         """from_config respects password policy."""
         config = {
             "csrf": {"enabled": True, "max_age": 7200, "token_length": 32},
-            "rate_limit": {"enabled": True, "max_login_attempts": 5, "login_window": 900,
-                          "sensitive_op_limit": 30, "sensitive_op_window": 300,
-                          "progressive_lockout": True},
-            "password": {"min_length": 16, "max_length": 256,
-                        "require_upper": True, "require_lower": True,
-                        "require_digit": True, "require_special": False},
+            "rate_limit": {
+                "enabled": True,
+                "max_login_attempts": 5,
+                "login_window": 900,
+                "sensitive_op_limit": 30,
+                "sensitive_op_window": 300,
+                "progressive_lockout": True,
+            },
+            "password": {
+                "min_length": 16,
+                "max_length": 256,
+                "require_upper": True,
+                "require_lower": True,
+                "require_digit": True,
+                "require_special": False,
+            },
             "headers": {"enabled": True, "frame_options": "DENY"},
             "session_fixation_protection": True,
             "event_tracker_max_events": 1000,
@@ -730,14 +741,23 @@ class TestAdminSecurityPolicyFromConfig:
         """from_config respects security header settings."""
         config = {
             "csrf": {"enabled": True, "max_age": 7200, "token_length": 32},
-            "rate_limit": {"enabled": True, "max_login_attempts": 5, "login_window": 900,
-                          "sensitive_op_limit": 30, "sensitive_op_window": 300,
-                          "progressive_lockout": True},
-            "password": {"min_length": 10, "max_length": 128,
-                        "require_upper": True, "require_lower": True,
-                        "require_digit": True, "require_special": True},
-            "headers": {"enabled": True, "frame_options": "SAMEORIGIN",
-                        "csp_template": "default-src 'self'"},
+            "rate_limit": {
+                "enabled": True,
+                "max_login_attempts": 5,
+                "login_window": 900,
+                "sensitive_op_limit": 30,
+                "sensitive_op_window": 300,
+                "progressive_lockout": True,
+            },
+            "password": {
+                "min_length": 10,
+                "max_length": 128,
+                "require_upper": True,
+                "require_lower": True,
+                "require_digit": True,
+                "require_special": True,
+            },
+            "headers": {"enabled": True, "frame_options": "SAMEORIGIN", "csp_template": "default-src 'self'"},
             "session_fixation_protection": True,
             "event_tracker_max_events": 2000,
         }
@@ -1348,8 +1368,10 @@ class TestEndToEnd:
 
         # Build pipeline
         pipeline = subs.build_pipeline(
-            model_name="User", action="view",
-            require_auth=True, require_csrf=True,
+            model_name="User",
+            action="view",
+            require_auth=True,
+            require_csrf=True,
         )
         assert len(pipeline["guards"]) >= 2
         assert len(pipeline["hooks"]) >= 1
@@ -1376,6 +1398,7 @@ class TestEndToEnd:
             AdminTemplateFault,
             AdminExportFault,
         )
+
         # Verify they're actual classes
         assert issubclass(AdminCSRFViolationFault, AdminFault)
         assert issubclass(AdminRateLimitFault, AdminFault)
@@ -1398,5 +1421,6 @@ class TestEndToEnd:
             build_admin_flow_pipeline,
             get_admin_subsystems,
         )
+
         assert AdminSubsystems is not None
         assert AdminCacheIntegration is not None

@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 # INT-01: CSRF middleware priority must be AFTER session/auth (15)
 # ──────────────────────────────────────────────────────────────────────
 
+
 class TestCSRFMiddlewarePriority:
     """Verify CSRF middleware runs after session/auth middleware."""
 
@@ -31,8 +32,7 @@ class TestCSRFMiddlewarePriority:
         # Find the CSRF middleware registration line
         lines = source.split("\n")
         csrf_lines = [
-            (i, line) for i, line in enumerate(lines)
-            if 'name="csrf"' in line and "middleware_stack.add" in line
+            (i, line) for i, line in enumerate(lines) if 'name="csrf"' in line and "middleware_stack.add" in line
         ]
 
         assert len(csrf_lines) >= 1, "CSRF middleware registration not found"
@@ -40,8 +40,7 @@ class TestCSRFMiddlewarePriority:
         # Verify priority=20 appears in the registration
         for line_num, line in csrf_lines:
             assert "priority=20" in line, (
-                f"CSRF middleware at line {line_num + 1} should have priority=20, "
-                f"got: {line.strip()}"
+                f"CSRF middleware at line {line_num + 1} should have priority=20, got: {line.strip()}"
             )
 
     def test_csrf_priority_after_session(self):
@@ -58,14 +57,14 @@ class TestCSRFMiddlewarePriority:
         csrf_priority = 20
         i18n_priority = 24
         assert csrf_priority < i18n_priority, (
-            f"CSRF priority ({csrf_priority}) must be < i18n priority "
-            f"({i18n_priority})"
+            f"CSRF priority ({csrf_priority}) must be < i18n priority ({i18n_priority})"
         )
 
 
 # ──────────────────────────────────────────────────────────────────────
 # INT-02: DI container shutdown delegation
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TestDIContainerShutdownDelegation:
     """Verify DI container shutdown is not called from ASGI adapter."""
@@ -80,8 +79,7 @@ class TestDIContainerShutdownDelegation:
         # The old code had: await di_container.shutdown()
         # After fix, this should be replaced with a comment
         assert "await di_container.shutdown()" not in source, (
-            "ASGI adapter should not call di_container.shutdown() — "
-            "DI cleanup is delegated to request_scope_mw"
+            "ASGI adapter should not call di_container.shutdown() — DI cleanup is delegated to request_scope_mw"
         )
 
     def test_request_scope_mw_does_shutdown(self):
@@ -92,14 +90,13 @@ class TestDIContainerShutdownDelegation:
         source = server_path.read_text(encoding="utf-8")
 
         # Find the request_scope_mw function
-        assert "await ctx.container.shutdown()" in source, (
-            "request_scope_mw must call ctx.container.shutdown()"
-        )
+        assert "await ctx.container.shutdown()" in source, "request_scope_mw must call ctx.container.shutdown()"
 
 
 # ──────────────────────────────────────────────────────────────────────
 # INT-03: Middleware priority ordering has no conflicts
 # ──────────────────────────────────────────────────────────────────────
+
 
 class TestMiddlewarePriorityOrdering:
     """Verify middleware priorities are non-conflicting and correctly ordered."""
@@ -128,9 +125,7 @@ class TestMiddlewarePriorityOrdering:
     def test_all_priorities_are_unique(self):
         """No two middleware should share the same priority."""
         priorities = list(self.PRIORITY_MAP.values())
-        assert len(priorities) == len(set(priorities)), (
-            f"Duplicate priorities found: {priorities}"
-        )
+        assert len(priorities) == len(set(priorities)), f"Duplicate priorities found: {priorities}"
 
     def test_priorities_are_monotonically_increasing(self):
         """Priorities should increase with logical execution order."""
@@ -139,8 +134,7 @@ class TestMiddlewarePriorityOrdering:
             prev_name, prev_prio = items[i - 1]
             curr_name, curr_prio = items[i]
             assert curr_prio > prev_prio, (
-                f"Priority ordering violation: {prev_name}({prev_prio}) >= "
-                f"{curr_name}({curr_prio})"
+                f"Priority ordering violation: {prev_name}({prev_prio}) >= {curr_name}({curr_prio})"
             )
 
     def test_csrf_after_session(self):
@@ -164,6 +158,7 @@ class TestMiddlewarePriorityOrdering:
 # Middleware stack build verification
 # ──────────────────────────────────────────────────────────────────────
 
+
 class TestMiddlewareStackBuild:
     """Verify the MiddlewareStack builds chains in correct order."""
 
@@ -179,6 +174,7 @@ class TestMiddlewareStackBuild:
             async def mw(request, ctx, next_handler):
                 execution_order.append(name)
                 return await next_handler(request, ctx)
+
             return mw, priority
 
         stack = MiddlewareStack()
@@ -198,9 +194,7 @@ class TestMiddlewareStackBuild:
         ctx = MagicMock()
         await handler(request, ctx)
 
-        assert execution_order == ["a", "b", "c", "final"], (
-            f"Expected [a, b, c, final], got {execution_order}"
-        )
+        assert execution_order == ["a", "b", "c", "final"], f"Expected [a, b, c, final], got {execution_order}"
 
     async def test_build_handler_groups_by_scope_then_priority(self):
         """Global scope runs before app scope, then by priority within scope."""
@@ -216,6 +210,7 @@ class TestMiddlewareStackBuild:
             async def mw(request, ctx, next_handler):
                 execution_order.append(name)
                 return await next_handler(request, ctx)
+
             stack.add(mw, scope=scope, priority=priority, name=name)
 
         # Add app-scope first, then global — stack should reorder

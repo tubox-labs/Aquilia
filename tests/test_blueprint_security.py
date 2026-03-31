@@ -5,19 +5,24 @@ import sys
 from aquilia.blueprints import Blueprint
 from aquilia.blueprints.exceptions import SealFault
 
+
 class DetailTestBlueprint(Blueprint):
     name: str
     age: int
+
     def seal_name(self, data):
         if not data.get("name"):
             self.reject("name", "Field is required")
 
+
 class AsyncSealBlueprint(Blueprint):
     name: str
+
     async def seal_name(self, data):
         if not data.get("name"):
             self.reject("name", "Field is required")
         data["name"] = data["name"].upper()
+
 
 def test_blueprint_validation_error_details():
     bp = DetailTestBlueprint(data={"age": 30})
@@ -30,6 +35,7 @@ def test_blueprint_validation_error_details():
         # Accept both possible error strings for robustness
         assert err["reason"] in ("Field is required", "This field is required")
 
+
 def test_blueprint_validation_error_details_multiple():
     bp = DetailTestBlueprint(data={})
     assert not bp.is_sealed()
@@ -41,15 +47,19 @@ def test_blueprint_validation_error_details_multiple():
         fields = {f["field"] for f in err["fields"]}
         assert "name" in fields and "age" in fields
 
+
 def test_blueprint_validation_error_json_shape():
     from aquilia.middleware import ExceptionMiddleware
     from types import SimpleNamespace
+
     mw = ExceptionMiddleware(debug=True)
+
     # Use a minimal mock for Request
     class DummyReq:
         def __init__(self):
             self.scope = {"headers": []}
             self.state = {}
+
     req = DummyReq()
     ctx = SimpleNamespace()
     bp = DetailTestBlueprint(data={})
@@ -59,6 +69,7 @@ def test_blueprint_validation_error_json_shape():
         # Simulate error handling: just check error object shape
         error = e.metadata["details"]
         assert error is not None
+
 
 def test_blueprint_async_seal_method_awaited():
     bp = AsyncSealBlueprint(data={"name": "bob"})
@@ -72,25 +83,31 @@ def test_blueprint_async_seal_method_awaited():
     except RuntimeError as e:
         assert "is async but called from sync context" in str(e)
 
+
 def test_blueprint_async_seal_method_missing_field():
     bp = AsyncSealBlueprint(data={})
     result = asyncio.run(bp.is_sealed_async())
     assert result is False
     assert "name" in bp.errors
 
+
 def test_blueprint_sync_seal_method_still_works():
     bp = DetailTestBlueprint(data={"name": "bob", "age": 22})
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "bob"
 
+
 def test_blueprint_coroutine_warning_regression():
     import warnings
+
     bp = AsyncSealBlueprint(data={"name": "bob"})
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         asyncio.run(bp.is_sealed_async())
         # Should not emit coroutine was never awaited
         assert not any("was never awaited" in str(warn.message) for warn in w)
+
+
 """
 Blueprint Security Test Suite — Phase 10
 ==========================================
@@ -154,12 +171,14 @@ from aquilia.blueprints.integration import (
 
 class SimpleBlueprint(Blueprint):
     """Minimal blueprint for basic seal tests."""
+
     name: str
     age: int
 
 
 class StrictBlueprint(Blueprint):
     """Blueprint with extra_fields='reject'."""
+
     name: str
     email: str
 
@@ -169,6 +188,7 @@ class StrictBlueprint(Blueprint):
 
 class LimitedManyBlueprint(Blueprint):
     """Blueprint with a low max_many_items for testing."""
+
     value: int
 
     class Spec:
@@ -177,11 +197,13 @@ class LimitedManyBlueprint(Blueprint):
 
 class NestedChild(Blueprint):
     """A simple inner blueprint used for nesting tests."""
+
     label: str
 
 
 class SelfReferencing(Blueprint):
     """Blueprint that references itself for recursive depth test."""
+
     name: str
 
 
@@ -201,6 +223,7 @@ class TestBPSEC001_SafeAnnotationResolution:
 
     def test_unknown_identifier_becomes_forwardref(self):
         from typing import ForwardRef
+
         result = _safe_resolve_annotation("UnknownType", {})
         assert isinstance(result, ForwardRef)
 
@@ -229,6 +252,7 @@ class TestBPSEC001_SafeAnnotationResolution:
         ns = {"str": str, "int": int}
         # Malicious annotation that would execute code if eval()'d
         from typing import ForwardRef
+
         result = _safe_resolve_annotation("__import__('os').system('echo hacked')", ns)
         # Must be a ForwardRef, NOT executed
         assert isinstance(result, ForwardRef)
@@ -237,6 +261,7 @@ class TestBPSEC001_SafeAnnotationResolution:
         """Another injection vector that eval() would execute."""
         ns = {"str": str}
         from typing import ForwardRef
+
         result = _safe_resolve_annotation("eval('1+1')", ns)
         assert isinstance(result, ForwardRef)
 
@@ -268,9 +293,7 @@ class TestBPSEC002_BodySizeLimit:
         request.json = AsyncMock(return_value={})
 
         with pytest.raises(SealFault, match="Request body too large"):
-            asyncio.run(
-                bind_blueprint_to_request(SimpleBlueprint, request)
-            )
+            asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
 
     def test_valid_content_length_passes(self):
         """Request with Content-Length <= MAX_BODY_SIZE is not rejected at size check."""
@@ -282,9 +305,7 @@ class TestBPSEC002_BodySizeLimit:
         request.json = AsyncMock(return_value={"name": "ok", "age": 25})
         request.state = {}
 
-        bp = asyncio.run(
-            bind_blueprint_to_request(SimpleBlueprint, request)
-        )
+        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
         assert isinstance(bp, SimpleBlueprint)
 
     def test_context_override_max_body_size(self):
@@ -294,11 +315,7 @@ class TestBPSEC002_BodySizeLimit:
         request.json = AsyncMock(return_value={})
 
         with pytest.raises(SealFault, match="Request body too large"):
-            asyncio.run(
-                bind_blueprint_to_request(
-                    SimpleBlueprint, request, context={"max_body_size": 1000}
-                )
-            )
+            asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request, context={"max_body_size": 1000}))
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -418,10 +435,7 @@ class TestBPSEC005_DictFacetThreadSafety:
             except Exception as e:
                 errors.append(e)
 
-        threads = [
-            threading.Thread(target=cast_in_thread, args=({"x": i},))
-            for i in range(20)
-        ]
+        threads = [threading.Thread(target=cast_in_thread, args=({"x": i},)) for i in range(20)]
         for t in threads:
             t.start()
         for t in threads:
@@ -705,12 +719,14 @@ class TestBPSEC012_MetaclassWarning:
         # to trigger deterministically, so we test _safe_resolve_annotation
         # returning ForwardRef for broken annotations as the safety net.
         from typing import ForwardRef
+
         result = _safe_resolve_annotation("Completely[Invalid[Syntax", {})
         assert isinstance(result, ForwardRef)
 
     def test_import_warnings_in_core(self):
         """Verify the warnings module is imported in core.py."""
         import aquilia.blueprints.core as core_mod
+
         assert hasattr(core_mod, "warnings")
 
 
@@ -732,9 +748,7 @@ class TestBPSEC013_ContentTypeDetection:
         request.json = AsyncMock(return_value={"name": "Test", "age": 25})
         request.state = {}
 
-        bp = asyncio.run(
-            bind_blueprint_to_request(SimpleBlueprint, request)
-        )
+        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
         request.json.assert_called_once()
 
     def test_form_content_type_uses_form_parser(self):
@@ -752,9 +766,7 @@ class TestBPSEC013_ContentTypeDetection:
         request.form = AsyncMock(return_value=form_mock)
         request.state = {}
 
-        bp = asyncio.run(
-            bind_blueprint_to_request(SimpleBlueprint, request)
-        )
+        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
         request.form.assert_called_once()
 
     def test_missing_content_type_still_works(self):
@@ -764,9 +776,7 @@ class TestBPSEC013_ContentTypeDetection:
         request.json = AsyncMock(return_value={"name": "Test", "age": 25})
         request.state = {}
 
-        bp = asyncio.run(
-            bind_blueprint_to_request(SimpleBlueprint, request)
-        )
+        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
         assert isinstance(bp, SimpleBlueprint)
 
 

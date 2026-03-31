@@ -40,50 +40,70 @@ class TestAdminConfigTestingModule:
 
     def test_admin_config_has_testing_key(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         assert "testing" in cfg.modules
 
     def test_admin_config_testing_disabled_by_default(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         assert cfg.modules["testing"] is False
 
     def test_admin_config_is_module_enabled_testing_false(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         assert cfg.is_module_enabled("testing") is False
 
     def test_admin_config_is_module_enabled_testing_true(self):
         from aquilia.admin.site import AdminConfig
-        cfg = AdminConfig(modules={
-            "dashboard": True, "orm": True, "build": True,
-            "migrations": True, "config": True, "workspace": True,
-            "permissions": True, "monitoring": False, "admin_users": True,
-            "profile": True, "audit": False,
-            "containers": False, "pods": False,
-            "query_inspector": False, "tasks": False, "errors": False,
-            "testing": True,
-        })
+
+        cfg = AdminConfig(
+            modules={
+                "dashboard": True,
+                "orm": True,
+                "build": True,
+                "migrations": True,
+                "config": True,
+                "workspace": True,
+                "permissions": True,
+                "monitoring": False,
+                "admin_users": True,
+                "profile": True,
+                "audit": False,
+                "containers": False,
+                "pods": False,
+                "query_inspector": False,
+                "tasks": False,
+                "errors": False,
+                "testing": True,
+            }
+        )
         assert cfg.is_module_enabled("testing") is True
 
     def test_admin_config_from_dict_testing_default_false(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({})
         assert cfg.is_module_enabled("testing") is False
 
     def test_admin_config_from_dict_testing_enabled(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"testing": True}})
         assert cfg.is_module_enabled("testing") is True
 
     def test_admin_config_from_dict_testing_disabled_explicit(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"testing": False}})
         assert cfg.is_module_enabled("testing") is False
 
     def test_admin_config_from_dict_preserves_other_modules(self):
         """Enabling testing shouldn't break other modules."""
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"testing": True, "tasks": True}})
         assert cfg.is_module_enabled("testing") is True
         assert cfg.is_module_enabled("tasks") is True
@@ -93,6 +113,7 @@ class TestAdminConfigTestingModule:
     def test_admin_config_frozen(self):
         """AdminConfig is frozen dataclass — immutable."""
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         with pytest.raises(Exception):  # FrozenInstanceError
             cfg.modules = {}
@@ -108,18 +129,21 @@ class TestAdminModulesTestingBuilder:
 
     def test_enable_testing(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules().enable_testing()
         d = mods.to_dict()
         assert d["testing"] is True
 
     def test_disable_testing(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules().enable_testing().disable_testing()
         d = mods.to_dict()
         assert d["testing"] is False
 
     def test_testing_disabled_by_default(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         d = mods.to_dict()
         assert d["testing"] is False
@@ -127,24 +151,22 @@ class TestAdminModulesTestingBuilder:
     def test_enable_testing_returns_self(self):
         """Fluent API — enable_testing returns self for chaining."""
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         result = mods.enable_testing()
         assert result is mods
 
     def test_disable_testing_returns_self(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         result = mods.disable_testing()
         assert result is mods
 
     def test_chaining_with_other_modules(self):
         from aquilia.config_builders import Integration
-        mods = (
-            Integration.AdminModules()
-            .enable_tasks()
-            .enable_errors()
-            .enable_testing()
-        )
+
+        mods = Integration.AdminModules().enable_tasks().enable_errors().enable_testing()
         d = mods.to_dict()
         assert d["tasks"] is True
         assert d["errors"] is True
@@ -152,36 +174,42 @@ class TestAdminModulesTestingBuilder:
 
     def test_enable_all_includes_testing(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules().enable_all()
         d = mods.to_dict()
         assert d["testing"] is True
 
     def test_disable_all_includes_testing(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules().enable_all().disable_all()
         d = mods.to_dict()
         assert d["testing"] is False
 
     def test_testing_key_in_to_dict(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         d = mods.to_dict()
         assert "testing" in d
 
     def test_repr_includes_testing_when_enabled(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules().enable_testing()
         r = repr(mods)
         assert "testing" in r
 
     def test_repr_excludes_testing_when_disabled(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         r = repr(mods)
         assert "testing" not in r
 
     def test_slots_contains_testing(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         assert "_testing" in mods.__slots__
 
@@ -196,16 +224,19 @@ class TestIntegrationAdminFlat:
 
     def test_flat_enable_testing(self):
         from aquilia.config_builders import Integration
+
         cfg = Integration.admin(enable_testing=True)
         assert cfg["modules"]["testing"] is True
 
     def test_flat_enable_testing_default_false(self):
         from aquilia.config_builders import Integration
+
         cfg = Integration.admin()
         assert cfg["modules"]["testing"] is False
 
     def test_flat_enable_testing_with_other_modules(self):
         from aquilia.config_builders import Integration
+
         cfg = Integration.admin(
             enable_testing=True,
             enable_tasks=True,
@@ -219,6 +250,7 @@ class TestIntegrationAdminFlat:
         """Round-trip: flat syntax → AdminConfig."""
         from aquilia.config_builders import Integration
         from aquilia.admin.site import AdminConfig
+
         raw = Integration.admin(enable_testing=True)
         cfg = AdminConfig.from_dict(raw)
         assert cfg.is_module_enabled("testing") is True
@@ -234,22 +266,23 @@ class TestWorkspaceTestingRoundTrip:
 
     def test_workspace_admin_testing_enabled(self):
         from aquilia.config_builders import Workspace, Integration
+
         ws = Workspace("test").integrate(Integration.admin(enable_testing=True))
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is True
 
     def test_workspace_admin_testing_disabled(self):
         from aquilia.config_builders import Workspace, Integration
+
         ws = Workspace("test").integrate(Integration.admin())
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is False
 
     def test_workspace_admin_modules_builder_testing(self):
         from aquilia.config_builders import Workspace, Integration
+
         mods = Integration.AdminModules().enable_testing()
-        ws = Workspace("test").integrate(
-            Integration.admin(modules=mods)
-        )
+        ws = Workspace("test").integrate(Integration.admin(modules=mods))
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is True
 
@@ -264,6 +297,7 @@ class TestGetTestingData:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite.__new__(AdminSite)
         site._registry = {}
         site._app_order = []
@@ -507,10 +541,17 @@ class TestGetTestingData:
         data = site.get_testing_data()
         summary = data["summary"]
         expected_keys = [
-            "total_test_cases", "total_assertions", "total_fixtures",
-            "total_mocks", "total_utilities", "total_test_files",
-            "total_test_functions", "total_test_classes", "total_lines",
-            "total_components", "covered_components",
+            "total_test_cases",
+            "total_assertions",
+            "total_fixtures",
+            "total_mocks",
+            "total_utilities",
+            "total_test_files",
+            "total_test_functions",
+            "total_test_classes",
+            "total_lines",
+            "total_components",
+            "covered_components",
         ]
         for k in expected_keys:
             assert k in summary, f"Missing key: {k}"
@@ -536,11 +577,16 @@ class TestGetTestingData:
         data = site.get_testing_data()
         charts = data["charts"]
         expected_chart_keys = [
-            "test_distribution", "test_categories",
-            "assertion_categories", "mock_infrastructure",
-            "lines_of_code", "component_coverage",
-            "async_sync", "test_density",
-            "imports_usage", "assertions_per_file",
+            "test_distribution",
+            "test_categories",
+            "assertion_categories",
+            "mock_infrastructure",
+            "lines_of_code",
+            "component_coverage",
+            "async_sync",
+            "test_density",
+            "imports_usage",
+            "assertions_per_file",
         ]
         for k in expected_chart_keys:
             assert k in charts, f"Missing chart key: {k}"
@@ -599,8 +645,13 @@ class TestRenderTestingPage:
             "available": True,
             "framework_version": "1.0.0",
             "test_classes": [
-                {"name": "AquiliaTestCase", "description": "Full test", "base": "IsolatedAsyncioTestCase",
-                 "features": ["auto_server"], "category": "integration"},
+                {
+                    "name": "AquiliaTestCase",
+                    "description": "Full test",
+                    "base": "IsolatedAsyncioTestCase",
+                    "features": ["auto_server"],
+                    "category": "integration",
+                },
             ],
             "client": {
                 "http": {"name": "TestClient", "methods": ["get", "post"], "features": ["in_process_asgi"]},
@@ -613,15 +664,25 @@ class TestRenderTestingPage:
             "fixtures": [{"name": "test_client", "async": True}],
             "total_fixtures": 1,
             "mock_infra": [
-                {"name": "MockFaultEngine", "module": "faults", "description": "Capture faults",
-                 "features": ["emit_capture"]},
+                {
+                    "name": "MockFaultEngine",
+                    "module": "faults",
+                    "description": "Capture faults",
+                    "features": ["emit_capture"],
+                },
             ],
             "total_mocks": 1,
             "utilities": [{"name": "make_test_scope", "description": "Build ASGI scope"}],
             "total_utilities": 1,
             "test_files": [
-                {"name": "test_example.py", "directory": "tests", "path": "/test_example.py",
-                 "lines": 100, "test_count": 10, "class_count": 2},
+                {
+                    "name": "test_example.py",
+                    "directory": "tests",
+                    "path": "/test_example.py",
+                    "lines": 100,
+                    "test_count": 10,
+                    "class_count": 2,
+                },
             ],
             "total_test_files": 1,
             "component_coverage": [
@@ -630,10 +691,17 @@ class TestRenderTestingPage:
             "total_components": 1,
             "covered_components": 1,
             "summary": {
-                "total_test_cases": 4, "total_assertions": 1, "total_fixtures": 1,
-                "total_mocks": 1, "total_utilities": 1, "total_test_files": 1,
-                "total_test_functions": 10, "total_test_classes": 2, "total_lines": 100,
-                "total_components": 1, "covered_components": 1,
+                "total_test_cases": 4,
+                "total_assertions": 1,
+                "total_fixtures": 1,
+                "total_mocks": 1,
+                "total_utilities": 1,
+                "total_test_files": 1,
+                "total_test_functions": 10,
+                "total_test_classes": 2,
+                "total_lines": 100,
+                "total_components": 1,
+                "covered_components": 1,
             },
             "charts": {
                 "test_distribution": {"labels": ["example"], "values": [10]},
@@ -649,38 +717,45 @@ class TestRenderTestingPage:
 
     def test_render_testing_page_returns_string(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert isinstance(html, str)
 
     def test_render_testing_page_contains_html(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "<html" in html or "<!DOCTYPE" in html or "Testing" in html
 
     def test_render_testing_page_includes_chart_js_cdn(self):
         """Output includes Chart.js CDN script."""
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "chart.js" in html.lower() or "Chart" in html
 
     def test_render_testing_page_includes_title(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "Testing Framework" in html
 
     def test_render_testing_page_includes_test_class_names(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "AquiliaTestCase" in html
 
     def test_render_testing_page_includes_framework_version(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "1.0.0" in html
 
     def test_render_testing_page_chart_canvas_elements(self):
         """All expected chart canvas IDs present."""
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "chartTestDistribution" in html
         assert "chartCoverage" in html
@@ -690,47 +765,56 @@ class TestRenderTestingPage:
 
     def test_render_testing_page_active_page_is_testing(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         # The active_page="testing" is passed to the template
         assert "testing" in html.lower()
 
     def test_render_testing_page_shows_available_status(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data(available=True))
         assert "Available" in html
 
     def test_render_testing_page_shows_mock_infra_name(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "MockFaultEngine" in html
 
     def test_render_testing_page_shows_fixture_name(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "test_client" in html
 
     def test_render_testing_page_shows_utility_name(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "make_test_scope" in html
 
     def test_render_testing_page_shows_test_file(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "test_example.py" in html
 
     def test_render_testing_page_shows_assertion_category(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "HTTP Status" in html
 
     def test_render_testing_page_shows_component_coverage(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "Server" in html
 
     def test_render_testing_page_identity_name(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(
             testing_data=self._testing_data(),
             identity_name="TestAdmin",
@@ -739,6 +823,7 @@ class TestRenderTestingPage:
 
     def test_render_testing_page_custom_url_prefix(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(
             testing_data=self._testing_data(),
             url_prefix="/custom-admin",
@@ -757,28 +842,34 @@ class TestAdminControllerTestingRoutes:
 
     def test_controller_has_testing_view_method(self):
         from aquilia.admin.controller import AdminController
+
         assert hasattr(AdminController, "testing_view")
 
     def test_controller_has_testing_api_method(self):
         from aquilia.admin.controller import AdminController
+
         assert hasattr(AdminController, "testing_api")
 
     def test_testing_view_is_async(self):
         from aquilia.admin.controller import AdminController
+
         assert inspect.iscoroutinefunction(AdminController.testing_view)
 
     def test_testing_api_is_async(self):
         from aquilia.admin.controller import AdminController
+
         assert inspect.iscoroutinefunction(AdminController.testing_api)
 
     def test_controller_imports_render_testing_page(self):
         """render_testing_page is imported in controller module."""
         import aquilia.admin.controller as ctrl_mod
+
         assert hasattr(ctrl_mod, "render_testing_page")
 
     def test_testing_view_route_metadata(self):
         """testing_view should have route metadata for /testing/."""
         from aquilia.admin.controller import AdminController
+
         method = AdminController.testing_view
         # Routes are decorated with @GET("/testing/") → has __route_path__ or similar
         route_attrs = [a for a in dir(method) if "route" in a.lower() or "path" in a.lower()]
@@ -788,6 +879,7 @@ class TestAdminControllerTestingRoutes:
 
     def test_testing_api_route_metadata(self):
         from aquilia.admin.controller import AdminController
+
         method = AdminController.testing_api
         source = inspect.getsource(method)
         assert "testing" in source
@@ -796,38 +888,45 @@ class TestAdminControllerTestingRoutes:
     def test_testing_view_checks_identity(self):
         """testing_view must call _require_identity for auth."""
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_view)
         assert "_require_identity" in source
 
     def test_testing_api_checks_identity(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_api)
         assert "_require_identity" in source
 
     def test_testing_view_checks_module_enabled(self):
         """testing_view must check is_module_enabled('testing')."""
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_view)
         assert "is_module_enabled" in source
         assert '"testing"' in source or "'testing'" in source
 
     def test_testing_api_checks_module_enabled(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_api)
         assert "is_module_enabled" in source
 
     def test_testing_view_calls_get_testing_data(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_view)
         assert "get_testing_data" in source
 
     def test_testing_api_calls_get_testing_data(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_api)
         assert "get_testing_data" in source
 
     def test_testing_view_calls_render_testing_page(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.testing_view)
         assert "render_testing_page" in source
 
@@ -843,14 +942,22 @@ class TestSidebarTestingLink:
     def test_sidebar_template_exists(self):
         sidebar_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
         assert os.path.isfile(sidebar_path)
 
     def test_sidebar_contains_testing_link(self):
         sidebar_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
         with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
@@ -859,7 +966,11 @@ class TestSidebarTestingLink:
     def test_sidebar_testing_label(self):
         sidebar_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
         with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
@@ -868,7 +979,11 @@ class TestSidebarTestingLink:
     def test_sidebar_testing_icon(self):
         sidebar_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
         with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
@@ -877,7 +992,11 @@ class TestSidebarTestingLink:
     def test_sidebar_testing_active_page_check(self):
         sidebar_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
         with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
@@ -886,7 +1005,11 @@ class TestSidebarTestingLink:
     def test_sidebar_testing_data_label(self):
         sidebar_path = os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
         with open(sidebar_path, encoding="utf-8") as f:
             content = f.read()
@@ -894,6 +1017,7 @@ class TestSidebarTestingLink:
         assert "data-sidebar-label" in content
         # Find the testing link's data-sidebar-label
         import re
+
         labels = re.findall(r'data-sidebar-label="([^"]*testing[^"]*)"', content)
         assert len(labels) > 0
 
@@ -909,7 +1033,10 @@ class TestTestingTemplateFile:
     def _template_path(self):
         return os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "testing.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "testing.html",
         )
 
     def test_template_file_exists(self):
@@ -1002,78 +1129,97 @@ class TestTestingFrameworkImports:
 
     def test_import_aquilia_test_case(self):
         from aquilia.testing.cases import AquiliaTestCase
+
         assert AquiliaTestCase is not None
 
     def test_import_transaction_test_case(self):
         from aquilia.testing.cases import TransactionTestCase
+
         assert TransactionTestCase is not None
 
     def test_import_live_server_test_case(self):
         from aquilia.testing.cases import LiveServerTestCase
+
         assert LiveServerTestCase is not None
 
     def test_import_simple_test_case(self):
         from aquilia.testing.cases import SimpleTestCase
+
         assert SimpleTestCase is not None
 
     def test_import_test_client(self):
         from aquilia.testing.client import TestClient
+
         assert TestClient is not None
 
     def test_import_websocket_test_client(self):
         from aquilia.testing.client import WebSocketTestClient
+
         assert WebSocketTestClient is not None
 
     def test_import_aquilia_assertions(self):
         from aquilia.testing.assertions import AquiliaAssertions
+
         assert AquiliaAssertions is not None
 
     def test_import_mock_fault_engine(self):
         from aquilia.testing.faults import MockFaultEngine
+
         assert MockFaultEngine is not None
 
     def test_import_mock_effect_registry(self):
         from aquilia.testing.effects import MockEffectRegistry
+
         assert MockEffectRegistry is not None
 
     def test_import_mock_cache_backend(self):
         from aquilia.testing.cache import MockCacheBackend
+
         assert MockCacheBackend is not None
 
     def test_import_test_container(self):
         from aquilia.testing.di import TestContainer
+
         assert TestContainer is not None
 
     def test_import_mail_test_mixin(self):
         from aquilia.testing.mail import MailTestMixin
+
         assert MailTestMixin is not None
 
     def test_import_test_identity_factory(self):
         from aquilia.testing.auth import TestIdentityFactory
+
         assert TestIdentityFactory is not None
 
     def test_import_identity_builder(self):
         from aquilia.testing.auth import IdentityBuilder
+
         assert IdentityBuilder is not None
 
     def test_import_test_config(self):
         from aquilia.testing.config import TestConfig
+
         assert TestConfig is not None
 
     def test_import_test_server(self):
         from aquilia.testing.server import TestServer
+
         assert TestServer is not None
 
     def test_import_make_test_scope(self):
         from aquilia.testing.utils import make_test_scope
+
         assert callable(make_test_scope)
 
     def test_import_make_test_request(self):
         from aquilia.testing.utils import make_test_request
+
         assert callable(make_test_request)
 
     def test_import_make_upload_file(self):
         from aquilia.testing.utils import make_upload_file
+
         assert callable(make_upload_file)
 
 
@@ -1087,41 +1233,49 @@ class TestRenderTestingPageSignature:
 
     def test_function_exists(self):
         from aquilia.admin.templates import render_testing_page
+
         assert callable(render_testing_page)
 
     def test_first_param_is_testing_data(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         params = list(sig.parameters.keys())
         assert params[0] == "testing_data"
 
     def test_has_app_list_param(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         assert "app_list" in sig.parameters
 
     def test_has_identity_name_param(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         assert "identity_name" in sig.parameters
 
     def test_has_site_title_param(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         assert "site_title" in sig.parameters
 
     def test_has_url_prefix_param(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         assert "url_prefix" in sig.parameters
 
     def test_default_identity_name(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         assert sig.parameters["identity_name"].default == "Admin"
 
     def test_default_url_prefix(self):
         from aquilia.admin.templates import render_testing_page
+
         sig = inspect.signature(render_testing_page)
         assert sig.parameters["url_prefix"].default == "/admin"
 
@@ -1136,6 +1290,7 @@ class TestGetTestingDataEdgeCases:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite.__new__(AdminSite)
         site._registry = {}
         site._app_order = []
@@ -1157,8 +1312,9 @@ class TestGetTestingDataEdgeCases:
         site = self._make_site()
         data = site.get_testing_data()
         for key, chart in data["charts"].items():
-            assert len(chart["labels"]) == len(chart["values"]), \
+            assert len(chart["labels"]) == len(chart["values"]), (
                 f"Chart '{key}': labels({len(chart['labels'])}) != values({len(chart['values'])})"
+            )
 
     def test_summary_consistency(self):
         """Summary totals should match actual data lengths."""
@@ -1254,14 +1410,13 @@ class TestTestingAdminIntegration:
         """Full workspace config with testing enabled round-trips."""
         from aquilia.config_builders import Workspace, Integration
 
-        ws = (
-            Workspace("testapp")
-            .integrate(Integration.admin(
+        ws = Workspace("testapp").integrate(
+            Integration.admin(
                 enable_testing=True,
                 enable_tasks=True,
                 enable_errors=True,
                 enable_query_inspector=True,
-            ))
+            )
         )
         d = ws.to_dict()
         mods = d["integrations"]["admin"]["modules"]
@@ -1274,13 +1429,7 @@ class TestTestingAdminIntegration:
         """AdminModules builder enables all devtools including testing."""
         from aquilia.config_builders import Integration
 
-        mods = (
-            Integration.AdminModules()
-            .enable_query_inspector()
-            .enable_tasks()
-            .enable_errors()
-            .enable_testing()
-        )
+        mods = Integration.AdminModules().enable_query_inspector().enable_tasks().enable_errors().enable_testing()
         d = mods.to_dict()
         assert d["query_inspector"] is True
         assert d["tasks"] is True
@@ -1322,23 +1471,27 @@ class TestPhase31fServerRouteWiring:
 
     def test_server_module_has_wire_admin_integration(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         assert "_wire_admin_integration" in src
 
     def test_server_registers_testing_view_route(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         assert "testing_view" in src
         assert "/testing/" in src
 
     def test_server_registers_testing_api_route(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         assert "testing_api" in src
         assert "/testing/api/" in src
 
     def test_testing_routes_use_get_method(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         lines = src.splitlines()
         for line in lines:
@@ -1350,6 +1503,7 @@ class TestPhase31fServerRouteWiring:
     def test_testing_routes_after_errors_routes(self):
         """Testing routes should be placed after errors routes."""
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         errors_pos = src.find("errors_view")
         testing_pos = src.find("testing_view")
@@ -1363,27 +1517,32 @@ class TestPhase31fDisabledPage:
 
     def test_config_hints_has_testing_framework(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert '"Testing Framework"' in src or "'Testing Framework'" in src
 
     def test_config_hints_testing_builder_hint(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "enable_testing()" in src
 
     def test_config_hints_testing_flat_hint(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "enable_testing=True" in src
 
     def test_config_hints_testing_icon(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "check-circle" in src
 
     def test_testing_view_returns_disabled_page_when_off(self):
         """testing_view calls _module_disabled_response when testing not enabled."""
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController.testing_view)
         assert "_module_disabled_response" in src
         assert '"Testing Framework"' in src or "'Testing Framework'" in src
@@ -1394,6 +1553,7 @@ class TestPhase31fEnhancedSummary:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite.__new__(AdminSite)
         site._registry = {}
         site._app_order = []
@@ -1496,6 +1656,7 @@ class TestPhase31fEnhancedTestFileFields:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite.__new__(AdminSite)
         site._registry = {}
         site._app_order = []
@@ -1545,8 +1706,9 @@ class TestPhase31fEnhancedTestFileFields:
         site = self._make_site()
         data = site.get_testing_data()
         for f in data["test_files"]:
-            assert f["async_tests"] + f["sync_tests"] == f["test_count"], \
+            assert f["async_tests"] + f["sync_tests"] == f["test_count"], (
                 f"File {f['name']}: async({f['async_tests']}) + sync({f['sync_tests']}) != count({f['test_count']})"
+            )
 
     def test_test_file_has_imports(self):
         site = self._make_site()
@@ -1562,8 +1724,9 @@ class TestPhase31fEnhancedTestFileFields:
         for f in data["test_files"]:
             if f["lines"] > 0:
                 expected = round((f["test_count"] / f["lines"]) * 100, 2)
-                assert abs(f["density"] - expected) < 0.1, \
+                assert abs(f["density"] - expected) < 0.1, (
                     f"File {f['name']}: density {f['density']} != expected {expected}"
+                )
 
 
 class TestPhase31fNewChartKeys:
@@ -1571,6 +1734,7 @@ class TestPhase31fNewChartKeys:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite.__new__(AdminSite)
         site._registry = {}
         site._app_order = []
@@ -1652,8 +1816,9 @@ class TestPhase31fNewChartKeys:
         site = self._make_site()
         data = site.get_testing_data()
         for key, chart in data["charts"].items():
-            assert len(chart["labels"]) == len(chart["values"]), \
+            assert len(chart["labels"]) == len(chart["values"]), (
                 f"Chart '{key}': labels({len(chart['labels'])}) != values({len(chart['values'])})"
+            )
 
     def test_all_charts_json_serializable(self):
         site = self._make_site()
@@ -1668,7 +1833,10 @@ class TestPhase31fTemplateEnhancements:
     def _template_path(self):
         return os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "testing.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "testing.html",
         )
 
     def _read_template(self):
@@ -1781,8 +1949,13 @@ class TestPhase31fRenderWithEnhancedData:
             "available": True,
             "framework_version": "1.0.0",
             "test_classes": [
-                {"name": "AquiliaTestCase", "description": "Full test", "base": "IsolatedAsyncioTestCase",
-                 "features": ["auto_server"], "category": "integration"},
+                {
+                    "name": "AquiliaTestCase",
+                    "description": "Full test",
+                    "base": "IsolatedAsyncioTestCase",
+                    "features": ["auto_server"],
+                    "category": "integration",
+                },
             ],
             "client": {
                 "http": {"name": "TestClient", "methods": ["get", "post"], "features": ["in_process_asgi"]},
@@ -1795,17 +1968,31 @@ class TestPhase31fRenderWithEnhancedData:
             "fixtures": [{"name": "test_client", "async": True}],
             "total_fixtures": 1,
             "mock_infra": [
-                {"name": "MockFaultEngine", "module": "faults", "description": "Capture faults",
-                 "features": ["emit_capture"]},
+                {
+                    "name": "MockFaultEngine",
+                    "module": "faults",
+                    "description": "Capture faults",
+                    "features": ["emit_capture"],
+                },
             ],
             "total_mocks": 1,
             "utilities": [{"name": "make_test_scope", "description": "Build ASGI scope"}],
             "total_utilities": 1,
             "test_files": [
-                {"name": "test_example.py", "directory": "tests", "path": "/test_example.py",
-                 "lines": 100, "test_count": 10, "class_count": 2,
-                 "category": "unit", "assert_count": 25, "density": 10.0,
-                 "async_tests": 3, "sync_tests": 7, "imports": ["AquiliaTestCase"]},
+                {
+                    "name": "test_example.py",
+                    "directory": "tests",
+                    "path": "/test_example.py",
+                    "lines": 100,
+                    "test_count": 10,
+                    "class_count": 2,
+                    "category": "unit",
+                    "assert_count": 25,
+                    "density": 10.0,
+                    "async_tests": 3,
+                    "sync_tests": 7,
+                    "imports": ["AquiliaTestCase"],
+                },
             ],
             "total_test_files": 1,
             "component_coverage": [
@@ -1814,13 +2001,23 @@ class TestPhase31fRenderWithEnhancedData:
             "total_components": 1,
             "covered_components": 1,
             "summary": {
-                "total_test_cases": 4, "total_assertions": 1, "total_fixtures": 1,
-                "total_mocks": 1, "total_utilities": 1, "total_test_files": 1,
-                "total_test_functions": 10, "total_test_classes": 2, "total_lines": 100,
-                "total_components": 1, "covered_components": 1,
-                "total_assert_stmts": 25, "avg_tests_per_file": 10.0,
-                "avg_loc_per_test": 10.0, "avg_density": 10.0,
-                "total_async_tests": 3, "total_sync_tests": 7,
+                "total_test_cases": 4,
+                "total_assertions": 1,
+                "total_fixtures": 1,
+                "total_mocks": 1,
+                "total_utilities": 1,
+                "total_test_files": 1,
+                "total_test_functions": 10,
+                "total_test_classes": 2,
+                "total_lines": 100,
+                "total_components": 1,
+                "covered_components": 1,
+                "total_assert_stmts": 25,
+                "avg_tests_per_file": 10.0,
+                "avg_loc_per_test": 10.0,
+                "avg_density": 10.0,
+                "total_async_tests": 3,
+                "total_sync_tests": 7,
                 "category_breakdown": {"unit": 1, "integration": 0, "database": 0, "e2e": 0, "other": 0},
                 "imports_usage": {"AquiliaTestCase": 1},
             },
@@ -1842,11 +2039,13 @@ class TestPhase31fRenderWithEnhancedData:
 
     def test_render_returns_string(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert isinstance(html, str)
 
     def test_render_contains_new_chart_canvases(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "chartCategories" in html
         assert "chartAsyncSync" in html
@@ -1856,6 +2055,7 @@ class TestPhase31fRenderWithEnhancedData:
 
     def test_render_contains_enhanced_metrics(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "Assert Statements" in html
         assert "Avg Tests / File" in html
@@ -1863,35 +2063,41 @@ class TestPhase31fRenderWithEnhancedData:
 
     def test_render_contains_category_badge(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "cat-badge" in html
         assert "cat-unit" in html
 
     def test_render_contains_search_elements(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "testFileSearch" in html
         assert "testCategoryFilter" in html
 
     def test_render_contains_snippet_panel(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "Quick Setup" in html
         assert "snippet-panel" in html
 
     def test_render_contains_density_bar(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "density-bar" in html
 
     def test_render_contains_status_bar_with_asserts(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "25" in html  # total_assert_stmts
         assert "assert stmts" in html.lower() or "assert" in html.lower()
 
     def test_render_contains_async_sync_in_status(self):
         from aquilia.admin.templates import render_testing_page
+
         html = render_testing_page(testing_data=self._testing_data())
         assert "3 async" in html or "3 async" in html.lower()
 
@@ -1925,6 +2131,7 @@ class TestPhase31fEdgeCases:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite.__new__(AdminSite)
         site._registry = {}
         site._app_order = []

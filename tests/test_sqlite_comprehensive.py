@@ -94,6 +94,7 @@ from aquilia.sqlite import (
 # Fixtures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def tmp_db(tmp_path: Path) -> str:
     """Path for a temporary on-disk SQLite database."""
@@ -109,9 +110,7 @@ def tmp_db_2(tmp_path: Path) -> str:
 @pytest_asyncio.fixture
 async def pool(tmp_db: str):
     """Open pool, yield, close after test."""
-    p = await create_pool(
-        SqlitePoolConfig(path=tmp_db, pool_size=3, pool_min_size=1)
-    )
+    p = await create_pool(SqlitePoolConfig(path=tmp_db, pool_size=3, pool_min_size=1))
     yield p
     await p.close()
 
@@ -119,9 +118,7 @@ async def pool(tmp_db: str):
 @pytest_asyncio.fixture
 async def memory_pool():
     """Pool using :memory: (shared-cache)."""
-    p = await create_pool(
-        SqlitePoolConfig(path=":memory:", pool_size=2, pool_min_size=1)
-    )
+    p = await create_pool(SqlitePoolConfig(path=":memory:", pool_size=2, pool_min_size=1))
     yield p
     await p.close()
 
@@ -129,9 +126,7 @@ async def memory_pool():
 @pytest_asyncio.fixture
 async def seeded_pool(pool: ConnectionPool):
     """Pool with a users table pre-seeded."""
-    await pool.execute(
-        "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INT)"
-    )
+    await pool.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INT)")
     await pool.execute_many(
         "INSERT INTO users (name, age) VALUES (?, ?)",
         [["Alice", 30], ["Bob", 25], ["Charlie", 35], ["Diana", 28]],
@@ -142,6 +137,7 @@ async def seeded_pool(pool: ConnectionPool):
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. SqlitePoolConfig — Comprehensive Validation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSqlitePoolConfigDefaults:
     """Verify every default value."""
@@ -175,6 +171,7 @@ class TestSqlitePoolConfigValidation:
 
     def test_invalid_journal_mode(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="journal_mode"):
             SqlitePoolConfig(journal_mode="BOGUS")
 
@@ -185,6 +182,7 @@ class TestSqlitePoolConfigValidation:
 
     def test_invalid_synchronous(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="synchronous"):
             SqlitePoolConfig(synchronous="INVALID")
 
@@ -194,21 +192,25 @@ class TestSqlitePoolConfigValidation:
 
     def test_invalid_temp_store(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="temp_store"):
             SqlitePoolConfig(temp_store="DISK")
 
     def test_pool_size_zero(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="pool_size"):
             SqlitePoolConfig(pool_size=0)
 
     def test_pool_size_negative(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="pool_size"):
             SqlitePoolConfig(pool_size=-1)
 
     def test_pool_min_exceeds_max(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="pool_min_size"):
             SqlitePoolConfig(pool_size=2, pool_min_size=5)
 
@@ -244,6 +246,7 @@ class TestSqlitePoolConfigFactories:
 
     def test_from_sqlite_config(self):
         from aquilia.db.configs import SqliteConfig
+
         base = SqliteConfig(path="data/app.db", busy_timeout=10000)
         cfg = SqlitePoolConfig.from_sqlite_config(base, synchronous="FULL")
         assert cfg.path == "data/app.db"
@@ -252,6 +255,7 @@ class TestSqlitePoolConfigFactories:
 
     def test_from_sqlite_config_defaults(self):
         from aquilia.db.configs import SqliteConfig
+
         base = SqliteConfig(path="test.db")
         cfg = SqlitePoolConfig.from_sqlite_config(base)
         assert cfg.path == "test.db"
@@ -261,6 +265,7 @@ class TestSqlitePoolConfigFactories:
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. PRAGMA Building
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPragmaBuilding:
     """Comprehensive PRAGMA builder tests."""
@@ -317,6 +322,7 @@ class TestPragmaBuilding:
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. Row — Exhaustive Coverage
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRowBasicAccess:
     """Row access patterns."""
@@ -516,6 +522,7 @@ class TestRowEdgeCases:
 # 4. StatementCache — LRU Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestStatementCacheBasic:
     def test_miss_then_hit(self):
         cache = StatementCache(capacity=10)
@@ -611,6 +618,7 @@ class TestStatementCacheHitRate:
 # 5. ConnectionPool — Lifecycle
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPoolLifecycle:
     @pytest.mark.asyncio
     async def test_open_close(self, tmp_db: str):
@@ -623,9 +631,7 @@ class TestPoolLifecycle:
 
     @pytest.mark.asyncio
     async def test_context_manager(self, tmp_db: str):
-        async with ConnectionPool(
-            SqlitePoolConfig(path=tmp_db, pool_size=1, pool_min_size=1)
-        ) as pool:
+        async with ConnectionPool(SqlitePoolConfig(path=tmp_db, pool_size=1, pool_min_size=1)) as pool:
             assert pool.is_open
         assert not pool.is_open
 
@@ -689,6 +695,7 @@ class TestPoolAcquireRelease:
 # 6. Query Execution — CRUD
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestQueryCRUD:
     @pytest.mark.asyncio
     async def test_create_table(self, pool: ConnectionPool):
@@ -707,21 +714,15 @@ class TestQueryCRUD:
 
     @pytest.mark.asyncio
     async def test_update(self, seeded_pool: ConnectionPool):
-        cursor = await seeded_pool.execute(
-            "UPDATE users SET age = ? WHERE name = ?", [31, "Alice"]
-        )
+        cursor = await seeded_pool.execute("UPDATE users SET age = ? WHERE name = ?", [31, "Alice"])
         assert cursor.rowcount == 1
-        row = await seeded_pool.fetch_one(
-            "SELECT age FROM users WHERE name = ?", ["Alice"]
-        )
+        row = await seeded_pool.fetch_one("SELECT age FROM users WHERE name = ?", ["Alice"])
         assert row is not None
         assert row["age"] == 31
 
     @pytest.mark.asyncio
     async def test_delete(self, seeded_pool: ConnectionPool):
-        cursor = await seeded_pool.execute(
-            "DELETE FROM users WHERE name = ?", ["Bob"]
-        )
+        cursor = await seeded_pool.execute("DELETE FROM users WHERE name = ?", ["Bob"])
         assert cursor.rowcount == 1
         rows = await seeded_pool.fetch_all("SELECT * FROM users")
         assert len(rows) == 3
@@ -732,25 +733,19 @@ class TestQueryCRUD:
 class TestFetchMethods:
     @pytest.mark.asyncio
     async def test_fetch_one_found(self, seeded_pool: ConnectionPool):
-        row = await seeded_pool.fetch_one(
-            "SELECT * FROM users WHERE name = ?", ["Alice"]
-        )
+        row = await seeded_pool.fetch_one("SELECT * FROM users WHERE name = ?", ["Alice"])
         assert row is not None
         assert row["name"] == "Alice"
         assert row["age"] == 30
 
     @pytest.mark.asyncio
     async def test_fetch_one_not_found(self, seeded_pool: ConnectionPool):
-        row = await seeded_pool.fetch_one(
-            "SELECT * FROM users WHERE name = ?", ["Unknown"]
-        )
+        row = await seeded_pool.fetch_one("SELECT * FROM users WHERE name = ?", ["Unknown"])
         assert row is None
 
     @pytest.mark.asyncio
     async def test_fetch_all_ordered(self, seeded_pool: ConnectionPool):
-        rows = await seeded_pool.fetch_all(
-            "SELECT name FROM users ORDER BY name"
-        )
+        rows = await seeded_pool.fetch_all("SELECT name FROM users ORDER BY name")
         names = [r["name"] for r in rows]
         assert names == ["Alice", "Bob", "Charlie", "Diana"]
 
@@ -816,17 +811,13 @@ class TestExecuteScript:
 class TestParameterizedQueries:
     @pytest.mark.asyncio
     async def test_multiple_params(self, seeded_pool: ConnectionPool):
-        rows = await seeded_pool.fetch_all(
-            "SELECT * FROM users WHERE age > ? AND age < ?", [26, 34]
-        )
+        rows = await seeded_pool.fetch_all("SELECT * FROM users WHERE age > ? AND age < ?", [26, 34])
         names = {r["name"] for r in rows}
         assert names == {"Alice", "Diana"}
 
     @pytest.mark.asyncio
     async def test_like_param(self, seeded_pool: ConnectionPool):
-        rows = await seeded_pool.fetch_all(
-            "SELECT * FROM users WHERE name LIKE ?", ["%li%"]
-        )
+        rows = await seeded_pool.fetch_all("SELECT * FROM users WHERE name LIKE ?", ["%li%"])
         names = {r["name"] for r in rows}
         assert "Alice" in names
         assert "Charlie" in names
@@ -835,6 +826,7 @@ class TestParameterizedQueries:
 # ═══════════════════════════════════════════════════════════════════════════
 # 7. Transactions
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestTransactions:
     @pytest.mark.asyncio
@@ -892,6 +884,7 @@ class TestTransactions:
 # 8. Savepoints
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSavepoints:
     @pytest.mark.asyncio
     async def test_savepoint_release(self, pool: ConnectionPool):
@@ -936,6 +929,7 @@ class TestSavepoints:
     @pytest.mark.asyncio
     async def test_invalid_savepoint_name_space(self, pool: ConnectionPool):
         from aquilia.faults.domains import QueryFault
+
         async with pool.acquire(readonly=False) as conn:
             with pytest.raises(QueryFault, match="Invalid savepoint"):
                 await conn.savepoint("bad name")
@@ -943,6 +937,7 @@ class TestSavepoints:
     @pytest.mark.asyncio
     async def test_invalid_savepoint_name_special(self, pool: ConnectionPool):
         from aquilia.faults.domains import QueryFault
+
         async with pool.acquire(readonly=False) as conn:
             with pytest.raises(QueryFault, match="Invalid savepoint"):
                 await conn.savepoint("sp;drop table")
@@ -960,6 +955,7 @@ class TestSavepoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # 9. Error Mapping
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestErrorMapping:
     def test_operational_locked(self):
@@ -1014,9 +1010,14 @@ class TestErrorMapping:
 
     def test_all_mapped_errors_are_exceptions(self):
         for exc_cls in (
-            SqliteError, SqliteConnectionError, PoolExhaustedError,
-            SqliteQueryError, SqliteIntegrityError, SqliteSchemaError,
-            SqliteTimeoutError, SqliteSecurityError,
+            SqliteError,
+            SqliteConnectionError,
+            PoolExhaustedError,
+            SqliteQueryError,
+            SqliteIntegrityError,
+            SqliteSchemaError,
+            SqliteTimeoutError,
+            SqliteSecurityError,
         ):
             inst = exc_cls("test")
             assert isinstance(inst, Exception)
@@ -1036,6 +1037,7 @@ class TestErrorMapping:
 # ═══════════════════════════════════════════════════════════════════════════
 # 10. Introspection
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestIntrospection:
     @pytest.mark.asyncio
@@ -1086,10 +1088,7 @@ class TestIntrospection:
     @pytest.mark.asyncio
     async def test_get_foreign_keys(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
-        await pool.execute(
-            "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER "
-            "REFERENCES parent(id))"
-        )
+        await pool.execute("CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))")
         async with pool.acquire(readonly=False) as conn:
             fks = await conn.get_foreign_keys("child")
             assert len(fks) >= 1
@@ -1100,13 +1099,12 @@ class TestIntrospection:
 # 11. Backup
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestBackup:
     @pytest.mark.asyncio
     async def test_backup_file_to_file(self, tmp_db: str, tmp_db_2: str):
         # Create source with data
-        pool = await create_pool(
-            SqlitePoolConfig(path=tmp_db, pool_size=1, pool_min_size=1)
-        )
+        pool = await create_pool(SqlitePoolConfig(path=tmp_db, pool_size=1, pool_min_size=1))
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
         await pool.execute("INSERT INTO t (val) VALUES (?)", ["backup_test"])
         await pool.close()
@@ -1115,9 +1113,7 @@ class TestBackup:
         await backup_database(tmp_db, tmp_db_2)
 
         # Verify backup
-        backup_pool = await create_pool(
-            SqlitePoolConfig(path=tmp_db_2, pool_size=1, pool_min_size=1)
-        )
+        backup_pool = await create_pool(SqlitePoolConfig(path=tmp_db_2, pool_size=1, pool_min_size=1))
         rows = await backup_pool.fetch_all("SELECT val FROM t")
         assert len(rows) == 1
         assert rows[0]["val"] == "backup_test"
@@ -1128,19 +1124,19 @@ class TestBackup:
 # 12. Compat Shim
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestCompatShim:
     @pytest.mark.asyncio
     async def test_connect_and_execute(self, tmp_db: str):
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             from aquilia.sqlite._compat import connect
 
         conn = await connect(tmp_db)
         async with conn:
-            await conn.executescript(
-                "CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)"
-            )
+            await conn.executescript("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
             await conn.execute("INSERT INTO t (val) VALUES (?)", ("hello",))
             cursor = await conn.execute("SELECT val FROM t")
             # Compat cursor is cursor-like
@@ -1149,6 +1145,7 @@ class TestCompatShim:
     @pytest.mark.asyncio
     async def test_compat_commit_noop(self, tmp_db: str):
         import warnings
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             from aquilia.sqlite._compat import connect
@@ -1161,6 +1158,7 @@ class TestCompatShim:
 # ═══════════════════════════════════════════════════════════════════════════
 # 13. DI Service
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSqliteService:
     @pytest.mark.asyncio
@@ -1182,6 +1180,7 @@ class TestSqliteService:
     @pytest.mark.asyncio
     async def test_service_pool_not_started_raises(self):
         from aquilia.faults.domains import DatabaseConnectionFault
+
         svc = SqliteService()
         with pytest.raises(DatabaseConnectionFault, match="not started"):
             _ = svc.pool
@@ -1203,10 +1202,12 @@ class TestSqliteService:
 # 14. SQLiteAdapter — Full backward compatibility
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestSQLiteAdapterFull:
     @pytest.mark.asyncio
     async def test_connect_disconnect(self, tmp_db: str):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
         assert adapter.is_connected
@@ -1217,6 +1218,7 @@ class TestSQLiteAdapterFull:
     @pytest.mark.asyncio
     async def test_crud_operations(self, tmp_db: str):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
         try:
@@ -1247,6 +1249,7 @@ class TestSQLiteAdapterFull:
     @pytest.mark.asyncio
     async def test_adapter_transactions(self, tmp_db: str):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
         try:
@@ -1271,6 +1274,7 @@ class TestSQLiteAdapterFull:
     @pytest.mark.asyncio
     async def test_adapter_savepoints(self, tmp_db: str):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
         try:
@@ -1291,12 +1295,11 @@ class TestSQLiteAdapterFull:
     @pytest.mark.asyncio
     async def test_adapter_introspection(self, tmp_db: str):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
         try:
-            await adapter.execute(
-                "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INT)"
-            )
+            await adapter.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INT)")
             assert await adapter.table_exists("users") is True
             assert await adapter.table_exists("orders") is False
 
@@ -1314,6 +1317,7 @@ class TestSQLiteAdapterFull:
     @pytest.mark.asyncio
     async def test_adapter_metrics(self, tmp_db: str):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
         try:
@@ -1325,6 +1329,7 @@ class TestSQLiteAdapterFull:
 
     def test_parse_url(self):
         from aquilia.db.backends.sqlite import SQLiteAdapter
+
         assert SQLiteAdapter._parse_url("sqlite:///db.sqlite3") == "db.sqlite3"
         assert SQLiteAdapter._parse_url("sqlite:///:memory:") == ":memory:"
         assert SQLiteAdapter._parse_url("sqlite:///") == ":memory:"
@@ -1334,15 +1339,14 @@ class TestSQLiteAdapterFull:
 # 15. :memory: Shared Cache
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMemorySharedCache:
     """Critical: all pool connections must share the same in-memory database."""
 
     @pytest.mark.asyncio
     async def test_writer_creates_reader_sees(self, memory_pool: ConnectionPool):
         """Writer creates table, reader can query it."""
-        await memory_pool.execute(
-            "CREATE TABLE shared_test (id INTEGER PRIMARY KEY, val TEXT)"
-        )
+        await memory_pool.execute("CREATE TABLE shared_test (id INTEGER PRIMARY KEY, val TEXT)")
         await memory_pool.execute("INSERT INTO shared_test (val) VALUES (?)", ["visible"])
         rows = await memory_pool.fetch_all("SELECT val FROM shared_test")
         assert len(rows) == 1
@@ -1351,29 +1355,21 @@ class TestMemorySharedCache:
     @pytest.mark.asyncio
     async def test_writer_and_reader_same_data(self, memory_pool: ConnectionPool):
         """Data written via writer is immediately visible via reader."""
-        await memory_pool.execute(
-            "CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)"
-        )
+        await memory_pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
         for i in range(10):
-            await memory_pool.execute(
-                "INSERT INTO t (val) VALUES (?)", [f"row_{i}"]
-            )
+            await memory_pool.execute("INSERT INTO t (val) VALUES (?)", [f"row_{i}"])
         rows = await memory_pool.fetch_all("SELECT * FROM t ORDER BY id")
         assert len(rows) == 10
 
     @pytest.mark.asyncio
     async def test_memory_pool_multiple_tables(self):
         """Multiple tables in :memory: pool all accessible from readers."""
-        pool = await create_pool(
-            SqlitePoolConfig(path=":memory:", pool_size=3, pool_min_size=2)
-        )
+        pool = await create_pool(SqlitePoolConfig(path=":memory:", pool_size=3, pool_min_size=2))
         try:
             await pool.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)")
             await pool.execute("CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INT)")
             await pool.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
-            await pool.execute(
-                "INSERT INTO orders (user_id) VALUES (?)", [1]
-            )
+            await pool.execute("INSERT INTO orders (user_id) VALUES (?)", [1])
 
             # Reader should see both tables
             users = await pool.fetch_all("SELECT * FROM users")
@@ -1386,9 +1382,7 @@ class TestMemorySharedCache:
     @pytest.mark.asyncio
     async def test_memory_pool_introspection(self, memory_pool: ConnectionPool):
         """Introspection works on shared :memory: database."""
-        await memory_pool.execute(
-            "CREATE TABLE introspect (id INTEGER PRIMARY KEY, val TEXT)"
-        )
+        await memory_pool.execute("CREATE TABLE introspect (id INTEGER PRIMARY KEY, val TEXT)")
         async with memory_pool.acquire(readonly=False) as conn:
             assert await conn.table_exists("introspect") is True
             tables = await conn.get_tables()
@@ -1399,14 +1393,14 @@ class TestMemorySharedCache:
 # 16. Concurrent Stress Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConcurrentStress:
     @pytest.mark.asyncio
     async def test_concurrent_reads(self, seeded_pool: ConnectionPool):
         """20 concurrent readers should all succeed."""
+
         async def _read():
-            rows = await seeded_pool.fetch_all(
-                "SELECT name FROM users ORDER BY name"
-            )
+            rows = await seeded_pool.fetch_all("SELECT name FROM users ORDER BY name")
             return [r["name"] for r in rows]
 
         results = await asyncio.gather(*[_read() for _ in range(20)])
@@ -1417,15 +1411,11 @@ class TestConcurrentStress:
     @pytest.mark.asyncio
     async def test_concurrent_writes(self, pool: ConnectionPool):
         """Sequential writes (serialized by writer lock) should all succeed."""
-        await pool.execute(
-            "CREATE TABLE counter (id INTEGER PRIMARY KEY, val INTEGER DEFAULT 0)"
-        )
+        await pool.execute("CREATE TABLE counter (id INTEGER PRIMARY KEY, val INTEGER DEFAULT 0)")
         await pool.execute("INSERT INTO counter (val) VALUES (0)")
 
         async def _increment(i: int):
-            await pool.execute(
-                "UPDATE counter SET val = val + 1 WHERE id = 1"
-            )
+            await pool.execute("UPDATE counter SET val = val + 1 WHERE id = 1")
 
         await asyncio.gather(*[_increment(i) for i in range(50)])
         val = await pool.fetch_val("SELECT val FROM counter WHERE id = 1")
@@ -1434,14 +1424,10 @@ class TestConcurrentStress:
     @pytest.mark.asyncio
     async def test_mixed_read_write(self, pool: ConnectionPool):
         """Mixed read/write workload."""
-        await pool.execute(
-            "CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)"
-        )
+        await pool.execute("CREATE TABLE items (id INTEGER PRIMARY KEY, name TEXT)")
 
         async def _writer(i: int):
-            await pool.execute(
-                "INSERT INTO items (name) VALUES (?)", [f"item_{i}"]
-            )
+            await pool.execute("INSERT INTO items (name) VALUES (?)", [f"item_{i}"])
 
         async def _reader():
             await asyncio.sleep(0.01)  # Small delay to let some writes happen
@@ -1462,9 +1448,7 @@ class TestConcurrentStress:
         for i in range(100):
             async with pool.acquire(readonly=False) as conn:
                 async with conn.transaction():
-                    await conn.execute(
-                        "INSERT INTO txn_test (val) VALUES (?)", [i]
-                    )
+                    await conn.execute("INSERT INTO txn_test (val) VALUES (?)", [i])
         count = await pool.fetch_val("SELECT count(*) FROM txn_test")
         assert count == 100
 
@@ -1472,6 +1456,7 @@ class TestConcurrentStress:
 # ═══════════════════════════════════════════════════════════════════════════
 # 17. Metrics
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSqliteMetricsUnit:
     def test_defaults(self):
@@ -1548,12 +1533,11 @@ class TestMetricsIntegration:
 # 18. Edge Cases
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_null_values(self, pool: ConnectionPool):
-        await pool.execute(
-            "CREATE TABLE t (id INTEGER PRIMARY KEY, a TEXT, b INT, c REAL)"
-        )
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, a TEXT, b INT, c REAL)")
         await pool.execute("INSERT INTO t (a, b, c) VALUES (NULL, NULL, NULL)")
         row = await pool.fetch_one("SELECT * FROM t WHERE id = 1")
         assert row is not None
@@ -1644,9 +1628,7 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_special_column_names(self, pool: ConnectionPool):
         """Column names with special characters."""
-        await pool.execute(
-            'CREATE TABLE t (id INTEGER PRIMARY KEY, "my column" TEXT, "select" TEXT)'
-        )
+        await pool.execute('CREATE TABLE t (id INTEGER PRIMARY KEY, "my column" TEXT, "select" TEXT)')
         await pool.execute(
             'INSERT INTO t ("my column", "select") VALUES (?, ?)',
             ["a", "b"],
@@ -1661,13 +1643,12 @@ class TestEdgeCases:
 # 19. WAL Mode Verification
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestWALMode:
     @pytest.mark.asyncio
     async def test_wal_mode_enabled(self, tmp_db: str):
         """Verify WAL journal mode is set on the writer."""
-        pool = await create_pool(
-            SqlitePoolConfig(path=tmp_db, journal_mode="WAL", pool_size=1, pool_min_size=1)
-        )
+        pool = await create_pool(SqlitePoolConfig(path=tmp_db, journal_mode="WAL", pool_size=1, pool_min_size=1))
         try:
             async with pool.acquire(readonly=False) as conn:
                 result = await conn.fetch_one("PRAGMA journal_mode")
@@ -1678,9 +1659,7 @@ class TestWALMode:
 
     @pytest.mark.asyncio
     async def test_delete_journal_mode(self, tmp_db: str):
-        pool = await create_pool(
-            SqlitePoolConfig(path=tmp_db, journal_mode="DELETE", pool_size=1, pool_min_size=1)
-        )
+        pool = await create_pool(SqlitePoolConfig(path=tmp_db, journal_mode="DELETE", pool_size=1, pool_min_size=1))
         try:
             async with pool.acquire(readonly=False) as conn:
                 result = await conn.fetch_one("PRAGMA journal_mode")
@@ -1693,6 +1672,7 @@ class TestWALMode:
 # ═══════════════════════════════════════════════════════════════════════════
 # 20. Pool Quick Methods — Comprehensive
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPoolQuickMethods:
     @pytest.mark.asyncio
@@ -1747,31 +1727,25 @@ class TestPoolQuickMethods:
 # 21. Integrity Constraints (Live)
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestIntegrityConstraintsLive:
     @pytest.mark.asyncio
     async def test_unique_constraint_violation(self, pool: ConnectionPool):
-        await pool.execute(
-            "CREATE TABLE t (id INTEGER PRIMARY KEY, email TEXT UNIQUE)"
-        )
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, email TEXT UNIQUE)")
         await pool.execute("INSERT INTO t (email) VALUES (?)", ["alice@test.com"])
         with pytest.raises(SqliteIntegrityError):
             await pool.execute("INSERT INTO t (email) VALUES (?)", ["alice@test.com"])
 
     @pytest.mark.asyncio
     async def test_not_null_constraint_violation(self, pool: ConnectionPool):
-        await pool.execute(
-            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
-        )
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
         with pytest.raises(SqliteIntegrityError):
             await pool.execute("INSERT INTO t (name) VALUES (NULL)")
 
     @pytest.mark.asyncio
     async def test_foreign_key_constraint(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
-        await pool.execute(
-            "CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER "
-            "REFERENCES parent(id))"
-        )
+        await pool.execute("CREATE TABLE child (id INTEGER PRIMARY KEY, parent_id INTEGER REFERENCES parent(id))")
         await pool.execute("INSERT INTO parent VALUES (1)")
         await pool.execute("INSERT INTO child (parent_id) VALUES (?)", [1])
         # FK violation: insert child with non-existent parent
@@ -1780,9 +1754,7 @@ class TestIntegrityConstraintsLive:
 
     @pytest.mark.asyncio
     async def test_check_constraint(self, pool: ConnectionPool):
-        await pool.execute(
-            "CREATE TABLE t (id INTEGER PRIMARY KEY, age INT CHECK(age >= 0))"
-        )
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, age INT CHECK(age >= 0))")
         await pool.execute("INSERT INTO t (age) VALUES (?)", [25])
         with pytest.raises(SqliteIntegrityError):
             await pool.execute("INSERT INTO t (age) VALUES (?)", [-1])

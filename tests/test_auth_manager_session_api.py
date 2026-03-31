@@ -261,7 +261,9 @@ async def test_sign_in_same_runtime_identity_conflict_without_email_attribute(au
     session = Session(id=SessionID())
     bind_identity(session, identity)
 
-    runtime_token = set_auth_runtime_context(AuthRuntimeContext(request=MagicMock(), session=session, identity=identity))
+    runtime_token = set_auth_runtime_context(
+        AuthRuntimeContext(request=MagicMock(), session=session, identity=identity)
+    )
     try:
         with pytest.raises(ConflictFault):
             await auth_stack["manager"].sign_in(

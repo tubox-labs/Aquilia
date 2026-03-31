@@ -282,9 +282,7 @@ class TestValidateUniqueConstraint:
         mock_model._fields = {"email": mock_email_field, "tenant_id": mock_tenant_field}
         mock_model._meta = MagicMock()
         mock_model._meta.unique_together = []
-        mock_model._meta.constraints = [
-            UniqueConstraint(fields=["email", "tenant_id"], name="uq_email_tenant")
-        ]
+        mock_model._meta.constraints = [UniqueConstraint(fields=["email", "tenant_id"], name="uq_email_tenant")]
 
         from aquilia.models.base import Model
 
@@ -480,9 +478,7 @@ class TestFindOrCreateWithPatching:
             def _get_db(cls):
                 return mock_db
 
-        instance, created = await TestUser.find_or_create(
-            email="alice@test.com", defaults={"name": "Alice"}
-        )
+        instance, created = await TestUser.find_or_create(email="alice@test.com", defaults={"name": "Alice"})
 
         assert created is True
         assert instance.id == 42
@@ -511,9 +507,7 @@ class TestFindOrCreateWithPatching:
             def _get_db(cls):
                 return mock_db
 
-        instance, created = await TestUser.find_or_create(
-            email="alice@test.com", defaults={"name": "Should Not Apply"}
-        )
+        instance, created = await TestUser.find_or_create(email="alice@test.com", defaults={"name": "Should Not Apply"})
 
         assert created is False
         assert instance.id == 99
@@ -673,9 +667,7 @@ class TestConcurrency:
                 return mock_db
 
         # Run multiple concurrent calls
-        results = await asyncio.gather(
-            *[TestUser.find_or_create(email="race@test.com") for _ in range(5)]
-        )
+        results = await asyncio.gather(*[TestUser.find_or_create(email="race@test.com") for _ in range(5)])
 
         # Exactly one should be created
         created_results = [created for _, created in results]

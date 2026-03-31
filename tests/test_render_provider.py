@@ -124,6 +124,7 @@ def _make_http_response(body: bytes, status: int = 200, headers=None):
 def _make_http_error(status: int, body: bytes = b"{}", headers=None):
     """Create a urllib.error.HTTPError."""
     import urllib.error
+
     hdrs = http.client.HTTPMessage()
     for k, v in (headers or {}).items():
         hdrs[k] = v
@@ -140,6 +141,7 @@ def _make_http_error(status: int, body: bytes = b"{}", headers=None):
 def _make_url_error(reason: str):
     """Create a urllib.error.URLError."""
     import urllib.error
+
     return urllib.error.URLError(reason)
 
 
@@ -202,9 +204,16 @@ class TestRenderDeployStatus:
 
     def test_all_statuses(self):
         expected = [
-            "created", "build_in_progress", "update_in_progress",
-            "live", "deactivated", "build_failed", "update_failed",
-            "canceled", "pre_deploy_in_progress", "pre_deploy_failed",
+            "created",
+            "build_in_progress",
+            "update_in_progress",
+            "live",
+            "deactivated",
+            "build_failed",
+            "update_failed",
+            "canceled",
+            "pre_deploy_in_progress",
+            "pre_deploy_failed",
         ]
         assert [s.value for s in RenderDeployStatus] == expected
 
@@ -295,8 +304,10 @@ class TestRenderAutoscaling:
 
     def test_auto_factory_with_memory(self):
         a = RenderAutoscaling.auto(
-            min_instances=2, max_instances=5,
-            cpu_percent=60, memory_percent=70,
+            min_instances=2,
+            max_instances=5,
+            cpu_percent=60,
+            memory_percent=70,
         )
         assert a.min == 2
         assert a.max == 5
@@ -344,8 +355,11 @@ class TestRenderService:
 
     def test_populated(self):
         svc = RenderService(
-            id="srv-1", name="myapp", slug="myapp-xyz",
-            plan="starter", region="oregon",
+            id="srv-1",
+            name="myapp",
+            slug="myapp-xyz",
+            plan="starter",
+            region="oregon",
         )
         assert svc.slug == "myapp-xyz"
         assert svc.plan == "starter"
@@ -402,7 +416,9 @@ class TestRenderDeployConfig:
         cfg = self._basic_config(disk=RenderDisk(name="db", mount_path="/db", size_gb=5))
         p = cfg.to_service_payload()
         assert p["serviceDetails"]["disk"] == {
-            "name": "db", "mountPath": "/db", "sizeGB": 5,
+            "name": "db",
+            "mountPath": "/db",
+            "sizeGB": 5,
         }
 
     def test_to_service_payload_with_docker_command(self):
@@ -435,7 +451,8 @@ class TestRenderDeployConfig:
     def test_from_workspace_context_minimal(self):
         wctx = {"name": "demo", "port": 3000, "workers": 2}
         cfg = RenderDeployConfig.from_workspace_context(
-            wctx, image="img:1",
+            wctx,
+            image="img:1",
         )
         assert cfg.service_name == "demo"
         assert cfg.port == 3000
@@ -449,13 +466,20 @@ class TestRenderDeployConfig:
 
     def test_from_workspace_context_with_db_cache_auth_mail(self):
         wctx = {
-            "name": "full", "port": 8080, "workers": 4,
-            "has_db": True, "has_cache": True,
-            "has_auth": True, "has_mail": True,
+            "name": "full",
+            "port": 8080,
+            "workers": 4,
+            "has_db": True,
+            "has_cache": True,
+            "has_auth": True,
+            "has_mail": True,
         }
         cfg = RenderDeployConfig.from_workspace_context(
-            wctx, image="i:1",
-            plan=RenderPlan.PRO, region="frankfurt", num_instances=3,
+            wctx,
+            image="i:1",
+            plan=RenderPlan.PRO,
+            region="frankfurt",
+            num_instances=3,
         )
         keys = [ev.key for ev in cfg.env_vars]
         assert "DATABASE_URL" in keys
@@ -470,7 +494,9 @@ class TestRenderDeployConfig:
         wctx = {"name": "a", "port": 80, "workers": 1}
         auto = RenderAutoscaling.auto(min_instances=2, max_instances=6)
         cfg = RenderDeployConfig.from_workspace_context(
-            wctx, image="i", autoscaling=auto,
+            wctx,
+            image="i",
+            autoscaling=auto,
         )
         assert cfg.autoscaling.enabled is True
         assert cfg.autoscaling.max == 6
@@ -503,6 +529,7 @@ class TestSSLContext:
         """When certifi is available, its CA bundle is loaded."""
         try:
             import certifi
+
             ctx = _build_ssl_context()
             # Should succeed without error
             assert ctx.verify_mode == ssl.CERT_REQUIRED
@@ -749,9 +776,13 @@ class TestClientServices:
         result = _RequestResult(status=200, body=b"[]", headers={})
         with patch.object(client, "_request", return_value=result) as mock_req:
             client.list_services(
-                name="myapp", type="web_service",
-                region="oregon", suspended="not_suspended",
-                owner_id="own-1", cursor="c-x", limit=5,
+                name="myapp",
+                type="web_service",
+                region="oregon",
+                suspended="not_suspended",
+                owner_id="own-1",
+                cursor="c-x",
+                limit=5,
             )
             _, kwargs = mock_req.call_args
             params = kwargs["params"]
@@ -892,7 +923,7 @@ class TestClientEnvVars:
 
     def test_list_env_vars_non_list(self):
         client = _make_client()
-        result = _RequestResult(status=200, body=b'{}', headers={})
+        result = _RequestResult(status=200, body=b"{}", headers={})
         with patch.object(client, "_request", return_value=result):
             assert client.list_env_vars("srv-1") == []
 
@@ -904,7 +935,8 @@ class TestClientEnvVars:
             evs = client.update_env_vars("srv-1", [{"key": "A", "value": "1"}])
             assert len(evs) == 1
             mock_req.assert_called_once_with(
-                "PUT", "/services/srv-1/env-vars",
+                "PUT",
+                "/services/srv-1/env-vars",
                 body=[{"key": "A", "value": "1"}],
             )
 
@@ -947,7 +979,8 @@ class TestClientCustomDomains:
         with patch.object(client, "_request", return_value=result) as mock_req:
             client.add_custom_domain("srv-1", "app.example.com")
             mock_req.assert_called_once_with(
-                "POST", "/services/srv-1/custom-domains",
+                "POST",
+                "/services/srv-1/custom-domains",
                 body={"name": "app.example.com"},
             )
 
@@ -957,7 +990,8 @@ class TestClientCustomDomains:
         with patch.object(client, "_request", return_value=result) as mock_req:
             client.delete_custom_domain("srv-1", "old.example.com")
             mock_req.assert_called_once_with(
-                "DELETE", "/services/srv-1/custom-domains/old.example.com",
+                "DELETE",
+                "/services/srv-1/custom-domains/old.example.com",
             )
 
 
@@ -972,7 +1006,9 @@ class TestClientAutoscaling:
             resp = client.set_autoscaling("srv-1", config)
             assert resp["enabled"] is True
             mock_req.assert_called_once_with(
-                "PUT", "/services/srv-1/autoscaling", body=config,
+                "PUT",
+                "/services/srv-1/autoscaling",
+                body=config,
             )
 
     def test_remove_autoscaling(self):
@@ -988,7 +1024,8 @@ class TestClientAutoscaling:
         with patch.object(client, "_request", return_value=result) as mock_req:
             client.scale_service("srv-1", 3)
             mock_req.assert_called_once_with(
-                "POST", "/services/srv-1/scale",
+                "POST",
+                "/services/srv-1/scale",
                 body={"numInstances": 3},
             )
 
@@ -1054,10 +1091,16 @@ class TestClientParsers:
 
     def test_parse_service_full(self):
         data = {
-            "id": "srv-1", "name": "app", "ownerId": "own-1",
-            "slug": "app-xyz", "type": "web_service", "plan": "pro",
-            "region": "frankfurt", "status": "running",
-            "suspended": "not_suspended", "autoDeploy": "yes",
+            "id": "srv-1",
+            "name": "app",
+            "ownerId": "own-1",
+            "slug": "app-xyz",
+            "type": "web_service",
+            "plan": "pro",
+            "region": "frankfurt",
+            "status": "running",
+            "suspended": "not_suspended",
+            "autoDeploy": "yes",
             "serviceDetails": {"buildCommand": "pip install"},
             "createdAt": "2026-01-01T00:00:00Z",
             "updatedAt": "2026-03-01T00:00:00Z",
@@ -1078,9 +1121,13 @@ class TestClientParsers:
 
     def test_parse_deploy_full(self):
         data = {
-            "id": "dpl-1", "serviceId": "srv-1", "status": "live",
-            "commit": {"id": "abc123"}, "image": {"imagePath": "img:1"},
-            "createdAt": "2026-01-01", "updatedAt": "2026-01-02",
+            "id": "dpl-1",
+            "serviceId": "srv-1",
+            "status": "live",
+            "commit": {"id": "abc123"},
+            "image": {"imagePath": "img:1"},
+            "createdAt": "2026-01-01",
+            "updatedAt": "2026-01-02",
             "finishedAt": "2026-01-02",
         }
         deploy = RenderClient._parse_deploy(data)
@@ -1316,7 +1363,7 @@ class TestCredentialStore:
         ttl = struct.unpack_from(">I", blob, 14)[0]
         assert ttl >= 0
         # Next 32 bytes = salt
-        assert len(blob[18:18 + _SALT_SIZE]) == _SALT_SIZE
+        assert len(blob[18 : 18 + _SALT_SIZE]) == _SALT_SIZE
 
     def test_credentials_path_property(self, store, store_dir):
         assert store.credentials_path == store_dir / "credentials.crous"
@@ -1451,11 +1498,15 @@ class TestDeployerDryRun:
         client = MagicMock(spec=RenderClient)
         client.validate_token.return_value = True
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"),
-            config=config, dry_run=True,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
+            dry_run=True,
         )
         result = deployer.deploy()
         assert result.success is True
@@ -1470,7 +1521,9 @@ class TestDeployerDockerSteps:
     def _make_deployer(self, image, workspace_root=None):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="app", image=image, region="oregon",
+            service_name="app",
+            image=image,
+            region="oregon",
         )
         ws = workspace_root or Path("/tmp/ws")
         deployer = RenderDeployer(client=client, workspace_root=ws, config=config)
@@ -1552,10 +1605,14 @@ class TestDeployerOwnerResolution:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1590,12 +1647,16 @@ class TestDeployerServiceManagement:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="myapp", image="img:1",
-            region="oregon", plan=RenderPlan.STARTER,
+            service_name="myapp",
+            image="img:1",
+            region="oregon",
+            plan=RenderPlan.STARTER,
             owner_id="own-1",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1641,11 +1702,15 @@ class TestDeployerEnvVarSync:
     def _make_deployer(self, env_vars=None):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             env_vars=env_vars or [],
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1686,10 +1751,14 @@ class TestDeployerTriggerAndWait:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1725,10 +1794,14 @@ class TestDeployerHealthPolling:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1830,11 +1903,15 @@ class TestDeployerAutoscaling:
         client = MagicMock(spec=RenderClient)
         auto = RenderAutoscaling.auto(min_instances=2, max_instances=4)
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             autoscaling=auto,
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         svc = RenderService(id="srv-1", name="app")
         deployer._configure_autoscaling(svc)
@@ -1844,11 +1921,15 @@ class TestDeployerAutoscaling:
         client = MagicMock(spec=RenderClient)
         auto = RenderAutoscaling.auto()
         config = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             autoscaling=auto,
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         client.set_autoscaling.side_effect = ProviderAPIFault(400, "bad")
         svc = RenderService(id="srv-1", name="app")
@@ -1862,10 +1943,14 @@ class TestDeployerURLResolution:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="myapp", image="img:1", region="oregon",
+            service_name="myapp",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1904,10 +1989,14 @@ class TestDeployerDestroy:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="doomed", image="img:1", region="oregon",
+            service_name="doomed",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
@@ -1935,18 +2024,26 @@ class TestDeployerStatus:
     def _make_deployer(self):
         client = MagicMock(spec=RenderClient)
         config = RenderDeployConfig(
-            service_name="statusapp", image="img:1", region="oregon",
+            service_name="statusapp",
+            image="img:1",
+            region="oregon",
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         return deployer, client
 
     def test_status_deployed(self):
         deployer, client = self._make_deployer()
         svc = RenderService(
-            id="srv-1", name="statusapp", slug="statusapp-abc",
-            plan="starter", region="oregon", status="running",
+            id="srv-1",
+            name="statusapp",
+            slug="statusapp-abc",
+            plan="starter",
+            region="oregon",
+            status="running",
             suspended="not_suspended",
         )
         client.get_service_by_name.return_value = svc
@@ -1992,7 +2089,9 @@ class TestDeployerFullPipeline:
             env_vars=[RenderEnvVar(key="ENV", value="prod")],
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         # Mock pipeline steps
         client.validate_token.return_value = True
@@ -2025,7 +2124,9 @@ class TestDeployerFullPipeline:
             autoscaling=auto,
         )
         deployer = RenderDeployer(
-            client=client, workspace_root=Path("/tmp/ws"), config=config,
+            client=client,
+            workspace_root=Path("/tmp/ws"),
+            config=config,
         )
         client.validate_token.return_value = True
         client.list_owners.return_value = [RenderOwner(id="own-1", name="t")]
@@ -2053,11 +2154,20 @@ class TestPackageExports:
 
     def test_all_exports(self):
         expected = [
-            "RenderClient", "RenderDeployer", "RenderCredentialStore",
-            "RenderService", "RenderDeploy", "RenderOwner",
-            "RenderServiceType", "RenderPlan", "RenderDeployStatus",
-            "RenderDeployConfig", "RenderAutoscaling", "RenderRegion",
-            "RenderEnvVar", "RenderDisk",
+            "RenderClient",
+            "RenderDeployer",
+            "RenderCredentialStore",
+            "RenderService",
+            "RenderDeploy",
+            "RenderOwner",
+            "RenderServiceType",
+            "RenderPlan",
+            "RenderDeployStatus",
+            "RenderDeployConfig",
+            "RenderAutoscaling",
+            "RenderRegion",
+            "RenderEnvVar",
+            "RenderDisk",
         ]
         for name in expected:
             assert hasattr(render_pkg, name), f"Missing export: {name}"
@@ -2066,36 +2176,69 @@ class TestPackageExports:
         # Verify all original symbols plus the new v2 additions
         expected = {
             # Client & Deployer
-            "RenderClient", "RenderDeployer", "DeployResult", "RenderCredentialStore",
+            "RenderClient",
+            "RenderDeployer",
+            "DeployResult",
+            "RenderCredentialStore",
             # Core resources
-            "RenderService", "RenderDeploy", "RenderOwner",
-            "RenderEnvVar", "RenderDisk", "RenderDiskSnapshot",
-            "RenderAutoscaling", "RenderDeployConfig",
+            "RenderService",
+            "RenderDeploy",
+            "RenderOwner",
+            "RenderEnvVar",
+            "RenderDisk",
+            "RenderDiskSnapshot",
+            "RenderAutoscaling",
+            "RenderDeployConfig",
             # Enums
-            "RenderServiceType", "RenderPlan", "RenderDeployStatus",
-            "RenderRegion", "RenderServiceStatus", "RenderJobStatus",
-            "RenderDomainVerificationStatus", "RenderLogLevel",
-            "RenderLogDirection", "RenderLogType", "RenderRouteType",
-            "RenderMaintenanceStatus", "RenderWebhookEventType",
-            "RenderNotificationType", "RenderPostgresPlan",
-            "RenderKeyValuePlan", "RenderBlueprintSyncStatus",
+            "RenderServiceType",
+            "RenderPlan",
+            "RenderDeployStatus",
+            "RenderRegion",
+            "RenderServiceStatus",
+            "RenderJobStatus",
+            "RenderDomainVerificationStatus",
+            "RenderLogLevel",
+            "RenderLogDirection",
+            "RenderLogType",
+            "RenderRouteType",
+            "RenderMaintenanceStatus",
+            "RenderWebhookEventType",
+            "RenderNotificationType",
+            "RenderPostgresPlan",
+            "RenderKeyValuePlan",
+            "RenderBlueprintSyncStatus",
             "RenderInstanceStatus",
             # Extended resources
-            "RenderSecretFile", "RenderCustomDomain", "RenderInstance",
-            "RenderEvent", "RenderJob", "RenderHeaderRule",
-            "RenderRedirectRule", "RenderLogEntry", "RenderMetricPoint",
-            "RenderMetricsFilter", "RenderWebhook", "RenderProject",
-            "RenderEnvironment", "RenderEnvGroup",
-            "RenderRegistryCredential", "RenderMaintenance",
-            "RenderNotificationSettings", "RenderAuditLogEntry",
+            "RenderSecretFile",
+            "RenderCustomDomain",
+            "RenderInstance",
+            "RenderEvent",
+            "RenderJob",
+            "RenderHeaderRule",
+            "RenderRedirectRule",
+            "RenderLogEntry",
+            "RenderMetricPoint",
+            "RenderMetricsFilter",
+            "RenderWebhook",
+            "RenderProject",
+            "RenderEnvironment",
+            "RenderEnvGroup",
+            "RenderRegistryCredential",
+            "RenderMaintenance",
+            "RenderNotificationSettings",
+            "RenderAuditLogEntry",
             # Postgres & Key-Value
-            "RenderPostgresInstance", "RenderPostgresConnectionInfo",
-            "RenderPostgresUser", "RenderKeyValueInstance",
+            "RenderPostgresInstance",
+            "RenderPostgresConnectionInfo",
+            "RenderPostgresUser",
+            "RenderKeyValueInstance",
             "RenderKeyValueConnectionInfo",
             # Blueprint / IaC
-            "RenderBlueprint", "RenderBlueprintSync",
+            "RenderBlueprint",
+            "RenderBlueprintSync",
             # Workspace
-            "RenderWorkspaceMember", "RenderLogStream",
+            "RenderWorkspaceMember",
+            "RenderLogStream",
         }
         assert set(render_pkg.__all__) == expected
 
@@ -2199,7 +2342,7 @@ class TestRegressionGuards:
     def test_client_request_method_uppercased(self):
         """Method is uppercased in the Request object."""
         client = _make_client()
-        resp = _make_http_response(b'{}')
+        resp = _make_http_response(b"{}")
         with patch("urllib.request.urlopen", return_value=resp) as mock:
             client._request("patch", "/services/srv-1")
             req_obj = mock.call_args[0][0]
@@ -2284,8 +2427,8 @@ class TestRegressionGuards:
     def test_render_region_has_us_and_eu(self):
         """At minimum, has US and EU regions."""
         values = [r.value for r in RenderRegion]
-        assert "oregon" in values    # US
-        assert "frankfurt" in values # EU
+        assert "oregon" in values  # US
+        assert "frankfurt" in values  # EU
 
     def test_deploy_status_live_is_terminal_success(self):
         assert RenderDeployStatus.LIVE.value == "live"
@@ -2300,7 +2443,9 @@ class TestRegressionGuards:
     def test_service_payload_no_image(self):
         """Service payload without image omits image field."""
         cfg = RenderDeployConfig(
-            service_name="app", image="", region="oregon",
+            service_name="app",
+            image="",
+            region="oregon",
         )
         p = cfg.to_service_payload()
         assert "image" not in p["serviceDetails"]
@@ -2308,7 +2453,9 @@ class TestRegressionGuards:
     def test_update_payload_no_docker_command(self):
         """Update payload without docker_command omits it."""
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
         )
         p = cfg.to_update_payload()
         assert "dockerCommand" not in p["serviceDetails"]
@@ -2324,72 +2471,86 @@ class TestEnhancedEnums:
 
     def test_service_status_values(self):
         from aquilia.providers.render.types import RenderServiceStatus
+
         assert RenderServiceStatus.LIVE.value == "live"
         assert RenderServiceStatus.SUSPENDED.value == "suspended"
 
     def test_job_status_values(self):
         from aquilia.providers.render.types import RenderJobStatus
+
         assert RenderJobStatus.SUCCEEDED.value == "succeeded"
         assert RenderJobStatus.FAILED.value == "failed"
         assert RenderJobStatus.IN_PROGRESS.value == "in_progress"
 
     def test_domain_verification_status(self):
         from aquilia.providers.render.types import RenderDomainVerificationStatus
+
         assert RenderDomainVerificationStatus.VERIFIED.value == "verified"
         assert RenderDomainVerificationStatus.UNVERIFIED.value == "unverified"
 
     def test_log_level_values(self):
         from aquilia.providers.render.types import RenderLogLevel
+
         assert RenderLogLevel.ERROR.value == "error"
         assert RenderLogLevel.DEBUG.value == "debug"
 
     def test_log_direction(self):
         from aquilia.providers.render.types import RenderLogDirection
+
         assert RenderLogDirection.FORWARD.value == "forward"
         assert RenderLogDirection.BACKWARD.value == "backward"
 
     def test_log_type(self):
         from aquilia.providers.render.types import RenderLogType
+
         assert RenderLogType.APP.value == "app"
         assert RenderLogType.BUILD.value == "build"
 
     def test_route_type(self):
         from aquilia.providers.render.types import RenderRouteType
+
         assert RenderRouteType.REDIRECT.value == "redirect"
         assert RenderRouteType.REWRITE.value == "rewrite"
 
     def test_maintenance_status(self):
         from aquilia.providers.render.types import RenderMaintenanceStatus
+
         assert RenderMaintenanceStatus.SCHEDULED.value == "scheduled"
         assert RenderMaintenanceStatus.COMPLETED.value == "completed"
 
     def test_webhook_event_type(self):
         from aquilia.providers.render.types import RenderWebhookEventType
+
         assert RenderWebhookEventType.DEPLOY_STARTED.value == "deploy_started"
         assert RenderWebhookEventType.SERVICE_DELETED.value == "service_deleted"
 
     def test_notification_type(self):
         from aquilia.providers.render.types import RenderNotificationType
+
         assert RenderNotificationType.EMAIL.value == "email"
         assert RenderNotificationType.SLACK.value == "slack"
 
     def test_postgres_plan(self):
         from aquilia.providers.render.types import RenderPostgresPlan
+
         assert RenderPostgresPlan.FREE.value == "free"
         assert RenderPostgresPlan.ACCELERATED.value == "accelerated"
 
     def test_key_value_plan(self):
         from aquilia.providers.render.types import RenderKeyValuePlan
+
         assert RenderKeyValuePlan.FREE.value == "free"
         assert RenderKeyValuePlan.PRO.value == "pro"
 
     def test_blueprint_sync_status(self):
         from aquilia.providers.render.types import RenderBlueprintSyncStatus
+
         assert RenderBlueprintSyncStatus.SYNCED.value == "synced"
         assert RenderBlueprintSyncStatus.FAILED.value == "failed"
 
     def test_instance_status(self):
         from aquilia.providers.render.types import RenderInstanceStatus
+
         assert RenderInstanceStatus.RUNNING.value == "running"
         assert RenderInstanceStatus.CRASHED.value == "crashed"
 
@@ -2399,6 +2560,7 @@ class TestEnhancedDataclasses:
 
     def test_secret_file_to_dict(self):
         from aquilia.providers.render.types import RenderSecretFile
+
         sf = RenderSecretFile(name=".env", content="SECRET=abc")
         d = sf.to_dict()
         assert d["name"] == ".env"
@@ -2406,34 +2568,40 @@ class TestEnhancedDataclasses:
 
     def test_secret_file_repr_redacts(self):
         from aquilia.providers.render.types import RenderSecretFile
+
         sf = RenderSecretFile(name=".env", content="TOP_SECRET")
         assert "TOP_SECRET" not in repr(sf)
         assert "***" in repr(sf)
 
     def test_custom_domain_fields(self):
         from aquilia.providers.render.types import RenderCustomDomain
+
         cd = RenderCustomDomain(name="example.com", verification_status="verified")
         assert cd.name == "example.com"
         assert cd.verification_status == "verified"
 
     def test_instance_fields(self):
         from aquilia.providers.render.types import RenderInstance
+
         i = RenderInstance(id="inst-1", status="running", region="oregon")
         assert i.id == "inst-1"
         assert i.region == "oregon"
 
     def test_event_fields(self):
         from aquilia.providers.render.types import RenderEvent
+
         e = RenderEvent(id="evt-1", type="deploy_started")
         assert e.type == "deploy_started"
 
     def test_job_fields(self):
         from aquilia.providers.render.types import RenderJob
+
         j = RenderJob(id="job-1", status="succeeded")
         assert j.status == "succeeded"
 
     def test_header_rule_to_dict(self):
         from aquilia.providers.render.types import RenderHeaderRule
+
         h = RenderHeaderRule(path="/*", name="X-Frame-Options", value="DENY")
         d = h.to_dict()
         assert d["name"] == "X-Frame-Options"
@@ -2442,6 +2610,7 @@ class TestEnhancedDataclasses:
 
     def test_redirect_rule_to_dict(self):
         from aquilia.providers.render.types import RenderRedirectRule
+
         r = RenderRedirectRule(source="/old", destination="/new", status_code=301)
         d = r.to_dict()
         assert d["source"] == "/old"
@@ -2450,18 +2619,21 @@ class TestEnhancedDataclasses:
 
     def test_log_entry_fields(self):
         from aquilia.providers.render.types import RenderLogEntry
+
         le = RenderLogEntry(message="hello", level="info")
         assert le.message == "hello"
         assert le.level == "info"
 
     def test_metric_point_fields(self):
         from aquilia.providers.render.types import RenderMetricPoint
+
         mp = RenderMetricPoint(value=42.5, unit="percent")
         assert mp.value == 42.5
         assert mp.unit == "percent"
 
     def test_webhook_to_dict(self):
         from aquilia.providers.render.types import RenderWebhook
+
         wh = RenderWebhook(url="https://hook.example.com", events=["deploy_started"], secret="s3cret")
         d = wh.to_dict()
         assert d["url"] == "https://hook.example.com"
@@ -2470,22 +2642,26 @@ class TestEnhancedDataclasses:
 
     def test_webhook_repr_redacts_secret(self):
         from aquilia.providers.render.types import RenderWebhook
+
         wh = RenderWebhook(url="https://hook.example.com", secret="s3cret")
         assert "s3cret" not in repr(wh)
         assert "***" in repr(wh)
 
     def test_project_fields(self):
         from aquilia.providers.render.types import RenderProject
+
         p = RenderProject(id="prj-1", name="MyProject")
         assert p.name == "MyProject"
 
     def test_environment_fields(self):
         from aquilia.providers.render.types import RenderEnvironment
+
         e = RenderEnvironment(name="staging", project_id="prj-1")
         assert e.name == "staging"
 
     def test_env_group_to_dict(self):
         from aquilia.providers.render.types import RenderEnvGroup, RenderEnvVar
+
         eg = RenderEnvGroup(name="shared", env_vars=[RenderEnvVar(key="K", value="V")])
         d = eg.to_dict()
         assert d["name"] == "shared"
@@ -2494,6 +2670,7 @@ class TestEnhancedDataclasses:
 
     def test_registry_credential_repr(self):
         from aquilia.providers.render.types import RenderRegistryCredential
+
         rc = RenderRegistryCredential(name="dockerhub", registry="DOCKER", username="user1")
         r = repr(rc)
         assert "dockerhub" in r
@@ -2501,30 +2678,35 @@ class TestEnhancedDataclasses:
 
     def test_postgres_connection_info_repr_redacts(self):
         from aquilia.providers.render.types import RenderPostgresConnectionInfo
+
         ci = RenderPostgresConnectionInfo(password="supersecret")
         assert "supersecret" not in repr(ci)
         assert "redacted" in repr(ci)
 
     def test_postgres_user_repr_redacts(self):
         from aquilia.providers.render.types import RenderPostgresUser
+
         pu = RenderPostgresUser(name="admin", password="pw123")
         assert "pw123" not in repr(pu)
         assert "***" in repr(pu)
 
     def test_key_value_connection_info_repr_redacts(self):
         from aquilia.providers.render.types import RenderKeyValueConnectionInfo
+
         ci = RenderKeyValueConnectionInfo(password="redispw")
         assert "redispw" not in repr(ci)
         assert "redacted" in repr(ci)
 
     def test_log_stream_repr_redacts_token(self):
         from aquilia.providers.render.types import RenderLogStream
+
         ls = RenderLogStream(name="syslog", endpoint="https://log.example.com", token="tok123")
         assert "tok123" not in repr(ls)
         assert "***" in repr(ls)
 
     def test_metrics_filter_to_params(self):
         from aquilia.providers.render.types import RenderMetricsFilter
+
         mf = RenderMetricsFilter(resource_id="svc-1", metric="memory", period="24h")
         params = mf.to_params()
         assert params["metric"] == "memory"
@@ -2533,6 +2715,7 @@ class TestEnhancedDataclasses:
 
     def test_metrics_filter_optional_params(self):
         from aquilia.providers.render.types import RenderMetricsFilter
+
         mf = RenderMetricsFilter(metric="cpu", period="1h")
         params = mf.to_params()
         assert "resourceId" not in params
@@ -2540,39 +2723,46 @@ class TestEnhancedDataclasses:
 
     def test_disk_snapshot_fields(self):
         from aquilia.providers.render.types import RenderDiskSnapshot
+
         ds = RenderDiskSnapshot(id="snap-1", disk_id="disk-1", status="completed")
         assert ds.id == "snap-1"
         assert ds.status == "completed"
 
     def test_blueprint_fields(self):
         from aquilia.providers.render.types import RenderBlueprint
+
         bp = RenderBlueprint(name="my-bp", auto_sync=True, repo="org/repo")
         assert bp.auto_sync is True
         assert bp.repo == "org/repo"
 
     def test_blueprint_sync_fields(self):
         from aquilia.providers.render.types import RenderBlueprintSync
+
         bs = RenderBlueprintSync(status="synced", blueprint_id="bp-1")
         assert bs.status == "synced"
 
     def test_workspace_member_fields(self):
         from aquilia.providers.render.types import RenderWorkspaceMember
+
         wm = RenderWorkspaceMember(email="user@example.com", role="admin")
         assert wm.email == "user@example.com"
         assert wm.role == "admin"
 
     def test_maintenance_fields(self):
         from aquilia.providers.render.types import RenderMaintenance
+
         m = RenderMaintenance(status="scheduled", description="DB upgrade")
         assert m.description == "DB upgrade"
 
     def test_notification_settings_fields(self):
         from aquilia.providers.render.types import RenderNotificationSettings
+
         ns = RenderNotificationSettings(notify_on_fail="notify")
         assert ns.notify_on_fail == "notify"
 
     def test_audit_log_entry_fields(self):
         from aquilia.providers.render.types import RenderAuditLogEntry
+
         ale = RenderAuditLogEntry(action="service.create", actor={"name": "user1"})
         assert ale.action == "service.create"
 
@@ -2587,8 +2777,11 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_secret_files(self):
         from aquilia.providers.render.types import RenderSecretFile
+
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             secret_files=[RenderSecretFile(name=".env", content="X=1")],
         )
         p = cfg.to_service_payload()
@@ -2597,8 +2790,11 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_headers(self):
         from aquilia.providers.render.types import RenderHeaderRule
+
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             headers=[RenderHeaderRule(name="X-Custom", value="val")],
         )
         p = cfg.to_service_payload()
@@ -2606,8 +2802,11 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_redirect_rules(self):
         from aquilia.providers.render.types import RenderRedirectRule
+
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             redirect_rules=[RenderRedirectRule(source="/old", destination="/new")],
         )
         p = cfg.to_service_payload()
@@ -2615,7 +2814,9 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_registry_credential(self):
         cfg = RenderDeployConfig(
-            service_name="app", image="ghcr.io/org/img:1", region="oregon",
+            service_name="app",
+            image="ghcr.io/org/img:1",
+            region="oregon",
             registry_credential_id="reg-123",
         )
         p = cfg.to_service_payload()
@@ -2623,7 +2824,9 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_pre_deploy_command(self):
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             pre_deploy_command="python manage.py migrate",
         )
         p = cfg.to_service_payload()
@@ -2631,7 +2834,9 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_project_id(self):
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             project_id="prj-123",
         )
         p = cfg.to_service_payload()
@@ -2639,7 +2844,9 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_env_group_ids(self):
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             env_group_ids=["eg-1", "eg-2"],
         )
         p = cfg.to_service_payload()
@@ -2648,7 +2855,9 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_notify_on_fail(self):
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             notify_on_fail="notify",
         )
         p = cfg.to_service_payload()
@@ -2656,7 +2865,9 @@ class TestEnhancedDeployConfig:
 
     def test_service_payload_with_root_dir(self):
         cfg = RenderDeployConfig(
-            service_name="app", image="img:1", region="oregon",
+            service_name="app",
+            image="img:1",
+            region="oregon",
             root_dir="./backend",
         )
         p = cfg.to_service_payload()
@@ -2717,6 +2928,7 @@ class TestEnhancedSecurity:
         nonce = secrets.token_bytes(12)
         plaintext = b"XOR fallback test data"
         from aquilia.providers.render.store import _CIPHER_XOR_HMAC
+
         ct, tag = _encrypt(key, nonce, plaintext, _CIPHER_XOR_HMAC)
         result = _decrypt(key, nonce, ct, tag, _CIPHER_XOR_HMAC)
         assert result == plaintext
@@ -2726,6 +2938,7 @@ class TestEnhancedSecurity:
         nonce = secrets.token_bytes(12)
         plaintext = b"tamper test"
         from aquilia.providers.render.store import _CIPHER_XOR_HMAC
+
         ct, tag = _encrypt(key, nonce, plaintext, _CIPHER_XOR_HMAC)
         tampered = bytes([ct[0] ^ 0xFF]) + ct[1:]
         with pytest.raises(ProviderCredentialFault):
@@ -2747,6 +2960,7 @@ class TestEnhancedSecurity:
     def test_derive_key_v2_different_from_legacy(self):
         salt = secrets.token_bytes(32)
         from aquilia.providers.render.store import _derive_key_legacy
+
         key_v2 = _derive_key(salt, context="test")
         key_v1 = _derive_key_legacy(salt, context="test")
         assert key_v2 != key_v1
@@ -2917,7 +3131,9 @@ class TestEnhancedClientAPI:
 
     def test_list_headers(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"id":"h1","path":"/*","name":"X-Custom","value":"val"}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"id":"h1","path":"/*","name":"X-Custom","value":"val"}]', {}
+            )
             headers = client.list_headers("svc-1")
             assert len(headers) == 1
             assert headers[0].name == "X-Custom"
@@ -2958,28 +3174,36 @@ class TestEnhancedClientAPI:
 
     def test_get_metrics(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"timestamp":"2024-01-01","value":42.0,"unit":"percent"}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"timestamp":"2024-01-01","value":42.0,"unit":"percent"}]', {}
+            )
             metrics = client.get_metrics("svc-1", metric="cpu")
             assert len(metrics) == 1
             assert metrics[0].value == 42.0
 
     def test_list_postgres(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"postgres":{"id":"pg-1","name":"mydb","plan":"starter"}}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"postgres":{"id":"pg-1","name":"mydb","plan":"starter"}}]', {}
+            )
             dbs = client.list_postgres()
             assert len(dbs) == 1
             assert dbs[0].name == "mydb"
 
     def test_get_postgres_connection_info(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'{"host":"db.render.com","port":5432,"database":"mydb","user":"admin","password":"pw"}', {})
+            mock_req.return_value = _RequestResult(
+                200, b'{"host":"db.render.com","port":5432,"database":"mydb","user":"admin","password":"pw"}', {}
+            )
             ci = client.get_postgres_connection_info("pg-1")
             assert ci.host == "db.render.com"
             assert ci.port == 5432
 
     def test_list_key_value(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"keyValue":{"id":"kv-1","name":"cache","plan":"starter"}}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"keyValue":{"id":"kv-1","name":"cache","plan":"starter"}}]', {}
+            )
             kvs = client.list_key_value()
             assert len(kvs) == 1
             assert kvs[0].name == "cache"
@@ -2993,28 +3217,36 @@ class TestEnhancedClientAPI:
 
     def test_list_env_groups(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"envGroup":{"id":"eg-1","name":"shared","envVars":[],"secretFiles":[]}}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"envGroup":{"id":"eg-1","name":"shared","envVars":[],"secretFiles":[]}}]', {}
+            )
             groups = client.list_env_groups()
             assert len(groups) == 1
             assert groups[0].name == "shared"
 
     def test_list_registry_credentials(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"id":"rc-1","name":"dockerhub","registry":"DOCKER","username":"user1"}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"id":"rc-1","name":"dockerhub","registry":"DOCKER","username":"user1"}]', {}
+            )
             creds = client.list_registry_credentials()
             assert len(creds) == 1
             assert creds[0].registry == "DOCKER"
 
     def test_list_blueprints(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"blueprint":{"id":"bp-1","name":"my-bp","autoSync":true}}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"blueprint":{"id":"bp-1","name":"my-bp","autoSync":true}}]', {}
+            )
             bps = client.list_blueprints()
             assert len(bps) == 1
             assert bps[0].auto_sync is True
 
     def test_list_webhooks(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"id":"wh-1","url":"https://hook.example.com","events":["deploy_started"],"enabled":true}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"id":"wh-1","url":"https://hook.example.com","events":["deploy_started"],"enabled":true}]', {}
+            )
             webhooks = client.list_webhooks()
             assert len(webhooks) == 1
             assert webhooks[0].url == "https://hook.example.com"
@@ -3034,13 +3266,17 @@ class TestEnhancedClientAPI:
 
     def test_create_preview(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'{"service":{"id":"svc-preview","name":"app-preview","type":"web_service"}}', {})
+            mock_req.return_value = _RequestResult(
+                200, b'{"service":{"id":"svc-preview","name":"app-preview","type":"web_service"}}', {}
+            )
             preview = client.create_preview("svc-1", name="app-preview")
             assert preview.name == "app-preview"
 
     def test_list_log_streams(self, client):
         with patch.object(client, "_request") as mock_req:
-            mock_req.return_value = _RequestResult(200, b'[{"id":"ls-1","name":"syslog","endpoint":"https://log.example.com"}]', {})
+            mock_req.return_value = _RequestResult(
+                200, b'[{"id":"ls-1","name":"syslog","endpoint":"https://log.example.com"}]', {}
+            )
             streams = client.list_log_streams()
             assert len(streams) == 1
             assert streams[0].name == "syslog"
@@ -3166,6 +3402,7 @@ class TestEnhancedDeployer:
         svc = RenderService(id="svc-1", name="testapp")
         client.get_service_by_name.return_value = svc
         from aquilia.providers.render.types import RenderLogEntry
+
         client.get_logs.return_value = [RenderLogEntry(message="log line")]
         logs = deployer.get_deploy_logs(limit=10)
         assert len(logs) == 1
@@ -3176,6 +3413,7 @@ class TestEnhancedDeployer:
         svc = RenderService(id="svc-1", name="testapp")
         client.get_service_by_name.return_value = svc
         from aquilia.providers.render.types import RenderMetricPoint
+
         client.get_metrics.return_value = [RenderMetricPoint(value=65.0)]
         metrics = deployer.get_service_metrics(metric="cpu")
         assert len(metrics) == 1
@@ -3187,6 +3425,7 @@ class TestEnhancedDeployer:
         client.get_service_by_name.return_value = svc
         client.list_deploys.return_value = []
         from aquilia.providers.render.types import RenderInstance
+
         client.list_instances.return_value = [RenderInstance(id="i1"), RenderInstance(id="i2")]
 
         s = deployer.status()

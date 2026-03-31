@@ -163,21 +163,25 @@ class TestTaskScheduleFault:
 
     def test_every_zero_raises_fault(self):
         from aquilia.tasks.schedule import every
+
         with pytest.raises(TaskScheduleFault):
             every()
 
     def test_every_negative_raises_fault(self):
         from aquilia.tasks.schedule import every
+
         with pytest.raises(TaskScheduleFault):
             every(seconds=-5)
 
     def test_cron_bad_field_count_raises_fault(self):
         from aquilia.tasks.schedule import cron
+
         with pytest.raises(TaskScheduleFault, match="5 fields"):
             cron("* *")
 
     def test_cron_too_many_fields_raises_fault(self):
         from aquilia.tasks.schedule import cron
+
         with pytest.raises(TaskScheduleFault, match="5 fields"):
             cron("* * * * * *")
 
@@ -230,6 +234,7 @@ class TestTaskEnqueueFault:
     @pytest.mark.asyncio
     async def test_enqueue_non_callable_raises_fault(self):
         from aquilia.tasks import TaskManager
+
         mgr = TaskManager()
         with pytest.raises(TaskEnqueueFault):
             await mgr.enqueue(42)
@@ -362,6 +367,7 @@ class TestStorageConfigFaultUsage:
 
     def test_set_default_nonexistent(self):
         from aquilia.storage.registry import StorageRegistry
+
         reg = StorageRegistry()
         with pytest.raises(StorageConfigFault):
             reg.set_default("nonexistent")
@@ -369,6 +375,7 @@ class TestStorageConfigFaultUsage:
     @pytest.mark.asyncio
     async def test_effect_provider_no_registry(self):
         from aquilia.storage.effects import StorageEffectProvider
+
         prov = StorageEffectProvider()
         with pytest.raises(StorageConfigFault, match="no registry"):
             await prov.acquire()
@@ -456,6 +463,7 @@ class TestNoRawExceptionsInTasks:
 
     def test_schedule_every_raises_fault_not_value_error(self):
         from aquilia.tasks.schedule import every
+
         try:
             every()
         except Exception as e:
@@ -464,6 +472,7 @@ class TestNoRawExceptionsInTasks:
 
     def test_schedule_cron_raises_fault_not_value_error(self):
         from aquilia.tasks.schedule import cron
+
         try:
             cron("* *")
         except Exception as e:
@@ -487,6 +496,7 @@ class TestNoRawExceptionsInTasks:
     @pytest.mark.asyncio
     async def test_enqueue_raises_fault_not_type_error(self):
         from aquilia.tasks import TaskManager
+
         mgr = TaskManager()
         try:
             await mgr.enqueue(123)
@@ -519,6 +529,7 @@ class TestNoRawExceptionsInStorage:
 
     def test_set_default_raises_fault_not_key_error(self):
         from aquilia.storage.registry import StorageRegistry
+
         reg = StorageRegistry()
         try:
             reg.set_default("missing")
@@ -529,6 +540,7 @@ class TestNoRawExceptionsInStorage:
     @pytest.mark.asyncio
     async def test_effect_provider_raises_fault_not_runtime_error(self):
         from aquilia.storage.effects import StorageEffectProvider
+
         prov = StorageEffectProvider()
         try:
             await prov.acquire()
@@ -549,6 +561,7 @@ class TestPickleRemoval:
         """CrousBytecodeCache._load uses JSON+HMAC, not pickle."""
         import inspect
         from aquilia.templates.bytecode_cache import CrousBytecodeCache
+
         source = inspect.getsource(CrousBytecodeCache._load)
         assert "pickle.load" not in source
         assert "json.loads" in source
@@ -558,6 +571,7 @@ class TestPickleRemoval:
         """CrousBytecodeCache._save uses JSON+HMAC, not pickle."""
         import inspect
         from aquilia.templates.bytecode_cache import CrousBytecodeCache
+
         source = inspect.getsource(CrousBytecodeCache._save)
         assert "pickle.dump" not in source
         assert "json.dumps" in source
@@ -566,6 +580,7 @@ class TestPickleRemoval:
         """TemplateManager.compile_all uses JSON+HMAC, not pickle."""
         import inspect
         from aquilia.templates.manager import TemplateManager
+
         source = inspect.getsource(TemplateManager.compile_all)
         assert "pickle.dump" not in source
         assert "pickle" not in source
@@ -574,6 +589,7 @@ class TestPickleRemoval:
         """manager.py does not import pickle at all."""
         import inspect
         from aquilia.templates import manager as mgr_mod
+
         source = inspect.getsource(mgr_mod)
         assert "import pickle" not in source
 
@@ -632,9 +648,7 @@ class TestBytecodeHMACIntegrity:
                 secret_key="test-secret-key",
             )
             # Should have emitted a warning about integrity check
-            integrity_warnings = [
-                x for x in w if "integrity" in str(x.message).lower()
-            ]
+            integrity_warnings = [x for x in w if "integrity" in str(x.message).lower()]
             assert len(integrity_warnings) >= 1
             # Cache should be empty (tampered data rejected)
             assert len(cache2._cache) == 0
@@ -659,14 +673,13 @@ class TestBytecodeHMACIntegrity:
                 filename="test.crous",
                 secret_key="wrong-key",
             )
-            integrity_warnings = [
-                x for x in w if "integrity" in str(x.message).lower()
-            ]
+            integrity_warnings = [x for x in w if "integrity" in str(x.message).lower()]
             assert len(integrity_warnings) >= 1
             assert len(cache2._cache) == 0
 
     def test_missing_file_no_error(self, tmp_path):
         from aquilia.templates.bytecode_cache import CrousBytecodeCache
+
         cache = CrousBytecodeCache(
             cache_dir=str(tmp_path),
             filename="nonexistent.crous",
@@ -780,9 +793,7 @@ class TestTaskFuncRefSecurity:
         await mgr.stop()
 
         # Verify the job did NOT execute os.system
-        assert job.state != JobState.COMPLETED or (
-            job.result and not job.result.success
-        )
+        assert job.state != JobState.COMPLETED or (job.result and not job.result.success)
 
 
 # ============================================================================
@@ -795,6 +806,7 @@ class TestSanitizeHtmlWarning:
 
     def test_emits_warning(self):
         from aquilia.templates.security import create_safe_filters
+
         filters = create_safe_filters()
         sanitize = filters["sanitize_html"]
 
@@ -805,6 +817,7 @@ class TestSanitizeHtmlWarning:
 
     def test_still_strips_scripts(self):
         from aquilia.templates.security import create_safe_filters
+
         filters = create_safe_filters()
         sanitize = filters["sanitize_html"]
 
@@ -825,6 +838,7 @@ class TestTasksExports:
 
     def test_all_faults_exported(self):
         import aquilia.tasks as tasks_mod
+
         assert hasattr(tasks_mod, "TaskFault")
         assert hasattr(tasks_mod, "TaskScheduleFault")
         assert hasattr(tasks_mod, "TaskNotBoundFault")
@@ -838,12 +852,14 @@ class TestStorageExports:
 
     def test_new_faults_exported(self):
         import aquilia.storage as storage_mod
+
         assert hasattr(storage_mod, "StorageIOFault")
         assert hasattr(storage_mod, "StorageConfigFault")
         assert hasattr(storage_mod, "STORAGE_DOMAIN")
 
     def test_old_errors_still_exported(self):
         import aquilia.storage as storage_mod
+
         assert hasattr(storage_mod, "StorageError")
         assert hasattr(storage_mod, "StorageFileNotFoundError")
         assert hasattr(storage_mod, "StoragePermissionError")
@@ -856,6 +872,7 @@ class TestTemplatesExports:
 
     def test_all_faults_exported(self):
         import aquilia.templates as tpl_mod
+
         assert hasattr(tpl_mod, "TemplateFault")
         assert hasattr(tpl_mod, "TemplateEngineUnavailableFault")
         assert hasattr(tpl_mod, "TemplateCacheIntegrityFault")

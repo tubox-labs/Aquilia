@@ -240,40 +240,40 @@ class TestWorkspaceParsing:
 
     def test_extract_module_names(self):
         """Should extract module names from .module() calls."""
-        content = '''
+        content = """
 workspace = Workspace("app")
 workspace.module(Module("users"))
 workspace.module(Module("orders"))
-'''
+"""
         modules = AquiliaRuntime._extract_module_names(content)
         assert modules == ["users", "orders"]
 
     def test_extract_module_names_deduplicates(self):
         """Duplicate modules should be deduplicated preserving order."""
-        content = '''
+        content = """
 workspace.module(Module("users"))
 workspace.module(Module("orders"))
 workspace.module(Module("users"))
-'''
+"""
         modules = AquiliaRuntime._extract_module_names(content)
         assert modules == ["users", "orders"]
 
     def test_extract_module_names_excludes_starter(self):
         """The 'starter' pseudo-module should be excluded."""
-        content = '''
+        content = """
 workspace.module(Module("starter"))
 workspace.module(Module("users"))
-'''
+"""
         modules = AquiliaRuntime._extract_module_names(content)
         assert modules == ["users"]
 
     def test_extract_module_names_ignores_comments(self):
         """Commented-out modules should be ignored."""
-        content = '''
+        content = """
 workspace.module(Module("users"))
 # workspace.module(Module("disabled"))
 workspace.module(Module("orders"))
-'''
+"""
         modules = AquiliaRuntime._extract_module_names(content)
         assert modules == ["users", "orders"]
 

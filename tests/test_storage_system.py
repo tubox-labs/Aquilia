@@ -151,9 +151,13 @@ class TestStorageErrorHierarchy:
         assert isinstance(err, StorageError)
 
     def test_all_errors_are_exceptions(self):
-        for cls in (StorageError, StorageFileNotFoundError,
-                    StoragePermissionError, StorageFullError,
-                    BackendUnavailableError):
+        for cls in (
+            StorageError,
+            StorageFileNotFoundError,
+            StoragePermissionError,
+            StorageFullError,
+            BackendUnavailableError,
+        ):
             assert issubclass(cls, Exception)
 
 
@@ -254,6 +258,7 @@ class TestStorageFile:
     @pytest.mark.asyncio
     async def test_write_read_mode_raises(self):
         from aquilia.storage import StorageIOFault
+
         sf = StorageFile(name="out.txt", mode="rb")
         with pytest.raises(StorageIOFault, match="not opened for writing"):
             await sf.write(b"nope")
@@ -284,6 +289,7 @@ class TestStorageFile:
     @pytest.mark.asyncio
     async def test_read_after_close_raises(self):
         from aquilia.storage import StorageIOFault
+
         sf = StorageFile(name="test.txt", content=b"x")
         await sf.close()
         with pytest.raises(StorageIOFault, match="closed"):
@@ -292,6 +298,7 @@ class TestStorageFile:
     @pytest.mark.asyncio
     async def test_write_after_close_raises(self):
         from aquilia.storage import StorageIOFault
+
         sf = StorageFile(name="out.txt", mode="wb")
         await sf.close()
         with pytest.raises(StorageIOFault, match="closed"):
@@ -619,11 +626,13 @@ class TestConfigFromDict:
         assert c.backend == "local"
 
     def test_extra_keys_filtered(self):
-        c = config_from_dict({
-            "backend": "memory",
-            "max_size": 100,
-            "nonexistent_field": "should_be_ignored",
-        })
+        c = config_from_dict(
+            {
+                "backend": "memory",
+                "max_size": 100,
+                "nonexistent_field": "should_be_ignored",
+            }
+        )
         assert isinstance(c, MemoryConfig)
         assert c.max_size == 100
 
@@ -1233,6 +1242,7 @@ class TestS3StorageGuards:
     @pytest.mark.asyncio
     async def test_ensure_client_raises_before_init(self):
         from aquilia.storage.backends.s3 import S3Storage
+
         s3 = S3Storage(S3Config(bucket="test"))
         with pytest.raises(BackendUnavailableError, match="not initialized"):
             await s3.save("test.txt", b"data")
@@ -1259,12 +1269,14 @@ class TestGCSStorageGuards:
 
     def test_backend_name(self):
         from aquilia.storage.backends.gcs import GCSStorage
+
         gcs = GCSStorage(GCSConfig(bucket="test"))
         assert gcs.backend_name == "gcs"
 
     @pytest.mark.asyncio
     async def test_ensure_bucket_raises_before_init(self):
         from aquilia.storage.backends.gcs import GCSStorage
+
         gcs = GCSStorage(GCSConfig(bucket="test"))
         with pytest.raises(BackendUnavailableError, match="not initialized"):
             await gcs.save("test.txt", b"data")
@@ -1275,22 +1287,26 @@ class TestAzureStorageGuards:
 
     def test_backend_name(self):
         from aquilia.storage.backends.azure import AzureBlobStorage
+
         az = AzureBlobStorage(AzureBlobConfig(container="test"))
         assert az.backend_name == "azure"
 
     @pytest.mark.asyncio
     async def test_ensure_container_raises_before_init(self):
         from aquilia.storage.backends.azure import AzureBlobStorage
+
         az = AzureBlobStorage(AzureBlobConfig(container="test"))
         with pytest.raises(BackendUnavailableError, match="not initialized"):
             await az.save("test.txt", b"data")
 
     def test_azure_url_custom_domain(self):
-        az = AzureBlobStorage(AzureBlobConfig(
-            container="media",
-            custom_domain="cdn.example.com",
-            account_name="myaccount",
-        ))
+        az = AzureBlobStorage(
+            AzureBlobConfig(
+                container="media",
+                custom_domain="cdn.example.com",
+                account_name="myaccount",
+            )
+        )
         # Simulate container client being set
         az._container_client = MagicMock()
 
@@ -1307,18 +1323,21 @@ class TestSFTPStorageGuards:
 
     def test_backend_name(self):
         from aquilia.storage.backends.sftp import SFTPStorage
+
         sftp = SFTPStorage(SFTPConfig(host="example.com"))
         assert sftp.backend_name == "sftp"
 
     @pytest.mark.asyncio
     async def test_ensure_sftp_raises_before_init(self):
         from aquilia.storage.backends.sftp import SFTPStorage
+
         sftp = SFTPStorage(SFTPConfig(host="example.com"))
         with pytest.raises(BackendUnavailableError, match="not initialized"):
             await sftp.save("test.txt", b"data")
 
     def test_remote_path(self):
         from aquilia.storage.backends.sftp import SFTPStorage
+
         sftp = SFTPStorage(SFTPConfig(root="/data"))
         assert sftp._remote_path("uploads/file.txt") == "/data/uploads/file.txt"
 
@@ -1379,6 +1398,7 @@ class TestStorageRegistry:
 
     def test_set_default_nonexistent_raises(self, registry):
         from aquilia.storage import StorageConfigFault
+
         with pytest.raises(StorageConfigFault):
             registry.set_default("nonexistent")
 
@@ -1471,39 +1491,49 @@ class TestStorageRegistryFromConfig:
     """StorageRegistry.from_config factory."""
 
     def test_single_backend(self):
-        registry = StorageRegistry.from_config([
-            {"alias": "default", "backend": "memory"},
-        ])
+        registry = StorageRegistry.from_config(
+            [
+                {"alias": "default", "backend": "memory"},
+            ]
+        )
         assert "default" in registry
         assert isinstance(registry["default"], MemoryStorage)
 
     def test_multiple_backends(self):
-        registry = StorageRegistry.from_config([
-            {"alias": "mem1", "backend": "memory"},
-            {"alias": "mem2", "backend": "memory", "max_size": 1024},
-        ])
+        registry = StorageRegistry.from_config(
+            [
+                {"alias": "mem1", "backend": "memory"},
+                {"alias": "mem2", "backend": "memory", "max_size": 1024},
+            ]
+        )
         assert len(registry) == 2
         assert "mem1" in registry
         assert "mem2" in registry
 
     def test_default_is_set(self):
-        registry = StorageRegistry.from_config([
-            {"alias": "default", "backend": "memory"},
-            {"alias": "other", "backend": "memory"},
-        ])
+        registry = StorageRegistry.from_config(
+            [
+                {"alias": "default", "backend": "memory"},
+                {"alias": "other", "backend": "memory"},
+            ]
+        )
         assert registry.default is registry["default"]
 
     def test_explicit_default_flag(self):
-        registry = StorageRegistry.from_config([
-            {"alias": "primary", "backend": "memory", "default": True},
-            {"alias": "secondary", "backend": "memory"},
-        ])
+        registry = StorageRegistry.from_config(
+            [
+                {"alias": "primary", "backend": "memory", "default": True},
+                {"alias": "secondary", "backend": "memory"},
+            ]
+        )
         assert registry._default_alias == "primary"
 
     def test_local_backend_from_config(self, tmp_path):
-        registry = StorageRegistry.from_config([
-            {"alias": "default", "backend": "local", "root": str(tmp_path)},
-        ])
+        registry = StorageRegistry.from_config(
+            [
+                {"alias": "default", "backend": "local", "root": str(tmp_path)},
+            ]
+        )
         assert isinstance(registry["default"], LocalStorage)
 
     def test_empty_config(self):
@@ -1569,12 +1599,14 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_init_with_memory_backends(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": [
-                {"alias": "default", "backend": "memory"},
-                {"alias": "cache", "backend": "memory", "max_size": 4096},
-            ],
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": [
+                    {"alias": "default", "backend": "memory"},
+                    {"alias": "cache", "backend": "memory", "max_size": 4096},
+                ],
+            }
+        )
         await sub._do_initialize(ctx)
         assert sub._registry is not None
         assert "default" in sub._registry
@@ -1605,10 +1637,12 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_init_single_backend_shorthand(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backend": "memory",
-            "alias": "default",
-        })
+        ctx = self._make_boot_context(
+            {
+                "backend": "memory",
+                "alias": "default",
+            }
+        )
         await sub._do_initialize(ctx)
         assert sub._registry is not None
         assert "default" in sub._registry
@@ -1616,18 +1650,22 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_init_dict_backends_wraps_to_list(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": {"alias": "default", "backend": "memory"},
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": {"alias": "default", "backend": "memory"},
+            }
+        )
         await sub._do_initialize(ctx)
         assert sub._registry is not None
 
     @pytest.mark.asyncio
     async def test_shutdown(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": [{"alias": "default", "backend": "memory"}],
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": [{"alias": "default", "backend": "memory"}],
+            }
+        )
         await sub._do_initialize(ctx)
 
         # Save data to verify shutdown clears it
@@ -1645,11 +1683,13 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_health_check_healthy(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": [
-                {"alias": "default", "backend": "memory"},
-            ],
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": [
+                    {"alias": "default", "backend": "memory"},
+                ],
+            }
+        )
         await sub._do_initialize(ctx)
         sub._initialized = True
 
@@ -1666,12 +1706,14 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_health_check_degraded(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": [
-                {"alias": "good", "backend": "memory"},
-                {"alias": "bad", "backend": "memory"},
-            ],
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": [
+                    {"alias": "good", "backend": "memory"},
+                    {"alias": "bad", "backend": "memory"},
+                ],
+            }
+        )
         await sub._do_initialize(ctx)
         sub._initialized = True
 
@@ -1685,12 +1727,14 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_health_check_all_unhealthy(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": [
-                {"alias": "a", "backend": "memory"},
-                {"alias": "b", "backend": "memory"},
-            ],
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": [
+                    {"alias": "a", "backend": "memory"},
+                    {"alias": "b", "backend": "memory"},
+                ],
+            }
+        )
         await sub._do_initialize(ctx)
         sub._initialized = True
 
@@ -1703,11 +1747,13 @@ class TestStorageSubsystem:
     @pytest.mark.asyncio
     async def test_health_registers_per_backend(self):
         sub = StorageSubsystem()
-        ctx = self._make_boot_context({
-            "backends": [
-                {"alias": "default", "backend": "memory"},
-            ],
-        })
+        ctx = self._make_boot_context(
+            {
+                "backends": [
+                    {"alias": "default", "backend": "memory"},
+                ],
+            }
+        )
         await sub._do_initialize(ctx)
         # Health registry should have storage.default
         h = ctx.health.get("storage.default")
@@ -1750,6 +1796,7 @@ class TestStorageEffectProvider:
     @pytest.mark.asyncio
     async def test_acquire_no_registry_raises(self):
         from aquilia.storage import StorageConfigFault
+
         provider = StorageEffectProvider()
         with pytest.raises(StorageConfigFault, match="no registry"):
             await provider.acquire()
@@ -1886,12 +1933,9 @@ class TestWorkspaceStorage:
 
     def test_full_workspace_chain(self):
         """Full workspace with storage + other integrations."""
-        ws = (
-            Workspace("fullapp")
-            .storage(
-                default="mem",
-                backends={"mem": MemoryConfig()},
-            )
+        ws = Workspace("fullapp").storage(
+            default="mem",
+            backends={"mem": MemoryConfig()},
         )
         assert isinstance(ws, Workspace)
         assert ws._integrations.get("storage") is not None
@@ -2020,9 +2064,11 @@ class TestRegistryRegression:
         assert health["x"] is False
 
     def test_from_config_with_alias_default(self):
-        reg = StorageRegistry.from_config([
-            {"backend": "memory"},  # No alias → defaults to "default"
-        ])
+        reg = StorageRegistry.from_config(
+            [
+                {"backend": "memory"},  # No alias → defaults to "default"
+            ]
+        )
         assert "default" in reg
 
 
@@ -2447,9 +2493,7 @@ class TestBuiltinBackendsRegistry:
     def test_all_backends_are_storage_backend_subclasses(self):
         for shorthand, dotted in _BUILTIN_BACKENDS.items():
             cls = _import_backend(dotted)
-            assert issubclass(cls, StorageBackend), (
-                f"{shorthand} → {cls} is not a StorageBackend"
-            )
+            assert issubclass(cls, StorageBackend), f"{shorthand} → {cls} is not a StorageBackend"
 
     def test_configs_are_frozen_dataclasses(self):
         for shorthand, cls in _BACKEND_CONFIGS.items():
@@ -2471,24 +2515,42 @@ class TestModuleExports:
 
     def test_all_public_names(self):
         import aquilia.storage as storage_mod
+
         expected = {
-            "StorageBackend", "StorageFile", "StorageMetadata",
-            "StorageRegistry", "StorageError",
-            "StorageFileNotFoundError", "StoragePermissionError",
-            "StorageFullError", "BackendUnavailableError",
-            "LocalStorage", "MemoryStorage", "S3Storage",
-            "GCSStorage", "AzureBlobStorage", "SFTPStorage",
+            "StorageBackend",
+            "StorageFile",
+            "StorageMetadata",
+            "StorageRegistry",
+            "StorageError",
+            "StorageFileNotFoundError",
+            "StoragePermissionError",
+            "StorageFullError",
+            "BackendUnavailableError",
+            "LocalStorage",
+            "MemoryStorage",
+            "S3Storage",
+            "GCSStorage",
+            "AzureBlobStorage",
+            "SFTPStorage",
             "CompositeStorage",
-            "StorageConfig", "LocalConfig", "MemoryConfig",
-            "S3Config", "GCSConfig", "AzureBlobConfig",
-            "SFTPConfig", "CompositeConfig",
-            "StorageSubsystem", "StorageEffectProvider",
+            "StorageConfig",
+            "LocalConfig",
+            "MemoryConfig",
+            "S3Config",
+            "GCSConfig",
+            "AzureBlobConfig",
+            "SFTPConfig",
+            "CompositeConfig",
+            "StorageSubsystem",
+            "StorageEffectProvider",
         }
         actual = set(storage_mod.__all__)
         assert expected.issubset(actual), f"Missing exports: {expected - actual}"
 
     def test_version(self):
         import aquilia.storage as storage_mod
+
         assert hasattr(storage_mod, "__version__")
         from aquilia._version import __version__ as framework_version
+
         assert storage_mod.__version__ == framework_version

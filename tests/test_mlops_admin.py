@@ -41,50 +41,71 @@ class TestAdminConfigMlopsModule:
 
     def test_admin_config_has_mlops_key(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         assert "mlops" in cfg.modules
 
     def test_admin_config_mlops_disabled_by_default(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         assert cfg.modules["mlops"] is False
 
     def test_admin_config_is_module_enabled_mlops_false(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig()
         assert cfg.is_module_enabled("mlops") is False
 
     def test_admin_config_is_module_enabled_mlops_true(self):
         from aquilia.admin.site import AdminConfig
-        cfg = AdminConfig(modules={
-            "dashboard": True, "orm": True, "build": True,
-            "migrations": True, "config": True, "workspace": True,
-            "permissions": True, "monitoring": False, "admin_users": True,
-            "profile": True, "audit": False,
-            "containers": False, "pods": False,
-            "query_inspector": False, "tasks": False, "errors": False,
-            "testing": False, "mlops": True,
-        })
+
+        cfg = AdminConfig(
+            modules={
+                "dashboard": True,
+                "orm": True,
+                "build": True,
+                "migrations": True,
+                "config": True,
+                "workspace": True,
+                "permissions": True,
+                "monitoring": False,
+                "admin_users": True,
+                "profile": True,
+                "audit": False,
+                "containers": False,
+                "pods": False,
+                "query_inspector": False,
+                "tasks": False,
+                "errors": False,
+                "testing": False,
+                "mlops": True,
+            }
+        )
         assert cfg.is_module_enabled("mlops") is True
 
     def test_admin_config_from_dict_mlops_default_false(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({})
         assert cfg.is_module_enabled("mlops") is False
 
     def test_admin_config_from_dict_mlops_enabled(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         assert cfg.is_module_enabled("mlops") is True
 
     def test_admin_config_from_dict_mlops_disabled_explicit(self):
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": False}})
         assert cfg.is_module_enabled("mlops") is False
 
     def test_admin_config_from_dict_preserves_other_modules(self):
         """Enabling mlops shouldn't break other modules."""
         from aquilia.admin.site import AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True, "tasks": True}})
         assert cfg.is_module_enabled("mlops") is True
         assert cfg.is_module_enabled("tasks") is True
@@ -102,6 +123,7 @@ class TestGetMlopsData:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -276,9 +298,16 @@ class TestGetMlopsData:
         site = self._make_site()
         data = site.get_mlops_data()
         for key in [
-            "frameworks", "runtime_kinds", "model_types", "device_types",
-            "batching_strategies", "rollout_strategies", "drift_methods",
-            "quantize_presets", "export_targets", "inference_modes",
+            "frameworks",
+            "runtime_kinds",
+            "model_types",
+            "device_types",
+            "batching_strategies",
+            "rollout_strategies",
+            "drift_methods",
+            "quantize_presets",
+            "export_targets",
+            "inference_modes",
         ]:
             assert key in data, f"Missing enum key: {key}"
             assert isinstance(data[key], list), f"{key} should be a list"
@@ -338,6 +367,7 @@ class TestSetMlopsServices:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -349,6 +379,7 @@ class TestSetMlopsServices:
 
     def test_set_mlops_services_exists(self):
         from aquilia.admin.site import AdminSite
+
         assert hasattr(AdminSite, "set_mlops_services")
 
     def test_set_mlops_services_stores_registry(self):
@@ -425,8 +456,13 @@ class TestRenderMlopsPage:
         base = {
             "available": True,
             "models": [
-                {"name": "sentiment", "version": "1.0.0", "state": "loaded",
-                 "framework": "pytorch", "model_type": "classifier"},
+                {
+                    "name": "sentiment",
+                    "version": "1.0.0",
+                    "state": "loaded",
+                    "framework": "pytorch",
+                    "model_type": "classifier",
+                },
             ],
             "total_models": 1,
             "total_inferences": 1500,
@@ -439,28 +475,49 @@ class TestRenderMlopsPage:
             "throughput": {"ewma": 42.7, "ttft_ewma": 8.2},
             "hot_models": [{"name": "sentiment", "score": 1500}],
             "drift": {"method": "psi", "threshold": 0.2, "has_reference": True},
-            "circuit_breaker": {"state": "closed", "total_requests": 100,
-                                "total_failures": 2, "total_trips": 0, "total_successes": 98},
-            "rate_limiter": {"total_allowed": 950, "total_rejected": 50,
-                             "tokens_available": 8.5, "capacity": 10},
-            "memory": {"current_bytes": 104857600, "soft_limit": 209715200,
-                        "hard_limit": 419430400, "tracked_models": 3, "evictions": 0},
+            "circuit_breaker": {
+                "state": "closed",
+                "total_requests": 100,
+                "total_failures": 2,
+                "total_trips": 0,
+                "total_successes": 98,
+            },
+            "rate_limiter": {"total_allowed": 950, "total_rejected": 50, "tokens_available": 8.5, "capacity": 10},
+            "memory": {
+                "current_bytes": 104857600,
+                "soft_limit": 209715200,
+                "hard_limit": 419430400,
+                "tracked_models": 3,
+                "evictions": 0,
+            },
             "plugins": [
                 {"name": "custom-logger", "version": "0.1.0", "state": "activated", "error": ""},
             ],
             "total_plugins": 1,
             "experiments": [
-                {"id": "exp-1", "name": "ab-test-v2", "status": "active",
-                 "variants": ["control", "treatment"], "total_assignments": 500},
+                {
+                    "id": "exp-1",
+                    "name": "ab-test-v2",
+                    "status": "active",
+                    "variants": ["control", "treatment"],
+                    "total_assignments": 500,
+                },
             ],
             "total_experiments": 1,
             "active_experiments": 1,
             "lineage": {"model-a": {"parents": []}, "model-b": {"parents": ["model-a"]}},
             "lineage_nodes": 2,
             "rollouts": [
-                {"id": "rollout-abc123", "from_version": "1.0.0", "to_version": "2.0.0",
-                 "strategy": "canary", "phase": "in_progress", "percentage": 25,
-                 "steps": 2, "error": ""},
+                {
+                    "id": "rollout-abc123",
+                    "from_version": "1.0.0",
+                    "to_version": "2.0.0",
+                    "strategy": "canary",
+                    "phase": "in_progress",
+                    "percentage": 25,
+                    "steps": 2,
+                    "error": "",
+                },
             ],
             "total_rollouts": 1,
             "active_rollouts": 1,
@@ -487,92 +544,110 @@ class TestRenderMlopsPage:
 
     def test_render_mlops_page_returns_string(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert isinstance(html, str)
 
     def test_render_mlops_page_contains_html(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "<html" in html or "<!DOCTYPE" in html or "MLOps" in html
 
     def test_render_mlops_page_includes_chart_js_cdn(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "chart.js" in html.lower() or "Chart" in html
 
     def test_render_mlops_page_includes_title(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "MLOps" in html
 
     def test_render_mlops_page_includes_model_name(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "sentiment" in html
 
     def test_render_mlops_page_includes_version(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "1.0.0" in html
 
     def test_render_mlops_page_includes_framework(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "pytorch" in html
 
     def test_render_mlops_page_includes_inferences_count(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "1,500" in html or "1500" in html
 
     def test_render_mlops_page_includes_latency_p50(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "12.5" in html
 
     def test_render_mlops_page_includes_circuit_breaker_state(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "CLOSED" in html or "closed" in html
 
     def test_render_mlops_page_includes_drift_method(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "psi" in html
 
     def test_render_mlops_page_includes_plugin_name(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "custom-logger" in html
 
     def test_render_mlops_page_includes_experiment_name(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "ab-test-v2" in html
 
     def test_render_mlops_page_includes_rollout_strategy(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "canary" in html
 
     def test_render_mlops_page_includes_hot_models(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "Hot Models" in html or "hot_models" in html or "Most Requested" in html
 
     def test_render_mlops_page_shows_available_status(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data(available=True))
         assert "Available" in html
 
     def test_render_mlops_page_shows_not_configured_when_unavailable(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data(available=False))
         assert "Not Configured" in html
 
     def test_render_mlops_page_chart_canvas_elements(self):
         """All expected chart canvas IDs present."""
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "chart-model-states" in html
         assert "chart-frameworks" in html
@@ -581,58 +656,59 @@ class TestRenderMlopsPage:
 
     def test_render_mlops_page_has_drawer(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "aq-drawer" in html
         assert "aq-drawer-overlay" in html
 
     def test_render_mlops_page_has_snippet_tabs(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "snippet-tab" in html
         assert "snippet-content" in html
 
     def test_render_mlops_page_has_code_block_container(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "code-block-container" in html
 
     def test_render_mlops_page_has_python_highlighter(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert 'data-aq-highlight="python"' in html
 
     def test_render_mlops_page_has_capabilities_panel(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data())
         assert "Capabilities Reference" in html or "cap-tab" in html
 
     def test_render_mlops_page_empty_models(self):
         """No models — should show empty state."""
         from aquilia.admin.templates import render_mlops_page
-        html = render_mlops_page(mlops_data=self._mlops_data(
-            models=[], total_models=0
-        ))
+
+        html = render_mlops_page(mlops_data=self._mlops_data(models=[], total_models=0))
         assert "No models registered" in html
 
     def test_render_mlops_page_empty_rollouts(self):
         from aquilia.admin.templates import render_mlops_page
-        html = render_mlops_page(mlops_data=self._mlops_data(
-            rollouts=[], total_rollouts=0, active_rollouts=0
-        ))
+
+        html = render_mlops_page(mlops_data=self._mlops_data(rollouts=[], total_rollouts=0, active_rollouts=0))
         assert "No rollouts active" in html
 
     def test_render_mlops_page_empty_experiments(self):
         from aquilia.admin.templates import render_mlops_page
-        html = render_mlops_page(mlops_data=self._mlops_data(
-            experiments=[], total_experiments=0, active_experiments=0
-        ))
+
+        html = render_mlops_page(mlops_data=self._mlops_data(experiments=[], total_experiments=0, active_experiments=0))
         assert "No experiments configured" in html
 
     def test_render_mlops_page_empty_plugins(self):
         from aquilia.admin.templates import render_mlops_page
-        html = render_mlops_page(mlops_data=self._mlops_data(
-            plugins=[], total_plugins=0
-        ))
+
+        html = render_mlops_page(mlops_data=self._mlops_data(plugins=[], total_plugins=0))
         assert "No plugins loaded" in html
 
 
@@ -646,25 +722,30 @@ class TestRenderMlopsPageSignature:
 
     def test_render_mlops_page_importable(self):
         from aquilia.admin.templates import render_mlops_page
+
         assert callable(render_mlops_page)
 
     def test_render_mlops_page_accepts_mlops_data(self):
         from aquilia.admin.templates import render_mlops_page
+
         sig = inspect.signature(render_mlops_page)
         assert "mlops_data" in sig.parameters
 
     def test_render_mlops_page_accepts_app_list(self):
         from aquilia.admin.templates import render_mlops_page
+
         sig = inspect.signature(render_mlops_page)
         assert "app_list" in sig.parameters
 
     def test_render_mlops_page_accepts_identity_name(self):
         from aquilia.admin.templates import render_mlops_page
+
         sig = inspect.signature(render_mlops_page)
         assert "identity_name" in sig.parameters
 
     def test_render_mlops_page_accepts_identity_avatar(self):
         from aquilia.admin.templates import render_mlops_page
+
         sig = inspect.signature(render_mlops_page)
         assert "identity_avatar" in sig.parameters
 
@@ -679,74 +760,89 @@ class TestAdminControllerMlopsRoutes:
 
     def test_controller_has_mlops_view_method(self):
         from aquilia.admin.controller import AdminController
+
         assert hasattr(AdminController, "mlops_view")
 
     def test_controller_has_mlops_api_method(self):
         from aquilia.admin.controller import AdminController
+
         assert hasattr(AdminController, "mlops_api")
 
     def test_mlops_view_is_async(self):
         from aquilia.admin.controller import AdminController
+
         assert inspect.iscoroutinefunction(AdminController.mlops_view)
 
     def test_mlops_api_is_async(self):
         from aquilia.admin.controller import AdminController
+
         assert inspect.iscoroutinefunction(AdminController.mlops_api)
 
     def test_controller_imports_render_mlops_page(self):
         """render_mlops_page is imported in controller module."""
         import aquilia.admin.controller as ctrl_mod
+
         assert hasattr(ctrl_mod, "render_mlops_page")
 
     def test_mlops_view_route_metadata(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_view)
         assert "mlops" in source
 
     def test_mlops_api_route_metadata(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_api)
         assert "mlops" in source
         assert "json" in source.lower() or "JSON" in source
 
     def test_mlops_view_checks_identity(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_view)
         assert "_require_identity" in source
 
     def test_mlops_api_checks_identity(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_api)
         assert "_require_identity" in source
 
     def test_mlops_view_checks_module_enabled(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_view)
         assert "is_module_enabled" in source
         assert '"mlops"' in source or "'mlops'" in source
 
     def test_mlops_api_checks_module_enabled(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_api)
         assert "is_module_enabled" in source
 
     def test_mlops_view_calls_get_mlops_data(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_view)
         assert "get_mlops_data" in source
 
     def test_mlops_api_calls_get_mlops_data(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_api)
         assert "get_mlops_data" in source
 
     def test_mlops_view_calls_render_mlops_page(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_view)
         assert "render_mlops_page" in source
 
     def test_mlops_view_returns_disabled_page_when_off(self):
         from aquilia.admin.controller import AdminController
+
         source = inspect.getsource(AdminController.mlops_view)
         assert "_module_disabled_response" in source
         assert '"MLOps"' in source or "'MLOps'" in source
@@ -763,7 +859,10 @@ class TestMlopsTemplateFile:
     def _template_path(self):
         return os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "mlops.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "mlops.html",
         )
 
     def test_template_file_exists(self):
@@ -979,23 +1078,27 @@ class TestMlopsServerRouteWiring:
 
     def test_server_module_has_wire_admin_integration(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         assert "_wire_admin_integration" in src
 
     def test_server_registers_mlops_view_route(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         assert "mlops_view" in src
         assert "/mlops/" in src
 
     def test_server_registers_mlops_api_route(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         assert "mlops_api" in src
         assert "/mlops/api/" in src
 
     def test_mlops_routes_use_get_method(self):
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         lines = src.splitlines()
         for line in lines:
@@ -1007,6 +1110,7 @@ class TestMlopsServerRouteWiring:
     def test_mlops_routes_after_testing_routes(self):
         """MLOps routes should be placed after testing routes."""
         import aquilia.server as srv_mod
+
         src = inspect.getsource(srv_mod)
         testing_pos = src.find("testing_view")
         mlops_pos = src.find("mlops_view")
@@ -1025,26 +1129,31 @@ class TestMlopsDisabledPage:
 
     def test_config_hints_has_mlops(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert '"MLOps"' in src or "'MLOps'" in src
 
     def test_config_hints_mlops_builder_hint(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "enable_mlops()" in src
 
     def test_config_hints_mlops_flat_hint(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "enable_mlops=True" in src
 
     def test_config_hints_mlops_icon(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "cpu" in src
 
     def test_config_hints_mlops_description(self):
         from aquilia.admin.controller import AdminController
+
         src = inspect.getsource(AdminController)
         assert "model registry" in src.lower() or "inference" in src.lower()
 
@@ -1059,82 +1168,102 @@ class TestMlopsImports:
 
     def test_import_framework_enum(self):
         from aquilia.mlops import Framework
+
         assert hasattr(Framework, "PYTORCH")
 
     def test_import_runtime_kind_enum(self):
         from aquilia.mlops import RuntimeKind
+
         assert hasattr(RuntimeKind, "PYTHON")
 
     def test_import_model_type_enum(self):
         from aquilia.mlops import ModelType
+
         assert hasattr(ModelType, "CLASSICAL_ML")
 
     def test_import_device_type_enum(self):
         from aquilia.mlops import DeviceType
+
         assert hasattr(DeviceType, "CPU")
 
     def test_import_batching_strategy_enum(self):
         from aquilia.mlops import BatchingStrategy
+
         assert hasattr(BatchingStrategy, "SIZE")
 
     def test_import_rollout_strategy_enum(self):
         from aquilia.mlops import RolloutStrategy
+
         assert hasattr(RolloutStrategy, "CANARY")
 
     def test_import_drift_method_enum(self):
         from aquilia.mlops import DriftMethod
+
         assert hasattr(DriftMethod, "PSI")
 
     def test_import_quantize_preset_enum(self):
         from aquilia.mlops import QuantizePreset
+
         assert hasattr(QuantizePreset, "INT8")
 
     def test_import_export_target_enum(self):
         from aquilia.mlops import ExportTarget
+
         assert hasattr(ExportTarget, "TFLITE")
 
     def test_import_inference_mode_enum(self):
         from aquilia.mlops import InferenceMode
+
         assert hasattr(InferenceMode, "SYNC")
 
     def test_import_circuit_breaker(self):
         from aquilia.mlops import CircuitBreaker
+
         assert CircuitBreaker is not None
 
     def test_import_token_bucket_rate_limiter(self):
         from aquilia.mlops import TokenBucketRateLimiter
+
         assert TokenBucketRateLimiter is not None
 
     def test_import_memory_tracker(self):
         from aquilia.mlops import MemoryTracker
+
         assert MemoryTracker is not None
 
     def test_import_model_lineage_dag(self):
         from aquilia.mlops import ModelLineageDAG
+
         assert ModelLineageDAG is not None
 
     def test_import_experiment_ledger(self):
         from aquilia.mlops import ExperimentLedger
+
         assert ExperimentLedger is not None
 
     def test_import_metrics_collector(self):
         from aquilia.mlops import MetricsCollector
+
         assert MetricsCollector is not None
 
     def test_import_drift_detector(self):
         from aquilia.mlops import DriftDetector
+
         assert DriftDetector is not None
 
     def test_import_plugin_host(self):
         from aquilia.mlops import PluginHost
+
         assert PluginHost is not None
 
     def test_import_model_orchestrator(self):
         from aquilia.mlops import ModelOrchestrator
+
         assert ModelOrchestrator is not None
 
     def test_import_model_registry(self):
         from aquilia.mlops import ModelRegistry
+
         assert ModelRegistry is not None
 
 
@@ -1148,6 +1277,7 @@ class TestMlopsDataEdgeCases:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1259,6 +1389,7 @@ class TestMlopsRenderIntegration:
 
     def _make_site_with_services(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1272,8 +1403,11 @@ class TestMlopsRenderIntegration:
         mock_registry.list_models.return_value = ["test-model"]
         entry = MagicMock()
         entry.to_dict.return_value = {
-            "name": "test-model", "version": "1.0.0", "state": "loaded",
-            "framework": "pytorch", "model_type": "classifier",
+            "name": "test-model",
+            "version": "1.0.0",
+            "state": "loaded",
+            "framework": "pytorch",
+            "model_type": "classifier",
         }
         mock_registry.get.return_value = entry
         site._mlops_registry = mock_registry
@@ -1296,6 +1430,7 @@ class TestMlopsRenderIntegration:
 
     def test_full_integration_produces_html(self):
         from aquilia.admin.templates import render_mlops_page
+
         site = self._make_site_with_services()
         data = site.get_mlops_data()
         html = render_mlops_page(mlops_data=data)
@@ -1304,6 +1439,7 @@ class TestMlopsRenderIntegration:
 
     def test_full_integration_contains_model_name(self):
         from aquilia.admin.templates import render_mlops_page
+
         site = self._make_site_with_services()
         data = site.get_mlops_data()
         html = render_mlops_page(mlops_data=data)
@@ -1311,6 +1447,7 @@ class TestMlopsRenderIntegration:
 
     def test_full_integration_contains_inference_count(self):
         from aquilia.admin.templates import render_mlops_page
+
         site = self._make_site_with_services()
         data = site.get_mlops_data()
         html = render_mlops_page(mlops_data=data)
@@ -1337,6 +1474,7 @@ class TestGetMlopsDataAutoscaler:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1369,8 +1507,10 @@ class TestGetMlopsDataAutoscaler:
         mock_as.policy.cooldown_seconds = 60
         mock_as._current_replicas = 3
         mock_as.window_stats = {
-            "window_rps": 12.5, "avg_latency": 45.2,
-            "error_rate": 0.01, "samples": 100,
+            "window_rps": 12.5,
+            "avg_latency": 45.2,
+            "error_rate": 0.01,
+            "samples": 100,
         }
         # evaluate() returns a ScalingDecision
         mock_decision = MagicMock()
@@ -1405,6 +1545,7 @@ class TestGetMlopsDataRBAC:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1445,6 +1586,7 @@ class TestGetMlopsDataQueueCache:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1478,8 +1620,12 @@ class TestGetMlopsDataQueueCache:
         site = self._make_site()
         mock_bq = MagicMock()
         mock_bq.stats = {
-            "size": 5, "capacity": 100, "enqueued": 50,
-            "dequeued": 45, "dropped": 0, "pending_tokens": 128,
+            "size": 5,
+            "capacity": 100,
+            "enqueued": 50,
+            "dequeued": 45,
+            "dropped": 0,
+            "pending_tokens": 128,
         }
         site._mlops_batch_queue = mock_bq
         data = site.get_mlops_data()
@@ -1490,8 +1636,11 @@ class TestGetMlopsDataQueueCache:
         site = self._make_site()
         mock_lru = MagicMock()
         mock_lru.stats = {
-            "capacity": 50, "size": 12, "hits": 200,
-            "misses": 30, "hit_rate": 0.87,
+            "capacity": 50,
+            "size": 12,
+            "hits": 200,
+            "misses": 30,
+            "hit_rate": 0.87,
         }
         site._mlops_lru_cache = mock_lru
         data = site.get_mlops_data()
@@ -1509,6 +1658,7 @@ class TestGetMlopsDataPerModelMetrics:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1569,6 +1719,7 @@ class TestSetMlopsServicesV2:
 
     def _make_site(self):
         from aquilia.admin.site import AdminSite, AdminConfig
+
         cfg = AdminConfig.from_dict({"modules": {"mlops": True}})
         site = AdminSite.__new__(AdminSite)
         site.admin_config = cfg
@@ -1580,21 +1731,25 @@ class TestSetMlopsServicesV2:
 
     def test_set_mlops_services_accepts_autoscaler(self):
         from aquilia.admin.site import AdminSite
+
         sig = inspect.signature(AdminSite.set_mlops_services)
         assert "autoscaler" in sig.parameters
 
     def test_set_mlops_services_accepts_rbac_manager(self):
         from aquilia.admin.site import AdminSite
+
         sig = inspect.signature(AdminSite.set_mlops_services)
         assert "rbac_manager" in sig.parameters
 
     def test_set_mlops_services_accepts_batch_queue(self):
         from aquilia.admin.site import AdminSite
+
         sig = inspect.signature(AdminSite.set_mlops_services)
         assert "batch_queue" in sig.parameters
 
     def test_set_mlops_services_accepts_lru_cache(self):
         from aquilia.admin.site import AdminSite
+
         sig = inspect.signature(AdminSite.set_mlops_services)
         assert "lru_cache" in sig.parameters
 
@@ -1634,7 +1789,10 @@ class TestMlopsTemplateV2Sections:
     def _template_path(self):
         return os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "mlops.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "mlops.html",
         )
 
     def _read_template(self):
@@ -1770,17 +1928,22 @@ class TestRenderMlopsPageV2:
             "inference_modes": ["sync"],
             "autoscaler": {
                 "policy": {
-                    "min_replicas": 1, "max_replicas": 10,
-                    "target_concurrency": 50, "target_latency_p95_ms": 200.0,
+                    "min_replicas": 1,
+                    "max_replicas": 10,
+                    "target_concurrency": 50,
+                    "target_latency_p95_ms": 200.0,
                     "cooldown_seconds": 60,
                 },
                 "current_replicas": 3,
                 "window_stats": {
-                    "window_rps": 15.0, "avg_latency": 42.0,
-                    "error_rate": 0.02, "samples": 100,
+                    "window_rps": 15.0,
+                    "avg_latency": 42.0,
+                    "error_rate": 0.02,
+                    "samples": 100,
                 },
                 "last_decision": {
-                    "current": 3, "desired": 4,
+                    "current": 3,
+                    "desired": 4,
                     "reason": "high load",
                 },
             },
@@ -1795,17 +1958,30 @@ class TestRenderMlopsPageV2:
                 ],
             },
             "batch_queue": {
-                "size": 5, "capacity": 100, "enqueued": 50,
-                "dequeued": 45, "dropped": 0, "pending_tokens": 128,
+                "size": 5,
+                "capacity": 100,
+                "enqueued": 50,
+                "dequeued": 45,
+                "dropped": 0,
+                "pending_tokens": 128,
             },
             "lru_cache": {
-                "capacity": 50, "size": 12, "hits": 200,
-                "misses": 30, "hit_rate": 0.87,
+                "capacity": 50,
+                "size": 12,
+                "hits": 200,
+                "misses": 30,
+                "hit_rate": 0.87,
             },
             "per_model_metrics": [
-                {"model": "sentiment", "inferences": 100, "errors": 2,
-                 "avg_latency": 12.5, "p95_latency": 45.0, "tokens": 5000,
-                 "error_rate": 0.02},
+                {
+                    "model": "sentiment",
+                    "inferences": 100,
+                    "errors": 2,
+                    "avg_latency": 12.5,
+                    "p95_latency": 45.0,
+                    "tokens": 5000,
+                    "error_rate": 0.02,
+                },
             ],
             "prometheus_text": "# HELP aquilia_inference_total\naquillia_inference_total 100\n",
             "dtypes": ["float32", "float16", "int8"],
@@ -1822,12 +1998,14 @@ class TestRenderMlopsPageV2:
 
     def test_render_v2_includes_autoscaler(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "Autoscaler" in html
         assert "Scaling Policy" in html
 
     def test_render_v2_includes_rbac(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "RBAC" in html or "Role-Based Access Control" in html
         assert "ADMIN" in html
@@ -1835,46 +2013,54 @@ class TestRenderMlopsPageV2:
 
     def test_render_v2_includes_batch_queue(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "Batch Queue" in html
 
     def test_render_v2_includes_lru_cache(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "LRU" in html
 
     def test_render_v2_includes_per_model_metrics(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "Per-Model Metrics" in html
         assert "sentiment" in html
 
     def test_render_v2_includes_prometheus(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "Prometheus" in html
         assert "aquilia_inference_total" in html
 
     def test_render_v2_includes_dtypes_tab(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "DTypes" in html
         assert "float32" in html
 
     def test_render_v2_includes_permissions_tab(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "Permissions" in html
         assert "pack:read" in html
 
     def test_render_v2_includes_new_chart_canvases(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "chart-experiment-statuses" in html
         assert "chart-memory-allocations" in html
 
     def test_render_v2_includes_new_snippet_tabs(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "snip-drift" in html
         assert "snip-autoscaler" in html
@@ -1882,6 +2068,7 @@ class TestRenderMlopsPageV2:
 
     def test_render_v2_includes_scaling_decision(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "scale_up" in html
         assert "high load" in html
@@ -1889,6 +2076,7 @@ class TestRenderMlopsPageV2:
 
     def test_render_v2_includes_window_stats(self):
         from aquilia.admin.templates import render_mlops_page
+
         html = render_mlops_page(mlops_data=self._mlops_data_v2())
         assert "Window" in html
 
@@ -1911,7 +2099,11 @@ class TestMlopsSidebarEntry:
     def _sidebar_path(self):
         return os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-            "aquilia", "admin", "templates", "partials", "sidebar_v2.html",
+            "aquilia",
+            "admin",
+            "templates",
+            "partials",
+            "sidebar_v2.html",
         )
 
     def test_sidebar_has_mlops_link(self):

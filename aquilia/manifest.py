@@ -368,10 +368,10 @@ class TemplateConfig:
 @dataclass
 class DatabaseConfig:
     """
-    Database configuration for AMDL model system.
+    DEPRECATED: Manifest-level database configuration.
 
-    Controls database connection, auto-creation, migration behaviour,
-    and discovery of .amdl model files.
+    Use Workspace.database() / Integration.database() instead.
+    This class is retained only for backward compatibility.
     """
 
     url: str = "sqlite:///db.sqlite3"  # Database URL
@@ -385,6 +385,14 @@ class DatabaseConfig:
     # Model discovery
     model_paths: list[str] = field(default_factory=list)  # Explicit .amdl paths
     scan_dirs: list[str] = field(default_factory=lambda: ["models"])  # Directories to scan
+
+    def __post_init__(self) -> None:
+        warnings.warn(
+            "AppManifest.database / manifest.DatabaseConfig is deprecated and ignored at runtime. "
+            "Configure database via Workspace.database() / Integration.database().",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
     def to_dict(self) -> dict:
         """Serialize to dictionary."""
@@ -458,7 +466,7 @@ class AppManifest:
     # Template management
     templates: TemplateConfig | None = None
 
-    # Database and models
+    # Database and models (DEPRECATED: ignored at runtime)
     database: DatabaseConfig | None = None
 
     # Error handling
@@ -556,6 +564,17 @@ class AppManifest:
                 DeprecationWarning,
                 stacklevel=2,
             )
+
+        # Deprecate manifest-level DB config and clear it so runtime behavior
+        # is always driven by workspace/integration config.
+        if self.database is not None:
+            warnings.warn(
+                f"AppManifest({self.name!r}).database is deprecated and ignored at runtime. "
+                "Use Workspace.database() / Integration.database() instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.database = None
 
         # v2: Normalize string services to ServiceConfig
         normalized_services = []

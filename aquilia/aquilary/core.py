@@ -714,7 +714,7 @@ class RuntimeRegistry:
         - modules/<app_name>/models/*.py    (new Python models)
         - modules/<app_name>/**/*.amdl      (recursive, legacy)
 
-        Also honours DatabaseConfig.scan_dirs if present in manifest.
+        Also honors workspace/integration-level database scan_dirs.
         """
         workspace_root = self._workspace_root()
 
@@ -740,12 +740,23 @@ class RuntimeRegistry:
             if py_path not in ctx.models:
                 ctx.models.append(py_path)
 
-        # DatabaseConfig scan_dirs from manifest
-        if ctx.manifest and hasattr(ctx.manifest, "database") and ctx.manifest.database:
-            db_config = ctx.manifest.database
-            extra_dirs = getattr(db_config, "scan_dirs", [])
-            for d in extra_dirs:
-                resolved = workspace_root / "modules" / ctx.name / d
+        # Workspace database scan_dirs (global source of truth)
+        extra_dirs: list[str] = []
+        if hasattr(self.config, "get"):
+            extra_dirs = self.config.get("database.scan_dirs", []) or []
+        elif hasattr(self.config, "to_dict"):
+            cfg_dict = self.config.to_dict()
+            db_section = cfg_dict.get("database", {})
+            extra_dirs = db_section.get("scan_dirs", []) or []
+
+        for d in extra_dirs:
+            # Support wildcards like "modules/*/models" and absolute-ish workspace-relative paths.
+            if any(ch in d for ch in ("*", "?", "[", "]")):
+                for candidate in workspace_root.glob(d):
+                    if candidate.is_dir():
+                        scan_dirs.append(candidate)
+            else:
+                resolved = workspace_root / d
                 if resolved.is_dir():
                     scan_dirs.append(resolved)
 

@@ -229,7 +229,6 @@ class ModuleGenerator:
               - sessions: Module-specific session policies
               - cache: Module-specific cache configuration
               - auth: Module-specific authentication settings
-              - database: Module-specific database/ORM configuration
               - templates: Module-specific template directories
               - faults: Module-specific error handling and fault domains
 
@@ -243,7 +242,6 @@ class ModuleGenerator:
                 FaultHandlingConfig,
                 MiddlewareConfig,
                 SessionConfig,
-                DatabaseConfig,
                 TemplateConfig,
             )
 
@@ -287,14 +285,6 @@ class ModuleGenerator:
                     default_domain="{self.fault_domain}",
                     strategy="propagate",
                 ),
-
-                # ── Database (module-level override) ──────────────────────────────
-                # Uncomment to use a separate database for this module:
-                # database=DatabaseConfig(
-                #     url="sqlite:///modules/{self.name}/db.sqlite3",
-                #     scan_dirs=["modules/{self.name}/models"],
-                #     auto_create=True,
-                # ),
 
                 # ── Sessions (module-level override) ──────────────────────────────
                 # Uncomment to define module-specific session policies:

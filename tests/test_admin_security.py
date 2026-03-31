@@ -217,10 +217,12 @@ class TestAdminCSRFProtection:
         ctx = MagicMock()
         ctx.session = MagicMock()
         ctx.session.data = {"_admin_csrf_token": token}
+
         # Create a request mock that has headers dict but NOT a header() method
         class _MockReq:
             def __init__(self):
                 self.headers = {"x-csrf-token": token}
+
         ctx.request = _MockReq()
         assert self.csrf.validate_request(ctx, {}) is True
 
@@ -236,9 +238,11 @@ class TestAdminCSRFProtection:
         ctx = MagicMock()
         ctx.session = MagicMock()
         ctx.session.data = {"_admin_csrf_token": token}
+
         class _MockReq:
             def __init__(self):
                 self.headers = {"x-csrf-token": token}
+
         ctx.request = _MockReq()
         assert self.csrf.validate_request(ctx, None) is True
 
@@ -750,7 +754,8 @@ class TestSecurityEventTracker:
         self.tracker.record("login_failed", "2.2.2.2")
         self.tracker.record("csrf_violation", "1.1.1.1")
         events = self.tracker.get_events(
-            event_type="login_failed", ip_address="1.1.1.1",
+            event_type="login_failed",
+            ip_address="1.1.1.1",
         )
         assert len(events) == 1
 
@@ -928,9 +933,11 @@ class TestDIRegistration:
             pass
 
         # Test the real function by patching the DI imports
-        with patch("aquilia.di.providers.ValueProvider") as MockVP, \
-             patch("aquilia.di.providers.FactoryProvider"), \
-             patch("aquilia.di.scopes.Scope"):
+        with (
+            patch("aquilia.di.providers.ValueProvider") as MockVP,
+            patch("aquilia.di.providers.FactoryProvider"),
+            patch("aquilia.di.scopes.Scope"),
+        ):
             MockVP.return_value = MagicMock()
             register_security_providers(container)
 
@@ -976,6 +983,7 @@ class TestCSRFEndToEnd:
 
     def setup_method(self):
         from aquilia.admin.site import AdminSite
+
         AdminSite.reset()
         self.site = AdminSite()
         self.policy = self.site.security
@@ -1043,7 +1051,9 @@ class TestRateLimiterWithEvents:
         for i in range(3):
             self.policy.rate_limiter.record_login_failure(ip)
             self.policy.event_tracker.record(
-                "login_failed", ip, attempt=i + 1,
+                "login_failed",
+                ip,
+                attempt=i + 1,
             )
 
         # Should be locked out
@@ -1052,7 +1062,8 @@ class TestRateLimiterWithEvents:
 
         # Should have 3 events recorded
         events = self.policy.event_tracker.get_events(
-            event_type="login_failed", ip_address=ip,
+            event_type="login_failed",
+            ip_address=ip,
         )
         assert len(events) == 3
 
@@ -1085,43 +1096,53 @@ class TestSecurityExports:
 
     def test_import_csrf_protection(self):
         from aquilia.admin import AdminCSRFProtection
+
         assert AdminCSRFProtection is not None
 
     def test_import_rate_limiter(self):
         from aquilia.admin import AdminRateLimiter
+
         assert AdminRateLimiter is not None
 
     def test_import_security_headers(self):
         from aquilia.admin import AdminSecurityHeaders
+
         assert AdminSecurityHeaders is not None
 
     def test_import_password_validator(self):
         from aquilia.admin import PasswordValidator
+
         assert PasswordValidator is not None
 
     def test_import_password_strength(self):
         from aquilia.admin import PasswordStrength
+
         assert PasswordStrength is not None
 
     def test_import_security_event_tracker(self):
         from aquilia.admin import SecurityEventTracker
+
         assert SecurityEventTracker is not None
 
     def test_import_security_event(self):
         from aquilia.admin import SecurityEvent
+
         assert SecurityEvent is not None
 
     def test_import_security_policy(self):
         from aquilia.admin import AdminSecurityPolicy
+
         assert AdminSecurityPolicy is not None
 
     def test_import_register_security_providers(self):
         from aquilia.admin import register_security_providers
+
         assert callable(register_security_providers)
 
     def test_admin_site_has_security(self):
         """AdminSite instances have a security policy attached."""
         from aquilia.admin.site import AdminSite
+
         AdminSite.reset()
         site = AdminSite()
         assert hasattr(site, "security")

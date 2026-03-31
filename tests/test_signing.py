@@ -472,7 +472,7 @@ class TestSigner:
     def test_sign_bytes_tampered_fails(self):
         s = Signer(secret=SECRET)
         signed = s.sign_bytes(b"secret data")
-        tampered = b"evil data" + signed[len(b"secret data"):]
+        tampered = b"evil data" + signed[len(b"secret data") :]
         with pytest.raises(BadSignature):
             s.unsign_bytes(tampered)
 
@@ -574,7 +574,7 @@ class TestTimestampSigner:
         sep_idx = token.rfind(":")
         mid = sep_idx + (len(token) - sep_idx) // 2  # middle of signature
         flip = "A" if token[mid] != "A" else "B"
-        tampered = token[:mid] + flip + token[mid + 1:]
+        tampered = token[:mid] + flip + token[mid + 1 :]
         with pytest.raises(BadSignature):
             ts.unsign(tampered)
 
@@ -867,6 +867,7 @@ class TestConfigure:
 
     def test_get_global_secret_without_configure_raises(self):
         import aquilia.signing as _mod
+
         _mod._GLOBAL_SECRETS = []
         with pytest.raises(ConfigMissingFault):
             _get_global_secret()
@@ -874,6 +875,7 @@ class TestConfigure:
     def test_configure_with_fallback_secrets(self):
         configure(secret=SECRET, fallback_secrets=[ALT_SECRET])
         import aquilia.signing as _mod
+
         assert len(_mod._GLOBAL_SECRETS) == 2
         assert _mod._GLOBAL_SECRETS[0] == SECRET
         assert _mod._GLOBAL_SECRETS[1] == ALT_SECRET
@@ -881,11 +883,13 @@ class TestConfigure:
     def test_configure_algorithm(self):
         configure(secret=SECRET, algorithm="HS384")
         import aquilia.signing as _mod
+
         assert _mod._GLOBAL_ALGORITHM == "HS384"
 
     def test_configure_salt(self):
         configure(secret=SECRET, salt="custom.salt")
         import aquilia.signing as _mod
+
         assert _mod._GLOBAL_SALT == "custom.salt"
 
     def test_signer_uses_global_secret(self):
@@ -911,6 +915,7 @@ class TestGetGlobalRotatingSigner:
 
     def test_without_config_raises(self):
         import aquilia.signing as _mod
+
         _mod._GLOBAL_SECRETS = []
         with pytest.raises(ConfigMissingFault):
             _get_global_rotating_signer()
@@ -1191,12 +1196,14 @@ class TestSigningConfig:
         cfg = SigningConfig(secret=SECRET, algorithm="HS384")
         cfg.apply()
         import aquilia.signing as _mod
+
         assert _mod._GLOBAL_SECRETS[0] == SECRET
         assert _mod._GLOBAL_ALGORITHM == "HS384"
 
     def test_apply_with_empty_secret_noop(self):
         cfg = SigningConfig(secret="")
         import aquilia.signing as _mod
+
         _mod._GLOBAL_SECRETS = []
         cfg.apply()
         assert _mod._GLOBAL_SECRETS == []
@@ -1235,6 +1242,7 @@ class TestSigningConfig:
         cfg = SigningConfig(secret=SECRET, fallback_secrets=[ALT_SECRET])
         cfg.apply()
         import aquilia.signing as _mod
+
         assert len(_mod._GLOBAL_SECRETS) == 2
 
 

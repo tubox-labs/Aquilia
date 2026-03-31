@@ -84,6 +84,7 @@ from aquilia.admin.controller import (
 
 class MockField:
     """Minimal field mock for auto-detection tests."""
+
     def __init__(self, name: str, field_type: str = "CharField", **kwargs):
         self.name = name
         self.__class__.__name__ = field_type
@@ -106,6 +107,7 @@ class MockField:
 
 class MockManager:
     """Minimal ORM manager mock."""
+
     async def count(self):
         return 42
 
@@ -142,6 +144,7 @@ class MockModel:
     Minimal Model mock that mirrors aquilia.models.base.Model enough
     for admin tests.
     """
+
     __name__ = "MockModel"
     _pk_attr = "id"
     _fields: Dict[str, MockField] = {}
@@ -175,6 +178,7 @@ class MockModel:
 
 class UserModel(MockModel):
     """Test user model with typical fields."""
+
     __name__ = "UserModel"
     id = 1
     name = "Alice"
@@ -197,6 +201,7 @@ class UserModel(MockModel):
 
 class PostModel(MockModel):
     """Test post model."""
+
     __name__ = "PostModel"
     id = 1
     title = "Hello World"
@@ -216,6 +221,7 @@ class PostModel(MockModel):
 
 class MockIdentity:
     """Mock identity for permission tests."""
+
     def __init__(
         self,
         id: str = "user-1",
@@ -795,6 +801,7 @@ class TestAdminActionDescriptor:
     def test_short_description(self):
         def activate(admin, request, qs):
             pass
+
         activate.short_description = "Activate Users"
 
         desc = AdminActionDescriptor(activate)
@@ -941,6 +948,7 @@ class TestAdminSite:
 
     def test_audit_log_exists(self):
         from aquilia.admin.audit import ModelBackedAuditLog
+
         site = AdminSite()
         # site.audit_log is now a ModelBackedAuditLog (persists to DB)
         assert isinstance(site.audit_log, (AdminAuditLog, ModelBackedAuditLog))
@@ -1046,6 +1054,7 @@ class TestAdminRegistry:
 
     def test_register_decorator_basic(self):
         """Register a ModelAdmin via the @register decorator."""
+
         @register
         class TestAdmin(ModelAdmin):
             model = UserModel
@@ -1055,6 +1064,7 @@ class TestAdminRegistry:
 
     def test_register_with_model_arg(self):
         """Register with model as argument."""
+
         @register(UserModel)
         class TestAdmin(ModelAdmin):
             pass
@@ -1079,9 +1089,11 @@ class TestAdminRegistry:
         class DiscoverableModel(MockModel):
             __name__ = "DiscoverableModel"
             _fields = {"id": MockField("id", "AutoField", primary_key=True)}
+
             class _meta_cls:
                 abstract = False
                 app_label = "testapp"
+
             _meta = _meta_cls()
 
         with patch("aquilia.models.registry.ModelRegistry") as mock_reg:
@@ -1175,8 +1187,24 @@ class TestAdminTemplates:
             data={
                 "pk": 1,
                 "fields": [
-                    {"name": "name", "label": "Name", "input_type": "text", "value": "Alice", "required": True, "readonly": False, "help_text": ""},
-                    {"name": "email", "label": "Email", "input_type": "email", "value": "alice@test.com", "required": True, "readonly": False, "help_text": ""},
+                    {
+                        "name": "name",
+                        "label": "Name",
+                        "input_type": "text",
+                        "value": "Alice",
+                        "required": True,
+                        "readonly": False,
+                        "help_text": "",
+                    },
+                    {
+                        "name": "email",
+                        "label": "Email",
+                        "input_type": "email",
+                        "value": "alice@test.com",
+                        "required": True,
+                        "readonly": False,
+                        "help_text": "",
+                    },
                 ],
                 "fieldsets": [("General", {"fields": ["name", "email"]})],
                 "model_name": "User",
@@ -1196,7 +1224,15 @@ class TestAdminTemplates:
             data={
                 "pk": "",
                 "fields": [
-                    {"name": "name", "label": "Name", "input_type": "text", "value": "", "required": True, "readonly": False, "help_text": ""},
+                    {
+                        "name": "name",
+                        "label": "Name",
+                        "input_type": "text",
+                        "value": "",
+                        "required": True,
+                        "readonly": False,
+                        "help_text": "",
+                    },
                 ],
                 "fieldsets": [("General", {"fields": ["name"]})],
                 "model_name": "User",
@@ -1322,12 +1358,24 @@ class TestAdminControllerRoutes:
         self.site.register(UserModel)
         # Enable all modules including monitoring & audit (disabled by default)
         from aquilia.admin.site import AdminConfig
-        self.site.admin_config = AdminConfig(modules={
-            "dashboard": True, "orm": True, "build": True,
-            "migrations": True, "config": True, "workspace": True,
-            "permissions": True, "monitoring": True, "admin_users": True,
-            "profile": True, "audit": True,
-        }, audit_enabled=True, monitoring_enabled=True)
+
+        self.site.admin_config = AdminConfig(
+            modules={
+                "dashboard": True,
+                "orm": True,
+                "build": True,
+                "migrations": True,
+                "config": True,
+                "workspace": True,
+                "permissions": True,
+                "monitoring": True,
+                "admin_users": True,
+                "profile": True,
+                "audit": True,
+            },
+            audit_enabled=True,
+            monitoring_enabled=True,
+        )
         self.ctrl = AdminController(site=self.site)
         # Bypass CSRF validation for existing tests (security tested separately)
         self.site.security.csrf.validate_request = lambda *a, **kw: True
@@ -1418,9 +1466,13 @@ class TestAdminControllerRoutes:
     async def test_login_remember_me_checked_extends_session(self):
         """When remember_me=1, session.expires_at should be set ~30 days ahead."""
         ctx = self._make_ctx(session_data={})
-        ctx.form = AsyncMock(return_value={
-            "username": "admin", "password": "admin", "remember_me": "1",
-        })
+        ctx.form = AsyncMock(
+            return_value={
+                "username": "admin",
+                "password": "admin",
+                "remember_me": "1",
+            }
+        )
         req = self._make_request()
 
         with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
@@ -1435,9 +1487,12 @@ class TestAdminControllerRoutes:
     async def test_login_remember_me_unchecked_session_cookie(self):
         """When remember_me is absent, session.expires_at should be None (session cookie)."""
         ctx = self._make_ctx(session_data={})
-        ctx.form = AsyncMock(return_value={
-            "username": "admin", "password": "admin",
-        })
+        ctx.form = AsyncMock(
+            return_value={
+                "username": "admin",
+                "password": "admin",
+            }
+        )
         req = self._make_request()
 
         with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
@@ -1451,9 +1506,13 @@ class TestAdminControllerRoutes:
     async def test_login_remember_me_audited(self):
         """The remember_me flag should be recorded in audit metadata."""
         ctx = self._make_ctx(session_data={})
-        ctx.form = AsyncMock(return_value={
-            "username": "admin", "password": "admin", "remember_me": "1",
-        })
+        ctx.form = AsyncMock(
+            return_value={
+                "username": "admin",
+                "password": "admin",
+                "remember_me": "1",
+            }
+        )
         req = self._make_request()
 
         with patch.dict(os.environ, {"AQUILIA_ADMIN_USER": "admin", "AQUILIA_ADMIN_PASSWORD": "admin"}):
@@ -1461,6 +1520,7 @@ class TestAdminControllerRoutes:
         assert resp.status == 302
         # Check audit log recorded the remember_me metadata
         from aquilia.admin.audit import AdminAction
+
         entries = self.site.audit_log.get_entries(action=AdminAction.LOGIN)
         assert len(entries) >= 1
         assert entries[0].metadata.get("remember_me") is True
@@ -1599,66 +1659,82 @@ class TestAdminExports:
 
     def test_import_admin_site(self):
         from aquilia import AdminSite
+
         assert AdminSite is not None
 
     def test_import_model_admin(self):
         from aquilia import ModelAdmin
+
         assert ModelAdmin is not None
 
     def test_import_register(self):
         from aquilia import register
+
         assert callable(register)
 
     def test_import_autodiscover(self):
         from aquilia import autodiscover
+
         assert callable(autodiscover)
 
     def test_import_admin_controller(self):
         from aquilia import AdminController
+
         assert AdminController is not None
 
     def test_import_admin_permission(self):
         from aquilia import AdminPermission
+
         assert AdminPermission is not None
 
     def test_import_admin_role(self):
         from aquilia import AdminRole
+
         assert AdminRole is not None
 
     def test_import_admin_audit_log(self):
         from aquilia import AdminAuditLog
+
         assert AdminAuditLog is not None
 
     def test_import_admin_action(self):
         from aquilia import AdminAction
+
         assert AdminAction is not None
 
     def test_import_admin_fault(self):
         from aquilia import AdminFault
+
         assert AdminFault is not None
 
     def test_import_admin_authentication_fault(self):
         from aquilia import AdminAuthenticationFault
+
         assert AdminAuthenticationFault is not None
 
     def test_import_admin_authorization_fault(self):
         from aquilia import AdminAuthorizationFault
+
         assert AdminAuthorizationFault is not None
 
     def test_import_admin_validation_fault(self):
         from aquilia import AdminValidationFault
+
         assert AdminValidationFault is not None
 
     def test_import_admin_model_not_found_fault(self):
         from aquilia import AdminModelNotFoundFault
+
         assert AdminModelNotFoundFault is not None
 
     def test_import_admin_record_not_found_fault(self):
         from aquilia import AdminRecordNotFoundFault
+
         assert AdminRecordNotFoundFault is not None
 
     def test_import_admin_action_fault(self):
         from aquilia import AdminActionFault
+
         assert AdminActionFault is not None
 
 
@@ -1693,6 +1769,7 @@ class TestAdminEdgeCases:
 
     def test_empty_fields_model(self):
         """Model with no _fields dict."""
+
         class EmptyModel(MockModel):
             __name__ = "EmptyModel"
             _fields = {}
@@ -1857,6 +1934,7 @@ class TestContainersPage:
     def test_get_containers_data_docker_timeout(self, mock_run):
         """When docker times out, should return graceful error."""
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired("docker", 10)
         site = AdminSite()
         data = site.get_containers_data()
@@ -1865,6 +1943,7 @@ class TestContainersPage:
     @patch("subprocess.run")
     def test_get_containers_data_docker_available(self, mock_run):
         """When docker is available, should parse version."""
+
         def side_effect(cmd, **kwargs):
             if cmd[1] == "version":
                 return MagicMock(returncode=0, stdout="24.0.7", stderr="")
@@ -1872,33 +1951,33 @@ class TestContainersPage:
                 return MagicMock(
                     returncode=0,
                     stdout='{"containers":5,"running":3,"paused":0,'
-                           '"stopped":2,"images":10,"server_version":"24.0.7",'
-                           '"os":"Docker Desktop","arch":"x86_64",'
-                           '"cpus":8,"memory":"16GiB","storage_driver":"overlay2"}',
+                    '"stopped":2,"images":10,"server_version":"24.0.7",'
+                    '"os":"Docker Desktop","arch":"x86_64",'
+                    '"cpus":8,"memory":"16GiB","storage_driver":"overlay2"}',
                     stderr="",
                 )
             elif cmd[1] == "ps":
                 return MagicMock(
                     returncode=0,
                     stdout='{"ID":"abc123","Names":"myapp","Image":"python:3.12",'
-                           '"Status":"Up 2 hours","State":"running","Ports":"8000->8000/tcp",'
-                           '"CreatedAt":"2024-01-15","Size":"100MB",'
-                           '"Command":"python","Labels":""}',
+                    '"Status":"Up 2 hours","State":"running","Ports":"8000->8000/tcp",'
+                    '"CreatedAt":"2024-01-15","Size":"100MB",'
+                    '"Command":"python","Labels":""}',
                     stderr="",
                 )
             elif cmd[1] == "stats":
                 return MagicMock(
                     returncode=0,
                     stdout='{"ID":"abc123","Name":"myapp","CPUPerc":"2.5%",'
-                           '"MemUsage":"128MiB / 16GiB","MemPerc":"0.78%",'
-                           '"NetIO":"1.2kB / 500B","BlockIO":"0B / 0B","PIDs":"5"}',
+                    '"MemUsage":"128MiB / 16GiB","MemPerc":"0.78%",'
+                    '"NetIO":"1.2kB / 500B","BlockIO":"0B / 0B","PIDs":"5"}',
                     stderr="",
                 )
             elif cmd[1] == "images":
                 return MagicMock(
                     returncode=0,
                     stdout='{"ID":"sha256:abc","Repository":"python","Tag":"3.12",'
-                           '"Size":"1.2GB","CreatedAt":"2024-01-10"}',
+                    '"Size":"1.2GB","CreatedAt":"2024-01-10"}',
                     stderr="",
                 )
             elif cmd[1] == "volume":
@@ -1932,6 +2011,7 @@ class TestContainersPage:
     def test_render_containers_page(self):
         """render_containers_page should return valid HTML."""
         from aquilia.admin.templates import render_containers_page
+
         html = render_containers_page(
             containers_data={
                 "docker_available": False,
@@ -1954,6 +2034,7 @@ class TestContainersPage:
     def test_render_containers_page_with_data(self):
         """render_containers_page should include container info."""
         from aquilia.admin.templates import render_containers_page
+
         html = render_containers_page(
             containers_data={
                 "docker_available": True,
@@ -2023,6 +2104,7 @@ class TestPodsPage:
     def test_get_pods_data_kubectl_timeout(self, mock_run):
         """When kubectl times out, should return graceful error."""
         import subprocess
+
         mock_run.side_effect = subprocess.TimeoutExpired("kubectl", 10)
         site = AdminSite()
         data = site.get_pods_data()
@@ -2037,12 +2119,14 @@ class TestPodsPage:
             if "version" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "clientVersion": {
-                            "gitVersion": "v1.28.0",
-                            "platform": "darwin/amd64",
+                    stdout=json.dumps(
+                        {
+                            "clientVersion": {
+                                "gitVersion": "v1.28.0",
+                                "platform": "darwin/amd64",
+                            }
                         }
-                    }),
+                    ),
                     stderr="",
                 )
             elif "cluster-info" in cmd:
@@ -2060,126 +2144,136 @@ class TestPodsPage:
             elif "pods" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "items": [
-                            {
-                                "metadata": {
-                                    "name": "myapp-abc123",
-                                    "namespace": "myapp",
-                                    "labels": {"app": "myapp"},
-                                },
-                                "spec": {
-                                    "nodeName": "node-1",
-                                    "containers": [
-                                        {
-                                            "name": "app",
-                                            "resources": {
-                                                "requests": {"cpu": "250m", "memory": "256Mi"},
-                                                "limits": {"cpu": "1", "memory": "1Gi"},
+                    stdout=json.dumps(
+                        {
+                            "items": [
+                                {
+                                    "metadata": {
+                                        "name": "myapp-abc123",
+                                        "namespace": "myapp",
+                                        "labels": {"app": "myapp"},
+                                    },
+                                    "spec": {
+                                        "nodeName": "node-1",
+                                        "containers": [
+                                            {
+                                                "name": "app",
+                                                "resources": {
+                                                    "requests": {"cpu": "250m", "memory": "256Mi"},
+                                                    "limits": {"cpu": "1", "memory": "1Gi"},
+                                                },
                                             },
-                                        },
-                                    ],
+                                        ],
+                                    },
+                                    "status": {
+                                        "phase": "Running",
+                                        "podIP": "10.0.0.5",
+                                        "hostIP": "192.168.1.1",
+                                        "startTime": "2024-01-15T10:00:00Z",
+                                        "containerStatuses": [
+                                            {
+                                                "name": "app",
+                                                "ready": True,
+                                                "restartCount": 0,
+                                                "image": "myapp:latest",
+                                                "state": {"running": {"startedAt": "2024-01-15T10:00:05Z"}},
+                                            },
+                                        ],
+                                    },
                                 },
-                                "status": {
-                                    "phase": "Running",
-                                    "podIP": "10.0.0.5",
-                                    "hostIP": "192.168.1.1",
-                                    "startTime": "2024-01-15T10:00:00Z",
-                                    "containerStatuses": [
-                                        {
-                                            "name": "app",
-                                            "ready": True,
-                                            "restartCount": 0,
-                                            "image": "myapp:latest",
-                                            "state": {"running": {"startedAt": "2024-01-15T10:00:05Z"}},
-                                        },
-                                    ],
-                                },
-                            },
-                        ],
-                    }),
+                            ],
+                        }
+                    ),
                     stderr="",
                 )
             elif "deployments" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "items": [
-                            {
-                                "metadata": {"name": "myapp-app", "namespace": "myapp", "labels": {}},
-                                "spec": {
-                                    "replicas": 3,
-                                    "strategy": {"type": "RollingUpdate"},
-                                    "template": {
-                                        "spec": {
-                                            "containers": [{"image": "myapp:latest"}],
+                    stdout=json.dumps(
+                        {
+                            "items": [
+                                {
+                                    "metadata": {"name": "myapp-app", "namespace": "myapp", "labels": {}},
+                                    "spec": {
+                                        "replicas": 3,
+                                        "strategy": {"type": "RollingUpdate"},
+                                        "template": {
+                                            "spec": {
+                                                "containers": [{"image": "myapp:latest"}],
+                                            },
                                         },
                                     },
+                                    "status": {
+                                        "readyReplicas": 3,
+                                        "availableReplicas": 3,
+                                        "updatedReplicas": 3,
+                                    },
                                 },
-                                "status": {
-                                    "readyReplicas": 3,
-                                    "availableReplicas": 3,
-                                    "updatedReplicas": 3,
-                                },
-                            },
-                        ],
-                    }),
+                            ],
+                        }
+                    ),
                     stderr="",
                 )
             elif "services" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "items": [
-                            {
-                                "metadata": {"name": "myapp-svc", "namespace": "myapp"},
-                                "spec": {
-                                    "type": "ClusterIP",
-                                    "clusterIP": "10.96.0.1",
-                                    "ports": [
-                                        {"port": 80, "targetPort": 8000, "protocol": "TCP", "name": "http"},
-                                    ],
+                    stdout=json.dumps(
+                        {
+                            "items": [
+                                {
+                                    "metadata": {"name": "myapp-svc", "namespace": "myapp"},
+                                    "spec": {
+                                        "type": "ClusterIP",
+                                        "clusterIP": "10.96.0.1",
+                                        "ports": [
+                                            {"port": 80, "targetPort": 8000, "protocol": "TCP", "name": "http"},
+                                        ],
+                                    },
                                 },
-                            },
-                        ],
-                    }),
+                            ],
+                        }
+                    ),
                     stderr="",
                 )
             elif "ingresses" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "items": [
-                            {
-                                "metadata": {"name": "myapp-ingress", "namespace": "myapp"},
-                                "spec": {
-                                    "ingressClassName": "nginx",
-                                    "tls": [{"hosts": ["myapp.example.com"]}],
-                                    "rules": [{"host": "myapp.example.com"}],
+                    stdout=json.dumps(
+                        {
+                            "items": [
+                                {
+                                    "metadata": {"name": "myapp-ingress", "namespace": "myapp"},
+                                    "spec": {
+                                        "ingressClassName": "nginx",
+                                        "tls": [{"hosts": ["myapp.example.com"]}],
+                                        "rules": [{"host": "myapp.example.com"}],
+                                    },
                                 },
-                            },
-                        ],
-                    }),
+                            ],
+                        }
+                    ),
                     stderr="",
                 )
             elif "events" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "items": [
-                            {
-                                "type": "Normal",
-                                "reason": "Scheduled",
-                                "message": "Successfully assigned myapp/myapp-abc123",
-                                "metadata": {
-                                    "namespace": "myapp",
-                                    "creationTimestamp": "2024-01-15T10:00:00Z",
+                    stdout=json.dumps(
+                        {
+                            "items": [
+                                {
+                                    "type": "Normal",
+                                    "reason": "Scheduled",
+                                    "message": "Successfully assigned myapp/myapp-abc123",
+                                    "metadata": {
+                                        "namespace": "myapp",
+                                        "creationTimestamp": "2024-01-15T10:00:00Z",
+                                    },
+                                    "involvedObject": {"name": "myapp-abc123"},
+                                    "lastTimestamp": "2024-01-15T10:00:00Z",
                                 },
-                                "involvedObject": {"name": "myapp-abc123"},
-                                "lastTimestamp": "2024-01-15T10:00:00Z",
-                            },
-                        ],
-                    }),
+                            ],
+                        }
+                    ),
                     stderr="",
                 )
             return MagicMock(returncode=1, stdout="", stderr="unknown")
@@ -2207,6 +2301,7 @@ class TestPodsPage:
     def test_render_pods_page(self):
         """render_pods_page should return valid HTML."""
         from aquilia.admin.templates import render_pods_page
+
         html = render_pods_page(
             pods_data={
                 "kubectl_available": False,
@@ -2229,6 +2324,7 @@ class TestPodsPage:
     def test_render_pods_page_with_data(self):
         """render_pods_page should include pod info when data is provided."""
         from aquilia.admin.templates import render_pods_page
+
         html = render_pods_page(
             pods_data={
                 "kubectl_available": True,
@@ -2280,12 +2376,12 @@ class TestPodsPage:
         }
         for state, (expected_class, expected_icon) in state_map.items():
             # Verify by checking get_containers_data logic handles each state
-            assert expected_class in ("running", "stopped", "paused", "warning",
-                                      "created", "dead", "unknown")
+            assert expected_class in ("running", "stopped", "paused", "warning", "created", "dead", "unknown")
 
     @patch("subprocess.run")
     def test_container_stats_merged_into_containers(self, mock_run):
         """Stats should be merged into the running container entries."""
+
         def side_effect(cmd, **kwargs):
             if cmd[1] == "version":
                 return MagicMock(returncode=0, stdout="24.0.7", stderr="")
@@ -2295,17 +2391,17 @@ class TestPodsPage:
                 return MagicMock(
                     returncode=0,
                     stdout='{"ID":"abc123def456","Names":"web","Image":"nginx",'
-                           '"Status":"Up","State":"running","Ports":"80/tcp",'
-                           '"CreatedAt":"2024-01-15","Size":"50MB",'
-                           '"Command":"nginx","Labels":""}',
+                    '"Status":"Up","State":"running","Ports":"80/tcp",'
+                    '"CreatedAt":"2024-01-15","Size":"50MB",'
+                    '"Command":"nginx","Labels":""}',
                     stderr="",
                 )
             elif cmd[1] == "stats":
                 return MagicMock(
                     returncode=0,
                     stdout='{"ID":"abc123def456","Name":"web","CPUPerc":"1.5%",'
-                           '"MemUsage":"64MiB / 8GiB","MemPerc":"0.8%",'
-                           '"NetIO":"500B / 300B","BlockIO":"0B / 0B","PIDs":"3"}',
+                    '"MemUsage":"64MiB / 8GiB","MemPerc":"0.8%",'
+                    '"NetIO":"500B / 300B","BlockIO":"0B / 0B","PIDs":"3"}',
                     stderr="",
                 )
             return MagicMock(returncode=0, stdout="", stderr="")
@@ -2334,9 +2430,7 @@ class TestPodsPage:
             if "version" in cmd:
                 return MagicMock(
                     returncode=0,
-                    stdout=json.dumps({
-                        "clientVersion": {"gitVersion": "v1.28.0", "platform": "darwin/amd64"}
-                    }),
+                    stdout=json.dumps({"clientVersion": {"gitVersion": "v1.28.0", "platform": "darwin/amd64"}}),
                     stderr="",
                 )
             elif "cluster-info" in cmd:
@@ -2357,6 +2451,7 @@ class TestPodsPage:
     def test_icon_map_includes_containers_and_pods(self):
         """The disabled page icon map should include containers and pods."""
         from aquilia.admin.templates import render_disabled_page
+
         # Render disabled page for containers
         html = render_disabled_page(
             module_name="Containers",

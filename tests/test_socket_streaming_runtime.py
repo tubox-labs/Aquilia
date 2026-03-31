@@ -27,7 +27,9 @@ class _FakeConn:
     async def send_json(self, data: dict):
         self.sent.json_payloads.append(data)
 
-    async def send_ack(self, message_id: str | None, status: str = "ok", data: dict | None = None, error: str | None = None):
+    async def send_ack(
+        self, message_id: str | None, status: str = "ok", data: dict | None = None, error: str | None = None
+    ):
         self.sent.acks.append((message_id, {"status": status, "data": data or {}, "error": error}))
 
     async def send_envelope(self, envelope: MessageEnvelope):

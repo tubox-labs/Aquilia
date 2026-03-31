@@ -346,19 +346,14 @@ class ManifestLoader:
             # Additional config sections
             database = None
             if "database" in data:
-                from dataclasses import fields
+                import warnings
 
-                from aquilia.manifest import DatabaseConfig
-
-                db_data = data["database"]
-
-                def get_valid_data(db_data, db_config):
-                    from dataclasses import fields
-
-                    valid_keys = {f.name for f in fields(db_config)}
-                    return {k: v for k, v in db_data.items() if k in valid_keys}
-
-                database = DatabaseConfig(**get_valid_data(db_data, DatabaseConfig))
+                warnings.warn(
+                    "Manifest-level 'database' config is deprecated and ignored. "
+                    "Configure database via workspace/integration config.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
 
             @staticmethod
             def on_startup():

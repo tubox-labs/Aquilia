@@ -33,12 +33,14 @@ class TestFilterClauseFieldValidation:
 
     def test_valid_field_accepted(self):
         from aquilia.models.query import _build_filter_clause
+
         sql, params = _build_filter_clause("name", "Alice")
         assert '"name"' in sql
         assert params == ["Alice"]
 
     def test_valid_lookup_accepted(self):
         from aquilia.models.query import _build_filter_clause
+
         sql, params = _build_filter_clause("age__gt", 18)
         assert '"age"' in sql
         assert params == [18]
@@ -66,11 +68,13 @@ class TestFilterClauseFieldValidation:
 
     def test_underscore_field_accepted(self):
         from aquilia.models.query import _build_filter_clause
+
         sql, params = _build_filter_clause("_internal_field", "test")
         assert '"_internal_field"' in sql
 
     def test_numeric_suffix_accepted(self):
         from aquilia.models.query import _build_filter_clause
+
         sql, params = _build_filter_clause("field2__gte", 10)
         assert '"field2"' in sql
 
@@ -85,6 +89,7 @@ class TestFuncValidation:
 
     def test_valid_func_accepted(self):
         from aquilia.models.expression import Func, Value
+
         f = Func("UPPER", Value("hello"))
         sql, params = f.as_sql("sqlite")
         assert "UPPER" in sql
@@ -105,12 +110,14 @@ class TestFuncValidation:
 
     def test_underscore_func_accepted(self):
         from aquilia.models.expression import Func, Value
+
         f = Func("MY_CUSTOM_FUNC", Value(1))
         sql, _ = f.as_sql("sqlite")
         assert "MY_CUSTOM_FUNC" in sql
 
     def test_coalesce_subclass_accepted(self):
         from aquilia.models.expression import Coalesce, Value
+
         c = Coalesce(Value(None), Value(0))
         sql, _ = c.as_sql("sqlite")
         assert "COALESCE" in sql
@@ -126,18 +133,21 @@ class TestCastValidation:
 
     def test_valid_type_accepted(self):
         from aquilia.models.expression import Cast, Value
+
         c = Cast(Value(3.14), "INTEGER")
         sql, _ = c.as_sql("sqlite")
         assert "INTEGER" in sql
 
     def test_varchar_with_length_accepted(self):
         from aquilia.models.expression import Cast, Value
+
         c = Cast(Value("test"), "VARCHAR(255)")
         sql, _ = c.as_sql("sqlite")
         assert "VARCHAR(255)" in sql
 
     def test_numeric_precision_accepted(self):
         from aquilia.models.expression import Cast, Value
+
         c = Cast(Value(1.0), "NUMERIC(10, 2)")
         sql, _ = c.as_sql("sqlite")
         assert "NUMERIC(10, 2)" in sql
@@ -167,6 +177,7 @@ class TestWhenDDLGuard:
 
     def test_safe_string_condition_accepted(self):
         from aquilia.models.expression import When, Value
+
         w = When(condition="age > 18", then=Value("adult"))
         sql, _ = w.as_sql("sqlite")
         assert "age > 18" in sql
@@ -197,6 +208,7 @@ class TestWhenDDLGuard:
 
     def test_dict_condition_safe(self):
         from aquilia.models.expression import When, Value
+
         w = When(condition={"status": "active"}, then=Value(1))
         sql, params = w.as_sql("sqlite")
         assert '"status"' in sql
@@ -213,6 +225,7 @@ class TestLikeEscape:
 
     def test_escape_like_helper(self):
         from aquilia.models.fields.lookups import _escape_like
+
         assert _escape_like("100%") == "100\\%"
         assert _escape_like("test_value") == "test\\_value"
         assert _escape_like("back\\slash") == "back\\\\slash"
@@ -221,6 +234,7 @@ class TestLikeEscape:
 
     def test_contains_escapes_wildcards(self):
         from aquilia.models.fields.lookups import Contains
+
         lookup = Contains("name", "100%")
         sql, params = lookup.as_sql("sqlite")
         assert "ESCAPE" in sql
@@ -228,6 +242,7 @@ class TestLikeEscape:
 
     def test_icontains_escapes_wildcards(self):
         from aquilia.models.fields.lookups import IContains
+
         lookup = IContains("name", "test_user")
         sql, params = lookup.as_sql("sqlite")
         assert "ESCAPE" in sql
@@ -235,6 +250,7 @@ class TestLikeEscape:
 
     def test_startswith_escapes_wildcards(self):
         from aquilia.models.fields.lookups import StartsWith
+
         lookup = StartsWith("name", "50%")
         sql, params = lookup.as_sql("sqlite")
         assert "ESCAPE" in sql
@@ -242,6 +258,7 @@ class TestLikeEscape:
 
     def test_istartswith_escapes_wildcards(self):
         from aquilia.models.fields.lookups import IStartsWith
+
         lookup = IStartsWith("name", "test_")
         sql, params = lookup.as_sql("sqlite")
         assert "ESCAPE" in sql
@@ -249,6 +266,7 @@ class TestLikeEscape:
 
     def test_endswith_escapes_wildcards(self):
         from aquilia.models.fields.lookups import EndsWith
+
         lookup = EndsWith("name", "_end")
         sql, params = lookup.as_sql("sqlite")
         assert "ESCAPE" in sql
@@ -256,6 +274,7 @@ class TestLikeEscape:
 
     def test_iendswith_escapes_wildcards(self):
         from aquilia.models.fields.lookups import IEndsWith
+
         lookup = IEndsWith("name", "%end")
         sql, params = lookup.as_sql("sqlite")
         assert "ESCAPE" in sql
@@ -263,6 +282,7 @@ class TestLikeEscape:
 
     def test_plain_value_unmodified(self):
         from aquilia.models.fields.lookups import Contains
+
         lookup = Contains("name", "hello")
         _, params = lookup.as_sql("sqlite")
         assert params == ["%hello%"]
@@ -278,12 +298,14 @@ class TestRawSQLDDLRejection:
 
     def test_safe_rawsql_accepted(self):
         from aquilia.models.expression import RawSQL
+
         r = RawSQL("COALESCE(price, 0)")
         sql, _ = r.as_sql("sqlite")
         assert "COALESCE" in sql
 
     def test_parameterized_rawsql_accepted(self):
         from aquilia.models.expression import RawSQL
+
         r = RawSQL("price * ?", [1.1])
         sql, params = r.as_sql("sqlite")
         assert params == [1.1]
@@ -359,6 +381,7 @@ class TestQMethodFieldValidation:
             _table_name = "t"
             _pk_attr = "id"
             _fields = {}
+
             class _meta:
                 pass
 
@@ -373,6 +396,7 @@ class TestQMethodFieldValidation:
             _table_name = "t"
             _pk_attr = "id"
             _fields = {}
+
             class _meta:
                 pass
 
@@ -389,6 +413,7 @@ class TestQMethodFieldValidation:
             _table_name = "t"
             _pk_attr = "id"
             _fields = {}
+
             class _meta:
                 pass
 
@@ -404,6 +429,7 @@ class TestQMethodFieldValidation:
             _table_name = "t"
             _pk_attr = "id"
             _fields = {}
+
             class _meta:
                 pass
 
@@ -430,6 +456,7 @@ class TestModelGetFilterValidation:
         db = AquiliaDatabase("sqlite://:memory:")
         await db.connect()
         try:
+
             class SecTestUser(Model):
                 name = f.CharField(max_length=100)
 
@@ -437,8 +464,7 @@ class TestModelGetFilterValidation:
                     table_name = "sec_test_users"
 
             await db.execute(
-                'CREATE TABLE IF NOT EXISTS "sec_test_users" '
-                '("id" INTEGER PRIMARY KEY AUTOINCREMENT, "name" TEXT)'
+                'CREATE TABLE IF NOT EXISTS "sec_test_users" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "name" TEXT)'
             )
             SecTestUser._db = db
 
@@ -457,6 +483,7 @@ class TestModelGetFilterValidation:
         db = AquiliaDatabase("sqlite://:memory:")
         await db.connect()
         try:
+
             class SecTestUser2(Model):
                 name = f.CharField(max_length=100)
 
@@ -464,8 +491,7 @@ class TestModelGetFilterValidation:
                     table_name = "sec_test_users2"
 
             await db.execute(
-                'CREATE TABLE IF NOT EXISTS "sec_test_users2" '
-                '("id" INTEGER PRIMARY KEY AUTOINCREMENT, "name" TEXT)'
+                'CREATE TABLE IF NOT EXISTS "sec_test_users2" ("id" INTEGER PRIMARY KEY AUTOINCREMENT, "name" TEXT)'
             )
             SecTestUser2._db = db
 
@@ -486,6 +512,7 @@ class TestAtomicIsolationWhitelist:
 
     def test_valid_isolation_levels(self):
         from aquilia.models.transactions import Atomic
+
         # These should create valid Atomic instances
         for level in [
             "READ UNCOMMITTED",
@@ -531,7 +558,7 @@ class TestAggregateRawStringRejection:
         from aquilia.models.expression import Expression
 
         # Valid: Aggregate and Expression instances pass isinstance check
-        assert issubclass(Aggregate, Expression) or hasattr(Aggregate, 'as_sql')
+        assert issubclass(Aggregate, Expression) or hasattr(Aggregate, "as_sql")
 
         # A raw string is neither Aggregate nor Expression
         raw = "COUNT(*)"
@@ -548,12 +575,14 @@ class TestValidateFieldName:
 
     def test_valid_names(self):
         from aquilia.models.query import _validate_field_name
+
         for name in ["id", "name", "user_id", "_private", "Field1", "a", "_"]:
             _validate_field_name(name)  # Should not raise
 
     def test_invalid_names(self):
         from aquilia.models.query import _validate_field_name
         from aquilia.faults.domains import QueryFault
+
         for name in [
             "",
             "1starts_with_number",

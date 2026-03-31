@@ -1,6 +1,7 @@
 """
 Root conftest.py — sets up sys.path for the authentication app.
 """
+
 import sys
 import os
 

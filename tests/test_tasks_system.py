@@ -35,6 +35,7 @@ class TestJobState:
 
     def test_all_states_exist(self):
         from aquilia.tasks.job import JobState
+
         assert JobState.PENDING.value == "pending"
         assert JobState.SCHEDULED.value == "scheduled"
         assert JobState.RUNNING.value == "running"
@@ -46,10 +47,12 @@ class TestJobState:
 
     def test_state_count(self):
         from aquilia.tasks.job import JobState
+
         assert len(JobState) == 8
 
     def test_state_is_str_enum(self):
         from aquilia.tasks.job import JobState
+
         assert isinstance(JobState.PENDING, str)
         assert JobState.PENDING == "pending"
 
@@ -59,6 +62,7 @@ class TestPriority:
 
     def test_priority_values(self):
         from aquilia.tasks.job import Priority
+
         assert Priority.CRITICAL.value == 0
         assert Priority.HIGH.value == 1
         assert Priority.NORMAL.value == 2
@@ -66,10 +70,12 @@ class TestPriority:
 
     def test_priority_ordering(self):
         from aquilia.tasks.job import Priority
+
         assert Priority.CRITICAL < Priority.HIGH < Priority.NORMAL < Priority.LOW
 
     def test_priority_is_int_enum(self):
         from aquilia.tasks.job import Priority
+
         assert isinstance(Priority.NORMAL, int)
         assert Priority.NORMAL == 2
 
@@ -79,6 +85,7 @@ class TestJobResult:
 
     def test_success_result(self):
         from aquilia.tasks.job import JobResult
+
         r = JobResult(success=True, value=42, duration_ms=150.5)
         assert r.success is True
         assert r.value == 42
@@ -87,6 +94,7 @@ class TestJobResult:
 
     def test_failure_result(self):
         from aquilia.tasks.job import JobResult
+
         r = JobResult(
             success=False,
             error="Connection refused",
@@ -100,6 +108,7 @@ class TestJobResult:
 
     def test_result_to_dict(self):
         from aquilia.tasks.job import JobResult
+
         r = JobResult(success=True, value="hello", duration_ms=10.1234)
         d = r.to_dict()
         assert d["success"] is True
@@ -109,6 +118,7 @@ class TestJobResult:
 
     def test_result_to_dict_none_value(self):
         from aquilia.tasks.job import JobResult
+
         r = JobResult(success=True, value=None)
         d = r.to_dict()
         assert d["value"] is None
@@ -119,6 +129,7 @@ class TestJob:
 
     def test_default_job(self):
         from aquilia.tasks.job import Job, JobState, Priority
+
         j = Job(name="test_task")
         assert j.name == "test_task"
         assert j.state == JobState.PENDING
@@ -132,6 +143,7 @@ class TestJob:
 
     def test_is_terminal_states(self):
         from aquilia.tasks.job import Job, JobState
+
         terminal = [JobState.COMPLETED, JobState.FAILED, JobState.CANCELLED, JobState.DEAD]
         non_terminal = [JobState.PENDING, JobState.SCHEDULED, JobState.RUNNING, JobState.RETRYING]
 
@@ -145,6 +157,7 @@ class TestJob:
 
     def test_is_runnable(self):
         from aquilia.tasks.job import Job, JobState
+
         runnable = [JobState.PENDING, JobState.RETRYING, JobState.SCHEDULED]
         for state in runnable:
             j = Job(state=state)
@@ -157,18 +170,21 @@ class TestJob:
 
     def test_scheduled_not_runnable_if_future(self):
         from aquilia.tasks.job import Job, JobState
+
         future = datetime.now(timezone.utc) + timedelta(hours=1)
         j = Job(state=JobState.SCHEDULED, scheduled_at=future)
         assert j.is_runnable is False
 
     def test_scheduled_runnable_if_past(self):
         from aquilia.tasks.job import Job, JobState
+
         past = datetime.now(timezone.utc) - timedelta(hours=1)
         j = Job(state=JobState.SCHEDULED, scheduled_at=past)
         assert j.is_runnable is True
 
     def test_can_retry(self):
         from aquilia.tasks.job import Job
+
         j = Job(max_retries=3, retry_count=0)
         assert j.can_retry is True
         j.retry_count = 3
@@ -178,6 +194,7 @@ class TestJob:
 
     def test_next_retry_delay(self):
         from aquilia.tasks.job import Job
+
         j = Job(retry_delay=1.0, retry_backoff=2.0, retry_max_delay=10.0)
         j.retry_count = 0
         delay = j.next_retry_delay
@@ -186,6 +203,7 @@ class TestJob:
 
     def test_retry_delay_capped(self):
         from aquilia.tasks.job import Job
+
         j = Job(retry_delay=1.0, retry_backoff=10.0, retry_max_delay=5.0)
         j.retry_count = 10  # 1.0 * 10^10 = huge, capped at 5.0
         delay = j.next_retry_delay
@@ -193,6 +211,7 @@ class TestJob:
 
     def test_duration_ms(self):
         from aquilia.tasks.job import Job
+
         j = Job()
         assert j.duration_ms is None  # No start/end
         j.started_at = datetime.now(timezone.utc)
@@ -202,6 +221,7 @@ class TestJob:
 
     def test_fingerprint(self):
         from aquilia.tasks.job import Job
+
         j1 = Job(func_ref="mod:func", args=(1, 2), kwargs={"x": 3})
         j2 = Job(func_ref="mod:func", args=(1, 2), kwargs={"x": 3})
         j3 = Job(func_ref="mod:func", args=(1, 3), kwargs={"x": 3})
@@ -210,6 +230,7 @@ class TestJob:
 
     def test_to_dict(self):
         from aquilia.tasks.job import Job, JobState, Priority
+
         j = Job(name="email", queue="mail", priority=Priority.HIGH)
         d = j.to_dict()
         assert d["name"] == "email"
@@ -225,6 +246,7 @@ class TestJob:
 
     def test_job_repr_includes_name(self):
         from aquilia.tasks.job import Job, JobState
+
         j = Job(name="send_email")
         r = repr(j)
         assert "send_email" in r
@@ -232,6 +254,7 @@ class TestJob:
 
     def test_job_repr_with_func_ref(self):
         from aquilia.tasks.job import Job
+
         j = Job(func_ref="mod:func")
         r = repr(j)
         assert "mod:func" in r
@@ -313,6 +336,7 @@ class TestTaskDecorator:
 
     def test_get_task_not_found(self):
         from aquilia.tasks.decorators import get_task
+
         assert get_task("nonexistent:task") is None
 
     def test_custom_retry_params(self):
@@ -360,11 +384,13 @@ class TestMemoryBackend:
     @pytest.fixture
     def backend(self):
         from aquilia.tasks.engine import MemoryBackend
+
         return MemoryBackend()
 
     @pytest.mark.asyncio
     async def test_push_and_pop(self, backend):
         from aquilia.tasks.job import Job
+
         job = Job(name="test", queue="default")
         await backend.push(job)
 
@@ -380,6 +406,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_pop_wrong_queue(self, backend):
         from aquilia.tasks.job import Job
+
         job = Job(name="test", queue="emails")
         await backend.push(job)
         result = await backend.pop("default")
@@ -409,6 +436,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_by_id(self, backend):
         from aquilia.tasks.job import Job
+
         job = Job(name="findme")
         await backend.push(job)
         found = await backend.get(job.id)
@@ -423,6 +451,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_update(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         job = Job(name="updatable")
         await backend.push(job)
         job.state = JobState.RUNNING
@@ -433,6 +462,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_list_jobs(self, backend):
         from aquilia.tasks.job import Job
+
         for i in range(5):
             await backend.push(Job(name=f"job-{i}"))
         jobs = await backend.list_jobs(limit=3)
@@ -441,6 +471,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_list_jobs_filter_queue(self, backend):
         from aquilia.tasks.job import Job
+
         await backend.push(Job(name="a", queue="q1"))
         await backend.push(Job(name="b", queue="q2"))
         await backend.push(Job(name="c", queue="q1"))
@@ -451,6 +482,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_list_jobs_filter_state(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         j1 = Job(name="a", state=JobState.PENDING)
         j2 = Job(name="b", state=JobState.COMPLETED)
         await backend.push(j1)
@@ -464,6 +496,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_cancel(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         job = Job(name="cancellable")
         await backend.push(job)
         result = await backend.cancel(job.id)
@@ -474,6 +507,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_cancel_terminal_fails(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         job = Job(name="done", state=JobState.COMPLETED)
         await backend.push(job)
         job.state = JobState.COMPLETED
@@ -489,6 +523,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_retry(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         job = Job(name="failed_task", state=JobState.FAILED)
         await backend.push(job)
         job.state = JobState.FAILED
@@ -502,6 +537,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_retry_pending_fails(self, backend):
         from aquilia.tasks.job import Job
+
         job = Job(name="pending_task")
         await backend.push(job)
         result = await backend.retry(job.id)
@@ -510,6 +546,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_flush_all(self, backend):
         from aquilia.tasks.job import Job
+
         for i in range(10):
             await backend.push(Job(name=f"j-{i}"))
         removed = await backend.flush()
@@ -520,6 +557,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_flush_queue(self, backend):
         from aquilia.tasks.job import Job
+
         for i in range(5):
             await backend.push(Job(name=f"a-{i}", queue="alpha"))
         for i in range(3):
@@ -532,6 +570,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_cleanup(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         old = Job(name="old", state=JobState.COMPLETED)
         old.completed_at = datetime.now(timezone.utc) - timedelta(hours=2)
         await backend.push(old)
@@ -550,6 +589,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_stats(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         await backend.push(Job(name="a"))
         j2 = Job(name="b")
         await backend.push(j2)
@@ -565,6 +605,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_get_queue_stats(self, backend):
         from aquilia.tasks.job import Job
+
         await backend.push(Job(name="a", queue="q1"))
         await backend.push(Job(name="b", queue="q2"))
         qs = await backend.get_queue_stats()
@@ -574,6 +615,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_pop_skips_terminal_jobs(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         job = Job(name="done")
         await backend.push(job)
         job.state = JobState.COMPLETED
@@ -584,6 +626,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_pop_skips_scheduled_future(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         future = datetime.now(timezone.utc) + timedelta(hours=1)
         job = Job(name="future", state=JobState.SCHEDULED, scheduled_at=future)
         await backend.push(job)
@@ -593,6 +636,7 @@ class TestMemoryBackend:
     @pytest.mark.asyncio
     async def test_dead_letter_tracking(self, backend):
         from aquilia.tasks.job import Job, JobState
+
         job = Job(name="dead", state=JobState.DEAD)
         await backend.push(job)
         job.state = JobState.DEAD
@@ -612,6 +656,7 @@ class TestTaskManager:
     @pytest.fixture
     def manager(self):
         from aquilia.tasks.engine import TaskManager, MemoryBackend
+
         return TaskManager(backend=MemoryBackend(), num_workers=2)
 
     @pytest.mark.asyncio
@@ -686,6 +731,7 @@ class TestTaskManager:
         job_id = await manager.enqueue(delayed_task, delay=60.0)
         job = await manager.get_job(job_id)
         from aquilia.tasks.job import JobState
+
         assert job.state == JobState.SCHEDULED
         assert job.scheduled_at is not None
         assert job.scheduled_at > datetime.now(timezone.utc)
@@ -707,6 +753,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_enqueue_invalid_type_raises(self, manager):
         from aquilia.tasks.faults import TaskEnqueueFault
+
         with pytest.raises(TaskEnqueueFault, match="Expected callable"):
             await manager.enqueue("not_a_function")
 
@@ -732,11 +779,13 @@ class TestTaskManager:
 
         job = await manager.get_job(job_id)
         from aquilia.tasks.job import JobState
+
         assert job.state == JobState.CANCELLED
 
     @pytest.mark.asyncio
     async def test_retry_job(self, manager):
         from aquilia.tasks.job import JobState
+
         async def fail_task():
             raise ValueError("boom")
 
@@ -803,6 +852,7 @@ class TestTaskManager:
 
             job = await manager.get_job(job_id)
             from aquilia.tasks.job import JobState
+
             assert job.state == JobState.COMPLETED
             assert job.result is not None
             assert job.result.success is True
@@ -874,6 +924,7 @@ class TestTaskManager:
 
             job = await manager.get_job(job_id)
             from aquilia.tasks.job import JobState
+
             assert job.state == JobState.DEAD
             assert len(dead_jobs) >= 1
         finally:
@@ -923,6 +974,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_timeout_handling(self, manager):
         """Verify tasks that exceed timeout are handled."""
+
         async def slow_task():
             await asyncio.sleep(100)
 
@@ -938,6 +990,7 @@ class TestTaskManager:
 
             job = await manager.get_job(job_id)
             from aquilia.tasks.job import JobState
+
             assert job.state == JobState.DEAD
             assert job.result is not None
             assert not job.result.success
@@ -948,6 +1001,7 @@ class TestTaskManager:
     @pytest.mark.asyncio
     async def test_manager_metrics(self, manager):
         assert manager._total_enqueued == 0
+
         async def noop():
             return True
 
@@ -965,6 +1019,7 @@ class TestWorker:
 
     def test_import(self):
         from aquilia.tasks.worker import Worker
+
         assert Worker is not None
 
     @pytest.mark.asyncio
@@ -1004,6 +1059,7 @@ class TestTasksConfig:
 
     def test_get_tasks_config_defaults(self):
         from aquilia.config import ConfigLoader
+
         loader = ConfigLoader()
         config = loader.get_tasks_config()
         assert config["enabled"] is False
@@ -1016,6 +1072,7 @@ class TestTasksConfig:
 
     def test_get_tasks_config_with_overrides(self):
         from aquilia.config import ConfigLoader
+
         loader = ConfigLoader()
         loader.config_data["tasks"] = {
             "enabled": True,
@@ -1028,10 +1085,9 @@ class TestTasksConfig:
 
     def test_get_tasks_config_from_integrations(self):
         from aquilia.config import ConfigLoader
+
         loader = ConfigLoader()
-        loader.config_data["integrations"] = {
-            "tasks": {"enabled": True, "num_workers": 16}
-        }
+        loader.config_data["integrations"] = {"tasks": {"enabled": True, "num_workers": 16}}
         config = loader.get_tasks_config()
         assert config["enabled"] is True
         assert config["num_workers"] == 16
@@ -1042,6 +1098,7 @@ class TestTasksConfigBuilders:
 
     def test_integration_tasks(self):
         from aquilia.config_builders import Integration
+
         config = Integration.tasks(num_workers=8, max_retries=5)
         assert config["_integration_type"] == "tasks"
         assert config["enabled"] is True
@@ -1051,6 +1108,7 @@ class TestTasksConfigBuilders:
 
     def test_integration_tasks_default_params(self):
         from aquilia.config_builders import Integration
+
         config = Integration.tasks()
         assert config["enabled"] is True
         assert config["num_workers"] == 4
@@ -1059,6 +1117,7 @@ class TestTasksConfigBuilders:
 
     def test_workspace_tasks_shorthand(self):
         from aquilia.config_builders import Workspace
+
         ws = Workspace("test").tasks(num_workers=12, backend="redis")
         d = ws.to_dict()
         assert "tasks" in d
@@ -1068,6 +1127,7 @@ class TestTasksConfigBuilders:
 
     def test_workspace_integrate_tasks(self):
         from aquilia.config_builders import Workspace, Integration
+
         ws = Workspace("test").integrate(Integration.tasks(num_workers=6))
         d = ws.to_dict()
         assert d["integrations"]["tasks"]["num_workers"] == 6
@@ -1075,12 +1135,7 @@ class TestTasksConfigBuilders:
     def test_admin_modules_devtools(self):
         from aquilia.config_builders import Integration
 
-        mods = (
-            Integration.AdminModules()
-            .enable_query_inspector()
-            .enable_tasks()
-            .enable_errors()
-        )
+        mods = Integration.AdminModules().enable_query_inspector().enable_tasks().enable_errors()
         d = mods.to_dict()
         assert d["query_inspector"] is True
         assert d["tasks"] is True
@@ -1088,6 +1143,7 @@ class TestTasksConfigBuilders:
 
     def test_admin_modules_devtools_disabled_by_default(self):
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules()
         d = mods.to_dict()
         assert d["query_inspector"] is False
@@ -1096,6 +1152,7 @@ class TestTasksConfigBuilders:
 
     def test_admin_sidebar_devtools(self):
         from aquilia.config_builders import Integration
+
         sidebar = Integration.AdminSidebar()
         d = sidebar.to_dict()
         assert d["devtools"] is True  # Enabled by default
@@ -1106,6 +1163,7 @@ class TestTasksConfigBuilders:
 
     def test_admin_sidebar_show_devtools(self):
         from aquilia.config_builders import Integration
+
         sidebar = Integration.AdminSidebar().hide_devtools().show_devtools()
         d = sidebar.to_dict()
         assert d["devtools"] is True
@@ -1121,6 +1179,7 @@ class TestTaskQueueProvider:
 
     def test_import(self):
         from aquilia.effects import TaskQueueProvider, TaskQueueHandle
+
         assert TaskQueueProvider is not None
         assert TaskQueueHandle is not None
 
@@ -1135,11 +1194,13 @@ class TestTaskQueueProvider:
 
         handle = await provider.acquire("test_queue")
         from aquilia.effects import TaskQueueHandle
+
         assert isinstance(handle, TaskQueueHandle)
 
     @pytest.mark.asyncio
     async def test_acquire_without_manager_fallback(self):
         from aquilia.effects import TaskQueueProvider, QueueHandle
+
         provider = TaskQueueProvider()
         handle = await provider.acquire("test")
         assert isinstance(handle, QueueHandle)
@@ -1158,6 +1219,7 @@ class TestTaskQueueProvider:
     @pytest.mark.asyncio
     async def test_health_check_without_manager(self):
         from aquilia.effects import TaskQueueProvider
+
         provider = TaskQueueProvider()
         health = await provider.health_check()
         assert health["healthy"] is True
@@ -1185,6 +1247,7 @@ class TestTaskQueueProvider:
     async def test_publish_compat(self):
         """Verify publish() compatibility stub doesn't crash."""
         from aquilia.effects import TaskQueueHandle
+
         mock_manager = MagicMock()
         handle = TaskQueueHandle(mock_manager, "default")
         await handle.publish({"test": True})  # Should not raise
@@ -1193,6 +1256,7 @@ class TestTaskQueueProvider:
     @pytest.mark.asyncio
     async def test_release_and_finalize(self):
         from aquilia.effects import TaskQueueProvider
+
         provider = TaskQueueProvider()
         handle = await provider.acquire()
         await provider.release(handle)  # Should not raise
@@ -1209,6 +1273,7 @@ class TestAdminSiteTaskIntegration:
 
     def test_set_task_manager(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite()
         mock_manager = MagicMock()
         site.set_task_manager(mock_manager)
@@ -1217,6 +1282,7 @@ class TestAdminSiteTaskIntegration:
     @pytest.mark.asyncio
     async def test_get_tasks_data_no_manager(self):
         from aquilia.admin.site import AdminSite
+
         site = AdminSite()
         data = await site.get_tasks_data()
         assert data["available"] is False
@@ -1245,6 +1311,7 @@ class TestAdminConfigModules:
 
     def test_default_modules(self):
         from aquilia.admin.site import AdminConfig
+
         config = AdminConfig()
         assert config.is_module_enabled("query_inspector") is False
         assert config.is_module_enabled("tasks") is False
@@ -1254,22 +1321,27 @@ class TestAdminConfigModules:
 
     def test_enabled_modules(self):
         from aquilia.admin.site import AdminConfig
-        config = AdminConfig(modules={
-            "query_inspector": True,
-            "tasks": True,
-            "errors": True,
-        })
+
+        config = AdminConfig(
+            modules={
+                "query_inspector": True,
+                "tasks": True,
+                "errors": True,
+            }
+        )
         assert config.is_module_enabled("query_inspector") is True
         assert config.is_module_enabled("tasks") is True
         assert config.is_module_enabled("errors") is True
 
     def test_devtools_sidebar_default(self):
         from aquilia.admin.site import AdminConfig
+
         config = AdminConfig()
         assert config.sidebar_sections.get("devtools") is True
 
     def test_module_normalizes_hyphens(self):
         from aquilia.admin.site import AdminConfig
+
         config = AdminConfig(modules={"query_inspector": True})
         assert config.is_module_enabled("query-inspector") is True
 
@@ -1305,6 +1377,7 @@ class TestServerAdminRouteRegistration:
         # The admin controller handlers check is_module_enabled internally
         # and return _module_disabled_response, so routes MUST be registered
         from aquilia.admin.controller import AdminController
+
         ctrl = AdminController.__new__(AdminController)
 
         # Verify handler methods exist on the controller
@@ -1329,6 +1402,7 @@ class TestServerAdminRouteRegistration:
         # Should not raise, should return Response
         resp = ctrl._module_disabled_response("Tasks", None)
         from aquilia.response import Response
+
         assert isinstance(resp, Response)
         assert resp.status == 200
 
@@ -1354,6 +1428,7 @@ class TestServerTaskSetup:
 
     def test_tasks_disabled_by_default(self):
         from aquilia.config import ConfigLoader
+
         loader = ConfigLoader()
         config = loader.get_tasks_config()
         assert config["enabled"] is False
@@ -1371,6 +1446,7 @@ class TestServerTaskSetup:
             Worker,
             task,
         )
+
         assert TaskManager is not None
         assert TaskBackend is not None
         assert MemoryBackend is not None
@@ -1384,6 +1460,7 @@ class TestServerTaskSetup:
     def test_task_priority_alias(self):
         """Verify TaskPriority doesn't clash with mail Priority."""
         from aquilia import TaskPriority, Priority
+
         # TaskPriority is the tasks.job.Priority
         # Priority is the mail.Priority
         assert TaskPriority.CRITICAL.value == 0
@@ -1400,11 +1477,13 @@ class TestQueryInspector:
 
     def test_get_query_inspector(self):
         from aquilia.admin.query_inspector import get_query_inspector
+
         inspector = get_query_inspector()
         assert inspector is not None
 
     def test_get_stats(self):
         from aquilia.admin.query_inspector import get_query_inspector
+
         inspector = get_query_inspector()
         stats = inspector.get_stats()
         assert isinstance(stats, dict)
@@ -1415,11 +1494,13 @@ class TestErrorTracker:
 
     def test_get_error_tracker(self):
         from aquilia.admin.error_tracker import get_error_tracker
+
         tracker = get_error_tracker()
         assert tracker is not None
 
     def test_get_stats(self):
         from aquilia.admin.error_tracker import get_error_tracker
+
         tracker = get_error_tracker()
         stats = tracker.get_stats()
         assert isinstance(stats, dict)
@@ -1427,11 +1508,13 @@ class TestErrorTracker:
     def test_capture_is_callable(self):
         """Verify capture method has correct signature for FaultEngine.on_fault()."""
         from aquilia.admin.error_tracker import get_error_tracker
+
         tracker = get_error_tracker()
         assert callable(tracker.capture)
 
     def test_record_error(self):
         from aquilia.admin.error_tracker import get_error_tracker
+
         tracker = get_error_tracker()
         tracker.record_error(
             code="TEST_ERROR",
@@ -1500,12 +1583,14 @@ class TestFaultDomainTasks:
 
     def test_custom_fault_domain(self):
         from aquilia.faults.core import FaultDomain
+
         domain = FaultDomain.custom("TASKS", "Background task faults")
         assert domain.name == "tasks"
         assert domain.value == "tasks"
 
     def test_fault_with_tasks_domain(self):
         from aquilia.faults.core import Fault, FaultDomain
+
         fault = Fault(
             code="TASK_DEAD_LETTER",
             message="Task failed permanently",
@@ -1526,15 +1611,18 @@ class TestRegressions:
     def test_admin_config_from_dict_with_devtools(self):
         """Verify AdminConfig.from_dict handles new devtools modules."""
         from aquilia.admin.site import AdminConfig
-        config = AdminConfig.from_dict({
-            "modules": {
-                "dashboard": True,
-                "orm": True,
-                "query_inspector": True,
-                "tasks": True,
-                "errors": True,
-            },
-        })
+
+        config = AdminConfig.from_dict(
+            {
+                "modules": {
+                    "dashboard": True,
+                    "orm": True,
+                    "query_inspector": True,
+                    "tasks": True,
+                    "errors": True,
+                },
+            }
+        )
         assert config.is_module_enabled("dashboard") is True
         assert config.is_module_enabled("query_inspector") is True
         assert config.is_module_enabled("tasks") is True
@@ -1543,27 +1631,33 @@ class TestRegressions:
     def test_admin_config_from_dict_without_devtools(self):
         """Verify AdminConfig.from_dict works without devtools keys (backward compat)."""
         from aquilia.admin.site import AdminConfig
-        config = AdminConfig.from_dict({
-            "modules": {
-                "dashboard": True,
-                "orm": True,
-            },
-        })
+
+        config = AdminConfig.from_dict(
+            {
+                "modules": {
+                    "dashboard": True,
+                    "orm": True,
+                },
+            }
+        )
         assert config.is_module_enabled("dashboard") is True
         # Devtools should NOT be enabled if not in dict
         assert config.is_module_enabled("query_inspector") is False
 
     def test_memory_backend_implements_abc(self):
         from aquilia.tasks.engine import MemoryBackend, TaskBackend
+
         assert issubclass(MemoryBackend, TaskBackend)
 
     def test_task_manager_default_backend(self):
         from aquilia.tasks.engine import TaskManager, MemoryBackend
+
         manager = TaskManager()
         assert isinstance(manager.backend, MemoryBackend)
 
     def test_task_manager_default_config(self):
         from aquilia.tasks.engine import TaskManager
+
         manager = TaskManager()
         assert manager.num_workers == 4
         assert manager.default_queue == "default"
@@ -1572,6 +1666,7 @@ class TestRegressions:
 
     def test_job_default_timeout(self):
         from aquilia.tasks.job import Job
+
         j = Job()
         assert j.timeout == 300.0
 
@@ -1593,14 +1688,17 @@ class TestRegressions:
     def test_workspace_to_dict_round_trip(self):
         """Verify Workspace serialization includes tasks config."""
         from aquilia.config_builders import Workspace, Integration
+
         ws = (
             Workspace("myapp")
             .tasks(num_workers=8)
-            .integrate(Integration.admin(
-                enable_tasks=True,
-                enable_errors=True,
-                enable_query_inspector=True,
-            ))
+            .integrate(
+                Integration.admin(
+                    enable_tasks=True,
+                    enable_errors=True,
+                    enable_query_inspector=True,
+                )
+            )
         )
         d = ws.to_dict()
         assert d["tasks"]["num_workers"] == 8
@@ -1611,6 +1709,7 @@ class TestRegressions:
     def test_admin_modules_enable_all_includes_devtools(self):
         """Verify enable_all() enables devtools modules too."""
         from aquilia.config_builders import Integration
+
         mods = Integration.AdminModules().enable_all()
         d = mods.to_dict()
         assert d["query_inspector"] is True
@@ -1622,6 +1721,7 @@ class TestRegressions:
     def test_health_status_import(self):
         """Verify HealthStatus and SubsystemStatus are available."""
         from aquilia.health import HealthStatus, SubsystemStatus
+
         status = HealthStatus(
             name="tasks",
             status=SubsystemStatus.HEALTHY,
@@ -1818,10 +1918,7 @@ class TestQueryInspectorCRUDIntegration:
         # Extract delta
         assert after > before
         all_queries = list(inspector._queries)
-        captured = [
-            q.to_dict() for q in all_queries
-            if q.id > f"q-{before:06d}"
-        ]
+        captured = [q.to_dict() for q in all_queries if q.id > f"q-{before:06d}"]
 
         assert len(captured) >= 2
         sqls = [c["sql"] for c in captured]
@@ -1869,9 +1966,17 @@ class TestQueryInspectorCRUDIntegration:
         site = AdminSite()
         site.update_record = AsyncMock(return_value=True)
         site._last_update_queries = [
-            {"id": "q-000001", "sql": "UPDATE t SET x=1", "operation": "UPDATE",
-             "duration_ms": 1.0, "rows_affected": 1, "is_slow": False,
-             "params": None, "source": "test:1", "timestamp": "2024-01-01T00:00:00"},
+            {
+                "id": "q-000001",
+                "sql": "UPDATE t SET x=1",
+                "operation": "UPDATE",
+                "duration_ms": 1.0,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": None,
+                "source": "test:1",
+                "timestamp": "2024-01-01T00:00:00",
+            },
         ]
 
         ctrl = AdminController(site=site)
@@ -1888,17 +1993,21 @@ class TestQueryInspectorCRUDIntegration:
         mock_ctx.identity.get_attribute = MagicMock(return_value="")
 
         # After update succeeds, get_record is called
-        site.get_record = AsyncMock(return_value={
-            "model_name": "Product",
-            "verbose_name": "Product",
-            "pk": "1",
-            "fields": [],
-            "fieldsets": [],
-            "can_delete": False,
-        })
+        site.get_record = AsyncMock(
+            return_value={
+                "model_name": "Product",
+                "verbose_name": "Product",
+                "pk": "1",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            }
+        )
 
-        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}), \
-             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)):
+        with (
+            patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}),
+            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+        ):
             resp = await ctrl.edit_submit(mock_request, mock_ctx)
 
         # Should render the form (200), not redirect
@@ -1932,22 +2041,29 @@ class TestQueryInspectorCRUDIntegration:
         mock_ctx.identity.id = "admin"
         mock_ctx.identity.get_attribute = MagicMock(return_value="")
 
-        site.get_record = AsyncMock(return_value={
-            "model_name": "Item", "verbose_name": "Item", "pk": "5",
-            "fields": [], "fieldsets": [], "can_delete": False,
-        })
+        site.get_record = AsyncMock(
+            return_value={
+                "model_name": "Item",
+                "verbose_name": "Item",
+                "pk": "5",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            }
+        )
 
-        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}), \
-             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)), \
-             patch("aquilia.admin.controller.render_form_view") as mock_render:
+        with (
+            patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}),
+            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller.render_form_view") as mock_render,
+        ):
             mock_render.return_value = "<html>form</html>"
             resp = await ctrl.edit_submit(mock_request, mock_ctx)
 
         # query_inspection should be None (disabled module)
         mock_render.assert_called_once()
         call_kwargs = mock_render.call_args
-        assert call_kwargs.kwargs.get("query_inspection") is None or \
-               call_kwargs[1].get("query_inspection") is None
+        assert call_kwargs.kwargs.get("query_inspection") is None or call_kwargs[1].get("query_inspection") is None
 
     @pytest.mark.asyncio
     async def test_edit_submit_with_query_inspector_enabled(self):
@@ -1961,9 +2077,17 @@ class TestQueryInspectorCRUDIntegration:
         site.admin_config = AdminConfig(modules={"query_inspector": True})
         site.update_record = AsyncMock(return_value=True)
         captured = [
-            {"id": "q-000010", "sql": "UPDATE p SET name=?", "operation": "UPDATE",
-             "duration_ms": 2.5, "rows_affected": 1, "is_slow": False,
-             "params": "('Widget',)", "source": "app:10", "timestamp": "2024-01-01T00:00:00"},
+            {
+                "id": "q-000010",
+                "sql": "UPDATE p SET name=?",
+                "operation": "UPDATE",
+                "duration_ms": 2.5,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": "('Widget',)",
+                "source": "app:10",
+                "timestamp": "2024-01-01T00:00:00",
+            },
         ]
         site._last_update_queries = list(captured)
 
@@ -1978,14 +2102,22 @@ class TestQueryInspectorCRUDIntegration:
         mock_ctx.identity.id = "admin"
         mock_ctx.identity.get_attribute = MagicMock(return_value="")
 
-        site.get_record = AsyncMock(return_value={
-            "model_name": "Product", "verbose_name": "Product", "pk": "7",
-            "fields": [], "fieldsets": [], "can_delete": False,
-        })
+        site.get_record = AsyncMock(
+            return_value={
+                "model_name": "Product",
+                "verbose_name": "Product",
+                "pk": "7",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            }
+        )
 
-        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}), \
-             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)), \
-             patch("aquilia.admin.controller.render_form_view") as mock_render:
+        with (
+            patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"name": "X"}),
+            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+            patch("aquilia.admin.controller.render_form_view") as mock_render,
+        ):
             mock_render.return_value = "<html>form with inspector</html>"
             resp = await ctrl.edit_submit(mock_request, mock_ctx)
 
@@ -2023,8 +2155,10 @@ class TestQueryInspectorCRUDIntegration:
         mock_ctx.identity.id = "admin"
         mock_ctx.identity.get_attribute = MagicMock(return_value="")
 
-        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"a": "b"}), \
-             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)):
+        with (
+            patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"a": "b"}),
+            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+        ):
             resp = await ctrl.edit_submit(mock_request, mock_ctx)
 
         assert resp.status == 302
@@ -2044,10 +2178,16 @@ class TestQueryInspectorCRUDIntegration:
             {"sql": "UPDATE t SET x=1", "operation": "UPDATE", "duration_ms": 0.2},
         ]
 
-        site.get_record = AsyncMock(return_value={
-            "model_name": "Foo", "verbose_name": "Foo", "pk": "1",
-            "fields": [], "fieldsets": [], "can_delete": False,
-        })
+        site.get_record = AsyncMock(
+            return_value={
+                "model_name": "Foo",
+                "verbose_name": "Foo",
+                "pk": "1",
+                "fields": [],
+                "fieldsets": [],
+                "can_delete": False,
+            }
+        )
 
         ctrl = AdminController(site=site)
         # Bypass CSRF validation for existing tests (security tested separately)
@@ -2060,8 +2200,10 @@ class TestQueryInspectorCRUDIntegration:
         mock_ctx.identity.id = "admin"
         mock_ctx.identity.get_attribute = MagicMock(return_value="")
 
-        with patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}), \
-             patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)):
+        with (
+            patch("aquilia.admin.controller._parse_form", new_callable=AsyncMock, return_value={"x": "1"}),
+            patch("aquilia.admin.controller._require_identity", return_value=(mock_ctx.identity, None)),
+        ):
             await ctrl.edit_submit(mock_request, mock_ctx)
 
         assert site._last_update_queries == []
@@ -2209,15 +2351,39 @@ class TestQueryInspectorCRUDIntegration:
         from aquilia.admin.templates import render_form_view
 
         qi = [
-            {"id": "q-1", "sql": "SELECT 1", "operation": "SELECT",
-             "duration_ms": 0.1, "rows_affected": 1, "is_slow": False,
-             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
-            {"id": "q-2", "sql": "UPDATE t SET x=1", "operation": "UPDATE",
-             "duration_ms": 0.2, "rows_affected": 1, "is_slow": False,
-             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
-            {"id": "q-3", "sql": "INSERT INTO t VALUES(1)", "operation": "INSERT",
-             "duration_ms": 0.3, "rows_affected": 1, "is_slow": False,
-             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
+            {
+                "id": "q-1",
+                "sql": "SELECT 1",
+                "operation": "SELECT",
+                "duration_ms": 0.1,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": None,
+                "source": "",
+                "timestamp": "2024-01-01T00:00:00",
+            },
+            {
+                "id": "q-2",
+                "sql": "UPDATE t SET x=1",
+                "operation": "UPDATE",
+                "duration_ms": 0.2,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": None,
+                "source": "",
+                "timestamp": "2024-01-01T00:00:00",
+            },
+            {
+                "id": "q-3",
+                "sql": "INSERT INTO t VALUES(1)",
+                "operation": "INSERT",
+                "duration_ms": 0.3,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": None,
+                "source": "",
+                "timestamp": "2024-01-01T00:00:00",
+            },
         ]
 
         html = render_form_view(
@@ -2242,9 +2408,17 @@ class TestQueryInspectorCRUDIntegration:
         from aquilia.admin.templates import render_form_view
 
         qi = [
-            {"id": "q-1", "sql": "SELECT 1", "operation": "SELECT",
-             "duration_ms": 0.1, "rows_affected": 1, "is_slow": False,
-             "params": None, "source": "", "timestamp": "2024-01-01T00:00:00"},
+            {
+                "id": "q-1",
+                "sql": "SELECT 1",
+                "operation": "SELECT",
+                "duration_ms": 0.1,
+                "rows_affected": 1,
+                "is_slow": False,
+                "params": None,
+                "source": "",
+                "timestamp": "2024-01-01T00:00:00",
+            },
         ]
 
         html = render_form_view(
@@ -2322,10 +2496,7 @@ class TestQueryInspectorCRUDIntegration:
 
         # Capture delta (same logic as site.update_record)
         all_queries = list(inspector._queries)
-        captured = [
-            q.to_dict() for q in all_queries
-            if q.id > f"q-{before:06d}"
-        ]
+        captured = [q.to_dict() for q in all_queries if q.id > f"q-{before:06d}"]
 
         assert len(captured) >= 1
         q = captured[-1]
@@ -2352,10 +2523,7 @@ class TestQueryInspectorCRUDIntegration:
         AquiliaDatabase._notify_inspector("DELETE FROM t WHERE id=1", None, 0.4)
 
         all_queries = list(inspector._queries)
-        captured = [
-            q.to_dict() for q in all_queries
-            if q.id > f"q-{before:06d}"
-        ]
+        captured = [q.to_dict() for q in all_queries if q.id > f"q-{before:06d}"]
 
         ops = [c["operation"] for c in captured]
         assert "SELECT" in ops
@@ -2374,10 +2542,7 @@ class TestQueryInspectorCRUDIntegration:
         AquiliaDatabase._notify_inspector("SELECT 1", None, 42.567)
 
         all_queries = list(inspector._queries)
-        captured = [
-            q.to_dict() for q in all_queries
-            if q.id > f"q-{before:06d}"
-        ]
+        captured = [q.to_dict() for q in all_queries if q.id > f"q-{before:06d}"]
 
         assert captured[-1]["duration_ms"] == 42.567
 
@@ -2392,6 +2557,7 @@ class TestErrorTrackerChartData:
 
     def _fresh_tracker(self):
         from aquilia.admin.error_tracker import ErrorTracker
+
         return ErrorTracker()
 
     def test_stats_charts_key_exists(self):
@@ -2546,6 +2712,7 @@ class TestErrorTrackerChartData:
     def test_mttr_calculation(self):
         """MTTR is computed from first_seen to resolved_at."""
         import time
+
         tracker = self._fresh_tracker()
         tracker.record_error(code="E1", message="err1", domain="d1")
         time.sleep(0.05)  # Small delay for measurable MTTR
@@ -2620,6 +2787,7 @@ class TestMemoryBackendChartData:
     async def test_stats_charts_key_exists(self):
         """get_stats() returns a 'charts' dict."""
         from aquilia.tasks.engine import MemoryBackend
+
         backend = MemoryBackend()
         stats = await backend.get_stats()
         assert "charts" in stats
@@ -2629,6 +2797,7 @@ class TestMemoryBackendChartData:
     async def test_charts_throughput_structure(self):
         """charts.throughput has labels, completed, and failed arrays of length 24."""
         from aquilia.tasks.engine import MemoryBackend
+
         backend = MemoryBackend()
         stats = await backend.get_stats()
         tp = stats["charts"]["throughput"]
@@ -2643,6 +2812,7 @@ class TestMemoryBackendChartData:
     async def test_charts_duration_histogram_structure(self):
         """charts.duration_histogram has labels and values."""
         from aquilia.tasks.engine import MemoryBackend
+
         backend = MemoryBackend()
         stats = await backend.get_stats()
         dh = stats["charts"]["duration_histogram"]
@@ -2655,6 +2825,7 @@ class TestMemoryBackendChartData:
     async def test_charts_state_doughnut(self):
         """charts.state_doughnut reflects actual job states."""
         from aquilia.tasks.engine import MemoryBackend, Job, JobState
+
         backend = MemoryBackend()
         await backend.push(Job(func_ref="test.fn", name="test"))
         stats = await backend.get_stats()
@@ -2667,6 +2838,7 @@ class TestMemoryBackendChartData:
     async def test_charts_queue_breakdown(self):
         """charts.queue_breakdown has per-queue state arrays."""
         from aquilia.tasks.engine import MemoryBackend, Job
+
         backend = MemoryBackend()
         await backend.push(Job(func_ref="fn1", name="t1", queue="high"))
         await backend.push(Job(func_ref="fn2", name="t2", queue="low"))
@@ -2684,6 +2856,7 @@ class TestMemoryBackendChartData:
     async def test_success_rate_no_jobs(self):
         """Success rate is 100% when no terminal jobs exist."""
         from aquilia.tasks.engine import MemoryBackend
+
         backend = MemoryBackend()
         stats = await backend.get_stats()
         assert stats["success_rate"] == 100
@@ -2693,6 +2866,7 @@ class TestMemoryBackendChartData:
         """Success rate is 100% when all terminal jobs completed."""
         from aquilia.tasks.engine import MemoryBackend, Job, JobState
         from datetime import datetime, timezone, timedelta
+
         backend = MemoryBackend()
         for i in range(3):
             job = Job(func_ref="fn", name=f"t{i}")
@@ -2709,6 +2883,7 @@ class TestMemoryBackendChartData:
         """Success rate reflects completed vs failed ratio."""
         from aquilia.tasks.engine import MemoryBackend, Job, JobState
         from datetime import datetime, timezone, timedelta
+
         backend = MemoryBackend()
         # 3 completed
         for i in range(3):
@@ -2731,6 +2906,7 @@ class TestMemoryBackendChartData:
     async def test_percentiles_no_jobs(self):
         """P50/P95/P99 are 0 when no completed jobs."""
         from aquilia.tasks.engine import MemoryBackend
+
         backend = MemoryBackend()
         stats = await backend.get_stats()
         assert stats["p50_ms"] == 0
@@ -2742,6 +2918,7 @@ class TestMemoryBackendChartData:
         """P50/P95/P99 are computed from completed job durations."""
         from aquilia.tasks.engine import MemoryBackend, Job, JobState
         from datetime import datetime, timezone, timedelta
+
         backend = MemoryBackend()
         for i in range(1, 101):
             job = Job(func_ref="fn", name=f"t{i}")
@@ -2761,6 +2938,7 @@ class TestMemoryBackendChartData:
         """Duration histogram correctly bins job durations."""
         from aquilia.tasks.engine import MemoryBackend, Job, JobState
         from datetime import datetime, timezone, timedelta
+
         backend = MemoryBackend()
         durations = [5, 25, 75, 150, 400, 750, 3000, 8000]
         for d in durations:
@@ -2780,6 +2958,7 @@ class TestMemoryBackendChartData:
     async def test_throughput_timeline_length(self):
         """Throughput timeline always has 24 hourly slots."""
         from aquilia.tasks.engine import MemoryBackend
+
         backend = MemoryBackend()
         stats = await backend.get_stats()
         tp = stats["charts"]["throughput"]
@@ -2799,11 +2978,20 @@ class TestChartJsTemplateRendering:
     def _tasks_data(self, **overrides):
         """Helper to build tasks_data dict with correct nested structure."""
         stats = {
-            "total_jobs": 0, "completed_count": 0, "active_count": 0,
-            "failed_count": 0, "pending_count": 0, "dead_letter_count": 0,
-            "avg_duration_ms": 0, "by_state": {}, "queues": [],
-            "queue_count": 0, "success_rate": 100, "p50_ms": 0,
-            "p95_ms": 0, "p99_ms": 0,
+            "total_jobs": 0,
+            "completed_count": 0,
+            "active_count": 0,
+            "failed_count": 0,
+            "pending_count": 0,
+            "dead_letter_count": 0,
+            "avg_duration_ms": 0,
+            "by_state": {},
+            "queues": [],
+            "queue_count": 0,
+            "success_rate": 100,
+            "p50_ms": 0,
+            "p95_ms": 0,
+            "p99_ms": 0,
             "manager": {},
             "charts": {
                 "throughput": {"labels": [], "completed": [], "failed": []},
@@ -2818,11 +3006,20 @@ class TestChartJsTemplateRendering:
     def _errors_data(self, **overrides):
         """Helper to build errors_data dict with correct structure."""
         base = {
-            "total_errors": 0, "errors_last_hour": 0, "errors_last_24h": 0,
-            "error_rate_per_min": 0, "unique_errors": 0,
-            "unresolved_count": 0, "resolved_count": 0, "mttr_seconds": 0,
-            "by_domain": {}, "by_severity": {}, "top_routes": [],
-            "top_codes": [], "recent_errors": [], "error_groups": [],
+            "total_errors": 0,
+            "errors_last_hour": 0,
+            "errors_last_24h": 0,
+            "error_rate_per_min": 0,
+            "unique_errors": 0,
+            "unresolved_count": 0,
+            "resolved_count": 0,
+            "mttr_seconds": 0,
+            "by_domain": {},
+            "by_severity": {},
+            "top_routes": [],
+            "top_codes": [],
+            "recent_errors": [],
+            "error_groups": [],
             "hourly_trend": [],
             "charts": {
                 "hourly": {"labels": [], "values": []},
@@ -2841,27 +3038,44 @@ class TestChartJsTemplateRendering:
     def test_render_tasks_page_includes_chart_js_cdn(self):
         """render_tasks_page() output includes Chart.js CDN script."""
         from aquilia.admin.templates import render_tasks_page
+
         html = render_tasks_page(tasks_data=self._tasks_data())
         assert "chart.js" in html.lower() or "Chart" in html
 
     def test_render_tasks_page_passes_success_rate(self):
         """render_tasks_page() passes success_rate to template."""
         from aquilia.admin.templates import render_tasks_page
-        html = render_tasks_page(tasks_data=self._tasks_data(
-            total_jobs=10, completed_count=9, failed_count=1,
-            success_rate=90.0, p50_ms=25, p95_ms=80, p99_ms=95,
-            available=True,
-        ))
+
+        html = render_tasks_page(
+            tasks_data=self._tasks_data(
+                total_jobs=10,
+                completed_count=9,
+                failed_count=1,
+                success_rate=90.0,
+                p50_ms=25,
+                p95_ms=80,
+                p99_ms=95,
+                available=True,
+            )
+        )
         assert "90" in html  # success_rate rendered
         assert "Success Rate" in html
 
     def test_render_tasks_page_passes_percentiles(self):
         """render_tasks_page() passes P50/P95/P99 to template."""
         from aquilia.admin.templates import render_tasks_page
-        html = render_tasks_page(tasks_data=self._tasks_data(
-            total_jobs=5, completed_count=5, success_rate=100,
-            p50_ms=42, p95_ms=88, p99_ms=99, available=True,
-        ))
+
+        html = render_tasks_page(
+            tasks_data=self._tasks_data(
+                total_jobs=5,
+                completed_count=5,
+                success_rate=100,
+                p50_ms=42,
+                p95_ms=88,
+                p99_ms=99,
+                available=True,
+            )
+        )
         assert "P50" in html
         assert "P95" in html or "p95" in html.lower()
         assert "P99" in html or "p99" in html.lower()
@@ -2869,17 +3083,26 @@ class TestChartJsTemplateRendering:
     def test_render_errors_page_includes_chart_js_cdn(self):
         """render_errors_page() output includes Chart.js CDN script."""
         from aquilia.admin.templates import render_errors_page
+
         html = render_errors_page(errors_data=self._errors_data())
         assert "chart.js" in html.lower() or "Chart" in html
 
     def test_render_errors_page_passes_resolution_stats(self):
         """render_errors_page() passes unresolved/resolved/mttr to template."""
         from aquilia.admin.templates import render_errors_page
-        html = render_errors_page(errors_data=self._errors_data(
-            total_errors=5, errors_last_hour=2, errors_last_24h=5,
-            error_rate_per_min=1.5, unique_errors=3,
-            unresolved_count=2, resolved_count=1, mttr_seconds=45.5,
-        ))
+
+        html = render_errors_page(
+            errors_data=self._errors_data(
+                total_errors=5,
+                errors_last_hour=2,
+                errors_last_24h=5,
+                error_rate_per_min=1.5,
+                unique_errors=3,
+                unresolved_count=2,
+                resolved_count=1,
+                mttr_seconds=45.5,
+            )
+        )
         assert "Unresolved" in html
         assert "MTTR" in html
         assert "46s" in html or "45" in html  # mttr_seconds rendered
@@ -2887,6 +3110,7 @@ class TestChartJsTemplateRendering:
     def test_render_errors_page_includes_severity_filter_buttons(self):
         """render_errors_page() includes filter buttons for severity."""
         from aquilia.admin.templates import render_errors_page
+
         html = render_errors_page(errors_data=self._errors_data())
         assert "filterErrors" in html
         assert "Errors" in html
@@ -2895,6 +3119,7 @@ class TestChartJsTemplateRendering:
     def test_render_errors_page_chart_canvas_elements(self):
         """render_errors_page() produces all expected canvas elements."""
         from aquilia.admin.templates import render_errors_page
+
         html = render_errors_page(errors_data=self._errors_data())
         assert "chart-error-trend" in html
         assert "chart-severity-doughnut" in html
@@ -2907,6 +3132,7 @@ class TestChartJsTemplateRendering:
     def test_render_tasks_page_chart_canvas_elements(self):
         """render_tasks_page() produces all expected canvas elements."""
         from aquilia.admin.templates import render_tasks_page
+
         html = render_tasks_page(tasks_data=self._tasks_data())
         assert "chart-throughput" in html
         assert "chart-state-doughnut" in html

@@ -26,6 +26,7 @@ import crous as _crous_mod
 # Helpers
 # ============================================================================
 
+
 def _make_scope(
     method: str = "POST",
     path: str = "/",
@@ -148,15 +149,11 @@ class TestPrefersCrous:
     """Request.prefers_crous() quality-factor negotiation."""
 
     def test_crous_higher_quality(self):
-        req = _make_request(
-            accept="application/x-crous;q=1.0, application/json;q=0.9"
-        )
+        req = _make_request(accept="application/x-crous;q=1.0, application/json;q=0.9")
         assert req.prefers_crous() is True
 
     def test_json_higher_quality(self):
-        req = _make_request(
-            accept="application/json;q=1.0, application/x-crous;q=0.5"
-        )
+        req = _make_request(accept="application/json;q=1.0, application/x-crous;q=0.5")
         assert req.prefers_crous() is False
 
     def test_crous_implicit_q1(self):
@@ -199,9 +196,7 @@ class TestBestResponseFormat:
     """Request.best_response_format() negotiation."""
 
     def test_crous_preferred(self):
-        req = _make_request(
-            accept="application/x-crous;q=1.0, application/json;q=0.8"
-        )
+        req = _make_request(accept="application/x-crous;q=1.0, application/json;q=0.8")
         assert req.best_response_format() == "crous"
 
     def test_json_default(self):
@@ -213,9 +208,7 @@ class TestBestResponseFormat:
         assert req.best_response_format() == "json"
 
     def test_crous_unavailable_falls_back(self):
-        req = _make_request(
-            accept="application/x-crous;q=1.0, application/json;q=0.8"
-        )
+        req = _make_request(accept="application/x-crous;q=1.0, application/json;q=0.8")
         with patch("aquilia.request._HAS_CROUS", False):
             assert req.best_response_format() == "json"
 
@@ -559,9 +552,7 @@ class TestResponseNegotiated:
     def test_negotiated_crous_when_preferred(self):
         from aquilia.response import Response, CROUS_MEDIA_TYPE
 
-        req = _make_request(
-            accept="application/x-crous;q=1.0, application/json;q=0.8"
-        )
+        req = _make_request(accept="application/x-crous;q=1.0, application/json;q=0.8")
         resp = Response.negotiated({"data": 1}, req)
         ct = resp._headers.get("content-type", "")
         assert CROUS_MEDIA_TYPE in ct
@@ -612,9 +603,7 @@ class TestResponseNegotiated:
     def test_negotiated_fallback_when_crous_unavailable(self):
         from aquilia.response import Response
 
-        req = _make_request(
-            accept="application/x-crous;q=1.0, application/json;q=0.8"
-        )
+        req = _make_request(accept="application/x-crous;q=1.0, application/json;q=0.8")
         with patch("aquilia.response._HAS_CROUS", False):
             resp = Response.negotiated({"data": 1}, req)
             ct = resp._headers.get("content-type", "")
@@ -623,9 +612,7 @@ class TestResponseNegotiated:
     def test_negotiated_status_preserved(self):
         from aquilia.response import Response
 
-        req = _make_request(
-            accept="application/x-crous;q=1.0, application/json;q=0.8"
-        )
+        req = _make_request(accept="application/x-crous;q=1.0, application/json;q=0.8")
         resp = Response.negotiated({"data": 1}, req, status=201)
         assert resp.status == 201
 

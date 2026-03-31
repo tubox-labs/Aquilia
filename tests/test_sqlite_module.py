@@ -57,6 +57,7 @@ from aquilia.sqlite import (
 # Fixtures
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @pytest.fixture
 def tmp_db(tmp_path: Path) -> str:
     """Return a path for a temporary SQLite database file."""
@@ -66,9 +67,7 @@ def tmp_db(tmp_path: Path) -> str:
 @pytest_asyncio.fixture
 async def pool(tmp_db: str):
     """Create and yield an open pool, close after test."""
-    p = await create_pool(
-        SqlitePoolConfig(path=tmp_db, pool_size=3, pool_min_size=1)
-    )
+    p = await create_pool(SqlitePoolConfig(path=tmp_db, pool_size=3, pool_min_size=1))
     yield p
     await p.close()
 
@@ -76,9 +75,7 @@ async def pool(tmp_db: str):
 @pytest_asyncio.fixture
 async def memory_pool():
     """Pool using :memory: database."""
-    p = await create_pool(
-        SqlitePoolConfig(path=":memory:", pool_size=1, pool_min_size=1)
-    )
+    p = await create_pool(SqlitePoolConfig(path=":memory:", pool_size=1, pool_min_size=1))
     yield p
     await p.close()
 
@@ -86,6 +83,7 @@ async def memory_pool():
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. Config Validation
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSqlitePoolConfig:
     def test_defaults(self):
@@ -99,29 +97,34 @@ class TestSqlitePoolConfig:
 
     def test_journal_mode_validation(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         SqlitePoolConfig(journal_mode="DELETE")  # ok
         with pytest.raises(ConfigInvalidFault, match="journal_mode"):
             SqlitePoolConfig(journal_mode="INVALID")
 
     def test_synchronous_validation(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         SqlitePoolConfig(synchronous="FULL")  # ok
         with pytest.raises(ConfigInvalidFault, match="synchronous"):
             SqlitePoolConfig(synchronous="BOGUS")
 
     def test_temp_store_validation(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         SqlitePoolConfig(temp_store="FILE")  # ok
         with pytest.raises(ConfigInvalidFault, match="temp_store"):
             SqlitePoolConfig(temp_store="DISK")
 
     def test_pool_size_validation(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="pool_size"):
             SqlitePoolConfig(pool_size=0)
 
     def test_pool_min_exceeds_max(self):
         from aquilia.faults.domains import ConfigInvalidFault
+
         with pytest.raises(ConfigInvalidFault, match="pool_min_size"):
             SqlitePoolConfig(pool_size=2, pool_min_size=5)
 
@@ -136,6 +139,7 @@ class TestSqlitePoolConfig:
 
     def test_from_sqlite_config(self):
         from aquilia.db.configs import SqliteConfig
+
         base = SqliteConfig(path="data/app.db", busy_timeout=10000)
         cfg = SqlitePoolConfig.from_sqlite_config(base, synchronous="FULL")
         assert cfg.path == "data/app.db"
@@ -146,6 +150,7 @@ class TestSqlitePoolConfig:
 # ═══════════════════════════════════════════════════════════════════════════
 # 2. PRAGMA Building
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestPragmaBuilder:
     def test_build_writer_pragmas(self):
@@ -171,6 +176,7 @@ class TestPragmaBuilder:
 # ═══════════════════════════════════════════════════════════════════════════
 # 3. Row Object
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestRow:
     def test_index_access(self):
@@ -243,11 +249,12 @@ class TestRow:
 # 4. Statement Cache
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestStatementCache:
     def test_miss_then_hit(self):
         cache = StatementCache(capacity=10)
         assert cache.touch("SELECT 1") is False  # miss
-        assert cache.touch("SELECT 1") is True   # hit
+        assert cache.touch("SELECT 1") is True  # hit
         assert cache.stats.hits == 1
         assert cache.stats.misses == 1
 
@@ -294,6 +301,7 @@ class TestStatementCache:
 # 5. Connection Pool Lifecycle
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestConnectionPoolLifecycle:
     @pytest.mark.asyncio
     async def test_open_close(self, tmp_db: str):
@@ -306,9 +314,7 @@ class TestConnectionPoolLifecycle:
 
     @pytest.mark.asyncio
     async def test_context_manager(self, tmp_db: str):
-        async with ConnectionPool(
-            SqlitePoolConfig(path=tmp_db, pool_size=1, pool_min_size=1)
-        ) as pool:
+        async with ConnectionPool(SqlitePoolConfig(path=tmp_db, pool_size=1, pool_min_size=1)) as pool:
             assert pool.is_open
         assert not pool.is_open
 
@@ -331,6 +337,7 @@ class TestConnectionPoolLifecycle:
 # ═══════════════════════════════════════════════════════════════════════════
 # 6. Query Execution
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestQueryExecution:
     @pytest.mark.asyncio
@@ -390,6 +397,7 @@ class TestQueryExecution:
 # 7. Transactions
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestTransactions:
     @pytest.mark.asyncio
     async def test_commit(self, pool: ConnectionPool):
@@ -416,6 +424,7 @@ class TestTransactions:
 # ═══════════════════════════════════════════════════════════════════════════
 # 8. Savepoints
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSavepoints:
     @pytest.mark.asyncio
@@ -445,6 +454,7 @@ class TestSavepoints:
     @pytest.mark.asyncio
     async def test_invalid_savepoint_name(self, pool: ConnectionPool):
         from aquilia.faults.domains import QueryFault
+
         async with pool.acquire(readonly=False) as conn:
             with pytest.raises(QueryFault, match="Invalid savepoint"):
                 await conn.savepoint("bad name!")
@@ -453,6 +463,7 @@ class TestSavepoints:
 # ═══════════════════════════════════════════════════════════════════════════
 # 9. Error Mapping
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestErrorMapping:
     def test_operational_locked(self):
@@ -490,6 +501,7 @@ class TestErrorMapping:
 # 10. Metrics
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestMetrics:
     @pytest.mark.asyncio
     async def test_query_metrics(self, pool: ConnectionPool):
@@ -523,6 +535,7 @@ class TestMetrics:
 # 11. Pool Quick Methods
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestPoolQuickMethods:
     @pytest.mark.asyncio
     async def test_execute_returns_rowcount(self, pool: ConnectionPool):
@@ -543,6 +556,7 @@ class TestPoolQuickMethods:
 # 12. Introspection
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 class TestIntrospection:
     @pytest.mark.asyncio
     async def test_table_exists(self, pool: ConnectionPool):
@@ -562,9 +576,7 @@ class TestIntrospection:
 
     @pytest.mark.asyncio
     async def test_get_columns(self, pool: ConnectionPool):
-        await pool.execute(
-            "CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INT)"
-        )
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, name TEXT NOT NULL, age INT)")
         async with pool.acquire(readonly=True) as conn:
             cols = await conn.get_columns("t")
             names = [c["name"] for c in cols]
@@ -576,6 +588,7 @@ class TestIntrospection:
 # ═══════════════════════════════════════════════════════════════════════════
 # 13. SQLiteAdapter Backward Compatibility
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class TestSQLiteAdapterCompat:
     @pytest.mark.asyncio
@@ -636,9 +649,7 @@ class TestSQLiteAdapterCompat:
         adapter = SQLiteAdapter()
         await adapter.connect(f"sqlite:///{tmp_db}")
 
-        await adapter.execute(
-            "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)"
-        )
+        await adapter.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL)")
         assert await adapter.table_exists("users") is True
         assert await adapter.table_exists("orders") is False
 

@@ -52,7 +52,7 @@ def test_hls_master_playlist_renders_variants():
 
     body = resp._encode_body(resp._content).decode("utf-8")
     assert "#EXT-X-STREAM-INF:BANDWIDTH=250000,RESOLUTION=640x360" in body
-    assert "#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=1920x1080,CODECS=\"avc1.4d401f\"" in body
+    assert '#EXT-X-STREAM-INF:BANDWIDTH=1200000,RESOLUTION=1920x1080,CODECS="avc1.4d401f"' in body
 
 
 def test_hls_master_playlist_requires_variants():

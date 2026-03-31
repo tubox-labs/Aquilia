@@ -26,11 +26,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 #  1. CORE TYPES
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestApiVersion:
     """Tests for ApiVersion frozen dataclass."""
 
     def test_basic_creation(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2, 1)
         assert v.major == 2
         assert v.minor == 1
@@ -39,50 +41,61 @@ class TestApiVersion:
 
     def test_with_patch(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(1, 2, 3)
         assert str(v) == "1.2.3"
 
     def test_with_label(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2025, 1, label="2025-01")
         assert v.label == "2025-01"
         assert str(v) == "2025-01"
 
     def test_comparison_eq(self):
         from aquilia.versioning.core import ApiVersion
+
         assert ApiVersion(2, 0) == ApiVersion(2, 0)
         assert ApiVersion(2, 0) != ApiVersion(2, 1)
 
     def test_comparison_lt(self):
         from aquilia.versioning.core import ApiVersion
+
         assert ApiVersion(1, 0) < ApiVersion(2, 0)
         assert ApiVersion(2, 0) < ApiVersion(2, 1)
         assert ApiVersion(2, 1, 0) < ApiVersion(2, 1, 1)
 
     def test_comparison_ordering(self):
         from aquilia.versioning.core import ApiVersion
+
         versions = [ApiVersion(3, 0), ApiVersion(1, 0), ApiVersion(2, 1)]
         assert sorted(versions) == [
-            ApiVersion(1, 0), ApiVersion(2, 1), ApiVersion(3, 0),
+            ApiVersion(1, 0),
+            ApiVersion(2, 1),
+            ApiVersion(3, 0),
         ]
 
     def test_hash(self):
         from aquilia.versioning.core import ApiVersion
+
         s = {ApiVersion(1, 0), ApiVersion(2, 0), ApiVersion(1, 0)}
         assert len(s) == 2
 
     def test_parse_semantic(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion.parse("v2.1")
         assert v == ApiVersion(2, 1)
 
     def test_parse_without_prefix(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion.parse("3.0.1")
         assert v == ApiVersion(3, 0, 1)
 
     def test_parse_epoch(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion.parse("2025-06")
         assert v.label == "2025-06"
         assert v.major == 2025
@@ -90,6 +103,7 @@ class TestApiVersion:
 
     def test_is_compatible_with(self):
         from aquilia.versioning.core import ApiVersion
+
         v1 = ApiVersion(2, 0)
         v2 = ApiVersion(2, 3)
         v3 = ApiVersion(3, 0)
@@ -102,6 +116,7 @@ class TestApiVersion:
 
     def test_matches(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2, 1, 3)
         assert v.matches(ApiVersion(2, 1))  # major.minor match
         assert v.matches(ApiVersion(2, 1, 5))  # different patch, same major.minor
@@ -109,6 +124,7 @@ class TestApiVersion:
 
     def test_url_segment(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2, 0)
         assert v.url_segment == "v2"  # minor=0 is omitted
         v2 = ApiVersion(2, 1)
@@ -116,18 +132,21 @@ class TestApiVersion:
 
     def test_with_status(self):
         from aquilia.versioning.core import ApiVersion, VersionStatus
+
         v = ApiVersion(1, 0)
         v2 = v.with_status(VersionStatus.DEPRECATED)
         assert v2.status == VersionStatus.DEPRECATED
 
     def test_with_channel(self):
         from aquilia.versioning.core import ApiVersion, VersionChannel
+
         v = ApiVersion(2, 0)
         v2 = v.with_channel(VersionChannel.PREVIEW)
         assert v2.channel == VersionChannel.PREVIEW
 
     def test_to_dict(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2, 1, 3)
         d = v.to_dict()
         assert d["major"] == 2
@@ -137,6 +156,7 @@ class TestApiVersion:
     def test_frozen(self):
         from aquilia.versioning.core import ApiVersion
         from dataclasses import FrozenInstanceError
+
         v = ApiVersion(1, 0)
         with pytest.raises(FrozenInstanceError):
             v.major = 2  # frozen dataclass
@@ -145,6 +165,7 @@ class TestApiVersion:
 class TestVersionChannel:
     def test_values(self):
         from aquilia.versioning.core import VersionChannel
+
         assert VersionChannel.STABLE.value == "stable"
         assert VersionChannel.PREVIEW.value == "preview"
         assert VersionChannel.LEGACY.value == "legacy"
@@ -155,6 +176,7 @@ class TestVersionChannel:
 class TestVersionStatus:
     def test_lifecycle(self):
         from aquilia.versioning.core import VersionStatus
+
         assert VersionStatus.PREVIEW.is_usable
         assert VersionStatus.ACTIVE.is_usable
         assert VersionStatus.DEPRECATED.is_usable
@@ -162,20 +184,22 @@ class TestVersionStatus:
         assert VersionStatus.SUNSET.is_warn
         assert not VersionStatus.ACTIVE.is_warn
         assert not VersionStatus.SUNSET.is_terminal  # SUNSET is warn, not terminal
-        assert VersionStatus.RETIRED.is_terminal     # Only RETIRED is terminal
+        assert VersionStatus.RETIRED.is_terminal  # Only RETIRED is terminal
         assert not VersionStatus.ACTIVE.is_terminal
-        assert not VersionStatus.SUNSET.is_usable    # SUNSET cannot serve requests
+        assert not VersionStatus.SUNSET.is_usable  # SUNSET cannot serve requests
 
 
 class TestSentinels:
     def test_version_neutral(self):
         from aquilia.versioning.core import VERSION_NEUTRAL
+
         assert str(VERSION_NEUTRAL) == "VERSION_NEUTRAL"
         assert repr(VERSION_NEUTRAL) == "VERSION_NEUTRAL"
         assert VERSION_NEUTRAL == VERSION_NEUTRAL
 
     def test_version_any(self):
         from aquilia.versioning.core import VERSION_ANY
+
         assert str(VERSION_ANY) == "VERSION_ANY"
 
 
@@ -183,9 +207,11 @@ class TestSentinels:
 #  2. ERRORS
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestVersionErrors:
     def test_invalid_version_error(self):
         from aquilia.versioning.errors import InvalidVersionError
+
         e = InvalidVersionError("abc")
         assert e.raw_version == "abc"
         assert "abc" in str(e.message)
@@ -193,6 +219,7 @@ class TestVersionErrors:
     def test_unsupported_version_error(self):
         from aquilia.versioning.errors import UnsupportedVersionError
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(9, 9)
         e = UnsupportedVersionError(v, supported=[ApiVersion(1, 0), ApiVersion(2, 0)])
         assert e.version == v
@@ -201,6 +228,7 @@ class TestVersionErrors:
     def test_sunset_error(self):
         from aquilia.versioning.errors import VersionSunsetError
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(1, 0)
         e = VersionSunsetError(
             version=v,
@@ -214,6 +242,7 @@ class TestVersionErrors:
 
     def test_missing_version_error(self):
         from aquilia.versioning.errors import MissingVersionError
+
         e = MissingVersionError(strategies=["header", "query"])
         assert len(e.metadata["strategies"]) == 2
         assert "header" in e.metadata["strategies"]
@@ -222,6 +251,7 @@ class TestVersionErrors:
     def test_negotiation_error(self):
         from aquilia.versioning.errors import VersionNegotiationError
         from aquilia.versioning.core import ApiVersion
+
         e = VersionNegotiationError(
             requested=ApiVersion(5, 0),
             available=[ApiVersion(1, 0), ApiVersion(2, 0)],
@@ -234,9 +264,11 @@ class TestVersionErrors:
 #  3. PARSER
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestSemanticVersionParser:
     def setup_method(self):
         from aquilia.versioning.parser import SemanticVersionParser
+
         self.parser = SemanticVersionParser()
 
     def test_parse_major_minor(self):
@@ -269,16 +301,19 @@ class TestSemanticVersionParser:
 
     def test_parse_invalid(self):
         from aquilia.versioning.errors import InvalidVersionError
+
         with pytest.raises(InvalidVersionError):
             self.parser.parse("not-a-version")
 
     def test_format(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2, 1, 3)
         assert self.parser.format(v) == "2.1.3"
 
     def test_format_epoch(self):
         from aquilia.versioning.core import ApiVersion
+
         v = ApiVersion(2025, 6, label="2025-06")
         assert self.parser.format(v) == "2025-06"
 
@@ -286,6 +321,7 @@ class TestSemanticVersionParser:
 # ════════════════════════════════════════════════════════════════════════════
 #  4. RESOLVERS
 # ════════════════════════════════════════════════════════════════════════════
+
 
 def _make_request(
     path="/",
@@ -301,10 +337,7 @@ def _make_request(
         "method": method,
         "path": path,
         "query_string": query_string,
-        "headers": [
-            (k.lower().encode(), v.encode())
-            for k, v in (headers or {}).items()
-        ],
+        "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
     }
     return Request(scope, receive=AsyncMock())
 
@@ -312,24 +345,28 @@ def _make_request(
 class TestHeaderResolver:
     def test_resolve_default_header(self):
         from aquilia.versioning.resolvers import HeaderResolver
+
         r = HeaderResolver()
         req = _make_request(headers={"x-api-version": "2.0"})
         assert r.resolve(req) == "2.0"
 
     def test_resolve_custom_header(self):
         from aquilia.versioning.resolvers import HeaderResolver
+
         r = HeaderResolver(header_name="API-Version")
         req = _make_request(headers={"api-version": "3.1"})
         assert r.resolve(req) == "3.1"
 
     def test_missing_header(self):
         from aquilia.versioning.resolvers import HeaderResolver
+
         r = HeaderResolver()
         req = _make_request()
         assert r.resolve(req) is None
 
     def test_name(self):
         from aquilia.versioning.resolvers import HeaderResolver
+
         r = HeaderResolver()
         assert r.name == "header"
 
@@ -337,18 +374,21 @@ class TestHeaderResolver:
 class TestQueryParamResolver:
     def test_resolve(self):
         from aquilia.versioning.resolvers import QueryParamResolver
+
         r = QueryParamResolver()
         req = _make_request(query_string=b"api_version=2.0&other=xyz")
         assert r.resolve(req) == "2.0"
 
     def test_custom_param(self):
         from aquilia.versioning.resolvers import QueryParamResolver
+
         r = QueryParamResolver(param_name="v")
         req = _make_request(query_string=b"v=1.0")
         assert r.resolve(req) == "1.0"
 
     def test_missing(self):
         from aquilia.versioning.resolvers import QueryParamResolver
+
         r = QueryParamResolver()
         req = _make_request()
         assert r.resolve(req) is None
@@ -357,30 +397,35 @@ class TestQueryParamResolver:
 class TestURLPathResolver:
     def test_resolve(self):
         from aquilia.versioning.resolvers import URLPathResolver
+
         r = URLPathResolver()
         req = _make_request(path="/v2/users")
         assert r.resolve(req) == "2"
 
     def test_resolve_with_minor(self):
         from aquilia.versioning.resolvers import URLPathResolver
+
         r = URLPathResolver()
         req = _make_request(path="/v2.1/items")
         assert r.resolve(req) == "2.1"
 
     def test_no_version(self):
         from aquilia.versioning.resolvers import URLPathResolver
+
         r = URLPathResolver()
         req = _make_request(path="/users")
         assert r.resolve(req) is None
 
     def test_strip_version_from_path(self):
         from aquilia.versioning.resolvers import URLPathResolver
+
         r = URLPathResolver(strip_from_path=True)
         result = r.strip_version_from_path("/v2/users/123")
         assert result == "/users/123"
 
     def test_strip_root_version(self):
         from aquilia.versioning.resolvers import URLPathResolver
+
         r = URLPathResolver(strip_from_path=True)
         result = r.strip_version_from_path("/v1")
         assert result == "/"
@@ -389,12 +434,14 @@ class TestURLPathResolver:
 class TestMediaTypeResolver:
     def test_resolve_param(self):
         from aquilia.versioning.resolvers import MediaTypeResolver
+
         r = MediaTypeResolver()
         req = _make_request(headers={"accept": "application/json; version=2"})
         assert r.resolve(req) == "2"
 
     def test_resolve_vendor(self):
         from aquilia.versioning.resolvers import MediaTypeResolver
+
         r = MediaTypeResolver()
         req = _make_request(
             headers={"accept": "application/vnd.myapi.v3+json"},
@@ -403,6 +450,7 @@ class TestMediaTypeResolver:
 
     def test_missing(self):
         from aquilia.versioning.resolvers import MediaTypeResolver
+
         r = MediaTypeResolver()
         req = _make_request(headers={"accept": "text/html"})
         assert r.resolve(req) is None
@@ -411,6 +459,7 @@ class TestMediaTypeResolver:
 class TestChannelResolver:
     def test_resolve_via_header(self):
         from aquilia.versioning.resolvers import ChannelResolver
+
         r = ChannelResolver(
             channel_map={"stable": "2.0", "preview": "3.0"},
         )
@@ -419,6 +468,7 @@ class TestChannelResolver:
 
     def test_resolve_via_query(self):
         from aquilia.versioning.resolvers import ChannelResolver
+
         r = ChannelResolver(
             channel_map={"stable": "2.0", "legacy": "1.0"},
         )
@@ -427,6 +477,7 @@ class TestChannelResolver:
 
     def test_unknown_channel(self):
         from aquilia.versioning.resolvers import ChannelResolver
+
         r = ChannelResolver(channel_map={"stable": "2.0"})
         req = _make_request(headers={"x-api-channel": "nope"})
         assert r.resolve(req) is None
@@ -439,6 +490,7 @@ class TestCompositeResolver:
             HeaderResolver,
             QueryParamResolver,
         )
+
         c = CompositeResolver()
         c.add(HeaderResolver())
         c.add(QueryParamResolver())
@@ -452,6 +504,7 @@ class TestCompositeResolver:
             HeaderResolver,
             QueryParamResolver,
         )
+
         c = CompositeResolver()
         c.add(HeaderResolver())
         c.add(QueryParamResolver())
@@ -478,10 +531,12 @@ class TestCustomResolver:
 #  5. GRAPH
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestVersionGraph:
     def test_register_and_contains(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         v = ApiVersion(1, 0)
         g.register(v)
@@ -491,6 +546,7 @@ class TestVersionGraph:
     def test_latest(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
         g.register(ApiVersion(3, 0))
@@ -501,6 +557,7 @@ class TestVersionGraph:
     def test_freeze_links_successors(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
         g.register(ApiVersion(2, 0))
@@ -515,6 +572,7 @@ class TestVersionGraph:
     def test_active_versions(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
         g.register(ApiVersion(2, 0))
@@ -525,6 +583,7 @@ class TestVersionGraph:
     def test_channel(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion, VersionChannel
+
         g = VersionGraph()
         v = ApiVersion(2, 0)
         g.register(v)
@@ -534,6 +593,7 @@ class TestVersionGraph:
     def test_register_route(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         v = ApiVersion(2, 0)
         g.register(v)
@@ -544,6 +604,7 @@ class TestVersionGraph:
     def test_register_controller(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         v = ApiVersion(1, 0)
         g.register(v)
@@ -554,6 +615,7 @@ class TestVersionGraph:
     def test_to_dict(self):
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
         g.register(ApiVersion(2, 0))
@@ -567,9 +629,11 @@ class TestVersionGraph:
 #  6. SUNSET
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestSunsetPolicy:
     def test_defaults(self):
         from aquilia.versioning.sunset import SunsetPolicy
+
         p = SunsetPolicy()
         assert p.warn_header is True
         assert p.enforce_sunset is True
@@ -580,6 +644,7 @@ class TestSunsetRegistry:
     def test_register_and_get(self):
         from aquilia.versioning.sunset import SunsetRegistry
         from aquilia.versioning.core import ApiVersion
+
         r = SunsetRegistry()
         v = ApiVersion(1, 0)
         now = datetime.now(timezone.utc)
@@ -592,6 +657,7 @@ class TestSunsetRegistry:
     def test_sunset_entries(self):
         from aquilia.versioning.sunset import SunsetRegistry
         from aquilia.versioning.core import ApiVersion
+
         r = SunsetRegistry()
         v = ApiVersion(1, 0)
         now = datetime.now(timezone.utc)
@@ -607,6 +673,7 @@ class TestSunsetRegistry:
     def test_to_dict(self):
         from aquilia.versioning.sunset import SunsetRegistry
         from aquilia.versioning.core import ApiVersion
+
         r = SunsetRegistry()
         r.register(ApiVersion(1, 0))
         d = r.to_dict()
@@ -617,6 +684,7 @@ class TestSunsetEnforcer:
     def test_no_rejection_for_active(self):
         from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry, SunsetEnforcer
         from aquilia.versioning.core import ApiVersion
+
         reg = SunsetRegistry()
         v = ApiVersion(2, 0)
         # Not registered = active
@@ -626,6 +694,7 @@ class TestSunsetEnforcer:
     def test_rejection_for_sunset(self):
         from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry, SunsetEnforcer
         from aquilia.versioning.core import ApiVersion
+
         reg = SunsetRegistry()
         v = ApiVersion(1, 0)
         now = datetime.now(timezone.utc)
@@ -641,6 +710,7 @@ class TestSunsetEnforcer:
     def test_headers_for_deprecated(self):
         from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry, SunsetEnforcer
         from aquilia.versioning.core import ApiVersion
+
         reg = SunsetRegistry()
         v = ApiVersion(1, 0)
         now = datetime.now(timezone.utc)
@@ -659,9 +729,11 @@ class TestSunsetEnforcer:
 #  7. NEGOTIATION
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestNegotiationMode:
     def test_enum_values(self):
         from aquilia.versioning.negotiation import NegotiationMode
+
         assert NegotiationMode.EXACT.value == "exact"
         assert NegotiationMode.COMPATIBLE.value == "compatible"
         assert NegotiationMode.LATEST.value == "latest"
@@ -674,14 +746,16 @@ class TestVersionNegotiator:
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.negotiation import NegotiationMode, VersionNegotiator
         from aquilia.versioning.core import ApiVersion
+
         g = VersionGraph()
-        for v in (versions or [ApiVersion(1, 0), ApiVersion(2, 0), ApiVersion(3, 0)]):
+        for v in versions or [ApiVersion(1, 0), ApiVersion(2, 0), ApiVersion(3, 0)]:
             g.register(v)
         g.freeze()
         return VersionNegotiator(g, NegotiationMode(mode))
 
     def test_exact_match(self):
         from aquilia.versioning.core import ApiVersion
+
         n = self._build("exact")
         result = n.negotiate(ApiVersion(2, 0))
         assert result == ApiVersion(2, 0)
@@ -689,35 +763,50 @@ class TestVersionNegotiator:
     def test_exact_no_match(self):
         from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.errors import VersionNegotiationError
+
         n = self._build("exact")
         with pytest.raises(VersionNegotiationError):
             n.negotiate(ApiVersion(9, 0))
 
     def test_compatible(self):
         from aquilia.versioning.core import ApiVersion
-        n = self._build("compatible", [
-            ApiVersion(2, 0), ApiVersion(2, 3), ApiVersion(3, 0),
-        ])
+
+        n = self._build(
+            "compatible",
+            [
+                ApiVersion(2, 0),
+                ApiVersion(2, 3),
+                ApiVersion(3, 0),
+            ],
+        )
         result = n.negotiate(ApiVersion(2, 1))
         # Should pick 2.3 (same major, highest minor >= requested)
         assert result.major == 2
 
     def test_latest(self):
         from aquilia.versioning.core import ApiVersion
+
         n = self._build("latest")
         result = n.negotiate(ApiVersion(1, 0))
         assert result == ApiVersion(3, 0)
 
     def test_nearest(self):
         from aquilia.versioning.core import ApiVersion
-        n = self._build("nearest", [
-            ApiVersion(1, 0), ApiVersion(2, 0), ApiVersion(3, 0),
-        ])
+
+        n = self._build(
+            "nearest",
+            [
+                ApiVersion(1, 0),
+                ApiVersion(2, 0),
+                ApiVersion(3, 0),
+            ],
+        )
         result = n.negotiate(ApiVersion(2, 5))
         assert result == ApiVersion(2, 0)  # nearest by distance (diff of 5 vs 6)
 
     def test_fallback(self):
         from aquilia.versioning.core import ApiVersion
+
         n = self._build("exact")
         result = n.negotiate(ApiVersion(9, 0), fallback=ApiVersion(1, 0))
         assert result == ApiVersion(1, 0)
@@ -727,9 +816,11 @@ class TestVersionNegotiator:
 #  8. STRATEGY
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestVersionConfig:
     def test_defaults(self):
         from aquilia.versioning.strategy import VersionConfig
+
         c = VersionConfig()
         assert c.strategy == "header"
         assert c.header_name == "X-API-Version"
@@ -738,6 +829,7 @@ class TestVersionConfig:
 
     def test_to_dict(self):
         from aquilia.versioning.strategy import VersionConfig
+
         c = VersionConfig(versions=["1.0", "2.0"])
         d = c.to_dict()
         assert d["versions"] == ["1.0", "2.0"]
@@ -746,6 +838,7 @@ class TestVersionConfig:
 class TestVersionStrategy:
     def _build(self, **overrides):
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
         defaults = dict(
             strategy="header",
             versions=["1.0", "2.0", "3.0"],
@@ -757,6 +850,7 @@ class TestVersionStrategy:
 
     def test_resolve_from_header(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build(strategy="header")
         req = _make_request(headers={"x-api-version": "3.0"})
         v = s.resolve(req)
@@ -764,6 +858,7 @@ class TestVersionStrategy:
 
     def test_resolve_default(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build(strategy="header")
         req = _make_request()  # no header
         v = s.resolve(req)
@@ -777,6 +872,7 @@ class TestVersionStrategy:
 
     def test_resolve_url_strategy(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build(strategy="url")
         req = _make_request(path="/v3/users")
         v = s.resolve(req)
@@ -796,6 +892,7 @@ class TestVersionStrategy:
 
     def test_resolve_query_strategy(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build(strategy="query")
         req = _make_request(query_string=b"api_version=1.0")
         v = s.resolve(req)
@@ -803,6 +900,7 @@ class TestVersionStrategy:
 
     def test_resolve_composite(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build(strategy="composite")
         req = _make_request(query_string=b"api_version=1.0")
         v = s.resolve(req)
@@ -810,6 +908,7 @@ class TestVersionStrategy:
 
     def test_require_version(self):
         from aquilia.versioning.errors import MissingVersionError
+
         s = self._build(require_version=True, default_version=None)
         req = _make_request()
         with pytest.raises(MissingVersionError):
@@ -817,6 +916,7 @@ class TestVersionStrategy:
 
     def test_get_response_headers(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build()
         headers = s.get_response_headers(ApiVersion(2, 0))
         assert "X-API-Version" in headers
@@ -830,12 +930,14 @@ class TestVersionStrategy:
 
     def test_register_version(self):
         from aquilia.versioning.core import ApiVersion
+
         # Version 4.0 is included in the config versions list
         s = self._build(versions=["1.0", "2.0", "3.0", "4.0"])
         assert s.graph.contains(ApiVersion(4, 0))
 
     def test_channel_strategy(self):
         from aquilia.versioning.core import ApiVersion
+
         s = self._build(
             strategy="channel",
             channels={"stable": "2.0", "preview": "3.0"},
@@ -846,6 +948,7 @@ class TestVersionStrategy:
 
     def test_sunset_schedules(self):
         from aquilia.versioning.sunset import SunsetPolicy
+
         now = datetime.now(timezone.utc)
         s = self._build(
             sunset_policy=SunsetPolicy(warn_header=True),
@@ -871,9 +974,11 @@ class TestVersionStrategy:
 #  9. MIDDLEWARE
 # ════════════════════════════════════════════════════════════════════════════
 
+
 class TestVersionMiddleware:
     def _build_strategy(self, **overrides):
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
         defaults = dict(
             strategy="header",
             versions=["1.0", "2.0"],
@@ -895,6 +1000,7 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         resp = await mw(req, ctx, next_handler)
@@ -915,6 +1021,7 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         resp = await mw(req, ctx, next_handler)
@@ -932,6 +1039,7 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         resp = await mw(req, ctx, next_handler)
@@ -949,6 +1057,7 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         resp = await mw(req, ctx, next_handler)
@@ -1069,6 +1178,7 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         resp = await mw(req, ctx, next_handler)
@@ -1086,6 +1196,7 @@ class TestVersionMiddleware:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"path": r.path})
 
         resp = await mw(req, ctx, next_handler)
@@ -1096,6 +1207,7 @@ class TestVersionMiddleware:
 # ════════════════════════════════════════════════════════════════════════════
 #  10. DECORATORS
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestVersionDecorators:
     def test_version_single(self):
@@ -1141,6 +1253,7 @@ class TestVersionDecorators:
 # ════════════════════════════════════════════════════════════════════════════
 #  11. INTEGRATION — RouteDecorator version, metadata, router
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestRouteDecoratorVersion:
     """Test that the version parameter flows through the decorator system."""
@@ -1306,6 +1419,7 @@ class TestConfigVersioning:
 
     def test_get_versioning_config_defaults(self):
         from aquilia.config import ConfigLoader
+
         c = ConfigLoader()
         vc = c.get_versioning_config()
         assert vc["enabled"] is False
@@ -1314,6 +1428,7 @@ class TestConfigVersioning:
 
     def test_get_versioning_config_merge(self):
         from aquilia.config import ConfigLoader
+
         c = ConfigLoader()
         c.config_data["integrations"] = {
             "versioning": {
@@ -1333,6 +1448,7 @@ class TestIntegrationVersioning:
 
     def test_builder(self):
         from aquilia.config_builders import Integration
+
         config = Integration.versioning(
             strategy="header",
             versions=["1.0", "2.0", "3.0"],
@@ -1349,6 +1465,7 @@ class TestIntegrationVersioning:
     def test_builder_with_sunset(self):
         from aquilia.config_builders import Integration
         from aquilia.versioning.sunset import SunsetPolicy
+
         config = Integration.versioning(
             versions=["1.0", "2.0"],
             sunset_policy=SunsetPolicy(grace_period=timedelta(days=90)),
@@ -1359,6 +1476,7 @@ class TestIntegrationVersioning:
 # ════════════════════════════════════════════════════════════════════════════
 #  12. END-TO-END SCENARIO
 # ════════════════════════════════════════════════════════════════════════════
+
 
 class TestEndToEnd:
     """Full pipeline: config → strategy → middleware → resolve."""
@@ -1398,6 +1516,7 @@ class TestEndToEnd:
 
         async def handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"data": "legacy"})
 
         resp = await mw(req, ctx, handler)
@@ -1426,6 +1545,7 @@ class TestEndToEnd:
 
         async def handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"path": r.path})
 
         resp = await mw(req, ctx, handler)
@@ -1453,6 +1573,7 @@ class TestEndToEnd:
 
         async def handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"channel": "preview"})
 
         resp = await mw(req, ctx, handler)
