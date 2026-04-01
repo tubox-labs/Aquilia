@@ -6,13 +6,13 @@ Currently, the following versions of Aquilia are supported with security updates
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.1   | :white_check_mark: |
+| 1.0.2   | :white_check_mark: |
 | 1.0.0   | :warning: upgrade recommended |
 | < 1.0   | :x:                |
 
 ## Security Audit Status
 
-Aquilia v1.0.1 has undergone a comprehensive 15-phase security audit covering all subsystems:
+Aquilia v1.0.2 has undergone a comprehensive 15-phase security audit covering all subsystems:
 
 | Subsystem | Status | Key Protections |
 |-----------|--------|----------------|
@@ -29,7 +29,7 @@ Aquilia v1.0.1 has undergone a comprehensive 15-phase security audit covering al
 | **Templates** | ✅ Audited | Sandboxed Jinja2, HMAC-verified bytecode cache, autoescape |
 | **Faults** | ✅ Audited | 14 typed domains, no raw exceptions in any audited subsystem |
 
-### Critical Fixes in v1.0.1
+### Critical Fixes in v1.0.2
 
 1. **Unsafe pickle deserialization** — `templates/bytecode_cache.py` and `templates/manager.py` previously used `pickle.load()` to deserialize cached template data from disk. This has been replaced with HMAC-verified JSON serialization (SHA-256 signature) to prevent arbitrary code execution via tampered cache files.
 
