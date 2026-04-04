@@ -263,7 +263,19 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'WebSockets', path: '/docs/websockets', icon: <Globe className="w-3.5 h-3.5" />,
+        label: 'HTTP Client', path: '/docs/http', icon: <Globe className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/http' },
+          { label: 'HTTPClient', path: '/docs/http/client' },
+          { label: 'Sessions', path: '/docs/http/sessions' },
+          { label: 'Transport Layer', path: '/docs/http/transport' },
+          { label: 'Advanced Usage', path: '/docs/http/advanced' },
+          { label: 'Error Handling', path: '/docs/http/faults' },
+          { label: 'DI Integration', path: '/docs/http/integration' },
+        ]
+      },
+      {
+        label: 'WebSockets', path: '/docs/websockets', icon: <Network className="w-3.5 h-3.5" />,
         children: [
           { label: 'Socket Controllers', path: '/docs/websockets/controllers' },
           { label: 'Runtime', path: '/docs/websockets/runtime' },

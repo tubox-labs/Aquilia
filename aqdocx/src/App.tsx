@@ -134,6 +134,15 @@ import { CacheService } from './pages/docs/cache/Service'
 import { CacheBackends } from './pages/docs/cache/Backends'
 import { CacheDecorators } from './pages/docs/cache/Decorators'
 
+// HTTP Client
+import { HTTPOverview } from './pages/docs/http/Overview'
+import { HTTPClient } from './pages/docs/http/Client'
+import { HTTPSessions } from './pages/docs/http/Sessions'
+import { HTTPTransport } from './pages/docs/http/Transport'
+import { HTTPAdvanced } from './pages/docs/http/Advanced'
+import { HTTPFaults } from './pages/docs/http/Faults'
+import { HTTPIntegration } from './pages/docs/http/Integration'
+
 // WebSockets
 import { WebSocketsOverview } from './pages/docs/websockets/Overview'
 import { WebSocketControllers } from './pages/docs/websockets/Controllers'
@@ -374,6 +383,15 @@ export default function App() {
           <Route path="cache/service" element={<CacheService />} />
           <Route path="cache/backends" element={<CacheBackends />} />
           <Route path="cache/decorators" element={<CacheDecorators />} />
+
+          {/* HTTP Client */}
+          <Route path="http" element={<HTTPOverview />} />
+          <Route path="http/client" element={<HTTPClient />} />
+          <Route path="http/sessions" element={<HTTPSessions />} />
+          <Route path="http/transport" element={<HTTPTransport />} />
+          <Route path="http/advanced" element={<HTTPAdvanced />} />
+          <Route path="http/faults" element={<HTTPFaults />} />
+          <Route path="http/integration" element={<HTTPIntegration />} />
 
           {/* WebSockets */}
           <Route path="websockets" element={<WebSocketsOverview />} />
