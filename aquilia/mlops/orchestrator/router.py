@@ -92,7 +92,7 @@ class VersionRouter:
             from aquilia.faults.domains import ModelNotFoundFault
 
             raise ModelNotFoundFault(
-                model=model_name,
+                model_name=model_name,
                 reason=f"Model '{model_name}' is not registered",
             )
         return active
@@ -120,7 +120,7 @@ class VersionRouter:
             from aquilia.faults.domains import ModelNotFoundFault
 
             raise ModelNotFoundFault(
-                model=model_name,
+                model_name=model_name,
                 reason=f"Model '{model_name}' has no active version",
             )
 

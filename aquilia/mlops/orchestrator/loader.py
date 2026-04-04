@@ -137,7 +137,7 @@ class ModelLoader:
                 from aquilia.faults.domains import ModelNotFoundFault
 
                 raise ModelNotFoundFault(
-                    model=f"{name}:{version}",
+                    model_name=f"{name}:{version}",
                     reason=f"Model '{name}:{version}' not found in registry",
                 )
 

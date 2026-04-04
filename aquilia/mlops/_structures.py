@@ -641,7 +641,7 @@ class ModelLineageDAG:
             from aquilia.faults.domains import ModelRegistrationFault
 
             raise ModelRegistrationFault(
-                model=model_id,
+                model_name=model_id,
                 reason=f"Model '{model_id}' already exists in lineage",
             )
 
@@ -652,7 +652,7 @@ class ModelLineageDAG:
                 from aquilia.faults.domains import ModelNotFoundFault
 
                 raise ModelNotFoundFault(
-                    model=pid,
+                    model_name=pid,
                     reason=f"Parent model '{pid}' not found in lineage",
                 )
             self._nodes[pid].children.append(model_id)
