@@ -246,7 +246,7 @@ class IntegrationService:
                 "personalizations": [{"to": [{"email": user["email"]}]}],
                 "from": {"email": "noreply@example.com"},
                 "subject": "Payment Confirmation",
-                "content": [{"type": "text/plain", "value": f"Payment of ${amount/100} confirmed"}],
+                "content": [{"type": "text/plain", "value": f"Payment confirmed"}],
             },
         )
         
