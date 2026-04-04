@@ -142,6 +142,13 @@ import { HTTPTransport } from './pages/docs/http/Transport'
 import { HTTPAdvanced } from './pages/docs/http/Advanced'
 import { HTTPFaults } from './pages/docs/http/Faults'
 import { HTTPIntegration } from './pages/docs/http/Integration'
+import { HTTPAPIRequest } from './pages/docs/http/api/Request'
+import { HTTPAPIResponse } from './pages/docs/http/api/Response'
+import { HTTPAPIAuth } from './pages/docs/http/api/Auth'
+import { HTTPAPICookies } from './pages/docs/http/api/Cookies'
+import { HTTPAPIMiddleware } from './pages/docs/http/api/Middleware'
+import { HTTPAPIMultipart } from './pages/docs/http/api/Multipart'
+import { HTTPAPIStreaming } from './pages/docs/http/api/Streaming'
 
 // WebSockets
 import { WebSocketsOverview } from './pages/docs/websockets/Overview'
@@ -392,6 +399,14 @@ export default function App() {
           <Route path="http/advanced" element={<HTTPAdvanced />} />
           <Route path="http/faults" element={<HTTPFaults />} />
           <Route path="http/integration" element={<HTTPIntegration />} />
+          <Route path="http/api" element={<HTTPAPIRequest />} />
+          <Route path="http/api/request" element={<HTTPAPIRequest />} />
+          <Route path="http/api/response" element={<HTTPAPIResponse />} />
+          <Route path="http/api/auth" element={<HTTPAPIAuth />} />
+          <Route path="http/api/cookies" element={<HTTPAPICookies />} />
+          <Route path="http/api/middleware" element={<HTTPAPIMiddleware />} />
+          <Route path="http/api/multipart" element={<HTTPAPIMultipart />} />
+          <Route path="http/api/streaming" element={<HTTPAPIStreaming />} />
 
           {/* WebSockets */}
           <Route path="websockets" element={<WebSocketsOverview />} />

@@ -4,9 +4,10 @@ import {
   Sun, Moon, Github, ChevronDown, Rocket, Zap, Box,
   Shield, Layers, Wrench, BookOpen, Download, Cpu,
   Settings, Database, Lock, Key, Code, Bug, Wifi,
-  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag
+  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { UniversalSearch } from './UniversalSearch'
 
 const navSections = [
   {
@@ -59,6 +60,7 @@ const navSections = [
       { label: 'Effects System', path: '/docs/effects', icon: Zap },
       { label: 'Fault System', path: '/docs/faults', icon: Bug },
       { label: 'Cache', path: '/docs/cache', icon: Zap },
+      { label: 'HTTP Client', path: '/docs/http', icon: Globe },
       { label: 'WebSockets', path: '/docs/websockets', icon: Wifi },
       { label: 'Templates', path: '/docs/templates', icon: FileText },
       { label: 'Mail', path: '/docs/mail', icon: Mail },
@@ -253,6 +255,18 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
             </Link>
 
             <Link
+              to="/docs/http"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/http relative overflow-hidden ${location.pathname.startsWith('/docs/http')
+                ? 'text-aquilia-400'
+                : `${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`
+                }`}
+            >
+              <Globe className="w-4 h-4 group-hover/http:scale-110 transition-transform duration-200" />
+              <span>HTTP</span>
+              <div className={`absolute inset-0 -translate-x-full group-hover/http:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
+            </Link>
+
+            <Link
               to="/changelogs"
               className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/cl relative overflow-hidden ${location.pathname === '/changelogs'
                 ? 'text-aquilia-400'
@@ -279,6 +293,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
 
           {/* Right actions */}
           <div className="flex items-center gap-2">
+            <UniversalSearch />
             <button
               onClick={toggle}
               className={`p-2 rounded-lg transition-all duration-200 relative overflow-hidden group ${isDark ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-900'}`}

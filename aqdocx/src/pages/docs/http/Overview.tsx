@@ -324,6 +324,12 @@ restored = HTTPClientConfig.from_dict(config_dict)`}</CodeBlock>
               Streaming, retries, interceptors, middleware, and performance tuning.
             </p>
           </Link>
+          <Link to="/docs/http/api" className={`${boxClass} hover:border-aquilia-500/50 transition-colors`}>
+            <h3 className={`font-bold mb-2 text-aquilia-500`}>Core API Reference</h3>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Deep technical references for request, response, auth, cookies, middleware, multipart, and streaming modules.
+            </p>
+          </Link>
         </div>
       </section>
 

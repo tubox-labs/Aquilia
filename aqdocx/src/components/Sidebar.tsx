@@ -272,6 +272,18 @@ export const sections: SidebarSection[] = [
           { label: 'Advanced Usage', path: '/docs/http/advanced' },
           { label: 'Error Handling', path: '/docs/http/faults' },
           { label: 'DI Integration', path: '/docs/http/integration' },
+          {
+            label: 'Core API Reference', path: '/docs/http/api',
+            children: [
+              { label: 'Request API', path: '/docs/http/api/request' },
+              { label: 'Response API', path: '/docs/http/api/response' },
+              { label: 'Auth API', path: '/docs/http/api/auth' },
+              { label: 'Cookies API', path: '/docs/http/api/cookies' },
+              { label: 'Middleware API', path: '/docs/http/api/middleware' },
+              { label: 'Multipart API', path: '/docs/http/api/multipart' },
+              { label: 'Streaming API', path: '/docs/http/api/streaming' },
+            ]
+          },
         ]
       },
       {

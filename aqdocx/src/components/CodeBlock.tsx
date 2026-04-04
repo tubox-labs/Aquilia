@@ -67,9 +67,10 @@ interface CodeBlockProps {
   filename?: string
   title?: string
   showLineNumbers?: boolean
+  compact?: boolean
 }
 
-export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true }: CodeBlockProps) {
+export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true, compact = false }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -96,11 +97,11 @@ export function CodeBlock({ code, children, language = 'python', filename, title
   }, [codeContent])
 
   return (
-    <div className="group relative my-6">
+    <div className={`group relative ${compact ? 'my-2' : 'my-6'}`}>
       <div className="absolute -inset-0.5 bg-gradient-to-r from-aquilia-500/10 to-blue-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition" />
       <div className={`relative rounded-xl overflow-hidden border ${isDark ? 'bg-black border-white/10' : 'bg-[#f8fafc] border-gray-200'}`}>
         {/* Header with macOS traffic-light dots */}
-        <div className={`flex items-center justify-between px-4 py-2.5 border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/80'}`}>
+        <div className={`flex items-center justify-between ${compact ? 'px-3 py-2' : 'px-4 py-2.5'} border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/80'}`}>
           <div className="flex items-center gap-3">
             <div className="flex gap-1.5 opacity-50">
               <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
@@ -109,7 +110,7 @@ export function CodeBlock({ code, children, language = 'python', filename, title
             </div>
             <div className="flex items-center gap-2">
               {isTerminal && <Terminal className="w-3.5 h-3.5 text-aquilia-500" />}
-              <span className={`text-xs font-mono uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+              <span className={`font-mono uppercase tracking-wider ${compact ? 'text-[10px]' : 'text-xs'} ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                 {title || filename || language}
               </span>
             </div>
@@ -128,11 +129,11 @@ export function CodeBlock({ code, children, language = 'python', filename, title
         {/* Code body */}
         <Highlight theme={isDark ? aquiliaDarkTheme : aquiliaLightTheme} code={codeContent} language={prismLanguage as any}>
           {({ tokens, getLineProps, getTokenProps }) => (
-            <pre className={`p-4 overflow-x-auto text-sm leading-relaxed font-mono ${isDark ? 'bg-black' : 'bg-[#f8fafc]'}`}>
+            <pre className={`${compact ? 'p-3 text-xs' : 'p-4 text-sm'} overflow-x-auto leading-relaxed font-mono ${isDark ? 'bg-black' : 'bg-[#f8fafc]'}`}>
               {tokens.map((line, i) => (
                 <div key={i} {...getLineProps({ line })}>
                   {showLineNumbers && (
-                    <span className={`inline-block w-8 text-right mr-4 select-none ${isDark ? 'text-gray-700' : 'text-gray-300'}`}>
+                    <span className={`inline-block ${compact ? 'w-6 mr-3' : 'w-8 mr-4'} text-right select-none ${isDark ? 'text-gray-700' : 'text-gray-300'}`}>
                       {i + 1}
                     </span>
                   )}
