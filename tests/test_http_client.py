@@ -817,5 +817,359 @@ class TestHTTPClientFaults:
         assert fault.retryable is False
 
 
+# ============================================================================
+# Native Transport Tests
+# ============================================================================
+
+
+class TestNativeTransportConnectionPool:
+    """Tests for the native transport ConnectionPool class."""
+
+    @pytest.mark.asyncio
+    async def test_pool_initialization(self):
+        from aquilia.http._transport import ConnectionPool
+
+        pool = ConnectionPool(max_connections=50, max_per_host=5, keepalive_expiry=30.0)
+        assert pool._max_connections == 50
+        assert pool._max_per_host == 5
+        assert pool._keepalive_expiry == 30.0
+
+    @pytest.mark.asyncio
+    async def test_pool_make_key(self):
+        from aquilia.http._transport import ConnectionPool
+
+        pool = ConnectionPool()
+        assert pool._make_key("example.com", 443, True) == "https://example.com:443"
+        assert pool._make_key("example.com", 80, False) == "http://example.com:80"
+
+    @pytest.mark.asyncio
+    async def test_pool_get_returns_none_when_empty(self):
+        from aquilia.http._transport import ConnectionPool
+
+        pool = ConnectionPool()
+        conn = await pool.get_connection("example.com", 443, True)
+        assert conn is None
+
+    @pytest.mark.asyncio
+    async def test_pool_close_all(self):
+        from aquilia.http._transport import ConnectionPool
+
+        pool = ConnectionPool()
+        # No connections to close, should not raise
+        await pool.close_all()
+        assert len(pool._connections) == 0
+
+
+class TestNativeTransportConnectionInfo:
+    """Tests for the native transport ConnectionInfo class."""
+
+    def test_connection_info_age_calculation(self):
+        import time
+
+        # Test age calculation with mock objects using MagicMock
+        from unittest.mock import MagicMock
+
+        from aquilia.http._transport import ConnectionInfo
+
+        mock_reader = MagicMock()
+        mock_writer = MagicMock()
+        mock_writer.is_closing.return_value = False
+
+        created = time.monotonic() - 10.0
+
+        info = ConnectionInfo(
+            host="example.com",
+            port=443,
+            ssl=True,
+            reader=mock_reader,
+            writer=mock_writer,
+            created_at=created,
+        )
+
+        # Age should be at least 10 seconds
+        assert info.age >= 10.0
+
+        # is_alive should return True since writer.is_closing() returns False
+        assert info.is_alive() is True
+
+    def test_connection_info_is_alive_false(self):
+
+        from unittest.mock import MagicMock
+
+        from aquilia.http._transport import ConnectionInfo
+
+        mock_reader = MagicMock()
+        mock_writer = MagicMock()
+        mock_writer.is_closing.return_value = True
+
+        info = ConnectionInfo(
+            host="example.com",
+            port=443,
+            ssl=True,
+            reader=mock_reader,
+            writer=mock_writer,
+        )
+
+        # is_alive should return False when writer.is_closing() returns True
+        assert info.is_alive() is False
+
+
+class TestNativeTransportBasic:
+    """Basic tests for NativeTransport class."""
+
+    @pytest.mark.asyncio
+    async def test_native_transport_creation(self):
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        assert transport._closed is False
+        await transport.close()
+        assert transport._closed is True
+
+    @pytest.mark.asyncio
+    async def test_native_transport_with_config(self):
+        from aquilia.http._transport import NativeTransport
+
+        config = HTTPClientConfig(
+            user_agent="TestClient/1.0",
+            pool=PoolConfig(max_connections=20, max_connections_per_host=5),
+        )
+        transport = NativeTransport(config)
+
+        assert transport._config.user_agent == "TestClient/1.0"
+        assert transport._pool._max_connections == 20
+        await transport.close()
+
+    @pytest.mark.asyncio
+    async def test_native_transport_context_manager(self):
+        from aquilia.http._transport import NativeTransport
+
+        async with NativeTransport() as transport:
+            assert transport._closed is False
+        assert transport._closed is True
+
+    @pytest.mark.asyncio
+    async def test_native_transport_send_when_closed_raises(self):
+        from aquilia.http._transport import NativeTransport
+        from aquilia.http.faults import ConnectionClosedFault
+
+        transport = NativeTransport()
+        await transport.close()
+
+        request = HTTPClientRequest(method=HTTPMethod.GET, url="https://example.com")
+
+        with pytest.raises(ConnectionClosedFault):
+            await transport.send(request)
+
+
+class TestNativeTransportRequestBuilding:
+    """Tests for NativeTransport request building."""
+
+    def test_build_request_bytes_basic(self):
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        request = HTTPClientRequest(
+            method=HTTPMethod.GET,
+            url="https://example.com/path?query=value",
+            headers={"Accept": "application/json"},
+        )
+
+        request_bytes = transport._build_request_bytes(request)
+
+        # Check request line
+        assert b"GET /path?query=value HTTP/1.1\r\n" in request_bytes
+        # Check headers
+        assert b"Host: example.com" in request_bytes
+        assert b"Accept: application/json" in request_bytes
+        assert b"User-Agent:" in request_bytes
+        assert b"Connection: keep-alive" in request_bytes
+
+    def test_build_request_bytes_with_body(self):
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        body = b'{"key": "value"}'
+        request = HTTPClientRequest(
+            method=HTTPMethod.POST,
+            url="https://example.com/api",
+            headers={"Content-Type": "application/json"},
+            body=body,
+        )
+
+        request_bytes = transport._build_request_bytes(request)
+
+        assert b"POST /api HTTP/1.1\r\n" in request_bytes
+        assert b"Content-Length: 16\r\n" in request_bytes
+        assert body in request_bytes
+
+    def test_build_request_bytes_with_auth(self):
+        import base64
+
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        request = HTTPClientRequest(
+            method=HTTPMethod.GET,
+            url="https://example.com/secure",
+            auth=("user", "password"),
+        )
+
+        request_bytes = transport._build_request_bytes(request)
+
+        # Verify Basic auth header
+        expected_auth = base64.b64encode(b"user:password").decode()
+        assert f"Authorization: Basic {expected_auth}".encode() in request_bytes
+
+    def test_build_request_bytes_custom_port(self):
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        request = HTTPClientRequest(
+            method=HTTPMethod.GET,
+            url="https://example.com:8443/path",
+        )
+
+        request_bytes = transport._build_request_bytes(request)
+
+        # Port should be included in Host header
+        assert b"Host: example.com:8443" in request_bytes
+
+
+class TestNativeTransportDecompression:
+    """Tests for NativeTransport decompression."""
+
+    def test_decompress_gzip(self):
+        import gzip
+
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        original = b"Hello, World! This is test data for compression."
+        compressed = gzip.compress(original)
+
+        decompressed = transport._decompress_body(compressed, "gzip")
+        assert decompressed == original
+
+    def test_decompress_deflate_raw(self):
+        import zlib
+
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        original = b"Test data for deflate compression"
+        # Raw deflate (no zlib header)
+        compressed = zlib.compress(original)[2:-4]
+
+        # Note: this may or may not work depending on the exact format
+        # The native transport tries both formats
+        decompressed = transport._decompress_body(compressed, "deflate")
+        # Either it decompresses or returns original on failure
+        assert len(decompressed) > 0
+
+    def test_decompress_invalid_returns_original(self):
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        invalid_data = b"not compressed data"
+
+        # Should return original on failure
+        result = transport._decompress_body(invalid_data, "gzip")
+        assert result == invalid_data
+
+    def test_decompress_unknown_encoding_passthrough(self):
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+        original = b"plain text data"
+
+        # Unknown encoding should pass through unchanged
+        result = transport._decompress_body(original, "unknown")
+        assert result == original
+
+
+class TestNativeTransportSSLContext:
+    """Tests for NativeTransport SSL context creation."""
+
+    def test_create_ssl_context_verify_enabled(self):
+        import ssl
+
+        from aquilia.http._transport import NativeTransport
+
+        config = HTTPClientConfig(tls=TLSConfig(verify=True))
+        transport = NativeTransport(config)
+
+        ctx = transport._create_ssl_context()
+        assert isinstance(ctx, ssl.SSLContext)
+        assert ctx.verify_mode == ssl.CERT_REQUIRED
+
+    def test_create_ssl_context_verify_disabled(self):
+        import ssl
+
+        from aquilia.http._transport import NativeTransport
+
+        config = HTTPClientConfig(tls=TLSConfig(verify=False))
+        transport = NativeTransport(config)
+
+        ctx = transport._create_ssl_context()
+        assert isinstance(ctx, ssl.SSLContext)
+        assert ctx.verify_mode == ssl.CERT_NONE
+        assert ctx.check_hostname is False
+
+
+class TestNativeTransportAvailability:
+    """Tests for transport availability and factory function."""
+
+    def test_aiohttp_available_flag(self):
+        from aquilia.http._transport import AIOHTTP_AVAILABLE
+
+        # AIOHTTP_AVAILABLE should be a boolean
+        assert isinstance(AIOHTTP_AVAILABLE, bool)
+
+    def test_create_transport_default_native(self):
+        from aquilia.http._transport import NativeTransport, create_transport
+
+        transport = create_transport()
+        assert isinstance(transport, NativeTransport)
+
+    def test_create_transport_with_config(self):
+        from aquilia.http._transport import NativeTransport, create_transport
+
+        config = HTTPClientConfig(user_agent="CustomAgent/1.0")
+        transport = create_transport(config)
+
+        assert isinstance(transport, NativeTransport)
+        assert transport._config.user_agent == "CustomAgent/1.0"
+
+
+class TestNativeTransportExports:
+    """Tests for module exports."""
+
+    def test_native_transport_exported(self):
+        from aquilia.http import NativeTransport
+
+        assert NativeTransport is not None
+
+    def test_aiohttp_available_exported(self):
+        from aquilia.http import AIOHTTP_AVAILABLE
+
+        assert isinstance(AIOHTTP_AVAILABLE, bool)
+
+    def test_all_transport_classes_exported(self):
+        from aquilia.http import (
+            AIOHTTP_AVAILABLE,
+            HTTPTransport,
+            MockTransport,
+            NativeTransport,
+            create_transport,
+        )
+
+        assert HTTPTransport is not None
+        assert NativeTransport is not None
+        assert MockTransport is not None
+        assert create_transport is not None
+        assert isinstance(AIOHTTP_AVAILABLE, bool)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

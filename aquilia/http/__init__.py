@@ -48,9 +48,11 @@ Example:
 # Core client
 # Transport (internal, but exported for testing)
 from ._transport import (
+    AIOHTTP_AVAILABLE,
     AIOHTTPTransport,
     HTTPTransport,
     MockTransport,
+    NativeTransport,
     create_transport,
 )
 
@@ -375,7 +377,9 @@ __all__ = [
     "create_client_from_config",
     # Transport
     "HTTPTransport",
+    "NativeTransport",
     "AIOHTTPTransport",
     "MockTransport",
     "create_transport",
+    "AIOHTTP_AVAILABLE",
 ]
