@@ -45,11 +45,8 @@ Example:
     ```
 """
 
-# Core client
-# Transport (internal, but exported for testing)
+# Transport
 from ._transport import (
-    AIOHTTP_AVAILABLE,
-    AIOHTTPTransport,
     HTTPTransport,
     MockTransport,
     NativeTransport,
@@ -378,8 +375,6 @@ __all__ = [
     # Transport
     "HTTPTransport",
     "NativeTransport",
-    "AIOHTTPTransport",
     "MockTransport",
     "create_transport",
-    "AIOHTTP_AVAILABLE",
 ]

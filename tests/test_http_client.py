@@ -1120,12 +1120,6 @@ class TestNativeTransportSSLContext:
 class TestNativeTransportAvailability:
     """Tests for transport availability and factory function."""
 
-    def test_aiohttp_available_flag(self):
-        from aquilia.http._transport import AIOHTTP_AVAILABLE
-
-        # AIOHTTP_AVAILABLE should be a boolean
-        assert isinstance(AIOHTTP_AVAILABLE, bool)
-
     def test_create_transport_default_native(self):
         from aquilia.http._transport import NativeTransport, create_transport
 
@@ -1150,14 +1144,8 @@ class TestNativeTransportExports:
 
         assert NativeTransport is not None
 
-    def test_aiohttp_available_exported(self):
-        from aquilia.http import AIOHTTP_AVAILABLE
-
-        assert isinstance(AIOHTTP_AVAILABLE, bool)
-
     def test_all_transport_classes_exported(self):
         from aquilia.http import (
-            AIOHTTP_AVAILABLE,
             HTTPTransport,
             MockTransport,
             NativeTransport,
@@ -1168,7 +1156,6 @@ class TestNativeTransportExports:
         assert NativeTransport is not None
         assert MockTransport is not None
         assert create_transport is not None
-        assert isinstance(AIOHTTP_AVAILABLE, bool)
 
 
 if __name__ == "__main__":
