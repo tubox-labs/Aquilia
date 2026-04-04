@@ -5,6 +5,9 @@ Comprehensive tests covering configuration, request building,
 response handling, cookies, retry, streaming, and fault handling.
 """
 
+import asyncio
+import socket
+import ssl
 import time
 
 import pytest
@@ -12,11 +15,14 @@ import pytest
 from aquilia.http import (
     HTTP_CLIENT_DOMAIN,
     APIKeyAuth,
+    AsyncHTTPClient,
     BasicAuth,
     BearerAuth,
+    CertificateVerifyFault,
     ChunkedDecoder,
     ChunkedEncoder,
     ConnectionFault,
+    ConnectTimeoutFault,
     ConstantBackoff,
     Cookie,
     CookieJar,
@@ -26,6 +32,7 @@ from aquilia.http import (
     HTTPClientFault,
     HTTPClientRequest,
     HTTPMethod,
+    HTTPSession,
     InterceptorChain,
     LoggingInterceptor,
     MockTransport,
@@ -1134,6 +1141,190 @@ class TestNativeTransportAvailability:
 
         assert isinstance(transport, NativeTransport)
         assert transport._config.user_agent == "CustomAgent/1.0"
+
+
+class TestNativeTransportNetworkBehavior:
+    """Behavioral tests for DNS resolution, fallback, redirects, and TLS faults."""
+
+    @pytest.mark.asyncio
+    async def test_successful_get_request_local_server(self):
+        async def handler(reader, writer):
+            while True:
+                line = await reader.readline()
+                if not line or line == b"\r\n":
+                    break
+
+            writer.write(
+                b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"
+            )
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+
+        server = await asyncio.start_server(handler, "127.0.0.1", 0)
+        host, port = server.sockets[0].getsockname()[:2]
+
+        try:
+            async with AsyncHTTPClient() as client:
+                response = await client.get(f"http://{host}:{port}/")
+                body = await response.text()
+
+            assert response.status_code == 200
+            assert body == "ok"
+        finally:
+            server.close()
+            await server.wait_closed()
+
+    @pytest.mark.asyncio
+    async def test_session_follows_redirects(self):
+        transport = MockTransport()
+        transport.add_response(
+            "GET",
+            "http://example.com/start",
+            create_response(
+                status_code=302,
+                headers={"Location": "/final"},
+                url="http://example.com/start",
+            ),
+        )
+        transport.add_response(
+            "GET",
+            "http://example.com/final",
+            create_response(
+                status_code=200,
+                headers={"Content-Type": "text/plain"},
+                body=b"done",
+                url="http://example.com/final",
+            ),
+        )
+
+        async with HTTPSession(transport=transport) as session:
+            response = await session.get("http://example.com/start")
+
+        assert response.status_code == 200
+        assert response.url == "http://example.com/final"
+        assert len(response.history) == 1
+        assert response.history[0].status_code == 302
+
+    @pytest.mark.asyncio
+    async def test_connect_falls_back_to_next_resolved_address(self):
+        from unittest.mock import MagicMock, patch
+
+        from aquilia.http._transport import NativeTransport
+
+        config = HTTPClientConfig(
+            timeout=TimeoutConfig(total=1.0, connect=0.01),
+            tls=TLSConfig(verify=False),
+        )
+        transport = NativeTransport(config)
+
+        async def fake_resolve(host, port, timeout):
+            return [
+                (socket.AF_INET6, "::1", 443),
+                (socket.AF_INET, "127.0.0.1", 443),
+            ]
+
+        transport._resolve_addresses = fake_resolve  # type: ignore[method-assign]
+
+        attempts: list[tuple[str, int, str | None, float | None]] = []
+
+        async def fake_open_connection(**kwargs):
+            attempts.append(
+                (
+                    kwargs["host"],
+                    kwargs["family"],
+                    kwargs.get("server_hostname"),
+                    kwargs.get("ssl_handshake_timeout"),
+                )
+            )
+            if kwargs["host"] == "::1":
+                raise asyncio.TimeoutError
+
+            reader = MagicMock()
+            writer = MagicMock()
+            writer.is_closing.return_value = False
+            return reader, writer
+
+        with patch("aquilia.http._transport.asyncio.open_connection", side_effect=fake_open_connection):
+            conn = await transport._connect("google.com", 443, True, timeout=0.01)
+
+        assert conn.host == "google.com"
+        assert conn.port == 443
+        assert conn.ssl is True
+        assert len(attempts) == 2
+        assert attempts[0][0] == "::1"
+        assert attempts[1][0] == "127.0.0.1"
+        assert attempts[1][2] == "google.com"
+        assert attempts[1][3] == 0.01
+
+    @pytest.mark.asyncio
+    async def test_connect_timeout_when_all_addresses_timeout(self):
+        from unittest.mock import patch
+
+        from aquilia.http._transport import NativeTransport
+
+        config = HTTPClientConfig(
+            timeout=TimeoutConfig(total=1.0, connect=0.01),
+            tls=TLSConfig(verify=False),
+        )
+        transport = NativeTransport(config)
+
+        async def fake_resolve(host, port, timeout):
+            return [
+                (socket.AF_INET6, "::1", 443),
+                (socket.AF_INET, "127.0.0.1", 443),
+            ]
+
+        transport._resolve_addresses = fake_resolve  # type: ignore[method-assign]
+
+        async def always_timeout(**kwargs):
+            raise asyncio.TimeoutError
+
+        with (
+            patch("aquilia.http._transport.asyncio.open_connection", side_effect=always_timeout),
+            pytest.raises(ConnectTimeoutFault),
+        ):
+            await transport._connect("google.com", 443, True, timeout=0.01)
+
+    @pytest.mark.asyncio
+    async def test_connect_maps_certificate_verification_failure(self):
+        from unittest.mock import patch
+
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport(HTTPClientConfig())
+
+        async def fake_resolve(host, port, timeout):
+            return [(socket.AF_INET, "127.0.0.1", 443)]
+
+        transport._resolve_addresses = fake_resolve  # type: ignore[method-assign]
+
+        async def cert_error(**kwargs):
+            raise ssl.SSLCertVerificationError(1, "certificate verify failed")
+
+        with (
+            patch("aquilia.http._transport.asyncio.open_connection", side_effect=cert_error),
+            pytest.raises(CertificateVerifyFault),
+        ):
+            await transport._connect("google.com", 443, True, timeout=0.05)
+
+    @pytest.mark.asyncio
+    async def test_resolve_addresses_maps_dns_errors_to_connection_fault(self):
+        from unittest.mock import patch
+
+        from aquilia.http._transport import NativeTransport
+
+        transport = NativeTransport()
+
+        class FakeLoop:
+            async def getaddrinfo(self, *args, **kwargs):
+                raise OSError("name resolution failed")
+
+        with (
+            patch("aquilia.http._transport.asyncio.get_running_loop", return_value=FakeLoop()),
+            pytest.raises(ConnectionFault),
+        ):
+            await transport._resolve_addresses("does-not-exist.test", 443, timeout=0.01)
 
 
 class TestNativeTransportExports:
