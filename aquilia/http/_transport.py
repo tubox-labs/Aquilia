@@ -11,6 +11,7 @@ import base64
 import gzip
 import logging
 import re
+import socket
 import ssl
 import time
 import zlib
@@ -246,6 +247,14 @@ class NativeTransport(HTTPTransport):
 
         if tls.ca_bundle:
             ctx.load_verify_locations(tls.ca_bundle)
+        elif tls.verify:
+            try:
+                import certifi
+
+                ctx.load_verify_locations(certifi.where())
+            except (ImportError, OSError, ssl.SSLError):
+                # Fall back to system trust store when certifi is unavailable.
+                pass
 
         if tls.cert_file:
             ctx.load_cert_chain(certfile=tls.cert_file, keyfile=tls.key_file)
@@ -260,6 +269,63 @@ class NativeTransport(HTTPTransport):
 
         return ctx
 
+    async def _resolve_addresses(
+        self,
+        host: str,
+        port: int,
+        timeout: float | None,
+    ) -> list[tuple[int, str, int]]:
+        loop = asyncio.get_running_loop()
+
+        try:
+            addr_info = await asyncio.wait_for(
+                loop.getaddrinfo(
+                    host,
+                    port,
+                    type=socket.SOCK_STREAM,
+                ),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError as e:
+            raise ConnectTimeoutFault(
+                f"DNS resolution for {host}:{port} timed out after {timeout or 0:.2f}s",
+                timeout=timeout or 0,
+                url=f"{host}:{port}",
+            ) from e
+        except OSError as e:
+            raise ConnectionFault(
+                f"DNS resolution failed for {host}:{port}: {e}",
+                host=host,
+                port=port,
+                cause=str(e),
+            ) from e
+
+        addresses: list[tuple[int, str, int]] = []
+        seen: set[tuple[int, str, int]] = set()
+
+        for family, _socktype, _proto, _canonname, sockaddr in addr_info:
+            if family not in (socket.AF_INET, socket.AF_INET6):
+                continue
+
+            resolved_host = str(sockaddr[0])
+            resolved_port = int(sockaddr[1])
+            key = (family, resolved_host, resolved_port)
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            addresses.append(key)
+
+        if not addresses:
+            raise ConnectionFault(
+                f"No connectable addresses resolved for {host}:{port}",
+                host=host,
+                port=port,
+            )
+
+        return addresses
+
     async def _connect(
         self,
         host: str,
@@ -273,48 +339,75 @@ class NativeTransport(HTTPTransport):
         if use_ssl:
             ssl_context = self._create_ssl_context()
 
-        try:
-            reader, writer = await asyncio.wait_for(
-                asyncio.open_connection(host=host, port=port, ssl=ssl_context),
-                timeout=connect_timeout,
-            )
+        addresses = await self._resolve_addresses(host, port, connect_timeout)
+        last_os_error: OSError | None = None
+        timeout_attempts = 0
 
-            return ConnectionInfo(
-                host=host,
-                port=port,
-                ssl=use_ssl,
-                reader=reader,
-                writer=writer,
-            )
+        for family, resolved_host, resolved_port in addresses:
+            try:
+                reader, writer = await asyncio.wait_for(
+                    asyncio.open_connection(
+                        host=resolved_host,
+                        port=resolved_port,
+                        ssl=ssl_context,
+                        family=family,
+                        server_hostname=host if use_ssl else None,
+                        ssl_handshake_timeout=connect_timeout if use_ssl else None,
+                    ),
+                    timeout=connect_timeout,
+                )
 
-        except asyncio.TimeoutError as e:
+                return ConnectionInfo(
+                    host=host,
+                    port=port,
+                    ssl=use_ssl,
+                    reader=reader,
+                    writer=writer,
+                )
+
+            except asyncio.TimeoutError:
+                timeout_attempts += 1
+                continue
+
+            except ssl.SSLCertVerificationError as e:
+                raise CertificateVerifyFault(
+                    f"Cert verify failed for {host}: {e}",
+                    url=f"https://{host}:{port}",
+                    reason=str(e),
+                ) from e
+
+            except ssl.SSLError as e:
+                raise TLSFault(
+                    f"SSL error connecting to {host}: {e}",
+                    url=f"https://{host}:{port}",
+                    reason=str(e),
+                ) from e
+
+            except OSError as e:
+                last_os_error = e
+                continue
+
+        if timeout_attempts > 0 and timeout_attempts == len(addresses):
             raise ConnectTimeoutFault(
                 f"Connection to {host}:{port} timed out after {connect_timeout:.2f}s",
                 timeout=connect_timeout,
                 url=f"{'https' if use_ssl else 'http'}://{host}:{port}",
-            ) from e
+            )
 
-        except ssl.SSLCertVerificationError as e:
-            raise CertificateVerifyFault(
-                f"Cert verify failed for {host}: {e}",
-                url=f"https://{host}:{port}",
-                reason=str(e),
-            ) from e
-
-        except ssl.SSLError as e:
-            raise TLSFault(
-                f"SSL error connecting to {host}: {e}",
-                url=f"https://{host}:{port}",
-                reason=str(e),
-            ) from e
-
-        except OSError as e:
+        if last_os_error is not None:
             raise ConnectionFault(
-                f"Connection failed to {host}:{port}: {e}",
+                f"Connection failed to {host}:{port}: {last_os_error}",
                 host=host,
                 port=port,
-                cause=str(e),
-            ) from e
+                cause=str(last_os_error),
+            ) from last_os_error
+
+        raise ConnectionFault(
+            f"Connection failed to {host}:{port}",
+            host=host,
+            port=port,
+            cause="No address succeeded",
+        )
 
     async def _get_connection(
         self,
