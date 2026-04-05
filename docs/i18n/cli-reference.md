@@ -20,6 +20,7 @@ Currently registered subcommands in CLI entrypoint:
 - `inspect`
 - `extract`
 - `coverage`
+- `compile`
 
 ## `aq i18n init`
 
@@ -116,18 +117,30 @@ Behavior:
 - prints percentage and key counts
 - with verbose mode, prints up to first 10 missing keys per locale
 
-## Internal Compile Command (Not Wired to Entry CLI)
+## `aq i18n compile`
 
-`cmd_i18n_compile(...)` exists in `aquilia/cli/commands/i18n.py` and compiles JSON catalogs to CROUS.
+Purpose:
 
-Current status:
+- compile JSON catalogs to CROUS format for faster startup and lookup
 
-- function is implemented and tested
-- no corresponding `@i18n.command("compile")` registration in `aquilia/cli/__main__.py`
+Options:
 
-Implication:
+- `--directory, -d` source locales directory (default `locales`)
+- `--output, -o` optional output directory for compiled artifacts
 
-- users cannot call `aq i18n compile` from current CLI entrypoint without additional wiring.
+Behavior:
+
+- invokes `cmd_i18n_compile`
+- compiles discovered JSON catalogs to `.crous`
+- preserves source layout per locale/namespace
+
+Examples:
+
+```bash
+aq i18n compile
+aq i18n compile --directory locales
+aq i18n compile --directory locales --output artifacts/locales
+```
 
 ## Config Load Source for CLI Commands
 
@@ -167,4 +180,10 @@ Coverage check:
 ```bash
 aq i18n coverage
 aq i18n coverage --verbose
+```
+
+Compile catalogs:
+
+```bash
+aq i18n compile --directory locales
 ```

@@ -56,17 +56,6 @@ Fix options:
 - use JSON files in standard server path
 - or build custom catalog explicitly if YAML-only workflow is required
 
-## Symptom: `aq i18n compile` not found
-
-Cause:
-
-- compile function exists, but command is not registered in CLI entrypoint
-
-Current workaround:
-
-- invoke `cmd_i18n_compile` from Python tooling
-- or wire command registration in CLI entrypoint
-
 ## Symptom: Locale DI injection unavailable in request scope
 
 Cause:
@@ -81,12 +70,12 @@ Fix:
 
 Cause:
 
-- lazy translation context is stored in module globals, not contextvars
+- custom flow sets lazy context without guaranteed cleanup
 
 Mitigation:
 
-- avoid lazy strings in highly concurrent request-sensitive paths
-- resolve translations directly through `I18nService` with explicit locale
+- ensure `set_lazy_context(...)` and `clear_lazy_context()` are paired in `try/finally`
+- prefer standard `I18nMiddleware` flow, which already enforces cleanup
 
 ## Symptom: Unexpected exception while negotiating malformed Accept-Language
 

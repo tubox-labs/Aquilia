@@ -22,15 +22,16 @@ Thread-safety: ``LazyString`` is immutable and safe for concurrent reads.
 
 from __future__ import annotations
 
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from .service import I18nService
 
 
-# Global reference set by I18nMiddleware or DI
-_service_ref: I18nService | None = None
-_locale_ref: str | None = None
+# Request/task-local references set by I18nMiddleware or DI.
+_service_ref: ContextVar[I18nService | None] = ContextVar("aquilia_i18n_lazy_service", default=None)
+_locale_ref: ContextVar[str | None] = ContextVar("aquilia_i18n_lazy_locale", default=None)
 
 
 def set_lazy_context(service: I18nService, locale: str | None = None) -> None:
@@ -43,16 +44,14 @@ def set_lazy_context(service: I18nService, locale: str | None = None) -> None:
         service: Active I18nService
         locale: Current request locale
     """
-    global _service_ref, _locale_ref
-    _service_ref = service
-    _locale_ref = locale
+    _service_ref.set(service)
+    _locale_ref.set(locale)
 
 
 def clear_lazy_context() -> None:
     """Clear the lazy context (called at request cleanup)."""
-    global _service_ref, _locale_ref
-    _service_ref = None
-    _locale_ref = None
+    _service_ref.set(None)
+    _locale_ref.set(None)
 
 
 class LazyString:
@@ -89,12 +88,12 @@ class LazyString:
 
     def _resolve(self) -> str:
         """Resolve the translation."""
-        svc = self._service or _service_ref
+        svc = self._service or _service_ref.get()
         if svc is None:
             # No service available — return key or default
             return self._default or self._key
 
-        locale = self._locale or _locale_ref
+        locale = self._locale or _locale_ref.get()
         return svc.t(self._key, locale=locale, default=self._default, **self._kwargs)
 
     # ── str Protocol ─────────────────────────────────────────────────
@@ -222,11 +221,11 @@ class LazyPluralString(LazyString):
         self._count = count
 
     def _resolve(self) -> str:
-        svc = self._service or _service_ref
+        svc = self._service or _service_ref.get()
         if svc is None:
             return self._default or self._key
 
-        locale = self._locale or _locale_ref
+        locale = self._locale or _locale_ref.get()
         return svc.tn(self._key, self._count, locale=locale, default=self._default, **self._kwargs)
 
     def __repr__(self) -> str:

@@ -1780,13 +1780,38 @@ class TestLazyContext:
         svc.t.return_value = "Resolved"
 
         set_lazy_context(svc, "fr")
+        assert _service_ref.get() is svc
+        assert _locale_ref.get() == "fr"
+
         lazy = LazyString("test.key")
         assert str(lazy) == "Resolved"
 
         clear_lazy_context()
+        assert _service_ref.get() is None
+        assert _locale_ref.get() is None
+
         lazy2 = LazyString("test.key")
         # Should fall back to key
         assert str(lazy2) == "test.key"
+
+    @pytest.mark.asyncio
+    async def test_context_isolated_across_tasks(self):
+        from aquilia.i18n.lazy import LazyString, clear_lazy_context, set_lazy_context
+
+        svc = MagicMock()
+        svc.t.side_effect = lambda key, *, locale=None, default=None, **kwargs: f"{locale}:{key}"
+
+        async def worker(locale):
+            set_lazy_context(svc, locale)
+            try:
+                await asyncio.sleep(0)
+                return str(LazyString("test.key"))
+            finally:
+                clear_lazy_context()
+
+        result_en, result_fr = await asyncio.gather(worker("en"), worker("fr"))
+        assert result_en == "en:test.key"
+        assert result_fr == "fr:test.key"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2363,6 +2388,23 @@ class TestCLICompile:
         # Compile to CROUS
         cmd_i18n_compile(directory=str(tmp_path / "locales"))
 
+        assert (tmp_path / "locales" / "en" / "messages.crous").exists()
+
+    def test_compile_subcommand_is_wired(self, tmp_path, monkeypatch):
+        pytest.importorskip("crous")
+
+        from click.testing import CliRunner
+
+        from aquilia.cli.__main__ import cli
+        from aquilia.cli.commands.i18n import cmd_i18n_init
+
+        monkeypatch.chdir(tmp_path)
+        cmd_i18n_init(locales="en", directory=str(tmp_path / "locales"), format="json")
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["i18n", "compile", "--directory", str(tmp_path / "locales")])
+
+        assert result.exit_code == 0
         assert (tmp_path / "locales" / "en" / "messages.crous").exists()
 
 

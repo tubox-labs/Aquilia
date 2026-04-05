@@ -84,7 +84,7 @@ Resolver chain is ordered by `resolver_order` and short-circuits on first match:
    - `locale`
    - `locale_obj`
    - `i18n`
-5. Sets lazy-translation context for request duration.
+5. Sets lazy-translation context for request duration using `contextvars`.
 
 ## Catalog Build Pipeline
 
