@@ -105,16 +105,16 @@ aq doctor -v`}</CodeBlock>
           aq cache
         </h2>
         <p className={pClass}>
-          AquilaCache CLI — check, inspect, clear, and view cache statistics without starting the server.
+          AquilaCache CLI for configuration inspection, validation, and maintenance operations via temporary cache service instances.
         </p>
 
         {/* cache check */}
         <h3 className={h3Class}>aq cache check</h3>
         <p className={pClass}>
-          Validates cache configuration and tests backend connectivity. For Redis backends, performs a PING test and reports memory usage.
+          Validates cache configuration and tests backend connectivity. For Redis backends, attempts a PING and prints memory info when available.
         </p>
         <CodeBlock language="bash" filename="Terminal">{`aq cache check`}</CodeBlock>
-        <p className={pClass}>Reports: enabled status, backend type, default TTL, max size, eviction policy, serializer, key prefix, Redis connection health, composite L1/L2 config, and middleware settings.</p>
+        <p className={pClass}>Reports core fields such as enabled status, backend type, default TTL, max size, eviction policy, serializer, and key prefix.</p>
 
         {/* cache inspect */}
         <h3 className={h3Class}>aq cache inspect</h3>
@@ -126,9 +126,13 @@ aq doctor -v`}</CodeBlock>
         {/* cache stats */}
         <h3 className={h3Class}>aq cache stats</h3>
         <p className={pClass}>
-          Display cache statistics from the trace diagnostics file. Requires a running server that has generated <code className={codeClass}>.aquilia/diagnostics.json</code>.
+          Attempts to initialize a temporary cache service and display statistics.
         </p>
         <CodeBlock language="bash" filename="Terminal">{`aq cache stats`}</CodeBlock>
+        <p className={pClass}>
+          Current behavior note: implementation currently checks for <code className={codeClass}>info()</code> on the service, while
+          <code className={codeClass}>CacheService</code> exposes <code className={codeClass}>stats()</code>. Output may therefore be empty.
+        </p>
 
         {/* cache clear */}
         <h3 className={h3Class}>aq cache clear</h3>
@@ -143,6 +147,9 @@ aq cache clear
 
 # Clear specific namespace
 aq cache clear --namespace http`}</CodeBlock>
+        <p className={pClass}>
+          Full cache subsystem docs: <a href="/docs/cache/cli" className="text-aquilia-500 hover:underline">/docs/cache/cli</a>
+        </p>
       </section>
 
       {/* ═══════════════ MAIL ═══════════════ */}

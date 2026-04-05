@@ -257,9 +257,13 @@ export const sections: SidebarSection[] = [
       {
         label: 'Cache', path: '/docs/cache', icon: <Gauge className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/cache' },
+          { label: 'Configuration', path: '/docs/cache/configuration' },
+          { label: 'CLI', path: '/docs/cache/cli' },
           { label: 'CacheService', path: '/docs/cache/service' },
           { label: 'Backends', path: '/docs/cache/backends' },
           { label: 'Decorators', path: '/docs/cache/decorators' },
+          { label: 'API Reference', path: '/docs/cache/api-reference' },
         ]
       },
       {

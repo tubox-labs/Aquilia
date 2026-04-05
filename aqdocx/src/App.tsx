@@ -130,9 +130,12 @@ import { FaultsDomains } from './pages/docs/faults/Domains'
 
 // Cache
 import { CacheOverview } from './pages/docs/cache/Overview'
+import { CacheConfiguration } from './pages/docs/cache/Configuration'
+import { CacheCLI } from './pages/docs/cache/CLI'
 import { CacheService } from './pages/docs/cache/Service'
 import { CacheBackends } from './pages/docs/cache/Backends'
 import { CacheDecorators } from './pages/docs/cache/Decorators'
+import { CacheAPIReference } from './pages/docs/cache/APIReference'
 
 // HTTP Client
 import { HTTPOverview } from './pages/docs/http/Overview'
@@ -387,9 +390,12 @@ export default function App() {
 
           {/* Cache */}
           <Route path="cache" element={<CacheOverview />} />
+          <Route path="cache/configuration" element={<CacheConfiguration />} />
+          <Route path="cache/cli" element={<CacheCLI />} />
           <Route path="cache/service" element={<CacheService />} />
           <Route path="cache/backends" element={<CacheBackends />} />
           <Route path="cache/decorators" element={<CacheDecorators />} />
+          <Route path="cache/api-reference" element={<CacheAPIReference />} />
 
           {/* HTTP Client */}
           <Route path="http" element={<HTTPOverview />} />

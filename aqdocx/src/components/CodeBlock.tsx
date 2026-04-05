@@ -70,6 +70,30 @@ interface CodeBlockProps {
   compact?: boolean
 }
 
+const CLASS_REFERENCE_PATTERN = /\b[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*\b/g
+const CLASS_FALLBACK_LANGUAGES = new Set(['python', 'typescript', 'javascript', 'tsx', 'jsx'])
+
+function splitClassReferenceSegments(content: string): Array<{ text: string; isClassRef: boolean }> {
+  const segments: Array<{ text: string; isClassRef: boolean }> = []
+  let lastIndex = 0
+  CLASS_REFERENCE_PATTERN.lastIndex = 0
+
+  let match: RegExpExecArray | null
+  while ((match = CLASS_REFERENCE_PATTERN.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push({ text: content.slice(lastIndex, match.index), isClassRef: false })
+    }
+    segments.push({ text: match[0], isClassRef: true })
+    lastIndex = match.index + match[0].length
+  }
+
+  if (lastIndex < content.length) {
+    segments.push({ text: content.slice(lastIndex), isClassRef: false })
+  }
+
+  return segments.length > 0 ? segments : [{ text: content, isClassRef: false }]
+}
+
 export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true, compact = false }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const { theme } = useTheme()
@@ -87,6 +111,9 @@ export function CodeBlock({ code, children, language = 'python', filename, title
     }
     return map[language] || language
   })()
+
+  const classReferenceColor = isDark ? '#fb923c' : '#c2410c'
+  const canApplyClassFallback = CLASS_FALLBACK_LANGUAGES.has(prismLanguage)
 
   const isTerminal = ['bash', 'shell', 'sh', 'zsh', 'terminal', 'console'].includes(language)
 
@@ -137,9 +164,30 @@ export function CodeBlock({ code, children, language = 'python', filename, title
                       {i + 1}
                     </span>
                   )}
-                  {line.map((token, key) => (
-                    <span key={key} {...getTokenProps({ token })} />
-                  ))}
+                  {line.map((token, key) => {
+                    const tokenProps = getTokenProps({ token })
+
+                    if (!canApplyClassFallback || !token.types.includes('plain') || typeof token.content !== 'string') {
+                      return <span key={key} {...tokenProps} />
+                    }
+
+                    const segments = splitClassReferenceSegments(token.content)
+                    const hasClassReferences = segments.some((segment) => segment.isClassRef)
+
+                    if (!hasClassReferences) {
+                      return <span key={key} {...tokenProps} />
+                    }
+
+                    return (
+                      <span key={key} className={tokenProps.className} style={tokenProps.style}>
+                        {segments.map((segment, segmentIndex) => (
+                          segment.isClassRef
+                            ? <span key={segmentIndex} style={{ color: classReferenceColor }}>{segment.text}</span>
+                            : segment.text
+                        ))}
+                      </span>
+                    )
+                  })}
                 </div>
               ))}
             </pre>

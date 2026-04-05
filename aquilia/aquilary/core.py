@@ -146,7 +146,7 @@ class AquilaryRegistry:
         Returns:
             RuntimeRegistry instance
         """
-        from .runtime import RuntimeRegistry as RT
+        from ..aquilary import RuntimeRegistry as RT
 
         return RT.from_metadata(
             registry_meta=self,
@@ -982,12 +982,61 @@ class RuntimeRegistry:
             return
 
         import importlib
+        import inspect
         import logging as _log
+        from typing import Any, get_type_hints
 
         from aquilia.di import Container
         from aquilia.di.providers import ClassProvider, ValueProvider
 
         _svc_logger = _log.getLogger("aquilia.aquilary")
+
+        def _token_name(token: Any) -> str:
+            if isinstance(token, str):
+                return token
+            return f"{token.__module__}.{token.__qualname__}"
+
+        def _extract_provider_binding(service_cls: type) -> tuple[Any | None, str | None]:
+            """Detect provider-style classes and extract the provided DI token."""
+
+            # Prefer explicit provide() methods.
+            provide_method = getattr(service_cls, "provide", None)
+            if callable(provide_method):
+                try:
+                    hints = get_type_hints(provide_method, include_extras=True)
+                except Exception:
+                    hints = {}
+                provided = hints.get("return")
+                if provided not in (None, Any):
+                    return provided, "provide"
+
+            # Then support callable provider objects (__call__).
+            call_method = service_cls.__dict__.get("__call__")
+            if callable(call_method):
+                try:
+                    hints = get_type_hints(call_method, include_extras=True)
+                except Exception:
+                    hints = {}
+                provided = hints.get("return")
+                if provided not in (None, Any):
+                    return provided, "__call__"
+
+            return None, None
+
+        def _make_provider_adapter(service_cls: type, invoke: str):
+            async def adapter(provider_instance):
+                if invoke == "provide":
+                    result = provider_instance.provide()
+                else:
+                    result = provider_instance()
+                if inspect.isawaitable(result):
+                    return await result
+                return result
+
+            adapter.__name__ = f"{service_cls.__name__}_{invoke}_adapter"
+            adapter.__qualname__ = adapter.__name__
+            adapter.__annotations__["provider_instance"] = service_cls
+            return adapter
 
         for ctx in self.meta.app_contexts:
             # Create app-scoped container
@@ -1012,6 +1061,8 @@ class RuntimeRegistry:
             # Register services
             for service_item in ctx.services:
                 try:
+                    alias_target_token = None
+
                     # Extract config
                     if hasattr(service_item, "class_path"):
                         # ServiceConfig object
@@ -1047,6 +1098,7 @@ class RuntimeRegistry:
                         # Register using provider's determined token (from @factory name or return annotation)
                         container.register(provider, tag=tag)
                         service_class = factory_func  # for logging/alias reference
+                        alias_target_token = service_class
 
                     else:
                         # Class Provider
@@ -1071,8 +1123,35 @@ class RuntimeRegistry:
                         )
                         container.register(provider, tag=tag)
 
+                        alias_target_token = service_class
+
+                        # Provider-style classes (e.g., HTTPClientProvider) should also
+                        # publish the token they provide, not only their own class token.
+                        provided_token, invoke_method = _extract_provider_binding(service_class)
+                        if provided_token is not None and invoke_method is not None:
+                            from aquilia.di.providers import FactoryProvider
+
+                            try:
+                                adapter_factory = _make_provider_adapter(service_class, invoke_method)
+                                adapter_provider = FactoryProvider(
+                                    factory=adapter_factory,
+                                    scope=scope,
+                                    tags=(tag,) if tag else (),
+                                    name=_token_name(provided_token),
+                                )
+                                container.register(adapter_provider, tag=tag)
+                                alias_target_token = provided_token
+                            except Exception as adapter_exc:
+                                _svc_logger.warning(
+                                    "Failed to register provider adapter for %s: %s",
+                                    service_class,
+                                    adapter_exc,
+                                )
+
                     # Register aliases
                     from aquilia.di.providers import AliasProvider
+
+                    alias_target = alias_target_token if alias_target_token is not None else service_class
 
                     for alias in aliases:
                         # Resolve alias token (class or string)
@@ -1087,7 +1166,7 @@ class RuntimeRegistry:
 
                         alias_provider = AliasProvider(
                             token=alias_token,
-                            target_token=service_class,
+                            target_token=alias_target,
                             target_tag=tag,
                         )
                         container.register(alias_provider)
