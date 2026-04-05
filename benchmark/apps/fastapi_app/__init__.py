@@ -1,1 +1,0 @@
-# FastAPI benchmark app

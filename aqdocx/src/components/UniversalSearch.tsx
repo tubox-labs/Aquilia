@@ -876,10 +876,10 @@ export function UniversalSearch() {
           ? 'bg-[#0b0b0f]/70 border-white/10 text-gray-400 hover:border-aquilia-500/40 hover:bg-[#101018]'
           : 'bg-white/90 border-gray-200 text-gray-500 hover:border-aquilia-300 hover:bg-white'
           }`}
-        title="Search Aquilia documentation (Cmd/Ctrl + K)"
+        title="Search Aquilia (Cmd/Ctrl + K)"
       >
         <Search className="w-4 h-4" />
-        <span className="text-sm text-left">Search Aquilia documentation...</span>
+        <span className="text-sm text-left">Search Aquilia...</span>
         <span className={`ml-auto inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium border ${isDark ? 'border-white/10 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
           <Command className="w-3 h-3" />K
         </span>
@@ -889,7 +889,7 @@ export function UniversalSearch() {
       <button
         onClick={openSearch}
         className={`md:hidden p-2 rounded-lg transition-all duration-200 relative overflow-hidden group ${isDark ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-900'}`}
-        title="Search Aquilia documentation"
+        title="Search Aquilia"
       >
         <Search className="w-5 h-5" />
       </button>

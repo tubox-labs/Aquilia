@@ -1,1 +1,0 @@
-# Sanic benchmark app

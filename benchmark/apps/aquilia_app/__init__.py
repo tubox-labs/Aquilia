@@ -1,1 +1,1 @@
-# Aquilia benchmark app
+"""Aquilia benchmark workspace package."""

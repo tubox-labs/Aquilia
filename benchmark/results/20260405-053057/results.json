@@ -1,0 +1,42 @@
+{
+  "meta": {
+    "timestamp_utc": "2026-04-05T05:31:42.439883+00:00",
+    "arguments": {
+      "frameworks": [
+        "aquilia"
+      ],
+      "host": "127.0.0.1",
+      "base_port": 8100,
+      "requests": 360,
+      "concurrency": 32,
+      "warmup": 50,
+      "timeout": 20.0,
+      "startup_timeout": 45.0,
+      "skip_websocket": false,
+      "quick": true,
+      "output_dir": null
+    },
+    "environment": {
+      "platform": "macOS-26.3.1-arm64-arm-64bit-Mach-O",
+      "python_version": "3.14.3",
+      "cpu_count": 10
+    },
+    "workspace": "/Users/kuroyami/Aquilia"
+  },
+  "frameworks": {
+    "aquilia": {
+      "framework": "aquilia",
+      "base_url": "http://127.0.0.1:8100",
+      "log_path": "benchmark/results/20260405-053057/logs/aquilia.log",
+      "startup_seconds": null,
+      "scenarios": {},
+      "websocket": null,
+      "error": "Timed out waiting for aquilia health endpoint",
+      "score": {
+        "throughput_rps_mean": null,
+        "p95_ms_mean": null,
+        "failure_rate_percent": null
+      }
+    }
+  }
+}

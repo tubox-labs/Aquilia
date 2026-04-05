@@ -1,0 +1,8 @@
+fastapi>=0.115.0
+flask>=3.0.0
+asgiref>=3.8.1
+uvicorn[standard]>=0.30.0
+httpx>=0.27.0
+psutil>=5.9.8
+websockets>=12.0
+python-multipart>=0.0.9

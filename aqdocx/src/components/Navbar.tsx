@@ -4,7 +4,7 @@ import {
   Sun, Moon, Github, ChevronDown, Rocket, Zap, Box,
   Shield, Layers, Wrench, BookOpen, Download, Cpu,
   Settings, Database, Lock, Key, Code, Bug, Wifi,
-  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe
+  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe, Activity
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { UniversalSearch } from './UniversalSearch'
@@ -255,15 +255,15 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
             </Link>
 
             <Link
-              to="/docs/http"
-              className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/http relative overflow-hidden ${location.pathname.startsWith('/docs/http')
+              to="/benchmark"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/bench relative overflow-hidden ${location.pathname === '/benchmark'
                 ? 'text-aquilia-400'
                 : `${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`
                 }`}
             >
-              <Globe className="w-4 h-4 group-hover/http:scale-110 transition-transform duration-200" />
-              <span>HTTP</span>
-              <div className={`absolute inset-0 -translate-x-full group-hover/http:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
+              <Activity className="w-4 h-4 group-hover/bench:scale-110 transition-transform duration-200" />
+              <span>Benchmark</span>
+              <div className={`absolute inset-0 -translate-x-full group-hover/bench:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
             </Link>
 
             <Link
@@ -341,6 +341,17 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
             >
               <FileText className="w-4 h-4" />
               Changelogs
+            </Link>
+            <Link
+              to="/benchmark"
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname === '/benchmark'
+                  ? 'text-aquilia-500 bg-aquilia-500/10'
+                  : isDark ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Activity className="w-4 h-4" />
+              Benchmark
             </Link>
             <Link
               to="/releases"

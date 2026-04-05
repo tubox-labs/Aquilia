@@ -4,6 +4,7 @@ import { DocsLayout } from './components/DocsLayout'
 import { LandingPage } from './pages/LandingPage'
 import { Changelogs } from './pages/Changelogs'
 import { Releases } from './pages/Releases'
+import { BenchmarkPage } from './pages/Benchmark'
 
 // Getting Started
 import { IntroductionPage } from './pages/docs/getting-started/Introduction'
@@ -230,6 +231,7 @@ export default function App() {
     <ThemeProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/benchmark" element={<BenchmarkPage />} />
         <Route path="/changelogs" element={<Changelogs />} />
         <Route path="/releases" element={<Releases />} />
         <Route path="/docs" element={<DocsLayout />}>

@@ -1,1 +1,1 @@
-# Benchmark apps
+"""Benchmark applications package."""

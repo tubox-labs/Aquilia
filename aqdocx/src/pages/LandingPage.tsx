@@ -160,147 +160,51 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Performance Section */}
+        {/* Benchmark Snapshot Section */}
         <section className={`py-24 relative overflow-hidden border-y ${isDark ? 'bg-black border-white/5' : 'bg-gray-50 border-gray-200'}`}>
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               <div>
-                <h2 className="text-aquilia-500 font-bold tracking-wide uppercase text-sm mb-4">Unrivaled Performance</h2>
+                <h2 className="text-aquilia-500 font-bold tracking-wide uppercase text-sm mb-4">Latest Benchmark Snapshot</h2>
                 <h3 className={`text-4xl md:text-5xl mb-6 leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
                   <span className="font-bold tracking-tighter gradient-text font-mono">
-                    Scaling Without<br />Limits.
+                    One Number.<br />
+                    Full Confidence.
                   </span>
                 </h3>
                 <p className={`text-lg mb-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Aquilia is engineered for high-throughput I/O. Our benchmark report shows that for large JSON payload serialization, Aquilia is nearly <strong>6× faster than FastAPI</strong>.
+                  Latest balanced run across 18 HTTP scenarios (run 20260405-054915):
                 </p>
                 <div className="space-y-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-aquilia-500/10 flex items-center justify-center text-aquilia-500">
-                      <Zap className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h4 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>5.7× Throughput Advantage</h4>
-                      <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Superior JSON-large handling over FastAPI (2,747 vs 480 req/s)</p>
-                    </div>
-                  </div>
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-aquilia-500/10 flex items-center justify-center text-aquilia-500">
                       <Activity className="w-6 h-6" />
                     </div>
                     <div>
-                      <h4 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Consistent Latency</h4>
-                      <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Deterministic request processing with minimal overhead</p>
+                      <h4 className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Aquilia Mean Throughput</h4>
+                      <p className="text-sm text-aquilia-500 font-semibold">357.82 req/s</p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className={`p-8`}>
-                <div className="mb-8">
-                  <h4 className={`text-lg font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Benchmark: JSON-Large (Req/s)</h4>
-                  <div className="space-y-6">
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Aquilia 1.0.0</span>
-                        <span className="text-sm font-bold text-aquilia-500">2,747</span>
-                      </div>
-                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden dark:bg-zinc-800">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: '68%' }}
-                          transition={{ duration: 1, ease: 'easeInOut' }}
-                          className="h-full bg-aquilia-500"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Sanic 23.12.x</span>
-                        <span className="text-sm font-bold text-gray-500">4,000</span>
-                      </div>
-                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden dark:bg-zinc-800">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: '100%' }}
-                          transition={{ duration: 1, ease: 'easeInOut' }}
-                          className={`h-full ${isDark ? 'bg-zinc-600' : 'bg-gray-400'}`}
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between mb-2">
-                        <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>FastAPI 0.110.x</span>
-                        <span className="text-sm font-bold text-red-500">480</span>
-                      </div>
-                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden dark:bg-zinc-800">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          whileInView={{ width: '12%' }}
-                          transition={{ duration: 1, ease: 'easeInOut' }}
-                          className="h-full bg-red-500/50"
-                        />
-                      </div>
-                    </div>
-                  </div>
+              <div className="p-1 lg:pl-6">
+                <div className="mb-6">
+                  <h4 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Need the full benchmark matrix?</h4>
+                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Startup timing, all scenario tables, WebSocket analysis, and methodology are available on the dedicated benchmark page.
+                  </p>
                 </div>
-                <p className={`text-xs text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                  * Based on median of 3 runs (wrk, 50 connections, durations: 30s).
-                  <Link to="/docs" className="text-aquilia-500 hover:underline ml-1">View Full Report</Link>
-                </p>
+
+                <Link
+                  to="/benchmark"
+                  className={`inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all ${isDark ? 'bg-white text-black hover:scale-[1.02]' : 'bg-aquilia-600 text-white hover:bg-aquilia-700'}`}
+                >
+                  Open Full Benchmark Report
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
             </div>
-          </div>
-        </section>
-
-        {/* Comparison Table Section */}
-        <section className={`py-20 relative overflow-hidden border-b ${isDark ? 'bg-black/50 border-white/5' : 'bg-gray-50/30 border-gray-200'}`}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-12">
-              <h3 className={`text-3xl mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                <span className="font-bold tracking-tighter gradient-text font-mono">
-                  The Full Picture
-                </span>
-              </h3>
-              <p className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>How Aquilia stacks up against the Python ecosystem.</p>
-            </div>
-
-            <div className={`overflow-x-auto rounded-3xl border ${isDark ? 'bg-zinc-900/30 border-white/10' : 'bg-white border-gray-200 shadow-xl'}`}>
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className={`border-b ${isDark ? 'border-white/10 bg-white/5' : 'border-gray-100 bg-gray-50'}`}>
-                    <th className="px-8 py-5 text-sm font-bold uppercase tracking-wider text-aquilia-500">Benchmark / Feature</th>
-                    <th className={`px-8 py-5 text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Aquilia 1.0</th>
-                    <th className={`px-8 py-5 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>FastAPI</th>
-                    <th className={`px-8 py-5 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Sanic</th>
-                    <th className={`px-8 py-5 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Django</th>
-                    <th className={`px-8 py-5 text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Flask</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-50'}`}>
-                  {[
-                    { feature: 'JSON-Large (Req/s)', a: '2,747 (High)', f: '480 (Pydantic bottleneck)', s: '4,000 (ujson)', d: '~120', fl: '~150' },
-                    { feature: 'Architecture', a: 'Compile-time Manifest', f: 'Runtime Hooking', s: 'Runtime Event-loop', d: 'MVT / Middleware', fl: 'WSGI / Minimal' },
-                    { feature: 'Dependency Injection', a: 'Built-in (First-class)', f: 'Parameters-only', s: 'Manual / Extension', d: 'Manual / Global', fl: 'Manual / Globals' },
-                    { feature: 'Integrated ORM', a: 'Yes (Async Native)', f: 'External (SQLAlchemy)', s: 'External', d: 'Yes (Sync/Bridge)', fl: 'External (SQLAlchemy)' },
-                    { feature: 'MLOps Toolkit', a: 'Built-in (ModelPacks)', f: 'Manual Setup', s: 'Manual Setup', d: 'Manual Setup', fl: 'Manual Setup' },
-                    { feature: 'Type Safety', a: 'Full (End-to-end)', f: 'Full (Pydantic)', s: 'Partial', d: 'Partial', fl: 'Minimal' },
-                  ].map((row, i) => (
-                    <tr key={i} className={`group ${isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'} transition-colors`}>
-                      <td className={`px-8 py-5 text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{row.feature}</td>
-                      <td className="px-8 py-5 text-sm font-bold text-aquilia-500">{row.a}</td>
-                      <td className={`px-8 py-5 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.f}</td>
-                      <td className={`px-8 py-5 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.s}</td>
-                      <td className={`px-8 py-5 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.d}</td>
-                      <td className={`px-8 py-5 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.fl}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p className={`mt-8 text-xs text-center ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-              * Benchmarks conducted on Apple Silicon. JSON-Large performance measured with wrk (38KB payload).
-            </p>
           </div>
         </section>
 
