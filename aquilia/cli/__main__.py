@@ -1775,7 +1775,7 @@ def cache_clear(ctx, namespace: str | None):
 
 @cli.group(cls=AquiliaGroup)
 def i18n():
-    """AquilaI18n -- init, check, inspect, extract, and coverage."""
+    """AquilaI18n -- init, check, inspect, extract, coverage, and compile."""
     pass
 
 
@@ -1891,6 +1891,34 @@ def i18n_coverage(ctx):
         cmd_i18n_coverage(verbose=ctx.obj["verbose"])
     except Exception as e:
         error(f"  {_CROSS} i18n coverage failed: {e}")
+        sys.exit(1)
+
+
+@i18n.command("compile")
+@click.option("--directory", "directory", type=str, default="locales", help="Source locales directory")
+@click.option("--output", "output", type=str, default=None, help="Output directory for compiled catalogs")
+@click.pass_context
+def i18n_compile(ctx, directory: str, output: str | None):
+    """
+    Compile JSON locale files to CROUS format.
+
+    Produces `.crous` catalogs for faster startup and lookup.
+
+    Examples:
+      aq i18n compile
+      aq i18n compile --directory locales
+      aq i18n compile --directory locales --output artifacts/locales
+    """
+    from .commands.i18n import cmd_i18n_compile
+
+    try:
+        cmd_i18n_compile(
+            directory=directory,
+            output=output,
+            verbose=ctx.obj["verbose"],
+        )
+    except Exception as e:
+        error(f"  {_CROSS} i18n compile failed: {e}")
         sys.exit(1)
 
 
