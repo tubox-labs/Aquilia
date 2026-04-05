@@ -38,6 +38,35 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.i18n.di")
 
 
+def _register_with_value_provider(
+    container: Any,
+    *,
+    token: type | str,
+    value: Any,
+    scope: str,
+    name: str,
+) -> None:
+    """Register a constant value using Aquilia's Provider-based DI API."""
+    from aquilia.di.providers import ValueProvider
+
+    provider = ValueProvider(
+        value=value,
+        token=token,
+        scope=scope,
+        name=name,
+    )
+
+    try:
+        container.register(provider)
+    except Exception as exc:
+        # Some containers may already have this token registered;
+        # treat duplicate registration as non-fatal.
+        msg = str(exc)
+        if "already registered" in msg or "PROVIDER_ALREADY_REGISTERED" in msg:
+            return
+        raise
+
+
 def register_i18n_providers(
     container: Any,
     service: I18nService,
@@ -66,9 +95,21 @@ def register_i18n_providers(
             container.register_value(I18nService, service)
             container.register_value(I18nConfig, cfg)
         elif hasattr(container, "register"):
-            # Generic Container.register(type, instance)
-            container.register(I18nService, service)
-            container.register(I18nConfig, cfg)
+            # Aquilia Container.register expects a Provider, not token/value args.
+            _register_with_value_provider(
+                container,
+                token=I18nService,
+                value=service,
+                scope="app",
+                name="i18n_service",
+            )
+            _register_with_value_provider(
+                container,
+                token=I18nConfig,
+                value=cfg,
+                scope="app",
+                name="i18n_config",
+            )
         elif hasattr(container, "set"):
             # Simple dict-like container
             container.set(I18nService, service)
@@ -104,19 +145,39 @@ def register_i18n_request_providers(
     """
     from .locale import Locale, parse_locale
 
-    locale_obj = parse_locale(locale)
+    try:
+        locale_obj = parse_locale(locale)
+    except Exception:
+        locale_obj = None
 
     try:
         if hasattr(container, "register_value"):
-            container.register_value(Locale, locale_obj)
+            if locale_obj is not None:
+                container.register_value(Locale, locale_obj)
             container.register_value("locale", locale)
         elif hasattr(container, "register"):
-            container.register(Locale, locale_obj)
+            if locale_obj is not None:
+                _register_with_value_provider(
+                    container,
+                    token=Locale,
+                    value=locale_obj,
+                    scope="request",
+                    name="request_locale_obj",
+                )
+            _register_with_value_provider(
+                container,
+                token="locale",
+                value=locale,
+                scope="request",
+                name="request_locale",
+            )
         elif hasattr(container, "set"):
-            container.set(Locale, locale_obj)
+            if locale_obj is not None:
+                container.set(Locale, locale_obj)
             container.set("locale", locale)
         elif isinstance(container, dict):
-            container[Locale] = locale_obj
+            if locale_obj is not None:
+                container[Locale] = locale_obj
             container["locale"] = locale
     except Exception:
         pass
