@@ -1,7 +1,28 @@
 import { useState, useCallback } from 'react'
 import { Copy, Check, Terminal } from 'lucide-react'
 import { Highlight, type PrismTheme } from 'prism-react-renderer'
+import Prism from 'prismjs'
+import 'prismjs/components/prism-python'
+import 'prismjs/components/prism-typescript'
+import 'prismjs/components/prism-jsx'
+import 'prismjs/components/prism-tsx'
+import 'prismjs/components/prism-bash'
+import 'prismjs/components/prism-shell-session'
+import 'prismjs/components/prism-yaml'
+import 'prismjs/components/prism-json'
+import 'prismjs/components/prism-markdown'
+import 'prismjs/components/prism-ini'
+import 'prismjs/components/prism-toml'
+import 'prismjs/components/prism-docker'
 import { useTheme } from '../context/ThemeContext'
+
+if (!Prism.languages.plain) {
+  const plainGrammar = {}
+  Prism.languages.plain = plainGrammar
+  Prism.languages.plaintext = plainGrammar
+  Prism.languages.text = plainGrammar
+  Prism.languages.txt = plainGrammar
+}
 
 /*
  * Custom Aquilia syntax highlighting — mirrors the temp/docs/ palette:
@@ -27,6 +48,11 @@ const aquiliaDarkTheme: PrismTheme = {
     { types: ['operator', 'punctuation'], style: { color: '#d1d5db' } },
     { types: ['variable', 'parameter'], style: { color: '#e5e7eb' } },
     { types: ['property', 'attr-name'], style: { color: '#93c5fd' } },
+    { types: ['assign-left', 'key', 'section', 'section-name', 'table'], style: { color: '#93c5fd' } },
+    { types: ['value'], style: { color: '#4ade80' } },
+    { types: ['command', 'instruction'], style: { color: '#fde047' } },
+    { types: ['shell-symbol'], style: { color: '#22c55e' } },
+    { types: ['output'], style: { color: '#9ca3af' } },
     { types: ['regex'], style: { color: '#fbbf24' } },
     { types: ['deleted'], style: { color: '#ef4444' } },
     { types: ['inserted'], style: { color: '#22c55e' } },
@@ -50,6 +76,11 @@ const aquiliaLightTheme: PrismTheme = {
     { types: ['operator', 'punctuation'], style: { color: '#475569' } },
     { types: ['variable', 'parameter'], style: { color: '#1e293b' } },
     { types: ['property', 'attr-name'], style: { color: '#2563eb' } },
+    { types: ['assign-left', 'key', 'section', 'section-name', 'table'], style: { color: '#1d4ed8' } },
+    { types: ['value'], style: { color: '#16a34a' } },
+    { types: ['command', 'instruction'], style: { color: '#a16207' } },
+    { types: ['shell-symbol'], style: { color: '#15803d' } },
+    { types: ['output'], style: { color: '#64748b' } },
     { types: ['regex'], style: { color: '#d97706' } },
     { types: ['deleted'], style: { color: '#dc2626' } },
     { types: ['inserted'], style: { color: '#16a34a' } },
@@ -70,28 +101,63 @@ interface CodeBlockProps {
   compact?: boolean
 }
 
-const CLASS_REFERENCE_PATTERN = /\b[A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*\b/g
+const CLASS_REFERENCE_PATTERN = /^([A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*)$/
 const CLASS_FALLBACK_LANGUAGES = new Set(['python', 'typescript', 'javascript', 'tsx', 'jsx'])
+const IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
+const SELF_IDENTIFIERS = new Set(['self', 'cls', 'this', 'super'])
 
-function splitClassReferenceSegments(content: string): Array<{ text: string; isClassRef: boolean }> {
-  const segments: Array<{ text: string; isClassRef: boolean }> = []
-  let lastIndex = 0
-  CLASS_REFERENCE_PATTERN.lastIndex = 0
+function splitIdentifierSegments(content: string): string[] {
+  return content.split(/([A-Za-z_][A-Za-z0-9_]*)/g).filter((segment) => segment.length > 0)
+}
 
-  let match: RegExpExecArray | null
-  while ((match = CLASS_REFERENCE_PATTERN.exec(content)) !== null) {
-    if (match.index > lastIndex) {
-      segments.push({ text: content.slice(lastIndex, match.index), isClassRef: false })
+function getFirstNonWhitespaceChar(content: string): string | null {
+  for (const char of content) {
+    if (!/\s/.test(char)) {
+      return char
     }
-    segments.push({ text: match[0], isClassRef: true })
-    lastIndex = match.index + match[0].length
+  }
+  return null
+}
+
+function getLastNonWhitespaceChar(content: string): string | null {
+  for (let i = content.length - 1; i >= 0; i -= 1) {
+    const char = content[i]
+    if (!/\s/.test(char)) {
+      return char
+    }
+  }
+  return null
+}
+
+function getNeighborChars(tokens: Array<{ content: string }>, tokenIndex: number, segments: string[], segmentIndex: number): {
+  prevChar: string | null
+  nextChar: string | null
+} {
+  const prevSegment = segments.slice(0, segmentIndex).join('')
+  const nextSegment = segments.slice(segmentIndex + 1).join('')
+
+  let prevChar = getLastNonWhitespaceChar(prevSegment)
+  let nextChar = getFirstNonWhitespaceChar(nextSegment)
+
+  if (prevChar === null) {
+    for (let i = tokenIndex - 1; i >= 0; i -= 1) {
+      prevChar = getLastNonWhitespaceChar(tokens[i].content)
+      if (prevChar !== null) {
+        break
+      }
+    }
   }
 
-  if (lastIndex < content.length) {
-    segments.push({ text: content.slice(lastIndex), isClassRef: false })
+  if (nextChar === null) {
+    for (let i = tokenIndex + 1; i < tokens.length; i += 1) {
+      nextChar = getFirstNonWhitespaceChar(tokens[i].content)
+      if (nextChar !== null) {
+        break
+      }
+    }
   }
 
-  return segments.length > 0 ? segments : [{ text: content, isClassRef: false }]
+  return { prevChar, nextChar }
 }
 
 export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true, compact = false }: CodeBlockProps) {
@@ -100,22 +166,43 @@ export function CodeBlock({ code, children, language = 'python', filename, title
   const isDark = theme === 'dark'
 
   const codeContent = (code || children || '').trim()
+  const normalizedLanguage = language.trim().toLowerCase()
 
   // Map language aliases so Prism can highlight everything
   const prismLanguage = (() => {
     const map: Record<string, string> = {
-      shell: 'bash', sh: 'bash', zsh: 'bash', terminal: 'bash', console: 'bash',
-      plaintext: 'python', text: 'python', txt: 'python', structure: 'python',
-      py: 'python', js: 'javascript', ts: 'typescript', yml: 'yaml', md: 'markdown',
-      toml: 'ini', conf: 'ini',
+      shell: 'bash',
+      sh: 'bash',
+      zsh: 'bash',
+      terminal: 'bash',
+      console: 'bash',
+      'shell-session': 'shell-session',
+      shellsession: 'shell-session',
+      shellscript: 'bash',
+      dockerfile: 'docker',
+      plaintext: 'plain',
+      text: 'plain',
+      txt: 'plain',
+      structure: 'plain',
+      py: 'python',
+      js: 'javascript',
+      ts: 'typescript',
+      yml: 'yaml',
+      md: 'markdown',
+      conf: 'ini',
     }
-    return map[language] || language
+    return map[normalizedLanguage] || normalizedLanguage
   })()
 
   const classReferenceColor = isDark ? '#fb923c' : '#c2410c'
+  const decoratorColor = isDark ? '#22c55e' : '#15803d'
+  const variableColor = isDark ? '#93c5fd' : '#1d4ed8'
+  const memberColor = isDark ? '#67e8f9' : '#0e7490'
+  const functionCallColor = isDark ? '#fde047' : '#a16207'
+  const selfColor = isDark ? '#f472b6' : '#be185d'
   const canApplyClassFallback = CLASS_FALLBACK_LANGUAGES.has(prismLanguage)
 
-  const isTerminal = ['bash', 'shell', 'sh', 'zsh', 'terminal', 'console'].includes(language)
+  const isTerminal = ['bash', 'shell', 'sh', 'zsh', 'terminal', 'console', 'shell-session', 'shellsession'].includes(normalizedLanguage)
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(codeContent)
@@ -154,7 +241,7 @@ export function CodeBlock({ code, children, language = 'python', filename, title
           </button>
         </div>
         {/* Code body */}
-        <Highlight theme={isDark ? aquiliaDarkTheme : aquiliaLightTheme} code={codeContent} language={prismLanguage as any}>
+        <Highlight prism={Prism as any} theme={isDark ? aquiliaDarkTheme : aquiliaLightTheme} code={codeContent} language={prismLanguage as any}>
           {({ tokens, getLineProps, getTokenProps }) => (
             <pre className={`${compact ? 'p-3 text-xs' : 'p-4 text-sm'} overflow-x-auto leading-relaxed font-mono ${isDark ? 'bg-black' : 'bg-[#f8fafc]'}`}>
               {tokens.map((line, i) => (
@@ -167,24 +254,48 @@ export function CodeBlock({ code, children, language = 'python', filename, title
                   {line.map((token, key) => {
                     const tokenProps = getTokenProps({ token })
 
+                    if (token.types.includes('decorator') || token.types.includes('annotation')) {
+                      return (
+                        <span key={key} className={tokenProps.className} style={{ ...tokenProps.style, color: decoratorColor }}>
+                          {token.content}
+                        </span>
+                      )
+                    }
+
                     if (!canApplyClassFallback || !token.types.includes('plain') || typeof token.content !== 'string') {
                       return <span key={key} {...tokenProps} />
                     }
 
-                    const segments = splitClassReferenceSegments(token.content)
-                    const hasClassReferences = segments.some((segment) => segment.isClassRef)
+                    const segments = splitIdentifierSegments(token.content)
+                    const hasIdentifiers = segments.some((segment) => IDENTIFIER_PATTERN.test(segment))
 
-                    if (!hasClassReferences) {
+                    if (!hasIdentifiers) {
                       return <span key={key} {...tokenProps} />
                     }
 
                     return (
                       <span key={key} className={tokenProps.className} style={tokenProps.style}>
-                        {segments.map((segment, segmentIndex) => (
-                          segment.isClassRef
-                            ? <span key={segmentIndex} style={{ color: classReferenceColor }}>{segment.text}</span>
-                            : segment.text
-                        ))}
+                        {segments.map((segment, segmentIndex) => {
+                          if (!IDENTIFIER_PATTERN.test(segment)) {
+                            return <span key={segmentIndex}>{segment}</span>
+                          }
+
+                          const { prevChar, nextChar } = getNeighborChars(line as Array<{ content: string }>, key, segments, segmentIndex)
+                          const isClassReference = CLASS_REFERENCE_PATTERN.test(segment)
+
+                          let color = variableColor
+                          if (SELF_IDENTIFIERS.has(segment)) {
+                            color = selfColor
+                          } else if (isClassReference) {
+                            color = classReferenceColor
+                          } else if (nextChar === '(') {
+                            color = functionCallColor
+                          } else if (prevChar === '.') {
+                            color = memberColor
+                          }
+
+                          return <span key={segmentIndex} style={{ color }}>{segment}</span>
+                        })}
                       </span>
                     )
                   })}
