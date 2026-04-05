@@ -154,6 +154,16 @@ import { HTTPAPIMiddleware } from './pages/docs/http/api/Middleware'
 import { HTTPAPIMultipart } from './pages/docs/http/api/Multipart'
 import { HTTPAPIStreaming } from './pages/docs/http/api/Streaming'
 
+// I18n
+import { I18nOverview } from './pages/docs/i18n/Overview'
+import { I18nArchitecture } from './pages/docs/i18n/Architecture'
+import { I18nConfiguration } from './pages/docs/i18n/Configuration'
+import { I18nIntegration } from './pages/docs/i18n/Integration'
+import { I18nAPIReference } from './pages/docs/i18n/APIReference'
+import { I18nCLI } from './pages/docs/i18n/CLI'
+import { I18nEdgeCases } from './pages/docs/i18n/EdgeCases'
+import { I18nTroubleshooting } from './pages/docs/i18n/Troubleshooting'
+
 // WebSockets
 import { WebSocketsOverview } from './pages/docs/websockets/Overview'
 import { WebSocketControllers } from './pages/docs/websockets/Controllers'
@@ -415,6 +425,28 @@ export default function App() {
           <Route path="http/api/middleware" element={<HTTPAPIMiddleware />} />
           <Route path="http/api/multipart" element={<HTTPAPIMultipart />} />
           <Route path="http/api/streaming" element={<HTTPAPIStreaming />} />
+
+          {/* I18n */}
+          <Route path="i18n" element={<I18nOverview />} />
+          <Route path="i18n/overview" element={<I18nOverview />} />
+          <Route path="i18n/architecture" element={<I18nArchitecture />} />
+          <Route path="i18n/configuration" element={<I18nConfiguration />} />
+          <Route path="i18n/integration" element={<I18nIntegration />} />
+          <Route path="i18n/api-reference" element={<I18nAPIReference />} />
+          <Route path="i18n/cli" element={<I18nCLI />} />
+          <Route path="i18n/edge-cases" element={<I18nEdgeCases />} />
+          <Route path="i18n/troubleshooting" element={<I18nTroubleshooting />} />
+
+          {/* i8n alias routes */}
+          <Route path="i8n" element={<I18nOverview />} />
+          <Route path="i8n/overview" element={<I18nOverview />} />
+          <Route path="i8n/architecture" element={<I18nArchitecture />} />
+          <Route path="i8n/configuration" element={<I18nConfiguration />} />
+          <Route path="i8n/integration" element={<I18nIntegration />} />
+          <Route path="i8n/api-reference" element={<I18nAPIReference />} />
+          <Route path="i8n/cli" element={<I18nCLI />} />
+          <Route path="i8n/edge-cases" element={<I18nEdgeCases />} />
+          <Route path="i8n/troubleshooting" element={<I18nTroubleshooting />} />
 
           {/* WebSockets */}
           <Route path="websockets" element={<WebSocketsOverview />} />

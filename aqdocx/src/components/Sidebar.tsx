@@ -6,7 +6,7 @@ import {
   AlertCircle, Terminal, GitBranch, ChevronDown, ChevronRight,
   Server, Box, Mail, Palette, TestTube, Brain, BarChart, Plug,
   FileCode, Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
-  Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X
+  Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages
 } from 'lucide-react'
 
 interface SidebarSection {
@@ -288,6 +288,19 @@ export const sections: SidebarSection[] = [
               { label: 'Streaming API', path: '/docs/http/api/streaming' },
             ]
           },
+        ]
+      },
+      {
+        label: 'i18n', path: '/docs/i18n', icon: <Languages className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/i18n' },
+          { label: 'Architecture', path: '/docs/i18n/architecture' },
+          { label: 'Configuration', path: '/docs/i18n/configuration' },
+          { label: 'Integration', path: '/docs/i18n/integration' },
+          { label: 'API Reference', path: '/docs/i18n/api-reference' },
+          { label: 'CLI', path: '/docs/i18n/cli' },
+          { label: 'Edge Cases', path: '/docs/i18n/edge-cases' },
+          { label: 'Troubleshooting', path: '/docs/i18n/troubleshooting' },
         ]
       },
       {

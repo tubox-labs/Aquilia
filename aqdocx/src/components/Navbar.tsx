@@ -4,7 +4,7 @@ import {
   Sun, Moon, Github, ChevronDown, Rocket, Zap, Box,
   Shield, Layers, Wrench, BookOpen, Download, Cpu,
   Settings, Database, Lock, Key, Code, Bug, Wifi,
-  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe, Activity
+  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe, Activity, Languages
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { UniversalSearch } from './UniversalSearch'
@@ -61,6 +61,7 @@ const navSections = [
       { label: 'Fault System', path: '/docs/faults', icon: Bug },
       { label: 'Cache', path: '/docs/cache', icon: Zap },
       { label: 'HTTP Client', path: '/docs/http', icon: Globe },
+      { label: 'i18n', path: '/docs/i18n', icon: Languages },
       { label: 'WebSockets', path: '/docs/websockets', icon: Wifi },
       { label: 'Templates', path: '/docs/templates', icon: FileText },
       { label: 'Mail', path: '/docs/mail', icon: Mail },
