@@ -24,13 +24,13 @@ export function TasksConfiguration() {
         </p>
       </div>
 
-      {/* TaskManager Configuration */}
+      {/* Workspace Configuration */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          TaskManager Configuration
+          Workspace Configuration (Integration.tasks)
         </h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Configuration is passed to the <code className="text-aquilia-500">TaskManager</code> constructor.
+          Configure tasks via <code className="text-aquilia-500">Integration.tasks()</code> in <code>workspace.py</code>. This is automatically converted to a TaskManager instance at server startup.
         </p>
 
         <div className="overflow-x-auto mb-6">
@@ -46,9 +46,9 @@ export function TasksConfiguration() {
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               <tr>
                 <td className="py-3 pr-4"><code>backend</code></td>
-                <td className="py-3 pr-4"><code>TaskBackend</code></td>
-                <td className="py-3 pr-4"><code>MemoryBackend()</code></td>
-                <td>Job storage backend. Default is in-memory heap-based queue.</td>
+                <td className="py-3 pr-4"><code>str</code></td>
+                <td className="py-3 pr-4"><code>"memory"</code></td>
+                <td>Backend type: <code>"memory"</code> (default) or <code>"redis"</code> (future).</td>
               </tr>
               <tr>
                 <td className="py-3 pr-4"><code>num_workers</code></td>
@@ -57,36 +57,135 @@ export function TasksConfiguration() {
                 <td>Number of worker coroutines to spawn.</td>
               </tr>
               <tr>
-                <td className="py-3 pr-4"><code>queues</code></td>
-                <td className="py-3 pr-4"><code>list[str]</code></td>
-                <td className="py-3 pr-4"><code>["default"]</code></td>
-                <td>List of queue names to process.</td>
+                <td className="py-3 pr-4"><code>default_queue</code></td>
+                <td className="py-3 pr-4"><code>str</code></td>
+                <td className="py-3 pr-4"><code>"default"</code></td>
+                <td>Default queue name for tasks without explicit queue.</td>
               </tr>
               <tr>
-                <td className="py-3 pr-4"><code>poll_interval</code></td>
+                <td className="py-3 pr-4"><code>cleanup_interval</code></td>
                 <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>1.0</code></td>
-                <td>Seconds between polls when queues are empty.</td>
+                <td className="py-3 pr-4"><code>300.0</code></td>
+                <td>Seconds between cleanup sweeps (5 minutes).</td>
+              </tr>
+              <tr>
+                <td className="py-3 pr-4"><code>cleanup_max_age</code></td>
+                <td className="py-3 pr-4"><code>float</code></td>
+                <td className="py-3 pr-4"><code>3600.0</code></td>
+                <td>Max age (seconds) for terminal jobs before cleanup (1 hour).</td>
+              </tr>
+              <tr>
+                <td className="py-3 pr-4"><code>scheduler_tick</code></td>
+                <td className="py-3 pr-4"><code>float</code></td>
+                <td className="py-3 pr-4"><code>15.0</code></td>
+                <td>Seconds between periodic task evaluation ticks.</td>
+              </tr>
+              <tr>
+                <td className="py-3 pr-4"><code>auto_start</code></td>
+                <td className="py-3 pr-4"><code>bool</code></td>
+                <td className="py-3 pr-4"><code>True</code></td>
+                <td>Automatically start workers on server boot.</td>
+              </tr>
+              <tr>
+                <td className="py-3 pr-4"><code>dead_letter_max</code></td>
+                <td className="py-3 pr-4"><code>int</code></td>
+                <td className="py-3 pr-4"><code>1000</code></td>
+                <td>Maximum dead-letter queue size.</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Minimal Configuration</h3>
-        <CodeBlock language="python">{`from aquilia.tasks import TaskManager
+        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Workspace Configuration</h3>
+        <CodeBlock language="python">{`# workspace.py
+from aquilia import Workspace, Module
+from aquilia.config_builders import Integration
 
-# Uses all defaults
-manager = TaskManager()
-await manager.start()`}</CodeBlock>
+workspace = (
+    Workspace("myapp", version="1.0.0")
+    .runtime(mode="dev", port=8000)
+    .module(Module("core"))
+    .integrate(Integration.tasks(
+        num_workers=8,
+        scheduler_tick=10.0,
+        cleanup_interval=600.0,
+        cleanup_max_age=7200.0,
+    ))
+)`}</CodeBlock>
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Full Configuration</h3>
+      <h2 className={`text-2xl font-bold mt-12 mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        Direct TaskManager Construction
+      </h2>
+      <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+        For standalone usage outside Aquilia workspace, construct <code className="text-aquilia-500">TaskManager</code> directly.
+      </p>
+
+      <div className="overflow-x-auto mb-6">
+        <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <thead>
+            <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+              <th className="text-left py-3 pr-4 text-aquilia-500">Parameter</th>
+              <th className="text-left py-3 pr-4">Type</th>
+              <th className="text-left py-3 pr-4">Default</th>
+              <th className="text-left py-3">Description</th>
+            </tr>
+          </thead>
+          <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
+            <tr>
+              <td className="py-3 pr-4"><code>backend</code></td>
+              <td className="py-3 pr-4"><code>TaskBackend</code></td>
+              <td className="py-3 pr-4"><code>MemoryBackend()</code></td>
+              <td>Backend instance. Default is in-memory heap-based queue.</td>
+            </tr>
+            <tr>
+              <td className="py-3 pr-4"><code>num_workers</code></td>
+              <td className="py-3 pr-4"><code>int</code></td>
+              <td className="py-3 pr-4"><code>4</code></td>
+              <td>Number of worker coroutines.</td>
+            </tr>
+            <tr>
+              <td className="py-3 pr-4"><code>default_queue</code></td>
+              <td className="py-3 pr-4"><code>str</code></td>
+              <td className="py-3 pr-4"><code>"default"</code></td>
+              <td>Default queue name.</td>
+            </tr>
+            <tr>
+              <td className="py-3 pr-4"><code>cleanup_interval</code></td>
+              <td className="py-3 pr-4"><code>float</code></td>
+              <td className="py-3 pr-4"><code>300.0</code></td>
+              <td>Cleanup loop interval in seconds.</td>
+            </tr>
+            <tr>
+              <td className="py-3 pr-4"><code>cleanup_max_age</code></td>
+              <td className="py-3 pr-4"><code>float</code></td>
+              <td className="py-3 pr-4"><code>3600.0</code></td>
+              <td>Max age for terminal jobs.</td>
+            </tr>
+            <tr>
+              <td className="py-3 pr-4"><code>scheduler_tick</code></td>
+              <td className="py-3 pr-4"><code>float</code></td>
+              <td className="py-3 pr-4"><code>15.0</code></td>
+              <td>Scheduler poll interval in seconds.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Standalone Usage Example</h3>
         <CodeBlock language="python">{`from aquilia.tasks import TaskManager, MemoryBackend
 
+# Minimal configuration (all defaults)
+manager = TaskManager()
+await manager.start()
+
+# Full configuration
 manager = TaskManager(
     backend=MemoryBackend(),
     num_workers=8,
-    queues=["default", "emails", "notifications", "analytics"],
-    poll_interval=0.5,
+    default_queue="default",
+    cleanup_interval=600.0,
+    cleanup_max_age=7200.0,
+    scheduler_tick=10.0,
 )
 await manager.start()`}</CodeBlock>
       </section>
@@ -254,27 +353,66 @@ delay = delay * (1.0 + random.uniform(-0.25, 0.25))  # ±25% jitter`}</CodeBlock
         </div>
       </section>
 
-      {/* Queue Configuration */}
+      {/* Queue Management */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Queue Configuration
+          Queue Management
         </h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Queues are logical partitions for organizing tasks. Workers process specific queues.
+          Queues are automatically created when tasks use them. Workers process ALL known queues (tracked internally via <code>_queues</code> set).
         </p>
 
         <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Multiple Queue Workers
+          How Queues Work
         </h3>
-        <CodeBlock language="python">{`# Process all queues
-manager = TaskManager(
-    num_workers=8,
-    queues=["default", "emails", "notifications"],
-)
+        <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-gray-50 border-gray-200'} mb-4`}>
+          <ol className={`list-decimal list-inside space-y-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            <li>Tasks declare their queue via <code>@task(queue="name")</code></li>
+            <li>When a job is enqueued, the queue is auto-registered in <code>manager._queues</code></li>
+            <li>Workers poll all registered queues in round-robin fashion</li>
+            <li>No configuration needed — queues are created dynamically</li>
+          </ol>
+        </div>
 
-# Or run dedicated workers per queue
-email_manager = TaskManager(num_workers=4, queues=["emails"])
-notification_manager = TaskManager(num_workers=2, queues=["notifications"])`}</CodeBlock>
+        <CodeBlock language="python">{`# Define tasks for different queues
+@task(queue="emails")
+async def send_email(): pass
+
+@task(queue="notifications")
+async def send_notification(): pass
+
+@task(queue="analytics")
+async def track_event(): pass
+
+# Enqueue creates queues automatically
+await send_email.delay()         # Creates "emails" queue
+await send_notification.delay()  # Creates "notifications" queue
+await track_event.delay()        # Creates "analytics" queue
+
+# Workers process all queues
+manager = TaskManager(num_workers=4)
+await manager.start()  # Workers poll emails, notifications, analytics`}</CodeBlock>
+
+        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+          Dedicated Worker Pools (Advanced)
+        </h3>
+        <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          For advanced use cases, run separate TaskManager instances with shared backend:
+        </p>
+        <CodeBlock language="python">{`# Shared backend
+backend = MemoryBackend()
+
+# High-priority worker pool
+critical_manager = TaskManager(backend=backend, num_workers=4)
+
+# Low-priority worker pool
+analytics_manager = TaskManager(backend=backend, num_workers=2)
+
+await critical_manager.start()
+await analytics_manager.start()
+
+# Both managers share the same job storage
+# but can be started/stopped independently`}</CodeBlock>
 
         <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
           Recommended Queue Structure

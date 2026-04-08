@@ -69,14 +69,35 @@ export function TasksOverview() {
         <div className="space-y-6">
           <div>
             <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              1. Define a Task
+              1. Enable in Workspace
             </h3>
-            <CodeBlock language="python">{`from aquilia.tasks import task, Priority
+            <CodeBlock language="python">{`# workspace.py
+from aquilia import Workspace, Module
+from aquilia.config_builders import Integration
+
+workspace = (
+    Workspace("myapp", version="1.0.0")
+    .runtime(mode="dev", port=8000)
+    .module(Module("core"))
+    .integrate(Integration.tasks(
+        num_workers=4,
+        scheduler_tick=15.0,  # Periodic task check interval
+    ))
+)`}</CodeBlock>
+          </div>
+
+          <div>
+            <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              2. Define a Task
+            </h3>
+            <CodeBlock language="python">{`# modules/core/tasks.py
+from aquilia.tasks import task, Priority
 
 @task(
     queue="notifications",
     priority=Priority.HIGH,
     max_retries=3,
+    timeout=60.0,
 )
 async def send_notification(user_id: int, message: str) -> bool:
     """Send a notification to a user."""
@@ -86,30 +107,29 @@ async def send_notification(user_id: int, message: str) -> bool:
 
           <div>
             <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              2. Enqueue a Job
+              3. Dispatch from Controller
             </h3>
-            <CodeBlock language="python">{`# Enqueue immediately
-job_id = await send_notification.delay(user_id=123, message="Hello!")
+            <CodeBlock language="python">{`# modules/core/controllers.py
+from aquilia import Controller, POST, RequestCtx, Response
+from .tasks import send_notification
 
-# Or use .send() (alias for .delay())
-job_id = await send_notification.send(user_id=123, message="Hello!")`}</CodeBlock>
-          </div>
-
-          <div>
-            <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-              3. Run Workers
-            </h3>
-            <CodeBlock language="python">{`from aquilia.tasks import TaskManager
-
-async def main():
-    manager = TaskManager()
-    await manager.start()
+class NotificationsController(Controller):
+    prefix = "/notifications"
     
-    # Enqueue some work
-    await send_notification.delay(user_id=1, message="Test")
-    
-    # Wait for completion
-    await manager.wait_for_shutdown()`}</CodeBlock>
+    @POST("/send")
+    async def send(self, ctx: RequestCtx) -> Response:
+        data = await ctx.json()
+        
+        # Enqueue task for background execution
+        job_id = await send_notification.delay(
+            user_id=data["user_id"],
+            message=data["message"]
+        )
+        
+        return Response.json({
+            "job_id": job_id,
+            "status": "queued"
+        })`}</CodeBlock>
           </div>
         </div>
       </section>
