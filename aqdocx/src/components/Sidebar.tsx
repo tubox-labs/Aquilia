@@ -6,7 +6,8 @@ import {
   AlertCircle, Terminal, GitBranch, ChevronDown, ChevronRight,
   Server, Box, Mail, Palette, TestTube, Brain, BarChart, Plug,
   FileCode, Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
-  Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages
+  Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages,
+  Clock, FileText
 } from 'lucide-react'
 
 interface SidebarSection {
@@ -383,6 +384,52 @@ export const sections: SidebarSection[] = [
       },
       {
         label: 'Trace & Debug', path: '/docs/trace', icon: <BarChart className="w-3.5 h-3.5" />,
+      },
+    ]
+  },
+  {
+    title: 'Background Jobs',
+    icon: <Clock className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Tasks', path: '/docs/tasks', icon: <Clock className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/tasks/overview' },
+          { label: 'API Reference', path: '/docs/tasks/api' },
+          { label: 'Configuration', path: '/docs/tasks/configuration' },
+          { label: 'Retry Logic', path: '/docs/tasks/retry' },
+          { label: 'Scheduling', path: '/docs/tasks/scheduling' },
+          { label: 'Controller Guide', path: '/docs/tasks/controller' },
+        ]
+      },
+      {
+        label: 'Storage', path: '/docs/storage', icon: <HardDrive className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/storage/overview' },
+          { label: 'API Reference', path: '/docs/storage/api' },
+          { label: 'Configuration', path: '/docs/storage/configuration' },
+          { label: 'Backends', path: '/docs/storage/backends' },
+          { label: 'Controller Guide', path: '/docs/storage/controller' },
+        ]
+      },
+      {
+        label: 'SQLite', path: '/docs/sqlite', icon: <Database className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/sqlite/overview' },
+          { label: 'API Reference', path: '/docs/sqlite/api' },
+          { label: 'Pool Configuration', path: '/docs/sqlite/pool' },
+          { label: 'Transactions', path: '/docs/sqlite/transactions' },
+          { label: 'Controller Guide', path: '/docs/sqlite/controller' },
+        ]
+      },
+      {
+        label: 'Filesystem', path: '/docs/filesystem', icon: <FileText className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/filesystem/overview' },
+          { label: 'API Reference', path: '/docs/filesystem/api' },
+          { label: 'Operations', path: '/docs/filesystem/operations' },
+          { label: 'Controller Guide', path: '/docs/filesystem/controller' },
+        ]
       },
     ]
   },

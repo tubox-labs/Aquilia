@@ -4,7 +4,7 @@ import {
   Sun, Moon, Github, ChevronDown, Rocket, Zap, Box,
   Shield, Layers, Wrench, BookOpen, Download, Cpu,
   Settings, Database, Lock, Key, Code, Bug, Wifi,
-  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe, Activity, Languages
+  Mail, FileText, Brain, Terminal, TestTube, FileCode, Eye, Menu, Tag, Globe, Activity, Languages, Clock, HardDrive
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { UniversalSearch } from './UniversalSearch'
@@ -66,6 +66,10 @@ const navSections = [
       { label: 'Templates', path: '/docs/templates', icon: FileText },
       { label: 'Mail', path: '/docs/mail', icon: Mail },
       { label: 'MLOps', path: '/docs/mlops', icon: Brain },
+      { label: 'Tasks', path: '/docs/tasks', icon: Clock },
+      { label: 'Storage', path: '/docs/storage', icon: HardDrive },
+      { label: 'SQLite', path: '/docs/sqlite', icon: Database },
+      { label: 'Filesystem', path: '/docs/filesystem', icon: FileText },
     ],
   },
   {

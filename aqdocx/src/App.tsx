@@ -236,6 +236,34 @@ import { TestingMocks } from './pages/docs/testing/Mocks'
 import { TraceOverview } from './pages/docs/trace/Overview'
 import { TraceSpans } from './pages/docs/trace/Spans'
 
+// Tasks
+import { TasksOverview } from './pages/docs/tasks/Overview'
+import { TasksAPI } from './pages/docs/tasks/API'
+import { TasksConfiguration } from './pages/docs/tasks/Configuration'
+import { TasksRetry } from './pages/docs/tasks/Retry'
+import { TasksScheduling } from './pages/docs/tasks/Scheduling'
+import { TasksController } from './pages/docs/tasks/Controller'
+
+// Storage
+import { StorageOverview } from './pages/docs/storage/Overview'
+import { StorageAPI } from './pages/docs/storage/API'
+import { StorageConfiguration } from './pages/docs/storage/Configuration'
+import { StorageBackends } from './pages/docs/storage/Backends'
+import { StorageController } from './pages/docs/storage/Controller'
+
+// SQLite
+import { SqliteOverview } from './pages/docs/sqlite/Overview'
+import { SqliteAPI } from './pages/docs/sqlite/API'
+import { SqlitePool } from './pages/docs/sqlite/Pool'
+import { SqliteTransactions } from './pages/docs/sqlite/Transactions'
+import { SqliteController } from './pages/docs/sqlite/Controller'
+
+// Filesystem
+import { FilesystemOverview } from './pages/docs/filesystem/Overview'
+import { FilesystemAPI } from './pages/docs/filesystem/API'
+import { FilesystemOperations } from './pages/docs/filesystem/Operations'
+import { FilesystemController } from './pages/docs/filesystem/Controller'
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -511,6 +539,38 @@ export default function App() {
           {/* Trace */}
           <Route path="trace" element={<TraceOverview />} />
           <Route path="trace/spans" element={<TraceSpans />} />
+
+          {/* Tasks */}
+          <Route path="tasks" element={<TasksOverview />} />
+          <Route path="tasks/overview" element={<TasksOverview />} />
+          <Route path="tasks/api" element={<TasksAPI />} />
+          <Route path="tasks/configuration" element={<TasksConfiguration />} />
+          <Route path="tasks/retry" element={<TasksRetry />} />
+          <Route path="tasks/scheduling" element={<TasksScheduling />} />
+          <Route path="tasks/controller" element={<TasksController />} />
+
+          {/* Storage */}
+          <Route path="storage" element={<StorageOverview />} />
+          <Route path="storage/overview" element={<StorageOverview />} />
+          <Route path="storage/api" element={<StorageAPI />} />
+          <Route path="storage/configuration" element={<StorageConfiguration />} />
+          <Route path="storage/backends" element={<StorageBackends />} />
+          <Route path="storage/controller" element={<StorageController />} />
+
+          {/* SQLite */}
+          <Route path="sqlite" element={<SqliteOverview />} />
+          <Route path="sqlite/overview" element={<SqliteOverview />} />
+          <Route path="sqlite/api" element={<SqliteAPI />} />
+          <Route path="sqlite/pool" element={<SqlitePool />} />
+          <Route path="sqlite/transactions" element={<SqliteTransactions />} />
+          <Route path="sqlite/controller" element={<SqliteController />} />
+
+          {/* Filesystem */}
+          <Route path="filesystem" element={<FilesystemOverview />} />
+          <Route path="filesystem/overview" element={<FilesystemOverview />} />
+          <Route path="filesystem/api" element={<FilesystemAPI />} />
+          <Route path="filesystem/operations" element={<FilesystemOperations />} />
+          <Route path="filesystem/controller" element={<FilesystemController />} />
         </Route>
       </Routes>
     </ThemeProvider>
