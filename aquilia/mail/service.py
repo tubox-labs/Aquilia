@@ -51,18 +51,30 @@ def send_mail(
     subject: str,
     body: str,
     from_email: str | None = None,
-    to: Sequence[str] | None = None,
-    cc: Sequence[str] | None = None,
-    bcc: Sequence[str] | None = None,
+    to: Sequence[str] | str | None = None,
+    cc: Sequence[str] | str | None = None,
+    bcc: Sequence[str] | str | None = None,
     reply_to: str | None = None,
     headers: dict[str, str] | None = None,
-    attachments: list | None = None,
+    attachments: Sequence[tuple[str, bytes, str]] | None = None,
     priority: int = 50,
     fail_silently: bool = False,
     **kwargs: Any,
 ) -> str | None:
     """
     Send an email synchronously.
+
+    Usage:
+        send_mail(
+            subject="Invoice",
+            body="Please find your invoice attached.",
+            to=["user@example.com"],
+            attachments=[("invoice.pdf", pdf_bytes, "application/pdf")],
+        )
+
+    Args:
+        attachments: Optional sequence of attachments as
+            ``(filename, content_bytes, content_type)`` tuples.
 
     Returns:
         envelope_id on success, None if fail_silently.
@@ -78,6 +90,7 @@ def send_mail(
         bcc=bcc,
         reply_to=reply_to,
         headers=headers,
+        attachments=list(attachments) if attachments is not None else None,
         priority=priority,
         **kwargs,
     )
@@ -88,18 +101,30 @@ async def asend_mail(
     subject: str,
     body: str,
     from_email: str | None = None,
-    to: Sequence[str] | None = None,
-    cc: Sequence[str] | None = None,
-    bcc: Sequence[str] | None = None,
+    to: Sequence[str] | str | None = None,
+    cc: Sequence[str] | str | None = None,
+    bcc: Sequence[str] | str | None = None,
     reply_to: str | None = None,
     headers: dict[str, str] | None = None,
-    attachments: list | None = None,
+    attachments: Sequence[tuple[str, bytes, str]] | None = None,
     priority: int = 50,
     fail_silently: bool = False,
     **kwargs: Any,
 ) -> str | None:
     """
     Send an email asynchronously (Aquilia-native API).
+
+    Usage:
+        await asend_mail(
+            subject="Welcome",
+            body="Your account is ready.",
+            to="user@example.com",
+            attachments=[("welcome.txt", b"Welcome!", "text/plain")],
+        )
+
+    Args:
+        attachments: Optional sequence of attachments as
+            ``(filename, content_bytes, content_type)`` tuples.
 
     Returns:
         envelope_id on success, None if fail_silently.
@@ -115,6 +140,7 @@ async def asend_mail(
         bcc=bcc,
         reply_to=reply_to,
         headers=headers,
+        attachments=list(attachments) if attachments is not None else None,
         priority=priority,
         **kwargs,
     )

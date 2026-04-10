@@ -41,10 +41,12 @@ def _validate_email(addr: str, field_name: str = "email") -> str:
     return addr
 
 
-def _validate_list(addrs: Sequence[str] | None, field_name: str) -> list[str]:
-    """Validate a list of email addresses."""
+def _validate_list(addrs: Sequence[str] | str | None, field_name: str) -> list[str]:
+    """Validate recipient addresses, accepting either a list or a single string."""
     if not addrs:
         return []
+    if isinstance(addrs, str):
+        addrs = [addrs]
     return [_validate_email(a, field_name) for a in addrs]
 
 
@@ -73,9 +75,9 @@ class EmailMessage:
         subject: str = "",
         body: str = "",
         from_email: str | None = None,
-        to: Sequence[str] | None = None,
-        cc: Sequence[str] | None = None,
-        bcc: Sequence[str] | None = None,
+        to: Sequence[str] | str | None = None,
+        cc: Sequence[str] | str | None = None,
+        bcc: Sequence[str] | str | None = None,
         reply_to: str | None = None,
         headers: dict[str, str] | None = None,
         attachments: list[tuple[str, bytes, str]] | None = None,
