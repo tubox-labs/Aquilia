@@ -33,7 +33,7 @@ pip install jinja2
 ✅ **Secure by default** - Sandboxed execution, autoescape, XSS protection  
 ✅ **Fast** - Bytecode precompilation and caching  
 ✅ **DI-integrated** - Inject TemplateEngine in controllers  
-✅ **Manifest-driven** - Templates compiled to crous artifacts  
+✅ **Manifest-driven** - Templates compiled to surp artifacts  
 ✅ **Hot-reload** - Dev mode updates without restart  
 ✅ **Observable** - Metrics and tracing built-in  
 

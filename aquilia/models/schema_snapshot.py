@@ -316,24 +316,24 @@ def _compute_checksum(snapshot: dict[str, Any]) -> str:
 
 
 def save_snapshot(snapshot: dict[str, Any], path: Path) -> None:
-    """Write snapshot to file in CROUS binary format."""
+    """Write snapshot to file in SURP binary format."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Always use CROUS binary format via _crous_native
-    import _crous_native as crous_backend
+    # Always use SURP binary format via surp
+    import surp as surp_backend
 
-    crous_backend.encode_to_file(snapshot, str(path))
+    surp_backend.encode_to_file(snapshot, str(path))
 
 
 def load_snapshot(path: Path) -> dict[str, Any] | None:
-    """Load snapshot from file in CROUS binary format."""
+    """Load snapshot from file in SURP binary format."""
     path = Path(path)
     if not path.exists():
         return None
     try:
-        import _crous_native as crous_backend
+        import surp as surp_backend
 
-        return cast(dict[str, Any] | None, crous_backend.decode_from_file(str(path)))
+        return cast(dict[str, Any] | None, surp_backend.decode_from_file(str(path)))
     except (OSError, Exception) as exc:
         logger.warning(f"Failed to load snapshot {path}: {exc}")
         return None

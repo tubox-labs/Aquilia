@@ -625,7 +625,7 @@ class AdminSite:
 
         self._initialized = True
 
-        # Restore audit history from CROUS file (server startup only)
+        # Restore audit history from SURP file (server startup only)
         self.audit_log.start()
 
     def register_admin(self, model_cls: type[Model], admin: ModelAdmin) -> None:
@@ -1674,7 +1674,7 @@ class AdminSite:
             "env_vars_by_service": {},
             "credential_status": "unconfigured",
             "credential_cipher": "—",
-            "crous_version": "—",
+            "surp_version": "—",
             "token_age": "—",
             "token_expired": True,
             "owner_name": "—",
@@ -1750,7 +1750,7 @@ class AdminSite:
                     else ("inactive" if is_configured else "unconfigured")
                 )
                 data["credential_cipher"] = status.get("cipher_suite", "AES-256-GCM")
-                data["crous_version"] = f"v{status.get('crous_version', 2)}"
+                data["surp_version"] = f"v{status.get('surp_version', 2)}"
                 age_hours = status.get("token_age_hours")
                 data["token_age"] = f"{age_hours}h" if age_hours is not None else "—"
                 data["token_expired"] = is_expired
@@ -7147,8 +7147,8 @@ class AdminSite:
         return "\n".join(result_lines)
 
     @staticmethod
-    def _highlight_crous(source: str) -> str:
-        """Apply syntax highlighting to Crous format data."""
+    def _highlight_surp(source: str) -> str:
+        """Apply syntax highlighting to Surp format data."""
         import html as html_mod
         import re
 
@@ -7206,7 +7206,7 @@ class AdminSite:
                 flags=re.IGNORECASE,
             )
 
-            # Hex values (common in Crous binary dumps)
+            # Hex values (common in Surp binary dumps)
             escaped = re.sub(
                 r"\b(0x[0-9a-fA-F]+)\b",
                 r'<span class="num">\1</span>',

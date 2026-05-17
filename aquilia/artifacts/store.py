@@ -4,7 +4,7 @@ Artifact Store -- pluggable storage backends for artifacts.
 Provides three implementations:
 
 - **MemoryArtifactStore** -- ephemeral, test-friendly
-- **FilesystemArtifactStore** -- persistent, writes ``.crous`` binary files
+- **FilesystemArtifactStore** -- persistent, writes ``.surp`` binary files
   into a configurable directory (default ``artifacts/``)
 - **ArtifactStore** -- convenience alias that auto-detects
 
@@ -164,62 +164,57 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     """
     Persistent filesystem artifact store.
 
-    Writes each artifact as a ``.crous`` binary file::
+    Writes each artifact as a ``.surp`` binary file::
 
         <root>/
-          <name>-<version>.crous      ← Crous binary (primary)
+          <name>-<version>.surp      ← Surp binary (primary)
           ...
 
-    Reads ``.crous`` first, falls back to ``.aq.json`` for legacy compat.
+    Reads ``.surp`` first, falls back to ``.aq.json`` for legacy compat.
     File names are sanitised (``/`` → ``_``, ``:`` → ``_``).
     """
 
-    __slots__ = ("root", "_crous_backend")
+    __slots__ = ("root", "_surp_backend")
 
     def __init__(self, root: str = "artifacts") -> None:
         self.root = Path(root)
         self.root.mkdir(parents=True, exist_ok=True)
-        # Initialize Crous backend
-        self._crous_backend = self._init_crous()
+        # Initialize Surp backend
+        self._surp_backend = self._init_surp()
 
     @staticmethod
-    def _init_crous():
-        """Initialize Crous encoder/decoder (native → pure Python fallback)."""
+    def _init_surp():
+        """Initialize Surp encoder/decoder."""
         try:
-            import _crous_native as backend
+            import surp as backend
 
             return backend
         except ImportError:
-            try:
-                import crous as backend
-
-                return backend
-            except ImportError:
-                return None
+            return None
 
     # ── Helpers ──────────────────────────────────────────────────────
 
     @staticmethod
-    def _safe_filename(name: str, version: str, ext: str = ".crous") -> str:
+    def _safe_filename(name: str, version: str, ext: str = ".surp") -> str:
         safe = name.replace("/", "_").replace(":", "_").replace(" ", "_")
         return f"{safe}-{version}{ext}"
 
     def _artifact_path(self, name: str, version: str) -> Path:
-        return self.root / self._safe_filename(name, version, ".crous")
+        return self.root / self._safe_filename(name, version, ".surp")
 
     def _legacy_path(self, name: str, version: str) -> Path:
         """Legacy .aq.json path -- read-only fallback for old stores."""
         return self.root / self._safe_filename(name, version, ".aq.json")
 
     def _iter_files(self):
-        """Yield all artifact files in the store directory (.crous then .aq.json)."""
+        """Yield all artifact files in the store directory (.surp then .aq.json)."""
         seen_stems = set()
-        # Prefer .crous files
+        # Prefer .surp files
         for f in sorted(self.root.iterdir()):
-            if f.is_file() and f.name.endswith(".crous"):
+            if f.is_file() and f.name.endswith(".surp"):
                 seen_stems.add(f.stem)
                 yield f
-        # Fall back to .aq.json for legacy files without .crous counterparts
+        # Fall back to .aq.json for legacy files without .surp counterparts
         for f in sorted(self.root.iterdir()):
             if f.is_file() and f.name.endswith(".aq.json"):
                 stem = f.name[:-8]  # strip .aq.json
@@ -229,18 +224,18 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     # ── CRUD ─────────────────────────────────────────────────────────
 
     def save(self, artifact: Artifact) -> str:
-        # Write .crous binary (primary)
-        crous_path = self._artifact_path(artifact.name, artifact.version)
-        tmp = crous_path.with_suffix(".tmp")
+        # Write .surp binary (primary)
+        surp_path = self._artifact_path(artifact.name, artifact.version)
+        tmp = surp_path.with_suffix(".tmp")
         try:
             data = artifact.to_dict()
-            if self._crous_backend:
-                encoded = self._crous_backend.encode(data)
+            if self._surp_backend:
+                encoded = self._surp_backend.encode(data)
                 tmp.write_bytes(encoded)
             else:
                 # Fallback: write JSON as bytes
                 tmp.write_text(json.dumps(data, default=str), encoding="utf-8")
-            tmp.replace(crous_path)  # atomic on POSIX
+            tmp.replace(surp_path)  # atomic on POSIX
         except Exception:
             if tmp.exists():
                 tmp.unlink()
@@ -296,7 +291,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
     def delete(self, name: str, *, version: str = "") -> int:
         removed = 0
         if version:
-            # Remove .crous file; also clean up any legacy .aq.json if present
+            # Remove .surp file; also clean up any legacy .aq.json if present
             for path in [
                 self._artifact_path(name, version),
                 self._legacy_path(name, version),
@@ -310,7 +305,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
                 if (
                     f.is_file()
                     and f.name.startswith(prefix)
-                    and (f.name.endswith(".crous") or f.name.endswith(".aq.json"))
+                    and (f.name.endswith(".surp") or f.name.endswith(".aq.json"))
                 ):
                     f.unlink()
                     removed += 1
@@ -338,7 +333,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         output_path: str,
     ) -> str:
         """
-        Export a subset of artifacts as a Crous binary bundle.
+        Export a subset of artifacts as a Surp binary bundle.
 
         Returns path to the bundle file.
         """
@@ -360,9 +355,9 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         out = Path(output_path)
         out.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write as Crous binary if backend is available
-        if self._crous_backend and out.suffix == ".crous":
-            out.write_bytes(self._crous_backend.encode(bundle.to_dict()))
+        # Write as Surp binary if backend is available
+        if self._surp_backend and out.suffix == ".surp":
+            out.write_bytes(self._surp_backend.encode(bundle.to_dict()))
         else:
             out.write_text(bundle.to_json(), encoding="utf-8")
 
@@ -372,12 +367,12 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
 
     def _read(self, path: Path) -> Artifact | None:
         try:
-            if path.name.endswith(".crous") and self._crous_backend:
+            if path.name.endswith(".surp") and self._surp_backend:
                 raw = path.read_bytes()
-                data = self._crous_backend.decode(raw)
+                data = self._surp_backend.decode(raw)
                 return Artifact.from_dict(data)
             else:
-                # JSON fallback (legacy .aq.json files or no Crous backend)
+                # JSON fallback (legacy .aq.json files or no Surp backend)
                 data = json.loads(path.read_text(encoding="utf-8"))
                 return Artifact.from_dict(data)
         except Exception as exc:
@@ -412,7 +407,7 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
         """
         Import artifacts from a bundle file produced by ``export_bundle``.
 
-        Supports both ``.crous`` binary and ``.aq.json`` / JSON formats.
+        Supports both ``.surp`` binary and ``.aq.json`` / JSON formats.
 
         Returns:
             Number of artifacts imported.
@@ -422,8 +417,8 @@ class FilesystemArtifactStore(ArtifactStoreProtocol):
             raise FileNotFoundError(f"Bundle not found: {bundle_path}")
 
         # Decode based on format
-        if path.suffix == ".crous" and self._crous_backend:
-            data = self._crous_backend.decode(path.read_bytes())
+        if path.suffix == ".surp" and self._surp_backend:
+            data = self._surp_backend.decode(path.read_bytes())
         else:
             data = json.loads(path.read_text(encoding="utf-8"))
 

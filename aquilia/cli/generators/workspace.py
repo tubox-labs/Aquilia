@@ -1485,7 +1485,7 @@ class WorkspaceGenerator:
 
             # Aquilia
             artifacts/
-            *.crous
+            *.surp
 
             # Environment & secrets
             .env

@@ -51,20 +51,20 @@ def cmd_i18n_init(
     Creates:
     - ``locales/`` directory
     - Locale subdirectories for each specified locale
-    - Starter ``messages.json`` (or ``.crous`` if format is ``"crous"`` and available)
+    - Starter ``messages.json`` (or ``.surp`` if format is ``"surp"`` and available)
     """
     locale_list = [l.strip() for l in (locales or "en").split(",")]
     base_dir = Path(directory)
 
-    # Resolve format — CROUS preferred if available
+    # Resolve format — SURP preferred if available
     actual_format = format
-    if format == "crous":
+    if format == "surp":
         try:
-            import crous  # noqa: F401
+            import surp  # noqa: F401
 
-            actual_format = "crous"
+            actual_format = "surp"
         except ImportError:
-            click.echo(click.style("  ⚠  crous library not installed — falling back to JSON", fg="yellow"))
+            click.echo(click.style("  ⚠  surp library not installed — falling back to JSON", fg="yellow"))
             actual_format = "json"
 
     click.echo(click.style("Initializing i18n...", fg="cyan", bold=True))
@@ -176,18 +176,18 @@ def cmd_i18n_init(
                 json.dumps(content, indent=2, ensure_ascii=False) + "\n",
                 encoding="utf-8",
             )
-        elif actual_format == "crous":
+        elif actual_format == "surp":
             import hashlib as _hashlib
             from datetime import datetime as _dt
             from datetime import timezone as _tz
 
-            import crous as _crous
+            import surp as _surp
 
-            # Write with CROUS envelope
+            # Write with SURP envelope
             canonical = json.dumps(content, sort_keys=True, separators=(",", ":"))
             fingerprint = f"sha256:{_hashlib.sha256(canonical.encode()).hexdigest()}"
             envelope = {
-                "__format__": "crous",
+                "__format__": "surp",
                 "schema_version": "1.0",
                 "artifact_type": "i18n_catalog",
                 "locale": locale,
@@ -196,7 +196,7 @@ def cmd_i18n_init(
                 "created_at": _dt.now(_tz.utc).isoformat(),
                 "translations": content,
             }
-            _crous.dump(envelope, str(messages_file))
+            _surp.encode_to_file(envelope, str(messages_file))
         elif actual_format == "yaml":
             try:
                 import yaml
@@ -496,37 +496,37 @@ def cmd_i18n_compile(
     verbose: bool = False,
 ) -> None:
     """
-    Compile JSON translation files to CROUS binary format.
+    Compile JSON translation files to SURP binary format.
 
-    CROUS files load significantly faster than JSON at startup.
-    The compiled ``.crous`` files are placed alongside the source
+    SURP files load significantly faster than JSON at startup.
+    The compiled ``.surp`` files are placed alongside the source
     ``.json`` files unless an output directory is specified.
 
     Args:
         directory: Source locales directory
-        output: Output directory for .crous files (None = same as source)
+        output: Output directory for .surp files (None = same as source)
         verbose: Show detailed output
     """
     try:
-        import crous  # noqa: F401
+        import surp  # noqa: F401
     except ImportError:
-        click.echo(click.style("❌ crous library is not installed.", fg="red"))
-        click.echo("  Install with: pip install crous")
+        click.echo(click.style("❌ surp library is not installed.", fg="red"))
+        click.echo("  Install with: pip install surp")
         return
 
-    from aquilia.i18n.catalog import CrousCatalog
+    from aquilia.i18n.catalog import SurpCatalog
 
-    click.echo(click.style("Compiling i18n catalogs to CROUS format...", fg="cyan", bold=True))
+    click.echo(click.style("Compiling i18n catalogs to SURP format...", fg="cyan", bold=True))
     click.echo(f"  Source:  {directory}")
     if output:
         click.echo(f"  Output:  {output}")
     click.echo()
 
-    catalog = CrousCatalog([directory], auto_compile=False)
+    catalog = SurpCatalog([directory], auto_compile=False)
     compiled = catalog.compile(directory=output)
 
     if compiled > 0:
         click.echo()
-        click.echo(click.style(f"✅ Compiled {compiled} file(s) to CROUS format.", fg="green"))
+        click.echo(click.style(f"✅ Compiled {compiled} file(s) to SURP format.", fg="green"))
     else:
         click.echo(click.style("No JSON files found to compile.", fg="yellow"))

@@ -283,10 +283,10 @@ def _request_accepts_html(request: Any | None) -> bool:
 
     accept_l = str(accept).lower().strip()
 
-    # Explicit JSON/CROUS API clients should keep fault behavior.
+    # Explicit JSON/SURP API clients should keep fault behavior.
     if "application/json" in accept_l and "text/html" not in accept_l:
         return False
-    if "application/x-crous" in accept_l and "text/html" not in accept_l:
+    if "application/x-surp" in accept_l and "text/html" not in accept_l:
         return False
 
     # Browser-style requests usually send text/html, */*, or no Accept header.

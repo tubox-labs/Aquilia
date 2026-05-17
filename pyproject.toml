@@ -54,9 +54,8 @@ dependencies = [
     # Template engine — used by admin panel and user templates (always loaded)
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
-    # Crous compiler — used for manifest compilation and runtime evaluation
-    "crousr",
-    "crous-native",
+    # Surp serializer — used for manifest compilation and runtime evaluation
+    "surp",
 ]
 
 # ---------------------------------------------------------------------------

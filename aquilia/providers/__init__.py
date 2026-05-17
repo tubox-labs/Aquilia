@@ -14,7 +14,7 @@ Each provider implements:
 
 1. ``client.py``   — API client with retry, auth, rate-limit handling
 2. ``deployer.py`` — Orchestrator: build → push → create/update
-3. ``store.py``    — Secure credential storage (Crous + HMAC signing)
+3. ``store.py``    — Secure credential storage (Surp + HMAC signing)
 4. ``types.py``    — Typed dataclasses for API resources
 """
 

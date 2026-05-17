@@ -55,25 +55,24 @@ try:
 except ImportError:
     MULTIPART_AVAILABLE = False
 
-# Import Crous binary serializer
+# Import Surp binary serializer
 try:
-    import crous as _crous_mod
+    import surp as _surp_mod
 
-    _HAS_CROUS = True
+    _HAS_SURP = True
 except ImportError:
-    _crous_mod = None  # type: ignore[assignment]
-    _HAS_CROUS = False
+    _surp_mod = None  # type: ignore[assignment]
+    _HAS_SURP = False
 
-# CROUS media type constants
-CROUS_MEDIA_TYPE = "application/x-crous"
-CROUS_MEDIA_TYPES = frozenset(
+# SURP media type constants
+SURP_MEDIA_TYPE = "application/x-surp"
+SURP_MEDIA_TYPES = frozenset(
     {
-        "application/x-crous",
-        "application/crous",
-        "application/vnd.crous",
+        "application/x-surp",
+        "application/surp",
+        "application/vnd.surp",
     }
 )
-CROUS_MAGIC = b"CROUSv1"
 
 # Type vars
 T = TypeVar("T")
@@ -148,21 +147,21 @@ class InvalidJSON(RequestFault):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
-class InvalidCrous(RequestFault):
-    """Invalid CROUS binary payload (400)."""
+class InvalidSurp(RequestFault):
+    """Invalid SURP binary payload (400)."""
 
-    code = "INVALID_CROUS"
-    message = "Invalid CROUS payload"
+    code = "INVALID_SURP"
+    message = "Invalid SURP payload"
 
     def __init__(self, message: str | None = None, **metadata):
         super().__init__(code=self.code, message=message or self.message, metadata=metadata)
 
 
-class CrousUnavailable(RequestFault):
-    """CROUS library not installed (500-level)."""
+class SurpUnavailable(RequestFault):
+    """SURP library not installed (500-level)."""
 
-    code = "CROUS_UNAVAILABLE"
-    message = "CROUS serializer not available"
+    code = "SURP_UNAVAILABLE"
+    message = "SURP serializer not available"
     severity = Severity.ERROR
     public = False
 
@@ -237,7 +236,7 @@ class Request:
         "_body",
         "_body_consumed",
         "_json",
-        "_crous",
+        "_surp",
         "_form_data",
         "_query_params",
         "_headers",
@@ -294,7 +293,7 @@ class Request:
         self._body: bytes | None = None
         self._body_consumed = False
         self._json: Any | None = None
-        self._crous: Any | None = None
+        self._surp: Any | None = None
         self._form_data: FormData | None = None
         self._query_params: MultiDict | None = None
         self._headers: Headers | None = None
@@ -587,20 +586,17 @@ class Request:
                 )
         return False
 
-    def is_crous(self) -> bool:
-        """Check if request content type is CROUS binary.
+    def is_surp(self) -> bool:
+        """Check if request content type is SURP binary.
 
-        Detects both the media-type header and the ``CROUSv1`` magic
-        prefix when no Content-Type is set.
+        Surp v1 does not expose a stable file-level magic prefix, so
+        HTTP auto-detection is intentionally based on Content-Type.
         """
         ct = self.content_type()
         if ct:
             parsed = ParsedContentType.parse(ct)
-            if parsed and parsed.media_type in CROUS_MEDIA_TYPES:
+            if parsed and parsed.media_type in SURP_MEDIA_TYPES:
                 return True
-        # Fallback: peek at cached body magic bytes
-        if self._body is not None:
-            return self._body[:7] == CROUS_MAGIC
         return False
 
     def accepts(self, *media_types: str) -> bool:
@@ -620,37 +616,37 @@ class Request:
 
         return any(media_type.lower() in accept_lower or "*/*" in accept_lower for media_type in media_types)
 
-    def accepts_crous(self) -> bool:
-        """Check if the client accepts CROUS binary responses.
+    def accepts_surp(self) -> bool:
+        """Check if the client accepts SURP binary responses.
 
-        Returns ``True`` when any recognised CROUS media type appears
+        Returns ``True`` when any recognised SURP media type appears
         in the ``Accept`` header **or** the wildcard ``*/*`` is present.
         """
-        return self.accepts(*CROUS_MEDIA_TYPES)
+        return self.accepts(*SURP_MEDIA_TYPES)
 
-    def prefers_crous(self) -> bool:
-        """Check if the client prefers CROUS over JSON.
+    def prefers_surp(self) -> bool:
+        """Check if the client prefers SURP over JSON.
 
         Parses quality values from the ``Accept`` header.  Returns
-        ``True`` only when an explicit CROUS media type appears with a
+        ``True`` only when an explicit SURP media type appears with a
         quality factor strictly greater than ``application/json``.
 
-        If CROUS is absent from the header, always returns ``False``.
+        If SURP is absent from the header, always returns ``False``.
 
         Example Accept headers::
 
-            application/x-crous;q=1.0, application/json;q=0.9  →  True
-            application/json, application/x-crous;q=0.5        →  False
-            application/x-crous                                →  True
+            application/x-surp;q=1.0, application/json;q=0.9  →  True
+            application/json, application/x-surp;q=0.5        →  False
+            application/x-surp                                →  True
             */*                                                →  False
         """
         accept = self.header("accept", "")
         if not accept:
             return False
 
-        crous_q = 0.0
+        surp_q = 0.0
         json_q = 0.0
-        crous_found = False
+        surp_found = False
 
         for part in accept.split(","):
             part = part.strip()
@@ -671,23 +667,23 @@ class Request:
                     except ValueError:
                         q = 0.0
 
-            if media in CROUS_MEDIA_TYPES:
-                crous_q = max(crous_q, q)
-                crous_found = True
+            if media in SURP_MEDIA_TYPES:
+                surp_q = max(surp_q, q)
+                surp_found = True
             elif media == "application/json":
                 json_q = max(json_q, q)
 
-        return crous_found and crous_q > json_q
+        return surp_found and surp_q > json_q
 
     def best_response_format(self) -> str:
-        """Negotiate the best response format between CROUS and JSON.
+        """Negotiate the best response format between SURP and JSON.
 
         Returns:
-            ``"crous"`` when the client explicitly prefers CROUS and
+            ``"surp"`` when the client explicitly prefers SURP and
             the library is available, otherwise ``"json"``.
         """
-        if _HAS_CROUS and self.prefers_crous():
-            return "crous"
+        if _HAS_SURP and self.prefers_surp():
+            return "surp"
         return "json"
 
     # ========================================================================
@@ -943,32 +939,30 @@ class Request:
 
         return self._json
 
-    async def crous(
+    async def surp(
         self,
         model: type[T] | None = None,
         *,
         strict: bool = True,
     ) -> Any | T:
         """
-        Parse request body as CROUS binary format.
+        Parse request body as SURP binary format.
 
         Provides an API symmetrical to :meth:`json` — read the body,
-        decode via the ``crous`` library, optionally validate against
+        decode via the ``surp`` library, optionally validate against
         a model (Pydantic, dataclass, plain callable).
 
         Args:
             model: Optional model class for validation
-            strict: When ``True`` (default), reject payloads that do
-                    not start with the ``CROUSv1`` magic header.
+            strict: Passed to ``surp.loads`` for decoder validation.
 
         Returns:
             Decoded Python object (dict / list / scalar) or validated
             model instance.
 
         Raises:
-            CrousUnavailable: If the ``crous`` library is not installed.
-            InvalidCrous: If the payload is malformed or fails magic
-                          header validation.
+            SurpUnavailable: If the ``surp`` library is not installed.
+            InvalidSurp: If the payload is malformed.
             PayloadTooLarge: If body exceeds ``json_max_size`` (shared
                              limit with JSON).
             BadRequest: If model validation fails.
@@ -977,51 +971,48 @@ class Request:
 
             @POST("/ingest")
             async def ingest(self, ctx):
-                data = await ctx.request.crous()
+                data = await ctx.request.surp()
                 # data is a regular Python dict/list
         """
-        if not _HAS_CROUS:
-            raise CrousUnavailable(
-                "The 'crous' library is required to parse CROUS payloads. Install with: pip install crous"
+        if not _HAS_SURP:
+            raise SurpUnavailable(
+                "The 'surp' library is required to parse SURP payloads. Install with: pip install surp"
             )
 
-        if self._crous is not None:
+        if self._surp is not None:
             if model:
-                return self._validate_json_model(self._crous, model)
-            return self._crous
+                return self._validate_json_model(self._surp, model)
+            return self._surp
 
         # Read body with shared size limit
         body_bytes = await self.body()
 
         if len(body_bytes) > self.json_max_size:
             raise PayloadTooLarge(
-                "CROUS payload exceeds maximum size",
+                "SURP payload exceeds maximum size",
                 max_allowed=self.json_max_size,
                 actual=len(body_bytes),
             )
 
         if not body_bytes:
-            raise InvalidCrous("Empty CROUS payload")
-
-        # Validate magic header
-        if strict and body_bytes[:7] != CROUS_MAGIC:
-            raise InvalidCrous(
-                "Payload does not start with CROUSv1 magic header",
-                magic=body_bytes[:7].hex(),
-            )
+            raise InvalidSurp("Empty SURP payload")
 
         # Decode
         try:
-            self._crous = _crous_mod.decode(body_bytes)
+            self._surp = _surp_mod.loads(
+                body_bytes,
+                strict=strict,
+                max_depth=self.json_max_depth,
+            )
         except Exception as e:
-            raise InvalidCrous(
-                f"CROUS decode failed: {e}",
+            raise InvalidSurp(
+                f"SURP decode failed: {e}",
                 error_type=type(e).__name__,
             )
 
         if model:
-            return self._validate_json_model(self._crous, model)
-        return self._crous
+            return self._validate_json_model(self._surp, model)
+        return self._surp
 
     async def data(
         self,
@@ -1029,12 +1020,11 @@ class Request:
         *,
         strict: bool = True,
     ) -> Any | T:
-        """Parse request body as JSON **or** CROUS, auto-detected.
+        """Parse request body as JSON **or** SURP, auto-detected.
 
         Uses Content-Type to decide:
 
-        * ``application/x-crous`` (or body starting with ``CROUSv1``)
-          → :meth:`crous`
+        * ``application/x-surp`` → :meth:`surp`
         * Everything else → :meth:`json`
 
         This is the recommended single entry-point when your API
@@ -1047,8 +1037,8 @@ class Request:
         Returns:
             Decoded Python object or validated model instance.
         """
-        if self.is_crous():
-            return await self.crous(model=model, strict=strict)
+        if self.is_surp():
+            return await self.surp(model=model, strict=strict)
         return await self.json(model=model, strict=strict)
 
     def _check_json_depth(self, obj: Any, max_depth: int, current_depth: int = 0) -> bool:

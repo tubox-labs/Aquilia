@@ -1,6 +1,6 @@
 """Artifact freezing command.
 
-Creates an integrity snapshot for generated Crous artifacts.
+Creates an integrity snapshot for generated Surp artifacts.
 """
 
 import hashlib
@@ -18,7 +18,7 @@ def freeze_artifacts(
     Generate immutable artifacts for production.
 
     Compiles workspace artifacts when needed, then writes a deterministic
-    SHA-256 inventory for the generated Crous files.
+    SHA-256 inventory for the generated Surp files.
 
     Args:
         output_dir: Output directory for frozen artifacts
@@ -48,7 +48,7 @@ def freeze_artifacts(
         print(f"  Compiled {len(artifacts)} artifact(s)")
 
     hasher = hashlib.sha256()
-    for artifact_path in sorted(artifacts_dir.glob("*.crous")):
+    for artifact_path in sorted(artifacts_dir.glob("*.surp")):
         data = artifact_path.read_bytes()
         hasher.update(data)
     fingerprint = hasher.hexdigest()
@@ -62,17 +62,15 @@ def freeze_artifacts(
                 "size_bytes": a.stat().st_size,
                 "digest": hashlib.sha256(a.read_bytes()).hexdigest(),
             }
-            for a in sorted(artifacts_dir.glob("*.crous"))
+            for a in sorted(artifacts_dir.glob("*.surp"))
         ],
         "signed": sign,
-        "format": "crous-artifact-snapshot",
+        "format": "surp-artifact-snapshot",
     }
 
-    frozen_path = artifacts_dir / "frozen.crous"
-    try:
-        import _crous_native as _cb
-    except ImportError:
-        import crous as _cb
+    frozen_path = artifacts_dir / "frozen.surp"
+    import surp as _cb
+
     frozen_path.write_bytes(_cb.encode(frozen_meta))
 
     if verbose:

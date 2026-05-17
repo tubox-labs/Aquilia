@@ -2,7 +2,7 @@
 Template Manager - Compilation, linting, and manifest integration.
 
 Provides:
-- Template compilation to crous artifacts
+- Template compilation to surp artifacts
 - Template linting and validation
 - Manifest-driven template discovery
 - DI integration
@@ -125,15 +125,15 @@ class TemplateManager:
 
     async def compile_all(self, output_path: str | None = None) -> dict[str, Any]:
         """
-        Compile all templates to crous artifact.
+        Compile all templates to surp artifact.
 
         Args:
-            output_path: Output file path (default: artifacts/templates.crous)
+            output_path: Output file path (default: artifacts/templates.surp)
 
         Returns:
             Compilation result with fingerprint, count, and metadata
         """
-        output_path = output_path or "artifacts/templates.crous"
+        output_path = output_path or "artifacts/templates.surp"
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -183,9 +183,9 @@ class TemplateManager:
         # Compute fingerprint
         fingerprint = self._compute_fingerprint(templates_metadata)
 
-        # Build crous envelope
+        # Build surp envelope
         envelope = {
-            "__format__": "crous",
+            "__format__": "surp",
             "schema_version": "1.0",
             "artifact_type": "templates",
             "fingerprint": fingerprint,
@@ -216,7 +216,7 @@ class TemplateManager:
         if hasattr(self.engine.bytecode_cache, "save"):
             self.engine.bytecode_cache.save()
 
-        # ── Produce a typed TemplateArtifact alongside the .crous ────
+        # ── Produce a typed TemplateArtifact alongside the .surp ────
         try:
             from aquilia.artifacts import FilesystemArtifactStore, TemplateArtifact
 

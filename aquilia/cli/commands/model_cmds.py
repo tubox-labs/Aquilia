@@ -300,7 +300,7 @@ def cmd_makemigrations(
     migrations_dir: str = "migrations",
     verbose: bool = False,
     use_dsl: bool = True,
-    migration_format: str = "crous",
+    migration_format: str = "surp",
 ) -> list[Path]:
     """
     Generate migration files from Python Model definitions.
@@ -310,7 +310,7 @@ def cmd_makemigrations(
     raw-SQL migration generator.
 
     Args:
-        migration_format: "crous" (default) for CROUS binary format,
+        migration_format: "surp" (default) for SURP binary format,
                           "python" for human-readable DSL files.
 
     Returns:
@@ -343,7 +343,7 @@ def cmd_makemigrations(
             click.echo(click.style("No model changes detected.", fg="yellow"))
             return []
 
-        # CROUS snapshot is now saved by default within generate_dsl_migration
+        # SURP snapshot is now saved by default within generate_dsl_migration
         # No need to write a separate JSON snapshot
 
         model_names = ", ".join(m.__name__ for m in models)
@@ -353,7 +353,7 @@ def cmd_makemigrations(
                 fg="green",
             )
         )
-        snap_path = Path(migrations_dir) / "schema_snapshot.crous"
+        snap_path = Path(migrations_dir) / "schema_snapshot.surp"
         click.echo(
             click.style(
                 f"  Schema snapshot: {snap_path}",

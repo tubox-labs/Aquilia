@@ -209,14 +209,12 @@ class AquilaryRegistry:
         }
 
         out = Path(path)
-        # Write as Crous binary if available, otherwise JSON
+        # Write as Surp binary if available, otherwise JSON
         try:
-            try:
-                import _crous_native as crous_backend
-            except ImportError:
-                import crous as crous_backend
-            out = out.with_suffix(".crous") if out.suffix != ".crous" else out
-            out.write_bytes(crous_backend.encode(frozen))
+            import surp as surp_backend
+
+            out = out.with_suffix(".surp") if out.suffix != ".surp" else out
+            out.write_bytes(surp_backend.encode(frozen))
         except ImportError:
             out.write_text(json.dumps(frozen, indent=2, sort_keys=True), encoding="utf-8")
 
@@ -388,20 +386,18 @@ class Aquilary:
         config: Any,
         mode: RegistryMode,
     ) -> AquilaryRegistry:
-        """Load registry from frozen manifest file (.crous or .json)."""
+        """Load registry from frozen manifest file (.surp or .json)."""
         from pathlib import Path
 
         manifest_path = Path(path)
 
-        # Try Crous binary first, then JSON fallback
-        if manifest_path.suffix == ".crous" or manifest_path.with_suffix(".crous").exists():
-            crous_path = manifest_path if manifest_path.suffix == ".crous" else manifest_path.with_suffix(".crous")
+        # Try Surp binary first, then JSON fallback
+        if manifest_path.suffix == ".surp" or manifest_path.with_suffix(".surp").exists():
+            surp_path = manifest_path if manifest_path.suffix == ".surp" else manifest_path.with_suffix(".surp")
             try:
-                try:
-                    import _crous_native as crous_backend
-                except ImportError:
-                    import crous as crous_backend
-                data = crous_backend.decode(crous_path.read_bytes())
+                import surp as surp_backend
+
+                data = surp_backend.decode(surp_path.read_bytes())
             except (ImportError, Exception):
                 import json
 

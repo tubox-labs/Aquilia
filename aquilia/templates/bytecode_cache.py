@@ -3,7 +3,7 @@ Bytecode Cache - Template compilation caching system.
 
 Supports:
 - In-memory cache (dev/testing)
-- Crous-backed persistent cache (production)
+- Surp-backed persistent cache (production)
 - Optional Redis cache (high-throughput deployments)
 """
 
@@ -98,16 +98,16 @@ class InMemoryBytecodeCache(BytecodeCache):
             self._access_order.remove(key)
 
 
-class CrousBytecodeCache(BytecodeCache):
+class SurpBytecodeCache(BytecodeCache):
     """
-    Crous artifact-backed bytecode cache.
+    Surp artifact-backed bytecode cache.
 
-    Stores compiled templates in artifacts/templates.bytecode.crous
+    Stores compiled templates in artifacts/templates.bytecode.surp
     with fingerprinting and atomic writes.
 
     Envelope format:
     {
-        "__format__": "crous",
+        "__format__": "surp",
         "schema_version": "1.0",
         "artifact_type": "template_bytecode",
         "fingerprint": "sha256:...",
@@ -131,13 +131,13 @@ class CrousBytecodeCache(BytecodeCache):
 
     Args:
         cache_dir: Directory to store cache files
-        filename: Cache file name (default: templates.bytecode.crous)
+        filename: Cache file name (default: templates.bytecode.surp)
     """
 
     def __init__(
         self,
         cache_dir: str = "artifacts",
-        filename: str = "templates.bytecode.crous",
+        filename: str = "templates.bytecode.surp",
         secret_key: str | None = None,
     ):
         self.cache_dir = Path(cache_dir)
@@ -242,7 +242,7 @@ class CrousBytecodeCache(BytecodeCache):
             data = json.loads(payload_bytes)
 
             # Validate envelope
-            if not isinstance(data, dict) or data.get("__format__") != "crous":
+            if not isinstance(data, dict) or data.get("__format__") != "surp":
                 return
 
             payload = data.get("payload", {})
@@ -271,7 +271,7 @@ class CrousBytecodeCache(BytecodeCache):
             bytecode_encoded[key] = base64.b64encode(raw_bytes).decode("ascii")
 
         envelope = {
-            "__format__": "crous",
+            "__format__": "surp",
             "schema_version": "1.1",
             "artifact_type": "template_bytecode",
             "fingerprint": fingerprint,

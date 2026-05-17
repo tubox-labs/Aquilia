@@ -786,7 +786,7 @@
             <div class="pv-card-body">
                 <div class="pv-cred">
                     <div class="pv-cred-row"><span class="pv-cred-key">Status</span><span class="pv-cred-val {{ 'on' if credential_status == 'active' else 'off' }}">{{ credential_status|default('unconfigured')|upper }}</span></div>
-                    <div class="pv-cred-row"><span class="pv-cred-key">Crous Version</span><span class="pv-cred-val">{{ crous_version|default('—') }}</span></div>
+                    <div class="pv-cred-row"><span class="pv-cred-key">Surp Version</span><span class="pv-cred-val">{{ surp_version|default('—') }}</span></div>
                     <div class="pv-cred-row"><span class="pv-cred-key">Cipher Suite</span><span class="pv-cred-val">{{ credential_cipher|default('—') }}</span></div>
                     <div class="pv-cred-row"><span class="pv-cred-key">Token Age</span><span class="pv-cred-val">{{ token_age|default('—') }}</span></div>
                     <div class="pv-cred-row"><span class="pv-cred-key">Expired</span><span class="pv-cred-val {{ 'off' if token_expired else 'on' }}">{{ 'Yes' if token_expired else 'No' }}</span></div>

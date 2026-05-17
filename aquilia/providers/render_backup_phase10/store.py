@@ -1,23 +1,23 @@
 """
-Render Credential Store — Crous-Encrypted Token Persistence.
+Render Credential Store — Encrypted Token Persistence.
 
-Stores Render API tokens securely on disk using the Crous binary
-serialization format and HMAC-SHA256 signing, ensuring tokens are
-never stored in plain text.
+Stores Render API tokens securely on disk using an encrypted binary
+credential blob and HMAC-SHA256 signing, ensuring tokens are never
+stored in plain text.
 
 Storage layout::
 
     ~/.aquilia/
         providers/
             render/
-                credentials.crous   ← signed + encrypted token blob
+                credentials.surp   ← signed + encrypted token blob
                 config.json         ← non-sensitive settings (region, owner)
 
 Security Model
 --------------
 1. The API token is encrypted with a machine-derived key:
    ``HMAC-SHA256(hostname + username + "aquilia.render", salt)``
-2. The encrypted blob is serialised using Crous binary format.
+2. The encrypted blob is written as an Aquilia credential blob.
 3. An HMAC signature covers the entire blob; tampering is detected.
 4. File permissions are set to ``0o600`` (owner-only read/write).
 5. Tokens in memory are cleared after use when possible.
@@ -45,8 +45,8 @@ __all__ = ["RenderCredentialStore"]
 _logger = logging.getLogger("aquilia.providers.render.store")
 
 # ── Constants ────────────────────────────────────────────────────────────
-_CROUS_MAGIC = b"AQCR"  # Crous binary magic bytes
-_CROUS_VERSION = 1
+_SURP_MAGIC = b"AQCR"  # Aquilia credential blob magic bytes
+_SURP_VERSION = 1
 _SALT_SIZE = 32  # bytes
 _KEY_ITERATIONS = 200_000  # PBKDF2 iterations
 _HMAC_ALGO = "sha256"
@@ -110,7 +110,7 @@ class RenderCredentialStore:
 
     def __init__(self, store_dir: Path | None = None):
         self._dir = store_dir or _DEFAULT_STORE_DIR
-        self._creds_file = self._dir / "credentials.crous"
+        self._creds_file = self._dir / "credentials.surp"
         self._config_file = self._dir / "config.json"
 
     @property
@@ -153,7 +153,7 @@ class RenderCredentialStore:
         token_bytes = token.encode("utf-8")
         encrypted = _xor_encrypt(token_bytes, key)
 
-        # ── Build Crous binary blob ──────────────────────────────────
+        # ── Build credential blob ───────────────────────────────────
         # Format:
         #   4 bytes  magic ("AQCR")
         #   1 byte   version
@@ -164,8 +164,8 @@ class RenderCredentialStore:
         #   32 bytes HMAC-SHA256 of everything above
         timestamp = time.time()
         payload = bytearray()
-        payload.extend(_CROUS_MAGIC)
-        payload.append(_CROUS_VERSION)
+        payload.extend(_SURP_MAGIC)
+        payload.append(_SURP_VERSION)
         payload.extend(struct.pack(">d", timestamp))
         payload.extend(salt)
         payload.extend(struct.pack(">I", len(encrypted)))
@@ -219,7 +219,7 @@ class RenderCredentialStore:
                 path=str(self._creds_file),
             ) from e
 
-        # ── Parse Crous binary blob ──────────────────────────────────
+        # ── Parse credential blob ───────────────────────────────────
         # Minimum size: 4 + 1 + 8 + 32 + 4 + 0 + 32 = 81 bytes
         if len(blob) < 81:
             raise ProviderCredentialFault(
@@ -228,14 +228,14 @@ class RenderCredentialStore:
             )
 
         # Validate magic
-        if blob[:4] != _CROUS_MAGIC:
+        if blob[:4] != _SURP_MAGIC:
             raise ProviderCredentialFault(
                 "Invalid credentials file (bad magic bytes)",
                 path=str(self._creds_file),
             )
 
         version = blob[4]
-        if version != _CROUS_VERSION:
+        if version != _SURP_VERSION:
             raise ProviderCredentialFault(
                 f"Unsupported credentials version: {version}",
                 path=str(self._creds_file),
