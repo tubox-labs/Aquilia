@@ -1,0 +1,1 @@
+"""Artifacts release example application."""
