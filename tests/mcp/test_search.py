@@ -1,5 +1,5 @@
-from aquilia.mcp.context.indexer import build_index
-from aquilia.mcp.context.search import search_index
+from aquilia.aquilia_mcp.context.indexer import build_index
+from aquilia.aquilia_mcp.context.search import search_index
 
 
 def test_search_ranks_symbol_and_path_matches(mcp_repo):

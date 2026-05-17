@@ -1,5 +1,5 @@
-from aquilia.mcp.context.indexer import build_index
-from aquilia.mcp.tools.find_api import find_api
+from aquilia.aquilia_mcp.context.indexer import build_index
+from aquilia.aquilia_mcp.tools.find_api import find_api
 
 
 def test_find_api_returns_source_backed_results(mcp_repo):

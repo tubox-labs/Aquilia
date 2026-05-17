@@ -1,5 +1,5 @@
-from aquilia.mcp.context.indexer import build_index
-from aquilia.mcp.tools.scaffold_module import scaffold_module
+from aquilia.aquilia_mcp.context.indexer import build_index
+from aquilia.aquilia_mcp.tools.scaffold_module import scaffold_module
 
 
 def test_scaffold_module_uses_workspace_route_prefix(mcp_repo):

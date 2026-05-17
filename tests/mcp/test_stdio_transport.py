@@ -1,6 +1,6 @@
 from io import StringIO
 
-from aquilia.mcp.transport.stdio import StdioTransport
+from aquilia.aquilia_mcp.transport.stdio import StdioTransport
 
 
 class _Server:
@@ -20,3 +20,9 @@ def test_stdio_transport_handles_malformed_json():
     transport = StdioTransport(_Server(), stdout=StringIO())
     response = transport.handle_line("{bad json\n")
     assert response["error"]["code"] == -32700
+
+
+def test_stdio_transport_ignores_notifications():
+    transport = StdioTransport(_Server(), stdout=StringIO())
+    response = transport.handle_line('{"jsonrpc":"2.0","method":"ping","params":{}}\n')
+    assert response is None
