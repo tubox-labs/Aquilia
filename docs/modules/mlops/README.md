@@ -1,10 +1,15 @@
-# MLOps Documentation
+# Mlops Documentation
 
-This directory is the professional documentation set for `mlops`. It is implementation-driven and aligned with the current source files under `aquilia/mlops`.
+Model operations platform: modelpacks, serving, registries, runtimes, orchestration, observability, rollout, optimization, plugins, scheduler, and security.
 
-## What This Covers
+## Coverage Snapshot
 
-The native model operations platform for model definitions, serving, registries, runtime execution, batching, scheduling, rollout, observability, model packs, plugins, security, and deployment assets.
+- Source files: 76
+- Source lines: 15885
+- Public classes: 212
+- Public module functions: 30
+- Constants/module flags: 24
+- Public exports in `__all__`: 132
 
 ## Source Files Read
 
@@ -20,12 +25,12 @@ The native model operations platform for model definitions, serving, registries,
 - `aquilia/mlops/engine/__init__.py`: Aquilia MLOps Execution Engine.
 - `aquilia/mlops/engine/faults.py`: MLOps Fault Domain -- Structured error handling for the entire ML pipeline.
 - `aquilia/mlops/engine/hooks.py`: Pipeline Hooks -- decorator-based lifecycle and inference hooks.
-- `aquilia/mlops/engine/lifecycle.py`: MLOps Lifecycle Hooks -- Startup / shutdown integration with Aquilia's
+- `aquilia/mlops/engine/lifecycle.py`: MLOps Lifecycle Hooks -- Startup / shutdown integration with Aquilia's LifecycleCoordinator.
 - `aquilia/mlops/engine/module.py`: MLOps Aquilary Module -- register MLOps as an Aquilary application module.
-- `aquilia/mlops/engine/pipeline.py`: Inference Pipeline -- async preprocess -> batch/infer -> postprocess pipeline.
+- `aquilia/mlops/engine/pipeline.py`: Inference Pipeline -- async preprocess → batch/infer → postprocess pipeline.
 - `aquilia/mlops/explain/__init__.py`: Explainability and privacy hooks.
 - `aquilia/mlops/explain/hooks.py`: Explainability hooks -- SHAP & LIME wrappers with a unified interface.
-- `aquilia/mlops/explain/privacy.py`: Privacy helpers -- PII redaction, differential privacy noise, and
+- `aquilia/mlops/explain/privacy.py`: Privacy helpers -- PII redaction, differential privacy noise, and input sanitisation transforms for inference payloads.
 - `aquilia/mlops/manifest/__init__.py`: Aquilia MLOps Manifest Configuration.
 - `aquilia/mlops/manifest/config.py`: Manifest Config -- parse ``[mlops]`` config from Aquilia workspace config.
 - `aquilia/mlops/manifest/schema.py`: Manifest Schema Validation for MLOps configuration.
@@ -51,7 +56,7 @@ The native model operations platform for model definitions, serving, registries,
 - `aquilia/mlops/plugins/__init__.py`: Plugin system and marketplace.
 - `aquilia/mlops/plugins/example_plugin.py`: Example Aquilia MLOps plugin -- demonstrates how to write a plugin.
 - `aquilia/mlops/plugins/host.py`: Plugin host -- discovers, loads, and manages lifecycle of MLOps plugins.
-- `aquilia/mlops/plugins/marketplace.py`: Plugin marketplace -- lightweight discovery & installation of community
+- `aquilia/mlops/plugins/marketplace.py`: Plugin marketplace -- lightweight discovery & installation of community and first-party MLOps plugins from a remote index.
 - `aquilia/mlops/registry/__init__.py`: Registry service and storage adapters.
 - `aquilia/mlops/registry/models.py`: Registry data models -- SQLite backend (default).
 - `aquilia/mlops/registry/service.py`: Registry Service -- HTTP API for publishing, fetching and managing modelpacks.
@@ -65,7 +70,7 @@ The native model operations platform for model definitions, serving, registries,
 - `aquilia/mlops/runtime/__init__.py`: Runtime adapters for model inference.
 - `aquilia/mlops/runtime/base.py`: Runtime base -- abstract interface for inference backends.
 - `aquilia/mlops/runtime/bento_exporter.py`: BentoML exporter -- generates BentoML-compatible service bundles.
-- `aquilia/mlops/runtime/device_manager.py`: Device Manager -- auto-detection, fallback, monitoring, and locking for
+- `aquilia/mlops/runtime/device_manager.py`: Device Manager -- auto-detection, fallback, monitoring, and locking for compute devices (CPU, CUDA, MPS, NPU).
 - `aquilia/mlops/runtime/executor.py`: Inference Executor -- offloads blocking inference to thread/process pools.
 - `aquilia/mlops/runtime/onnx_runtime.py`: ONNX Runtime adapter -- high-performance inference via onnxruntime.
 - `aquilia/mlops/runtime/python_runtime.py`: Python in-process runtime -- loads and runs models natively in Python.
@@ -81,38 +86,17 @@ The native model operations platform for model definitions, serving, registries,
 - `aquilia/mlops/serving/__init__.py`: Model serving layer.
 - `aquilia/mlops/serving/batching.py`: Dynamic Batching Scheduler.
 - `aquilia/mlops/serving/controllers.py`: MLOps Controller -- HTTP endpoints for model serving, registry, and observability.
-- `aquilia/mlops/serving/middleware.py`: MLOps Middleware -- Inference metrics, rate limiting, and circuit breaker
+- `aquilia/mlops/serving/middleware.py`: MLOps Middleware -- Inference metrics, rate limiting, and circuit breaker integration as Aquilia middleware.
 - `aquilia/mlops/serving/router.py`: Traffic router -- canary, A/B, shadow, sticky routing for model deployments.
 - `aquilia/mlops/serving/server.py`: Model Serving Server -- dev and production serving with typed endpoints.
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 76
-- Public classes: 212
-- Configuration or dataclass-like types: 42
-- Public functions: 30
-- Constants detected: 19
-
-## Fast Start
-
-```python
-from aquilia.mlops import AdaptiveBatchQueue, AtomicCounter, BloomFilter, CircuitBreaker, ConsistentHash, Experiment
-
-# The imported symbols above are public exports from this module.
-# See api-reference.md for constructor signatures, methods, and data fields.
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

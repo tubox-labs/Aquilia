@@ -1,10 +1,15 @@
-# Models And ORM Documentation
+# Models Documentation
 
-This directory is the professional documentation set for `models`. It is implementation-driven and aligned with the current source files under `aquilia/models`.
+Pure-Python async ORM, fields, query builder, managers, SQL builders, migrations, schema snapshots, legacy AMDL parser/runtime, and transactions.
 
-## What This Covers
+## Coverage Snapshot
 
-The Python-native async ORM with fields, query builder, managers, migrations, schema snapshots, relationships, constraints, signals, transactions, expressions, and aggregate support.
+- Source files: 33
+- Source lines: 17845
+- Public classes: 222
+- Public module functions: 23
+- Constants/module flags: 65
+- Public exports in `__all__`: 275
 
 ## Source Files Read
 
@@ -44,40 +49,11 @@ The Python-native async ORM with fields, query builder, managers, migrations, sc
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 33
-- Public classes: 222
-- Configuration or dataclass-like types: 28
-- Public functions: 23
-- Constants detected: 43
-
-## Fast Start
-
-```python
-from aquilia.models import Model
-from aquilia.models.fields import BooleanField, CharField, DateTimeField
-
-class User(Model):
-    table = "users"
-    email = CharField(max_length=255, unique=True)
-    name = CharField(max_length=150)
-    active = BooleanField(default=True)
-    created_at = DateTimeField(auto_now_add=True)
-
-user = await User.objects.create(email="ada@example.com", name="Ada")
-active_users = await User.objects.filter(active=True).all()
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

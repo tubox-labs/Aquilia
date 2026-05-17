@@ -1,45 +1,25 @@
 # Patterns Edge Cases And Limitations
 
-## Fault And Error Types
+URL pattern grammar, parser, compiler, matcher, type/validator/transform registries, specificity scoring, OpenAPI conversion, diagnostics, autofix, and LSP metadata.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `PatternSyntaxError` | `aquilia/patterns/diagnostics/errors.py` | Syntax error in pattern. |
-| `PatternSemanticError` | `aquilia/patterns/diagnostics/errors.py` | Semantic error in pattern. |
-| `RouteAmbiguityError` | `aquilia/patterns/diagnostics/errors.py` | Two routes have ambiguous patterns. |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`ErrorRecovery`, `PatternSyntaxError`, `PatternSemanticError`, `RouteAmbiguityError`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/patterns/__init__.py`: AquilaPatterns - Professional URL pattern language and compiler for Aquilia.
-- `aquilia/patterns/autofix.py`: Auto-fix suggestions and error recovery for pattern diagnostics.
-- `aquilia/patterns/cache.py`: Production-ready caching layer for compiled patterns.
-- `aquilia/patterns/compiler/__init__.py`: Compiler package for AquilaPatterns.
-- `aquilia/patterns/compiler/ast_nodes.py`: AST node definitions for AquilaPatterns.
-- `aquilia/patterns/compiler/compiler.py`: Compiler that transforms AST into executable compiled patterns.
-- `aquilia/patterns/compiler/parser.py`: Tokenizer and parser for AquilaPatterns.
-- `aquilia/patterns/compiler/specificity.py`: Specificity scoring for pattern ranking.
-- `aquilia/patterns/diagnostics/__init__.py`: Diagnostics package.
-- `aquilia/patterns/diagnostics/errors.py`: Diagnostic errors for AquilaPatterns.
-- `aquilia/patterns/grammar.py`: Formal EBNF grammar for AquilaPatterns.
-- `aquilia/patterns/lsp/__init__.py`: LSP support package.
-- `aquilia/patterns/lsp/metadata.py`: LSP (Language Server Protocol) support for IDE integration.
-- `aquilia/patterns/matcher.py`: Pattern matcher with optimized matching algorithm.
-- `aquilia/patterns/openapi.py`: OpenAPI schema generation from compiled patterns.
-- `aquilia/patterns/transforms/__init__.py`: Transforms package.
-- `aquilia/patterns/transforms/registry.py`: Transform function registry.
-- `aquilia/patterns/types/__init__.py`: Types package.
-- `aquilia/patterns/types/registry.py`: Type registry and built-in type castors.
-- `aquilia/patterns/validators/__init__.py`: Validators package.
-- `aquilia/patterns/validators/registry.py`: Constraint validator registry.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

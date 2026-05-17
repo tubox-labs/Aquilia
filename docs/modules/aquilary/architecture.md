@@ -1,64 +1,80 @@
-# Aquilary Registry Architecture
+# Aquilary Architecture
 
-## Runtime Role
+Manifest registry, validation, dependency graph, route table compilation metadata, fingerprinting, and runtime registry construction.
 
-The manifest-driven registry layer that validates app manifests, detects dependency cycles, fingerprints runtime graphs, and feeds metadata to the runtime registry.
+## Source Boundaries
 
-The implementation is split across 10 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/aquilary/__init__.py` | 78 | 0 | 0 | Aquilary - Manifest-driven App Registry for Aquilia |
+| `aquilia/aquilary/cli.py` | 501 | 0 | 7 | Aquilary CLI commands for manifest validation, inspection, and deployment. |
+| `aquilia/aquilary/core.py` | 1498 | 6 | 0 | Core Aquilary types and main registry class. |
+| `aquilia/aquilary/errors.py` | 448 | 11 | 0 | Aquilary registry error types with rich diagnostics. |
+| `aquilia/aquilary/fingerprint.py` | 424 | 1 | 0 | Fingerprint generator for reproducible deployments. |
+| `aquilia/aquilary/graph.py` | 334 | 2 | 0 | Dependency graph analysis with Tarjan's algorithm for cycle detection. |
+| `aquilia/aquilary/handler_wrapper.py` | 204 | 2 | 2 | Handler wrapper for dependency injection into controller methods. |
+| `aquilia/aquilary/loader.py` | 487 | 2 | 0 | Safe manifest loader with no import-time side effects. |
+| `aquilia/aquilary/route_compiler.py` | 249 | 4 | 0 | Route Compiler - Extracts routes from controllers and compiles route table. |
+| `aquilia/aquilary/validator.py` | 453 | 1 | 0 | Registry validator for manifests and configuration. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/aquilary/__init__.py`: Aquilary - Manifest-driven App Registry for Aquilia
-- `aquilia/aquilary/cli.py`: Aquilary CLI commands for manifest validation, inspection, and deployment.
-- `aquilia/aquilary/core.py`: Core Aquilary types and main registry class.
-- `aquilia/aquilary/errors.py`: Aquilary registry error types with rich diagnostics.
-- `aquilia/aquilary/fingerprint.py`: Fingerprint generator for reproducible deployments.
-- `aquilia/aquilary/graph.py`: Dependency graph analysis with Tarjan's algorithm for cycle detection.
-- `aquilia/aquilary/handler_wrapper.py`: Handler wrapper for dependency injection into controller methods.
-- `aquilia/aquilary/loader.py`: Safe manifest loader with no import-time side effects.
-- `aquilia/aquilary/route_compiler.py`: Route Compiler - Extracts routes from controllers and compiles route table.
-- `aquilia/aquilary/validator.py`: Registry validator for manifests and configuration.
+`aquilary` has 10 Python files, 29 public classes, 9 public module-level functions, and 1 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- This module has `aq` command coverage documented in `cli-reference.md`; 12 commands map to this subsystem.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.errors` | 2 |
+| `.core` | 1 |
+| `.fingerprint` | 1 |
+| `.graph` | 1 |
+| `.handler_wrapper` | 1 |
+| `.loader` | 1 |
+| `.validator` | 1 |
+| `aquilia._version` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `typing` | 8 |
 | `dataclasses` | 5 |
 | `importlib` | 3 |
 | `json` | 3 |
 | `collections` | 2 |
-| `errors` | 2 |
 | `inspect` | 2 |
 | `pathlib` | 2 |
 | `sys` | 2 |
-| `aquilia` | 1 |
 | `argparse` | 1 |
 | `contextlib` | 1 |
-| `core` | 1 |
 | `datetime` | 1 |
 | `enum` | 1 |
-| `fingerprint` | 1 |
 | `functools` | 1 |
-| `graph` | 1 |
-| `handler_wrapper` | 1 |
 | `hashlib` | 1 |
-| `loader` | 1 |
 | `logging` | 1 |
 | `os` | 1 |
-| `validator` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `RegistryMode` | `aquilia/aquilary/core.py` | Registry operational modes. |
+| `RegistryFingerprint` | `aquilia/aquilary/core.py` | Immutable registry fingerprint for deployment gating. |
+| `AquilaryRegistry` | `aquilia/aquilary/core.py` | Validated registry metadata (static phase output). |
+| `RuntimeRegistry` | `aquilia/aquilary/core.py` | Runtime registry instance (lazy compilation phase). |
+| `RegistryError` | `aquilia/aquilary/errors.py` | Base error for all Aquilary registry errors. |
+| `ConfigValidationError` | `aquilia/aquilary/errors.py` | Configuration validation failed. |
+| `ManifestLoader` | `aquilia/aquilary/loader.py` | Safe manifest loader that NEVER triggers import-time side effects. |
+| `RouteCompiler` | `aquilia/aquilary/route_compiler.py` | Compiles routes from controller classes. Extracts @flow decorators and builds routing table. |
+| `RegistryValidator` | `aquilia/aquilary/validator.py` | Validates registry manifests and configuration. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`ErrorSpan`, `RegistryError`, `DependencyCycleError`, `RouteConflictError`, `ConfigValidationError`, `CrossAppUsageError`, `ManifestValidationError`, `DuplicateAppError`, `FrozenManifestMismatchError`, `HotReloadError`, `DIInjectionError`, `RouteConflictError`

@@ -1,10 +1,30 @@
-# Internationalization API Reference
+# I18N API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/i18n/__init__.py` | 182 | 0 | 0 | AquilaI18n — Industry-grade Internationalization & Localization for Aquilia. |
+| `aquilia/i18n/catalog.py` | 810 | 6 | 1 | Translation Catalogs — Storage and retrieval of translation strings. |
+| `aquilia/i18n/di_integration.py` | 183 | 0 | 2 | I18n DI Integration — Register i18n providers in Aquilia's DI container. |
+| `aquilia/i18n/faults.py` | 187 | 5 | 0 | I18n Faults — Typed fault signals for the i18n subsystem. |
+| `aquilia/i18n/formatter.py` | 627 | 1 | 9 | Message Formatter — ICU MessageFormat-inspired interpolation & locale formatting. |
+| `aquilia/i18n/lazy.py` | 289 | 2 | 4 | Lazy Strings — Deferred translation resolution. |
+| `aquilia/i18n/locale.py` | 352 | 1 | 5 | Locale — BCP 47 locale tag parsing, normalization, and negotiation. |
+| `aquilia/i18n/middleware.py` | 423 | 8 | 1 | I18n Middleware — Request-scoped locale resolution & injection. |
+| `aquilia/i18n/plural.py` | 515 | 1 | 2 | Plural Rules — CLDR-based plural category selection for 200+ languages. |
+| `aquilia/i18n/service.py` | 425 | 3 | 1 | I18n Service — Central orchestrator for all translation operations. |
+| `aquilia/i18n/template_integration.py` | 197 | 1 | 1 | I18n Template Integration — Jinja2 globals, filters, and extensions. |
+
+## Public Exports
+
+`CLDR_PLURAL_RULES`, `CatalogLoadFault`, `ChainLocaleResolver`, `CookieLocaleResolver`, `CrousCatalog`, `FileCatalog`, `HeaderLocaleResolver`, `I18nConfig`, `I18nFault`, `I18nMiddleware`, `I18nService`, `I18nTemplateExtension`, `InvalidLocaleFault`, `LazyString`, `Locale`, `LocaleResolver`, `MemoryCatalog`, `MergedCatalog`, `MessageFormatter`, `MissingTranslationFault`, `NamespacedCatalog`, `PathLocaleResolver`, `PluralCategory`, `PluralRule`, `PluralRuleFault`, `QueryLocaleResolver`, `SessionLocaleResolver`, `TranslationCatalog`, `create_i18n_service`, `format_currency`, `format_date`, `format_datetime`, `format_decimal`, `format_message`, `format_number`, `format_ordinal`, `format_percent`, `format_time`, `get_plural_rule`, `has_crous`, `lazy_t`, `lazy_tn`, `match_locale`, `negotiate_locale`, `normalize_locale`, `parse_accept_language`, `parse_locale`, `register_i18n_providers`, `register_i18n_template_globals`, `select_plural`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `TranslationCatalog` | `aquilia/i18n/catalog.py` | ABC | Abstract base for translation catalogs. |
 | `MemoryCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | In-memory translation catalog backed by nested dicts. |
@@ -37,38 +57,38 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `has_crous` | `aquilia/i18n/catalog.py` | `def has_crous() -> bool` | Check if the CROUS binary format library is available. |
-| `register_i18n_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_providers(container: Any, service: I18nService, config: I18nConfig &#124; None = None) -> None` | Register i18n providers in a DI container. |
-| `register_i18n_request_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_request_providers(container: Any, locale: str, service: I18nService) -> None` | Register request-scoped i18n providers. |
-| `format_message` | `aquilia/i18n/formatter.py` | `def format_message(pattern: str, locale: str = 'en', **kwargs: Any) -> str` | Convenience function for one-shot message formatting. |
-| `format_number` | `aquilia/i18n/formatter.py` | `def format_number(value: Number, locale: str = 'en', *, decimals: int &#124; None = None) -> str` | Format a number with locale-specific separators. |
-| `format_decimal` | `aquilia/i18n/formatter.py` | `def format_decimal(value: Number, locale: str = 'en', decimals: int = 2) -> str` | Format a decimal number with fixed precision. |
-| `format_percent` | `aquilia/i18n/formatter.py` | `def format_percent(value: Number, locale: str = 'en', decimals: int = 0) -> str` | Format a fraction as a percentage. |
-| `format_currency` | `aquilia/i18n/formatter.py` | `def format_currency(value: Number, currency: str = 'USD', locale: str = 'en', *, decimals: int = 2) -> str` | Format a monetary value with currency symbol. |
-| `format_ordinal` | `aquilia/i18n/formatter.py` | `def format_ordinal(value: int, locale: str = 'en') -> str` | Format an ordinal number. |
-| `format_date` | `aquilia/i18n/formatter.py` | `def format_date(value: date, locale: str = 'en', *, style: str = 'medium') -> str` | Format a date with locale-specific patterns. |
-| `format_time` | `aquilia/i18n/formatter.py` | `def format_time(value: time &#124; datetime, locale: str = 'en', *, style: str = 'short') -> str` | Format a time with locale-specific patterns. |
-| `format_datetime` | `aquilia/i18n/formatter.py` | `def format_datetime(value: datetime, locale: str = 'en', *, date_style: str = 'medium', time_style: str = 'short', separator: str = ' ') -> str` | Format a datetime with locale-specific patterns. |
-| `set_lazy_context` | `aquilia/i18n/lazy.py` | `def set_lazy_context(service: I18nService, locale: str &#124; None = None) -> None` | Set the global i18n context for lazy string resolution. |
-| `clear_lazy_context` | `aquilia/i18n/lazy.py` | `def clear_lazy_context() -> None` | Clear the lazy context (called at request cleanup). |
-| `lazy_t` | `aquilia/i18n/lazy.py` | `def lazy_t(key: str, *, default: str &#124; None = None, locale: str &#124; None = None, service: I18nService &#124; None = None, **kwargs: Any) -> LazyString` | Create a lazy translation string. |
-| `lazy_tn` | `aquilia/i18n/lazy.py` | `def lazy_tn(key: str, count: int &#124; float, *, default: str &#124; None = None, locale: str &#124; None = None, service: I18nService &#124; None = None, **kwargs: Any) -> LazyPluralString` | Create a lazy plural translation string. |
-| `parse_locale` | `aquilia/i18n/locale.py` | `def parse_locale(tag: str) -> Locale` | Parse a BCP 47 language tag into a ``Locale`` object. |
-| `normalize_locale` | `aquilia/i18n/locale.py` | `def normalize_locale(tag: str) -> str &#124; None` | Normalize a locale tag to canonical BCP 47 form. |
-| `match_locale` | `aquilia/i18n/locale.py` | `def match_locale(requested: Locale, available: Sequence[Locale]) -> Locale &#124; None` | Find the best matching locale from available options. |
-| `parse_accept_language` | `aquilia/i18n/locale.py` | `def parse_accept_language(header: str) -> list[tuple[str, float]]` | Parse an ``Accept-Language`` header into a list of (tag, quality) tuples. |
-| `negotiate_locale` | `aquilia/i18n/locale.py` | `def negotiate_locale(accept_language: str, available_locales: Sequence[str], default: str = 'en') -> str` | Negotiate the best locale from an Accept-Language header and available locales. |
-| `build_resolver` | `aquilia/i18n/middleware.py` | `def build_resolver(config: Any) -> ChainLocaleResolver` | Build a ``ChainLocaleResolver`` from an ``I18nConfig``. |
-| `get_plural_rule` | `aquilia/i18n/plural.py` | `def get_plural_rule(language: str) -> PluralRule` | Get the plural rule function for a language. |
-| `select_plural` | `aquilia/i18n/plural.py` | `def select_plural(language: str, count: Number) -> str` | Select the plural category for a number in a given language. |
-| `create_i18n_service` | `aquilia/i18n/service.py` | `def create_i18n_service(config: I18nConfig &#124; dict[str, Any] &#124; None = None, catalog: TranslationCatalog &#124; None = None) -> I18nService` | Factory function for creating an ``I18nService``. |
-| `register_i18n_template_globals` | `aquilia/i18n/template_integration.py` | `def register_i18n_template_globals(env: Environment, service: I18nService) -> None` | Register i18n globals and filters on a Jinja2 Environment. |
+| `has_crous` | `aquilia/i18n/catalog.py` | `def has_crous()` | Check if the CROUS binary format library is available. |
+| `register_i18n_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_providers(container: Any, service: I18nService, config: I18nConfig \| None=None)` | Register i18n providers in a DI container. |
+| `register_i18n_request_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_request_providers(container: Any, locale: str, service: I18nService)` | Register request-scoped i18n providers. |
+| `format_message` | `aquilia/i18n/formatter.py` | `def format_message(pattern: str, locale: str='en', **kwargs: Any)` | Convenience function for one-shot message formatting. |
+| `format_number` | `aquilia/i18n/formatter.py` | `def format_number(value: Number, locale: str='en', *, decimals: int \| None=None)` | Format a number with locale-specific separators. |
+| `format_decimal` | `aquilia/i18n/formatter.py` | `def format_decimal(value: Number, locale: str='en', decimals: int=2)` | Format a decimal number with fixed precision. |
+| `format_percent` | `aquilia/i18n/formatter.py` | `def format_percent(value: Number, locale: str='en', decimals: int=0)` | Format a fraction as a percentage. |
+| `format_currency` | `aquilia/i18n/formatter.py` | `def format_currency(value: Number, currency: str='USD', locale: str='en', *, decimals: int=2)` | Format a monetary value with currency symbol. |
+| `format_ordinal` | `aquilia/i18n/formatter.py` | `def format_ordinal(value: int, locale: str='en')` | Format an ordinal number. |
+| `format_date` | `aquilia/i18n/formatter.py` | `def format_date(value: date, locale: str='en', *, style: str='medium')` | Format a date with locale-specific patterns. |
+| `format_time` | `aquilia/i18n/formatter.py` | `def format_time(value: time \| datetime, locale: str='en', *, style: str='short')` | Format a time with locale-specific patterns. |
+| `format_datetime` | `aquilia/i18n/formatter.py` | `def format_datetime(value: datetime, locale: str='en', *, date_style: str='medium', time_style: str='short', separator: str=' ')` | Format a datetime with locale-specific patterns. |
+| `set_lazy_context` | `aquilia/i18n/lazy.py` | `def set_lazy_context(service: I18nService, locale: str \| None=None)` | Set the global i18n context for lazy string resolution. |
+| `clear_lazy_context` | `aquilia/i18n/lazy.py` | `def clear_lazy_context()` | Clear the lazy context (called at request cleanup). |
+| `lazy_t` | `aquilia/i18n/lazy.py` | `def lazy_t(key: str, *, default: str \| None=None, locale: str \| None=None, service: I18nService \| None=None, **kwargs: Any)` | Create a lazy translation string. |
+| `lazy_tn` | `aquilia/i18n/lazy.py` | `def lazy_tn(key: str, count: int \| float, *, default: str \| None=None, locale: str \| None=None, service: I18nService \| None=None, **kwargs: Any)` | Create a lazy plural translation string. |
+| `parse_locale` | `aquilia/i18n/locale.py` | `def parse_locale(tag: str)` | Parse a BCP 47 language tag into a ``Locale`` object. |
+| `normalize_locale` | `aquilia/i18n/locale.py` | `def normalize_locale(tag: str)` | Normalize a locale tag to canonical BCP 47 form. |
+| `match_locale` | `aquilia/i18n/locale.py` | `def match_locale(requested: Locale, available: Sequence[Locale])` | Find the best matching locale from available options. |
+| `parse_accept_language` | `aquilia/i18n/locale.py` | `def parse_accept_language(header: str)` | Parse an ``Accept-Language`` header into a list of (tag, quality) tuples. |
+| `negotiate_locale` | `aquilia/i18n/locale.py` | `def negotiate_locale(accept_language: str, available_locales: Sequence[str], default: str='en')` | Negotiate the best locale from an Accept-Language header and available locales. |
+| `build_resolver` | `aquilia/i18n/middleware.py` | `def build_resolver(config: Any)` | Build a ``ChainLocaleResolver`` from an ``I18nConfig``. |
+| `get_plural_rule` | `aquilia/i18n/plural.py` | `def get_plural_rule(language: str)` | Get the plural rule function for a language. |
+| `select_plural` | `aquilia/i18n/plural.py` | `def select_plural(language: str, count: Number)` | Select the plural category for a number in a given language. |
+| `create_i18n_service` | `aquilia/i18n/service.py` | `def create_i18n_service(config: I18nConfig \| dict[str, Any] \| None=None, catalog: TranslationCatalog \| None=None)` | Factory function for creating an ``I18nService``. |
+| `register_i18n_template_globals` | `aquilia/i18n/template_integration.py` | `def register_i18n_template_globals(env: Environment, service: I18nService)` | Register i18n globals and filters on a Jinja2 Environment. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `_HAS_CROUS` | `aquilia/i18n/catalog.py` | `False` |
 | `_NUMBER_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
@@ -77,14 +97,14 @@ This page is extracted from the current Python source. It includes public classe
 | `_DATE_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
 | `_TIME_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
 | `_SIMPLE_ARG_PATTERN` | `aquilia/i18n/formatter.py` | `re.compile('\\{(\\w+)\\}')` |
-| `_PLURAL_FORM_PATTERN` | `aquilia/i18n/formatter.py` | `re.compile('(=\\d+ &#124; \\w+)\\s*\\{([^}]*)\\}')` |
-| `LOCALE_PATTERN` | `aquilia/i18n/locale.py` | `re.compile('^(?P<language>[a-zA-Z]{2,3})(?:-(?P<script>[a-zA-Z]{4}))?(?:-(?P<region>[a-zA-Z]{2} &#124; \\d{3}))?(?:-(?P<variant>[a-zA-Z0-9]{5,8}))?$', re.IGNORECASE)` |
-| `_ACCEPT_LANG_RE` | `aquilia/i18n/locale.py` | `re.compile('(?P<tag>[a-zA-Z]{1,8}(?:-[a-zA-Z0-9]{1,8})* &#124; \\*)(?:\\s*;\\s*q=(?P<q>[01](?:\\.\\d{1,3})?))?')` |
+| `_PLURAL_FORM_PATTERN` | `aquilia/i18n/formatter.py` | `re.compile('(=\\d+\|\\w+)\\s*\\{([^}]*)\\}')` |
+| `LOCALE_PATTERN` | `aquilia/i18n/locale.py` | `re.compile('^(?P<language>[a-zA-Z]{2,3})(?:-(?P<script>[a-zA-Z]{4}))?(?:-(?P<region>[a-zA-Z]{2}\|\\d{3}))?(?:-(?P<variant>[a-zA-Z0-9]{5,8}))?$', re.IGNORECASE)` |
+| `_ACCEPT_LANG_RE` | `aquilia/i18n/locale.py` | `re.compile('(?P<tag>[a-zA-Z]{1,8}(?:-[a-zA-Z0-9]{1,8})*\|\\*)(?:\\s*;\\s*q=(?P<q>[01](?:\\.\\d{1,3})?))?')` |
 | `CLDR_PLURAL_RULES` | `aquilia/i18n/plural.py` | `dict[str, PluralRule]` |
 
 ## Detailed Classes And Methods
 
-### Class: `TranslationCatalog`
+### `TranslationCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `ABC`
@@ -92,15 +112,15 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, key: str, locale: str, *, default: str &#124; None = None) -> str &#124; None` | abstractmethod | Retrieve a translation string. |
-| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str &#124; None = None) -> str &#124; None` | abstractmethod | Retrieve a plural translation variant. |
-| `has` | `def has(self, key: str, locale: str) -> bool` | abstractmethod | Check if a key exists for a locale. |
-| `locales` | `def locales(self) -> set[str]` | abstractmethod | Return set of available locale tags. |
-| `keys` | `def keys(self, locale: str) -> set[str]` | abstractmethod | Return all keys for a locale. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` | Retrieve a translation string. |
+| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` | Retrieve a plural translation variant. |
+| `has` | `def has(self, key: str, locale: str)` | Check if a key exists for a locale. |
+| `locales` | `def locales(self)` | Return set of available locale tags. |
+| `keys` | `def keys(self, locale: str)` | Return all keys for a locale. |
 
-### Class: `MemoryCatalog`
+### `MemoryCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `TranslationCatalog`
@@ -108,16 +128,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, locale: str, translations: dict) -> None` |  | Add translations for a locale (merges with existing). |
-| `get` | `def get(self, key: str, locale: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `has` | `def has(self, key: str, locale: str) -> bool` |  | Method. |
-| `locales` | `def locales(self) -> set[str]` |  | Method. |
-| `keys` | `def keys(self, locale: str) -> set[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, locale: str, translations: dict)` | Add translations for a locale (merges with existing). |
+| `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` |  |
+| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` |  |
+| `has` | `def has(self, key: str, locale: str)` |  |
+| `locales` | `def locales(self)` |  |
+| `keys` | `def keys(self, locale: str)` |  |
 
-### Class: `FileCatalog`
+### `FileCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `TranslationCatalog`
@@ -125,17 +145,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `def load(self) -> None` |  | Load all translation files from configured directories. |
-| `reload` | `def reload(self) -> None` |  | Reload changed files (hot-reload support). |
-| `get` | `def get(self, key: str, locale: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `has` | `def has(self, key: str, locale: str) -> bool` |  | Method. |
-| `locales` | `def locales(self) -> set[str]` |  | Method. |
-| `keys` | `def keys(self, locale: str) -> set[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `def load(self)` | Load all translation files from configured directories. |
+| `reload` | `def reload(self)` | Reload changed files (hot-reload support). |
+| `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` |  |
+| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` |  |
+| `has` | `def has(self, key: str, locale: str)` |  |
+| `locales` | `def locales(self)` |  |
+| `keys` | `def keys(self, locale: str)` |  |
 
-### Class: `CrousCatalog`
+### `CrousCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `TranslationCatalog`
@@ -143,18 +163,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `def load(self) -> None` |  | Load translations from CROUS and/or JSON files. |
-| `reload` | `def reload(self) -> None` |  | Reload changed files (hot-reload support). |
-| `compile` | `def compile(self, directory: str &#124; Path &#124; None = None) -> int` |  | Compile all JSON locale files to CROUS format. |
-| `get` | `def get(self, key: str, locale: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `has` | `def has(self, key: str, locale: str) -> bool` |  | Method. |
-| `locales` | `def locales(self) -> set[str]` |  | Method. |
-| `keys` | `def keys(self, locale: str) -> set[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `def load(self)` | Load translations from CROUS and/or JSON files. |
+| `reload` | `def reload(self)` | Reload changed files (hot-reload support). |
+| `compile` | `def compile(self, directory: str \| Path \| None=None)` | Compile all JSON locale files to CROUS format. |
+| `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` |  |
+| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` |  |
+| `has` | `def has(self, key: str, locale: str)` |  |
+| `locales` | `def locales(self)` |  |
+| `keys` | `def keys(self, locale: str)` |  |
 
-### Class: `NamespacedCatalog`
+### `NamespacedCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `TranslationCatalog`
@@ -162,15 +182,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, key: str, locale: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `has` | `def has(self, key: str, locale: str) -> bool` |  | Method. |
-| `locales` | `def locales(self) -> set[str]` |  | Method. |
-| `keys` | `def keys(self, locale: str) -> set[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` |  |
+| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` |  |
+| `has` | `def has(self, key: str, locale: str)` |  |
+| `locales` | `def locales(self)` |  |
+| `keys` | `def keys(self, locale: str)` |  |
 
-### Class: `MergedCatalog`
+### `MergedCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `TranslationCatalog`
@@ -178,46 +198,46 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, catalog: TranslationCatalog) -> None` |  | Add a catalog to the beginning (highest priority). |
-| `get` | `def get(self, key: str, locale: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str &#124; None = None) -> str &#124; None` |  | Method. |
-| `has` | `def has(self, key: str, locale: str) -> bool` |  | Method. |
-| `locales` | `def locales(self) -> set[str]` |  | Method. |
-| `keys` | `def keys(self, locale: str) -> set[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, catalog: TranslationCatalog)` | Add a catalog to the beginning (highest priority). |
+| `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` |  |
+| `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` |  |
+| `has` | `def has(self, key: str, locale: str)` |  |
+| `locales` | `def locales(self)` |  |
+| `keys` | `def keys(self, locale: str)` |  |
 
-### Class: `I18nFault`
+### `I18nFault`
 
 - Source: `aquilia/i18n/faults.py`
 - Bases: `Fault`
 - Summary: Base fault for all i18n-related errors.
 
-### Class: `MissingTranslationFault`
+### `MissingTranslationFault`
 
 - Source: `aquilia/i18n/faults.py`
 - Bases: `I18nFault`
 - Summary: Raised when a translation key cannot be found in any catalog.
 
-### Class: `InvalidLocaleFault`
+### `InvalidLocaleFault`
 
 - Source: `aquilia/i18n/faults.py`
 - Bases: `I18nFault`
 - Summary: Raised when a locale tag cannot be parsed as valid BCP 47.
 
-### Class: `CatalogLoadFault`
+### `CatalogLoadFault`
 
 - Source: `aquilia/i18n/faults.py`
 - Bases: `I18nFault`
 - Summary: Raised when a translation catalog file cannot be loaded.
 
-### Class: `PluralRuleFault`
+### `PluralRuleFault`
 
 - Source: `aquilia/i18n/faults.py`
 - Bases: `I18nFault`
 - Summary: Raised when plural form selection fails.
 
-### Class: `MessageFormatter`
+### `MessageFormatter`
 
 - Source: `aquilia/i18n/formatter.py`
 - Bases: `object`
@@ -225,11 +245,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `format` | `def format(self, pattern: str, locale: str &#124; None = None, **kwargs: Any) -> str` |  | Format a message pattern with the given arguments. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `format` | `def format(self, pattern: str, locale: str \| None=None, **kwargs: Any)` | Format a message pattern with the given arguments. |
 
-### Class: `LazyString`
+### `LazyString`
 
 - Source: `aquilia/i18n/lazy.py`
 - Bases: `object`
@@ -237,52 +257,52 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `upper` | `def upper(self) -> str` |  | Method. |
-| `lower` | `def lower(self) -> str` |  | Method. |
-| `strip` | `def strip(self, chars: str &#124; None = None) -> str` |  | Method. |
-| `split` | `def split(self, sep: str &#124; None = None, maxsplit: int = -1) -> list[str]` |  | Method. |
-| `replace` | `def replace(self, old: str, new: str, count: int = -1) -> str` |  | Method. |
-| `startswith` | `def startswith(self, prefix: str, *args) -> bool` |  | Method. |
-| `endswith` | `def endswith(self, suffix: str, *args) -> bool` |  | Method. |
-| `encode` | `def encode(self, encoding: str = 'utf-8', errors: str = 'strict') -> bytes` |  | Method. |
-| `join` | `def join(self, iterable) -> str` |  | Method. |
-| `format` | `def format(self, *args, **kwargs) -> str` |  | Method. |
-| `format_map` | `def format_map(self, mapping) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `upper` | `def upper(self)` |  |
+| `lower` | `def lower(self)` |  |
+| `strip` | `def strip(self, chars: str \| None=None)` |  |
+| `split` | `def split(self, sep: str \| None=None, maxsplit: int=-1)` |  |
+| `replace` | `def replace(self, old: str, new: str, count: int=-1)` |  |
+| `startswith` | `def startswith(self, prefix: str, *args)` |  |
+| `endswith` | `def endswith(self, suffix: str, *args)` |  |
+| `encode` | `def encode(self, encoding: str='utf-8', errors: str='strict')` |  |
+| `join` | `def join(self, iterable)` |  |
+| `format` | `def format(self, *args, **kwargs)` |  |
+| `format_map` | `def format_map(self, mapping)` |  |
 
-### Class: `LazyPluralString`
+### `LazyPluralString`
 
 - Source: `aquilia/i18n/lazy.py`
 - Bases: `LazyString`
 - Summary: Lazy string with plural support.
 
-### Class: `Locale`
+### `Locale`
 
 - Source: `aquilia/i18n/locale.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Immutable BCP 47 locale tag.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `language` | `str` |  |
-| `script` | `str &#124; None` | `None` |
-| `region` | `str &#124; None` | `None` |
-| `variant` | `str &#124; None` | `None` |
+| `language` | `str` | `` |
+| `script` | `str \| None` | `None` |
+| `region` | `str \| None` | `None` |
+| `variant` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `tag` | `def tag(self) -> str` | property | Full BCP 47 tag string. |
-| `language_tag` | `def language_tag(self) -> str` | property | Language-only tag (no script/region/variant). |
-| `fallback_chain` | `def fallback_chain(self) -> list[Locale]` | property | Generate fallback chain from most specific to least. |
-| `matches` | `def matches(self, other: Locale) -> bool` |  | Check if this locale matches another using prefix matching. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `tag` | `def tag(self)` | Full BCP 47 tag string. |
+| `language_tag` | `def language_tag(self)` | Language-only tag (no script/region/variant). |
+| `fallback_chain` | `def fallback_chain(self)` | Generate fallback chain from most specific to least. |
+| `matches` | `def matches(self, other: Locale)` | Check if this locale matches another using prefix matching. |
 
-### Class: `LocaleResolver`
+### `LocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `ABC`
@@ -290,11 +310,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` | abstractmethod | Attempt to resolve locale from the request. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` | Attempt to resolve locale from the request. |
 
-### Class: `HeaderLocaleResolver`
+### `HeaderLocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `LocaleResolver`
@@ -302,11 +322,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` |  |
 
-### Class: `CookieLocaleResolver`
+### `CookieLocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `LocaleResolver`
@@ -314,11 +334,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` |  |
 
-### Class: `QueryLocaleResolver`
+### `QueryLocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `LocaleResolver`
@@ -326,11 +346,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` |  |
 
-### Class: `PathLocaleResolver`
+### `PathLocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `LocaleResolver`
@@ -338,11 +358,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` |  |
 
-### Class: `SessionLocaleResolver`
+### `SessionLocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `LocaleResolver`
@@ -350,11 +370,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` |  |
 
-### Class: `ChainLocaleResolver`
+### `ChainLocaleResolver`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `LocaleResolver`
@@ -362,59 +382,59 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Any) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Any)` |  |
 
-### Class: `I18nMiddleware`
+### `I18nMiddleware`
 
 - Source: `aquilia/i18n/middleware.py`
 - Bases: `object`
 - Summary: Aquilia middleware that resolves locale and injects i18n into requests.
 
-### Class: `PluralCategory`
+### `PluralCategory`
 
 - Source: `aquilia/i18n/plural.py`
 - Bases: `str, Enum`
 - Summary: CLDR plural categories.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ZERO` |  | `'zero'` |
-| `ONE` |  | `'one'` |
-| `TWO` |  | `'two'` |
-| `FEW` |  | `'few'` |
-| `MANY` |  | `'many'` |
-| `OTHER` |  | `'other'` |
+| `ZERO` | `` | `'zero'` |
+| `ONE` | `` | `'one'` |
+| `TWO` | `` | `'two'` |
+| `FEW` | `` | `'few'` |
+| `MANY` | `` | `'many'` |
+| `OTHER` | `` | `'other'` |
 
-### Class: `MissingKeyStrategy`
+### `MissingKeyStrategy`
 
 - Source: `aquilia/i18n/service.py`
 - Bases: `str, Enum`
 - Summary: What to do when a translation key is not found.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `RETURN_KEY` |  | `'return_key'` |
-| `RETURN_EMPTY` |  | `'return_empty'` |
-| `RETURN_DEFAULT` |  | `'return_default'` |
-| `RAISE` |  | `'raise'` |
-| `LOG_AND_KEY` |  | `'log_and_key'` |
+| `RETURN_KEY` | `` | `'return_key'` |
+| `RETURN_EMPTY` | `` | `'return_empty'` |
+| `RETURN_DEFAULT` | `` | `'return_default'` |
+| `RAISE` | `` | `'raise'` |
+| `LOG_AND_KEY` | `` | `'log_and_key'` |
 
-### Class: `I18nConfig`
+### `I18nConfig`
 
 - Source: `aquilia/i18n/service.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Configuration for the i18n service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `default_locale` | `str` | `'en'` |
@@ -432,12 +452,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> I18nConfig` | classmethod | Create config from a dictionary (e.g. from ConfigLoader). |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict for ConfigLoader round-tripping. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Create config from a dictionary (e.g. from ConfigLoader). |
+| `to_dict` | `def to_dict(self)` | Serialize to dict for ConfigLoader round-tripping. |
 
-### Class: `I18nService`
+### `I18nService`
 
 - Source: `aquilia/i18n/service.py`
 - Bases: `object`
@@ -445,19 +465,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `t` | `def t(self, key: str, *, locale: str &#124; None = None, default: str &#124; None = None, **kwargs: Any) -> str` |  | Translate a key. |
-| `tn` | `def tn(self, key: str, count: int &#124; float, *, locale: str &#124; None = None, default: str &#124; None = None, **kwargs: Any) -> str` |  | Translate a key with plural selection. |
-| `tp` | `def tp(self, key: str, *, locale: str &#124; None = None, default: str &#124; None = None, **kwargs: Any) -> str` |  | Translate with explicit parameterized formatting. |
-| `has` | `def has(self, key: str, locale: str &#124; None = None) -> bool` |  | Check if a key exists for the given locale. |
-| `available_locales` | `def available_locales(self) -> list[str]` |  | Return the list of configured available locales. |
-| `is_available` | `def is_available(self, locale: str) -> bool` |  | Check if a locale is in the available list. |
-| `negotiate` | `def negotiate(self, accept_language: str) -> str` |  | Negotiate locale from an Accept-Language header. |
-| `locale` | `def locale(self, tag: str &#124; None = None) -> Locale` |  | Get a ``Locale`` object for the given tag. |
-| `reload_catalogs` | `def reload_catalogs(self) -> None` |  | Force reload all file-based catalogs. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `t` | `def t(self, key: str, *, locale: str \| None=None, default: str \| None=None, **kwargs: Any)` | Translate a key. |
+| `tn` | `def tn(self, key: str, count: int \| float, *, locale: str \| None=None, default: str \| None=None, **kwargs: Any)` | Translate a key with plural selection. |
+| `tp` | `def tp(self, key: str, *, locale: str \| None=None, default: str \| None=None, **kwargs: Any)` | Translate with explicit parameterized formatting. |
+| `has` | `def has(self, key: str, locale: str \| None=None)` | Check if a key exists for the given locale. |
+| `available_locales` | `def available_locales(self)` | Return the list of configured available locales. |
+| `is_available` | `def is_available(self, locale: str)` | Check if a locale is in the available list. |
+| `negotiate` | `def negotiate(self, accept_language: str)` | Negotiate locale from an Accept-Language header. |
+| `locale` | `def locale(self, tag: str \| None=None)` | Get a ``Locale`` object for the given tag. |
+| `reload_catalogs` | `def reload_catalogs(self)` | Force reload all file-based catalogs. |
 
-### Class: `I18nTemplateExtension`
+### `I18nTemplateExtension`
 
 - Source: `aquilia/i18n/template_integration.py`
 - Bases: `object`
@@ -465,53 +485,6 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `apply` | `def apply(self, env: Environment) -> None` |  | Apply the i18n extension to the Jinja2 environment. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `has_crous` | `aquilia/i18n/catalog.py` | `def has_crous() -> bool` | Check if the CROUS binary format library is available. |
-| `register_i18n_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_providers(container: Any, service: I18nService, config: I18nConfig &#124; None = None) -> None` | Register i18n providers in a DI container. |
-| `register_i18n_request_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_request_providers(container: Any, locale: str, service: I18nService) -> None` | Register request-scoped i18n providers. |
-| `format_message` | `aquilia/i18n/formatter.py` | `def format_message(pattern: str, locale: str = 'en', **kwargs: Any) -> str` | Convenience function for one-shot message formatting. |
-| `format_number` | `aquilia/i18n/formatter.py` | `def format_number(value: Number, locale: str = 'en', *, decimals: int &#124; None = None) -> str` | Format a number with locale-specific separators. |
-| `format_decimal` | `aquilia/i18n/formatter.py` | `def format_decimal(value: Number, locale: str = 'en', decimals: int = 2) -> str` | Format a decimal number with fixed precision. |
-| `format_percent` | `aquilia/i18n/formatter.py` | `def format_percent(value: Number, locale: str = 'en', decimals: int = 0) -> str` | Format a fraction as a percentage. |
-| `format_currency` | `aquilia/i18n/formatter.py` | `def format_currency(value: Number, currency: str = 'USD', locale: str = 'en', *, decimals: int = 2) -> str` | Format a monetary value with currency symbol. |
-| `format_ordinal` | `aquilia/i18n/formatter.py` | `def format_ordinal(value: int, locale: str = 'en') -> str` | Format an ordinal number. |
-| `format_date` | `aquilia/i18n/formatter.py` | `def format_date(value: date, locale: str = 'en', *, style: str = 'medium') -> str` | Format a date with locale-specific patterns. |
-| `format_time` | `aquilia/i18n/formatter.py` | `def format_time(value: time &#124; datetime, locale: str = 'en', *, style: str = 'short') -> str` | Format a time with locale-specific patterns. |
-| `format_datetime` | `aquilia/i18n/formatter.py` | `def format_datetime(value: datetime, locale: str = 'en', *, date_style: str = 'medium', time_style: str = 'short', separator: str = ' ') -> str` | Format a datetime with locale-specific patterns. |
-| `set_lazy_context` | `aquilia/i18n/lazy.py` | `def set_lazy_context(service: I18nService, locale: str &#124; None = None) -> None` | Set the global i18n context for lazy string resolution. |
-| `clear_lazy_context` | `aquilia/i18n/lazy.py` | `def clear_lazy_context() -> None` | Clear the lazy context (called at request cleanup). |
-| `lazy_t` | `aquilia/i18n/lazy.py` | `def lazy_t(key: str, *, default: str &#124; None = None, locale: str &#124; None = None, service: I18nService &#124; None = None, **kwargs: Any) -> LazyString` | Create a lazy translation string. |
-| `lazy_tn` | `aquilia/i18n/lazy.py` | `def lazy_tn(key: str, count: int &#124; float, *, default: str &#124; None = None, locale: str &#124; None = None, service: I18nService &#124; None = None, **kwargs: Any) -> LazyPluralString` | Create a lazy plural translation string. |
-| `parse_locale` | `aquilia/i18n/locale.py` | `def parse_locale(tag: str) -> Locale` | Parse a BCP 47 language tag into a ``Locale`` object. |
-| `normalize_locale` | `aquilia/i18n/locale.py` | `def normalize_locale(tag: str) -> str &#124; None` | Normalize a locale tag to canonical BCP 47 form. |
-| `match_locale` | `aquilia/i18n/locale.py` | `def match_locale(requested: Locale, available: Sequence[Locale]) -> Locale &#124; None` | Find the best matching locale from available options. |
-| `parse_accept_language` | `aquilia/i18n/locale.py` | `def parse_accept_language(header: str) -> list[tuple[str, float]]` | Parse an ``Accept-Language`` header into a list of (tag, quality) tuples. |
-| `negotiate_locale` | `aquilia/i18n/locale.py` | `def negotiate_locale(accept_language: str, available_locales: Sequence[str], default: str = 'en') -> str` | Negotiate the best locale from an Accept-Language header and available locales. |
-| `build_resolver` | `aquilia/i18n/middleware.py` | `def build_resolver(config: Any) -> ChainLocaleResolver` | Build a ``ChainLocaleResolver`` from an ``I18nConfig``. |
-| `get_plural_rule` | `aquilia/i18n/plural.py` | `def get_plural_rule(language: str) -> PluralRule` | Get the plural rule function for a language. |
-| `select_plural` | `aquilia/i18n/plural.py` | `def select_plural(language: str, count: Number) -> str` | Select the plural category for a number in a given language. |
-| `create_i18n_service` | `aquilia/i18n/service.py` | `def create_i18n_service(config: I18nConfig &#124; dict[str, Any] &#124; None = None, catalog: TranslationCatalog &#124; None = None) -> I18nService` | Factory function for creating an ``I18nService``. |
-| `register_i18n_template_globals` | `aquilia/i18n/template_integration.py` | `def register_i18n_template_globals(env: Environment, service: I18nService) -> None` | Register i18n globals and filters on a Jinja2 Environment. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `_HAS_CROUS` | `aquilia/i18n/catalog.py` | `False` |
-| `_NUMBER_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
-| `_CURRENCY_SYMBOLS` | `aquilia/i18n/formatter.py` | `dict[str, str]` |
-| `_ORDINAL_SUFFIXES_EN` | `aquilia/i18n/formatter.py` | `{1: 'st', 2: 'nd', 3: 'rd'}` |
-| `_DATE_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
-| `_TIME_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
-| `_SIMPLE_ARG_PATTERN` | `aquilia/i18n/formatter.py` | `re.compile('\\{(\\w+)\\}')` |
-| `_PLURAL_FORM_PATTERN` | `aquilia/i18n/formatter.py` | `re.compile('(=\\d+ &#124; \\w+)\\s*\\{([^}]*)\\}')` |
-| `LOCALE_PATTERN` | `aquilia/i18n/locale.py` | `re.compile('^(?P<language>[a-zA-Z]{2,3})(?:-(?P<script>[a-zA-Z]{4}))?(?:-(?P<region>[a-zA-Z]{2} &#124; \\d{3}))?(?:-(?P<variant>[a-zA-Z0-9]{5,8}))?$', re.IGNORECASE)` |
-| `_ACCEPT_LANG_RE` | `aquilia/i18n/locale.py` | `re.compile('(?P<tag>[a-zA-Z]{1,8}(?:-[a-zA-Z0-9]{1,8})* &#124; \\*)(?:\\s*;\\s*q=(?P<q>[01](?:\\.\\d{1,3})?))?')` |
-| `CLDR_PLURAL_RULES` | `aquilia/i18n/plural.py` | `dict[str, PluralRule]` |
+| `apply` | `def apply(self, env: Environment)` | Apply the i18n extension to the Jinja2 environment. |

@@ -1,33 +1,25 @@
 # Providers Edge Cases And Limitations
 
-## Fault And Error Types
+Cloud provider clients and deployment tooling, currently focused on the Render provider and encrypted credential store.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| None detected |  |  |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+No public `Fault` or `Error` classes are defined directly in this module.
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/providers/__init__.py`: Aquilia Cloud Providers - Pluggable PaaS/IaaS Deployment Backends.
-- `aquilia/providers/render/__init__.py`: Aquilia Render Provider - Comprehensive PaaS Deployment v2.
-- `aquilia/providers/render/client.py`: Render REST API Client - Comprehensive v2.
-- `aquilia/providers/render/deployer.py`: Render Deployment Orchestrator - Enhanced v2.
-- `aquilia/providers/render/store.py`: Render Credential Store - Military-Grade Encrypted Token Persistence.
-- `aquilia/providers/render/types.py`: Render API Type Definitions - Comprehensive v2.
-- `aquilia/providers/render_backup_phase10/__init__.py`: Aquilia Render Provider - One-command PaaS deployment.
-- `aquilia/providers/render_backup_phase10/client.py`: Render REST API Client.
-- `aquilia/providers/render_backup_phase10/deployer.py`: Render Deployment Orchestrator.
-- `aquilia/providers/render_backup_phase10/store.py`: Render Credential Store - Crous-Encrypted Token Persistence.
-- `aquilia/providers/render_backup_phase10/types.py`: Render API Type Definitions.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

@@ -1,33 +1,48 @@
 # Artifacts Configuration
 
-## Configuration Entry Points
+Typed artifact envelopes, artifact kinds, integrity metadata, readers, builders, and memory/filesystem stores.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/artifacts/__init__.py` | 91 | 0 | 0 | Aquilia Artifacts -- Unified artifact system for the framework. |
+| `aquilia/artifacts/builder.py` | 240 | 1 | 0 | Artifact Builder -- fluent API for constructing artifacts. |
+| `aquilia/artifacts/core.py` | 416 | 5 | 1 | Artifact Core -- the foundational types for Aquilia's artifact system. |
+| `aquilia/artifacts/kinds.py` | 413 | 9 | 0 | Typed Artifact Kinds -- convenience subclasses with kind-specific helpers. |
+| `aquilia/artifacts/reader.py` | 250 | 1 | 0 | Artifact Reader -- load, inspect, verify, and query artifacts. |
+| `aquilia/artifacts/store.py` | 449 | 3 | 1 | Artifact Store -- pluggable storage backends for artifacts. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `ArtifactIntegrity` | `aquilia/artifacts/core.py` | algorithm: str, digest: str | Content-addressed integrity proof. |
-| `ArtifactProvenance` | `aquilia/artifacts/core.py` | created_at: str, created_by: str, git_sha: str, source_path: str, hostname: str, build_tool: str | Where and when the artifact was produced. |
-| `ArtifactEnvelope` | `aquilia/artifacts/core.py` | format: str, schema_version: str, kind: str, name: str, version: str, integrity: ArtifactIntegrity, provenance: ArtifactProvenance, metadata: dict[str, Any], tags: dict[str, str], payload: Any | The outer envelope that wraps every artifact's serialised form. |
+| `ArtifactBuilder` | `aquilia/artifacts/builder.py` | `from_artifact`, `set_payload`, `merge_payload`, `set_metadata`, `tag`, `tags`, `set_provenance`, `auto_provenance`, `add_file`, `set_version`, `build` | Fluent builder for creating :class:`Artifact` instances. |
+| `ConfigArtifact` | `aquilia/artifacts/kinds.py` | `build`, `config`, `get` | Frozen configuration snapshot. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

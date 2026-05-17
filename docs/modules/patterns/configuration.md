@@ -1,49 +1,56 @@
 # Patterns Configuration
 
-## Configuration Entry Points
+URL pattern grammar, parser, compiler, matcher, type/validator/transform registries, specificity scoring, OpenAPI conversion, diagnostics, autofix, and LSP metadata.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
-| --- | --- | --- | --- |
-| `FixSuggestion` | `aquilia/patterns/autofix.py` | title: str, description: str, old_code: str, new_code: str, confidence: float | Represents a single fix suggestion. |
-| `DiagnosticFix` | `aquilia/patterns/autofix.py` | error_message: str, suggestions: list[FixSuggestion] | Container for diagnostic with fix suggestions. |
-| `CacheStats` | `aquilia/patterns/cache.py` | hits: int, misses: int, evictions: int, errors: int, total_compile_time: float | Cache statistics for monitoring. |
-| `CacheEntry` | `aquilia/patterns/cache.py` | pattern: CompiledPattern, created_at: float, last_accessed: float, access_count: int, compile_time: float | Cache entry with metadata. |
-| `Span` | `aquilia/patterns/compiler/ast_nodes.py` | start: int, end: int, line: int, column: int | Source code span for diagnostics. |
-| `Constraint` | `aquilia/patterns/compiler/ast_nodes.py` | kind: ConstraintKind, value: Any, span: Span &#124; None | Constraint on a parameter. |
-| `Transform` | `aquilia/patterns/compiler/ast_nodes.py` | name: str, args: list[Any], span: Span &#124; None | Transform function applied to parameter. |
-| `BaseSegment` | `aquilia/patterns/compiler/ast_nodes.py` | kind: SegmentKind, span: Span &#124; None | Base class for all segments. |
-| `StaticSegment` | `aquilia/patterns/compiler/ast_nodes.py` | value: str | Static text segment. |
-| `TokenSegment` | `aquilia/patterns/compiler/ast_nodes.py` | name: str, param_type: str, constraints: list[Constraint], default: Any &#124; None, transform: Transform &#124; None | Named parameter segment with type and constraints. |
-| `SplatSegment` | `aquilia/patterns/compiler/ast_nodes.py` | name: str, param_type: str | Multi-segment capture (*path). |
-| `OptionalGroup` | `aquilia/patterns/compiler/ast_nodes.py` | segments: list[BaseSegment] | Optional segment group [...]. |
-| `QueryParam` | `aquilia/patterns/compiler/ast_nodes.py` | name: str, param_type: str, constraints: list[Constraint], default: Any &#124; None, span: Span &#124; None | Query parameter definition. |
-| `PatternAST` | `aquilia/patterns/compiler/ast_nodes.py` | raw: str, segments: list[BaseSegment], query_params: list[QueryParam], file: str &#124; None, span: Span &#124; None | Complete AST for a URL pattern. |
-| `CompiledParam` | `aquilia/patterns/compiler/compiler.py` | index: int, name: str, param_type: str, constraints: list[dict[str, Any]], default: Any &#124; None, transform: str &#124; None, castor: Callable[[str], Any], validators: list[Callable[[Any], bool]] | Compiled parameter metadata. |
-| `CompiledPattern` | `aquilia/patterns/compiler/compiler.py` | raw: str, file: str &#124; None, span: dict[str, int] &#124; None, static_prefix: str, segments: list[dict[str, Any]], params: dict[str, CompiledParam], query: dict[str, CompiledParam], specificity: int, compiled_re: Pattern &#124; None, castors: list[Callable], openapi: dict[str, Any], ast: PatternAST | Fully compiled pattern ready for matching. |
-| `PatternToken` | `aquilia/patterns/compiler/parser.py` | type: TokenType, value: Any, span: Span | A lexical token with position information. |
-| `PatternDiagnostic` | `aquilia/patterns/diagnostics/errors.py` | message: str, span: Span &#124; None, file: str &#124; None, suggestions: list[str] | Base class for all pattern diagnostics. |
-| `MatchResult` | `aquilia/patterns/matcher.py` | pattern: CompiledPattern, params: dict[str, Any], query: dict[str, Any] | Result of pattern matching. |
+## Configuration Model
 
-## Common Entry Points
+No public config-specific class was detected in this module. It is configured through workspace/module declarations, related integration objects, or direct Python APIs.
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+## Source Inventory
 
-## Precedence Model
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/patterns/__init__.py` | 90 | 0 | 0 | AquilaPatterns - Professional URL pattern language and compiler for Aquilia. |
+| `aquilia/patterns/autofix.py` | 478 | 4 | 1 | Auto-fix suggestions and error recovery for pattern diagnostics. |
+| `aquilia/patterns/cache.py` | 322 | 3 | 3 | Production-ready caching layer for compiled patterns. |
+| `aquilia/patterns/compiler/__init__.py` | 15 | 0 | 0 | Compiler package for AquilaPatterns. |
+| `aquilia/patterns/compiler/ast_nodes.py` | 222 | 12 | 0 | AST node definitions for AquilaPatterns. |
+| `aquilia/patterns/compiler/compiler.py` | 388 | 3 | 0 | Compiler that transforms AST into executable compiled patterns. |
+| `aquilia/patterns/compiler/parser.py` | 622 | 4 | 1 | Tokenizer and parser for AquilaPatterns. |
+| `aquilia/patterns/compiler/specificity.py` | 67 | 0 | 1 | Specificity scoring for pattern ranking. |
+| `aquilia/patterns/diagnostics/__init__.py` | 15 | 0 | 0 | Diagnostics package. |
+| `aquilia/patterns/diagnostics/errors.py` | 81 | 4 | 0 | Diagnostic errors for AquilaPatterns. |
+| `aquilia/patterns/grammar.py` | 139 | 0 | 0 | Formal EBNF grammar for AquilaPatterns. |
+| `aquilia/patterns/lsp/__init__.py` | 17 | 0 | 0 | LSP support package. |
+| `aquilia/patterns/lsp/metadata.py` | 218 | 0 | 5 | LSP (Language Server Protocol) support for IDE integration. |
+| `aquilia/patterns/matcher.py` | 235 | 2 | 0 | Pattern matcher with optimized matching algorithm. |
+| `aquilia/patterns/openapi.py` | 128 | 0 | 4 | OpenAPI schema generation from compiled patterns. |
+| `aquilia/patterns/transforms/__init__.py` | 5 | 0 | 0 | Transforms package. |
+| `aquilia/patterns/transforms/registry.py` | 50 | 1 | 1 | Transform function registry. |
+| `aquilia/patterns/types/__init__.py` | 5 | 0 | 0 | Types package. |
+| `aquilia/patterns/types/registry.py` | 100 | 1 | 1 | Type registry and built-in type castors. |
+| `aquilia/patterns/validators/__init__.py` | 5 | 0 | 0 | Validators package. |
+| `aquilia/patterns/validators/registry.py` | 44 | 1 | 1 | Constraint validator registry. |
 
-Aquilia generally resolves configuration in this order:
+## Runtime Wiring Paths
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
+## Verification Checklist
 
-## Datatype Guidance
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+## Related Pages
+
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

@@ -1,71 +1,100 @@
-# WebSockets Architecture
+# Sockets Architecture
 
-## Runtime Role
+WebSocket decorators, controllers, runtime, connection state, guards, middleware, message envelopes, compile metadata, and in-memory/Redis adapters.
 
-The WebSocket subsystem with socket controllers, connection model, event envelopes, guards, middleware, compiler, runtime dispatcher, rooms, acknowledgements, streams, and adapters.
+## Source Boundaries
 
-The implementation is split across 14 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sockets/__init__.py` | 131 | 0 | 0 | AquilaSockets - WebSocket subsystem for Aquilia |
+| `aquilia/sockets/adapters/__init__.py` | 14 | 0 | 0 | Adapters Package - WebSocket scaling adapters |
+| `aquilia/sockets/adapters/base.py` | 203 | 2 | 0 | Adapter Base - Protocol for WebSocket scaling adapters |
+| `aquilia/sockets/adapters/inmemory.py` | 227 | 1 | 0 | In-Memory Adapter - Single-process WebSocket adapter |
+| `aquilia/sockets/adapters/redis.py` | 338 | 1 | 0 | Redis Adapter - Production-ready WebSocket adapter using Redis |
+| `aquilia/sockets/compile.py` | 280 | 3 | 1 | WebSocket Compiler - Compile-time metadata extraction |
+| `aquilia/sockets/connection.py` | 344 | 3 | 0 | Connection - WebSocket connection abstraction with DI scope |
+| `aquilia/sockets/controller.py` | 211 | 1 | 0 | Socket Controller - Base class for WebSocket controllers |
+| `aquilia/sockets/decorators.py` | 303 | 8 | 0 | Socket Controller Decorators - Declarative WebSocket controller syntax |
+| `aquilia/sockets/envelope.py` | 274 | 8 | 0 | Message Envelope - Typed message protocol for WebSocket communication |
+| `aquilia/sockets/faults.py` | 200 | 1 | 17 | WebSocket Faults - Structured error handling for WebSocket operations |
+| `aquilia/sockets/guards.py` | 272 | 5 | 0 | WebSocket Guards - Security and validation guards |
+| `aquilia/sockets/middleware.py` | 234 | 5 | 0 | WebSocket Middleware - Per-message processing pipeline |
+| `aquilia/sockets/runtime.py` | 656 | 3 | 0 | WebSocket Runtime - ASGI integration and connection management |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/sockets/__init__.py`: AquilaSockets - WebSocket subsystem for Aquilia
-- `aquilia/sockets/adapters/__init__.py`: Adapters Package - WebSocket scaling adapters
-- `aquilia/sockets/adapters/base.py`: Adapter Base - Protocol for WebSocket scaling adapters
-- `aquilia/sockets/adapters/inmemory.py`: In-Memory Adapter - Single-process WebSocket adapter
-- `aquilia/sockets/adapters/redis.py`: Redis Adapter - Production-ready WebSocket adapter using Redis
-- `aquilia/sockets/compile.py`: WebSocket Compiler - Compile-time metadata extraction
-- `aquilia/sockets/connection.py`: Connection - WebSocket connection abstraction with DI scope
-- `aquilia/sockets/controller.py`: Socket Controller - Base class for WebSocket controllers
-- `aquilia/sockets/decorators.py`: Socket Controller Decorators - Declarative WebSocket controller syntax
-- `aquilia/sockets/envelope.py`: Message Envelope - Typed message protocol for WebSocket communication
-- `aquilia/sockets/faults.py`: WebSocket Faults - Structured error handling for WebSocket operations
-- `aquilia/sockets/guards.py`: WebSocket Guards - Security and validation guards
-- `aquilia/sockets/middleware.py`: WebSocket Middleware - Per-message processing pipeline
-- `aquilia/sockets/runtime.py`: WebSocket Runtime - ASGI integration and connection management
+`sockets` has 14 Python files, 41 public classes, 18 public module-level functions, and 3 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- This module has `aq` command coverage documented in `cli-reference.md`; 5 commands map to this subsystem.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.envelope` | 4 |
+| `..envelope` | 3 |
+| `.base` | 3 |
+| `.controller` | 3 |
+| `.faults` | 3 |
+| `.adapters` | 2 |
+| `.connection` | 2 |
+| `.guards` | 2 |
+| `aquilia.faults` | 2 |
+| `.decorators` | 1 |
+| `.inmemory` | 1 |
+| `.middleware` | 1 |
+| `.redis` | 1 |
+| `.runtime` | 1 |
+| `aquilia._version` | 1 |
+| `aquilia.auth.core` | 1 |
+| `aquilia.sessions.core` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `__future__` | 10 |
 | `typing` | 9 |
 | `logging` | 8 |
-| `envelope` | 7 |
-| `aquilia` | 5 |
 | `dataclasses` | 5 |
 | `collections` | 4 |
-| `base` | 3 |
-| `controller` | 3 |
-| `faults` | 3 |
 | `json` | 3 |
-| `adapters` | 2 |
 | `asyncio` | 2 |
-| `connection` | 2 |
 | `contextlib` | 2 |
 | `datetime` | 2 |
 | `enum` | 2 |
-| `guards` | 2 |
 | `uuid` | 2 |
-| `decorators` | 1 |
-| `inmemory` | 1 |
 | `inspect` | 1 |
-| `middleware` | 1 |
 | `os` | 1 |
 | `pathlib` | 1 |
-| `redis` | 1 |
-| `runtime` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `Adapter` | `aquilia/sockets/adapters/base.py` | Adapter protocol for WebSocket scaling. |
+| `InMemoryAdapter` | `aquilia/sockets/adapters/inmemory.py` | In-memory adapter for single-process deployments. |
+| `RedisAdapter` | `aquilia/sockets/adapters/redis.py` | Redis-backed adapter for multi-worker deployments. |
+| `SocketControllerMetadata` | `aquilia/sockets/compile.py` | Compiled controller metadata. |
+| `SocketCompiler` | `aquilia/sockets/compile.py` | Compiler for WebSocket controllers. |
+| `SocketController` | `aquilia/sockets/controller.py` | Base class for WebSocket controllers. |
+| `Guard` | `aquilia/sockets/decorators.py` | Guard decorator for WebSocket handlers. |
+| `SocketGuard` | `aquilia/sockets/guards.py` | Base class for WebSocket guards. |
+| `HandshakeAuthGuard` | `aquilia/sockets/guards.py` | Handshake authentication guard. |
+| `OriginGuard` | `aquilia/sockets/guards.py` | Origin validation guard. |
+| `MessageAuthGuard` | `aquilia/sockets/guards.py` | Per-message authentication guard. |
+| `RateLimitGuard` | `aquilia/sockets/guards.py` | Rate limiting guard. |
+| `MessageValidationMiddleware` | `aquilia/sockets/middleware.py` | Message validation middleware. |
+| `RateLimitMiddleware` | `aquilia/sockets/middleware.py` | Rate limiting middleware. |
+| `LoggingMiddleware` | `aquilia/sockets/middleware.py` | Logging middleware. |
+| `MetricsMiddleware` | `aquilia/sockets/middleware.py` | Metrics collection middleware. |
+| `MiddlewareChain` | `aquilia/sockets/middleware.py` | Middleware chain builder. |
+| `SocketRouter` | `aquilia/sockets/runtime.py` | Router for WebSocket namespaces. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`SocketFault`

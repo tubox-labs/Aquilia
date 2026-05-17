@@ -1,31 +1,37 @@
-# Debug Pages Configuration
+# Debug Configuration
 
-## Configuration Entry Points
+Development-mode welcome, HTTP error, version error, and exception pages.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
-| --- | --- | --- | --- |
-| None detected |  |  |  |
+## Configuration Model
 
-## Common Entry Points
+No public config-specific class was detected in this module. It is configured through workspace/module declarations, related integration objects, or direct Python APIs.
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+## Source Inventory
 
-## Precedence Model
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/debug/__init__.py` | 31 | 0 | 0 | Aquilia Debug - Beautiful development-mode error and welcome pages. |
+| `aquilia/debug/pages.py` | 1269 | 1 | 4 | Aquilia Debug Pages -- Tubox Themed (Premium). |
 
-Aquilia generally resolves configuration in this order:
+## Runtime Wiring Paths
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
+## Verification Checklist
 
-## Datatype Guidance
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+## Related Pages
+
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

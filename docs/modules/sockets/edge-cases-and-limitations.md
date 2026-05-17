@@ -1,36 +1,25 @@
-# WebSockets Edge Cases And Limitations
+# Sockets Edge Cases And Limitations
 
-## Fault And Error Types
+WebSocket decorators, controllers, runtime, connection state, guards, middleware, message envelopes, compile metadata, and in-memory/Redis adapters.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `SocketFault` | `aquilia/sockets/faults.py` | Base fault for WebSocket operations. |
+- WebSocket scopes close with code 1003 when sockets are disabled.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`SocketFault`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/sockets/__init__.py`: AquilaSockets - WebSocket subsystem for Aquilia
-- `aquilia/sockets/adapters/__init__.py`: Adapters Package - WebSocket scaling adapters
-- `aquilia/sockets/adapters/base.py`: Adapter Base - Protocol for WebSocket scaling adapters
-- `aquilia/sockets/adapters/inmemory.py`: In-Memory Adapter - Single-process WebSocket adapter
-- `aquilia/sockets/adapters/redis.py`: Redis Adapter - Production-ready WebSocket adapter using Redis
-- `aquilia/sockets/compile.py`: WebSocket Compiler - Compile-time metadata extraction
-- `aquilia/sockets/connection.py`: Connection - WebSocket connection abstraction with DI scope
-- `aquilia/sockets/controller.py`: Socket Controller - Base class for WebSocket controllers
-- `aquilia/sockets/decorators.py`: Socket Controller Decorators - Declarative WebSocket controller syntax
-- `aquilia/sockets/envelope.py`: Message Envelope - Typed message protocol for WebSocket communication
-- `aquilia/sockets/faults.py`: WebSocket Faults - Structured error handling for WebSocket operations
-- `aquilia/sockets/guards.py`: WebSocket Guards - Security and validation guards
-- `aquilia/sockets/middleware.py`: WebSocket Middleware - Per-message processing pipeline
-- `aquilia/sockets/runtime.py`: WebSocket Runtime - ASGI integration and connection management
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

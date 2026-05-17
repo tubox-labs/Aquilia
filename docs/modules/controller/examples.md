@@ -1,63 +1,60 @@
-# Controllers Examples
+# Controller Examples
 
-## Primary Usage
+Controller base class, route decorators, compiler, router, execution engine, renderers, filters, pagination, and OpenAPI generation.
+
+Examples here use public symbols and checked patterns from the repository. When a module has no safe standalone constructor example, the example focuses on importing and wiring the actual source-backed API.
+
+## Source-Backed Import Examples
 
 ```python
-from aquilia import Controller, GET, POST, RequestCtx, Response
-
-class UsersController(Controller):
-    prefix = "/"
-    tags = ["users"]
-
-    @GET("/")
-    async def list_users(self, ctx: RequestCtx):
-        return Response.json({"items": []})
-
-    @POST("/", status_code=201)
-    async def create_user(self, ctx: RequestCtx):
-        payload = await ctx.json()
-        return Response.json({"created": payload}, status=201)
+from aquilia.controller.base import RequestCtx
+from aquilia.controller.base import ExceptionFilter
+from aquilia.controller.compiler import CompiledRoute
+from aquilia.controller.compiler import CompiledController
+from aquilia.controller.decorators import RouteDecorator
+from aquilia.controller.decorators import GET
 ```
 
-## Manifest Registration Pattern
+## Workspace/Manifest Wiring Example
 
 ```python
-from aquilia import AppManifest
+from aquilia import AppManifest, Integration, Module, Workspace
+
+workspace = (
+    Workspace("example", version="1.0.0")
+    .runtime(mode="dev", port=8000)
+    .module(Module("example").route_prefix("/example"))
+    .integrate(Integration.di(auto_wire=True))
+)
 
 manifest = AppManifest(
     name="example",
     version="1.0.0",
     controllers=["modules.example.controllers:ExampleController"],
     services=["modules.example.services:ExampleService"],
-    base_path="modules.example",
 )
 ```
 
-## Workspace Pattern
+## Controller Pattern From Checked Examples
 
 ```python
-from aquilia import Module, Workspace
+from aquilia import Controller, GET, POST, RequestCtx, Response
 
-workspace = (
-    Workspace("myapp")
-    .module(Module("example").route_prefix("/example"))
-)
+class ProjectsController(Controller):
+    prefix = "/"
+
+    @GET("/")
+    async def list_projects(self, ctx: RequestCtx):
+        return Response.json({"items": []})
+
+    @POST("/", status_code=201)
+    async def create_project(self, ctx: RequestCtx):
+        body = await ctx.json()
+        return Response.json(body, status=201)
 ```
 
-## Public API Imports
+## Verification
 
-```python
-from aquilia.controller import RequestCtx, ExceptionFilter, Interceptor, Throttle, Controller, CompiledRoute
-```
-
-## Test Pattern
-
-```python
-import pytest
-
-@pytest.mark.asyncio
-async def test_subsystem_contract():
-    # Construct the service, provider, controller helper, or datatype directly.
-    # Use the exact constructor and methods from api-reference.md.
-    assert True
-```
+- Run `python -m aquilia.cli.__main__ --help` to confirm CLI availability.
+- Run `aq validate` in a workspace to validate manifest paths.
+- Run related tests under `tests/` or `examples/*/tests/` for executable behavior.

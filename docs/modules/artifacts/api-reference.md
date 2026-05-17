@@ -1,10 +1,25 @@
 # Artifacts API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/artifacts/__init__.py` | 91 | 0 | 0 | Aquilia Artifacts -- Unified artifact system for the framework. |
+| `aquilia/artifacts/builder.py` | 240 | 1 | 0 | Artifact Builder -- fluent API for constructing artifacts. |
+| `aquilia/artifacts/core.py` | 416 | 5 | 1 | Artifact Core -- the foundational types for Aquilia's artifact system. |
+| `aquilia/artifacts/kinds.py` | 413 | 9 | 0 | Typed Artifact Kinds -- convenience subclasses with kind-specific helpers. |
+| `aquilia/artifacts/reader.py` | 250 | 1 | 0 | Artifact Reader -- load, inspect, verify, and query artifacts. |
+| `aquilia/artifacts/store.py` | 449 | 3 | 1 | Artifact Store -- pluggable storage backends for artifacts. |
+
+## Public Exports
+
+`Artifact`, `ArtifactBuilder`, `ArtifactEnvelope`, `ArtifactIntegrity`, `ArtifactKind`, `ArtifactProvenance`, `ArtifactReader`, `ArtifactStore`, `BundleArtifact`, `CodeArtifact`, `ConfigArtifact`, `DIGraphArtifact`, `FilesystemArtifactStore`, `MemoryArtifactStore`, `MigrationArtifact`, `ModelArtifact`, `RegistryArtifact`, `RouteArtifact`, `TemplateArtifact`, `register_artifact_kind`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `ArtifactBuilder` | `aquilia/artifacts/builder.py` | object | Fluent builder for creating :class:`Artifact` instances. |
 | `ArtifactKind` | `aquilia/artifacts/core.py` | str, Enum | Standard artifact kinds recognised by the framework. |
@@ -28,20 +43,20 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `register_artifact_kind` | `aquilia/artifacts/core.py` | `def register_artifact_kind(kind: str, cls: type[Artifact]) -> None` | Register a typed subclass so ``Artifact.from_dict`` auto-resolves. |
-| `ArtifactStore` | `aquilia/artifacts/store.py` | `def ArtifactStore(root: str = 'artifacts') -> FilesystemArtifactStore` | Convenience constructor -- returns a :class:`FilesystemArtifactStore`. |
+| `register_artifact_kind` | `aquilia/artifacts/core.py` | `def register_artifact_kind(kind: str, cls: type[Artifact])` | Register a typed subclass so ``Artifact.from_dict`` auto-resolves. |
+| `ArtifactStore` | `aquilia/artifacts/store.py` | `def ArtifactStore(root: str='artifacts')` | Convenience constructor -- returns a :class:`FilesystemArtifactStore`. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `_KIND_REGISTRY` | `aquilia/artifacts/core.py` | `dict[str, type[Artifact]]` |
 
 ## Detailed Classes And Methods
 
-### Class: `ArtifactBuilder`
+### `ArtifactBuilder`
 
 - Source: `aquilia/artifacts/builder.py`
 - Bases: `object`
@@ -49,76 +64,76 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_artifact` | `def from_artifact(cls, artifact: Artifact, *, version: str = '') -> ArtifactBuilder` | classmethod | Pre-populate builder from an existing artifact. |
-| `set_payload` | `def set_payload(self, payload: Any) -> ArtifactBuilder` |  | Set the artifact payload (dict, list, string, bytes, ...). |
-| `merge_payload` | `def merge_payload(self, extra: dict[str, Any]) -> ArtifactBuilder` |  | Merge additional keys into an existing dict payload. |
-| `set_metadata` | `def set_metadata(self, **kwargs: Any) -> ArtifactBuilder` |  | Set metadata key-value pairs. |
-| `tag` | `def tag(self, key: str, value: str) -> ArtifactBuilder` |  | Add a tag (string->string). |
-| `tags` | `def tags(self, **kwargs: str) -> ArtifactBuilder` |  | Add multiple tags at once. |
-| `set_provenance` | `def set_provenance(self, *, git_sha: str = '', source_path: str = '', created_by: str = '', hostname: str = '') -> ArtifactBuilder` |  | Set provenance explicitly. |
-| `auto_provenance` | `def auto_provenance(self, source_path: str = '') -> ArtifactBuilder` |  | Auto-detect provenance from the environment. |
-| `add_file` | `def add_file(self, path: str, *, role: str = 'data', digest: str = '', size: int = 0) -> ArtifactBuilder` |  | Register a file reference inside the artifact. |
-| `set_version` | `def set_version(self, version: str) -> ArtifactBuilder` |  | Method. |
-| `build` | `def build(self) -> Artifact` |  | Freeze the artifact and compute its integrity digest. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_artifact` | `def from_artifact(cls, artifact: Artifact, *, version: str='')` | Pre-populate builder from an existing artifact. |
+| `set_payload` | `def set_payload(self, payload: Any)` | Set the artifact payload (dict, list, string, bytes, …). |
+| `merge_payload` | `def merge_payload(self, extra: dict[str, Any])` | Merge additional keys into an existing dict payload. |
+| `set_metadata` | `def set_metadata(self, **kwargs: Any)` | Set metadata key-value pairs. |
+| `tag` | `def tag(self, key: str, value: str)` | Add a tag (string→string). |
+| `tags` | `def tags(self, **kwargs: str)` | Add multiple tags at once. |
+| `set_provenance` | `def set_provenance(self, *, git_sha: str='', source_path: str='', created_by: str='', hostname: str='')` | Set provenance explicitly. |
+| `auto_provenance` | `def auto_provenance(self, source_path: str='')` | Auto-detect provenance from the environment. |
+| `add_file` | `def add_file(self, path: str, *, role: str='data', digest: str='', size: int=0)` | Register a file reference inside the artifact. |
+| `set_version` | `def set_version(self, version: str)` |  |
+| `build` | `def build(self)` | Freeze the artifact and compute its integrity digest. |
 
-### Class: `ArtifactKind`
+### `ArtifactKind`
 
 - Source: `aquilia/artifacts/core.py`
 - Bases: `str, Enum`
 - Summary: Standard artifact kinds recognised by the framework.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CONFIG` |  | `'config'` |
-| `CODE` |  | `'code'` |
-| `MODEL` |  | `'model'` |
-| `TEMPLATE` |  | `'template'` |
-| `MIGRATION` |  | `'migration'` |
-| `REGISTRY` |  | `'registry'` |
-| `ROUTE` |  | `'route'` |
-| `DI_GRAPH` |  | `'di_graph'` |
-| `MODULE` |  | `'module'` |
-| `WORKSPACE` |  | `'workspace'` |
-| `BUNDLE` |  | `'bundle'` |
-| `CUSTOM` |  | `'custom'` |
+| `CONFIG` | `` | `'config'` |
+| `CODE` | `` | `'code'` |
+| `MODEL` | `` | `'model'` |
+| `TEMPLATE` | `` | `'template'` |
+| `MIGRATION` | `` | `'migration'` |
+| `REGISTRY` | `` | `'registry'` |
+| `ROUTE` | `` | `'route'` |
+| `DI_GRAPH` | `` | `'di_graph'` |
+| `MODULE` | `` | `'module'` |
+| `WORKSPACE` | `` | `'workspace'` |
+| `BUNDLE` | `` | `'bundle'` |
+| `CUSTOM` | `` | `'custom'` |
 
-### Class: `ArtifactIntegrity`
+### `ArtifactIntegrity`
 
 - Source: `aquilia/artifacts/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Content-addressed integrity proof.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `algorithm` | `str` | `'sha256'` |
 | `digest` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, str]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> ArtifactIntegrity` | classmethod | Method. |
-| `compute` | `def compute(cls, data: bytes, algorithm: str = 'sha256') -> ArtifactIntegrity` | classmethod | Compute integrity from raw bytes. |
-| `verify` | `def verify(self, data: bytes) -> bool` |  | Verify that *data* matches this integrity proof. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
+| `compute` | `def compute(cls, data: bytes, algorithm: str='sha256')` | Compute integrity from raw bytes. |
+| `verify` | `def verify(self, data: bytes)` | Verify that *data* matches this integrity proof. |
 
-### Class: `ArtifactProvenance`
+### `ArtifactProvenance`
 
 - Source: `aquilia/artifacts/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Where and when the artifact was produced.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `created_at` | `str` | `''` |
 | `created_by` | `str` | `''` |
@@ -129,22 +144,22 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, str]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> ArtifactProvenance` | classmethod | Method. |
-| `auto` | `def auto(cls, source_path: str = '') -> ArtifactProvenance` | classmethod | Auto-populate with current env info. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
+| `auto` | `def auto(cls, source_path: str='')` | Auto-populate with current env info. |
 
-### Class: `ArtifactEnvelope`
+### `ArtifactEnvelope`
 
 - Source: `aquilia/artifacts/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: The outer envelope that wraps every artifact's serialised form.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `format` | `str` | `'aquilia-artifact'` |
 | `schema_version` | `str` | `'1.0'` |
@@ -159,13 +174,13 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `is_known_kind` | `def is_known_kind(self) -> bool` | property | True when *kind* matches a standard :class:`ArtifactKind`. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> ArtifactEnvelope` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `is_known_kind` | `def is_known_kind(self)` | True when *kind* matches a standard :class:`ArtifactKind`. |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
 
-### Class: `Artifact`
+### `Artifact`
 
 - Source: `aquilia/artifacts/core.py`
 - Bases: `object`
@@ -173,32 +188,32 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `version` | `def version(self) -> str` | property | Method. |
-| `kind` | `def kind(self) -> str` | property | Method. |
-| `qualified_name` | `def qualified_name(self) -> str` | property | ``name:version`` identifier. |
-| `digest` | `def digest(self) -> str` | property | Full digest string, e.g. ``sha256:abc123...``. |
-| `integrity` | `def integrity(self) -> ArtifactIntegrity` | property | Method. |
-| `verify` | `def verify(self) -> bool` |  | Re-compute digest from payload and compare. |
-| `provenance` | `def provenance(self) -> ArtifactProvenance` | property | Method. |
-| `created_at` | `def created_at(self) -> str` | property | Method. |
-| `age_seconds` | `def age_seconds(self) -> float` | property | Seconds since the artifact was created (0.0 if unknown). |
-| `metadata` | `def metadata(self) -> dict[str, Any]` | property | Method. |
-| `tags` | `def tags(self) -> dict[str, str]` | property | Method. |
-| `payload` | `def payload(self) -> Any` | property | Method. |
-| `envelope` | `def envelope(self) -> ArtifactEnvelope` | property | Method. |
-| `size_bytes` | `def size_bytes(self) -> int` | property | Approximate serialised size of the payload in bytes. |
-| `evolve` | `def evolve(self, *, version: str = '', **payload_overrides: Any) -> Artifact` |  | Create a **new** artifact derived from this one. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `to_json` | `def to_json(self, indent: int = 2) -> str` |  | Method. |
-| `to_bytes` | `def to_bytes(self) -> bytes` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> Artifact` | classmethod | Deserialise and return the correct typed subclass when possible. |
-| `from_json` | `def from_json(cls, raw: str) -> Artifact` | classmethod | Method. |
-| `from_bytes` | `def from_bytes(cls, data: bytes) -> Artifact` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `version` | `def version(self)` |  |
+| `kind` | `def kind(self)` |  |
+| `qualified_name` | `def qualified_name(self)` | ``name:version`` identifier. |
+| `digest` | `def digest(self)` | Full digest string, e.g. ``sha256:abc123…``. |
+| `integrity` | `def integrity(self)` |  |
+| `verify` | `def verify(self)` | Re-compute digest from payload and compare. |
+| `provenance` | `def provenance(self)` |  |
+| `created_at` | `def created_at(self)` |  |
+| `age_seconds` | `def age_seconds(self)` | Seconds since the artifact was created (0.0 if unknown). |
+| `metadata` | `def metadata(self)` |  |
+| `tags` | `def tags(self)` |  |
+| `payload` | `def payload(self)` |  |
+| `envelope` | `def envelope(self)` |  |
+| `size_bytes` | `def size_bytes(self)` | Approximate serialised size of the payload in bytes. |
+| `evolve` | `def evolve(self, *, version: str='', **payload_overrides: Any)` | Create a **new** artifact derived from this one. |
+| `to_dict` | `def to_dict(self)` |  |
+| `to_json` | `def to_json(self, indent: int=2)` |  |
+| `to_bytes` | `def to_bytes(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` | Deserialise and return the correct typed subclass when possible. |
+| `from_json` | `def from_json(cls, raw: str)` |  |
+| `from_bytes` | `def from_bytes(cls, data: bytes)` |  |
 
-### Class: `ConfigArtifact`
+### `ConfigArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -206,13 +221,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, config: dict[str, Any], **metadata: Any) -> ConfigArtifact` | classmethod | Method. |
-| `config` | `def config(self) -> dict[str, Any]` | property | Method. |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, config: dict[str, Any], **metadata: Any)` |  |
+| `config` | `def config(self)` |  |
+| `get` | `def get(self, key: str, default: Any=None)` |  |
 
-### Class: `CodeArtifact`
+### `CodeArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -220,16 +235,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, controllers: list[str] &#124; None = None, services: list[str] &#124; None = None, route_prefix: str = '/', fault_domain: str = 'GENERIC', depends_on: list[str] &#124; None = None, **metadata: Any) -> CodeArtifact` | classmethod | Method. |
-| `controllers` | `def controllers(self) -> list[str]` | property | Method. |
-| `services` | `def services(self) -> list[str]` | property | Method. |
-| `route_prefix` | `def route_prefix(self) -> str` | property | Method. |
-| `fault_domain` | `def fault_domain(self) -> str` | property | Method. |
-| `depends_on` | `def depends_on(self) -> list[str]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, controllers: list[str] \| None=None, services: list[str] \| None=None, route_prefix: str='/', fault_domain: str='GENERIC', depends_on: list[str] \| None=None, **metadata: Any)` |  |
+| `controllers` | `def controllers(self)` |  |
+| `services` | `def services(self)` |  |
+| `route_prefix` | `def route_prefix(self)` |  |
+| `fault_domain` | `def fault_domain(self)` |  |
+| `depends_on` | `def depends_on(self)` |  |
 
-### Class: `ModelArtifact`
+### `ModelArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -237,15 +252,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, framework: str = 'custom', entrypoint: str = '', accuracy: float = 0.0, files: list[dict[str, Any]] &#124; None = None, **metadata: Any) -> ModelArtifact` | classmethod | Method. |
-| `framework` | `def framework(self) -> str` | property | Method. |
-| `entrypoint` | `def entrypoint(self) -> str` | property | Method. |
-| `accuracy` | `def accuracy(self) -> float` | property | Method. |
-| `files` | `def files(self) -> list[dict[str, Any]]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, framework: str='custom', entrypoint: str='', accuracy: float=0.0, files: list[dict[str, Any]] \| None=None, **metadata: Any)` |  |
+| `framework` | `def framework(self)` |  |
+| `entrypoint` | `def entrypoint(self)` |  |
+| `accuracy` | `def accuracy(self)` |  |
+| `files` | `def files(self)` |  |
 
-### Class: `TemplateArtifact`
+### `TemplateArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -253,13 +268,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, templates: dict[str, Any] &#124; None = None, **metadata: Any) -> TemplateArtifact` | classmethod | Method. |
-| `templates` | `def templates(self) -> dict[str, Any]` | property | Method. |
-| `template_count` | `def template_count(self) -> int` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, templates: dict[str, Any] \| None=None, **metadata: Any)` |  |
+| `templates` | `def templates(self)` |  |
+| `template_count` | `def template_count(self)` |  |
 
-### Class: `MigrationArtifact`
+### `MigrationArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -267,14 +282,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, migrations_applied: list[str] &#124; None = None, head: str = '', schema_hash: str = '', **metadata: Any) -> MigrationArtifact` | classmethod | Method. |
-| `head` | `def head(self) -> str` | property | Method. |
-| `migrations_applied` | `def migrations_applied(self) -> list[str]` | property | Method. |
-| `schema_hash` | `def schema_hash(self) -> str` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, migrations_applied: list[str] \| None=None, head: str='', schema_hash: str='', **metadata: Any)` |  |
+| `head` | `def head(self)` |  |
+| `migrations_applied` | `def migrations_applied(self)` |  |
+| `schema_hash` | `def schema_hash(self)` |  |
 
-### Class: `RegistryArtifact`
+### `RegistryArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -282,12 +297,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, modules: list[dict[str, Any]] &#124; None = None, **metadata: Any) -> RegistryArtifact` | classmethod | Method. |
-| `modules` | `def modules(self) -> list[dict[str, Any]]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, modules: list[dict[str, Any]] \| None=None, **metadata: Any)` |  |
+| `modules` | `def modules(self)` |  |
 
-### Class: `RouteArtifact`
+### `RouteArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -295,12 +310,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, routes: list[dict[str, Any]] &#124; None = None, **metadata: Any) -> RouteArtifact` | classmethod | Method. |
-| `routes` | `def routes(self) -> list[dict[str, Any]]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, routes: list[dict[str, Any]] \| None=None, **metadata: Any)` |  |
+| `routes` | `def routes(self)` |  |
 
-### Class: `DIGraphArtifact`
+### `DIGraphArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -308,12 +323,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, providers: list[dict[str, Any]] &#124; None = None, **metadata: Any) -> DIGraphArtifact` | classmethod | Method. |
-| `providers` | `def providers(self) -> list[dict[str, Any]]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, providers: list[dict[str, Any]] \| None=None, **metadata: Any)` |  |
+| `providers` | `def providers(self)` |  |
 
-### Class: `BundleArtifact`
+### `BundleArtifact`
 
 - Source: `aquilia/artifacts/kinds.py`
 - Bases: `Artifact`
@@ -321,14 +336,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `def build(cls, name: str, version: str, *, artifacts: list[dict[str, Any]] &#124; None = None, **metadata: Any) -> BundleArtifact` | classmethod | Method. |
-| `artifacts` | `def artifacts(self) -> list[dict[str, Any]]` | property | Method. |
-| `artifact_count` | `def artifact_count(self) -> int` | property | Method. |
-| `unpack` | `def unpack(self) -> list[Artifact]` |  | Deserialise contained artifacts. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `def build(cls, name: str, version: str, *, artifacts: list[dict[str, Any]] \| None=None, **metadata: Any)` |  |
+| `artifacts` | `def artifacts(self)` |  |
+| `artifact_count` | `def artifact_count(self)` |  |
+| `unpack` | `def unpack(self)` | Deserialise contained artifacts. |
 
-### Class: `ArtifactReader`
+### `ArtifactReader`
 
 - Source: `aquilia/artifacts/reader.py`
 - Bases: `object`
@@ -336,25 +351,25 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `store` | `def store(self) -> ArtifactStoreProtocol` | property | Underlying store reference. |
-| `load` | `def load(self, name: str, *, version: str = '') -> Artifact &#124; None` |  | Load an artifact by name and optional version. |
-| `load_or_fail` | `def load_or_fail(self, name: str, *, version: str = '') -> Artifact` |  | Load or raise ``FileNotFoundError``. |
-| `load_by_digest` | `def load_by_digest(self, digest: str) -> Artifact &#124; None` |  | Content-addressed lookup. |
-| `list_all` | `def list_all(self, *, kind: str = '') -> list[Artifact]` |  | List all artifacts, optionally filtered by kind. |
-| `history` | `def history(self, name: str) -> list[Artifact]` |  | All versions of a named artifact, oldest first. |
-| `search` | `def search(self, *, kind: str = '', tag_key: str = '', tag_value: str = '', name_prefix: str = '') -> list[Artifact]` |  | Search artifacts by kind, tag, or name prefix. |
-| `names` | `def names(self) -> list[str]` |  | Unique artifact names in the store (sorted). |
-| `latest` | `def latest(self, name: str) -> Artifact &#124; None` |  | Latest version of a named artifact by creation time. |
-| `verify` | `def verify(self, artifact: Artifact) -> bool` |  | Re-compute the payload digest and compare to stored integrity. |
-| `verify_by_name` | `def verify_by_name(self, name: str, *, version: str = '') -> bool &#124; None` |  | Load + verify an artifact. |
-| `batch_verify` | `def batch_verify(self) -> tuple[int, int, list[str]]` |  | Verify every artifact in the store. |
-| `inspect` | `def inspect(artifact: Artifact) -> dict[str, Any]` | staticmethod | Return a human-readable inspection summary. |
-| `diff` | `def diff(a: Artifact, b: Artifact) -> dict[str, Any]` | staticmethod | Compare two artifacts and return a diff summary. |
-| `stats` | `def stats(self) -> dict[str, Any]` |  | Aggregate statistics about the store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `store` | `def store(self)` | Underlying store reference. |
+| `load` | `def load(self, name: str, *, version: str='')` | Load an artifact by name and optional version. |
+| `load_or_fail` | `def load_or_fail(self, name: str, *, version: str='')` | Load or raise ``FileNotFoundError``. |
+| `load_by_digest` | `def load_by_digest(self, digest: str)` | Content-addressed lookup. |
+| `list_all` | `def list_all(self, *, kind: str='')` | List all artifacts, optionally filtered by kind. |
+| `history` | `def history(self, name: str)` | All versions of a named artifact, oldest first. |
+| `search` | `def search(self, *, kind: str='', tag_key: str='', tag_value: str='', name_prefix: str='')` | Search artifacts by kind, tag, or name prefix. |
+| `names` | `def names(self)` | Unique artifact names in the store (sorted). |
+| `latest` | `def latest(self, name: str)` | Latest version of a named artifact by creation time. |
+| `verify` | `def verify(self, artifact: Artifact)` | Re-compute the payload digest and compare to stored integrity. |
+| `verify_by_name` | `def verify_by_name(self, name: str, *, version: str='')` | Load + verify an artifact. |
+| `batch_verify` | `def batch_verify(self)` | Verify every artifact in the store. |
+| `inspect` | `def inspect(artifact: Artifact)` | Return a human-readable inspection summary. |
+| `diff` | `def diff(a: Artifact, b: Artifact)` | Compare two artifacts and return a diff summary. |
+| `stats` | `def stats(self)` | Aggregate statistics about the store. |
 
-### Class: `ArtifactStoreProtocol`
+### `ArtifactStoreProtocol`
 
 - Source: `aquilia/artifacts/store.py`
 - Bases: `object`
@@ -362,16 +377,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save` | `def save(self, artifact: Artifact) -> str` |  | Method. |
-| `load` | `def load(self, name: str, *, version: str = '') -> Artifact &#124; None` |  | Method. |
-| `load_by_digest` | `def load_by_digest(self, digest: str) -> Artifact &#124; None` |  | Method. |
-| `list_artifacts` | `def list_artifacts(self, *, kind: str = '', tag_key: str = '', tag_value: str = '') -> list[Artifact]` |  | Method. |
-| `delete` | `def delete(self, name: str, *, version: str = '') -> int` |  | Method. |
-| `exists` | `def exists(self, name: str, *, version: str = '') -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save` | `def save(self, artifact: Artifact)` |  |
+| `load` | `def load(self, name: str, *, version: str='')` |  |
+| `load_by_digest` | `def load_by_digest(self, digest: str)` |  |
+| `list_artifacts` | `def list_artifacts(self, *, kind: str='', tag_key: str='', tag_value: str='')` |  |
+| `delete` | `def delete(self, name: str, *, version: str='')` |  |
+| `exists` | `def exists(self, name: str, *, version: str='')` |  |
 
-### Class: `MemoryArtifactStore`
+### `MemoryArtifactStore`
 
 - Source: `aquilia/artifacts/store.py`
 - Bases: `ArtifactStoreProtocol`
@@ -379,19 +394,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save` | `def save(self, artifact: Artifact) -> str` |  | Method. |
-| `load` | `def load(self, name: str, *, version: str = '') -> Artifact &#124; None` |  | Method. |
-| `load_by_digest` | `def load_by_digest(self, digest: str) -> Artifact &#124; None` |  | Method. |
-| `list_artifacts` | `def list_artifacts(self, *, kind: str = '', tag_key: str = '', tag_value: str = '') -> list[Artifact]` |  | Method. |
-| `delete` | `def delete(self, name: str, *, version: str = '') -> int` |  | Method. |
-| `exists` | `def exists(self, name: str, *, version: str = '') -> bool` |  | Method. |
-| `gc` | `def gc(self, referenced: set[str]) -> int` |  | Remove artifacts whose digest is not in *referenced*. |
-| `clear` | `def clear(self) -> None` |  | Method. |
-| `count` | `def count(self, *, kind: str = '') -> int` |  | Count artifacts, optionally filtered by kind. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save` | `def save(self, artifact: Artifact)` |  |
+| `load` | `def load(self, name: str, *, version: str='')` |  |
+| `load_by_digest` | `def load_by_digest(self, digest: str)` |  |
+| `list_artifacts` | `def list_artifacts(self, *, kind: str='', tag_key: str='', tag_value: str='')` |  |
+| `delete` | `def delete(self, name: str, *, version: str='')` |  |
+| `exists` | `def exists(self, name: str, *, version: str='')` |  |
+| `gc` | `def gc(self, referenced: set[str])` | Remove artifacts whose digest is not in *referenced*. |
+| `clear` | `def clear(self)` |  |
+| `count` | `def count(self, *, kind: str='')` | Count artifacts, optionally filtered by kind. |
 
-### Class: `FilesystemArtifactStore`
+### `FilesystemArtifactStore`
 
 - Source: `aquilia/artifacts/store.py`
 - Bases: `ArtifactStoreProtocol`
@@ -399,28 +414,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save` | `def save(self, artifact: Artifact) -> str` |  | Method. |
-| `load` | `def load(self, name: str, *, version: str = '') -> Artifact &#124; None` |  | Method. |
-| `load_by_digest` | `def load_by_digest(self, digest: str) -> Artifact &#124; None` |  | Method. |
-| `list_artifacts` | `def list_artifacts(self, *, kind: str = '', tag_key: str = '', tag_value: str = '') -> list[Artifact]` |  | Method. |
-| `delete` | `def delete(self, name: str, *, version: str = '') -> int` |  | Method. |
-| `exists` | `def exists(self, name: str, *, version: str = '') -> bool` |  | Method. |
-| `gc` | `def gc(self, referenced: set[str]) -> int` |  | Remove artifacts whose digest is not in *referenced*. |
-| `export_bundle` | `def export_bundle(self, names: list[str], output_path: str) -> str` |  | Export a subset of artifacts as a Crous binary bundle. |
-| `count` | `def count(self, *, kind: str = '') -> int` |  | Count artifacts, optionally filtered by kind. |
-| `import_bundle` | `def import_bundle(self, bundle_path: str) -> int` |  | Import artifacts from a bundle file produced by ``export_bundle``. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `register_artifact_kind` | `aquilia/artifacts/core.py` | `def register_artifact_kind(kind: str, cls: type[Artifact]) -> None` | Register a typed subclass so ``Artifact.from_dict`` auto-resolves. |
-| `ArtifactStore` | `aquilia/artifacts/store.py` | `def ArtifactStore(root: str = 'artifacts') -> FilesystemArtifactStore` | Convenience constructor -- returns a :class:`FilesystemArtifactStore`. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `_KIND_REGISTRY` | `aquilia/artifacts/core.py` | `dict[str, type[Artifact]]` |
+| `save` | `def save(self, artifact: Artifact)` |  |
+| `load` | `def load(self, name: str, *, version: str='')` |  |
+| `load_by_digest` | `def load_by_digest(self, digest: str)` |  |
+| `list_artifacts` | `def list_artifacts(self, *, kind: str='', tag_key: str='', tag_value: str='')` |  |
+| `delete` | `def delete(self, name: str, *, version: str='')` |  |
+| `exists` | `def exists(self, name: str, *, version: str='')` |  |
+| `gc` | `def gc(self, referenced: set[str])` | Remove artifacts whose digest is not in *referenced*. |
+| `export_bundle` | `def export_bundle(self, names: list[str], output_path: str)` | Export a subset of artifacts as a Crous binary bundle. |
+| `count` | `def count(self, *, kind: str='')` | Count artifacts, optionally filtered by kind. |
+| `import_bundle` | `def import_bundle(self, bundle_path: str)` | Import artifacts from a bundle file produced by ``export_bundle``. |

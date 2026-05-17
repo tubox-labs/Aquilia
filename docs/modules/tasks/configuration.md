@@ -1,36 +1,42 @@
 # Tasks Configuration
 
-## Configuration Entry Points
+Async background job manager, task decorator registry, jobs, schedules, memory backend, worker loops, retries, and faults.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
-| --- | --- | --- | --- |
-| `JobResult` | `aquilia/tasks/job.py` | success: bool, value: Any, error: str &#124; None, error_type: str &#124; None, traceback: str &#124; None, duration_ms: float | Stores the result or error from a completed/failed job. |
-| `Job` | `aquilia/tasks/job.py` | id: str, name: str, queue: str, priority: Priority, func_ref: str, args: tuple[Any, ...], kwargs: dict[str, Any], state: JobState, result: JobResult &#124; None, max_retries: int, retry_count: int, retry_delay: float, ... | Represents a background task job. |
-| `IntervalSchedule` | `aquilia/tasks/schedule.py` | interval: float | Fixed-interval periodic schedule. |
-| `CronSchedule` | `aquilia/tasks/schedule.py` | expression: str | Cron-expression periodic schedule. |
+## Configuration Model
 
-## Common Entry Points
+No public config-specific class was detected in this module. It is configured through workspace/module declarations, related integration objects, or direct Python APIs.
 
-- `TasksIntegration`
-- `TaskManager constructor`
-- `BackgroundTaskConfig`
+## Source Inventory
 
-## Precedence Model
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/tasks/__init__.py` | 82 | 0 | 0 | AquilaTasks — Industry-Grade Async Background Task Manager. |
+| `aquilia/tasks/decorators.py` | 218 | 0 | 4 | AquilaTasks — Task Decorator. |
+| `aquilia/tasks/engine.py` | 841 | 3 | 0 | AquilaTasks — Task Engine & Backends. |
+| `aquilia/tasks/faults.py` | 130 | 5 | 0 | AquilaTasks — Fault Classes. |
+| `aquilia/tasks/job.py` | 179 | 4 | 0 | AquilaTasks — Job Model. |
+| `aquilia/tasks/schedule.py` | 254 | 2 | 2 | AquilaTasks — Schedule Definitions. |
+| `aquilia/tasks/worker.py` | 98 | 1 | 0 | AquilaTasks — Worker. |
 
-Aquilia generally resolves configuration in this order:
+## Runtime Wiring Paths
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
+## Verification Checklist
 
-## Datatype Guidance
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+## Related Pages
+
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

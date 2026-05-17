@@ -1,38 +1,59 @@
-# WebSockets Configuration
+# Sockets Configuration
 
-## Configuration Entry Points
+WebSocket decorators, controllers, runtime, connection state, guards, middleware, message envelopes, compile metadata, and in-memory/Redis adapters.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sockets/__init__.py` | 131 | 0 | 0 | AquilaSockets - WebSocket subsystem for Aquilia |
+| `aquilia/sockets/adapters/__init__.py` | 14 | 0 | 0 | Adapters Package - WebSocket scaling adapters |
+| `aquilia/sockets/adapters/base.py` | 203 | 2 | 0 | Adapter Base - Protocol for WebSocket scaling adapters |
+| `aquilia/sockets/adapters/inmemory.py` | 227 | 1 | 0 | In-Memory Adapter - Single-process WebSocket adapter |
+| `aquilia/sockets/adapters/redis.py` | 338 | 1 | 0 | Redis Adapter - Production-ready WebSocket adapter using Redis |
+| `aquilia/sockets/compile.py` | 280 | 3 | 1 | WebSocket Compiler - Compile-time metadata extraction |
+| `aquilia/sockets/connection.py` | 344 | 3 | 0 | Connection - WebSocket connection abstraction with DI scope |
+| `aquilia/sockets/controller.py` | 211 | 1 | 0 | Socket Controller - Base class for WebSocket controllers |
+| `aquilia/sockets/decorators.py` | 303 | 8 | 0 | Socket Controller Decorators - Declarative WebSocket controller syntax |
+| `aquilia/sockets/envelope.py` | 274 | 8 | 0 | Message Envelope - Typed message protocol for WebSocket communication |
+| `aquilia/sockets/faults.py` | 200 | 1 | 17 | WebSocket Faults - Structured error handling for WebSocket operations |
+| `aquilia/sockets/guards.py` | 272 | 5 | 0 | WebSocket Guards - Security and validation guards |
+| `aquilia/sockets/middleware.py` | 234 | 5 | 0 | WebSocket Middleware - Per-message processing pipeline |
+| `aquilia/sockets/runtime.py` | 656 | 3 | 0 | WebSocket Runtime - ASGI integration and connection management |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `RoomInfo` | `aquilia/sockets/adapters/base.py` | namespace: str, room: str, member_count: int, members: set[str] | Room metadata. |
-| `EventMetadata` | `aquilia/sockets/compile.py` | event: str, handler_name: str, schema: dict[str, Any] &#124; None, ack: bool, handler_type: str | Compiled event handler metadata. |
-| `SocketControllerMetadata` | `aquilia/sockets/compile.py` | class_name: str, module_path: str, namespace: str, path_pattern: str, events: list[EventMetadata], guards: list[str], config: dict[str, Any] | Compiled controller metadata. |
-| `ConnectionScope` | `aquilia/sockets/connection.py` | namespace: str, path: str, path_params: dict[str, Any], query_params: dict[str, Any], headers: dict[str, str] | Scope metadata for connection. |
-| `MessageEnvelope` | `aquilia/sockets/envelope.py` | type: MessageType, event: str, payload: dict[str, Any], id: str &#124; None, ack: bool, meta: dict[str, Any] | Standard message envelope for WebSocket communication. |
-| `AckEnvelope` | `aquilia/sockets/envelope.py` | id: str, status: str, data: dict[str, Any] &#124; None, error: str &#124; None, original_id: str &#124; None | Acknowledgement message. |
-| `StreamChunk` | `aquilia/sockets/envelope.py` | data: dict[str, Any] &#124; str &#124; bytes, event: str &#124; None, meta: dict[str, Any] | Typed stream chunk payload for websocket event streaming. |
-| `RouteMetadata` | `aquilia/sockets/runtime.py` | namespace: str, path_pattern: str, controller_class: type[SocketController], handlers: dict[str, Callable], schemas: dict[str, Any], guards: list[SocketGuard], allowed_origins: list[str] &#124; None, max_connections: int &#124; None, message_rate_limit: int &#124; None, max_message_size: int | Socket route metadata extracted from controller. |
+| `MessageValidationMiddleware` | `aquilia/sockets/middleware.py` |  | Message validation middleware. |
+| `RateLimitMiddleware` | `aquilia/sockets/middleware.py` |  | Rate limiting middleware. |
+| `LoggingMiddleware` | `aquilia/sockets/middleware.py` |  | Logging middleware. |
+| `MetricsMiddleware` | `aquilia/sockets/middleware.py` |  | Metrics collection middleware. |
+| `MiddlewareChain` | `aquilia/sockets/middleware.py` | `add`, `build` | Middleware chain builder. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

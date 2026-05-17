@@ -1,62 +1,73 @@
 # Versioning Architecture
 
-## Runtime Role
+API version parsing, resolvers, decorators, negotiation, graph, sunset policy/enforcement, middleware, and route registration integration.
 
-The API versioning subsystem with decorators, parsers, semantic versions, negotiation, resolvers, middleware, sunset policies, and version graph checks.
+## Source Boundaries
 
-The implementation is split across 11 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/versioning/__init__.py` | 181 | 0 | 0 | Aquilia Versioning System — Epoch-Based API Versioning |
+| `aquilia/versioning/core.py` | 290 | 3 | 0 | Aquilia Versioning — Core Types |
+| `aquilia/versioning/decorators.py` | 138 | 0 | 3 | Aquilia Versioning — Route-Level Decorators |
+| `aquilia/versioning/errors.py` | 144 | 6 | 0 | Aquilia Versioning — Version Errors |
+| `aquilia/versioning/graph.py` | 261 | 2 | 0 | Aquilia Versioning — Version Graph |
+| `aquilia/versioning/middleware.py` | 223 | 1 | 0 | Aquilia Versioning — Version Middleware |
+| `aquilia/versioning/negotiation.py` | 193 | 2 | 0 | Aquilia Versioning — Version Negotiation |
+| `aquilia/versioning/parser.py` | 137 | 2 | 0 | Aquilia Versioning — Version Parser |
+| `aquilia/versioning/resolvers.py` | 486 | 8 | 0 | Aquilia Versioning — Version Resolvers |
+| `aquilia/versioning/strategy.py` | 500 | 2 | 0 | Aquilia Versioning — Version Strategy |
+| `aquilia/versioning/sunset.py` | 291 | 4 | 0 | Aquilia Versioning — Sunset Lifecycle |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/versioning/__init__.py`: Aquilia Versioning System - Epoch-Based API Versioning
-- `aquilia/versioning/core.py`: Aquilia Versioning - Core Types
-- `aquilia/versioning/decorators.py`: Aquilia Versioning - Route-Level Decorators
-- `aquilia/versioning/errors.py`: Aquilia Versioning - Version Errors
-- `aquilia/versioning/graph.py`: Aquilia Versioning - Version Graph
-- `aquilia/versioning/middleware.py`: Aquilia Versioning - Version Middleware
-- `aquilia/versioning/negotiation.py`: Aquilia Versioning - Version Negotiation
-- `aquilia/versioning/parser.py`: Aquilia Versioning - Version Parser
-- `aquilia/versioning/resolvers.py`: Aquilia Versioning - Version Resolvers
-- `aquilia/versioning/strategy.py`: Aquilia Versioning - Version Strategy
-- `aquilia/versioning/sunset.py`: Aquilia Versioning - Sunset Lifecycle
+`versioning` has 11 Python files, 30 public classes, 3 public module-level functions, and 6 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.core` | 7 |
+| `.errors` | 5 |
+| `.graph` | 2 |
+| `.negotiation` | 2 |
+| `.parser` | 2 |
+| `.resolvers` | 2 |
+| `.strategy` | 2 |
+| `.sunset` | 2 |
+| `..faults` | 1 |
+| `.decorators` | 1 |
+| `.middleware` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `__future__` | 10 |
 | `typing` | 9 |
-| `core` | 7 |
-| `errors` | 5 |
 | `dataclasses` | 4 |
 | `datetime` | 3 |
 | `abc` | 2 |
 | `collections` | 2 |
 | `enum` | 2 |
-| `graph` | 2 |
-| `negotiation` | 2 |
-| `parser` | 2 |
 | `re` | 2 |
-| `resolvers` | 2 |
-| `strategy` | 2 |
-| `sunset` | 2 |
-| `decorators` | 1 |
-| `faults` | 1 |
 | `functools` | 1 |
 | `logging` | 1 |
-| `middleware` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `VersionMiddleware` | `aquilia/versioning/middleware.py` | Middleware that resolves API version for every request. |
+| `VersionConfig` | `aquilia/versioning/strategy.py` | Complete versioning configuration. |
+| `SunsetPolicy` | `aquilia/versioning/sunset.py` | Global sunset policy configuration. |
+| `SunsetRegistry` | `aquilia/versioning/sunset.py` | Registry of sunset schedules. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`VersionError`, `InvalidVersionError`, `UnsupportedVersionError`, `VersionSunsetError`, `MissingVersionError`, `VersionNegotiationError`

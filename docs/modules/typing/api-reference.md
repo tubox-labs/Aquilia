@@ -1,514 +1,519 @@
-# Typing Contracts API Reference
+# Typing API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/typing/__init__.py` | 144 | 0 | 0 |  |
+| `aquilia/typing/asgi.py` | 151 | 21 | 0 |  |
+| `aquilia/typing/common.py` | 24 | 0 | 0 |  |
+| `aquilia/typing/config.py` | 121 | 4 | 0 | Configuration type definitions for Aquilia. |
+| `aquilia/typing/container.py` | 46 | 7 | 0 |  |
+| `aquilia/typing/controller.py` | 30 | 1 | 0 |  |
+| `aquilia/typing/effects.py` | 21 | 1 | 0 |  |
+| `aquilia/typing/manifest.py` | 26 | 2 | 0 |  |
+| `aquilia/typing/middleware.py` | 20 | 1 | 0 |  |
+| `aquilia/typing/request_state.py` | 10 | 0 | 0 |  |
+
+## Public Exports
+
+`ASGIApplication`, `ASGIReceive`, `ASGIReceiveEvent`, `ASGIScope`, `ASGISend`, `ASGISendEvent`, `AppContainer`, `AsyncResolvableContainer`, `ConfigDict`, `ConfigPrimitive`, `ConfigSection`, `ConfigSource`, `ConfigValue`, `ControllerReturnValue`, `ControllerRouteMatchLike`, `ControllerStreamChunk`, `ControllerStreamIterator`, `DotEnvPath`, `DotEnvValues`, `EffectMap`, `EffectMetadata`, `EffectMode`, `EffectName`, `EffectProviderProtocol`, `EnvCastType`, `EnvCaster`, `EnvMapping`, `EnvResolvable`, `EnvVarName`, `EnvVarValue`, `HTTPMethod`, `HTTPScope`, `HeaderMap`, `HeaderPair`, `JSONLikeMapping`, `JSONLikeSequence`, `JSONObject`, `JSONPrimitive`, `JSONValue`, `LifespanScope`, `ManifestCollection`, `ManifestDescriptor`, `ManifestLike`, `ManifestMetadata`, `MetadataMap`, `MiddlewareCallable`, `MiddlewareName`, `MiddlewarePriority`, `MiddlewareProtocol`, `MiddlewareScope`, `Milliseconds`, `PathLike`, `PathParams`, `QueryStringMap`, `RawHeaderList`, `RequestContainer`, `RequestHandler`, `RequestState`, `RouteMetadataDict`, `RouteParams`, `RoutePath`, `RouteQuery`, `SecretRevealable`, `SyncResolvableContainer`, `Timestamp`, `WebSocketScope`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
-| `HTTPScope` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketScope` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanScope` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `HTTPRequestEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `HTTPDisconnectEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `HTTPResponseStartEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `HTTPResponseBodyEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `HTTPResponseTrailersEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketConnectEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketReceiveEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketDisconnectEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketAcceptEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketSendEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `WebSocketCloseEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanStartupEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanShutdownEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanStartupCompleteEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanStartupFailedEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanShutdownCompleteEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `LifespanShutdownFailedEvent` | `aquilia/typing/asgi.py` | TypedDict | Public class. |
-| `ASGIApplication` | `aquilia/typing/asgi.py` | Protocol | Public class. |
+| `HTTPScope` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketScope` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanScope` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `HTTPRequestEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `HTTPDisconnectEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `HTTPResponseStartEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `HTTPResponseBodyEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `HTTPResponseTrailersEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketConnectEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketReceiveEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketDisconnectEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketAcceptEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketSendEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `WebSocketCloseEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanStartupEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanShutdownEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanStartupCompleteEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanStartupFailedEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanShutdownCompleteEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `LifespanShutdownFailedEvent` | `aquilia/typing/asgi.py` | TypedDict |  |
+| `ASGIApplication` | `aquilia/typing/asgi.py` | Protocol |  |
 | `ConfigSource` | `aquilia/typing/config.py` | Protocol | Protocol for configuration sources that can be converted to dict. |
 | `EnvResolvable` | `aquilia/typing/config.py` | Protocol | Protocol for values that resolve from environment variables. |
 | `SecretRevealable` | `aquilia/typing/config.py` | Protocol | Protocol for secret values that can be revealed. |
 | `ConfigSection` | `aquilia/typing/config.py` | Protocol | Protocol for config section classes. |
-| `SyncResolvableContainer` | `aquilia/typing/container.py` | Protocol | Public class. |
-| `AsyncResolvableContainer` | `aquilia/typing/container.py` | Protocol | Public class. |
-| `StartupContainer` | `aquilia/typing/container.py` | Protocol | Public class. |
-| `ShutdownContainer` | `aquilia/typing/container.py` | Protocol | Public class. |
-| `RequestScopeFactory` | `aquilia/typing/container.py` | Protocol | Public class. |
-| `RequestContainer` | `aquilia/typing/container.py` | AsyncResolvableContainer, SyncResolvableContainer, ShutdownContainer, Protocol | Public class. |
-| `AppContainer` | `aquilia/typing/container.py` | AsyncResolvableContainer, SyncResolvableContainer, StartupContainer, ShutdownContainer, RequestScopeFactory, Protocol | Public class. |
-| `ControllerRouteMatchLike` | `aquilia/typing/controller.py` | Protocol | Public class. |
-| `EffectProviderProtocol` | `aquilia/typing/effects.py` | Protocol[EffectResourceT] | Public class. |
-| `ManifestDescriptor` | `aquilia/typing/manifest.py` | object | Public class. |
-| `ManifestLike` | `aquilia/typing/manifest.py` | Protocol | Public class. |
-| `MiddlewareProtocol` | `aquilia/typing/middleware.py` | Protocol | Public class. |
+| `SyncResolvableContainer` | `aquilia/typing/container.py` | Protocol |  |
+| `AsyncResolvableContainer` | `aquilia/typing/container.py` | Protocol |  |
+| `StartupContainer` | `aquilia/typing/container.py` | Protocol |  |
+| `ShutdownContainer` | `aquilia/typing/container.py` | Protocol |  |
+| `RequestScopeFactory` | `aquilia/typing/container.py` | Protocol |  |
+| `RequestContainer` | `aquilia/typing/container.py` | AsyncResolvableContainer, SyncResolvableContainer, ShutdownContainer, Protocol |  |
+| `AppContainer` | `aquilia/typing/container.py` | AsyncResolvableContainer, SyncResolvableContainer, StartupContainer, ShutdownContainer, RequestScopeFactory, Protocol |  |
+| `ControllerRouteMatchLike` | `aquilia/typing/controller.py` | Protocol |  |
+| `EffectProviderProtocol` | `aquilia/typing/effects.py` | Protocol[EffectResourceT] |  |
+| `ManifestDescriptor` | `aquilia/typing/manifest.py` | object |  |
+| `ManifestLike` | `aquilia/typing/manifest.py` | Protocol |  |
+| `MiddlewareProtocol` | `aquilia/typing/middleware.py` | Protocol |  |
 
-## Public Function Summary
+## Constants And Module Flags
 
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| None detected |  |  |  |
-
-## Constants
-
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `T` | `aquilia/typing/config.py` | `TypeVar('T')` |
 | `T` | `aquilia/typing/container.py` | `TypeVar('T')` |
 
 ## Detailed Classes And Methods
 
-### Class: `HTTPScope`
+### `HTTPScope`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['http']` |  |
-| `asgi` | `ASGIVersionInfo` |  |
-| `http_version` | `str` |  |
-| `method` | `str` |  |
-| `scheme` | `str` |  |
-| `path` | `str` |  |
-| `raw_path` | `bytes` |  |
-| `root_path` | `str` |  |
-| `query_string` | `bytes` |  |
-| `headers` | `RawHeaderList` |  |
-| `client` | `ASGIClientAddress` |  |
-| `server` | `ASGIServerAddress` |  |
-| `state` | `dict[str, object]` |  |
+| `type` | `Literal['http']` | `` |
+| `asgi` | `ASGIVersionInfo` | `` |
+| `http_version` | `str` | `` |
+| `method` | `str` | `` |
+| `scheme` | `str` | `` |
+| `path` | `str` | `` |
+| `raw_path` | `bytes` | `` |
+| `root_path` | `str` | `` |
+| `query_string` | `bytes` | `` |
+| `headers` | `RawHeaderList` | `` |
+| `client` | `ASGIClientAddress` | `` |
+| `server` | `ASGIServerAddress` | `` |
+| `state` | `dict[str, object]` | `` |
 
-### Class: `WebSocketScope`
+### `WebSocketScope`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket']` |  |
-| `asgi` | `ASGIVersionInfo` |  |
-| `http_version` | `str` |  |
-| `scheme` | `str` |  |
-| `path` | `str` |  |
-| `raw_path` | `bytes` |  |
-| `root_path` | `str` |  |
-| `query_string` | `bytes` |  |
-| `headers` | `RawHeaderList` |  |
-| `client` | `ASGIClientAddress` |  |
-| `server` | `ASGIServerAddress` |  |
-| `subprotocols` | `list[str]` |  |
-| `state` | `dict[str, object]` |  |
+| `type` | `Literal['websocket']` | `` |
+| `asgi` | `ASGIVersionInfo` | `` |
+| `http_version` | `str` | `` |
+| `scheme` | `str` | `` |
+| `path` | `str` | `` |
+| `raw_path` | `bytes` | `` |
+| `root_path` | `str` | `` |
+| `query_string` | `bytes` | `` |
+| `headers` | `RawHeaderList` | `` |
+| `client` | `ASGIClientAddress` | `` |
+| `server` | `ASGIServerAddress` | `` |
+| `subprotocols` | `list[str]` | `` |
+| `state` | `dict[str, object]` | `` |
 
-### Class: `LifespanScope`
+### `LifespanScope`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan']` |  |
-| `asgi` | `ASGIVersionInfo` |  |
-| `state` | `dict[str, object]` |  |
+| `type` | `Literal['lifespan']` | `` |
+| `asgi` | `ASGIVersionInfo` | `` |
+| `state` | `dict[str, object]` | `` |
 
-### Class: `HTTPRequestEvent`
+### `HTTPRequestEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['http.request']` |  |
-| `body` | `bytes` |  |
-| `more_body` | `bool` |  |
+| `type` | `Literal['http.request']` | `` |
+| `body` | `bytes` | `` |
+| `more_body` | `bool` | `` |
 
-### Class: `HTTPDisconnectEvent`
+### `HTTPDisconnectEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['http.disconnect']` |  |
+| `type` | `Literal['http.disconnect']` | `` |
 
-### Class: `HTTPResponseStartEvent`
+### `HTTPResponseStartEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['http.response.start']` |  |
-| `status` | `int` |  |
-| `headers` | `RawHeaderList` |  |
-| `trailers` | `bool` |  |
+| `type` | `Literal['http.response.start']` | `` |
+| `status` | `int` | `` |
+| `headers` | `RawHeaderList` | `` |
+| `trailers` | `bool` | `` |
 
-### Class: `HTTPResponseBodyEvent`
+### `HTTPResponseBodyEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['http.response.body']` |  |
-| `body` | `bytes` |  |
-| `more_body` | `bool` |  |
+| `type` | `Literal['http.response.body']` | `` |
+| `body` | `bytes` | `` |
+| `more_body` | `bool` | `` |
 
-### Class: `HTTPResponseTrailersEvent`
+### `HTTPResponseTrailersEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['http.response.trailers']` |  |
-| `headers` | `RawHeaderList` |  |
-| `more_trailers` | `bool` |  |
+| `type` | `Literal['http.response.trailers']` | `` |
+| `headers` | `RawHeaderList` | `` |
+| `more_trailers` | `bool` | `` |
 
-### Class: `WebSocketConnectEvent`
+### `WebSocketConnectEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket.connect']` |  |
+| `type` | `Literal['websocket.connect']` | `` |
 
-### Class: `WebSocketReceiveEvent`
+### `WebSocketReceiveEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket.receive']` |  |
-| `bytes` | `bytes` |  |
-| `text` | `str` |  |
+| `type` | `Literal['websocket.receive']` | `` |
+| `bytes` | `bytes` | `` |
+| `text` | `str` | `` |
 
-### Class: `WebSocketDisconnectEvent`
+### `WebSocketDisconnectEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket.disconnect']` |  |
-| `code` | `int` |  |
-| `reason` | `str` |  |
+| `type` | `Literal['websocket.disconnect']` | `` |
+| `code` | `int` | `` |
+| `reason` | `str` | `` |
 
-### Class: `WebSocketAcceptEvent`
+### `WebSocketAcceptEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket.accept']` |  |
-| `subprotocol` | `str` |  |
-| `headers` | `RawHeaderList` |  |
+| `type` | `Literal['websocket.accept']` | `` |
+| `subprotocol` | `str` | `` |
+| `headers` | `RawHeaderList` | `` |
 
-### Class: `WebSocketSendEvent`
+### `WebSocketSendEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket.send']` |  |
-| `bytes` | `bytes` |  |
-| `text` | `str` |  |
+| `type` | `Literal['websocket.send']` | `` |
+| `bytes` | `bytes` | `` |
+| `text` | `str` | `` |
 
-### Class: `WebSocketCloseEvent`
+### `WebSocketCloseEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['websocket.close']` |  |
-| `code` | `int` |  |
-| `reason` | `str` |  |
+| `type` | `Literal['websocket.close']` | `` |
+| `code` | `int` | `` |
+| `reason` | `str` | `` |
 
-### Class: `LifespanStartupEvent`
+### `LifespanStartupEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan.startup']` |  |
+| `type` | `Literal['lifespan.startup']` | `` |
 
-### Class: `LifespanShutdownEvent`
+### `LifespanShutdownEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan.shutdown']` |  |
+| `type` | `Literal['lifespan.shutdown']` | `` |
 
-### Class: `LifespanStartupCompleteEvent`
+### `LifespanStartupCompleteEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan.startup.complete']` |  |
+| `type` | `Literal['lifespan.startup.complete']` | `` |
 
-### Class: `LifespanStartupFailedEvent`
+### `LifespanStartupFailedEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan.startup.failed']` |  |
-| `message` | `str` |  |
+| `type` | `Literal['lifespan.startup.failed']` | `` |
+| `message` | `str` | `` |
 
-### Class: `LifespanShutdownCompleteEvent`
+### `LifespanShutdownCompleteEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan.shutdown.complete']` |  |
+| `type` | `Literal['lifespan.shutdown.complete']` | `` |
 
-### Class: `LifespanShutdownFailedEvent`
+### `LifespanShutdownFailedEvent`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `TypedDict`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `Literal['lifespan.shutdown.failed']` |  |
-| `message` | `str` |  |
+| `type` | `Literal['lifespan.shutdown.failed']` | `` |
+| `message` | `str` | `` |
 
-### Class: `ASGIApplication`
+### `ASGIApplication`
 
 - Source: `aquilia/typing/asgi.py`
 - Bases: `Protocol`
 
-### Class: `ConfigSource`
+### `ConfigSource`
 
 - Source: `aquilia/typing/config.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for configuration sources that can be converted to dict.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> ConfigDict` |  | Convert this config source to a dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Convert this config source to a dictionary. |
 
-### Class: `EnvResolvable`
+### `EnvResolvable`
 
 - Source: `aquilia/typing/config.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for values that resolve from environment variables.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self) -> ConfigValue` |  | Resolve the value from the environment. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self)` | Resolve the value from the environment. |
 
-### Class: `SecretRevealable`
+### `SecretRevealable`
 
 - Source: `aquilia/typing/config.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for secret values that can be revealed.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `reveal` | `def reveal(self) -> str &#124; None` |  | Reveal the secret value. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `reveal` | `def reveal(self)` | Reveal the secret value. |
 
-### Class: `ConfigSection`
+### `ConfigSection`
 
 - Source: `aquilia/typing/config.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for config section classes.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(cls) -> ConfigDict` | classmethod | Convert this section to a dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(cls)` | Convert this section to a dictionary. |
 
-### Class: `SyncResolvableContainer`
+### `SyncResolvableContainer`
 
 - Source: `aquilia/typing/container.py`
 - Bases: `Protocol`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, name: DIName, optional: DIOptionalFlag = False) -> DIResolvedValue` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, name: DIName, optional: DIOptionalFlag=False)` |  |
 
-### Class: `AsyncResolvableContainer`
-
-- Source: `aquilia/typing/container.py`
-- Bases: `Protocol`
-
-Methods:
-
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve_async` | `async def resolve_async(self, name: DIName, optional: DIOptionalFlag = False) -> DIResolvedValue` |  | Method. |
-
-### Class: `StartupContainer`
+### `AsyncResolvableContainer`
 
 - Source: `aquilia/typing/container.py`
 - Bases: `Protocol`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `startup` | `async def startup(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve_async` | `async def resolve_async(self, name: DIName, optional: DIOptionalFlag=False)` |  |
 
-### Class: `ShutdownContainer`
-
-- Source: `aquilia/typing/container.py`
-- Bases: `Protocol`
-
-Methods:
-
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-
-### Class: `RequestScopeFactory`
+### `StartupContainer`
 
 - Source: `aquilia/typing/container.py`
 - Bases: `Protocol`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create_request_scope` | `def create_request_scope(self) -> RequestContainer` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `startup` | `async def startup(self)` |  |
 
-### Class: `RequestContainer`
+### `ShutdownContainer`
+
+- Source: `aquilia/typing/container.py`
+- Bases: `Protocol`
+
+Methods:
+
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `shutdown` | `async def shutdown(self)` |  |
+
+### `RequestScopeFactory`
+
+- Source: `aquilia/typing/container.py`
+- Bases: `Protocol`
+
+Methods:
+
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create_request_scope` | `def create_request_scope(self)` |  |
+
+### `RequestContainer`
 
 - Source: `aquilia/typing/container.py`
 - Bases: `AsyncResolvableContainer, SyncResolvableContainer, ShutdownContainer, Protocol`
 
-### Class: `AppContainer`
+### `AppContainer`
 
 - Source: `aquilia/typing/container.py`
 - Bases: `AsyncResolvableContainer, SyncResolvableContainer, StartupContainer, ShutdownContainer, RequestScopeFactory, Protocol`
 
-### Class: `ControllerRouteMatchLike`
+### `ControllerRouteMatchLike`
 
 - Source: `aquilia/typing/controller.py`
 - Bases: `Protocol`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `route` | `object` |  |
-| `params` | `RouteParams` |  |
-| `query` | `RouteQuery` |  |
+| `route` | `object` | `` |
+| `params` | `RouteParams` | `` |
+| `query` | `RouteQuery` | `` |
 
-### Class: `EffectProviderProtocol`
+### `EffectProviderProtocol`
 
 - Source: `aquilia/typing/effects.py`
 - Bases: `Protocol[EffectResourceT]`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None) -> EffectResourceT` |  | Method. |
-| `release` | `async def release(self, resource: EffectResourceT, success: bool = True) -> None` |  | Method. |
-| `finalize` | `async def finalize(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` |  |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` |  |
+| `release` | `async def release(self, resource: EffectResourceT, success: bool=True)` |  |
+| `finalize` | `async def finalize(self)` |  |
 
-### Class: `ManifestDescriptor`
+### `ManifestDescriptor`
 
 - Source: `aquilia/typing/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `ManifestName` |  |
-| `module` | `ModuleName` |  |
-| `class_path` | `ClassPath` |  |
+| `name` | `ManifestName` | `` |
+| `module` | `ModuleName` | `` |
+| `class_path` | `ClassPath` | `` |
 
-### Class: `ManifestLike`
+### `ManifestLike`
 
 - Source: `aquilia/typing/manifest.py`
 - Bases: `Protocol`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 
-### Class: `MiddlewareProtocol`
+### `MiddlewareProtocol`
 
 - Source: `aquilia/typing/middleware.py`
 - Bases: `Protocol`
-
-
-## Constants
-
-| Name | Source | Value or type |
-| --- | --- | --- |
-| `T` | `aquilia/typing/config.py` | `TypeVar('T')` |
-| `T` | `aquilia/typing/container.py` | `TypeVar('T')` |

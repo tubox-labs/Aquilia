@@ -1,34 +1,37 @@
 # Discovery Configuration
 
-## Configuration Entry Points
+AST-based component discovery and manifest synchronization support.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
-| --- | --- | --- | --- |
-| `ClassifiedComponent` | `aquilia/discovery/engine.py` | name: str, kind: ComponentKind, file_path: Path, line: int, import_path: str, bases: list[str], decorators: list[str] | A component discovered by the AST classifier. |
-| `DiscoveryResult` | `aquilia/discovery/engine.py` | module_name: str, components: list[ClassifiedComponent], errors: list[str], files_scanned: int | Result of scanning a single module. |
-| `SyncAction` | `aquilia/discovery/engine.py` | action: str, component: ClassifiedComponent, field_name: str | Describes a change to make to a manifest file. |
-| `SyncReport` | `aquilia/discovery/engine.py` | module_name: str, manifest_path: Path, actions: list[SyncAction], dry_run: bool | Report from a manifest sync operation. |
+## Configuration Model
 
-## Common Entry Points
+No public config-specific class was detected in this module. It is configured through workspace/module declarations, related integration objects, or direct Python APIs.
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+## Source Inventory
 
-## Precedence Model
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/discovery/__init__.py` | 51 | 0 | 0 | Aquilia Discovery - Component auto-discovery subsystem. |
+| `aquilia/discovery/engine.py` | 696 | 9 | 0 | Auto-Discovery Engine -- AST-based component classification and manifest sync. |
 
-Aquilia generally resolves configuration in this order:
+## Runtime Wiring Paths
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
+## Verification Checklist
 
-## Datatype Guidance
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+## Related Pages
+
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

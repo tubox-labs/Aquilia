@@ -1,10 +1,33 @@
-# Dependency Injection API Reference
+# Di API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/di/__init__.py` | 132 | 0 | 0 | Aquilia Dependency Injection System |
+| `aquilia/di/cli.py` | 479 | 0 | 7 | CLI commands for DI system. |
+| `aquilia/di/compat.py` | 105 | 1 | 3 | Compatibility layer with legacy Aquilia DI system. |
+| `aquilia/di/core.py` | 1034 | 5 | 0 | Core DI types and protocols. |
+| `aquilia/di/decorators.py` | 242 | 1 | 5 | Decorators and injection helpers for ergonomic DI usage. |
+| `aquilia/di/dep.py` | 398 | 4 | 0 | Dep -- Composable dependency descriptor for annotation-driven DI. |
+| `aquilia/di/diagnostics.py` | 122 | 5 | 0 | DI Diagnostics - Observability and event tracking for DI containers. |
+| `aquilia/di/errors.py` | 239 | 9 | 0 | DI-specific error types with rich diagnostics. |
+| `aquilia/di/graph.py` | 261 | 1 | 0 | Graph analysis and cycle detection for DI system. |
+| `aquilia/di/lifecycle.py` | 241 | 4 | 0 | Lifecycle management for providers and containers. |
+| `aquilia/di/providers.py` | 822 | 8 | 0 | Provider implementations for different instantiation strategies. |
+| `aquilia/di/request_dag.py` | 431 | 1 | 0 | RequestDAG -- Per-request dependency graph resolver. |
+| `aquilia/di/scopes.py` | 99 | 3 | 0 | Scope definitions and validation. |
+| `aquilia/di/testing.py` | 195 | 2 | 1 | Testing utilities for DI system. |
+
+## Public Exports
+
+`AliasProvider`, `AmbiguousProviderError`, `BlueprintProvider`, `Body`, `ClassProvider`, `Container`, `DIError`, `Dep`, `DependencyCycleError`, `DependencyGraph`, `DisposalStrategy`, `FactoryProvider`, `Header`, `Inject`, `LazyProxyProvider`, `Lifecycle`, `LifecycleContext`, `LifecycleHook`, `MockProvider`, `PoolProvider`, `Provider`, `ProviderMeta`, `ProviderNotFoundError`, `Query`, `Registry`, `RequestCtx`, `RequestDAG`, `ResolveCtx`, `Scope`, `ScopeValidator`, `ScopeViolationError`, `ScopedProvider`, `ServiceScope`, `TestRegistry`, `ValueProvider`, `auto_inject`, `factory`, `inject`, `provides`, `service`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `RequestCtx` | `aquilia/di/compat.py` | object | Legacy RequestCtx compatibility wrapper. |
 | `ProviderMeta` | `aquilia/di/core.py` | object | Compact, serializable provider metadata. |
@@ -53,28 +76,28 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `load_manifests_from_settings` | `aquilia/di/cli.py` | `def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]` | Load manifests and config from settings file. |
+| `load_manifests_from_settings` | `aquilia/di/cli.py` | `def load_manifests_from_settings(settings_path: str)` | Load manifests and config from settings file. |
 | `cmd_di_check` | `aquilia/di/cli.py` | `def cmd_di_check(args)` | Validate DI configuration (static analysis). |
 | `cmd_di_tree` | `aquilia/di/cli.py` | `def cmd_di_tree(args)` | Show dependency tree. |
 | `cmd_di_graph` | `aquilia/di/cli.py` | `def cmd_di_graph(args)` | Export dependency graph as Graphviz DOT. |
 | `cmd_di_profile` | `aquilia/di/cli.py` | `def cmd_di_profile(args)` | Benchmark DI performance. |
 | `cmd_di_manifest` | `aquilia/di/cli.py` | `def cmd_di_manifest(args)` | Generate di_manifest.json for LSP integration. |
 | `setup_di_commands` | `aquilia/di/cli.py` | `def setup_di_commands(subparsers)` | Setup DI subcommands. |
-| `get_request_container` | `aquilia/di/compat.py` | `def get_request_container() -> Container &#124; None` | Get current request container from context. |
-| `set_request_container` | `aquilia/di/compat.py` | `def set_request_container(container: Container) -> None` | Set request container in context. |
-| `clear_request_container` | `aquilia/di/compat.py` | `def clear_request_container() -> None` | Clear request container from context. |
-| `inject` | `aquilia/di/decorators.py` | `def inject(token: type &#124; str &#124; None = None, *, tag: str &#124; None = None, optional: bool = False) -> Inject` | Create injection metadata. |
-| `service` | `aquilia/di/decorators.py` | `def service(*, scope: str = 'app', tag: str &#124; None = None, name: str &#124; None = None) -> Callable[[type[T]], type[T]]` | Decorator to mark a class as a DI service. |
-| `factory` | `aquilia/di/decorators.py` | `def factory(*, scope: str = 'app', tag: str &#124; None = None, name: str &#124; None = None) -> Callable[[Callable[..., T]], Callable[..., T]]` | Decorator to mark a function as a DI factory. |
-| `provides` | `aquilia/di/decorators.py` | `def provides(token: type &#124; str, *, scope: str = 'app', tag: str &#124; None = None) -> Callable[[Callable[..., T]], Callable[..., T]]` | Decorator to explicitly declare what a factory provides. |
-| `auto_inject` | `aquilia/di/decorators.py` | `def auto_inject(func: Callable[..., T]) -> Callable[..., T]` | Decorator to auto-inject dependencies into a function. |
-| `override_container` | `aquilia/di/testing.py` | `async def override_container(container: Container, token: type &#124; str, mock_value: Any, *, tag: str &#124; None = None)` | Context manager to temporarily override a provider. |
+| `get_request_container` | `aquilia/di/compat.py` | `def get_request_container()` | Get current request container from context. |
+| `set_request_container` | `aquilia/di/compat.py` | `def set_request_container(container: Container)` | Set request container in context. |
+| `clear_request_container` | `aquilia/di/compat.py` | `def clear_request_container()` | Clear request container from context. |
+| `inject` | `aquilia/di/decorators.py` | `def inject(token: type \| str \| None=None, *, tag: str \| None=None, optional: bool=False)` | Create injection metadata. |
+| `service` | `aquilia/di/decorators.py` | `def service(*, scope: str='app', tag: str \| None=None, name: str \| None=None)` | Decorator to mark a class as a DI service. |
+| `factory` | `aquilia/di/decorators.py` | `def factory(*, scope: str='app', tag: str \| None=None, name: str \| None=None)` | Decorator to mark a function as a DI factory. |
+| `provides` | `aquilia/di/decorators.py` | `def provides(token: type \| str, *, scope: str='app', tag: str \| None=None)` | Decorator to explicitly declare what a factory provides. |
+| `auto_inject` | `aquilia/di/decorators.py` | `def auto_inject(func: Callable[..., T])` | Decorator to auto-inject dependencies into a function. |
+| `override_container` | `aquilia/di/testing.py` | `async def override_container(container: Container, token: type \| str, mock_value: Any, *, tag: str \| None=None)` | Context manager to temporarily override a provider. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `_CACHE_SENTINEL` | `aquilia/di/core.py` | `object()` |
 | `_CACHEABLE_SCOPES` | `aquilia/di/core.py` | `frozenset(('singleton', 'app', 'request'))` |
@@ -82,11 +105,11 @@ This page is extracted from the current Python source. It includes public classe
 | `T` | `aquilia/di/decorators.py` | `TypeVar('T')` |
 | `T` | `aquilia/di/providers.py` | `TypeVar('T')` |
 | `_RESOLVING` | `aquilia/di/request_dag.py` | `object()` |
-| `SCOPES` | `aquilia/di/scopes.py` | `{'singleton': Scope(name='singleton', cacheable=True), 'app': Scope(name='app', cacheable=True), 'request': Scope(name='request', cacheable=True, parent='app'),` |
+| `SCOPES` | `aquilia/di/scopes.py` | `{'singleton': Scope(name='singleton', cacheable=True), 'app': Scope(name='app', cacheable=True), 'request': Scope(name='request', cacheable=True, parent='app'), 'transient': Scope(name='transient', cacheable=False), 'pooled': Scope(name='pooled', cacheable=False), 'ephemeral': Scope(name='ephemeral', cacheable=True, parent='request')}` |
 
 ## Detailed Classes And Methods
 
-### Class: `RequestCtx`
+### `RequestCtx`
 
 - Source: `aquilia/di/compat.py`
 - Bases: `object`
@@ -94,44 +117,44 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `container` | `def container(self) -> Container` | property | Get underlying container. |
-| `container` | `def container(self, value: Container)` | container.setter | Set underlying container. |
-| `get` | `def get(self, token, *, tag: str &#124; None = None, default = None)` |  | Get service from container (legacy API). |
-| `get_async` | `async def get_async(self, token, *, tag: str &#124; None = None, default = None)` |  | Async version of get. |
-| `from_container` | `def from_container(cls, container: Container) -> 'RequestCtx'` | classmethod | Create RequestCtx from container. |
-| `set_current` | `def set_current(cls, ctx: 'RequestCtx') -> None` | classmethod | Set current request context. |
-| `get_current` | `def get_current(cls) -> Optional['RequestCtx']` | classmethod | Get current request context. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `container` | `def container(self)` | Get underlying container. |
+| `container` | `def container(self, value: Container)` | Set underlying container. |
+| `get` | `def get(self, token, *, tag: str \| None=None, default=None)` | Get service from container (legacy API). |
+| `get_async` | `async def get_async(self, token, *, tag: str \| None=None, default=None)` | Async version of get. |
+| `from_container` | `def from_container(cls, container: Container)` | Create RequestCtx from container. |
+| `set_current` | `def set_current(cls, ctx: 'RequestCtx')` | Set current request context. |
+| `get_current` | `def get_current(cls)` | Get current request context. |
 
-### Class: `ProviderMeta`
+### `ProviderMeta`
 
 - Source: `aquilia/di/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Compact, serializable provider metadata.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `token` | `str` |  |
-| `scope` | `str` |  |
+| `name` | `str` | `` |
+| `token` | `str` | `` |
+| `scope` | `str` | `` |
 | `tags` | `tuple[str, ...]` | `field(default_factory=tuple)` |
 | `module` | `str` | `''` |
 | `qualname` | `str` | `''` |
-| `line` | `int &#124; None` | `None` |
-| `version` | `str &#124; None` | `None` |
+| `line` | `int \| None` | `None` |
+| `version` | `str \| None` | `None` |
 | `allow_lazy` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize for manifest JSON. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize for manifest JSON. |
 
-### Class: `ResolveCtx`
+### `ResolveCtx`
 
 - Source: `aquilia/di/core.py`
 - Bases: `object`
@@ -139,29 +162,29 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `push` | `def push(self, token: str) -> None` |  | Push token onto resolution stack. |
-| `pop` | `def pop(self) -> None` |  | Pop token from resolution stack. |
-| `in_cycle` | `def in_cycle(self, token: str) -> bool` |  | Check if token is currently being resolved (cycle). |
-| `get_trace` | `def get_trace(self) -> list[str]` |  | Get current resolution trace for error messages. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `push` | `def push(self, token: str)` | Push token onto resolution stack. |
+| `pop` | `def pop(self)` | Pop token from resolution stack. |
+| `in_cycle` | `def in_cycle(self, token: str)` | Check if token is currently being resolved (cycle). |
+| `get_trace` | `def get_trace(self)` | Get current resolution trace for error messages. |
 
-### Class: `Provider`
+### `Provider`
 
 - Source: `aquilia/di/core.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Provider protocol - how to instantiate a dependency.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Provider metadata. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Instantiate the provider. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Shutdown hook for cleanup. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` | Provider metadata. |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Instantiate the provider. |
+| `shutdown` | `async def shutdown(self)` | Shutdown hook for cleanup. |
 
-### Class: `Container`
+### `Container`
 
 - Source: `aquilia/di/core.py`
 - Bases: `object`
@@ -169,19 +192,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, provider: Provider, tag: str &#124; None = None)` |  | Register a provider. |
-| `bind` | `def bind(self, interface: type, implementation: type, scope: str = 'app', tag: str &#124; None = None)` |  | Bind an interface to an implementation class. |
-| `register_instance` | `async def register_instance(self, token: type[T] &#124; str, instance: T, scope: str = 'request', tag: str &#124; None = None)` |  | Register a pre-instantiated object as a provider. |
-| `resolve` | `def resolve(self, token: type[T] &#124; str, *, tag: str &#124; None = None, optional: bool = False) -> T` |  | Resolve a dependency (hot path - optimized). |
-| `resolve_async` | `async def resolve_async(self, token: type[T] &#124; str, *, tag: str &#124; None = None, optional: bool = False) -> T` |  | Async resolve (primary resolution path). |
-| `startup` | `async def startup(self) -> None` |  | Run startup hooks for all registered providers. |
-| `is_registered` | `def is_registered(self, token: type[T] &#124; str, tag: str &#124; None = None) -> bool` |  | Check if a provider is registered for the token. |
-| `create_request_scope` | `def create_request_scope(self) -> 'Container'` |  | Create a request-scoped child container (very cheap). |
-| `shutdown` | `async def shutdown(self) -> None` |  | Shutdown container - run lifecycle hooks and finalizers in LIFO order. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, provider: Provider, tag: str \| None=None)` | Register a provider. |
+| `bind` | `def bind(self, interface: type, implementation: type, scope: str='app', tag: str \| None=None)` | Bind an interface to an implementation class. |
+| `register_instance` | `async def register_instance(self, token: type[T] \| str, instance: T, scope: str='request', tag: str \| None=None)` | Register a pre-instantiated object as a provider. |
+| `resolve` | `def resolve(self, token: type[T] \| str, *, tag: str \| None=None, optional: bool=False)` | Resolve a dependency (hot path - optimized). |
+| `resolve_async` | `async def resolve_async(self, token: type[T] \| str, *, tag: str \| None=None, optional: bool=False)` | Async resolve (primary resolution path). |
+| `startup` | `async def startup(self)` | Run startup hooks for all registered providers. |
+| `is_registered` | `def is_registered(self, token: type[T] \| str, tag: str \| None=None)` | Check if a provider is registered for the token. |
+| `create_request_scope` | `def create_request_scope(self)` | Create a request-scoped child container (very cheap). |
+| `shutdown` | `async def shutdown(self)` | Shutdown container - run lifecycle hooks and finalizers in LIFO order. |
 
-### Class: `Registry`
+### `Registry`
 
 - Source: `aquilia/di/core.py`
 - Bases: `object`
@@ -189,156 +212,156 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_manifests` | `def from_manifests(cls, manifests: list[Any], config: Any &#124; None = None, *, enforce_cross_app: bool = True) -> 'Registry'` | classmethod | Build registry from manifests. |
-| `build_container` | `def build_container(self) -> Container` |  | Build container from registry. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_manifests` | `def from_manifests(cls, manifests: list[Any], config: Any \| None=None, *, enforce_cross_app: bool=True)` | Build registry from manifests. |
+| `build_container` | `def build_container(self)` | Build container from registry. |
 
-### Class: `Inject`
+### `Inject`
 
 - Source: `aquilia/di/decorators.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Injection metadata marker.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `token` | `type &#124; str &#124; None` | `None` |
-| `tag` | `str &#124; None` | `None` |
+| `token` | `type \| str \| None` | `None` |
+| `tag` | `str \| None` | `None` |
 | `optional` | `bool` | `False` |
 
-### Class: `Dep`
+### `Dep`
 
 - Source: `aquilia/di/dep.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Dependency descriptor for Annotated[]-based injection.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `call` | `Callable[..., Any] &#124; None` | `None` |
+| `call` | `Callable[..., Any] \| None` | `None` |
 | `cached` | `bool` | `True` |
-| `scope` | `str &#124; None` | `None` |
-| `tag` | `str &#124; None` | `None` |
+| `scope` | `str \| None` | `None` |
+| `tag` | `str \| None` | `None` |
 | `use_cache` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_container_lookup` | `def is_container_lookup(self) -> bool` | property | True when Dep() has no callable -- just resolve by type from container. |
-| `is_generator` | `def is_generator(self) -> bool` | property | True when the callable is an (async) generator -> needs teardown. |
-| `is_async` | `def is_async(self) -> bool` | property | True when the callable is async (coroutine or async generator). |
-| `cache_key` | `def cache_key(self) -> str` | property | Stable key for DAG deduplication. |
-| `get_sub_dependencies` | `def get_sub_dependencies(self) -> dict[str, tuple[type, Any]]` |  | Inspect the callable's signature and extract sub-Dep annotations. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_container_lookup` | `def is_container_lookup(self)` | True when Dep() has no callable -- just resolve by type from container. |
+| `is_generator` | `def is_generator(self)` | True when the callable is an (async) generator → needs teardown. |
+| `is_async` | `def is_async(self)` | True when the callable is async (coroutine or async generator). |
+| `cache_key` | `def cache_key(self)` | Stable key for DAG deduplication. |
+| `get_sub_dependencies` | `def get_sub_dependencies(self)` | Inspect the callable's signature and extract sub-Dep annotations. |
 
-### Class: `Header`
+### `Header`
 
 - Source: `aquilia/di/dep.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Extract a header value from the current request.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `alias` | `str &#124; None` | `None` |
+| `name` | `str` | `` |
+| `alias` | `str \| None` | `None` |
 | `required` | `bool` | `True` |
 | `default` | `Any` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `header_key` | `def header_key(self) -> str` | property | Method. |
-| `resolve` | `def resolve(self, context: dict[str, Any]) -> Any` |  | Resolve header from request context (allows use as Serializer default). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `header_key` | `def header_key(self)` |  |
+| `resolve` | `def resolve(self, context: dict[str, Any])` | Resolve header from request context (allows use as Serializer default). |
 
-### Class: `Query`
+### `Query`
 
 - Source: `aquilia/di/dep.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Extract a query parameter from the current request.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `default` | `Any` | `None` |
 | `required` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, context: dict[str, Any]) -> Any` |  | Resolve query from request context (allows use as Serializer default). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, context: dict[str, Any])` | Resolve query from request context (allows use as Serializer default). |
 
-### Class: `Body`
+### `Body`
 
 - Source: `aquilia/di/dep.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Mark a parameter as coming from the request body.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `media_type` | `str` | `'application/json'` |
 | `embed` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, context: dict[str, Any]) -> Any` |  | Resolve body from request context (async behavior not supported inside sync Serializer). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, context: dict[str, Any])` | Resolve body from request context (async behavior not supported inside sync Serializer). |
 
-### Class: `DIEventType`
+### `DIEventType`
 
 - Source: `aquilia/di/diagnostics.py`
 - Bases: `Enum`
 - Summary: Types of DI events.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `REGISTRATION` |  | `'registration'` |
-| `RESOLUTION_START` |  | `'resolution_start'` |
-| `RESOLUTION_SUCCESS` |  | `'resolution_success'` |
-| `RESOLUTION_FAILURE` |  | `'resolution_failure'` |
-| `LIFECYCLE_STARTUP` |  | `'lifecycle_startup'` |
-| `LIFECYCLE_SHUTDOWN` |  | `'lifecycle_shutdown'` |
-| `PROVIDER_INSTANTATION` |  | `'provider_instantiation'` |
+| `REGISTRATION` | `` | `'registration'` |
+| `RESOLUTION_START` | `` | `'resolution_start'` |
+| `RESOLUTION_SUCCESS` | `` | `'resolution_success'` |
+| `RESOLUTION_FAILURE` | `` | `'resolution_failure'` |
+| `LIFECYCLE_STARTUP` | `` | `'lifecycle_startup'` |
+| `LIFECYCLE_SHUTDOWN` | `` | `'lifecycle_shutdown'` |
+| `PROVIDER_INSTANTATION` | `` | `'provider_instantiation'` |
 
-### Class: `DIEvent`
+### `DIEvent`
 
 - Source: `aquilia/di/diagnostics.py`
 - Bases: `object`
-- Decorators: `dataclasses.dataclass`
 - Summary: A diagnostic event in the DI system.
+- Decorators: `dataclasses.dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `DIEventType` |  |
+| `type` | `DIEventType` | `` |
 | `timestamp` | `float` | `dataclasses.field(default_factory=time.monotonic)` |
-| `token` | `Any &#124; None` | `None` |
-| `tag` | `str &#124; None` | `None` |
-| `provider_name` | `str &#124; None` | `None` |
-| `duration` | `float &#124; None` | `None` |
-| `error` | `Exception &#124; None` | `None` |
+| `token` | `Any \| None` | `None` |
+| `tag` | `str \| None` | `None` |
+| `provider_name` | `str \| None` | `None` |
+| `duration` | `float \| None` | `None` |
+| `error` | `Exception \| None` | `None` |
 | `metadata` | `dict[str, Any]` | `dataclasses.field(default_factory=dict)` |
 
-### Class: `DiagnosticListener`
+### `DiagnosticListener`
 
 - Source: `aquilia/di/diagnostics.py`
 - Bases: `Protocol`
@@ -346,11 +369,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_event` | `def on_event(self, event: DIEvent) -> None` |  | Called when a DI event occurs. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_event` | `def on_event(self, event: DIEvent)` | Called when a DI event occurs. |
 
-### Class: `ConsoleDiagnosticListener`
+### `ConsoleDiagnosticListener`
 
 - Source: `aquilia/di/diagnostics.py`
 - Bases: `object`
@@ -358,11 +381,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_event` | `def on_event(self, event: DIEvent) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_event` | `def on_event(self, event: DIEvent)` |  |
 
-### Class: `DIDiagnostics`
+### `DIDiagnostics`
 
 - Source: `aquilia/di/diagnostics.py`
 - Bases: `object`
@@ -370,67 +393,67 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_listener` | `def add_listener(self, listener: DiagnosticListener) -> None` |  | Add a diagnostic listener. |
-| `emit` | `def emit(self, event_type: DIEventType, **kwargs) -> None` |  | Emit a diagnostic event to all listeners. |
-| `measure` | `def measure(self, event_type: DIEventType, **kwargs)` |  | Context manager to measure duration of an event. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_listener` | `def add_listener(self, listener: DiagnosticListener)` | Add a diagnostic listener. |
+| `emit` | `def emit(self, event_type: DIEventType, **kwargs)` | Emit a diagnostic event to all listeners. |
+| `measure` | `def measure(self, event_type: DIEventType, **kwargs)` | Context manager to measure duration of an event. |
 
-### Class: `DIError`
+### `DIError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `Exception`
 - Summary: Base exception for DI errors.
 
-### Class: `ProviderNotFoundError`
+### `ProviderNotFoundError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Provider not found for requested token.
 
-### Class: `DependencyCycleError`
+### `DependencyCycleError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Circular dependency detected.
 
-### Class: `ScopeViolationError`
+### `ScopeViolationError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Scope violation detected (e.g., request-scoped injected into app-scoped).
 
-### Class: `AmbiguousProviderError`
+### `AmbiguousProviderError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Multiple providers found for token without tag.
 
-### Class: `ManifestValidationError`
+### `ManifestValidationError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Manifest validation failed.
 
-### Class: `CrossAppDependencyError`
+### `CrossAppDependencyError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Cross-app dependency not declared in depends_on.
 
-### Class: `CircularDependencyError`
+### `CircularDependencyError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Circular dependency detected in service graph.
 
-### Class: `MissingDependencyError`
+### `MissingDependencyError`
 
 - Source: `aquilia/di/errors.py`
 - Bases: `DIError`
 - Summary: Required dependency not found in container.
 
-### Class: `DependencyGraph`
+### `DependencyGraph`
 
 - Source: `aquilia/di/graph.py`
 - Bases: `object`
@@ -438,45 +461,45 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_provider` | `def add_provider(self, provider: Provider, dependencies: list[str]) -> None` |  | Add provider to graph. |
-| `detect_cycles` | `def detect_cycles(self) -> list[list[str]]` |  | Detect cycles using Tarjan's algorithm. |
-| `get_resolution_order` | `def get_resolution_order(self) -> list[str]` |  | Get topological sort of providers (resolution order). |
-| `export_dot` | `def export_dot(self) -> str` |  | Export graph as Graphviz DOT format. |
-| `get_tree_view` | `def get_tree_view(self, root: str &#124; None = None) -> str` |  | Get tree view of dependencies. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_provider` | `def add_provider(self, provider: Provider, dependencies: list[str])` | Add provider to graph. |
+| `detect_cycles` | `def detect_cycles(self)` | Detect cycles using Tarjan's algorithm. |
+| `get_resolution_order` | `def get_resolution_order(self)` | Get topological sort of providers (resolution order). |
+| `export_dot` | `def export_dot(self)` | Export graph as Graphviz DOT format. |
+| `get_tree_view` | `def get_tree_view(self, root: str \| None=None)` | Get tree view of dependencies. |
 
-### Class: `DisposalStrategy`
+### `DisposalStrategy`
 
 - Source: `aquilia/di/lifecycle.py`
 - Bases: `str, Enum`
 - Summary: Strategy for disposing instances.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `LIFO` |  | `'lifo'` |
-| `FIFO` |  | `'fifo'` |
-| `PARALLEL` |  | `'parallel'` |
+| `LIFO` | `` | `'lifo'` |
+| `FIFO` | `` | `'fifo'` |
+| `PARALLEL` | `` | `'parallel'` |
 
-### Class: `LifecycleHook`
+### `LifecycleHook`
 
 - Source: `aquilia/di/lifecycle.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Lifecycle hook registration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `callback` | `Callable[[], Coroutine[Any, Any, None]]` |  |
+| `name` | `str` | `` |
+| `callback` | `Callable[[], Coroutine[Any, Any, None]]` | `` |
 | `priority` | `int` | `0` |
 | `phase` | `str` | `'shutdown'` |
 
-### Class: `Lifecycle`
+### `Lifecycle`
 
 - Source: `aquilia/di/lifecycle.py`
 - Bases: `object`
@@ -484,23 +507,23 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_startup` | `def on_startup(self, callback: Callable[[], Coroutine], *, name: str = 'startup_hook', priority: int = 0) -> None` |  | Register startup hook. |
-| `on_shutdown` | `def on_shutdown(self, callback: Callable[[], Coroutine], *, name: str = 'shutdown_hook', priority: int = 0) -> None` |  | Register shutdown hook. |
-| `register_finalizer` | `def register_finalizer(self, finalizer: Callable[[], Coroutine]) -> None` |  | Register finalizer for cleanup. |
-| `run_startup_hooks` | `async def run_startup_hooks(self) -> None` |  | Run all startup hooks in priority order with per-hook timeout (SEC-DI-10). |
-| `run_shutdown_hooks` | `async def run_shutdown_hooks(self) -> None` |  | Run all shutdown hooks in priority order with per-hook timeout (SEC-DI-10). |
-| `run_finalizers` | `async def run_finalizers(self) -> None` |  | Run all finalizers according to disposal strategy. |
-| `clear` | `def clear(self) -> None` |  | Clear all hooks and finalizers. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_startup` | `def on_startup(self, callback: Callable[[], Coroutine], *, name: str='startup_hook', priority: int=0)` | Register startup hook. |
+| `on_shutdown` | `def on_shutdown(self, callback: Callable[[], Coroutine], *, name: str='shutdown_hook', priority: int=0)` | Register shutdown hook. |
+| `register_finalizer` | `def register_finalizer(self, finalizer: Callable[[], Coroutine])` | Register finalizer for cleanup. |
+| `run_startup_hooks` | `async def run_startup_hooks(self)` | Run all startup hooks in priority order with per-hook timeout (SEC-DI-10). |
+| `run_shutdown_hooks` | `async def run_shutdown_hooks(self)` | Run all shutdown hooks in priority order with per-hook timeout (SEC-DI-10). |
+| `run_finalizers` | `async def run_finalizers(self)` | Run all finalizers according to disposal strategy. |
+| `clear` | `def clear(self)` | Clear all hooks and finalizers. |
 
-### Class: `LifecycleContext`
+### `LifecycleContext`
 
 - Source: `aquilia/di/lifecycle.py`
 - Bases: `object`
 - Summary: Context manager for automatic lifecycle management.
 
-### Class: `ClassProvider`
+### `ClassProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -508,13 +531,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Instantiate class by resolving dependencies. |
-| `shutdown` | `async def shutdown(self) -> None` |  | No-op for class provider (instances handle their own shutdown). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Instantiate class by resolving dependencies. |
+| `shutdown` | `async def shutdown(self)` | No-op for class provider (instances handle their own shutdown). |
 
-### Class: `FactoryProvider`
+### `FactoryProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -522,13 +545,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Call factory with resolved dependencies. |
-| `shutdown` | `async def shutdown(self) -> None` |  | No-op for factory provider. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Call factory with resolved dependencies. |
+| `shutdown` | `async def shutdown(self)` | No-op for factory provider. |
 
-### Class: `ValueProvider`
+### `ValueProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -536,13 +559,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Return pre-bound value. |
-| `shutdown` | `async def shutdown(self) -> None` |  | No-op for value provider. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Return pre-bound value. |
+| `shutdown` | `async def shutdown(self)` | No-op for value provider. |
 
-### Class: `PoolProvider`
+### `PoolProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -550,15 +573,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Acquire instance from pool (creates pool on first call). |
-| `release` | `async def release(self, instance: Any) -> None` |  | Release instance back to pool. |
-| `acquire` | `async def acquire(self, ctx: ResolveCtx = None)` | asynccontextmanager | Acquire an instance from the pool with auto-release. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Shutdown pool and clean up instances. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Acquire instance from pool (creates pool on first call). |
+| `release` | `async def release(self, instance: Any)` | Release instance back to pool. |
+| `acquire` | `async def acquire(self, ctx: ResolveCtx=None)` | Acquire an instance from the pool with auto-release. |
+| `shutdown` | `async def shutdown(self)` | Shutdown pool and clean up instances. |
 
-### Class: `AliasProvider`
+### `AliasProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -566,13 +589,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Resolve target token. |
-| `shutdown` | `async def shutdown(self) -> None` |  | No-op for alias provider. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Resolve target token. |
+| `shutdown` | `async def shutdown(self)` | No-op for alias provider. |
 
-### Class: `LazyProxyProvider`
+### `LazyProxyProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -580,13 +603,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Create lazy proxy. |
-| `shutdown` | `async def shutdown(self) -> None` |  | No-op for lazy proxy. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Create lazy proxy. |
+| `shutdown` | `async def shutdown(self)` | No-op for lazy proxy. |
 
-### Class: `ScopedProvider`
+### `ScopedProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -594,13 +617,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Delegate to inner provider. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Delegate to inner provider. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Delegate to inner provider. |
+| `shutdown` | `async def shutdown(self)` | Delegate to inner provider. |
 
-### Class: `BlueprintProvider`
+### `BlueprintProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
@@ -608,13 +631,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `meta` | `def meta(self) -> ProviderMeta` | property | Method. |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx) -> Any` |  | Create Blueprint instance with request data from DI context. |
-| `shutdown` | `async def shutdown(self) -> None` |  | No-op for blueprint provider. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `meta` | `def meta(self)` |  |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Create Blueprint instance with request data from DI context. |
+| `shutdown` | `async def shutdown(self)` | No-op for blueprint provider. |
 
-### Class: `RequestDAG`
+### `RequestDAG`
 
 - Source: `aquilia/di/request_dag.py`
 - Bases: `object`
@@ -622,50 +645,50 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `async def resolve(self, dep: Dep, param_type: type) -> Any` |  | Resolve a single Dep descriptor. |
-| `teardown` | `async def teardown(self) -> None` |  | Run generator teardowns in LIFO order. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `async def resolve(self, dep: Dep, param_type: type)` | Resolve a single Dep descriptor. |
+| `teardown` | `async def teardown(self)` | Run generator teardowns in LIFO order. |
 
-### Class: `ServiceScope`
+### `ServiceScope`
 
 - Source: `aquilia/di/scopes.py`
 - Bases: `str, Enum`
 - Summary: Service lifetime scopes.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SINGLETON` |  | `'singleton'` |
-| `APP` |  | `'app'` |
-| `REQUEST` |  | `'request'` |
-| `TRANSIENT` |  | `'transient'` |
-| `POOLED` |  | `'pooled'` |
-| `EPHEMERAL` |  | `'ephemeral'` |
+| `SINGLETON` | `` | `'singleton'` |
+| `APP` | `` | `'app'` |
+| `REQUEST` | `` | `'request'` |
+| `TRANSIENT` | `` | `'transient'` |
+| `POOLED` | `` | `'pooled'` |
+| `EPHEMERAL` | `` | `'ephemeral'` |
 
-### Class: `Scope`
+### `Scope`
 
 - Source: `aquilia/di/scopes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Scope metadata and rules.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `cacheable` | `bool` |  |
-| `parent` | `str &#124; None` | `None` |
+| `name` | `str` | `` |
+| `cacheable` | `bool` | `` |
+| `parent` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_inject_into` | `def can_inject_into(self, other: 'Scope') -> bool` |  | Check if this scope can be injected into another scope. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_inject_into` | `def can_inject_into(self, other: 'Scope')` | Check if this scope can be injected into another scope. |
 
-### Class: `ScopeValidator`
+### `ScopeValidator`
 
 - Source: `aquilia/di/scopes.py`
 - Bases: `object`
@@ -673,12 +696,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate_injection` | `def validate_injection(provider_scope: str, consumer_scope: str) -> bool` | staticmethod | Validate that provider scope can be injected into consumer scope. |
-| `get_scope_hierarchy` | `def get_scope_hierarchy() -> dict[str, list[str]]` | staticmethod | Get scope hierarchy for diagnostics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate_injection` | `def validate_injection(provider_scope: str, consumer_scope: str)` | Validate that provider scope can be injected into consumer scope. |
+| `get_scope_hierarchy` | `def get_scope_hierarchy()` | Get scope hierarchy for diagnostics. |
 
-### Class: `MockProvider`
+### `MockProvider`
 
 - Source: `aquilia/di/testing.py`
 - Bases: `ValueProvider`
@@ -686,12 +709,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `instantiate` | `async def instantiate(self, ctx)` |  | Track instantiation calls. |
-| `reset` | `def reset(self) -> None` |  | Reset tracking. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `instantiate` | `async def instantiate(self, ctx)` | Track instantiation calls. |
+| `reset` | `def reset(self)` | Reset tracking. |
 
-### Class: `TestRegistry`
+### `TestRegistry`
 
 - Source: `aquilia/di/testing.py`
 - Bases: `Registry`
@@ -699,40 +722,7 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_manifests` | `def from_manifests(cls, manifests: list[Any], config: Any &#124; None = None, *, overrides: dict[str, Provider] &#124; None = None, enforce_cross_app: bool = False) -> 'TestRegistry'` | classmethod | Build test registry with overrides. |
-| `build_container` | `def build_container(self) -> Container` |  | Build container with overrides applied. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `load_manifests_from_settings` | `aquilia/di/cli.py` | `def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]` | Load manifests and config from settings file. |
-| `cmd_di_check` | `aquilia/di/cli.py` | `def cmd_di_check(args)` | Validate DI configuration (static analysis). |
-| `cmd_di_tree` | `aquilia/di/cli.py` | `def cmd_di_tree(args)` | Show dependency tree. |
-| `cmd_di_graph` | `aquilia/di/cli.py` | `def cmd_di_graph(args)` | Export dependency graph as Graphviz DOT. |
-| `cmd_di_profile` | `aquilia/di/cli.py` | `def cmd_di_profile(args)` | Benchmark DI performance. |
-| `cmd_di_manifest` | `aquilia/di/cli.py` | `def cmd_di_manifest(args)` | Generate di_manifest.json for LSP integration. |
-| `setup_di_commands` | `aquilia/di/cli.py` | `def setup_di_commands(subparsers)` | Setup DI subcommands. |
-| `get_request_container` | `aquilia/di/compat.py` | `def get_request_container() -> Container &#124; None` | Get current request container from context. |
-| `set_request_container` | `aquilia/di/compat.py` | `def set_request_container(container: Container) -> None` | Set request container in context. |
-| `clear_request_container` | `aquilia/di/compat.py` | `def clear_request_container() -> None` | Clear request container from context. |
-| `inject` | `aquilia/di/decorators.py` | `def inject(token: type &#124; str &#124; None = None, *, tag: str &#124; None = None, optional: bool = False) -> Inject` | Create injection metadata. |
-| `service` | `aquilia/di/decorators.py` | `def service(*, scope: str = 'app', tag: str &#124; None = None, name: str &#124; None = None) -> Callable[[type[T]], type[T]]` | Decorator to mark a class as a DI service. |
-| `factory` | `aquilia/di/decorators.py` | `def factory(*, scope: str = 'app', tag: str &#124; None = None, name: str &#124; None = None) -> Callable[[Callable[..., T]], Callable[..., T]]` | Decorator to mark a function as a DI factory. |
-| `provides` | `aquilia/di/decorators.py` | `def provides(token: type &#124; str, *, scope: str = 'app', tag: str &#124; None = None) -> Callable[[Callable[..., T]], Callable[..., T]]` | Decorator to explicitly declare what a factory provides. |
-| `auto_inject` | `aquilia/di/decorators.py` | `def auto_inject(func: Callable[..., T]) -> Callable[..., T]` | Decorator to auto-inject dependencies into a function. |
-| `override_container` | `aquilia/di/testing.py` | `async def override_container(container: Container, token: type &#124; str, mock_value: Any, *, tag: str &#124; None = None)` | Context manager to temporarily override a provider. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `_CACHE_SENTINEL` | `aquilia/di/core.py` | `object()` |
-| `_CACHEABLE_SCOPES` | `aquilia/di/core.py` | `frozenset(('singleton', 'app', 'request'))` |
-| `T` | `aquilia/di/core.py` | `TypeVar('T')` |
-| `T` | `aquilia/di/decorators.py` | `TypeVar('T')` |
-| `T` | `aquilia/di/providers.py` | `TypeVar('T')` |
-| `_RESOLVING` | `aquilia/di/request_dag.py` | `object()` |
-| `SCOPES` | `aquilia/di/scopes.py` | `{'singleton': Scope(name='singleton', cacheable=True), 'app': Scope(name='app', cacheable=True), 'request': Scope(name='request', cacheable=True, parent='app'),` |
+| `from_manifests` | `def from_manifests(cls, manifests: list[Any], config: Any \| None=None, *, overrides: dict[str, Provider] \| None=None, enforce_cross_app: bool=False)` | Build test registry with overrides. |
+| `build_container` | `def build_container(self)` | Build container with overrides applied. |

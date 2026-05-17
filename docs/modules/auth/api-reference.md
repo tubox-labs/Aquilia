@@ -1,10 +1,43 @@
-# Authentication And Authorization API Reference
+# Auth API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/auth/__init__.py` | 314 | 0 | 0 | AquilAuth - Authentication & Authorization System |
+| `aquilia/auth/audit.py` | 510 | 7 | 0 | AquilAuth - Security Audit Trail |
+| `aquilia/auth/authz.py` | 542 | 8 | 0 | AquilAuth - Authorization Engine |
+| `aquilia/auth/clearance.py` | 864 | 6 | 12 | Aquilia Clearance System -- Unique declarative access control. |
+| `aquilia/auth/core.py` | 652 | 14 | 0 | AquilAuth - Core Types |
+| `aquilia/auth/crous.py` | 395 | 7 | 0 | AquilAuth - Crous Artifacts |
+| `aquilia/auth/decorators.py` | 864 | 6 | 3 | AquilAuth - Authentication Decorators and Guards. |
+| `aquilia/auth/faults.py` | 493 | 37 | 2 | AquilAuth - Authentication/Authorization Faults |
+| `aquilia/auth/guards.py` | 522 | 6 | 3 | AquilAuth - Guards and Flow Integration |
+| `aquilia/auth/hardening.py` | 348 | 4 | 5 | AquilAuth - Security Hardening Utilities |
+| `aquilia/auth/hashing.py` | 621 | 3 | 4 | AquilAuth - Password Hashing |
+| `aquilia/auth/integration/__init__.py` | 1 | 0 | 0 | AquilAuth - Integration package. |
+| `aquilia/auth/integration/aquila_sessions.py` | 464 | 2 | 11 | AquilAuth - Aquilia Sessions Integration |
+| `aquilia/auth/integration/di_providers.py` | 557 | 18 | 2 | AquilAuth - DI Providers |
+| `aquilia/auth/integration/flow_guards.py` | 817 | 10 | 11 | AquilAuth - Flow & Controller Guards (Deep Integration) |
+| `aquilia/auth/integration/middleware.py` | 622 | 5 | 1 | AquilAuth - Unified Middleware |
+| `aquilia/auth/integration/runtime_context.py` | 51 | 1 | 3 | AquilAuth runtime context bridge. |
+| `aquilia/auth/integration/sessions.py` | 351 | 4 | 0 | AquilAuth - Session Integration |
+| `aquilia/auth/manager.py` | 1239 | 3 | 0 | AquilAuth - Authentication Manager |
+| `aquilia/auth/mfa.py` | 461 | 3 | 0 | AquilAuth - MFA Providers |
+| `aquilia/auth/oauth.py` | 528 | 2 | 0 | AquilAuth - OAuth2/OIDC Flows |
+| `aquilia/auth/policy/__init__.py` | 191 | 4 | 4 | AquilAuth - Policy DSL Module |
+| `aquilia/auth/stores.py` | 580 | 7 | 0 | AquilAuth - Credential and Token Stores |
+| `aquilia/auth/tokens.py` | 787 | 7 | 0 | AquilAuth - Token Management |
+
+## Public Exports
+
+`ABACEngine`, `AUTHZ_INSUFFICIENT_ROLE`, `AUTHZ_INSUFFICIENT_SCOPE`, `AUTHZ_POLICY_DENIED`, `AUTHZ_RESOURCE_FORBIDDEN`, `AUTHZ_TENANT_MISMATCH`, `AUTH_ACCOUNT_LOCKED`, `AUTH_ACCOUNT_SUSPENDED`, `AUTH_BACKUP_CODE_EXHAUSTED`, `AUTH_BACKUP_CODE_INVALID`, `AUTH_CLIENT_INVALID`, `AUTH_CONSENT_REQUIRED`, `AUTH_DEVICE_CODE_EXPIRED`, `AUTH_DEVICE_CODE_PENDING`, `AUTH_GRANT_INVALID`, `AUTH_INVALID_CREDENTIALS`, `AUTH_KEY_EXPIRED`, `AUTH_KEY_REVOKED`, `AUTH_MFA_ALREADY_ENROLLED`, `AUTH_MFA_INVALID`, `AUTH_MFA_NOT_ENROLLED`, `AUTH_MFA_REQUIRED`, `AUTH_PASSWORD_BREACHED`, `AUTH_PASSWORD_REUSED`, `AUTH_PASSWORD_WEAK`, `AUTH_PKCE_INVALID`, `AUTH_RATE_LIMITED`, `AUTH_REDIRECT_URI_MISMATCH`, `AUTH_REQUIRED`, `AUTH_SCOPE_INVALID`, `AUTH_SESSION_HIJACK_DETECTED`, `AUTH_SESSION_INVALID`, `AUTH_SESSION_REQUIRED`, `AUTH_SLOW_DOWN`, `AUTH_TOKEN_EXPIRED`, `AUTH_TOKEN_INVALID`, `AUTH_TOKEN_REVOKED`, `AUTH_WEBAUTHN_INVALID`, `Abstain`, `AccessLevel`, `AdminGuard`, `Allow`, `ApiKeyCredential`, `AquilAuthMiddleware`, `AuditEvent`, `AuditEventType`, `AuditSeverity`, `AuditStore`, `AuditTrail`, `AuthConfig`, `AuthGuard`, `AuthManager`, `AuthManagerProvider`, `AuthPrincipal`, `AuthResult`, `AuthRuntimeContext`, `AuthorizationCodeStoreProvider`, `AuthorizationRequiredFault`, `AuthzEngine`, `AuthzEngineProvider`, `CSRFProtection`, `Clearance`, `ClearanceCondition`, `ClearanceEngine`, `ClearanceGuard`, `ClearanceVerdict`, `ControllerGuardAdapter`, `Credential`, `CredentialStatus`, `CredentialStore`, `CredentialStoreProvider`, `Deny`, `DeviceCodeStoreProvider`, `EnhancedRequestScopeMiddleware`, `FaultHandlerMiddleware`, `FlowGuard`, `HasherConfig`, `Identity`, `IdentityStatus`, `IdentityStore`, `IdentityStoreProvider`, `IdentityType`, `KeyAlgorithm`, `KeyDescriptor`, `KeyRing`, `KeyRingProvider`, `KeyStatus`, `LoggingAuditStore`, `MFACredential`, `MFAManager`, `MFAManagerProvider`, `MemoryAuditStore`, `MemoryCredentialStore`, `MemoryIdentityStore`, `MemoryTokenStore`, `OAuth2Manager`, `OAuth2ManagerProvider`, `OAuthClient`, `OAuthClientStore`, `OAuthClientStoreProvider`, `OptionalAuthMiddleware`, `PasswordCredential`, `PasswordHasher`, `PasswordHasherProvider`, `PasswordPolicy`, `PasswordPolicyProvider`, `Policy`, `PolicyDecision`, `PolicyRegistry`, `PolicyResult`, `RBACEngine`, `RateLimiter`, `RateLimiterProvider`, `RequestFingerprint`, `RequireApiKeyGuard`, `RequireAuthGuard`, `RequirePermissionGuard`, `RequirePolicyGuard`, `RequireRolesGuard`, `RequireScopesGuard`, `RequireSessionAuthGuard`, `RequireTokenAuthGuard`, `RoleGuard`, `ScopeGuard`, `SecurityHeaders`, `SessionAuthBridge`, `SessionAuthBridgeProvider`, `SessionEngineProvider`, `SessionMiddleware`, `SignInProvisionPolicy`, `TokenBinder`, `TokenClaims`, `TokenConfig`, `TokenManager`, `TokenManagerProvider`, `TokenStore`, `TokenStoreProvider`, `VerifiedEmailGuard`, `_extract_identity`, `_extract_session`, `api_session_policy`, `authenticated`, `bind_identity`, `bind_token_claims`, `build_merged_clearance`, `constant_time_compare`, `controller_require_auth`, `controller_require_permission`, `controller_require_roles`, `controller_require_scopes`, `create_auth_container`, `create_auth_middleware_stack`, `device_session_policy`, `during_hours`, `exempt`, `extract_controller_clearance`, `generate_opaque_id`, `generate_secure_token`, `get_auth_runtime_context`, `get_identity`, `get_identity_id`, `get_method_clearance`, `get_roles`, `get_scopes`, `get_session`, `get_tenant_id`, `grant`, `hash_password`, `hash_sensitive`, `hash_token`, `ip_allowlist`, `is_mfa_verified`, `is_owner_or_admin`, `is_same_tenant`, `is_verified`, `register_auth_providers`, `require_attribute`, `require_auth`, `require_identity`, `require_permission`, `require_roles`, `require_scopes`, `requires`, `reset_auth_runtime_context`, `rule`, `set_auth_runtime_context`, `set_identity`, `set_mfa_verified`, `user_session_policy`, `validate_password`, `verify_password`, `within_quota`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `AuditEventType` | `aquilia/auth/audit.py` | str, enum.Enum | Categories of security events. |
 | `AuditSeverity` | `aquilia/auth/audit.py` | str, enum.Enum | Severity levels for audit events. |
@@ -173,78 +206,78 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `is_verified` | `aquilia/auth/clearance.py` | `def is_verified(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity must have 'verified' attribute or status ACTIVE. |
-| `is_owner_or_admin` | `aquilia/auth/clearance.py` | `def is_owner_or_admin(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity is resource owner or has admin role. |
-| `within_quota` | `aquilia/auth/clearance.py` | `def within_quota(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity hasn't exceeded rate/resource quota. |
-| `is_same_tenant` | `aquilia/auth/clearance.py` | `def is_same_tenant(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity's tenant matches resource tenant. |
-| `during_hours` | `aquilia/auth/clearance.py` | `def during_hours(start: int = 9, end: int = 17) -> Callable` | Factory: condition that restricts access to business hours (UTC). |
-| `require_attribute` | `aquilia/auth/clearance.py` | `def require_attribute(key: str, value: Any = None) -> Callable` | Factory: condition that requires a specific identity attribute. |
-| `ip_allowlist` | `aquilia/auth/clearance.py` | `def ip_allowlist(*cidrs: str) -> Callable` | Factory: condition restricting access to specific IP ranges. |
-| `grant` | `aquilia/auth/clearance.py` | `def grant(level: AccessLevel = AccessLevel.AUTHENTICATED, entitlements: Sequence[str] = (), conditions: Sequence[Callable] = (), compartment: str &#124; None = None, deny_message: str = 'Insufficient clearance', audit: bool = True) -> Callable` | Decorator to attach clearance requirements to a route method. |
-| `exempt` | `aquilia/auth/clearance.py` | `def exempt(fn: Callable) -> Callable` | Decorator to exempt a route from class-level clearance. |
-| `get_method_clearance` | `aquilia/auth/clearance.py` | `def get_method_clearance(method: Any) -> Clearance &#124; None` | Extract clearance from a decorated method. |
-| `extract_controller_clearance` | `aquilia/auth/clearance.py` | `def extract_controller_clearance(controller_class: type) -> Clearance &#124; None` | Extract clearance from controller class. |
-| `build_merged_clearance` | `aquilia/auth/clearance.py` | `def build_merged_clearance(controller_class: type, handler_method: Any) -> Clearance &#124; None` | Build merged clearance from class + method. |
-| `authenticated` | `aquilia/auth/decorators.py` | `def authenticated(func: F &#124; None = None, *, login_url: str &#124; None = None, redirect_if_html: bool = False, include_next: bool = True, next_param: str = 'next', redirect_status: int = 303) -> F &#124; Callable[[F], F]` | Decorator requiring authenticated identity. |
-| `require_identity` | `aquilia/auth/decorators.py` | `def require_identity(*, roles: list[str] &#124; None = None, scopes: list[str] &#124; None = None, attributes: dict[str, Any] &#124; None = None, require_all_roles: bool = False, require_all_scopes: bool = True, login_url: str &#124; None = None, redirect_if_html: bool = False, include_next: bool = True, next_param: str = 'next', redirect_status: int = 303) -> Callable[[F], F]` | Decorator requiring identity with specific attributes. |
-| `requires` | `aquilia/auth/decorators.py` | `def requires(*guards: AuthGuard) -> Callable[[F], F]` | Decorator to require multiple guards. |
+| `is_verified` | `aquilia/auth/clearance.py` | `def is_verified(identity: Any, request: Any, ctx: Any)` | Condition: identity must have 'verified' attribute or status ACTIVE. |
+| `is_owner_or_admin` | `aquilia/auth/clearance.py` | `def is_owner_or_admin(identity: Any, request: Any, ctx: Any)` | Condition: identity is resource owner or has admin role. |
+| `within_quota` | `aquilia/auth/clearance.py` | `def within_quota(identity: Any, request: Any, ctx: Any)` | Condition: identity hasn't exceeded rate/resource quota. |
+| `is_same_tenant` | `aquilia/auth/clearance.py` | `def is_same_tenant(identity: Any, request: Any, ctx: Any)` | Condition: identity's tenant matches resource tenant. |
+| `during_hours` | `aquilia/auth/clearance.py` | `def during_hours(start: int=9, end: int=17)` | Factory: condition that restricts access to business hours (UTC). |
+| `require_attribute` | `aquilia/auth/clearance.py` | `def require_attribute(key: str, value: Any=None)` | Factory: condition that requires a specific identity attribute. |
+| `ip_allowlist` | `aquilia/auth/clearance.py` | `def ip_allowlist(*cidrs: str)` | Factory: condition restricting access to specific IP ranges. |
+| `grant` | `aquilia/auth/clearance.py` | `def grant(level: AccessLevel=AccessLevel.AUTHENTICATED, entitlements: Sequence[str]=(), conditions: Sequence[Callable]=(), compartment: str \| None=None, deny_message: str='Insufficient clearance', audit: bool=True)` | Decorator to attach clearance requirements to a route method. |
+| `exempt` | `aquilia/auth/clearance.py` | `def exempt(fn: Callable)` | Decorator to exempt a route from class-level clearance. |
+| `get_method_clearance` | `aquilia/auth/clearance.py` | `def get_method_clearance(method: Any)` | Extract clearance from a decorated method. |
+| `extract_controller_clearance` | `aquilia/auth/clearance.py` | `def extract_controller_clearance(controller_class: type)` | Extract clearance from controller class. |
+| `build_merged_clearance` | `aquilia/auth/clearance.py` | `def build_merged_clearance(controller_class: type, handler_method: Any)` | Build merged clearance from class + method. |
+| `authenticated` | `aquilia/auth/decorators.py` | `def authenticated(func: F \| None=None, *, login_url: str \| None=None, redirect_if_html: bool=False, include_next: bool=True, next_param: str='next', redirect_status: int=303)` | Decorator requiring authenticated identity. |
+| `require_identity` | `aquilia/auth/decorators.py` | `def require_identity(*, roles: list[str] \| None=None, scopes: list[str] \| None=None, attributes: dict[str, Any] \| None=None, require_all_roles: bool=False, require_all_scopes: bool=True, login_url: str \| None=None, redirect_if_html: bool=False, include_next: bool=True, next_param: str='next', redirect_status: int=303)` | Decorator requiring identity with specific attributes. |
+| `requires` | `aquilia/auth/decorators.py` | `def requires(*guards: AuthGuard)` | Decorator to require multiple guards. |
 | `raise_auth_fault` | `aquilia/auth/faults.py` | `def raise_auth_fault(fault_class: type[Fault], **kwargs)` | Raise an auth fault with context. |
-| `is_auth_fault` | `aquilia/auth/faults.py` | `def is_auth_fault(exception: Exception) -> bool` | Check if exception is an auth fault. |
-| `require_auth` | `aquilia/auth/guards.py` | `def require_auth(auth_manager: AuthManager, optional: bool = False) -> Callable` | Decorator: Require authentication. |
-| `require_scopes` | `aquilia/auth/guards.py` | `def require_scopes(*scopes: str) -> Callable` | Decorator: Require OAuth scopes. |
-| `require_roles` | `aquilia/auth/guards.py` | `def require_roles(*roles: str, require_all: bool = False) -> Callable` | Decorator: Require roles. |
-| `constant_time_compare` | `aquilia/auth/hardening.py` | `def constant_time_compare(a: str &#124; bytes, b: str &#124; bytes) -> bool` | Compare two strings/bytes in constant time to prevent timing attacks. |
-| `generate_secure_token` | `aquilia/auth/hardening.py` | `def generate_secure_token(length: int = 32) -> str` | Generate a cryptographically secure random token. |
-| `generate_opaque_id` | `aquilia/auth/hardening.py` | `def generate_opaque_id(prefix: str = 'aq') -> str` | Generate an opaque identifier with prefix. |
-| `hash_token` | `aquilia/auth/hardening.py` | `def hash_token(token: str) -> str` | Hash a token for storage (one-way). |
-| `hash_sensitive` | `aquilia/auth/hardening.py` | `def hash_sensitive(value: str, salt: str = '') -> str` | Hash sensitive data with optional salt. |
-| `get_password_hasher` | `aquilia/auth/hashing.py` | `def get_password_hasher() -> PasswordHasher` | Get default password hasher instance. |
-| `hash_password` | `aquilia/auth/hashing.py` | `def hash_password(password: str) -> str` | Hash password with default hasher. |
-| `verify_password` | `aquilia/auth/hashing.py` | `def verify_password(password_hash: str, password: str) -> bool` | Verify password with default hasher. |
-| `validate_password` | `aquilia/auth/hashing.py` | `def validate_password(password: str, policy: PasswordPolicy &#124; None = None) -> tuple[bool, list[str]]` | Validate password against policy. |
-| `bind_identity` | `aquilia/auth/integration/aquila_sessions.py` | `def bind_identity(session: Session, identity: Identity) -> None` | Bind identity to session. |
-| `bind_token_claims` | `aquilia/auth/integration/aquila_sessions.py` | `def bind_token_claims(session: Session, claims: TokenClaims) -> None` | Bind token claims to session. |
-| `get_identity_id` | `aquilia/auth/integration/aquila_sessions.py` | `def get_identity_id(session: Session) -> str &#124; None` | Get identity ID from session. |
-| `get_tenant_id` | `aquilia/auth/integration/aquila_sessions.py` | `def get_tenant_id(session: Session) -> str &#124; None` | Get tenant ID from session. |
-| `get_roles` | `aquilia/auth/integration/aquila_sessions.py` | `def get_roles(session: Session) -> list[str]` | Get roles from session. |
-| `get_scopes` | `aquilia/auth/integration/aquila_sessions.py` | `def get_scopes(session: Session) -> list[str]` | Get scopes from session. |
-| `is_mfa_verified` | `aquilia/auth/integration/aquila_sessions.py` | `def is_mfa_verified(session: Session) -> bool` | Check if MFA was verified for this session. |
-| `set_mfa_verified` | `aquilia/auth/integration/aquila_sessions.py` | `def set_mfa_verified(session: Session) -> None` | Mark session as MFA verified. |
-| `user_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def user_session_policy(ttl: timedelta = timedelta(days=7), idle_timeout: timedelta = timedelta(hours=1), max_sessions: int &#124; None = 5, store_name: str = 'redis') -> SessionPolicy` | Create policy for user web sessions. |
-| `api_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def api_session_policy(ttl: timedelta = timedelta(hours=1), max_sessions: int &#124; None = None) -> SessionPolicy` | Create policy for API token sessions. |
-| `device_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def device_session_policy(ttl: timedelta = timedelta(days=90), idle_timeout: timedelta = timedelta(days=30)) -> SessionPolicy` | Create policy for device (mobile app) sessions. |
-| `register_auth_providers` | `aquilia/auth/integration/di_providers.py` | `def register_auth_providers(container: Container, config: dict[str, Any] &#124; None = None) -> None` | Register all auth providers in DI container. |
-| `create_auth_container` | `aquilia/auth/integration/di_providers.py` | `def create_auth_container(config: dict[str, Any] &#124; None = None, parent: Container &#124; None = None) -> Container` | Create DI container with all auth providers registered. |
-| `get_session` | `aquilia/auth/integration/flow_guards.py` | `def get_session(context: Any) -> Session &#124; None` | Extract session from flow context. |
-| `get_identity` | `aquilia/auth/integration/flow_guards.py` | `def get_identity(context: Any) -> Identity &#124; None` | Extract identity from flow context. |
-| `set_identity` | `aquilia/auth/integration/flow_guards.py` | `def set_identity(context: Any, identity: Identity &#124; None) -> None` | Set identity in flow context. |
-| `controller_require_auth` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_auth(optional: bool = False) -> ControllerGuardAdapter` | Create auth guard for Controller pipeline. |
-| `controller_require_scopes` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_scopes(*scopes: str, require_all: bool = True) -> ControllerGuardAdapter` | Create scope guard for Controller pipeline. |
-| `controller_require_roles` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_roles(*roles: str, require_all: bool = True) -> ControllerGuardAdapter` | Create role guard for Controller pipeline. |
-| `controller_require_permission` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_permission(authz_engine: AuthzEngine, permission: str, resource: str &#124; None = None) -> ControllerGuardAdapter` | Create permission guard for Controller pipeline. |
-| `require_auth` | `aquilia/auth/integration/flow_guards.py` | `def require_auth(optional: bool = False) -> FlowNode` | Create authentication guard node. |
-| `require_scopes` | `aquilia/auth/integration/flow_guards.py` | `def require_scopes(*scopes: str, require_all: bool = True) -> FlowNode` | Create scope guard node. |
-| `require_roles` | `aquilia/auth/integration/flow_guards.py` | `def require_roles(*roles: str, require_all: bool = True) -> FlowNode` | Create role guard node. |
-| `require_permission` | `aquilia/auth/integration/flow_guards.py` | `def require_permission(authz_engine: AuthzEngine, permission: str, resource: str &#124; None = None) -> FlowNode` | Create permission guard node. |
-| `create_auth_middleware_stack` | `aquilia/auth/integration/middleware.py` | `def create_auth_middleware_stack(session_engine: SessionEngine, auth_manager: AuthManager, app_container: Container, fault_engine: FaultEngine &#124; None = None, require_auth: bool = False) -> list[Middleware]` | Create complete middleware stack for authenticated app. |
-| `set_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def set_auth_runtime_context(context: AuthRuntimeContext) -> Token` | Set auth runtime context for current async task execution. |
-| `reset_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def reset_auth_runtime_context(token: Token) -> None` | Reset auth runtime context to previous value. |
-| `get_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def get_auth_runtime_context() -> AuthRuntimeContext &#124; None` | Get current auth runtime context, if any. |
-| `Allow` | `aquilia/auth/policy/__init__.py` | `def Allow(reason: str &#124; None = None, **metadata) -> PolicyResult` | Create an Allow decision. |
-| `Deny` | `aquilia/auth/policy/__init__.py` | `def Deny(reason: str &#124; None = None, **metadata) -> PolicyResult` | Create a Deny decision. |
-| `Abstain` | `aquilia/auth/policy/__init__.py` | `def Abstain(reason: str &#124; None = None) -> PolicyResult` | Create an Abstain decision (defer to next rule/policy). |
-| `rule` | `aquilia/auth/policy/__init__.py` | `def rule(func: Callable) -> Callable` | Decorator to mark a method as a policy rule. |
+| `is_auth_fault` | `aquilia/auth/faults.py` | `def is_auth_fault(exception: Exception)` | Check if exception is an auth fault. |
+| `require_auth` | `aquilia/auth/guards.py` | `def require_auth(auth_manager: AuthManager, optional: bool=False)` | Decorator: Require authentication. |
+| `require_scopes` | `aquilia/auth/guards.py` | `def require_scopes(*scopes: str)` | Decorator: Require OAuth scopes. |
+| `require_roles` | `aquilia/auth/guards.py` | `def require_roles(*roles: str, require_all: bool=False)` | Decorator: Require roles. |
+| `constant_time_compare` | `aquilia/auth/hardening.py` | `def constant_time_compare(a: str \| bytes, b: str \| bytes)` | Compare two strings/bytes in constant time to prevent timing attacks. |
+| `generate_secure_token` | `aquilia/auth/hardening.py` | `def generate_secure_token(length: int=32)` | Generate a cryptographically secure random token. |
+| `generate_opaque_id` | `aquilia/auth/hardening.py` | `def generate_opaque_id(prefix: str='aq')` | Generate an opaque identifier with prefix. |
+| `hash_token` | `aquilia/auth/hardening.py` | `def hash_token(token: str)` | Hash a token for storage (one-way). |
+| `hash_sensitive` | `aquilia/auth/hardening.py` | `def hash_sensitive(value: str, salt: str='')` | Hash sensitive data with optional salt. |
+| `get_password_hasher` | `aquilia/auth/hashing.py` | `def get_password_hasher()` | Get default password hasher instance. |
+| `hash_password` | `aquilia/auth/hashing.py` | `def hash_password(password: str)` | Hash password with default hasher. |
+| `verify_password` | `aquilia/auth/hashing.py` | `def verify_password(password_hash: str, password: str)` | Verify password with default hasher. |
+| `validate_password` | `aquilia/auth/hashing.py` | `def validate_password(password: str, policy: PasswordPolicy \| None=None)` | Validate password against policy. |
+| `bind_identity` | `aquilia/auth/integration/aquila_sessions.py` | `def bind_identity(session: Session, identity: Identity)` | Bind identity to session. |
+| `bind_token_claims` | `aquilia/auth/integration/aquila_sessions.py` | `def bind_token_claims(session: Session, claims: TokenClaims)` | Bind token claims to session. |
+| `get_identity_id` | `aquilia/auth/integration/aquila_sessions.py` | `def get_identity_id(session: Session)` | Get identity ID from session. |
+| `get_tenant_id` | `aquilia/auth/integration/aquila_sessions.py` | `def get_tenant_id(session: Session)` | Get tenant ID from session. |
+| `get_roles` | `aquilia/auth/integration/aquila_sessions.py` | `def get_roles(session: Session)` | Get roles from session. |
+| `get_scopes` | `aquilia/auth/integration/aquila_sessions.py` | `def get_scopes(session: Session)` | Get scopes from session. |
+| `is_mfa_verified` | `aquilia/auth/integration/aquila_sessions.py` | `def is_mfa_verified(session: Session)` | Check if MFA was verified for this session. |
+| `set_mfa_verified` | `aquilia/auth/integration/aquila_sessions.py` | `def set_mfa_verified(session: Session)` | Mark session as MFA verified. |
+| `user_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def user_session_policy(ttl: timedelta=timedelta(days=7), idle_timeout: timedelta=timedelta(hours=1), max_sessions: int \| None=5, store_name: str='redis')` | Create policy for user web sessions. |
+| `api_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def api_session_policy(ttl: timedelta=timedelta(hours=1), max_sessions: int \| None=None)` | Create policy for API token sessions. |
+| `device_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def device_session_policy(ttl: timedelta=timedelta(days=90), idle_timeout: timedelta=timedelta(days=30))` | Create policy for device (mobile app) sessions. |
+| `register_auth_providers` | `aquilia/auth/integration/di_providers.py` | `def register_auth_providers(container: Container, config: dict[str, Any] \| None=None)` | Register all auth providers in DI container. |
+| `create_auth_container` | `aquilia/auth/integration/di_providers.py` | `def create_auth_container(config: dict[str, Any] \| None=None, parent: Container \| None=None)` | Create DI container with all auth providers registered. |
+| `get_session` | `aquilia/auth/integration/flow_guards.py` | `def get_session(context: Any)` | Extract session from flow context. |
+| `get_identity` | `aquilia/auth/integration/flow_guards.py` | `def get_identity(context: Any)` | Extract identity from flow context. |
+| `set_identity` | `aquilia/auth/integration/flow_guards.py` | `def set_identity(context: Any, identity: Identity \| None)` | Set identity in flow context. |
+| `controller_require_auth` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_auth(optional: bool=False)` | Create auth guard for Controller pipeline. |
+| `controller_require_scopes` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_scopes(*scopes: str, require_all: bool=True)` | Create scope guard for Controller pipeline. |
+| `controller_require_roles` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_roles(*roles: str, require_all: bool=True)` | Create role guard for Controller pipeline. |
+| `controller_require_permission` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_permission(authz_engine: AuthzEngine, permission: str, resource: str \| None=None)` | Create permission guard for Controller pipeline. |
+| `require_auth` | `aquilia/auth/integration/flow_guards.py` | `def require_auth(optional: bool=False)` | Create authentication guard node. |
+| `require_scopes` | `aquilia/auth/integration/flow_guards.py` | `def require_scopes(*scopes: str, require_all: bool=True)` | Create scope guard node. |
+| `require_roles` | `aquilia/auth/integration/flow_guards.py` | `def require_roles(*roles: str, require_all: bool=True)` | Create role guard node. |
+| `require_permission` | `aquilia/auth/integration/flow_guards.py` | `def require_permission(authz_engine: AuthzEngine, permission: str, resource: str \| None=None)` | Create permission guard node. |
+| `create_auth_middleware_stack` | `aquilia/auth/integration/middleware.py` | `def create_auth_middleware_stack(session_engine: SessionEngine, auth_manager: AuthManager, app_container: Container, fault_engine: FaultEngine \| None=None, require_auth: bool=False)` | Create complete middleware stack for authenticated app. |
+| `set_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def set_auth_runtime_context(context: AuthRuntimeContext)` | Set auth runtime context for current async task execution. |
+| `reset_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def reset_auth_runtime_context(token: Token)` | Reset auth runtime context to previous value. |
+| `get_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def get_auth_runtime_context()` | Get current auth runtime context, if any. |
+| `Allow` | `aquilia/auth/policy/__init__.py` | `def Allow(reason: str \| None=None, **metadata)` | Create an Allow decision. |
+| `Deny` | `aquilia/auth/policy/__init__.py` | `def Deny(reason: str \| None=None, **metadata)` | Create a Deny decision. |
+| `Abstain` | `aquilia/auth/policy/__init__.py` | `def Abstain(reason: str \| None=None)` | Create an Abstain decision (defer to next rule/policy). |
+| `rule` | `aquilia/auth/policy/__init__.py` | `def rule(func: Callable)` | Decorator to mark a method as a policy rule. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `_CLEARANCE_ATTR` | `aquilia/auth/clearance.py` | `'__aquilia_clearance__'` |
 | `F` | `aquilia/auth/decorators.py` | `TypeVar('F', bound=Callable[..., Any])` |
 | `SUPPORTED_ALGORITHMS` | `aquilia/auth/hashing.py` | `('argon2id', 'scrypt', 'bcrypt', 'pbkdf2_sha512', 'pbkdf2_sha256')` |
-| `_AUTH_RUNTIME_CONTEXT` | `aquilia/auth/integration/runtime_context.py` | `ContextVar[AuthRuntimeContext &#124; None]` |
+| `_AUTH_RUNTIME_CONTEXT` | `aquilia/auth/integration/runtime_context.py` | `ContextVar[AuthRuntimeContext \| None]` |
 | `_HMAC_ALGORITHMS` | `aquilia/auth/tokens.py` | `frozenset[str]` |
 | `_ASYMMETRIC_ALGORITHMS` | `aquilia/auth/tokens.py` | `frozenset[str]` |
 | `_SUPPORTED_ALGORITHMS` | `aquilia/auth/tokens.py` | `frozenset[str]` |
@@ -252,100 +285,100 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `AuditEventType`
+### `AuditEventType`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `str, enum.Enum`
 - Summary: Categories of security events.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `AUTH_LOGIN_SUCCESS` |  | `'auth.login.success'` |
-| `AUTH_LOGIN_FAILURE` |  | `'auth.login.failure'` |
-| `AUTH_LOGOUT` |  | `'auth.logout'` |
-| `AUTH_TOKEN_ISSUED` |  | `'auth.token.issued'` |
-| `AUTH_TOKEN_REFRESHED` |  | `'auth.token.refreshed'` |
-| `AUTH_TOKEN_REVOKED` |  | `'auth.token.revoked'` |
-| `AUTH_TOKEN_EXPIRED` |  | `'auth.token.expired'` |
-| `AUTH_TOKEN_INVALID` |  | `'auth.token.invalid'` |
-| `AUTH_API_KEY_USED` |  | `'auth.apikey.used'` |
-| `AUTH_API_KEY_REJECTED` |  | `'auth.apikey.rejected'` |
-| `AUTH_MFA_CHALLENGE` |  | `'auth.mfa.challenge'` |
-| `AUTH_MFA_SUCCESS` |  | `'auth.mfa.success'` |
-| `AUTH_MFA_FAILURE` |  | `'auth.mfa.failure'` |
-| `AUTHZ_ACCESS_GRANTED` |  | `'authz.access.granted'` |
-| `AUTHZ_ACCESS_DENIED` |  | `'authz.access.denied'` |
-| `AUTHZ_CLEARANCE_GRANTED` |  | `'authz.clearance.granted'` |
-| `AUTHZ_CLEARANCE_DENIED` |  | `'authz.clearance.denied'` |
-| `AUTHZ_POLICY_EVALUATED` |  | `'authz.policy.evaluated'` |
-| `SESSION_CREATED` |  | `'session.created'` |
-| `SESSION_DESTROYED` |  | `'session.destroyed'` |
-| `SESSION_EXPIRED` |  | `'session.expired'` |
-| `SESSION_HIJACK_ATTEMPT` |  | `'session.hijack_attempt'` |
-| `ACCOUNT_LOCKED` |  | `'account.locked'` |
-| `ACCOUNT_UNLOCKED` |  | `'account.unlocked'` |
-| `ACCOUNT_SUSPENDED` |  | `'account.suspended'` |
-| `ACCOUNT_RATE_LIMITED` |  | `'account.rate_limited'` |
-| `ACCOUNT_PASSWORD_CHANGED` |  | `'account.password_changed'` |
-| `ACCOUNT_CREATED` |  | `'account.created'` |
-| `OAUTH_AUTH_CODE_ISSUED` |  | `'oauth.authcode.issued'` |
-| `OAUTH_CLIENT_AUTH` |  | `'oauth.client.auth'` |
-| `OAUTH_DEVICE_AUTH` |  | `'oauth.device.auth'` |
-| `SECURITY_KEY_ROTATED` |  | `'security.key.rotated'` |
-| `SECURITY_KEY_REVOKED` |  | `'security.key.revoked'` |
-| `SECURITY_CONFIG_CHANGED` |  | `'security.config.changed'` |
+| `AUTH_LOGIN_SUCCESS` | `` | `'auth.login.success'` |
+| `AUTH_LOGIN_FAILURE` | `` | `'auth.login.failure'` |
+| `AUTH_LOGOUT` | `` | `'auth.logout'` |
+| `AUTH_TOKEN_ISSUED` | `` | `'auth.token.issued'` |
+| `AUTH_TOKEN_REFRESHED` | `` | `'auth.token.refreshed'` |
+| `AUTH_TOKEN_REVOKED` | `` | `'auth.token.revoked'` |
+| `AUTH_TOKEN_EXPIRED` | `` | `'auth.token.expired'` |
+| `AUTH_TOKEN_INVALID` | `` | `'auth.token.invalid'` |
+| `AUTH_API_KEY_USED` | `` | `'auth.apikey.used'` |
+| `AUTH_API_KEY_REJECTED` | `` | `'auth.apikey.rejected'` |
+| `AUTH_MFA_CHALLENGE` | `` | `'auth.mfa.challenge'` |
+| `AUTH_MFA_SUCCESS` | `` | `'auth.mfa.success'` |
+| `AUTH_MFA_FAILURE` | `` | `'auth.mfa.failure'` |
+| `AUTHZ_ACCESS_GRANTED` | `` | `'authz.access.granted'` |
+| `AUTHZ_ACCESS_DENIED` | `` | `'authz.access.denied'` |
+| `AUTHZ_CLEARANCE_GRANTED` | `` | `'authz.clearance.granted'` |
+| `AUTHZ_CLEARANCE_DENIED` | `` | `'authz.clearance.denied'` |
+| `AUTHZ_POLICY_EVALUATED` | `` | `'authz.policy.evaluated'` |
+| `SESSION_CREATED` | `` | `'session.created'` |
+| `SESSION_DESTROYED` | `` | `'session.destroyed'` |
+| `SESSION_EXPIRED` | `` | `'session.expired'` |
+| `SESSION_HIJACK_ATTEMPT` | `` | `'session.hijack_attempt'` |
+| `ACCOUNT_LOCKED` | `` | `'account.locked'` |
+| `ACCOUNT_UNLOCKED` | `` | `'account.unlocked'` |
+| `ACCOUNT_SUSPENDED` | `` | `'account.suspended'` |
+| `ACCOUNT_RATE_LIMITED` | `` | `'account.rate_limited'` |
+| `ACCOUNT_PASSWORD_CHANGED` | `` | `'account.password_changed'` |
+| `ACCOUNT_CREATED` | `` | `'account.created'` |
+| `OAUTH_AUTH_CODE_ISSUED` | `` | `'oauth.authcode.issued'` |
+| `OAUTH_CLIENT_AUTH` | `` | `'oauth.client.auth'` |
+| `OAUTH_DEVICE_AUTH` | `` | `'oauth.device.auth'` |
+| `SECURITY_KEY_ROTATED` | `` | `'security.key.rotated'` |
+| `SECURITY_KEY_REVOKED` | `` | `'security.key.revoked'` |
+| `SECURITY_CONFIG_CHANGED` | `` | `'security.config.changed'` |
 
-### Class: `AuditSeverity`
+### `AuditSeverity`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `str, enum.Enum`
 - Summary: Severity levels for audit events.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `INFO` |  | `'info'` |
-| `WARNING` |  | `'warning'` |
-| `CRITICAL` |  | `'critical'` |
-| `ALERT` |  | `'alert'` |
+| `INFO` | `` | `'info'` |
+| `WARNING` | `` | `'warning'` |
+| `CRITICAL` | `` | `'critical'` |
+| `ALERT` | `` | `'alert'` |
 
-### Class: `AuditEvent`
+### `AuditEvent`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Structured security audit event.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `event_type` | `AuditEventType` |  |
-| `severity` | `AuditSeverity` |  |
+| `event_type` | `AuditEventType` | `` |
+| `severity` | `AuditSeverity` | `` |
 | `timestamp` | `float` | `field(default_factory=time.time)` |
-| `identity_id` | `str &#124; None` | `None` |
-| `ip_address` | `str &#124; None` | `None` |
-| `user_agent` | `str &#124; None` | `None` |
-| `resource` | `str &#124; None` | `None` |
-| `action` | `str &#124; None` | `None` |
+| `identity_id` | `str \| None` | `None` |
+| `ip_address` | `str \| None` | `None` |
+| `user_agent` | `str \| None` | `None` |
+| `resource` | `str \| None` | `None` |
+| `action` | `str \| None` | `None` |
 | `outcome` | `str` | `'success'` |
 | `details` | `dict[str, Any]` | `field(default_factory=dict)` |
-| `request_id` | `str &#124; None` | `None` |
-| `session_id` | `str &#124; None` | `None` |
-| `tenant_id` | `str &#124; None` | `None` |
+| `request_id` | `str \| None` | `None` |
+| `session_id` | `str \| None` | `None` |
+| `tenant_id` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `timestamp_iso` | `def timestamp_iso(self) -> str` | property | ISO 8601 timestamp. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict for logging/storage. |
-| `to_json` | `def to_json(self) -> str` |  | Serialize to JSON string. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `timestamp_iso` | `def timestamp_iso(self)` | ISO 8601 timestamp. |
+| `to_dict` | `def to_dict(self)` | Serialize to dict for logging/storage. |
+| `to_json` | `def to_json(self)` | Serialize to JSON string. |
 
-### Class: `AuditStore`
+### `AuditStore`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `object`
@@ -353,12 +386,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `emit` | `async def emit(self, event: AuditEvent) -> None` |  | Store/emit an audit event. |
-| `query` | `async def query(self, event_type: AuditEventType &#124; None = None, identity_id: str &#124; None = None, since: float &#124; None = None, until: float &#124; None = None, limit: int = 100) -> list[AuditEvent]` |  | Query stored events. Optional -- not all stores support this. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `emit` | `async def emit(self, event: AuditEvent)` | Store/emit an audit event. |
+| `query` | `async def query(self, event_type: AuditEventType \| None=None, identity_id: str \| None=None, since: float \| None=None, until: float \| None=None, limit: int=100)` | Query stored events. Optional -- not all stores support this. |
 
-### Class: `MemoryAuditStore`
+### `MemoryAuditStore`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `AuditStore`
@@ -366,14 +399,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `emit` | `async def emit(self, event: AuditEvent) -> None` |  | Store event in memory. |
-| `query` | `async def query(self, event_type: AuditEventType &#124; None = None, identity_id: str &#124; None = None, since: float &#124; None = None, until: float &#124; None = None, limit: int = 100) -> list[AuditEvent]` |  | Query events from memory store. |
-| `clear` | `def clear(self) -> None` |  | Clear all stored events. |
-| `events` | `def events(self) -> list[AuditEvent]` | property | Access stored events. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `emit` | `async def emit(self, event: AuditEvent)` | Store event in memory. |
+| `query` | `async def query(self, event_type: AuditEventType \| None=None, identity_id: str \| None=None, since: float \| None=None, until: float \| None=None, limit: int=100)` | Query events from memory store. |
+| `clear` | `def clear(self)` | Clear all stored events. |
+| `events` | `def events(self)` | Access stored events. |
 
-### Class: `LoggingAuditStore`
+### `LoggingAuditStore`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `AuditStore`
@@ -381,11 +414,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `emit` | `async def emit(self, event: AuditEvent) -> None` |  | Emit event to logger. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `emit` | `async def emit(self, event: AuditEvent)` | Emit event to logger. |
 
-### Class: `AuditTrail`
+### `AuditTrail`
 
 - Source: `aquilia/auth/audit.py`
 - Bases: `object`
@@ -393,71 +426,71 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_store` | `def add_store(self, store: AuditStore) -> None` |  | Add an audit store. |
-| `emit` | `async def emit(self, event: AuditEvent) -> None` |  | Emit an event to all stores. |
-| `login_success` | `async def login_success(self, identity_id: str, request: Any = None, method: str = 'password', **extra) -> None` |  | Record successful login. |
-| `login_failure` | `async def login_failure(self, identity_id: str &#124; None, request: Any = None, reason: str = 'invalid_credentials', **extra) -> None` |  | Record failed login attempt. |
-| `access_denied` | `async def access_denied(self, identity_id: str &#124; None, resource: str, request: Any = None, reason: str = 'insufficient_permissions', **extra) -> None` |  | Record access denied event. |
-| `clearance_evaluated` | `async def clearance_evaluated(self, identity_id: str &#124; None, resource: str, granted: bool, request: Any = None, **extra) -> None` |  | Record clearance evaluation result. |
-| `token_event` | `async def token_event(self, event_type: AuditEventType, identity_id: str, request: Any = None, **extra) -> None` |  | Record token lifecycle event. |
-| `account_locked` | `async def account_locked(self, identity_id: str, request: Any = None, reason: str = 'max_attempts_exceeded', **extra) -> None` |  | Record account lockout. |
-| `session_event` | `async def session_event(self, event_type: AuditEventType, identity_id: str &#124; None = None, request: Any = None, **extra) -> None` |  | Record session lifecycle event. |
-| `query` | `async def query(self, event_type: AuditEventType &#124; None = None, identity_id: str &#124; None = None, since: float &#124; None = None, until: float &#124; None = None, limit: int = 100) -> list[AuditEvent]` |  | Query events from first store that supports it. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_store` | `def add_store(self, store: AuditStore)` | Add an audit store. |
+| `emit` | `async def emit(self, event: AuditEvent)` | Emit an event to all stores. |
+| `login_success` | `async def login_success(self, identity_id: str, request: Any=None, method: str='password', **extra)` | Record successful login. |
+| `login_failure` | `async def login_failure(self, identity_id: str \| None, request: Any=None, reason: str='invalid_credentials', **extra)` | Record failed login attempt. |
+| `access_denied` | `async def access_denied(self, identity_id: str \| None, resource: str, request: Any=None, reason: str='insufficient_permissions', **extra)` | Record access denied event. |
+| `clearance_evaluated` | `async def clearance_evaluated(self, identity_id: str \| None, resource: str, granted: bool, request: Any=None, **extra)` | Record clearance evaluation result. |
+| `token_event` | `async def token_event(self, event_type: AuditEventType, identity_id: str, request: Any=None, **extra)` | Record token lifecycle event. |
+| `account_locked` | `async def account_locked(self, identity_id: str, request: Any=None, reason: str='max_attempts_exceeded', **extra)` | Record account lockout. |
+| `session_event` | `async def session_event(self, event_type: AuditEventType, identity_id: str \| None=None, request: Any=None, **extra)` | Record session lifecycle event. |
+| `query` | `async def query(self, event_type: AuditEventType \| None=None, identity_id: str \| None=None, since: float \| None=None, until: float \| None=None, limit: int=100)` | Query events from first store that supports it. |
 
-### Class: `Decision`
+### `Decision`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `str, Enum`
 - Summary: Authorization decision.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ALLOW` |  | `'allow'` |
-| `DENY` |  | `'deny'` |
-| `ABSTAIN` |  | `'abstain'` |
+| `ALLOW` | `` | `'allow'` |
+| `DENY` | `` | `'deny'` |
+| `ABSTAIN` | `` | `'abstain'` |
 
-### Class: `AuthzContext`
+### `AuthzContext`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Authorization context for policy evaluation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `identity` | `Identity` |  |
-| `resource` | `str` |  |
-| `action` | `str` |  |
+| `identity` | `Identity` | `` |
+| `resource` | `str` | `` |
+| `action` | `str` | `` |
 | `scopes` | `list[str]` | `field(default_factory=list)` |
 | `roles` | `list[str]` | `field(default_factory=list)` |
 | `attributes` | `dict[str, Any]` | `field(default_factory=dict)` |
-| `tenant_id` | `str &#124; None` | `None` |
-| `session_id` | `str &#124; None` | `None` |
+| `tenant_id` | `str \| None` | `None` |
+| `session_id` | `str \| None` | `None` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `AuthzResult`
+### `AuthzResult`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Authorization result.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `decision` | `Decision` |  |
-| `reason` | `str &#124; None` | `None` |
-| `policy_id` | `str &#124; None` | `None` |
+| `decision` | `Decision` | `` |
+| `reason` | `str \| None` | `None` |
+| `policy_id` | `str \| None` | `None` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `RBACEngine`
+### `RBACEngine`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
@@ -465,14 +498,14 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `define_role` | `def define_role(self, role: str, permissions: list[str], inherits: list[str] &#124; None = None) -> None` |  | Define role with permissions and inheritance. |
-| `get_permissions` | `def get_permissions(self, role: str, _visited: set[str] &#124; None = None) -> set[str]` |  | Get all permissions for role (including inherited). |
-| `check_permission` | `def check_permission(self, roles: list[str], permission: str) -> bool` |  | Check if any role has permission. |
-| `check` | `def check(self, context: AuthzContext, permission: str) -> AuthzResult` |  | Check authorization using RBAC. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `define_role` | `def define_role(self, role: str, permissions: list[str], inherits: list[str] \| None=None)` | Define role with permissions and inheritance. |
+| `get_permissions` | `def get_permissions(self, role: str, _visited: set[str] \| None=None)` | Get all permissions for role (including inherited). |
+| `check_permission` | `def check_permission(self, roles: list[str], permission: str)` | Check if any role has permission. |
+| `check` | `def check(self, context: AuthzContext, permission: str)` | Check authorization using RBAC. |
 
-### Class: `ABACEngine`
+### `ABACEngine`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
@@ -480,12 +513,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register_policy` | `def register_policy(self, policy_id: str, policy_func: Callable[[AuthzContext], AuthzResult]) -> None` |  | Register attribute-based policy. |
-| `evaluate` | `def evaluate(self, context: AuthzContext, policy_id: str) -> AuthzResult` |  | Evaluate specific policy. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register_policy` | `def register_policy(self, policy_id: str, policy_func: Callable[[AuthzContext], AuthzResult])` | Register attribute-based policy. |
+| `evaluate` | `def evaluate(self, context: AuthzContext, policy_id: str)` | Evaluate specific policy. |
 
-### Class: `ScopeChecker`
+### `ScopeChecker`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
@@ -493,12 +526,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check_scopes` | `def check_scopes(available_scopes: list[str], required_scopes: list[str]) -> bool` | staticmethod | Check if available scopes satisfy requirements. |
-| `check` | `def check(context: AuthzContext, required_scopes: list[str]) -> AuthzResult` | staticmethod | Check scope-based authorization. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check_scopes` | `def check_scopes(available_scopes: list[str], required_scopes: list[str])` | Check if available scopes satisfy requirements. |
+| `check` | `def check(context: AuthzContext, required_scopes: list[str])` | Check scope-based authorization. |
 
-### Class: `AuthzEngine`
+### `AuthzEngine`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
@@ -506,18 +539,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `set_policy_order` | `def set_policy_order(self, policy_ids: list[str]) -> None` |  | Set evaluation order for policies. |
-| `check_scope` | `def check_scope(self, context: AuthzContext, required_scopes: list[str]) -> None` |  | Check scope requirements (raises if failed). |
-| `check_role` | `def check_role(self, context: AuthzContext, required_roles: list[str]) -> None` |  | Check role requirements (raises if failed). |
-| `check_permission` | `def check_permission(self, context: AuthzContext, permission: str) -> None` |  | Check RBAC permission (raises if failed). |
-| `check_tenant` | `def check_tenant(self, context: AuthzContext, resource_tenant_id: str) -> None` |  | Check tenant isolation (multi-tenancy). |
-| `check` | `def check(self, context: AuthzContext) -> AuthzResult` |  | Comprehensive authorization check. |
-| `authorize` | `def authorize(self, context: AuthzContext, raise_on_deny: bool = True) -> AuthzResult` |  | Authorize action (with optional exception raising). |
-| `list_permitted_actions` | `def list_permitted_actions(self, identity: Identity, resource: str, actions: list[str]) -> list[str]` |  | List permitted actions for resource. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `set_policy_order` | `def set_policy_order(self, policy_ids: list[str])` | Set evaluation order for policies. |
+| `check_scope` | `def check_scope(self, context: AuthzContext, required_scopes: list[str])` | Check scope requirements (raises if failed). |
+| `check_role` | `def check_role(self, context: AuthzContext, required_roles: list[str])` | Check role requirements (raises if failed). |
+| `check_permission` | `def check_permission(self, context: AuthzContext, permission: str)` | Check RBAC permission (raises if failed). |
+| `check_tenant` | `def check_tenant(self, context: AuthzContext, resource_tenant_id: str)` | Check tenant isolation (multi-tenancy). |
+| `check` | `def check(self, context: AuthzContext)` | Comprehensive authorization check. |
+| `authorize` | `def authorize(self, context: AuthzContext, raise_on_deny: bool=True)` | Authorize action (with optional exception raising). |
+| `list_permitted_actions` | `def list_permitted_actions(self, identity: Identity, resource: str, actions: list[str])` | List permitted actions for resource. |
 
-### Class: `PolicyBuilder`
+### `PolicyBuilder`
 
 - Source: `aquilia/auth/authz.py`
 - Bases: `object`
@@ -525,82 +558,82 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `owner_only` | `def owner_only(attribute: str = 'owner_id') -> Callable[[AuthzContext], AuthzResult]` | staticmethod | Policy: Only resource owner can access. |
-| `admin_or_owner` | `def admin_or_owner(admin_role: str = 'admin', attribute: str = 'owner_id') -> Callable[[AuthzContext], AuthzResult]` | staticmethod | Policy: Admin or resource owner can access. |
-| `time_based` | `def time_based(allowed_hours: tuple[int, int] = (9, 17)) -> Callable[[AuthzContext], AuthzResult]` | staticmethod | Policy: Allow access only during specific hours (UTC). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `owner_only` | `def owner_only(attribute: str='owner_id')` | Policy: Only resource owner can access. |
+| `admin_or_owner` | `def admin_or_owner(admin_role: str='admin', attribute: str='owner_id')` | Policy: Admin or resource owner can access. |
+| `time_based` | `def time_based(allowed_hours: tuple[int, int]=(9, 17))` | Policy: Allow access only during specific hours (UTC). |
 
-### Class: `AccessLevel`
+### `AccessLevel`
 
 - Source: `aquilia/auth/clearance.py`
 - Bases: `enum.IntEnum`
 - Summary: Hierarchical access tiers -- higher ordinal = stricter.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PUBLIC` |  | `0` |
-| `AUTHENTICATED` |  | `10` |
-| `INTERNAL` |  | `20` |
-| `CONFIDENTIAL` |  | `30` |
-| `RESTRICTED` |  | `40` |
+| `PUBLIC` | `` | `0` |
+| `AUTHENTICATED` | `` | `10` |
+| `INTERNAL` | `` | `20` |
+| `CONFIDENTIAL` | `` | `30` |
+| `RESTRICTED` | `` | `40` |
 
-### Class: `ClearanceCondition`
+### `ClearanceCondition`
 
 - Source: `aquilia/auth/clearance.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: A callable predicate evaluated at request time.
+- Decorators: `runtime_checkable`
 
-### Class: `Clearance`
+### `Clearance`
 
 - Source: `aquilia/auth/clearance.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Immutable clearance requirement descriptor.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `level` | `AccessLevel` | `AccessLevel.AUTHENTICATED` |
 | `entitlements` | `tuple[str, ...]` | `()` |
 | `conditions` | `tuple[Callable, ...]` | `()` |
-| `compartment` | `str &#124; None` | `None` |
+| `compartment` | `str \| None` | `None` |
 | `deny_message` | `str` | `'Insufficient clearance'` |
 | `audit` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `merge` | `def merge(self, override: Clearance) -> Clearance` |  | Merge this (class-level) clearance with an override (method-level). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `merge` | `def merge(self, override: Clearance)` | Merge this (class-level) clearance with an override (method-level). |
 
-### Class: `ClearanceVerdict`
+### `ClearanceVerdict`
 
 - Source: `aquilia/auth/clearance.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of a clearance evaluation.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `granted` | `bool` |  |
-| `level_ok` | `bool` |  |
-| `entitlements_ok` | `bool` |  |
-| `conditions_ok` | `bool` |  |
-| `compartment_ok` | `bool` |  |
+| `granted` | `bool` | `` |
+| `level_ok` | `bool` | `` |
+| `entitlements_ok` | `bool` | `` |
+| `conditions_ok` | `bool` | `` |
+| `compartment_ok` | `bool` | `` |
 | `missing_entitlements` | `tuple[str, ...]` | `()` |
 | `failed_conditions` | `tuple[str, ...]` | `()` |
 | `message` | `str` | `''` |
 | `evaluated_at` | `float` | `0.0` |
-| `identity_id` | `str &#124; None` | `None` |
+| `identity_id` | `str \| None` | `None` |
 
-### Class: `ClearanceEngine`
+### `ClearanceEngine`
 
 - Source: `aquilia/auth/clearance.py`
 - Bases: `object`
@@ -608,15 +641,15 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve_identity_level` | `def resolve_identity_level(self, identity: Any) -> AccessLevel` |  | Determine the highest AccessLevel an identity holds. |
-| `resolve_entitlements` | `def resolve_entitlements(self, identity: Any) -> set[str]` |  | Resolve the set of entitlements an identity holds. |
-| `resolve_compartment` | `def resolve_compartment(self, compartment_template: str &#124; None, identity: Any, request: Any, ctx: Any) -> str &#124; None` |  | Resolve a compartment template to a concrete value. |
-| `evaluate` | `async def evaluate(self, clearance: Clearance, identity: Any, request: Any, ctx: Any) -> ClearanceVerdict` |  | Evaluate a clearance requirement against the current context. |
-| `clear_cache` | `def clear_cache(self) -> None` |  | Clear identity level cache. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve_identity_level` | `def resolve_identity_level(self, identity: Any)` | Determine the highest AccessLevel an identity holds. |
+| `resolve_entitlements` | `def resolve_entitlements(self, identity: Any)` | Resolve the set of entitlements an identity holds. |
+| `resolve_compartment` | `def resolve_compartment(self, compartment_template: str \| None, identity: Any, request: Any, ctx: Any)` | Resolve a compartment template to a concrete value. |
+| `evaluate` | `async def evaluate(self, clearance: Clearance, identity: Any, request: Any, ctx: Any)` | Evaluate a clearance requirement against the current context. |
+| `clear_cache` | `def clear_cache(self)` | Clear identity level cache. |
 
-### Class: `ClearanceGuard`
+### `ClearanceGuard`
 
 - Source: `aquilia/auth/clearance.py`
 - Bases: `object`
@@ -624,180 +657,180 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `for_controller` | `def for_controller(self) -> ClearanceGuard` |  | Return self -- already works as controller pipeline guard. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `for_controller` | `def for_controller(self)` | Return self -- already works as controller pipeline guard. |
 
-### Class: `IdentityType`
+### `IdentityType`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `str, Enum`
 - Summary: Type of authenticated principal.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `USER` |  | `'user'` |
-| `SERVICE` |  | `'service'` |
-| `DEVICE` |  | `'device'` |
-| `ANONYMOUS` |  | `'anonymous'` |
+| `USER` | `` | `'user'` |
+| `SERVICE` | `` | `'service'` |
+| `DEVICE` | `` | `'device'` |
+| `ANONYMOUS` | `` | `'anonymous'` |
 
-### Class: `IdentityStatus`
+### `IdentityStatus`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `str, Enum`
 - Summary: Identity status.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ACTIVE` |  | `'active'` |
-| `SUSPENDED` |  | `'suspended'` |
-| `DELETED` |  | `'deleted'` |
-| `PENDING` |  | `'pending'` |
+| `ACTIVE` | `` | `'active'` |
+| `SUSPENDED` | `` | `'suspended'` |
+| `DELETED` | `` | `'deleted'` |
+| `PENDING` | `` | `'pending'` |
 
-### Class: `Identity`
+### `Identity`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Authenticated principal (user or service).
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str` |  |
-| `type` | `IdentityType` |  |
-| `attributes` | `dict[str, Any]` |  |
+| `id` | `str` | `` |
+| `type` | `IdentityType` | `` |
+| `attributes` | `dict[str, Any]` | `` |
 | `status` | `IdentityStatus` | `IdentityStatus.ACTIVE` |
-| `tenant_id` | `str &#124; None` | `None` |
+| `tenant_id` | `str \| None` | `None` |
 | `created_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
 | `updated_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_attribute` | `def get_attribute(self, key: str, default: Any = None) -> Any` |  | Get attribute value with default. |
-| `has_role` | `def has_role(self, role: str) -> bool` |  | Check if identity has role. |
-| `has_scope` | `def has_scope(self, scope: str) -> bool` |  | Check if identity has scope. |
-| `is_active` | `def is_active(self) -> bool` |  | Check if identity is active. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> Identity` | classmethod | Deserialize from dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_attribute` | `def get_attribute(self, key: str, default: Any=None)` | Get attribute value with default. |
+| `has_role` | `def has_role(self, role: str)` | Check if identity has role. |
+| `has_scope` | `def has_scope(self, scope: str)` | Check if identity has scope. |
+| `is_active` | `def is_active(self)` | Check if identity is active. |
+| `to_dict` | `def to_dict(self)` | Serialize to dict. |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Deserialize from dict. |
 
-### Class: `CredentialStatus`
+### `CredentialStatus`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `str, Enum`
 - Summary: Credential status.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ACTIVE` |  | `'active'` |
-| `SUSPENDED` |  | `'suspended'` |
-| `REVOKED` |  | `'revoked'` |
-| `EXPIRED` |  | `'expired'` |
+| `ACTIVE` | `` | `'active'` |
+| `SUSPENDED` | `` | `'suspended'` |
+| `REVOKED` | `` | `'revoked'` |
+| `EXPIRED` | `` | `'expired'` |
 
-### Class: `Credential`
+### `Credential`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `Protocol`
-- Decorators: `dataclass`
 - Summary: Base protocol for credentials.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `identity_id` | `str` |  |
-| `status` | `CredentialStatus` |  |
-| `created_at` | `datetime` |  |
-| `last_used_at` | `datetime &#124; None` |  |
+| `identity_id` | `str` | `` |
+| `status` | `CredentialStatus` | `` |
+| `created_at` | `datetime` | `` |
+| `last_used_at` | `datetime \| None` | `` |
 
-### Class: `PasswordCredential`
+### `PasswordCredential`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Password-based credential.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `identity_id` | `str` |  |
-| `password_hash` | `str` |  |
+| `identity_id` | `str` | `` |
+| `password_hash` | `str` | `` |
 | `algorithm` | `str` | `'argon2id'` |
 | `created_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
 | `last_changed_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
-| `last_used_at` | `datetime &#124; None` | `None` |
+| `last_used_at` | `datetime \| None` | `None` |
 | `must_change` | `bool` | `False` |
 | `status` | `CredentialStatus` | `CredentialStatus.ACTIVE` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_rotate` | `def should_rotate(self, max_age_days: int = 90) -> bool` |  | Check if password should be rotated. |
-| `touch` | `def touch(self) -> None` |  | Update last_used_at timestamp. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_rotate` | `def should_rotate(self, max_age_days: int=90)` | Check if password should be rotated. |
+| `touch` | `def touch(self)` | Update last_used_at timestamp. |
+| `to_dict` | `def to_dict(self)` | Serialize to dict. |
 
-### Class: `ApiKeyCredential`
+### `ApiKeyCredential`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: API key credential (long-lived).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `identity_id` | `str` |  |
-| `key_id` | `str` |  |
-| `key_hash` | `str` |  |
-| `prefix` | `str` |  |
-| `scopes` | `list[str]` |  |
-| `rate_limit` | `int &#124; None` | `None` |
-| `expires_at` | `datetime &#124; None` | `None` |
+| `identity_id` | `str` | `` |
+| `key_id` | `str` | `` |
+| `key_hash` | `str` | `` |
+| `prefix` | `str` | `` |
+| `scopes` | `list[str]` | `` |
+| `rate_limit` | `int \| None` | `None` |
+| `expires_at` | `datetime \| None` | `None` |
 | `created_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
-| `last_used_at` | `datetime &#124; None` | `None` |
+| `last_used_at` | `datetime \| None` | `None` |
 | `status` | `CredentialStatus` | `CredentialStatus.ACTIVE` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_expired` | `def is_expired(self) -> bool` |  | Check if key has expired. |
-| `touch` | `def touch(self) -> None` |  | Update last_used_at timestamp. |
-| `generate_key` | `def generate_key(env: Literal['test', 'live'] = 'live') -> str` | staticmethod | Generate new API key. |
-| `hash_key` | `def hash_key(key: str) -> str` | staticmethod | Hash API key with HMAC-SHA256 (OWASP recommended). |
-| `verify_key` | `def verify_key(key: str, stored_hash: str) -> bool` | staticmethod | Verify API key against stored hash using constant-time comparison. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_expired` | `def is_expired(self)` | Check if key has expired. |
+| `touch` | `def touch(self)` | Update last_used_at timestamp. |
+| `generate_key` | `def generate_key(env: Literal['test', 'live']='live')` | Generate new API key. |
+| `hash_key` | `def hash_key(key: str)` | Hash API key with HMAC-SHA256 (OWASP recommended). |
+| `verify_key` | `def verify_key(key: str, stored_hash: str)` | Verify API key against stored hash using constant-time comparison. |
+| `to_dict` | `def to_dict(self)` | Serialize to dict. |
 
-### Class: `OAuthClient`
+### `OAuthClient`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: OAuth2/OIDC client.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `client_id` | `str` |  |
-| `client_secret_hash` | `str &#124; None` |  |
-| `name` | `str` |  |
-| `grant_types` | `list[Literal['authorization_code', 'client_credentials', 'refresh_token', 'device_code']]` |  |
-| `redirect_uris` | `list[str]` |  |
-| `scopes` | `list[str]` |  |
+| `client_id` | `str` | `` |
+| `client_secret_hash` | `str \| None` | `` |
+| `name` | `str` | `` |
+| `grant_types` | `list[Literal['authorization_code', 'client_credentials', 'refresh_token', 'device_code']]` | `` |
+| `redirect_uris` | `list[str]` | `` |
+| `scopes` | `list[str]` | `` |
 | `require_pkce` | `bool` | `True` |
 | `require_consent` | `bool` | `True` |
 | `token_endpoint_auth_method` | `Literal['client_secret_basic', 'client_secret_post', 'none']` | `'client_secret_post'` |
@@ -809,109 +842,109 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_public_client` | `def is_public_client(self) -> bool` |  | Check if client is public (no secret). |
-| `supports_grant_type` | `def supports_grant_type(self, grant_type: str) -> bool` |  | Check if client supports grant type. |
-| `is_redirect_uri_valid` | `def is_redirect_uri_valid(self, redirect_uri: str) -> bool` |  | Check if redirect URI is allowed. |
-| `generate_client_id` | `def generate_client_id(prefix: str = 'app') -> str` | staticmethod | Generate client ID. |
-| `generate_client_secret` | `def generate_client_secret() -> str` | staticmethod | Generate client secret. |
-| `hash_client_secret` | `def hash_client_secret(secret: str) -> str` | staticmethod | Hash client secret with HMAC-SHA256 (OWASP recommended). |
-| `verify_client_secret` | `def verify_client_secret(secret: str, stored_hash: str) -> bool` | staticmethod | Verify client secret against stored hash using constant-time comparison. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_public_client` | `def is_public_client(self)` | Check if client is public (no secret). |
+| `supports_grant_type` | `def supports_grant_type(self, grant_type: str)` | Check if client supports grant type. |
+| `is_redirect_uri_valid` | `def is_redirect_uri_valid(self, redirect_uri: str)` | Check if redirect URI is allowed. |
+| `generate_client_id` | `def generate_client_id(prefix: str='app')` | Generate client ID. |
+| `generate_client_secret` | `def generate_client_secret()` | Generate client secret. |
+| `hash_client_secret` | `def hash_client_secret(secret: str)` | Hash client secret with HMAC-SHA256 (OWASP recommended). |
+| `verify_client_secret` | `def verify_client_secret(secret: str, stored_hash: str)` | Verify client secret against stored hash using constant-time comparison. |
+| `to_dict` | `def to_dict(self)` | Serialize to dict. |
 
-### Class: `MFACredential`
+### `MFACredential`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Multi-factor authentication credential.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `identity_id` | `str` |  |
-| `mfa_type` | `Literal['totp', 'webauthn', 'sms', 'email']` |  |
-| `mfa_secret` | `str &#124; None` | `None` |
+| `identity_id` | `str` | `` |
+| `mfa_type` | `Literal['totp', 'webauthn', 'sms', 'email']` | `` |
+| `mfa_secret` | `str \| None` | `None` |
 | `backup_codes` | `list[str]` | `field(default_factory=list)` |
 | `webauthn_credentials` | `list[dict[str, Any]]` | `field(default_factory=list)` |
-| `phone_number` | `str &#124; None` | `None` |
-| `email` | `str &#124; None` | `None` |
+| `phone_number` | `str \| None` | `None` |
+| `email` | `str \| None` | `None` |
 | `created_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
-| `verified_at` | `datetime &#124; None` | `None` |
-| `last_used_at` | `datetime &#124; None` | `None` |
+| `verified_at` | `datetime \| None` | `None` |
+| `last_used_at` | `datetime \| None` | `None` |
 | `status` | `CredentialStatus` | `CredentialStatus.ACTIVE` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_verified` | `def is_verified(self) -> bool` |  | Check if MFA is verified. |
-| `touch` | `def touch(self) -> None` |  | Update last_used_at timestamp. |
-| `generate_totp_secret` | `def generate_totp_secret() -> str` | staticmethod | Generate TOTP secret (base32). |
-| `generate_backup_codes` | `def generate_backup_codes(count: int = 10) -> list[str]` | staticmethod | Generate backup codes (8-character alphanumeric). |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_verified` | `def is_verified(self)` | Check if MFA is verified. |
+| `touch` | `def touch(self)` | Update last_used_at timestamp. |
+| `generate_totp_secret` | `def generate_totp_secret()` | Generate TOTP secret (base32). |
+| `generate_backup_codes` | `def generate_backup_codes(count: int=10)` | Generate backup codes (8-character alphanumeric). |
+| `to_dict` | `def to_dict(self)` | Serialize to dict. |
 
-### Class: `TokenClaims`
+### `TokenClaims`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Access token claims (JWT payload).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `iss` | `str` |  |
-| `sub` | `str` |  |
-| `aud` | `list[str]` |  |
-| `exp` | `int` |  |
-| `iat` | `int` |  |
-| `nbf` | `int` |  |
-| `jti` | `str` |  |
-| `scopes` | `list[str]` |  |
-| `sid` | `str &#124; None` | `None` |
+| `iss` | `str` | `` |
+| `sub` | `str` | `` |
+| `aud` | `list[str]` | `` |
+| `exp` | `int` | `` |
+| `iat` | `int` | `` |
+| `nbf` | `int` | `` |
+| `jti` | `str` | `` |
+| `scopes` | `list[str]` | `` |
+| `sid` | `str \| None` | `None` |
 | `roles` | `list[str]` | `field(default_factory=list)` |
-| `tenant_id` | `str &#124; None` | `None` |
+| `tenant_id` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_expired` | `def is_expired(self) -> bool` |  | Check if token has expired. |
-| `has_scope` | `def has_scope(self, scope: str) -> bool` |  | Check if token has scope. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict (JWT payload). |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> TokenClaims` | classmethod | Deserialize from dict (JWT payload). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_expired` | `def is_expired(self)` | Check if token has expired. |
+| `has_scope` | `def has_scope(self, scope: str)` | Check if token has scope. |
+| `to_dict` | `def to_dict(self)` | Serialize to dict (JWT payload). |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Deserialize from dict (JWT payload). |
 
-### Class: `AuthResult`
+### `AuthResult`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of authentication operation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `identity` | `Identity` |  |
-| `access_token` | `str &#124; None` | `None` |
-| `refresh_token` | `str &#124; None` | `None` |
-| `session_id` | `str &#124; None` | `None` |
-| `expires_in` | `int &#124; None` | `None` |
+| `identity` | `Identity` | `` |
+| `access_token` | `str \| None` | `None` |
+| `refresh_token` | `str \| None` | `None` |
+| `session_id` | `str \| None` | `None` |
+| `expires_in` | `int \| None` | `None` |
 | `token_type` | `str` | `'Bearer'` |
 | `scopes` | `list[str]` | `field(default_factory=list)` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dict (token response). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dict (token response). |
 
-### Class: `IdentityStore`
+### `IdentityStore`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `Protocol`
@@ -919,16 +952,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create` | `async def create(self, identity: Identity) -> None` |  | Create new identity. |
-| `get` | `async def get(self, identity_id: str) -> Identity &#124; None` |  | Get identity by ID. |
-| `get_by_attribute` | `async def get_by_attribute(self, key: str, value: Any) -> Identity &#124; None` |  | Get identity by attribute (e.g., email). |
-| `update` | `async def update(self, identity: Identity) -> None` |  | Update identity. |
-| `delete` | `async def delete(self, identity_id: str) -> None` |  | Delete identity (soft delete). |
-| `list_by_tenant` | `async def list_by_tenant(self, tenant_id: str) -> list[Identity]` |  | List identities by tenant. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create` | `async def create(self, identity: Identity)` | Create new identity. |
+| `get` | `async def get(self, identity_id: str)` | Get identity by ID. |
+| `get_by_attribute` | `async def get_by_attribute(self, key: str, value: Any)` | Get identity by attribute (e.g., email). |
+| `update` | `async def update(self, identity: Identity)` | Update identity. |
+| `delete` | `async def delete(self, identity_id: str)` | Delete identity (soft delete). |
+| `list_by_tenant` | `async def list_by_tenant(self, tenant_id: str)` | List identities by tenant. |
 
-### Class: `CredentialStore`
+### `CredentialStore`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `Protocol`
@@ -936,21 +969,21 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create_password` | `async def create_password(self, credential: PasswordCredential) -> None` |  | Create password credential. |
-| `get_password` | `async def get_password(self, identity_id: str) -> PasswordCredential &#124; None` |  | Get password credential. |
-| `update_password` | `async def update_password(self, credential: PasswordCredential) -> None` |  | Update password credential. |
-| `create_api_key` | `async def create_api_key(self, credential: ApiKeyCredential) -> None` |  | Create API key credential. |
-| `get_api_key` | `async def get_api_key(self, key_id: str) -> ApiKeyCredential &#124; None` |  | Get API key by ID. |
-| `get_api_key_by_hash` | `async def get_api_key_by_hash(self, key_hash: str) -> ApiKeyCredential &#124; None` |  | Get API key by hash. |
-| `list_api_keys` | `async def list_api_keys(self, identity_id: str) -> list[ApiKeyCredential]` |  | List API keys for identity. |
-| `revoke_api_key` | `async def revoke_api_key(self, key_id: str) -> None` |  | Revoke API key. |
-| `create_mfa` | `async def create_mfa(self, credential: MFACredential) -> None` |  | Create MFA credential. |
-| `get_mfa` | `async def get_mfa(self, identity_id: str) -> list[MFACredential]` |  | Get MFA credentials for identity. |
-| `update_mfa` | `async def update_mfa(self, credential: MFACredential) -> None` |  | Update MFA credential. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create_password` | `async def create_password(self, credential: PasswordCredential)` | Create password credential. |
+| `get_password` | `async def get_password(self, identity_id: str)` | Get password credential. |
+| `update_password` | `async def update_password(self, credential: PasswordCredential)` | Update password credential. |
+| `create_api_key` | `async def create_api_key(self, credential: ApiKeyCredential)` | Create API key credential. |
+| `get_api_key` | `async def get_api_key(self, key_id: str)` | Get API key by ID. |
+| `get_api_key_by_hash` | `async def get_api_key_by_hash(self, key_hash: str)` | Get API key by hash. |
+| `list_api_keys` | `async def list_api_keys(self, identity_id: str)` | List API keys for identity. |
+| `revoke_api_key` | `async def revoke_api_key(self, key_id: str)` | Revoke API key. |
+| `create_mfa` | `async def create_mfa(self, credential: MFACredential)` | Create MFA credential. |
+| `get_mfa` | `async def get_mfa(self, identity_id: str)` | Get MFA credentials for identity. |
+| `update_mfa` | `async def update_mfa(self, credential: MFACredential)` | Update MFA credential. |
 
-### Class: `OAuthClientStore`
+### `OAuthClientStore`
 
 - Source: `aquilia/auth/core.py`
 - Bases: `Protocol`
@@ -958,98 +991,98 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create` | `async def create(self, client: OAuthClient) -> None` |  | Create OAuth client. |
-| `get` | `async def get(self, client_id: str) -> OAuthClient &#124; None` |  | Get client by ID. |
-| `update` | `async def update(self, client: OAuthClient) -> None` |  | Update client. |
-| `delete` | `async def delete(self, client_id: str) -> None` |  | Delete client. |
-| `list_all` | `async def list_all(self) -> list[OAuthClient]` |  | List all clients. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create` | `async def create(self, client: OAuthClient)` | Create OAuth client. |
+| `get` | `async def get(self, client_id: str)` | Get client by ID. |
+| `update` | `async def update(self, client: OAuthClient)` | Update client. |
+| `delete` | `async def delete(self, client_id: str)` | Delete client. |
+| `list_all` | `async def list_all(self)` | List all clients. |
 
-### Class: `CrousArtifact`
+### `CrousArtifact`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Base crous artifact.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `artifact_type` | `str` |  |
-| `artifact_id` | `str` |  |
-| `version` | `int` |  |
-| `created_at` | `datetime` |  |
-| `created_by` | `str` |  |
-| `signature` | `str &#124; None` | `None` |
-| `metadata` | `dict[str, Any] &#124; None` | `None` |
+| `artifact_type` | `str` | `` |
+| `artifact_id` | `str` | `` |
+| `version` | `int` | `` |
+| `created_at` | `datetime` | `` |
+| `created_by` | `str` | `` |
+| `signature` | `str \| None` | `None` |
+| `metadata` | `dict[str, Any] \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dictionary. |
-| `compute_hash` | `def compute_hash(self) -> str` |  | Compute SHA256 hash of artifact (for signing). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
+| `compute_hash` | `def compute_hash(self)` | Compute SHA256 hash of artifact (for signing). |
 
-### Class: `KeyArtifact`
+### `KeyArtifact`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `CrousArtifact`
-- Decorators: `dataclass`
 - Summary: Cryptographic key artifact.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `key_descriptor` | `KeyDescriptor` |  |
+| `key_descriptor` | `KeyDescriptor` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `PolicyArtifact`
+### `PolicyArtifact`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `CrousArtifact`
-- Decorators: `dataclass`
 - Summary: Authorization policy artifact.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `policy_id` | `str` |  |
-| `policy_data` | `dict[str, Any]` |  |
+| `policy_id` | `str` | `` |
+| `policy_data` | `dict[str, Any]` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AuditEventArtifact`
+### `AuditEventArtifact`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `CrousArtifact`
-- Decorators: `dataclass`
 - Summary: Audit event artifact.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `event_type` | `str` |  |
-| `identity_id` | `str &#124; None` |  |
-| `resource` | `str &#124; None` |  |
-| `action` | `str &#124; None` |  |
-| `result` | `str` |  |
-| `details` | `dict[str, Any]` |  |
+| `event_type` | `str` | `` |
+| `identity_id` | `str \| None` | `` |
+| `resource` | `str \| None` | `` |
+| `action` | `str \| None` | `` |
+| `result` | `str` | `` |
+| `details` | `dict[str, Any]` | `` |
 
-### Class: `ArtifactSigner`
+### `ArtifactSigner`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `object`
@@ -1057,12 +1090,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign_artifact` | `def sign_artifact(self, artifact: CrousArtifact) -> str` |  | Sign artifact. |
-| `verify_artifact` | `def verify_artifact(self, artifact: CrousArtifact, signature: str) -> bool` |  | Verify artifact signature. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign_artifact` | `def sign_artifact(self, artifact: CrousArtifact)` | Sign artifact. |
+| `verify_artifact` | `def verify_artifact(self, artifact: CrousArtifact, signature: str)` | Verify artifact signature. |
 
-### Class: `MemoryArtifactStore`
+### `MemoryArtifactStore`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `object`
@@ -1070,13 +1103,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_artifact` | `async def save_artifact(self, artifact: CrousArtifact) -> None` |  | Save artifact. |
-| `get_artifact` | `async def get_artifact(self, artifact_id: str) -> CrousArtifact &#124; None` |  | Get artifact by ID. |
-| `list_artifacts` | `async def list_artifacts(self, artifact_type: str &#124; None = None) -> list[CrousArtifact]` |  | List artifacts by type. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_artifact` | `async def save_artifact(self, artifact: CrousArtifact)` | Save artifact. |
+| `get_artifact` | `async def get_artifact(self, artifact_id: str)` | Get artifact by ID. |
+| `list_artifacts` | `async def list_artifacts(self, artifact_type: str \| None=None)` | List artifacts by type. |
 
-### Class: `AuditLogger`
+### `AuditLogger`
 
 - Source: `aquilia/auth/crous.py`
 - Bases: `object`
@@ -1084,18 +1117,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `log_event` | `async def log_event(self, event_type: str, result: str, identity_id: str &#124; None = None, resource: str &#124; None = None, action: str &#124; None = None, details: dict[str, Any] &#124; None = None) -> AuditEventArtifact` |  | Log audit event. |
-| `query_events` | `async def query_events(self, event_type: str &#124; None = None, identity_id: str &#124; None = None, start_time: datetime &#124; None = None, end_time: datetime &#124; None = None) -> list[AuditEventArtifact]` |  | Query audit events. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `log_event` | `async def log_event(self, event_type: str, result: str, identity_id: str \| None=None, resource: str \| None=None, action: str \| None=None, details: dict[str, Any] \| None=None)` | Log audit event. |
+| `query_events` | `async def query_events(self, event_type: str \| None=None, identity_id: str \| None=None, start_time: datetime \| None=None, end_time: datetime \| None=None)` | Query audit events. |
 
-### Class: `AuthorizationRequiredFault`
+### `AuthorizationRequiredFault`
 
 - Source: `aquilia/auth/decorators.py`
 - Bases: `Fault`
 - Summary: Raised when authorization check fails.
 
-### Class: `AuthGuard`
+### `AuthGuard`
 
 - Source: `aquilia/auth/decorators.py`
 - Bases: `object`
@@ -1103,11 +1136,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `async def check(self, identity: Identity &#124; None, session: Session &#124; None) -> bool` |  | Check if access should be granted. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check` | `async def check(self, identity: Identity \| None, session: Session \| None)` | Check if access should be granted. |
 
-### Class: `AdminGuard`
+### `AdminGuard`
 
 - Source: `aquilia/auth/decorators.py`
 - Bases: `AuthGuard`
@@ -1115,11 +1148,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `async def check(self, identity: Identity &#124; Session &#124; None = None, session: Session &#124; None = None) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check` | `async def check(self, identity: Identity \| Session \| None=None, session: Session \| None=None)` |  |
 
-### Class: `VerifiedEmailGuard`
+### `VerifiedEmailGuard`
 
 - Source: `aquilia/auth/decorators.py`
 - Bases: `AuthGuard`
@@ -1127,11 +1160,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `async def check(self, identity: Identity &#124; Session &#124; None = None, session: Session &#124; None = None) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check` | `async def check(self, identity: Identity \| Session \| None=None, session: Session \| None=None)` |  |
 
-### Class: `RoleGuard`
+### `RoleGuard`
 
 - Source: `aquilia/auth/decorators.py`
 - Bases: `AuthGuard`
@@ -1139,11 +1172,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `async def check(self, identity: Identity &#124; None, session: Session &#124; None) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check` | `async def check(self, identity: Identity \| None, session: Session \| None)` |  |
 
-### Class: `ScopeGuard`
+### `ScopeGuard`
 
 - Source: `aquilia/auth/decorators.py`
 - Bases: `AuthGuard`
@@ -1151,679 +1184,605 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `async def check(self, identity: Identity &#124; None, session: Session &#124; None) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check` | `async def check(self, identity: Identity \| None, session: Session \| None)` |  |
 
-### Class: `AUTH_INVALID_CREDENTIALS`
+### `AUTH_INVALID_CREDENTIALS`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Invalid username or password.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_001'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid credentials'` |
-| `public_message` |  | `'Invalid username or password'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_001'` |
+| `message` | `` | `'Invalid credentials'` |
+| `public_message` | `` | `'Invalid username or password'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_TOKEN_INVALID`
+### `AUTH_TOKEN_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Invalid or malformed token.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_002'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid token'` |
-| `public_message` |  | `'Invalid authentication token'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_002'` |
+| `message` | `` | `'Invalid token'` |
+| `public_message` | `` | `'Invalid authentication token'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_TOKEN_EXPIRED`
+### `AUTH_TOKEN_EXPIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Access token has expired.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_003'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Token expired'` |
-| `public_message` |  | `'Your session has expired. Please log in again.'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_003'` |
+| `message` | `` | `'Token expired'` |
+| `public_message` | `` | `'Your session has expired. Please log in again.'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_TOKEN_REVOKED`
+### `AUTH_TOKEN_REVOKED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Token has been revoked.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_004'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Token revoked'` |
-| `public_message` |  | `'This token has been revoked'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_004'` |
+| `message` | `` | `'Token revoked'` |
+| `public_message` | `` | `'This token has been revoked'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_MFA_REQUIRED`
+### `AUTH_MFA_REQUIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Multi-factor authentication required.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_005'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'MFA required'` |
-| `public_message` |  | `'Please enter your MFA code'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_005'` |
+| `message` | `` | `'MFA required'` |
+| `public_message` | `` | `'Please enter your MFA code'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_MFA_INVALID`
+### `AUTH_MFA_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Invalid MFA code.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_006'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid MFA code'` |
-| `public_message` |  | `'Invalid MFA code'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_006'` |
+| `message` | `` | `'Invalid MFA code'` |
+| `public_message` | `` | `'Invalid MFA code'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_ACCOUNT_SUSPENDED`
+### `AUTH_ACCOUNT_SUSPENDED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Account is suspended.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_007'` |
-| `severity` |  | `Severity.ERROR` |
-| `message` |  | `'Account suspended'` |
-| `public_message` |  | `'Your account has been suspended. Please contact support.'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_007'` |
+| `message` | `` | `'Account suspended'` |
+| `public_message` | `` | `'Your account has been suspended. Please contact support.'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_ACCOUNT_LOCKED`
+### `AUTH_ACCOUNT_LOCKED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Account is locked due to failed login attempts.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_008'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Account locked'` |
-| `public_message` |  | `'Account locked due to multiple failed login attempts'` |
-| `retryable` |  | `True` |
-| `retry_after` |  | `900` |
+| `code` | `` | `'AUTH_008'` |
+| `message` | `` | `'Account locked'` |
+| `public_message` | `` | `'Account locked due to multiple failed login attempts'` |
+| `retryable` | `` | `True` |
+| `retry_after` | `` | `900` |
 
-### Class: `AUTH_RATE_LIMITED`
+### `AUTH_RATE_LIMITED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Too many authentication attempts.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_009'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Rate limit exceeded'` |
-| `public_message` |  | `'Too many attempts. Please try again later.'` |
-| `retryable` |  | `True` |
-| `retry_after` |  | `900` |
+| `code` | `` | `'AUTH_009'` |
+| `message` | `` | `'Rate limit exceeded'` |
+| `public_message` | `` | `'Too many attempts. Please try again later.'` |
+| `retryable` | `` | `True` |
+| `retry_after` | `` | `900` |
 
-### Class: `AUTH_REQUIRED`
+### `AUTH_REQUIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Authentication required but not provided.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_010'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Authentication required'` |
-| `public_message` |  | `'Please log in to access this resource'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_010'` |
+| `message` | `` | `'Authentication required'` |
+| `public_message` | `` | `'Please log in to access this resource'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_CLIENT_INVALID`
+### `AUTH_CLIENT_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Invalid OAuth client credentials.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_011'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid client'` |
-| `public_message` |  | `'Invalid client credentials'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_011'` |
+| `message` | `` | `'Invalid client'` |
+| `public_message` | `` | `'Invalid client credentials'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_GRANT_INVALID`
+### `AUTH_GRANT_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Invalid OAuth grant (code, refresh token, etc.).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_012'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid grant'` |
-| `public_message` |  | `'Invalid or expired authorization code'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_012'` |
+| `message` | `` | `'Invalid grant'` |
+| `public_message` | `` | `'Invalid or expired authorization code'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_REDIRECT_URI_MISMATCH`
+### `AUTH_REDIRECT_URI_MISMATCH`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: OAuth redirect URI doesn't match registered URI.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_013'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Redirect URI mismatch'` |
-| `public_message` |  | `'Invalid redirect URI'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_013'` |
+| `message` | `` | `'Redirect URI mismatch'` |
+| `public_message` | `` | `'Invalid redirect URI'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_SCOPE_INVALID`
+### `AUTH_SCOPE_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Requested scope is invalid or not allowed.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_014'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid scope'` |
-| `public_message` |  | `'Requested scope is not available'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_014'` |
+| `message` | `` | `'Invalid scope'` |
+| `public_message` | `` | `'Requested scope is not available'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_PKCE_INVALID`
+### `AUTH_PKCE_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: PKCE code verifier doesn't match challenge.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_015'` |
-| `severity` |  | `Severity.ERROR` |
-| `message` |  | `'PKCE verification failed'` |
-| `public_message` |  | `'Authorization failed'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_015'` |
+| `message` | `` | `'PKCE verification failed'` |
+| `public_message` | `` | `'Authorization failed'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTHZ_POLICY_DENIED`
+### `AUTHZ_POLICY_DENIED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Authorization policy denied access.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTHZ_001'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Access denied by policy'` |
-| `public_message` |  | `'You do not have permission to perform this action'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTHZ_001'` |
+| `message` | `` | `'Access denied by policy'` |
+| `public_message` | `` | `'You do not have permission to perform this action'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTHZ_INSUFFICIENT_SCOPE`
+### `AUTHZ_INSUFFICIENT_SCOPE`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Token missing required scopes.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTHZ_002'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Insufficient scope'` |
-| `public_message` |  | `'Insufficient permissions'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTHZ_002'` |
+| `message` | `` | `'Insufficient scope'` |
+| `public_message` | `` | `'Insufficient permissions'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTHZ_INSUFFICIENT_ROLE`
+### `AUTHZ_INSUFFICIENT_ROLE`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Identity missing required role.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTHZ_003'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Insufficient role'` |
-| `public_message` |  | `'Insufficient permissions'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTHZ_003'` |
+| `message` | `` | `'Insufficient role'` |
+| `public_message` | `` | `'Insufficient permissions'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTHZ_RESOURCE_FORBIDDEN`
+### `AUTHZ_RESOURCE_FORBIDDEN`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Access to resource is forbidden.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTHZ_004'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Resource forbidden'` |
-| `public_message` |  | `'Access to this resource is forbidden'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTHZ_004'` |
+| `message` | `` | `'Resource forbidden'` |
+| `public_message` | `` | `'Access to this resource is forbidden'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTHZ_TENANT_MISMATCH`
+### `AUTHZ_TENANT_MISMATCH`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Identity tenant doesn't match resource tenant.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTHZ_005'` |
-| `severity` |  | `Severity.ERROR` |
-| `message` |  | `'Tenant mismatch'` |
-| `public_message` |  | `'Access denied'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTHZ_005'` |
+| `message` | `` | `'Tenant mismatch'` |
+| `public_message` | `` | `'Access denied'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_PASSWORD_WEAK`
+### `AUTH_PASSWORD_WEAK`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Password doesn't meet policy requirements.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_101'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Weak password'` |
-| `public_message` |  | `"Password doesn't meet security requirements"` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_101'` |
+| `message` | `` | `'Weak password'` |
+| `public_message` | `` | `"Password doesn't meet security requirements"` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_PASSWORD_BREACHED`
+### `AUTH_PASSWORD_BREACHED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Password found in breach database.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_102'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Breached password'` |
-| `public_message` |  | `'This password has been found in data breaches. Please choose a different password.'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_102'` |
+| `message` | `` | `'Breached password'` |
+| `public_message` | `` | `'This password has been found in data breaches. Please choose a different password.'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_PASSWORD_REUSED`
+### `AUTH_PASSWORD_REUSED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Password was recently used.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_103'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Password reused'` |
-| `public_message` |  | `'This password was recently used. Please choose a different password.'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_103'` |
+| `message` | `` | `'Password reused'` |
+| `public_message` | `` | `'This password was recently used. Please choose a different password.'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_KEY_EXPIRED`
+### `AUTH_KEY_EXPIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: API key has expired.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_104'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'API key expired'` |
-| `public_message` |  | `'API key has expired'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_104'` |
+| `message` | `` | `'API key expired'` |
+| `public_message` | `` | `'API key has expired'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_KEY_REVOKED`
+### `AUTH_KEY_REVOKED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: API key has been revoked.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_105'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'API key revoked'` |
-| `public_message` |  | `'API key has been revoked'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_105'` |
+| `message` | `` | `'API key revoked'` |
+| `public_message` | `` | `'API key has been revoked'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_SESSION_REQUIRED`
+### `AUTH_SESSION_REQUIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Session required but not found.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_201'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Session required'` |
-| `public_message` |  | `'Please log in'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_201'` |
+| `message` | `` | `'Session required'` |
+| `public_message` | `` | `'Please log in'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_SESSION_INVALID`
+### `AUTH_SESSION_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Session is invalid or corrupted.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_202'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid session'` |
-| `public_message` |  | `'Your session is invalid. Please log in again.'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_202'` |
+| `message` | `` | `'Invalid session'` |
+| `public_message` | `` | `'Your session is invalid. Please log in again.'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_SESSION_HIJACK_DETECTED`
+### `AUTH_SESSION_HIJACK_DETECTED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Potential session hijacking detected.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_203'` |
-| `severity` |  | `Severity.ERROR` |
-| `message` |  | `'Session hijack detected'` |
-| `public_message` |  | `'Security issue detected. Please log in again.'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_203'` |
+| `message` | `` | `'Session hijack detected'` |
+| `public_message` | `` | `'Security issue detected. Please log in again.'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_CONSENT_REQUIRED`
+### `AUTH_CONSENT_REQUIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: User consent required for OAuth flow.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_301'` |
-| `severity` |  | `Severity.INFO` |
-| `message` |  | `'Consent required'` |
-| `public_message` |  | `'Please authorize this application'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_301'` |
+| `message` | `` | `'Consent required'` |
+| `public_message` | `` | `'Please authorize this application'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_DEVICE_CODE_PENDING`
+### `AUTH_DEVICE_CODE_PENDING`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Device code authorization pending.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_302'` |
-| `severity` |  | `Severity.INFO` |
-| `message` |  | `'Authorization pending'` |
-| `public_message` |  | `'Waiting for user authorization'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_302'` |
+| `message` | `` | `'Authorization pending'` |
+| `public_message` | `` | `'Waiting for user authorization'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_DEVICE_CODE_EXPIRED`
+### `AUTH_DEVICE_CODE_EXPIRED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Device code has expired.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_303'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Device code expired'` |
-| `public_message` |  | `'Authorization code expired. Please try again.'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_303'` |
+| `message` | `` | `'Device code expired'` |
+| `public_message` | `` | `'Authorization code expired. Please try again.'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_SLOW_DOWN`
+### `AUTH_SLOW_DOWN`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Device flow polling too fast.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_304'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Slow down'` |
-| `public_message` |  | `'Polling too frequently'` |
-| `retryable` |  | `True` |
-| `retry_after` |  | `5` |
+| `code` | `` | `'AUTH_304'` |
+| `message` | `` | `'Slow down'` |
+| `public_message` | `` | `'Polling too frequently'` |
+| `retryable` | `` | `True` |
+| `retry_after` | `` | `5` |
 
-### Class: `AUTH_MFA_NOT_ENROLLED`
+### `AUTH_MFA_NOT_ENROLLED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: MFA not enrolled for user.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_401'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'MFA not enrolled'` |
-| `public_message` |  | `'Multi-factor authentication is not set up'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_401'` |
+| `message` | `` | `'MFA not enrolled'` |
+| `public_message` | `` | `'Multi-factor authentication is not set up'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_MFA_ALREADY_ENROLLED`
+### `AUTH_MFA_ALREADY_ENROLLED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: MFA already enrolled.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_402'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'MFA already enrolled'` |
-| `public_message` |  | `'Multi-factor authentication is already set up'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_402'` |
+| `message` | `` | `'MFA already enrolled'` |
+| `public_message` | `` | `'Multi-factor authentication is already set up'` |
+| `retryable` | `` | `False` |
 
-### Class: `AUTH_WEBAUTHN_INVALID`
+### `AUTH_WEBAUTHN_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: WebAuthn credential invalid.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_403'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'WebAuthn invalid'` |
-| `public_message` |  | `'Security key verification failed'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_403'` |
+| `message` | `` | `'WebAuthn invalid'` |
+| `public_message` | `` | `'Security key verification failed'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_BACKUP_CODE_INVALID`
+### `AUTH_BACKUP_CODE_INVALID`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: Invalid backup code.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_404'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Invalid backup code'` |
-| `public_message` |  | `'Invalid backup code'` |
-| `retryable` |  | `True` |
+| `code` | `` | `'AUTH_404'` |
+| `message` | `` | `'Invalid backup code'` |
+| `public_message` | `` | `'Invalid backup code'` |
+| `retryable` | `` | `True` |
 
-### Class: `AUTH_BACKUP_CODE_EXHAUSTED`
+### `AUTH_BACKUP_CODE_EXHAUSTED`
 
 - Source: `aquilia/auth/faults.py`
 - Bases: `Fault`
 - Summary: All backup codes used.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `code` |  | `'AUTH_405'` |
-| `severity` |  | `Severity.WARN` |
-| `message` |  | `'Backup codes exhausted'` |
-| `public_message` |  | `'All backup codes have been used. Please generate new codes.'` |
-| `retryable` |  | `False` |
+| `code` | `` | `'AUTH_405'` |
+| `message` | `` | `'Backup codes exhausted'` |
+| `public_message` | `` | `'All backup codes have been used. Please generate new codes.'` |
+| `retryable` | `` | `False` |
 
-### Class: `Guard`
+### `Guard`
 
 - Source: `aquilia/auth/guards.py`
 - Bases: `object`
 - Summary: Base guard for authentication/authorization.
 
-### Class: `AuthGuard`
+### `AuthGuard`
 
 - Source: `aquilia/auth/guards.py`
 - Bases: `Guard`
 - Summary: Authentication guard - requires valid authentication.
 
-### Class: `ApiKeyGuard`
+### `ApiKeyGuard`
 
 - Source: `aquilia/auth/guards.py`
 - Bases: `Guard`
 - Summary: API key authentication guard.
 
-### Class: `AuthzGuard`
+### `AuthzGuard`
 
 - Source: `aquilia/auth/guards.py`
 - Bases: `Guard`
 - Summary: Authorization guard - enforces access control.
 
-### Class: `ScopeGuard`
+### `ScopeGuard`
 
 - Source: `aquilia/auth/guards.py`
 - Bases: `Guard`
 - Summary: Scope-only guard - quick scope check.
 
-### Class: `RoleGuard`
+### `RoleGuard`
 
 - Source: `aquilia/auth/guards.py`
 - Bases: `Guard`
 - Summary: Role-only guard - quick role check.
 
-### Class: `CSRFProtection`
+### `CSRFProtection`
 
 - Source: `aquilia/auth/hardening.py`
 - Bases: `object`
@@ -1831,46 +1790,46 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate_token` | `def generate_token(self) -> str` |  | Generate a new CSRF token. |
-| `validate_token` | `def validate_token(self, token: str) -> bool` |  | Validate a CSRF token. |
-| `requires_validation` | `def requires_validation(self, method: str) -> bool` |  | Check if the HTTP method requires CSRF validation. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate_token` | `def generate_token(self)` | Generate a new CSRF token. |
+| `validate_token` | `def validate_token(self, token: str)` | Validate a CSRF token. |
+| `requires_validation` | `def requires_validation(self, method: str)` | Check if the HTTP method requires CSRF validation. |
 
-### Class: `RequestFingerprint`
+### `RequestFingerprint`
 
 - Source: `aquilia/auth/hardening.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Fingerprint a request for session binding.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ip_hash` | `str` |  |
-| `ua_hash` | `str` |  |
-| `accept_hash` | `str` |  |
+| `ip_hash` | `str` | `` |
+| `ua_hash` | `str` | `` |
+| `accept_hash` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_request` | `def from_request(cls, request: Any) -> RequestFingerprint` | classmethod | Create fingerprint from a request object. |
-| `matches` | `def matches(self, other: RequestFingerprint, strict: bool = False) -> bool` |  | Check if another fingerprint matches this one. |
-| `to_string` | `def to_string(self) -> str` |  | Serialize to storable string. |
-| `from_string` | `def from_string(cls, s: str) -> RequestFingerprint &#124; None` | classmethod | Deserialize from string. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_request` | `def from_request(cls, request: Any)` | Create fingerprint from a request object. |
+| `matches` | `def matches(self, other: RequestFingerprint, strict: bool=False)` | Check if another fingerprint matches this one. |
+| `to_string` | `def to_string(self)` | Serialize to storable string. |
+| `from_string` | `def from_string(cls, s: str)` | Deserialize from string. |
 
-### Class: `SecurityHeaders`
+### `SecurityHeaders`
 
 - Source: `aquilia/auth/hardening.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Configurable security headers for HTTP responses.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `content_security_policy` | `str` | `"default-src 'self'"` |
 | `strict_transport_security` | `str` | `'max-age=31536000; includeSubDomains'` |
@@ -1886,12 +1845,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `apply` | `def apply(self, response: Any) -> Any` |  | Apply security headers to a response object. |
-| `to_dict` | `def to_dict(self) -> dict[str, str]` |  | Return headers as a dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `apply` | `def apply(self, response: Any)` | Apply security headers to a response object. |
+| `to_dict` | `def to_dict(self)` | Return headers as a dictionary. |
 
-### Class: `TokenBinder`
+### `TokenBinder`
 
 - Source: `aquilia/auth/hardening.py`
 - Bases: `object`
@@ -1899,21 +1858,21 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create_binding` | `def create_binding(self, token: str, fingerprint: RequestFingerprint) -> str` |  | Create a binding hash for a token + fingerprint combination. |
-| `verify_binding` | `def verify_binding(self, token: str, fingerprint: RequestFingerprint, expected_binding: str) -> bool` |  | Verify that a token is being used from the expected client. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create_binding` | `def create_binding(self, token: str, fingerprint: RequestFingerprint)` | Create a binding hash for a token + fingerprint combination. |
+| `verify_binding` | `def verify_binding(self, token: str, fingerprint: RequestFingerprint, expected_binding: str)` | Verify that a token is being used from the expected client. |
 
-### Class: `HasherConfig`
+### `HasherConfig`
 
 - Source: `aquilia/auth/hashing.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Algorithm-agnostic configuration for :class:`PasswordHasher`.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `algorithm` | `str` | `'argon2id'` |
 | `time_cost` | `int` | `2` |
@@ -1932,12 +1891,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> HasherConfig` | classmethod | Build from a plain dict (e.g. serialised from ``pyconfig``). |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Build from a plain dict (e.g. serialised from ``pyconfig``). |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `PasswordHasher`
+### `PasswordHasher`
 
 - Source: `aquilia/auth/hashing.py`
 - Bases: `object`
@@ -1945,16 +1904,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_config` | `def from_config(cls, config: HasherConfig) -> PasswordHasher` | classmethod | Build a PasswordHasher from a :class:`HasherConfig`. |
-| `hash` | `def hash(self, password: str) -> str` |  | Hash *password* with the configured algorithm (PHC format output). |
-| `verify` | `def verify(self, password_hash: str, password: str) -> bool` |  | Verify *password* against *password_hash* (auto-detects algorithm). |
-| `hash_async` | `async def hash_async(self, password: str) -> str` |  | Hash password without blocking the event loop. |
-| `verify_async` | `async def verify_async(self, password_hash: str, password: str) -> bool` |  | Verify password without blocking the event loop. |
-| `check_needs_rehash` | `def check_needs_rehash(self, password_hash: str) -> bool` |  | Check if *password_hash* should be regenerated with current params. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_config` | `def from_config(cls, config: HasherConfig)` | Build a PasswordHasher from a :class:`HasherConfig`. |
+| `hash` | `def hash(self, password: str)` | Hash *password* with the configured algorithm (PHC format output). |
+| `verify` | `def verify(self, password_hash: str, password: str)` | Verify *password* against *password_hash* (auto-detects algorithm). |
+| `hash_async` | `async def hash_async(self, password: str)` | Hash password without blocking the event loop. |
+| `verify_async` | `async def verify_async(self, password_hash: str, password: str)` | Verify password without blocking the event loop. |
+| `check_needs_rehash` | `def check_needs_rehash(self, password_hash: str)` | Check if *password_hash* should be regenerated with current params. |
 
-### Class: `PasswordPolicy`
+### `PasswordPolicy`
 
 - Source: `aquilia/auth/hashing.py`
 - Bases: `object`
@@ -1962,14 +1921,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> PasswordPolicy` | classmethod | Build a PasswordPolicy from a plain configuration dictionary. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize policy settings (excluding blacklist internals). |
-| `validate` | `def validate(self, password: str) -> tuple[bool, list[str]]` |  | Validate password against policy. Returns (is_valid, errors). |
-| `validate_async` | `async def validate_async(self, password: str) -> tuple[bool, list[str]]` |  | Async password validation (non-blocking breach check). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Build a PasswordPolicy from a plain configuration dictionary. |
+| `to_dict` | `def to_dict(self)` | Serialize policy settings (excluding blacklist internals). |
+| `validate` | `def validate(self, password: str)` | Validate password against policy. Returns (is_valid, errors). |
+| `validate_async` | `async def validate_async(self, password: str)` | Async password validation (non-blocking breach check). |
 
-### Class: `AuthPrincipal`
+### `AuthPrincipal`
 
 - Source: `aquilia/auth/integration/aquila_sessions.py`
 - Bases: `SessionPrincipal`
@@ -1977,13 +1936,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_identity` | `def from_identity(cls, identity: Identity) -> AuthPrincipal` | classmethod | Create AuthPrincipal from Identity. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dictionary. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> AuthPrincipal` | classmethod | Deserialize from dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_identity` | `def from_identity(cls, identity: Identity)` | Create AuthPrincipal from Identity. |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Deserialize from dictionary. |
 
-### Class: `SessionAuthBridge`
+### `SessionAuthBridge`
 
 - Source: `aquilia/auth/integration/aquila_sessions.py`
 - Bases: `object`
@@ -1991,236 +1950,236 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create_auth_session` | `async def create_auth_session(self, identity: Identity, request: Any, token_claims: TokenClaims &#124; None = None) -> Session` |  | Create authenticated session. |
-| `rotate_on_privilege_escalation` | `async def rotate_on_privilege_escalation(self, session: Session, response: Any) -> Session` |  | Rotate session ID after privilege escalation (e.g., MFA). |
-| `verify_and_extend` | `async def verify_and_extend(self, session: Session) -> bool` |  | Verify session is valid and extend if needed. |
-| `logout` | `async def logout(self, session: Session, response: Any) -> None` |  | Logout - destroy session. |
-| `logout_all_devices` | `async def logout_all_devices(self, identity_id: str) -> None` |  | Logout from all devices - destroy all sessions for identity. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create_auth_session` | `async def create_auth_session(self, identity: Identity, request: Any, token_claims: TokenClaims \| None=None)` | Create authenticated session. |
+| `rotate_on_privilege_escalation` | `async def rotate_on_privilege_escalation(self, session: Session, response: Any)` | Rotate session ID after privilege escalation (e.g., MFA). |
+| `verify_and_extend` | `async def verify_and_extend(self, session: Session)` | Verify session is valid and extend if needed. |
+| `logout` | `async def logout(self, session: Session, response: Any)` | Logout - destroy session. |
+| `logout_all_devices` | `async def logout_all_devices(self, identity_id: str)` | Logout from all devices - destroy all sessions for identity. |
 
-### Class: `PasswordHasherProvider`
+### `PasswordHasherProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for PasswordHasher.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> PasswordHasher` |  | Provide PasswordHasher instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide PasswordHasher instance. |
 
-### Class: `PasswordPolicyProvider`
+### `PasswordPolicyProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for PasswordPolicy.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> PasswordPolicy` |  | Provide PasswordPolicy instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide PasswordPolicy instance. |
 
-### Class: `KeyRingProvider`
+### `KeyRingProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for KeyRing.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> KeyRing` |  | Provide KeyRing with default keys. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide KeyRing with default keys. |
 
-### Class: `TokenManagerProvider`
+### `TokenManagerProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for TokenManager.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> TokenManager` |  | Provide TokenManager instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide TokenManager instance. |
 
-### Class: `RateLimiterProvider`
+### `RateLimiterProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for RateLimiter.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self, max_attempts: int = 5, window_seconds: int = 900, lockout_duration: int = 3600) -> RateLimiter` |  | Provide RateLimiter instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self, max_attempts: int=5, window_seconds: int=900, lockout_duration: int=3600)` | Provide RateLimiter instance. |
 
-### Class: `IdentityStoreProvider`
+### `IdentityStoreProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for IdentityStore.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MemoryIdentityStore` |  | Provide memory-based identity store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide memory-based identity store. |
 
-### Class: `CredentialStoreProvider`
+### `CredentialStoreProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for CredentialStore.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MemoryCredentialStore` |  | Provide memory-based credential store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide memory-based credential store. |
 
-### Class: `TokenStoreProvider`
+### `TokenStoreProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for TokenStore.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MemoryTokenStore` |  | Provide memory-based token store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide memory-based token store. |
 
-### Class: `OAuthClientStoreProvider`
+### `OAuthClientStoreProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for OAuthClientStore.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MemoryOAuthClientStore` |  | Provide memory-based OAuth client store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide memory-based OAuth client store. |
 
-### Class: `AuthorizationCodeStoreProvider`
+### `AuthorizationCodeStoreProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for AuthorizationCodeStore.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MemoryAuthorizationCodeStore` |  | Provide memory-based authorization code store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide memory-based authorization code store. |
 
-### Class: `DeviceCodeStoreProvider`
+### `DeviceCodeStoreProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for DeviceCodeStore.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MemoryDeviceCodeStore` |  | Provide memory-based device code store. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide memory-based device code store. |
 
-### Class: `AuthManagerProvider`
+### `AuthManagerProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for AuthManager.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> AuthManager` |  | Provide AuthManager instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide AuthManager instance. |
 
-### Class: `MFAManagerProvider`
+### `MFAManagerProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for MFAManager.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> MFAManager` |  | Provide MFAManager instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide MFAManager instance. |
 
-### Class: `OAuth2ManagerProvider`
+### `OAuth2ManagerProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for OAuth2Manager.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> OAuth2Manager` |  | Provide OAuth2Manager instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide OAuth2Manager instance. |
 
-### Class: `AuthzEngineProvider`
+### `AuthzEngineProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for AuthzEngine.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> AuthzEngine` |  | Provide AuthzEngine instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide AuthzEngine instance. |
 
-### Class: `SessionEngineProvider`
+### `SessionEngineProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for SessionEngine.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self, policy: SessionPolicy &#124; None = None, logger: logging.Logger &#124; None = None) -> SessionEngine` |  | Provide SessionEngine instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self, policy: SessionPolicy \| None=None, logger: logging.Logger \| None=None)` | Provide SessionEngine instance. |
 
-### Class: `SessionAuthBridgeProvider`
+### `SessionAuthBridgeProvider`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Provider for SessionAuthBridge.
+- Decorators: `service(scope='app')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provide` | `def provide(self) -> SessionAuthBridge` |  | Provide SessionAuthBridge instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provide` | `def provide(self)` | Provide SessionAuthBridge instance. |
 
-### Class: `AuthConfig`
+### `AuthConfig`
 
 - Source: `aquilia/auth/integration/di_providers.py`
 - Bases: `object`
@@ -2228,16 +2187,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `rate_limit` | `def rate_limit(self, max_attempts: int = 5, window_seconds: int = 900, lockout_duration: int = 3600) -> AuthConfig` |  | Configure rate limiting. |
-| `sessions` | `def sessions(self, policy: str = 'user', ttl_days: int = 7, idle_timeout_hours: int = 1, max_sessions: int = 5) -> AuthConfig` |  | Configure session management. |
-| `tokens` | `def tokens(self, access_ttl_minutes: int = 15, refresh_ttl_days: int = 30) -> AuthConfig` |  | Configure token lifetimes. |
-| `mfa` | `def mfa(self, enabled: bool = True, required: bool = False) -> AuthConfig` |  | Configure MFA. |
-| `oauth` | `def oauth(self, enabled: bool = True) -> AuthConfig` |  | Enable OAuth2/OIDC. |
-| `build` | `def build(self) -> dict[str, Any]` |  | Build configuration dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `rate_limit` | `def rate_limit(self, max_attempts: int=5, window_seconds: int=900, lockout_duration: int=3600)` | Configure rate limiting. |
+| `sessions` | `def sessions(self, policy: str='user', ttl_days: int=7, idle_timeout_hours: int=1, max_sessions: int=5)` | Configure session management. |
+| `tokens` | `def tokens(self, access_ttl_minutes: int=15, refresh_ttl_days: int=30)` | Configure token lifetimes. |
+| `mfa` | `def mfa(self, enabled: bool=True, required: bool=False)` | Configure MFA. |
+| `oauth` | `def oauth(self, enabled: bool=True)` | Enable OAuth2/OIDC. |
+| `build` | `def build(self)` | Build configuration dict. |
 
-### Class: `FlowGuard`
+### `FlowGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `object`
@@ -2245,113 +2204,113 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_flow_node` | `def as_flow_node(self, name: str &#124; None = None, priority: int = 50) -> FlowNode` |  | Convert guard to FlowNode. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_flow_node` | `def as_flow_node(self, name: str \| None=None, priority: int=50)` | Convert guard to FlowNode. |
 
-### Class: `RequireAuthGuard`
+### `RequireAuthGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require valid authentication.
 
-### Class: `RequireSessionAuthGuard`
+### `RequireSessionAuthGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require authentication via session.
 
-### Class: `RequireTokenAuthGuard`
+### `RequireTokenAuthGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require authentication via Bearer token.
 
-### Class: `RequireApiKeyGuard`
+### `RequireApiKeyGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require authentication via API key.
 
-### Class: `RequireScopesGuard`
+### `RequireScopesGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require specific OAuth scopes.
 
-### Class: `RequireRolesGuard`
+### `RequireRolesGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require specific roles.
 
-### Class: `RequirePermissionGuard`
+### `RequirePermissionGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require specific permission.
 
-### Class: `RequirePolicyGuard`
+### `RequirePolicyGuard`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `FlowGuard`
 - Summary: Require custom authorization policy.
 
-### Class: `ControllerGuardAdapter`
+### `ControllerGuardAdapter`
 
 - Source: `aquilia/auth/integration/flow_guards.py`
 - Bases: `object`
 - Summary: Adapts a FlowGuard to work in the Controller pipeline.
 
-### Class: `AquilAuthMiddleware`
+### `AquilAuthMiddleware`
 
 - Source: `aquilia/auth/integration/middleware.py`
 - Bases: `object`
 - Summary: Unified middleware for Auth + Sessions + DI integration.
 
-### Class: `OptionalAuthMiddleware`
+### `OptionalAuthMiddleware`
 
 - Source: `aquilia/auth/integration/middleware.py`
 - Bases: `AquilAuthMiddleware`
 - Summary: Auth middleware that doesn't require authentication.
 
-### Class: `SessionMiddleware`
+### `SessionMiddleware`
 
 - Source: `aquilia/auth/integration/middleware.py`
 - Bases: `object`
 - Summary: Session-only middleware without authentication.
 
-### Class: `FaultHandlerMiddleware`
+### `FaultHandlerMiddleware`
 
 - Source: `aquilia/auth/integration/middleware.py`
 - Bases: `object`
 - Summary: Middleware for handling faults with FaultEngine.
 
-### Class: `EnhancedRequestScopeMiddleware`
+### `EnhancedRequestScopeMiddleware`
 
 - Source: `aquilia/auth/integration/middleware.py`
 - Bases: `object`
 - Summary: Enhanced request scope middleware with better integration.
 
-### Class: `AuthRuntimeContext`
+### `AuthRuntimeContext`
 
 - Source: `aquilia/auth/integration/runtime_context.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Request-scoped auth runtime state.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `request` | `Any` |  |
-| `session` | `Any &#124; None` | `None` |
-| `identity` | `Any &#124; None` | `None` |
-| `auth` | `Any &#124; None` | `None` |
-| `response` | `Any &#124; None` | `None` |
-| `container` | `Any &#124; None` | `None` |
+| `request` | `Any` | `` |
+| `session` | `Any \| None` | `None` |
+| `identity` | `Any \| None` | `None` |
+| `auth` | `Any \| None` | `None` |
+| `response` | `Any \| None` | `None` |
+| `container` | `Any \| None` | `None` |
 
-### Class: `AuthSession`
+### `AuthSession`
 
 - Source: `aquilia/auth/integration/sessions.py`
 - Bases: `object`
@@ -2359,14 +2318,14 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_expired` | `def is_expired(self) -> bool` |  | Check if session is expired. |
-| `update_activity` | `def update_activity(self) -> None` |  | Update last activity timestamp. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dictionary. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> AuthSession` | classmethod | Deserialize from dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_expired` | `def is_expired(self)` | Check if session is expired. |
+| `update_activity` | `def update_activity(self)` | Update last activity timestamp. |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Deserialize from dictionary. |
 
-### Class: `MemorySessionStore`
+### `MemorySessionStore`
 
 - Source: `aquilia/auth/integration/sessions.py`
 - Bases: `object`
@@ -2374,16 +2333,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create_session` | `async def create_session(self, identity_id: str, ttl_seconds: int = 3600, metadata: dict[str, Any] &#124; None = None) -> AuthSession` |  | Create new session. |
-| `get_session` | `async def get_session(self, session_id: str) -> AuthSession &#124; None` |  | Get session by ID. |
-| `update_session` | `async def update_session(self, session: AuthSession) -> None` |  | Update session. |
-| `delete_session` | `async def delete_session(self, session_id: str) -> bool` |  | Delete session. |
-| `list_sessions` | `async def list_sessions(self, identity_id: str) -> list[AuthSession]` |  | List all active sessions for identity. |
-| `delete_all_sessions` | `async def delete_all_sessions(self, identity_id: str) -> int` |  | Delete all sessions for identity. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create_session` | `async def create_session(self, identity_id: str, ttl_seconds: int=3600, metadata: dict[str, Any] \| None=None)` | Create new session. |
+| `get_session` | `async def get_session(self, session_id: str)` | Get session by ID. |
+| `update_session` | `async def update_session(self, session: AuthSession)` | Update session. |
+| `delete_session` | `async def delete_session(self, session_id: str)` | Delete session. |
+| `list_sessions` | `async def list_sessions(self, identity_id: str)` | List all active sessions for identity. |
+| `delete_all_sessions` | `async def delete_all_sessions(self, identity_id: str)` | Delete all sessions for identity. |
 
-### Class: `SessionManager`
+### `SessionManager`
 
 - Source: `aquilia/auth/integration/sessions.py`
 - Bases: `object`
@@ -2391,22 +2350,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create_session` | `async def create_session(self, identity: Identity, metadata: dict[str, Any] &#124; None = None) -> AuthSession` |  | Create new session for identity. |
-| `get_session` | `async def get_session(self, session_id: str) -> AuthSession &#124; None` |  | Get session and update activity. |
-| `extend_session` | `async def extend_session(self, session_id: str, additional_seconds: int = 3600) -> bool` |  | Extend session expiration. |
-| `rotate_session` | `async def rotate_session(self, old_session_id: str) -> AuthSession &#124; None` |  | Rotate session ID (privilege escalation). |
-| `delete_session` | `async def delete_session(self, session_id: str) -> bool` |  | Delete session (logout). |
-| `delete_all_sessions` | `async def delete_all_sessions(self, identity_id: str) -> int` |  | Delete all sessions for identity (logout all devices). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create_session` | `async def create_session(self, identity: Identity, metadata: dict[str, Any] \| None=None)` | Create new session for identity. |
+| `get_session` | `async def get_session(self, session_id: str)` | Get session and update activity. |
+| `extend_session` | `async def extend_session(self, session_id: str, additional_seconds: int=3600)` | Extend session expiration. |
+| `rotate_session` | `async def rotate_session(self, old_session_id: str)` | Rotate session ID (privilege escalation). |
+| `delete_session` | `async def delete_session(self, session_id: str)` | Delete session (logout). |
+| `delete_all_sessions` | `async def delete_all_sessions(self, identity_id: str)` | Delete all sessions for identity (logout all devices). |
 
-### Class: `AuthSessionMiddleware`
+### `AuthSessionMiddleware`
 
 - Source: `aquilia/auth/integration/sessions.py`
 - Bases: `object`
 - Summary: Middleware for session-based authentication.
 
-### Class: `RateLimiter`
+### `RateLimiter`
 
 - Source: `aquilia/auth/manager.py`
 - Bases: `object`
@@ -2414,23 +2373,23 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `record_attempt` | `def record_attempt(self, key: str) -> None` |  | Record failed authentication attempt. |
-| `is_locked_out` | `def is_locked_out(self, key: str) -> bool` |  | Check if key is currently locked out. |
-| `get_remaining_attempts` | `def get_remaining_attempts(self, key: str) -> int` |  | Get remaining attempts before lockout. |
-| `reset` | `def reset(self, key: str) -> None` |  | Reset attempts for key (successful auth). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `record_attempt` | `def record_attempt(self, key: str)` | Record failed authentication attempt. |
+| `is_locked_out` | `def is_locked_out(self, key: str)` | Check if key is currently locked out. |
+| `get_remaining_attempts` | `def get_remaining_attempts(self, key: str)` | Get remaining attempts before lockout. |
+| `reset` | `def reset(self, key: str)` | Reset attempts for key (successful auth). |
 
-### Class: `SignInProvisionPolicy`
+### `SignInProvisionPolicy`
 
 - Source: `aquilia/auth/manager.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Provisioning policy for sign_in bootstrap behavior.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enable_identity_seed` | `bool` | `True` |
 | `create_identity_if_missing` | `bool` | `True` |
@@ -2440,11 +2399,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `secure_defaults` | `def secure_defaults(cls, env: str &#124; None = None) -> SignInProvisionPolicy` | classmethod | Environment-aware secure defaults. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `secure_defaults` | `def secure_defaults(cls, env: str \| None=None)` | Environment-aware secure defaults. |
 
-### Class: `AuthManager`
+### `AuthManager`
 
 - Source: `aquilia/auth/manager.py`
 - Bases: `object`
@@ -2452,23 +2411,23 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `current_session` | `def current_session(self) -> Any &#124; None` |  | Return current runtime session if auth/session middleware is active. |
-| `has_active_session` | `def has_active_session(self) -> bool` |  | Check whether a runtime session is currently available. |
-| `current_identity_id` | `def current_identity_id(self) -> str &#124; None` |  | Return identity_id bound to the current runtime session, if available. |
-| `authenticate_password` | `async def authenticate_password(self, username: str, password: str, scopes: SessionScope &#124; str &#124; list[SessionScope &#124; str] &#124; tuple[SessionScope &#124; str, ...] &#124; set[SessionScope &#124; str] &#124; None = None, session_id: str &#124; None = None, client_metadata: dict[str, Any] &#124; None = None) -> AuthResult` |  | Authenticate using username/password. |
-| `sign_in` | `async def sign_in(self, *, username: str, password: str, scopes: SessionScope &#124; str &#124; list[SessionScope &#124; str] &#124; tuple[SessionScope &#124; str, ...] &#124; set[SessionScope &#124; str] &#124; None = None, session: Literal['auto', 'new'] &#124; str = 'auto', client_metadata: dict[str, Any] &#124; None = None, identity: Identity &#124; None = None, password_hash: str &#124; None = None, provision: SignInProvisionPolicy &#124; None = None) -> AuthResult` |  | Aquilia-native high-level sign-in API. |
-| `authenticate_api_key` | `async def authenticate_api_key(self, api_key: str, required_scopes: SessionScope &#124; str &#124; list[SessionScope &#124; str] &#124; tuple[SessionScope &#124; str, ...] &#124; set[SessionScope &#124; str] &#124; None = None) -> AuthResult` |  | Authenticate using API key. |
-| `refresh_access_token` | `async def refresh_access_token(self, refresh_token: str) -> tuple[str, str]` |  | Refresh access token using refresh token. |
-| `revoke_token` | `async def revoke_token(self, token: str, token_type: str = 'refresh') -> None` |  | Revoke a token. |
-| `logout` | `async def logout(self, identity_id: str &#124; None = None, session_id: str &#124; None = None, access_token: str &#124; None = None, refresh_token: str &#124; None = None) -> None` |  | Logout user by revoking all tokens. |
-| `sign_out` | `async def sign_out(self, *, scope: Literal['session', 'identity', 'all'] = 'session', identity_id: str &#124; None = None, session_id: str &#124; None = None, access_token: str &#124; None = None, refresh_token: str &#124; None = None) -> JSONObject` |  | Aquilia-native sign-out API with explicit scope semantics. |
-| `resume_identity` | `async def resume_identity(self, access_token: str &#124; None = None) -> Identity &#124; None` |  | Resolve the current identity from token or runtime session context. |
-| `verify_token` | `async def verify_token(self, access_token: str) -> TokenClaims` |  | Verify and decode access token. |
-| `get_identity_from_token` | `async def get_identity_from_token(self, access_token: str) -> Identity &#124; None` |  | Extract identity from access token. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `current_session` | `def current_session(self)` | Return current runtime session if auth/session middleware is active. |
+| `has_active_session` | `def has_active_session(self)` | Check whether a runtime session is currently available. |
+| `current_identity_id` | `def current_identity_id(self)` | Return identity_id bound to the current runtime session, if available. |
+| `authenticate_password` | `async def authenticate_password(self, username: str, password: str, scopes: SessionScope \| str \| list[SessionScope \| str] \| tuple[SessionScope \| str, ...] \| set[SessionScope \| str] \| None=None, session_id: str \| None=None, client_metadata: dict[str, Any] \| None=None)` | Authenticate using username/password. |
+| `sign_in` | `async def sign_in(self, *, username: str, password: str, scopes: SessionScope \| str \| list[SessionScope \| str] \| tuple[SessionScope \| str, ...] \| set[SessionScope \| str] \| None=None, session: Literal['auto', 'new'] \| str='auto', client_metadata: dict[str, Any] \| None=None, identity: Identity \| None=None, password_hash: str \| None=None, provision: SignInProvisionPolicy \| None=None)` | Aquilia-native high-level sign-in API. |
+| `authenticate_api_key` | `async def authenticate_api_key(self, api_key: str, required_scopes: SessionScope \| str \| list[SessionScope \| str] \| tuple[SessionScope \| str, ...] \| set[SessionScope \| str] \| None=None)` | Authenticate using API key. |
+| `refresh_access_token` | `async def refresh_access_token(self, refresh_token: str)` | Refresh access token using refresh token. |
+| `revoke_token` | `async def revoke_token(self, token: str, token_type: str='refresh')` | Revoke a token. |
+| `logout` | `async def logout(self, identity_id: str \| None=None, session_id: str \| None=None, access_token: str \| None=None, refresh_token: str \| None=None)` | Logout user by revoking all tokens. |
+| `sign_out` | `async def sign_out(self, *, scope: Literal['session', 'identity', 'all']='session', identity_id: str \| None=None, session_id: str \| None=None, access_token: str \| None=None, refresh_token: str \| None=None)` | Aquilia-native sign-out API with explicit scope semantics. |
+| `resume_identity` | `async def resume_identity(self, access_token: str \| None=None)` | Resolve the current identity from token or runtime session context. |
+| `verify_token` | `async def verify_token(self, access_token: str)` | Verify and decode access token. |
+| `get_identity_from_token` | `async def get_identity_from_token(self, access_token: str)` | Extract identity from access token. |
 
-### Class: `TOTPProvider`
+### `TOTPProvider`
 
 - Source: `aquilia/auth/mfa.py`
 - Bases: `object`
@@ -2476,17 +2435,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate_secret` | `def generate_secret(self) -> str` |  | Generate random TOTP secret. |
-| `generate_code` | `def generate_code(self, secret: str, timestamp: int &#124; None = None) -> str` |  | Generate TOTP code for given secret and time. |
-| `verify_code` | `def verify_code(self, secret: str, code: str, window: int = 1, timestamp: int &#124; None = None) -> bool` |  | Verify TOTP code. |
-| `generate_provisioning_uri` | `def generate_provisioning_uri(self, secret: str, account_name: str) -> str` |  | Generate provisioning URI for QR code. |
-| `generate_backup_codes` | `def generate_backup_codes(self, count: int = 10) -> list[str]` |  | Generate backup recovery codes. |
-| `hash_backup_code` | `def hash_backup_code(code: str) -> str` | staticmethod | Hash backup code for storage using HMAC-SHA256. |
-| `verify_backup_code` | `def verify_backup_code(code: str, code_hash: str) -> bool` | staticmethod | Verify backup code against hash. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate_secret` | `def generate_secret(self)` | Generate random TOTP secret. |
+| `generate_code` | `def generate_code(self, secret: str, timestamp: int \| None=None)` | Generate TOTP code for given secret and time. |
+| `verify_code` | `def verify_code(self, secret: str, code: str, window: int=1, timestamp: int \| None=None)` | Verify TOTP code. |
+| `generate_provisioning_uri` | `def generate_provisioning_uri(self, secret: str, account_name: str)` | Generate provisioning URI for QR code. |
+| `generate_backup_codes` | `def generate_backup_codes(self, count: int=10)` | Generate backup recovery codes. |
+| `hash_backup_code` | `def hash_backup_code(code: str)` | Hash backup code for storage using HMAC-SHA256. |
+| `verify_backup_code` | `def verify_backup_code(code: str, code_hash: str)` | Verify backup code against hash. |
 
-### Class: `WebAuthnProvider`
+### `WebAuthnProvider`
 
 - Source: `aquilia/auth/mfa.py`
 - Bases: `object`
@@ -2494,15 +2453,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate_challenge` | `def generate_challenge(self) -> str` |  | Generate cryptographic challenge. |
-| `generate_registration_options` | `def generate_registration_options(self, user_id: str, user_name: str, user_display_name: str) -> dict[str, Any]` |  | Generate WebAuthn registration options. |
-| `generate_authentication_options` | `def generate_authentication_options(self, credential_ids: list[str] &#124; None = None) -> dict[str, Any]` |  | Generate WebAuthn authentication options. |
-| `verify_registration_response` | `def verify_registration_response(self, response: dict[str, Any], expected_challenge: str) -> dict[str, Any]` |  | Verify WebAuthn registration response. |
-| `verify_authentication_response` | `def verify_authentication_response(self, response: dict[str, Any], expected_challenge: str, stored_credential: dict[str, Any]) -> bool` |  | Verify WebAuthn authentication response. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate_challenge` | `def generate_challenge(self)` | Generate cryptographic challenge. |
+| `generate_registration_options` | `def generate_registration_options(self, user_id: str, user_name: str, user_display_name: str)` | Generate WebAuthn registration options. |
+| `generate_authentication_options` | `def generate_authentication_options(self, credential_ids: list[str] \| None=None)` | Generate WebAuthn authentication options. |
+| `verify_registration_response` | `def verify_registration_response(self, response: dict[str, Any], expected_challenge: str)` | Verify WebAuthn registration response. |
+| `verify_authentication_response` | `def verify_authentication_response(self, response: dict[str, Any], expected_challenge: str, stored_credential: dict[str, Any])` | Verify WebAuthn authentication response. |
 
-### Class: `MFAManager`
+### `MFAManager`
 
 - Source: `aquilia/auth/mfa.py`
 - Bases: `object`
@@ -2510,13 +2469,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `enroll_totp` | `async def enroll_totp(self, user_id: str, account_name: str) -> dict[str, Any]` |  | Enroll user in TOTP MFA. |
-| `verify_totp` | `async def verify_totp(self, secret: str, code: str) -> bool` |  | Verify TOTP code. |
-| `verify_backup_code` | `async def verify_backup_code(self, code: str, backup_code_hashes: list[str]) -> tuple[bool, list[str]]` |  | Verify backup code and remove it. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `enroll_totp` | `async def enroll_totp(self, user_id: str, account_name: str)` | Enroll user in TOTP MFA. |
+| `verify_totp` | `async def verify_totp(self, secret: str, code: str)` | Verify TOTP code. |
+| `verify_backup_code` | `async def verify_backup_code(self, code: str, backup_code_hashes: list[str])` | Verify backup code and remove it. |
 
-### Class: `PKCEVerifier`
+### `PKCEVerifier`
 
 - Source: `aquilia/auth/oauth.py`
 - Bases: `object`
@@ -2524,13 +2483,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate_code_verifier` | `def generate_code_verifier(length: int = 128) -> str` | staticmethod | Generate code verifier for PKCE. |
-| `generate_code_challenge` | `def generate_code_challenge(verifier: str, method: str = 'S256') -> str` | staticmethod | Generate code challenge from verifier. |
-| `verify_code_challenge` | `def verify_code_challenge(verifier: str, challenge: str, method: str = 'S256') -> bool` | staticmethod | Verify code verifier against challenge. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate_code_verifier` | `def generate_code_verifier(length: int=128)` | Generate code verifier for PKCE. |
+| `generate_code_challenge` | `def generate_code_challenge(verifier: str, method: str='S256')` | Generate code challenge from verifier. |
+| `verify_code_challenge` | `def verify_code_challenge(verifier: str, challenge: str, method: str='S256')` | Verify code verifier against challenge. |
 
-### Class: `OAuth2Manager`
+### `OAuth2Manager`
 
 - Source: `aquilia/auth/oauth.py`
 - Bases: `object`
@@ -2538,65 +2497,65 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate_client` | `async def validate_client(self, client_id: str, client_secret: str &#124; None = None) -> OAuthClient` |  | Validate OAuth client credentials. |
-| `authorize` | `async def authorize(self, client_id: str, redirect_uri: str, scope: str, state: str &#124; None = None, response_type: str = 'code', code_challenge: str &#124; None = None, code_challenge_method: str = 'S256') -> dict[str, Any]` |  | Authorization endpoint - initiate authorization flow. |
-| `grant_authorization_code` | `async def grant_authorization_code(self, client_id: str, identity_id: str, redirect_uri: str, scopes: list[str], code_challenge: str &#124; None = None, code_challenge_method: str = 'S256') -> str` |  | Grant authorization code after user consent. |
-| `exchange_authorization_code` | `async def exchange_authorization_code(self, code: str, client_id: str, client_secret: str &#124; None, redirect_uri: str, code_verifier: str &#124; None = None) -> dict[str, Any]` |  | Token endpoint - exchange authorization code for tokens. |
-| `client_credentials_grant` | `async def client_credentials_grant(self, client_id: str, client_secret: str, scope: str &#124; None = None) -> dict[str, Any]` |  | Client Credentials grant - machine-to-machine auth. |
-| `device_authorization` | `async def device_authorization(self, client_id: str, scope: str &#124; None = None) -> dict[str, Any]` |  | Device Authorization - initiate device flow. |
-| `device_token` | `async def device_token(self, device_code: str, client_id: str) -> dict[str, Any]` |  | Device Token - poll for authorization. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate_client` | `async def validate_client(self, client_id: str, client_secret: str \| None=None)` | Validate OAuth client credentials. |
+| `authorize` | `async def authorize(self, client_id: str, redirect_uri: str, scope: str, state: str \| None=None, response_type: str='code', code_challenge: str \| None=None, code_challenge_method: str='S256')` | Authorization endpoint - initiate authorization flow. |
+| `grant_authorization_code` | `async def grant_authorization_code(self, client_id: str, identity_id: str, redirect_uri: str, scopes: list[str], code_challenge: str \| None=None, code_challenge_method: str='S256')` | Grant authorization code after user consent. |
+| `exchange_authorization_code` | `async def exchange_authorization_code(self, code: str, client_id: str, client_secret: str \| None, redirect_uri: str, code_verifier: str \| None=None)` | Token endpoint - exchange authorization code for tokens. |
+| `client_credentials_grant` | `async def client_credentials_grant(self, client_id: str, client_secret: str, scope: str \| None=None)` | Client Credentials grant - machine-to-machine auth. |
+| `device_authorization` | `async def device_authorization(self, client_id: str, scope: str \| None=None)` | Device Authorization - initiate device flow. |
+| `device_token` | `async def device_token(self, device_code: str, client_id: str)` | Device Token - poll for authorization. |
 
-### Class: `PolicyDecision`
+### `PolicyDecision`
 
 - Source: `aquilia/auth/policy/__init__.py`
 - Bases: `Enum`
 - Summary: Result of a policy evaluation.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ALLOW` |  | `'allow'` |
-| `DENY` |  | `'deny'` |
-| `ABSTAIN` |  | `'abstain'` |
+| `ALLOW` | `` | `'allow'` |
+| `DENY` | `` | `'deny'` |
+| `ABSTAIN` | `` | `'abstain'` |
 
-### Class: `PolicyResult`
+### `PolicyResult`
 
 - Source: `aquilia/auth/policy/__init__.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of evaluating a policy rule.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `decision` | `PolicyDecision` |  |
-| `reason` | `str &#124; None` | `None` |
+| `decision` | `PolicyDecision` | `` |
+| `reason` | `str \| None` | `None` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `Policy`
+### `Policy`
 
 - Source: `aquilia/auth/policy/__init__.py`
 - Bases: `object`
 - Summary: Base class for resource-based authorization policies.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `resource` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `evaluate` | `def evaluate(self, action: str, identity: Any, resource: Any = None) -> PolicyResult` |  | Evaluate policy for a given action. |
-| `get_rules` | `def get_rules(self) -> list[str]` |  | Get list of defined rule names. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `evaluate` | `def evaluate(self, action: str, identity: Any, resource: Any=None)` | Evaluate policy for a given action. |
+| `get_rules` | `def get_rules(self)` | Get list of defined rule names. |
 
-### Class: `PolicyRegistry`
+### `PolicyRegistry`
 
 - Source: `aquilia/auth/policy/__init__.py`
 - Bases: `object`
@@ -2604,14 +2563,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, policy: Policy)` |  | Register a policy by its resource name. |
-| `get` | `def get(self, resource: str) -> Policy &#124; None` |  | Get policy for a resource. |
-| `evaluate` | `def evaluate(self, resource: str, action: str, identity: Any, resource_obj: Any = None) -> PolicyResult` |  | Evaluate policy for a resource action. |
-| `resources` | `def resources(self) -> list[str]` | property | List all registered resource types. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, policy: Policy)` | Register a policy by its resource name. |
+| `get` | `def get(self, resource: str)` | Get policy for a resource. |
+| `evaluate` | `def evaluate(self, resource: str, action: str, identity: Any, resource_obj: Any=None)` | Evaluate policy for a resource action. |
+| `resources` | `def resources(self)` | List all registered resource types. |
 
-### Class: `MemoryIdentityStore`
+### `MemoryIdentityStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2619,16 +2578,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create` | `async def create(self, identity: Identity) -> Identity` |  | Create new identity. |
-| `get` | `async def get(self, identity_id: str) -> Identity &#124; None` |  | Get identity by ID. |
-| `get_by_attribute` | `async def get_by_attribute(self, attribute: str, value: Any) -> Identity &#124; None` |  | Get identity by attribute value. |
-| `update` | `async def update(self, identity: Identity) -> Identity` |  | Update existing identity. |
-| `delete` | `async def delete(self, identity_id: str) -> bool` |  | Delete identity (soft delete by setting status). |
-| `list_by_tenant` | `async def list_by_tenant(self, tenant_id: str, limit: int = 100, offset: int = 0) -> list[Identity]` |  | List identities by tenant. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create` | `async def create(self, identity: Identity)` | Create new identity. |
+| `get` | `async def get(self, identity_id: str)` | Get identity by ID. |
+| `get_by_attribute` | `async def get_by_attribute(self, attribute: str, value: Any)` | Get identity by attribute value. |
+| `update` | `async def update(self, identity: Identity)` | Update existing identity. |
+| `delete` | `async def delete(self, identity_id: str)` | Delete identity (soft delete by setting status). |
+| `list_by_tenant` | `async def list_by_tenant(self, tenant_id: str, limit: int=100, offset: int=0)` | List identities by tenant. |
 
-### Class: `MemoryCredentialStore`
+### `MemoryCredentialStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2636,21 +2595,21 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_password` | `async def save_password(self, credential: PasswordCredential) -> None` |  | Save password credential. |
-| `get_password` | `async def get_password(self, identity_id: str) -> PasswordCredential &#124; None` |  | Get password credential. |
-| `delete_password` | `async def delete_password(self, identity_id: str) -> bool` |  | Delete password credential. |
-| `save_api_key` | `async def save_api_key(self, credential: ApiKeyCredential) -> None` |  | Save API key credential. |
-| `get_api_key` | `async def get_api_key(self, key_id: str) -> ApiKeyCredential &#124; None` |  | Get API key credential. |
-| `get_api_key_by_prefix` | `async def get_api_key_by_prefix(self, prefix: str) -> ApiKeyCredential &#124; None` |  | Get API key by prefix (first 8 chars). |
-| `list_api_keys` | `async def list_api_keys(self, identity_id: str) -> list[ApiKeyCredential]` |  | List all API keys for identity. |
-| `delete_api_key` | `async def delete_api_key(self, key_id: str) -> bool` |  | Delete API key credential. |
-| `save_mfa` | `async def save_mfa(self, credential: MFACredential) -> None` |  | Save MFA credential. |
-| `get_mfa` | `async def get_mfa(self, identity_id: str, mfa_type: str &#124; None = None) -> list[MFACredential]` |  | Get MFA credentials for identity. |
-| `delete_mfa` | `async def delete_mfa(self, identity_id: str, mfa_type: str &#124; None = None) -> bool` |  | Delete MFA credentials. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_password` | `async def save_password(self, credential: PasswordCredential)` | Save password credential. |
+| `get_password` | `async def get_password(self, identity_id: str)` | Get password credential. |
+| `delete_password` | `async def delete_password(self, identity_id: str)` | Delete password credential. |
+| `save_api_key` | `async def save_api_key(self, credential: ApiKeyCredential)` | Save API key credential. |
+| `get_api_key` | `async def get_api_key(self, key_id: str)` | Get API key credential. |
+| `get_api_key_by_prefix` | `async def get_api_key_by_prefix(self, prefix: str)` | Get API key by prefix (first 8 chars). |
+| `list_api_keys` | `async def list_api_keys(self, identity_id: str)` | List all API keys for identity. |
+| `delete_api_key` | `async def delete_api_key(self, key_id: str)` | Delete API key credential. |
+| `save_mfa` | `async def save_mfa(self, credential: MFACredential)` | Save MFA credential. |
+| `get_mfa` | `async def get_mfa(self, identity_id: str, mfa_type: str \| None=None)` | Get MFA credentials for identity. |
+| `delete_mfa` | `async def delete_mfa(self, identity_id: str, mfa_type: str \| None=None)` | Delete MFA credentials. |
 
-### Class: `MemoryOAuthClientStore`
+### `MemoryOAuthClientStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2658,15 +2617,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create` | `async def create(self, client: OAuthClient) -> OAuthClient` |  | Create OAuth client. |
-| `get` | `async def get(self, client_id: str) -> OAuthClient &#124; None` |  | Get OAuth client by ID. |
-| `update` | `async def update(self, client: OAuthClient) -> OAuthClient` |  | Update OAuth client. |
-| `delete` | `async def delete(self, client_id: str) -> bool` |  | Delete OAuth client. |
-| `list` | `async def list(self, owner_id: str &#124; None = None, limit: int = 100, offset: int = 0) -> list[OAuthClient]` |  | List OAuth clients, optionally filtered by owner (from metadata). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create` | `async def create(self, client: OAuthClient)` | Create OAuth client. |
+| `get` | `async def get(self, client_id: str)` | Get OAuth client by ID. |
+| `update` | `async def update(self, client: OAuthClient)` | Update OAuth client. |
+| `delete` | `async def delete(self, client_id: str)` | Delete OAuth client. |
+| `list` | `async def list(self, owner_id: str \| None=None, limit: int=100, offset: int=0)` | List OAuth clients, optionally filtered by owner (from metadata). |
 
-### Class: `MemoryTokenStore`
+### `MemoryTokenStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2674,17 +2633,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_refresh_token` | `async def save_refresh_token(self, token_id: str, identity_id: str, scopes: list[str], expires_at: datetime, session_id: str &#124; None = None, metadata: dict[str, Any] &#124; None = None) -> None` |  | Save refresh token. |
-| `get_refresh_token` | `async def get_refresh_token(self, token_id: str) -> dict[str, Any] &#124; None` |  | Get refresh token data. |
-| `revoke_refresh_token` | `async def revoke_refresh_token(self, token_id: str) -> None` |  | Revoke single refresh token. |
-| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str) -> None` |  | Revoke all tokens for identity. |
-| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str) -> None` |  | Revoke all tokens for session. |
-| `is_token_revoked` | `async def is_token_revoked(self, token_id: str) -> bool` |  | Check if token is revoked. |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Remove expired tokens (returns count removed). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_refresh_token` | `async def save_refresh_token(self, token_id: str, identity_id: str, scopes: list[str], expires_at: datetime, session_id: str \| None=None, metadata: dict[str, Any] \| None=None)` | Save refresh token. |
+| `get_refresh_token` | `async def get_refresh_token(self, token_id: str)` | Get refresh token data. |
+| `revoke_refresh_token` | `async def revoke_refresh_token(self, token_id: str)` | Revoke single refresh token. |
+| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str)` | Revoke all tokens for identity. |
+| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str)` | Revoke all tokens for session. |
+| `is_token_revoked` | `async def is_token_revoked(self, token_id: str)` | Check if token is revoked. |
+| `cleanup_expired` | `async def cleanup_expired(self)` | Remove expired tokens (returns count removed). |
 
-### Class: `RedisTokenStore`
+### `RedisTokenStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2692,17 +2651,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_refresh_token` | `async def save_refresh_token(self, token_id: str, identity_id: str, scopes: list[str], expires_at: datetime, session_id: str &#124; None = None, metadata: dict[str, Any] &#124; None = None) -> None` |  | Save refresh token to Redis. |
-| `get_refresh_token` | `async def get_refresh_token(self, token_id: str) -> dict[str, Any] &#124; None` |  | Get refresh token data from Redis. |
-| `revoke_refresh_token` | `async def revoke_refresh_token(self, token_id: str) -> None` |  | Revoke single refresh token. |
-| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str) -> None` |  | Revoke all tokens for identity. |
-| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str) -> None` |  | Revoke all tokens for session. |
-| `is_token_revoked` | `async def is_token_revoked(self, token_id: str) -> bool` |  | Check if token is revoked (fast check using Redis set). |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Redis handles expiration automatically, return 0. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_refresh_token` | `async def save_refresh_token(self, token_id: str, identity_id: str, scopes: list[str], expires_at: datetime, session_id: str \| None=None, metadata: dict[str, Any] \| None=None)` | Save refresh token to Redis. |
+| `get_refresh_token` | `async def get_refresh_token(self, token_id: str)` | Get refresh token data from Redis. |
+| `revoke_refresh_token` | `async def revoke_refresh_token(self, token_id: str)` | Revoke single refresh token. |
+| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str)` | Revoke all tokens for identity. |
+| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str)` | Revoke all tokens for session. |
+| `is_token_revoked` | `async def is_token_revoked(self, token_id: str)` | Check if token is revoked (fast check using Redis set). |
+| `cleanup_expired` | `async def cleanup_expired(self)` | Redis handles expiration automatically, return 0. |
 
-### Class: `MemoryAuthorizationCodeStore`
+### `MemoryAuthorizationCodeStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2710,14 +2669,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_code` | `async def save_code(self, code: str, client_id: str, identity_id: str, redirect_uri: str, scopes: list[str], expires_at: datetime, code_challenge: str &#124; None = None, code_challenge_method: str &#124; None = None) -> None` |  | Save authorization code. |
-| `get_code` | `async def get_code(self, code: str) -> dict[str, Any] &#124; None` |  | Get authorization code data. |
-| `consume_code` | `async def consume_code(self, code: str) -> bool` |  | Mark code as used (one-time use). |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Remove expired codes. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_code` | `async def save_code(self, code: str, client_id: str, identity_id: str, redirect_uri: str, scopes: list[str], expires_at: datetime, code_challenge: str \| None=None, code_challenge_method: str \| None=None)` | Save authorization code. |
+| `get_code` | `async def get_code(self, code: str)` | Get authorization code data. |
+| `consume_code` | `async def consume_code(self, code: str)` | Mark code as used (one-time use). |
+| `cleanup_expired` | `async def cleanup_expired(self)` | Remove expired codes. |
 
-### Class: `MemoryDeviceCodeStore`
+### `MemoryDeviceCodeStore`
 
 - Source: `aquilia/auth/stores.py`
 - Bases: `object`
@@ -2725,77 +2684,77 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_device_code` | `async def save_device_code(self, device_code: str, user_code: str, client_id: str, scopes: list[str], expires_at: datetime) -> None` |  | Save device code. |
-| `get_by_device_code` | `async def get_by_device_code(self, device_code: str) -> dict[str, Any] &#124; None` |  | Get device code data. |
-| `get_by_user_code` | `async def get_by_user_code(self, user_code: str) -> dict[str, Any] &#124; None` |  | Get device code data by user code. |
-| `authorize_device_code` | `async def authorize_device_code(self, user_code: str, identity_id: str) -> bool` |  | Authorize device code (user approved). |
-| `deny_device_code` | `async def deny_device_code(self, user_code: str) -> bool` |  | Deny device code (user rejected). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_device_code` | `async def save_device_code(self, device_code: str, user_code: str, client_id: str, scopes: list[str], expires_at: datetime)` | Save device code. |
+| `get_by_device_code` | `async def get_by_device_code(self, device_code: str)` | Get device code data. |
+| `get_by_user_code` | `async def get_by_user_code(self, user_code: str)` | Get device code data by user code. |
+| `authorize_device_code` | `async def authorize_device_code(self, user_code: str, identity_id: str)` | Authorize device code (user approved). |
+| `deny_device_code` | `async def deny_device_code(self, user_code: str)` | Deny device code (user rejected). |
 
-### Class: `KeyAlgorithm`
+### `KeyAlgorithm`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `str, Enum`
 - Summary: Supported signing algorithms (Enum prevents arbitrary values).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `HS256` |  | `'HS256'` |
-| `HS384` |  | `'HS384'` |
-| `HS512` |  | `'HS512'` |
-| `RS256` |  | `'RS256'` |
-| `ES256` |  | `'ES256'` |
-| `EdDSA` |  | `'EdDSA'` |
+| `HS256` | `` | `'HS256'` |
+| `HS384` | `` | `'HS384'` |
+| `HS512` | `` | `'HS512'` |
+| `RS256` | `` | `'RS256'` |
+| `ES256` | `` | `'ES256'` |
+| `EdDSA` | `` | `'EdDSA'` |
 
-### Class: `KeyStatus`
+### `KeyStatus`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `str, Enum`
 - Summary: Key status in lifecycle (Enum prevents invalid state transitions).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ACTIVE` |  | `'active'` |
-| `ROTATING` |  | `'rotating'` |
-| `RETIRED` |  | `'retired'` |
-| `REVOKED` |  | `'revoked'` |
+| `ACTIVE` | `` | `'active'` |
+| `ROTATING` | `` | `'rotating'` |
+| `RETIRED` | `` | `'retired'` |
+| `REVOKED` | `` | `'revoked'` |
 
-### Class: `KeyDescriptor`
+### `KeyDescriptor`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Cryptographic key metadata.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `kid` | `str` |  |
-| `algorithm` | `str` |  |
-| `public_key_pem` | `str` |  |
-| `private_key_pem` | `str &#124; None` | `None` |
+| `kid` | `str` | `` |
+| `algorithm` | `str` | `` |
+| `public_key_pem` | `str` | `` |
+| `private_key_pem` | `str \| None` | `None` |
 | `status` | `str` | `KeyStatus.ACTIVE` |
 | `created_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
-| `retire_after` | `datetime &#124; None` | `None` |
-| `revoked_at` | `datetime &#124; None` | `None` |
+| `retire_after` | `datetime \| None` | `None` |
+| `revoked_at` | `datetime \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_active` | `def is_active(self) -> bool` |  | Check if key can be used for signing. |
-| `can_verify` | `def can_verify(self) -> bool` |  | Check if key can be used for verification. |
-| `to_dict` | `def to_dict(self, include_private_key: bool = False) -> dict[str, Any]` |  | Serialize to dict. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> KeyDescriptor` | classmethod | Deserialize from dict. |
-| `generate` | `def generate(cls, kid: str, algorithm: str = KeyAlgorithm.HS256, secret: str &#124; None = None) -> KeyDescriptor` | classmethod | Generate a new key (or wrap an existing secret) for *algorithm*. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_active` | `def is_active(self)` | Check if key can be used for signing. |
+| `can_verify` | `def can_verify(self)` | Check if key can be used for verification. |
+| `to_dict` | `def to_dict(self, include_private_key: bool=False)` | Serialize to dict. |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Deserialize from dict. |
+| `generate` | `def generate(cls, kid: str, algorithm: str=KeyAlgorithm.HS256, secret: str \| None=None)` | Generate a new key (or wrap an existing secret) for *algorithm*. |
 
-### Class: `KeyRing`
+### `KeyRing`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `object`
@@ -2803,28 +2762,28 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_signing_key` | `def get_signing_key(self) -> KeyDescriptor` |  | Get current signing key. |
-| `get_verification_key` | `def get_verification_key(self, kid: str) -> KeyDescriptor &#124; None` |  | Get verification key by kid. |
-| `add_key` | `def add_key(self, key: KeyDescriptor) -> None` |  | Add key to ring. |
-| `promote_key` | `def promote_key(self, kid: str) -> None` |  | Promote key to active (retire current). |
-| `revoke_key` | `def revoke_key(self, kid: str) -> None` |  | Revoke key (invalid for all operations). |
-| `to_dict` | `def to_dict(self, include_private_keys: bool = True) -> dict[str, Any]` |  | Serialize to dict. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> KeyRing` | classmethod | Deserialize from dict. |
-| `from_file` | `def from_file(cls, path: Path) -> KeyRing` | classmethod | Load from JSON file. |
-| `to_file` | `def to_file(self, path: Path) -> None` |  | Save to JSON file. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_signing_key` | `def get_signing_key(self)` | Get current signing key. |
+| `get_verification_key` | `def get_verification_key(self, kid: str)` | Get verification key by kid. |
+| `add_key` | `def add_key(self, key: KeyDescriptor)` | Add key to ring. |
+| `promote_key` | `def promote_key(self, kid: str)` | Promote key to active (retire current). |
+| `revoke_key` | `def revoke_key(self, kid: str)` | Revoke key (invalid for all operations). |
+| `to_dict` | `def to_dict(self, include_private_keys: bool=True)` | Serialize to dict. |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Deserialize from dict. |
+| `from_file` | `def from_file(cls, path: Path)` | Load from JSON file. |
+| `to_file` | `def to_file(self, path: Path)` | Save to JSON file. |
 
-### Class: `TokenConfig`
+### `TokenConfig`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Token manager configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `issuer` | `str` | `'aquilia'` |
 | `audience` | `list[str]` | `field(default_factory=lambda: ['api'])` |
@@ -2832,7 +2791,7 @@ Attributes and fields:
 | `refresh_token_ttl` | `int` | `2592000` |
 | `algorithm` | `str` | `KeyAlgorithm.RS256` |
 
-### Class: `TokenStore`
+### `TokenStore`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `Protocol`
@@ -2840,16 +2799,16 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save_refresh_token` | `async def save_refresh_token(self, token_id: str, identity_id: str, scopes: list[str], expires_at: datetime, session_id: str &#124; None = None) -> None` |  | Save refresh token. |
-| `get_refresh_token` | `async def get_refresh_token(self, token_id: str) -> dict[str, Any] &#124; None` |  | Get refresh token data. |
-| `revoke_refresh_token` | `async def revoke_refresh_token(self, token_id: str) -> None` |  | Revoke refresh token. |
-| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str) -> None` |  | Revoke all tokens for identity. |
-| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str) -> None` |  | Revoke all tokens for session. |
-| `is_token_revoked` | `async def is_token_revoked(self, token_id: str) -> bool` |  | Check if token is revoked. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save_refresh_token` | `async def save_refresh_token(self, token_id: str, identity_id: str, scopes: list[str], expires_at: datetime, session_id: str \| None=None)` | Save refresh token. |
+| `get_refresh_token` | `async def get_refresh_token(self, token_id: str)` | Get refresh token data. |
+| `revoke_refresh_token` | `async def revoke_refresh_token(self, token_id: str)` | Revoke refresh token. |
+| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str)` | Revoke all tokens for identity. |
+| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str)` | Revoke all tokens for session. |
+| `is_token_revoked` | `async def is_token_revoked(self, token_id: str)` | Check if token is revoked. |
 
-### Class: `TokenManager`
+### `TokenManager`
 
 - Source: `aquilia/auth/tokens.py`
 - Bases: `object`
@@ -2857,92 +2816,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `issue_access_token` | `async def issue_access_token(self, identity_id: str, scopes: list[str], roles: list[str] &#124; None = None, session_id: str &#124; None = None, tenant_id: str &#124; None = None, ttl: int &#124; None = None) -> str` |  | Issue signed access token. |
-| `issue_refresh_token` | `async def issue_refresh_token(self, identity_id: str, scopes: list[str], session_id: str &#124; None = None) -> str` |  | Issue opaque refresh token. |
-| `validate_access_token` | `async def validate_access_token(self, token: str) -> dict[str, Any]` |  | Validate and decode access token. |
-| `validate_refresh_token` | `async def validate_refresh_token(self, token: str) -> dict[str, Any]` |  | Validate refresh token. |
-| `refresh_access_token` | `async def refresh_access_token(self, refresh_token: str) -> tuple[str, str]` |  | Exchange refresh token for new access + refresh tokens. |
-| `revoke_token` | `async def revoke_token(self, token_id: str) -> None` |  | Revoke token by ID. |
-| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str) -> None` |  | Revoke all tokens for identity. |
-| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str) -> None` |  | Revoke all tokens for session. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `is_verified` | `aquilia/auth/clearance.py` | `def is_verified(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity must have 'verified' attribute or status ACTIVE. |
-| `is_owner_or_admin` | `aquilia/auth/clearance.py` | `def is_owner_or_admin(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity is resource owner or has admin role. |
-| `within_quota` | `aquilia/auth/clearance.py` | `def within_quota(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity hasn't exceeded rate/resource quota. |
-| `is_same_tenant` | `aquilia/auth/clearance.py` | `def is_same_tenant(identity: Any, request: Any, ctx: Any) -> bool` | Condition: identity's tenant matches resource tenant. |
-| `during_hours` | `aquilia/auth/clearance.py` | `def during_hours(start: int = 9, end: int = 17) -> Callable` | Factory: condition that restricts access to business hours (UTC). |
-| `require_attribute` | `aquilia/auth/clearance.py` | `def require_attribute(key: str, value: Any = None) -> Callable` | Factory: condition that requires a specific identity attribute. |
-| `ip_allowlist` | `aquilia/auth/clearance.py` | `def ip_allowlist(*cidrs: str) -> Callable` | Factory: condition restricting access to specific IP ranges. |
-| `grant` | `aquilia/auth/clearance.py` | `def grant(level: AccessLevel = AccessLevel.AUTHENTICATED, entitlements: Sequence[str] = (), conditions: Sequence[Callable] = (), compartment: str &#124; None = None, deny_message: str = 'Insufficient clearance', audit: bool = True) -> Callable` | Decorator to attach clearance requirements to a route method. |
-| `exempt` | `aquilia/auth/clearance.py` | `def exempt(fn: Callable) -> Callable` | Decorator to exempt a route from class-level clearance. |
-| `get_method_clearance` | `aquilia/auth/clearance.py` | `def get_method_clearance(method: Any) -> Clearance &#124; None` | Extract clearance from a decorated method. |
-| `extract_controller_clearance` | `aquilia/auth/clearance.py` | `def extract_controller_clearance(controller_class: type) -> Clearance &#124; None` | Extract clearance from controller class. |
-| `build_merged_clearance` | `aquilia/auth/clearance.py` | `def build_merged_clearance(controller_class: type, handler_method: Any) -> Clearance &#124; None` | Build merged clearance from class + method. |
-| `authenticated` | `aquilia/auth/decorators.py` | `def authenticated(func: F &#124; None = None, *, login_url: str &#124; None = None, redirect_if_html: bool = False, include_next: bool = True, next_param: str = 'next', redirect_status: int = 303) -> F &#124; Callable[[F], F]` | Decorator requiring authenticated identity. |
-| `require_identity` | `aquilia/auth/decorators.py` | `def require_identity(*, roles: list[str] &#124; None = None, scopes: list[str] &#124; None = None, attributes: dict[str, Any] &#124; None = None, require_all_roles: bool = False, require_all_scopes: bool = True, login_url: str &#124; None = None, redirect_if_html: bool = False, include_next: bool = True, next_param: str = 'next', redirect_status: int = 303) -> Callable[[F], F]` | Decorator requiring identity with specific attributes. |
-| `requires` | `aquilia/auth/decorators.py` | `def requires(*guards: AuthGuard) -> Callable[[F], F]` | Decorator to require multiple guards. |
-| `raise_auth_fault` | `aquilia/auth/faults.py` | `def raise_auth_fault(fault_class: type[Fault], **kwargs)` | Raise an auth fault with context. |
-| `is_auth_fault` | `aquilia/auth/faults.py` | `def is_auth_fault(exception: Exception) -> bool` | Check if exception is an auth fault. |
-| `require_auth` | `aquilia/auth/guards.py` | `def require_auth(auth_manager: AuthManager, optional: bool = False) -> Callable` | Decorator: Require authentication. |
-| `require_scopes` | `aquilia/auth/guards.py` | `def require_scopes(*scopes: str) -> Callable` | Decorator: Require OAuth scopes. |
-| `require_roles` | `aquilia/auth/guards.py` | `def require_roles(*roles: str, require_all: bool = False) -> Callable` | Decorator: Require roles. |
-| `constant_time_compare` | `aquilia/auth/hardening.py` | `def constant_time_compare(a: str &#124; bytes, b: str &#124; bytes) -> bool` | Compare two strings/bytes in constant time to prevent timing attacks. |
-| `generate_secure_token` | `aquilia/auth/hardening.py` | `def generate_secure_token(length: int = 32) -> str` | Generate a cryptographically secure random token. |
-| `generate_opaque_id` | `aquilia/auth/hardening.py` | `def generate_opaque_id(prefix: str = 'aq') -> str` | Generate an opaque identifier with prefix. |
-| `hash_token` | `aquilia/auth/hardening.py` | `def hash_token(token: str) -> str` | Hash a token for storage (one-way). |
-| `hash_sensitive` | `aquilia/auth/hardening.py` | `def hash_sensitive(value: str, salt: str = '') -> str` | Hash sensitive data with optional salt. |
-| `get_password_hasher` | `aquilia/auth/hashing.py` | `def get_password_hasher() -> PasswordHasher` | Get default password hasher instance. |
-| `hash_password` | `aquilia/auth/hashing.py` | `def hash_password(password: str) -> str` | Hash password with default hasher. |
-| `verify_password` | `aquilia/auth/hashing.py` | `def verify_password(password_hash: str, password: str) -> bool` | Verify password with default hasher. |
-| `validate_password` | `aquilia/auth/hashing.py` | `def validate_password(password: str, policy: PasswordPolicy &#124; None = None) -> tuple[bool, list[str]]` | Validate password against policy. |
-| `bind_identity` | `aquilia/auth/integration/aquila_sessions.py` | `def bind_identity(session: Session, identity: Identity) -> None` | Bind identity to session. |
-| `bind_token_claims` | `aquilia/auth/integration/aquila_sessions.py` | `def bind_token_claims(session: Session, claims: TokenClaims) -> None` | Bind token claims to session. |
-| `get_identity_id` | `aquilia/auth/integration/aquila_sessions.py` | `def get_identity_id(session: Session) -> str &#124; None` | Get identity ID from session. |
-| `get_tenant_id` | `aquilia/auth/integration/aquila_sessions.py` | `def get_tenant_id(session: Session) -> str &#124; None` | Get tenant ID from session. |
-| `get_roles` | `aquilia/auth/integration/aquila_sessions.py` | `def get_roles(session: Session) -> list[str]` | Get roles from session. |
-| `get_scopes` | `aquilia/auth/integration/aquila_sessions.py` | `def get_scopes(session: Session) -> list[str]` | Get scopes from session. |
-| `is_mfa_verified` | `aquilia/auth/integration/aquila_sessions.py` | `def is_mfa_verified(session: Session) -> bool` | Check if MFA was verified for this session. |
-| `set_mfa_verified` | `aquilia/auth/integration/aquila_sessions.py` | `def set_mfa_verified(session: Session) -> None` | Mark session as MFA verified. |
-| `user_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def user_session_policy(ttl: timedelta = timedelta(days=7), idle_timeout: timedelta = timedelta(hours=1), max_sessions: int &#124; None = 5, store_name: str = 'redis') -> SessionPolicy` | Create policy for user web sessions. |
-| `api_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def api_session_policy(ttl: timedelta = timedelta(hours=1), max_sessions: int &#124; None = None) -> SessionPolicy` | Create policy for API token sessions. |
-| `device_session_policy` | `aquilia/auth/integration/aquila_sessions.py` | `def device_session_policy(ttl: timedelta = timedelta(days=90), idle_timeout: timedelta = timedelta(days=30)) -> SessionPolicy` | Create policy for device (mobile app) sessions. |
-| `register_auth_providers` | `aquilia/auth/integration/di_providers.py` | `def register_auth_providers(container: Container, config: dict[str, Any] &#124; None = None) -> None` | Register all auth providers in DI container. |
-| `create_auth_container` | `aquilia/auth/integration/di_providers.py` | `def create_auth_container(config: dict[str, Any] &#124; None = None, parent: Container &#124; None = None) -> Container` | Create DI container with all auth providers registered. |
-| `get_session` | `aquilia/auth/integration/flow_guards.py` | `def get_session(context: Any) -> Session &#124; None` | Extract session from flow context. |
-| `get_identity` | `aquilia/auth/integration/flow_guards.py` | `def get_identity(context: Any) -> Identity &#124; None` | Extract identity from flow context. |
-| `set_identity` | `aquilia/auth/integration/flow_guards.py` | `def set_identity(context: Any, identity: Identity &#124; None) -> None` | Set identity in flow context. |
-| `controller_require_auth` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_auth(optional: bool = False) -> ControllerGuardAdapter` | Create auth guard for Controller pipeline. |
-| `controller_require_scopes` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_scopes(*scopes: str, require_all: bool = True) -> ControllerGuardAdapter` | Create scope guard for Controller pipeline. |
-| `controller_require_roles` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_roles(*roles: str, require_all: bool = True) -> ControllerGuardAdapter` | Create role guard for Controller pipeline. |
-| `controller_require_permission` | `aquilia/auth/integration/flow_guards.py` | `def controller_require_permission(authz_engine: AuthzEngine, permission: str, resource: str &#124; None = None) -> ControllerGuardAdapter` | Create permission guard for Controller pipeline. |
-| `require_auth` | `aquilia/auth/integration/flow_guards.py` | `def require_auth(optional: bool = False) -> FlowNode` | Create authentication guard node. |
-| `require_scopes` | `aquilia/auth/integration/flow_guards.py` | `def require_scopes(*scopes: str, require_all: bool = True) -> FlowNode` | Create scope guard node. |
-| `require_roles` | `aquilia/auth/integration/flow_guards.py` | `def require_roles(*roles: str, require_all: bool = True) -> FlowNode` | Create role guard node. |
-| `require_permission` | `aquilia/auth/integration/flow_guards.py` | `def require_permission(authz_engine: AuthzEngine, permission: str, resource: str &#124; None = None) -> FlowNode` | Create permission guard node. |
-| `create_auth_middleware_stack` | `aquilia/auth/integration/middleware.py` | `def create_auth_middleware_stack(session_engine: SessionEngine, auth_manager: AuthManager, app_container: Container, fault_engine: FaultEngine &#124; None = None, require_auth: bool = False) -> list[Middleware]` | Create complete middleware stack for authenticated app. |
-| `set_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def set_auth_runtime_context(context: AuthRuntimeContext) -> Token` | Set auth runtime context for current async task execution. |
-| `reset_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def reset_auth_runtime_context(token: Token) -> None` | Reset auth runtime context to previous value. |
-| `get_auth_runtime_context` | `aquilia/auth/integration/runtime_context.py` | `def get_auth_runtime_context() -> AuthRuntimeContext &#124; None` | Get current auth runtime context, if any. |
-| `Allow` | `aquilia/auth/policy/__init__.py` | `def Allow(reason: str &#124; None = None, **metadata) -> PolicyResult` | Create an Allow decision. |
-| `Deny` | `aquilia/auth/policy/__init__.py` | `def Deny(reason: str &#124; None = None, **metadata) -> PolicyResult` | Create a Deny decision. |
-| `Abstain` | `aquilia/auth/policy/__init__.py` | `def Abstain(reason: str &#124; None = None) -> PolicyResult` | Create an Abstain decision (defer to next rule/policy). |
-| `rule` | `aquilia/auth/policy/__init__.py` | `def rule(func: Callable) -> Callable` | Decorator to mark a method as a policy rule. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `_CLEARANCE_ATTR` | `aquilia/auth/clearance.py` | `'__aquilia_clearance__'` |
-| `F` | `aquilia/auth/decorators.py` | `TypeVar('F', bound=Callable[..., Any])` |
-| `SUPPORTED_ALGORITHMS` | `aquilia/auth/hashing.py` | `('argon2id', 'scrypt', 'bcrypt', 'pbkdf2_sha512', 'pbkdf2_sha256')` |
-| `_AUTH_RUNTIME_CONTEXT` | `aquilia/auth/integration/runtime_context.py` | `ContextVar[AuthRuntimeContext &#124; None]` |
-| `_HMAC_ALGORITHMS` | `aquilia/auth/tokens.py` | `frozenset[str]` |
-| `_ASYMMETRIC_ALGORITHMS` | `aquilia/auth/tokens.py` | `frozenset[str]` |
-| `_SUPPORTED_ALGORITHMS` | `aquilia/auth/tokens.py` | `frozenset[str]` |
-| `_HMAC_DIGEST` | `aquilia/auth/tokens.py` | `dict[str, str]` |
+| `issue_access_token` | `async def issue_access_token(self, identity_id: str, scopes: list[str], roles: list[str] \| None=None, session_id: str \| None=None, tenant_id: str \| None=None, ttl: int \| None=None)` | Issue signed access token. |
+| `issue_refresh_token` | `async def issue_refresh_token(self, identity_id: str, scopes: list[str], session_id: str \| None=None)` | Issue opaque refresh token. |
+| `validate_access_token` | `async def validate_access_token(self, token: str)` | Validate and decode access token. |
+| `validate_refresh_token` | `async def validate_refresh_token(self, token: str)` | Validate refresh token. |
+| `refresh_access_token` | `async def refresh_access_token(self, refresh_token: str)` | Exchange refresh token for new access + refresh tokens. |
+| `revoke_token` | `async def revoke_token(self, token_id: str)` | Revoke token by ID. |
+| `revoke_tokens_by_identity` | `async def revoke_tokens_by_identity(self, identity_id: str)` | Revoke all tokens for identity. |
+| `revoke_tokens_by_session` | `async def revoke_tokens_by_session(self, session_id: str)` | Revoke all tokens for session. |

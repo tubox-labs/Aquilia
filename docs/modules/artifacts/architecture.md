@@ -1,52 +1,62 @@
 # Artifacts Architecture
 
-## Runtime Role
+Typed artifact envelopes, artifact kinds, integrity metadata, readers, builders, and memory/filesystem stores.
 
-The typed artifact system used for route, registry, migration, template, model, config, code, and graph artifacts with envelope and integrity metadata.
+## Source Boundaries
 
-The implementation is split across 6 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/artifacts/__init__.py` | 91 | 0 | 0 | Aquilia Artifacts -- Unified artifact system for the framework. |
+| `aquilia/artifacts/builder.py` | 240 | 1 | 0 | Artifact Builder -- fluent API for constructing artifacts. |
+| `aquilia/artifacts/core.py` | 416 | 5 | 1 | Artifact Core -- the foundational types for Aquilia's artifact system. |
+| `aquilia/artifacts/kinds.py` | 413 | 9 | 0 | Typed Artifact Kinds -- convenience subclasses with kind-specific helpers. |
+| `aquilia/artifacts/reader.py` | 250 | 1 | 0 | Artifact Reader -- load, inspect, verify, and query artifacts. |
+| `aquilia/artifacts/store.py` | 449 | 3 | 1 | Artifact Store -- pluggable storage backends for artifacts. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/artifacts/__init__.py`: Aquilia Artifacts -- Unified artifact system for the framework.
-- `aquilia/artifacts/builder.py`: Artifact Builder -- fluent API for constructing artifacts.
-- `aquilia/artifacts/core.py`: Artifact Core -- the foundational types for Aquilia's artifact system.
-- `aquilia/artifacts/kinds.py`: Typed Artifact Kinds -- convenience subclasses with kind-specific helpers.
-- `aquilia/artifacts/reader.py`: Artifact Reader -- load, inspect, verify, and query artifacts.
-- `aquilia/artifacts/store.py`: Artifact Store -- pluggable storage backends for artifacts.
+`artifacts` has 6 Python files, 19 public classes, 2 public module-level functions, and 2 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- This module has `aq` command coverage documented in `cli-reference.md`; 11 commands map to this subsystem.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.core` | 6 |
+| `.builder` | 2 |
+| `.store` | 2 |
+| `.kinds` | 1 |
+| `.reader` | 1 |
+| `aquilia._version` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `__future__` | 5 |
-| `core` | 5 |
 | `json` | 4 |
 | `typing` | 4 |
-| `builder` | 2 |
 | `logging` | 2 |
-| `store` | 2 |
-| `aquilia` | 1 |
 | `dataclasses` | 1 |
 | `datetime` | 1 |
 | `enum` | 1 |
 | `hashlib` | 1 |
-| `kinds` | 1 |
 | `pathlib` | 1 |
-| `reader` | 1 |
 | `subprocess` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `ConfigArtifact` | `aquilia/artifacts/kinds.py` | Frozen configuration snapshot. |
+| `RegistryArtifact` | `aquilia/artifacts/kinds.py` | Module registry catalog artifact. |
+| `ArtifactStoreProtocol` | `aquilia/artifacts/store.py` | Minimal interface every store must implement. |
+| `MemoryArtifactStore` | `aquilia/artifacts/store.py` | Ephemeral in-memory artifact store. |
+| `FilesystemArtifactStore` | `aquilia/artifacts/store.py` | Persistent filesystem artifact store. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+This module does not define public `Fault` or `Error` classes in its own files. Errors are usually raised through shared `aquilia.faults` domains or consuming subsystems.

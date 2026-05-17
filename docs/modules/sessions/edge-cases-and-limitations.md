@@ -1,47 +1,27 @@
 # Sessions Edge Cases And Limitations
 
-## Fault And Error Types
+Session IDs, policies, stores, transports, engine, decorators, typed session state, and session faults.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `SessionRequiredFault` | `aquilia/sessions/decorators.py` | Raised when session is required but missing. |
-| `SessionFault` | `aquilia/sessions/faults.py` | Base class for session-related faults. |
-| `SessionExpiredFault` | `aquilia/sessions/faults.py` | Session has expired (TTL exceeded). |
-| `SessionIdleTimeoutFault` | `aquilia/sessions/faults.py` | Session idle timeout exceeded. |
-| `SessionAbsoluteTimeoutFault` | `aquilia/sessions/faults.py` | Session absolute timeout exceeded (OWASP requirement). |
-| `SessionInvalidFault` | `aquilia/sessions/faults.py` | Session ID is invalid or malformed. |
-| `SessionNotFoundFault` | `aquilia/sessions/faults.py` | Session ID not found in store. |
-| `SessionPolicyViolationFault` | `aquilia/sessions/faults.py` | Session violates policy constraints. |
-| `SessionConcurrencyViolationFault` | `aquilia/sessions/faults.py` | Too many concurrent sessions for principal. |
-| `SessionLockedFault` | `aquilia/sessions/faults.py` | Session is locked by another operation. Retry after lock is released. |
-| `SessionStoreUnavailableFault` | `aquilia/sessions/faults.py` | Session store is unavailable. Transient error - retry may succeed. |
-| `SessionStoreCorruptedFault` | `aquilia/sessions/faults.py` | Session data in store is corrupted. |
-| `SessionRotationFailedFault` | `aquilia/sessions/faults.py` | Session ID rotation failed. Session may be in inconsistent state. |
-| `SessionTransportFault` | `aquilia/sessions/faults.py` | Error extracting or injecting session via transport. |
-| `SessionForgeryAttemptFault` | `aquilia/sessions/faults.py` | Suspected session forgery or tampering. Security event. |
-| `SessionHijackAttemptFault` | `aquilia/sessions/faults.py` | Suspected session hijacking (IP/User-Agent mismatch). |
-| `SessionFingerprintMismatchFault` | `aquilia/sessions/faults.py` | Session fingerprint does not match client (OWASP hijack detection). |
+- Auth enables sessions automatically.
+- Local dev/test can force secure cookies off for HTTP localhost.
+- Insecure auth secrets fail in non-dev mode.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`SessionRequiredFault`, `SessionFault`, `SessionExpiredFault`, `SessionIdleTimeoutFault`, `SessionAbsoluteTimeoutFault`, `SessionInvalidFault`, `SessionNotFoundFault`, `SessionPolicyViolationFault`, `SessionConcurrencyViolationFault`, `SessionLockedFault`, `SessionStoreUnavailableFault`, `SessionStoreCorruptedFault`, `SessionRotationFailedFault`, `SessionTransportFault`, `SessionForgeryAttemptFault`, `SessionHijackAttemptFault`, `SessionFingerprintMismatchFault`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/sessions/__init__.py`: AquilaSessions - Production-grade session management for Aquilia.
-- `aquilia/sessions/core.py`: AquilaSessions - Core types.
-- `aquilia/sessions/decorators.py`: Unique Session Decorators for Aquilia.
-- `aquilia/sessions/engine.py`: AquilaSessions - Session Engine.
-- `aquilia/sessions/faults.py`: AquilaSessions - Fault definitions.
-- `aquilia/sessions/policy.py`: AquilaSessions - Policy types.
-- `aquilia/sessions/state.py`: Typed Session State for Aquilia.
-- `aquilia/sessions/store.py`: AquilaSessions - Session storage abstraction.
-- `aquilia/sessions/transport.py`: AquilaSessions - Transport adapters.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

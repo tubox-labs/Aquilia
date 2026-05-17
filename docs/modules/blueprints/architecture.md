@@ -1,60 +1,68 @@
 # Blueprints Architecture
 
-## Runtime Role
+Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 
-The contract system for casting inbound data, sealing validated values, molding outbound data, projections, lenses, and model imprinting.
+## Source Boundaries
 
-The implementation is split across 9 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/blueprints/__init__.py` | 162 | 0 | 0 | Aquilia Blueprints -- first-class model↔world contracts. |
+| `aquilia/blueprints/annotations.py` | 1117 | 3 | 2 | Aquilia Blueprint Annotations -- type-annotation–driven schema declaration. |
+| `aquilia/blueprints/core.py` | 1194 | 2 | 0 | Aquilia Blueprint Core -- the Blueprint metaclass and base class. |
+| `aquilia/blueprints/exceptions.py` | 150 | 7 | 0 | Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy. |
+| `aquilia/blueprints/facets.py` | 1397 | 27 | 1 | Aquilia Blueprint Facets -- the field-level primitives of a Blueprint. |
+| `aquilia/blueprints/integration.py` | 293 | 0 | 5 | Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response. |
+| `aquilia/blueprints/lenses.py` | 201 | 1 | 0 | Aquilia Blueprint Lenses -- depth-controlled relational views. |
+| `aquilia/blueprints/projections.py` | 146 | 1 | 0 | Aquilia Blueprint Projections -- named, reusable field subsets. |
+| `aquilia/blueprints/schema.py` | 68 | 0 | 2 | Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/blueprints/__init__.py`: Aquilia Blueprints -- first-class model↔world contracts.
-- `aquilia/blueprints/annotations.py`: Aquilia Blueprint Annotations -- type-annotation-driven schema declaration.
-- `aquilia/blueprints/core.py`: Aquilia Blueprint Core -- the Blueprint metaclass and base class.
-- `aquilia/blueprints/exceptions.py`: Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy.
-- `aquilia/blueprints/facets.py`: Aquilia Blueprint Facets -- the field-level primitives of a Blueprint.
-- `aquilia/blueprints/integration.py`: Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response.
-- `aquilia/blueprints/lenses.py`: Aquilia Blueprint Lenses -- depth-controlled relational views.
-- `aquilia/blueprints/projections.py`: Aquilia Blueprint Projections -- named, reusable field subsets.
-- `aquilia/blueprints/schema.py`: Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation.
+`blueprints` has 9 Python files, 41 public classes, 10 public module-level functions, and 15 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.exceptions` | 7 |
+| `.facets` | 4 |
+| `.lenses` | 3 |
+| `.annotations` | 2 |
+| `.core` | 2 |
+| `.projections` | 2 |
+| `..faults.core` | 1 |
+| `..utils.data` | 1 |
+| `.integration` | 1 |
+| `.schema` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
+| `typing` | 9 |
 | `__future__` | 8 |
-| `typing` | 8 |
-| `exceptions` | 7 |
-| `facets` | 4 |
-| `lenses` | 3 |
-| `annotations` | 2 |
 | `collections` | 2 |
 | `contextlib` | 2 |
-| `core` | 2 |
 | `datetime` | 2 |
 | `decimal` | 2 |
-| `projections` | 2 |
 | `uuid` | 2 |
-| `faults` | 1 |
-| `integration` | 1 |
 | `re` | 1 |
-| `schema` | 1 |
 | `sys` | 1 |
 | `types` | 1 |
-| `utils` | 1 |
 | `warnings` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `ProjectionRegistry` | `aquilia/blueprints/projections.py` | Manages named projections for a Blueprint class. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`BlueprintFault`, `CastFault`, `SealFault`, `ImprintFault`, `ProjectionFault`, `LensDepthFault`, `LensCycleFault`

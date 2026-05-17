@@ -1,39 +1,55 @@
 # Sessions Configuration
 
-## Configuration Entry Points
+Session IDs, policies, stores, transports, engine, decorators, typed session state, and session faults.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sessions/__init__.py` | 144 | 0 | 0 | AquilaSessions - Production-grade session management for Aquilia. |
+| `aquilia/sessions/core.py` | 602 | 5 | 0 | AquilaSessions - Core types. |
+| `aquilia/sessions/decorators.py` | 442 | 4 | 2 | Unique Session Decorators for Aquilia. |
+| `aquilia/sessions/engine.py` | 407 | 1 | 0 | AquilaSessions - Session Engine. |
+| `aquilia/sessions/faults.py` | 320 | 16 | 0 | AquilaSessions - Fault definitions. |
+| `aquilia/sessions/policy.py` | 456 | 5 | 0 | AquilaSessions - Policy types. |
+| `aquilia/sessions/state.py` | 189 | 4 | 0 | Typed Session State for Aquilia. |
+| `aquilia/sessions/store.py` | 309 | 3 | 0 | AquilaSessions - Session storage abstraction. |
+| `aquilia/sessions/transport.py` | 290 | 3 | 1 | AquilaSessions - Transport adapters. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `SessionPrincipal` | `aquilia/sessions/core.py` | kind: Literal['user', 'service', 'device', 'anonymous'], id: str, attributes: dict[str, Any] | Represents who the session belongs to. |
-| `Session` | `aquilia/sessions/core.py` | id: SessionID, principal: SessionPrincipal &#124; None, data: dict[str, Any], created_at: datetime, last_accessed_at: datetime, expires_at: datetime &#124; None, scope: SessionScope, flags: set[SessionFlag], version: int | Core session object - explicit state container with lifecycle. |
-| `PersistencePolicy` | `aquilia/sessions/policy.py` | enabled: bool, store_name: str, write_through: bool, compress: bool | Controls how sessions persist to storage. |
-| `ConcurrencyPolicy` | `aquilia/sessions/policy.py` | max_sessions_per_principal: int &#124; None, behavior_on_limit: Literal['reject', 'evict_oldest', 'evict_all'] | Controls concurrent session limits per principal. |
-| `TransportPolicy` | `aquilia/sessions/policy.py` | adapter: Literal['cookie', 'header', 'token'], cookie_name: str, cookie_httponly: bool, cookie_secure: bool, cookie_samesite: Literal['strict', 'lax', 'none'], cookie_path: str, cookie_domain: str &#124; None, header_name: str | Controls how sessions travel across network. |
-| `SessionPolicy` | `aquilia/sessions/policy.py` | name: str, ttl: timedelta &#124; None, idle_timeout: timedelta &#124; None, absolute_timeout: timedelta &#124; None, rotate_on_use: bool, rotate_on_privilege_change: bool, fingerprint_binding: bool, persistence: PersistencePolicy, concurrency: ConcurrencyPolicy, transport: TransportPolicy, scope: str | Master policy that defines how sessions behave. |
+| `SessionPolicyViolationFault` | `aquilia/sessions/faults.py` |  | Session violates policy constraints. |
+| `PersistencePolicy` | `aquilia/sessions/policy.py` |  | Controls how sessions persist to storage. |
+| `ConcurrencyPolicy` | `aquilia/sessions/policy.py` | `violated`, `should_reject`, `should_evict_oldest`, `should_evict_all` | Controls concurrent session limits per principal. |
+| `TransportPolicy` | `aquilia/sessions/policy.py` |  | Controls how sessions travel across network. |
+| `SessionPolicy` | `aquilia/sessions/policy.py` | `should_rotate`, `calculate_expiry`, `is_valid`, `should_persist`, `requires_store`, `from_dict`, `for_web_users`, `for_api_tokens`, `for_mobile_users`, `for_admin_users` | Master policy that defines how sessions behave. |
+| `SessionPolicyBuilder` | `aquilia/sessions/policy.py` | `named`, `lasting`, `idle_timeout`, `no_idle_timeout`, `absolute_timeout`, `with_fingerprint_binding`, `rotating_on_auth`, `rotating_on_use`, `scoped_to`, `max_concurrent`, `unlimited_concurrent`, `with_smart_defaults`, `web_defaults`, `api_defaults`, `mobile_defaults`, `admin_defaults`, `build` | Fluent builder for SessionPolicy with unique Aquilia syntax. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- `SessionPolicy`
-- `PersistencePolicy`
-- `TransportPolicy`
-- `SessionIntegration`
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

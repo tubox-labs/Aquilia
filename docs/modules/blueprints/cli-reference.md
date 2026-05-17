@@ -1,16 +1,24 @@
 # Blueprints CLI Reference
 
-## Command Surface
+This page is derived from the mounted Click command tree. If a source file has CLI helper functions but they are not mounted under `aq`, this page states that explicitly.
 
-No dedicated command group was detected for this module. It is configured through workspace files, manifests, or direct Python APIs. Related commands may still exist in the main `aq` CLI for inspection, serving, validation, or project generation.
+## Relationship To The `aq` CLI
 
-## Related Files
+No mounted `aq <module>` command maps directly to this subsystem. That is source evidence, not an omission: the root Click tree does not expose a dedicated group for it.
 
-- No module-local CLI files detected.
+## General Commands Useful For This Module
 
-## Operational Pattern
+| Command | Why it matters |
+| --- | --- |
+| `aq validate` | Validates workspace manifests and catches invalid component paths. |
+| `aq doctor` | Runs environment, workspace, manifest, registry, integration, and deployment diagnostics. |
+| `aq inspect config` | Shows resolved config after workspace/env merging. |
+| `aq inspect modules` | Lists discovered modules. |
+| `aq inspect routes` | Shows compiled routes when the module contributes controllers. |
+| `aq run` | Starts the dev server and executes startup wiring. |
 
-1. Use `aq init workspace` and `aq add module` to create the workspace and module shape.
-2. Configure this subsystem in `workspace.py` or `modules/<name>/manifest.py`.
-3. Use subsystem-specific commands only when this page lists an implementation file.
-4. Use `aq inspect`, `aq doctor`, `aq validate`, and tests to verify runtime wiring.
+## Error Behavior
+
+- Click handles missing required arguments and invalid options before command callbacks run.
+- Most operational commands require `workspace.py`; the root CLI guard allows help/version/init/doctor without it.
+- Commands that touch external providers, databases, or files can fail with subsystem-specific faults or provider errors.

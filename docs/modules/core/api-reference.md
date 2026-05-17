@@ -1,10 +1,41 @@
-# Core Runtime API Reference
+# Core API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/__init__.py` | 1581 | 0 | 0 | Aquilia - Production-ready async Python web framework |
+| `aquilia/_datastructures.py` | 440 | 5 | 2 | Core data structures for Aquilia Request handling. |
+| `aquilia/_uploads.py` | 431 | 4 | 2 | Upload file handling for Aquilia Request. |
+| `aquilia/_version.py` | 26 | 0 | 0 | Single source of truth for the Aquilia framework version. |
+| `aquilia/asgi.py` | 641 | 1 | 0 | ASGI adapter -- Bridges the ASGI protocol to Aquilia's request / response system. Supports HTTP, WebSocket, and Lifespan events. |
+| `aquilia/config.py` | 969 | 4 | 0 | Config system - Layered typed configuration with validation. Supports dataclass/pydantic-like behavior with merge precedence. |
+| `aquilia/config_builders.py` | 5650 | 6 | 0 | Fluent Configuration Builders for Aquilia. |
+| `aquilia/dotenv.py` | 898 | 2 | 6 | Aquilia Native Dotenv Loader (``aquilia.dotenv``) ================================================= |
+| `aquilia/effects.py` | 794 | 21 | 0 | Effect System -- Typed Capabilities with Providers and Layers. |
+| `aquilia/engine.py` | 295 | 3 | 1 | Engine -- Core runtime primitives for the Aquilia request lifecycle. |
+| `aquilia/entrypoint.py` | 206 | 0 | 1 | Aquilia ASGI Entrypoint — Zero-Config Production Application Factory. |
+| `aquilia/flow.py` | 1622 | 10 | 8 | Aquilia Flow -- Typed Pipeline System with Effect Integration. |
+| `aquilia/health.py` | 162 | 3 | 0 | Health Registry -- Centralized subsystem health tracking. |
+| `aquilia/lifecycle.py` | 363 | 5 | 1 | Lifecycle Coordinator - Orchestrates startup and shutdown hooks. |
+| `aquilia/manifest.py` | 663 | 14 | 0 | AppManifest - Production-grade, data-driven application manifest system. |
+| `aquilia/middleware.py` | 648 | 8 | 0 | Middleware system - Composable, async-first middleware with effect awareness. |
+| `aquilia/pyconfig.py` | 1644 | 4 | 2 | Aquilia Python-Native Configuration System  (``aquilia.pyconfig``) ================================================================== |
+| `aquilia/request.py` | 1998 | 11 | 0 | Request - Production-grade ASGI request wrapper. |
+| `aquilia/response.py` | 2037 | 14 | 14 | Response - Production-grade HTTP response builder with streaming support. |
+| `aquilia/runtime.py` | 721 | 3 | 0 | AquiliaRuntime — Structured ASGI Bootstrap Lifecycle Manager. |
+| `aquilia/server.py` | 4001 | 1 | 0 | AquiliaServer - Main server orchestrating all components with lifecycle management. |
+| `aquilia/signing.py` | 1532 | 13 | 9 | Aquilia Signing Engine  (``aquilia.signing``) ============================================= |
+
+## Public Exports
+
+`AMDLFile`, `AMDLParseError`, `AMDLParseFault`, `APIKeySigner`, `ActivationLinkSigner`, `AdminAction`, `AdminActionFault`, `AdminAudit`, `AdminAuditLog`, `AdminAuthenticationFault`, `AdminAuthorizationFault`, `AdminContainers`, `AdminController`, `AdminFault`, `AdminGuard`, `AdminIntegration`, `AdminModelNotFoundFault`, `AdminModules`, `AdminMonitoring`, `AdminPermission`, `AdminPods`, `AdminRecordNotFoundFault`, `AdminRole`, `AdminSecurity`, `AdminSidebar`, `AdminSite`, `AdminValidationFault`, `Algorithm`, `ApiVersion`, `AppContext`, `AppManifest`, `AquilAuthMiddleware`, `AquilaConfig`, `AquilaSockets`, `Aquilary`, `AquilaryRegistry`, `AquiliaDatabase`, `AquiliaRuntime`, `AquiliaServer`, `AquiliaTestCase`, `ArrayField`, `Artifact`, `ArtifactBuilder`, `ArtifactEnvelope`, `ArtifactIntegrity`, `ArtifactKind`, `ArtifactProvenance`, `ArtifactReader`, `ArtifactStore`, `AuthConfig`, `AuthIntegration`, `AuthManager`, `AuthPrincipal`, `AuthzEngine`, `AutoField`, `AzureBlobConfig`, `AzureBlobStorage`, `BackgroundTask`, `BadRequest`, `BadSignature`, `BaseFilterBackend`, `BigAutoField`, `BigIntegerField`, `BinaryField`, `Blueprint`, `BlueprintFault`, `BlueprintMeta`, `BoolFacet`, `BooleanField`, `BundleArtifact`, `CORSMiddleware`, `CROUS_MAGIC`, `CROUS_MEDIA_TYPE`, `CSPMiddleware`, `CSPPolicy`, `CSRFError`, `CSRFMiddleware`, `CSRFSigner`, `CacheBackend`, `CacheBackendFault`, `CacheCapacityFault`, `CacheConfig`, `CacheConfigFault`, `CacheConnectionFault`, `CacheEffect`, `CacheEntry`, `CacheFault`, `CacheHealthFault`, `CacheIntegration`, `CacheKeySigner`, `CacheMiddleware`, `CacheMissFault`, `CacheProvider`, `CacheSerializationFault`, `CacheService`, `CacheStampedeFault`, `CacheStats`, `CallableBackgroundTask`, `CartState`, `CastFault`, `CatalogLoadFault`, `ChannelResolver`, `CharField`, `ChoiceFacet`, `ClassProvider`, `ClientDisconnectError`, `CodeArtifact`, `CompiledPattern`, `CompositeBackend`, `CompositeConfig`, `CompositeResolver`, `CompositeStorage`, `Computed`, `Config`, `ConfigArtifact`, `ConfigLoader`, `ConfigValue`, `ConsoleProvider`, `Constant`, `Container`, `ContentNegotiator`, `Controller`, `ControllerFactory`, `ControllerGuardAdapter`, `ControllerMetadata`, `CookieSigner`, `CookieTransport`, `CorsIntegration`, `Created`, `CspIntegration`, `CsrfIntegration`, `CursorPagination`, `DBTx`, `DBTxProvider`, `DELETE`, `DIGraphArtifact`, `DIRegistry`, `DatabaseConfig`, `DatabaseConnectionFault`, `DatabaseError`, `DatabaseIntegration`, `DateFacet`, `DateField`, `DateTimeFacet`, `DateTimeField`, `DebugPageRenderer`, `DecimalFacet`, `DecimalField`, `DefaultKeyBuilder`, `DiIntegration`, `DictFacet`, `DotEnv`, `DotEnvLoader`, `DurationFacet`, `DurationField`, `Effect`, `EffectKind`, `EffectProvider`, `EffectRegistry`, `EffectScope`, `EmailFacet`, `EmailField`, `EmailMessage`, `EmailMultiAlternatives`, `Env`, `EnvCastType`, `EnvCaster`, `EnvelopeStatus`, `Event`, `EvictionPolicy`, `Facet`, `FactoryProvider`, `Fault`, `FaultContext`, `FaultEngine`, `FaultHandler`, `FaultHandlingIntegration`, `Field`, `FieldType`, `FieldValidationError`, `FileCatalog`, `FileFacet`, `FileField`, `FilePathField`, `FileProvider`, `FilesystemArtifactStore`, `FilterSet`, `FloatFacet`, `FloatField`, `FlowContext`, `FlowError`, `FlowGuard`, `FlowNode`, `FlowNodeType`, `FlowPipeline`, `FlowResult`, `FlowStatus`, `Forbidden`, `ForeignKey`, `FormData`, `GCSConfig`, `GCSStorage`, `GET`, `GeneratedField`, `GenericIPAddressField`, `HEAD`, `HLSManifestError`, `HLSSegment`, `HLSVariant`, `HSTSMiddleware`, `HStoreField`, `HTMLRenderer`, `HTTPEffect`, `HTTPProvider`, `HTTPSRedirectMiddleware`, `Handler`, `HashKeyBuilder`, `HeaderResolver`, `Headers`, `Hidden`, `HmacSignerBackend`, `HookNode`, `I18nConfig`, `I18nFault`, `I18nIntegration`, `I18nMiddleware`, `I18nService`, `IMailProvider`, `IPFacet`, `Identity`, `ImageField`, `ImprintFault`, `Index`, `Inject`, `InstantiationMode`, `IntFacet`, `IntegerField`, `Integration`, `IntegrationConfig`, `InternalError`, `InvalidHeaderError`, `InvalidLocaleFault`, `InvalidVersionError`, `JSONFacet`, `JSONField`, `JSONRenderer`, `Job`, `JobResult`, `JobState`, `JsonCacheSerializer`, `KeyRing`, `Layer`, `LayerComposition`, `LazyString`, `LegacyIndexNode`, `Lens`, `LifecycleCoordinator`, `LifecycleManager`, `LimitOffsetPagination`, `LinkKind`, `LinkNode`, `ListFacet`, `LiveServerTestCase`, `LocalConfig`, `LocalStorage`, `LocalUploadStore`, `Locale`, `LoggingIntegration`, `MLOpsIntegration`, `MailAuth`, `MailConfig`, `MailConfigFault`, `MailEnvelope`, `MailFault`, `MailIntegration`, `MailRateLimitFault`, `MailSendFault`, `MailService`, `MailSuppressedFault`, `MailTemplateFault`, `MailValidationFault`, `ManyToManyField`, `MediaChunk`, `MediaTypeResolver`, `MemoryArtifactStore`, `MemoryBackend`, `MemoryCatalog`, `MemoryConfig`, `MemoryStorage`, `MergedCatalog`, `MessageFormatter`, `MetaNode`, `Middleware`, `MiddlewareChain`, `MiddlewareEntry`, `MiddlewareStack`, `MigrationArtifact`, `MigrationConflictFault`, `MigrationFault`, `MigrationOps`, `MigrationRunner`, `MissingTranslationFault`, `MissingVersionError`, `Model`, `ModelAdmin`, `ModelArtifact`, `ModelFault`, `ModelMeta`, `ModelNode`, `ModelNotFoundFault`, `ModelProxy`, `ModelRegistrationFault`, `ModelRegistry`, `Module`, `ModuleConfig`, `MultiDict`, `NamespacedCatalog`, `NoContent`, `NoPagination`, `NotFound`, `NoteNode`, `NullBackend`, `OPTIONS`, `Ok`, `OnConnect`, `OnDisconnect`, `OneToOneField`, `OpenAPIIntegration`, `OrderingFilter`, `PATCH`, `POST`, `PRIORITY_AUTH`, `PRIORITY_CLEANUP`, `PRIORITY_CRITICAL`, `PRIORITY_DEFAULT`, `PRIORITY_ENRICH`, `PRIORITY_LOG`, `PRIORITY_TRANSFORM`, `PRIORITY_VALIDATE`, `PUT`, `PackageScanner`, `PageNumberPagination`, `ParsedContentType`, `PasswordHasher`, `PatternCompiler`, `PatternMatcher`, `PatternTypeRegistry`, `PatternsIntegration`, `PickleCacheSerializer`, `PlainTextRenderer`, `PluralCategory`, `PluralRuleFault`, `PositiveIntegerField`, `PositiveSmallIntegerField`, `Priority`, `ProjectionFault`, `Provider`, `ProviderMeta`, `ProviderResult`, `ProviderResultStatus`, `ProxyFixMiddleware`, `PyConfigLoader`, `Q`, `QueryFault`, `QueryParamResolver`, `QueueEffect`, `QueueProvider`, `Range`, `RangeNotSatisfiableError`, `RateLimitIntegration`, `RateLimitMiddleware`, `RateLimitRule`, `ReadOnly`, `RecoveryStrategy`, `RedisBackend`, `RegistryArtifact`, `RegistryIntegration`, `RegistryMode`, `RenderIntegration`, `Request`, `RequestCtx`, `RequireAuthGuard`, `RequirePermissionGuard`, `RequirePolicyGuard`, `RequireRolesGuard`, `RequireScopesGuard`, `Response`, `ResponseStreamError`, `RotatingSigner`, `RouteArtifact`, `RoutingIntegration`, `RuntimeConfig`, `RuntimePhase`, `RuntimeRegistry`, `S3Config`, `S3Storage`, `SFTPConfig`, `SFTPStorage`, `SchemaFault`, `SealFault`, `SearchFilter`, `Secret`, `SecurityHeadersMiddleware`, `SendGridProvider`, `SerializersIntegration`, `ServerSentEvent`, `SesProvider`, `Session`, `SessionAuthBridge`, `SessionContext`, `SessionEngine`, `SessionField`, `SessionGuard`, `SessionID`, `SessionIntegration`, `SessionMemoryStore`, `SessionPolicy`, `SessionPrincipal`, `SessionSigner`, `SessionState`, `SignatureExpired`, `SignatureMalformed`, `Signer`, `SignerBackend`, `SigningConfig`, `SigningError`, `SimpleTestCase`, `SlotNode`, `SlugFacet`, `SlugField`, `SmallIntegerField`, `SmtpProvider`, `Socket`, `SocketController`, `SocketGuard`, `SocketRouter`, `StaticFilesIntegration`, `StaticMiddleware`, `StorageBackend`, `StorageConfig`, `StorageEffect`, `StorageEffectProvider`, `StorageError`, `StorageFile`, `StorageIntegration`, `StorageMetadata`, `StorageProvider`, `StorageRegistry`, `StorageSubsystem`, `SunsetPolicy`, `SunsetRegistry`, `TaskBackend`, `TaskManager`, `TaskPriority`, `TasksIntegration`, `TemplateArtifact`, `TemplateEngine`, `TemplateMessage`, `TemplateMiddleware`, `TemplateRenderError`, `TemplatesIntegration`, `TestClient`, `TestServer`, `TextFacet`, `TextField`, `TimeFacet`, `TimeField`, `TimestampSigner`, `TokenManager`, `TransactionTestCase`, `TranslationCatalog`, `TransportPolicy`, `URL`, `URLFacet`, `URLField`, `URLPathResolver`, `UUIDFacet`, `UUIDField`, `Unauthorized`, `UniqueConstraint`, `UnsupportedAlgorithmError`, `UnsupportedVersionError`, `UploadFile`, `UploadStore`, `UserPreferencesState`, `VERSION_ANY`, `VERSION_NEUTRAL`, `ValueProvider`, `VerifiedEmailGuard`, `VersionChannel`, `VersionConfig`, `VersionError`, `VersionGraph`, `VersionMiddleware`, `VersionNegotiator`, `VersionStatus`, `VersionStrategy`, `VersionSunsetError`, `VersioningIntegration`, `WS`, `Worker`, `Workspace`, `WriteOnly`, `XMLRenderer`, `YAMLRenderer`, `api_session_policy`, `app`, `asend_mail`, `authenticated`, `autodiscover`, `b64_decode`, `b64_encode`, `bind_blueprint_to_request`, `bind_identity`, `cache_aside`, `cached`, `check_not_modified`, `configure_database`, `configure_signing`, `constant_time_compare`, `create_app`, `create_auth_container`, `create_auth_middleware_stack`, `create_i18n_service`, `csrf_exempt`, `csrf_token_func`, `derive_key`, `dotenv_values`, `dumps`, `ensure_dotenv_loaded`, `extract_controller_metadata`, `factory`, `find_dotenv`, `format_currency`, `format_date`, `format_datetime`, `format_message`, `format_number`, `format_ordinal`, `format_percent`, `format_time`, `from_pipeline_list`, `generate_component_schemas`, `generate_etag`, `generate_etag_from_file`, `generate_migration_file`, `generate_schema`, `get_database`, `get_default_cache_service`, `get_required_effects`, `guard`, `handler`, `has_crous`, `hook`, `inject`, `invalidate`, `is_blueprint_class`, `is_dotenv_loaded`, `lazy_t`, `lazy_tn`, `load_dotenv`, `loads`, `make_signer`, `make_timestamp_signer`, `match_locale`, `negotiate_locale`, `normalize_locale`, `not_modified_response`, `override_settings`, `parse_amdl`, `parse_amdl_directory`, `parse_amdl_file`, `parse_locale`, `pipeline`, `register`, `register_artifact_kind`, `register_auth_providers`, `render_blueprint_response`, `render_debug_exception_page`, `render_http_error_page`, `render_welcome_page`, `require_auth`, `require_permission`, `require_roles`, `require_scopes`, `requires`, `requires_crous`, `reset_dotenv_state`, `route`, `section`, `select_plural`, `send_mail`, `server`, `service`, `session`, `set_database`, `set_default_cache_service`, `signing_dumps`, `signing_loads`, `stateful`, `task`, `transform`, `user_session_policy`, `version`, `version_neutral`, `version_range`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `MultiDict` | `aquilia/_datastructures.py` | MutableMapping[str, list[str]] | Dictionary that supports multiple values per key. |
 | `Headers` | `aquilia/_datastructures.py` | object | Case-insensitive header access with raw preservation. |
@@ -15,11 +46,11 @@ This page is extracted from the current Python source. It includes public classe
 | `FormData` | `aquilia/_uploads.py` | object | Parsed form data containing both fields and files. |
 | `UploadStore` | `aquilia/_uploads.py` | Protocol | Protocol for upload storage backends. |
 | `LocalUploadStore` | `aquilia/_uploads.py` | object | Local filesystem upload store. |
-| `ASGIAdapter` | `aquilia/asgi.py` | object | ASGI application adapter. |
-| `NestedNamespace` | `aquilia/config.py` | object | A namespace that supports nested attribute access for app configs. |
+| `ASGIAdapter` | `aquilia/asgi.py` | object | ASGI application adapter. Converts ASGI events to Aquilia Request/Response. Uses controller-based routing exclusively. |
+| `NestedNamespace` | `aquilia/config.py` | object | A namespace that supports nested attribute access for app configs. Enables syntax like: config.apps.auth.secret_key |
 | `Config` | `aquilia/config.py` | object | Base class for typed configuration classes. |
 | `ConfigError` | `aquilia/config.py` | Exception | Raised when configuration validation fails. |
-| `ConfigLoader` | `aquilia/config.py` | object | Loads and merges configuration from multiple sources with precedence: |
+| `ConfigLoader` | `aquilia/config.py` | object | Loads and merges configuration from multiple sources with precedence: CLI args > Environment variables > .env files > config files > defaults |
 | `RuntimeConfig` | `aquilia/config_builders.py` | object | Runtime configuration. |
 | `ModuleConfig` | `aquilia/config_builders.py` | object | Module configuration -- workspace-level orchestration metadata. |
 | `Module` | `aquilia/config_builders.py` | object | Fluent module builder -- workspace-level orchestration only. |
@@ -85,14 +116,14 @@ This page is extracted from the current Python source. It includes public classe
 | `DatabaseConfig` | `aquilia/manifest.py` | object | DEPRECATED: Manifest-level database configuration. |
 | `AppManifest` | `aquilia/manifest.py` | object | Production-grade application manifest for complete app configuration. |
 | `MiddlewareDescriptor` | `aquilia/middleware.py` | object | Descriptor for middleware registration. |
-| `MiddlewareStack` | `aquilia/middleware.py` | object | Manages middleware stack with deterministic ordering. |
+| `MiddlewareStack` | `aquilia/middleware.py` | object | Manages middleware stack with deterministic ordering. Order: Global < App < Controller < Route, then by priority. |
 | `RequestIdMiddleware` | `aquilia/middleware.py` | object | Adds unique request ID to each request. |
 | `ExceptionMiddleware` | `aquilia/middleware.py` | object | Catches exceptions and converts them to error responses. |
 | `LoggingMiddleware` | `aquilia/middleware.py` | object | Logs request/response with timing. |
 | `TimeoutMiddleware` | `aquilia/middleware.py` | object | Enforces request timeout. |
 | `CORSMiddleware` | `aquilia/middleware.py` | object | Handles CORS headers. |
 | `CompressionMiddleware` | `aquilia/middleware.py` | object | Compresses response bodies. |
-| `Secret` | `aquilia/pyconfig.py` | object | A configuration field that holds a sensitive value (password, API key ...). |
+| `Secret` | `aquilia/pyconfig.py` | object | A configuration field that holds a sensitive value (password, API key …). |
 | `Env` | `aquilia/pyconfig.py` | object | Bind a configuration field to an environment variable. |
 | `AquilaConfig` | `aquilia/pyconfig.py` | object | Base class for Aquilia Python-native configuration. |
 | `PyConfigLoader` | `aquilia/pyconfig.py` | object | Load an ``AquilaConfig`` subclass from a Python source file. |
@@ -126,7 +157,7 @@ This page is extracted from the current Python source. It includes public classe
 | `AquiliaRuntime` | `aquilia/runtime.py` | object | Structured ASGI bootstrap lifecycle manager. |
 | `AquiliaServer` | `aquilia/server.py` | object | Main Aquilia server that orchestrates all components with lifecycle management. |
 | `SignerBackend` | `aquilia/signing.py` | ABC | Abstract backend that produces and verifies raw byte signatures. |
-| `HmacSignerBackend` | `aquilia/signing.py` | SignerBackend | Default signing backend - HMAC with a configurable digest. |
+| `HmacSignerBackend` | `aquilia/signing.py` | SignerBackend | Default signing backend — HMAC with a configurable digest. |
 | `AsymmetricSignerBackend` | `aquilia/signing.py` | SignerBackend | Asymmetric signing backend using the ``cryptography`` package. |
 | `Signer` | `aquilia/signing.py` | object | Simple HMAC-based data signer. |
 | `TimestampSigner` | `aquilia/signing.py` | Signer | Signer that embeds a UTC timestamp in the signed value. |
@@ -141,58 +172,58 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `parse_date_header` | `aquilia/_datastructures.py` | `def parse_date_header(date_str: str &#124; None) -> datetime &#124; None` | Parse HTTP date header. |
-| `parse_authorization_header` | `aquilia/_datastructures.py` | `def parse_authorization_header(auth_header: str &#124; None) -> tuple[str, str] &#124; None` | Parse Authorization header. |
-| `create_upload_file_from_bytes` | `aquilia/_uploads.py` | `def create_upload_file_from_bytes(filename: str, content: bytes, content_type: str = 'application/octet-stream') -> UploadFile` | Create an UploadFile from bytes (in-memory). |
-| `create_upload_file_from_path` | `aquilia/_uploads.py` | `def create_upload_file_from_path(filename: str, file_path: Path, content_type: str = 'application/octet-stream') -> UploadFile` | Create an UploadFile from a disk path. |
-| `find_dotenv` | `aquilia/dotenv.py` | `def find_dotenv(filename: str = '.env', raise_error: bool = False, usecwd: bool = False) -> Path &#124; None` | Search for a .env file. |
-| `load_dotenv` | `aquilia/dotenv.py` | `def load_dotenv(dotenv_path: str &#124; Path &#124; None = None, *, override: bool = False, interpolate: bool = True, encoding: str = 'utf-8') -> bool` | Load a .env file into os.environ. |
-| `dotenv_values` | `aquilia/dotenv.py` | `def dotenv_values(dotenv_path: str &#124; Path &#124; None = None, *, interpolate: bool = True, encoding: str = 'utf-8') -> dict[str, str]` | Parse a .env file and return values WITHOUT loading into os.environ. |
-| `ensure_dotenv_loaded` | `aquilia/dotenv.py` | `def ensure_dotenv_loaded(path: str &#124; Path &#124; None = None, *, auto_load: bool &#124; None = None) -> None` | Ensure dotenv is loaded (idempotent). |
-| `is_dotenv_loaded` | `aquilia/dotenv.py` | `def is_dotenv_loaded() -> bool` | Check if dotenv has been loaded. |
-| `reset_dotenv_state` | `aquilia/dotenv.py` | `def reset_dotenv_state() -> None` | Reset dotenv loaded state. |
-| `get_engine_metrics` | `aquilia/engine.py` | `def get_engine_metrics() -> EngineMetrics` | Return the process-level engine metrics singleton. |
-| `create_app` | `aquilia/entrypoint.py` | `def create_app(workspace_root: Path &#124; None = None, mode: str &#124; None = None) -> Any` | Create the ASGI application from workspace configuration. |
-| `requires` | `aquilia/flow.py` | `def requires(*effect_names: str) -> Callable` | Decorator declaring effect dependencies on a handler or flow node. |
-| `get_required_effects` | `aquilia/flow.py` | `def get_required_effects(func: Callable) -> list[str]` | Extract declared effect requirements from a callable. |
-| `pipeline` | `aquilia/flow.py` | `def pipeline(name: str = 'pipeline', *, timeout: float &#124; None = None) -> FlowPipeline` | Create a new FlowPipeline. |
-| `guard` | `aquilia/flow.py` | `def guard(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_AUTH, effects: list[str] &#124; None = None) -> FlowNode` | Create a guard FlowNode. |
-| `transform` | `aquilia/flow.py` | `def transform(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_TRANSFORM, effects: list[str] &#124; None = None) -> FlowNode` | Create a transform FlowNode. |
-| `handler` | `aquilia/flow.py` | `def handler(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_DEFAULT, effects: list[str] &#124; None = None) -> FlowNode` | Create a handler FlowNode. |
-| `hook` | `aquilia/flow.py` | `def hook(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_LOG, effects: list[str] &#124; None = None) -> FlowNode` | Create a hook FlowNode. |
-| `from_pipeline_list` | `aquilia/flow.py` | `def from_pipeline_list(nodes: Sequence[Any], *, name: str = 'controller_pipeline') -> FlowPipeline` | Convert a controller-style pipeline list to a FlowPipeline. |
-| `create_lifecycle_coordinator` | `aquilia/lifecycle.py` | `def create_lifecycle_coordinator(runtime: Any, config: Any = None) -> LifecycleCoordinator` | Factory function to create lifecycle coordinator. |
-| `reset_dotenv_state` | `aquilia/pyconfig.py` | `def reset_dotenv_state() -> None` | Reset the dotenv loading state. |
-| `section` | `aquilia/pyconfig.py` | `def section(cls: type) -> type` | Mark a nested class as a config *section*. |
-| `has_crous` | `aquilia/response.py` | `def has_crous() -> bool` | Return ``True`` if the ``crous`` library is importable. |
-| `Ok` | `aquilia/response.py` | `def Ok(content: Any = None, **kwargs) -> Response` | 200 OK response. |
-| `Created` | `aquilia/response.py` | `def Created(content: Any = None, location: str &#124; None = None, **kwargs) -> Response` | 201 Created response. |
-| `NoContent` | `aquilia/response.py` | `def NoContent() -> Response` | 204 No Content response. |
-| `BadRequest` | `aquilia/response.py` | `def BadRequest(message: str = 'Bad Request', **kwargs) -> Response` | 400 Bad Request response. |
-| `Unauthorized` | `aquilia/response.py` | `def Unauthorized(message: str = 'Unauthorized', **kwargs) -> Response` | 401 Unauthorized response. |
-| `Forbidden` | `aquilia/response.py` | `def Forbidden(message: str = 'Forbidden', **kwargs) -> Response` | 403 Forbidden response. |
-| `NotFound` | `aquilia/response.py` | `def NotFound(message: str = 'Not Found', **kwargs) -> Response` | 404 Not Found response. |
-| `InternalError` | `aquilia/response.py` | `def InternalError(message: str = 'Internal Server Error', **kwargs) -> Response` | 500 Internal Server Error response. |
-| `generate_etag` | `aquilia/response.py` | `def generate_etag(content: bytes, weak: bool = False) -> str` | Generate ETag from content. |
-| `generate_etag_from_file` | `aquilia/response.py` | `def generate_etag_from_file(path: PathLike, weak: bool = True) -> str` | Generate ETag from file metadata. |
-| `check_not_modified` | `aquilia/response.py` | `def check_not_modified(request: Any, etag: str &#124; None = None, last_modified: datetime &#124; None = None) -> bool` | Check if response should be 304 Not Modified. |
-| `not_modified_response` | `aquilia/response.py` | `def not_modified_response(etag: str &#124; None = None) -> Response` | Create 304 Not Modified response. |
-| `requires_crous` | `aquilia/response.py` | `def requires_crous(func: Callable) -> Callable` | Mark a handler as preferring CROUS binary responses. |
-| `b64_encode` | `aquilia/signing.py` | `def b64_encode(data: bytes) -> str` | URL-safe, no-padding Base64 encode. |
-| `b64_decode` | `aquilia/signing.py` | `def b64_decode(data: str &#124; bytes) -> bytes` | URL-safe, no-padding Base64 decode. |
-| `constant_time_compare` | `aquilia/signing.py` | `def constant_time_compare(a: bytes &#124; str, b: bytes &#124; str) -> bool` | Compare two values in constant time to prevent timing attacks. |
-| `derive_key` | `aquilia/signing.py` | `def derive_key(secret: str &#124; bytes, salt: str, algorithm: str = 'HS256') -> bytes` | Derive a signing sub-key from *secret* and *salt* using HKDF-lite. |
-| `dumps` | `aquilia/signing.py` | `def dumps(obj: Any, *, secret: str &#124; bytes &#124; None = None, salt: str = 'aquilia.signing.dumps', algorithm: str = 'HS256', compress: bool = False, max_age: float &#124; int &#124; timedelta &#124; None = None, timestamp: bool = True) -> str` | Serialise *obj* to a signed URL-safe string. |
-| `loads` | `aquilia/signing.py` | `def loads(token: str, *, secret: str &#124; bytes &#124; None = None, salt: str = 'aquilia.signing.dumps', algorithm: str = 'HS256', max_age: float &#124; int &#124; timedelta &#124; None = None) -> Any` | Verify and deserialise a token produced by :func:`dumps`. |
-| `configure` | `aquilia/signing.py` | `def configure(secret: str &#124; bytes, *, fallback_secrets: Sequence[str &#124; bytes] &#124; None = None, algorithm: str = 'HS256', salt: str = 'aquilia.signing') -> None` | Configure the global signing secret used by module-level helpers. |
-| `make_signer` | `aquilia/signing.py` | `def make_signer(secret: str &#124; bytes &#124; None = None, *, salt: str = 'aquilia.signing', algorithm: str &#124; None = None) -> Signer` | Create a :class:`Signer` with the given (or global) settings. |
-| `make_timestamp_signer` | `aquilia/signing.py` | `def make_timestamp_signer(secret: str &#124; bytes &#124; None = None, *, salt: str = 'aquilia.signing.ts', algorithm: str &#124; None = None) -> TimestampSigner` | Create a :class:`TimestampSigner` with the given (or global) settings. |
+| `parse_date_header` | `aquilia/_datastructures.py` | `def parse_date_header(date_str: str \| None)` | Parse HTTP date header. |
+| `parse_authorization_header` | `aquilia/_datastructures.py` | `def parse_authorization_header(auth_header: str \| None)` | Parse Authorization header. |
+| `create_upload_file_from_bytes` | `aquilia/_uploads.py` | `def create_upload_file_from_bytes(filename: str, content: bytes, content_type: str='application/octet-stream')` | Create an UploadFile from bytes (in-memory). |
+| `create_upload_file_from_path` | `aquilia/_uploads.py` | `def create_upload_file_from_path(filename: str, file_path: Path, content_type: str='application/octet-stream')` | Create an UploadFile from a disk path. |
+| `find_dotenv` | `aquilia/dotenv.py` | `def find_dotenv(filename: str='.env', raise_error: bool=False, usecwd: bool=False)` | Search for a .env file. |
+| `load_dotenv` | `aquilia/dotenv.py` | `def load_dotenv(dotenv_path: str \| Path \| None=None, *, override: bool=False, interpolate: bool=True, encoding: str='utf-8')` | Load a .env file into os.environ. |
+| `dotenv_values` | `aquilia/dotenv.py` | `def dotenv_values(dotenv_path: str \| Path \| None=None, *, interpolate: bool=True, encoding: str='utf-8')` | Parse a .env file and return values WITHOUT loading into os.environ. |
+| `ensure_dotenv_loaded` | `aquilia/dotenv.py` | `def ensure_dotenv_loaded(path: str \| Path \| None=None, *, auto_load: bool \| None=None)` | Ensure dotenv is loaded (idempotent). |
+| `is_dotenv_loaded` | `aquilia/dotenv.py` | `def is_dotenv_loaded()` | Check if dotenv has been loaded. |
+| `reset_dotenv_state` | `aquilia/dotenv.py` | `def reset_dotenv_state()` | Reset dotenv loaded state. |
+| `get_engine_metrics` | `aquilia/engine.py` | `def get_engine_metrics()` | Return the process-level engine metrics singleton. |
+| `create_app` | `aquilia/entrypoint.py` | `def create_app(workspace_root: Path \| None=None, mode: str \| None=None)` | Create the ASGI application from workspace configuration. |
+| `requires` | `aquilia/flow.py` | `def requires(*effect_names: str)` | Decorator declaring effect dependencies on a handler or flow node. |
+| `get_required_effects` | `aquilia/flow.py` | `def get_required_effects(func: Callable)` | Extract declared effect requirements from a callable. |
+| `pipeline` | `aquilia/flow.py` | `def pipeline(name: str='pipeline', *, timeout: float \| None=None)` | Create a new FlowPipeline. |
+| `guard` | `aquilia/flow.py` | `def guard(fn: Callable, *, name: str \| None=None, priority: int=PRIORITY_AUTH, effects: list[str] \| None=None)` | Create a guard FlowNode. |
+| `transform` | `aquilia/flow.py` | `def transform(fn: Callable, *, name: str \| None=None, priority: int=PRIORITY_TRANSFORM, effects: list[str] \| None=None)` | Create a transform FlowNode. |
+| `handler` | `aquilia/flow.py` | `def handler(fn: Callable, *, name: str \| None=None, priority: int=PRIORITY_DEFAULT, effects: list[str] \| None=None)` | Create a handler FlowNode. |
+| `hook` | `aquilia/flow.py` | `def hook(fn: Callable, *, name: str \| None=None, priority: int=PRIORITY_LOG, effects: list[str] \| None=None)` | Create a hook FlowNode. |
+| `from_pipeline_list` | `aquilia/flow.py` | `def from_pipeline_list(nodes: Sequence[Any], *, name: str='controller_pipeline')` | Convert a controller-style pipeline list to a FlowPipeline. |
+| `create_lifecycle_coordinator` | `aquilia/lifecycle.py` | `def create_lifecycle_coordinator(runtime: Any, config: Any=None)` | Factory function to create lifecycle coordinator. |
+| `reset_dotenv_state` | `aquilia/pyconfig.py` | `def reset_dotenv_state()` | Reset the dotenv loading state. |
+| `section` | `aquilia/pyconfig.py` | `def section(cls: type)` | Mark a nested class as a config *section*. |
+| `has_crous` | `aquilia/response.py` | `def has_crous()` | Return ``True`` if the ``crous`` library is importable. |
+| `Ok` | `aquilia/response.py` | `def Ok(content: Any=None, **kwargs)` | 200 OK response. |
+| `Created` | `aquilia/response.py` | `def Created(content: Any=None, location: str \| None=None, **kwargs)` | 201 Created response. |
+| `NoContent` | `aquilia/response.py` | `def NoContent()` | 204 No Content response. |
+| `BadRequest` | `aquilia/response.py` | `def BadRequest(message: str='Bad Request', **kwargs)` | 400 Bad Request response. |
+| `Unauthorized` | `aquilia/response.py` | `def Unauthorized(message: str='Unauthorized', **kwargs)` | 401 Unauthorized response. |
+| `Forbidden` | `aquilia/response.py` | `def Forbidden(message: str='Forbidden', **kwargs)` | 403 Forbidden response. |
+| `NotFound` | `aquilia/response.py` | `def NotFound(message: str='Not Found', **kwargs)` | 404 Not Found response. |
+| `InternalError` | `aquilia/response.py` | `def InternalError(message: str='Internal Server Error', **kwargs)` | 500 Internal Server Error response. |
+| `generate_etag` | `aquilia/response.py` | `def generate_etag(content: bytes, weak: bool=False)` | Generate ETag from content. |
+| `generate_etag_from_file` | `aquilia/response.py` | `def generate_etag_from_file(path: PathLike, weak: bool=True)` | Generate ETag from file metadata. |
+| `check_not_modified` | `aquilia/response.py` | `def check_not_modified(request: Any, etag: str \| None=None, last_modified: datetime \| None=None)` | Check if response should be 304 Not Modified. |
+| `not_modified_response` | `aquilia/response.py` | `def not_modified_response(etag: str \| None=None)` | Create 304 Not Modified response. |
+| `requires_crous` | `aquilia/response.py` | `def requires_crous(func: Callable)` | Mark a handler as preferring CROUS binary responses. |
+| `b64_encode` | `aquilia/signing.py` | `def b64_encode(data: bytes)` | URL-safe, no-padding Base64 encode. |
+| `b64_decode` | `aquilia/signing.py` | `def b64_decode(data: str \| bytes)` | URL-safe, no-padding Base64 decode. |
+| `constant_time_compare` | `aquilia/signing.py` | `def constant_time_compare(a: bytes \| str, b: bytes \| str)` | Compare two values in constant time to prevent timing attacks. |
+| `derive_key` | `aquilia/signing.py` | `def derive_key(secret: str \| bytes, salt: str, algorithm: str='HS256')` | Derive a signing sub-key from *secret* and *salt* using HKDF-lite. |
+| `dumps` | `aquilia/signing.py` | `def dumps(obj: Any, *, secret: str \| bytes \| None=None, salt: str='aquilia.signing.dumps', algorithm: str='HS256', compress: bool=False, max_age: float \| int \| timedelta \| None=None, timestamp: bool=True)` | Serialise *obj* to a signed URL-safe string. |
+| `loads` | `aquilia/signing.py` | `def loads(token: str, *, secret: str \| bytes \| None=None, salt: str='aquilia.signing.dumps', algorithm: str='HS256', max_age: float \| int \| timedelta \| None=None)` | Verify and deserialise a token produced by :func:`dumps`. |
+| `configure` | `aquilia/signing.py` | `def configure(secret: str \| bytes, *, fallback_secrets: Sequence[str \| bytes] \| None=None, algorithm: str='HS256', salt: str='aquilia.signing')` | Configure the global signing secret used by module-level helpers. |
+| `make_signer` | `aquilia/signing.py` | `def make_signer(secret: str \| bytes \| None=None, *, salt: str='aquilia.signing', algorithm: str \| None=None)` | Create a :class:`Signer` with the given (or global) settings. |
+| `make_timestamp_signer` | `aquilia/signing.py` | `def make_timestamp_signer(secret: str \| bytes \| None=None, *, salt: str='aquilia.signing.ts', algorithm: str \| None=None)` | Create a :class:`TimestampSigner` with the given (or global) settings. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `VERSION` | `aquilia/_version.py` | `tuple[int, int, int]` |
 | `WORKSPACE_VERSION` | `aquilia/_version.py` | `str` |
@@ -227,7 +258,7 @@ This page is extracted from the current Python source. It includes public classe
 | `_FD_TEMPLATE` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.TEMPLATE)` |
 | `_FD_HTTP` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.HTTP)` |
 | `_FAST_SKIP_NAMES` | `aquilia/middleware.py` | `frozenset({'LoggingMiddleware', 'TimeoutMiddleware'})` |
-| `_FALLBACK_500_HTML` | `aquilia/middleware.py` | `'<!DOCTYPE html><html><head><meta charset="utf-8"><title>500 Internal Server Error</title><style>body{font-family:system-ui,sans-serif;background:#000;color:#ed` |
+| `_FALLBACK_500_HTML` | `aquilia/middleware.py` | `'<!DOCTYPE html><html><head><meta charset="utf-8"><title>500 Internal Server Error</title><style>body{font-family:system-ui,sans-serif;background:#000;color:#ededed;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;}.c{text-align:center;}.s{font-size:72px;font-weight:700;color:#ef4444;}p{color:#888;}</style></head><body><div class="c"><div class="s">500</div><h1>Internal Server Error</h1><p>An unexpected error occurred.</p></div></body></html>'` |
 | `T` | `aquilia/pyconfig.py` | `TypeVar('T')` |
 | `CROUS_MEDIA_TYPE` | `aquilia/request.py` | `'application/x-crous'` |
 | `CROUS_MEDIA_TYPES` | `aquilia/request.py` | `frozenset({'application/x-crous', 'application/crous', 'application/vnd.crous'})` |
@@ -246,13 +277,13 @@ This page is extracted from the current Python source. It includes public classe
 | `_MIN_KEY_BYTES` | `aquilia/signing.py` | `32` |
 | `_EPOCH` | `aquilia/signing.py` | `int(datetime(2020, 1, 1, tzinfo=timezone.utc).timestamp() * 1000000)` |
 | `_TS_FORMAT_V1` | `aquilia/signing.py` | `1` |
-| `_GLOBAL_SECRETS` | `aquilia/signing.py` | `list[str &#124; bytes]` |
+| `_GLOBAL_SECRETS` | `aquilia/signing.py` | `list[str \| bytes]` |
 | `_GLOBAL_ALGORITHM` | `aquilia/signing.py` | `str` |
 | `_GLOBAL_SALT` | `aquilia/signing.py` | `str` |
 
 ## Detailed Classes And Methods
 
-### Class: `MultiDict`
+### `MultiDict`
 
 - Source: `aquilia/_datastructures.py`
 - Bases: `MutableMapping[str, list[str]]`
@@ -260,159 +291,159 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Get first value for a key. |
-| `get_all` | `def get_all(self, key: str) -> list[str]` |  | Get all values for a key. |
-| `add` | `def add(self, key: str, value: str) -> None` |  | Add a value to a key (appends to list). |
-| `items_list` | `def items_list(self) -> list[tuple[str, str]]` |  | Return all items as flat list of tuples. |
-| `to_dict` | `def to_dict(self, multi: bool = False) -> dict[str, str &#124; list[str]]` |  | Convert to regular dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, key: str, default: Any=None)` | Get first value for a key. |
+| `get_all` | `def get_all(self, key: str)` | Get all values for a key. |
+| `add` | `def add(self, key: str, value: str)` | Add a value to a key (appends to list). |
+| `items_list` | `def items_list(self)` | Return all items as flat list of tuples. |
+| `to_dict` | `def to_dict(self, multi: bool=False)` | Convert to regular dict. |
 
-### Class: `Headers`
+### `Headers`
 
 - Source: `aquilia/_datastructures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Case-insensitive header access with raw preservation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `raw` | `list[tuple[bytes, bytes]]` | `field(default_factory=list)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, name: str, default: str &#124; None = None) -> str &#124; None` |  | Get first value for header (case-insensitive). |
-| `get_all` | `def get_all(self, name: str) -> list[str]` |  | Get all values for header (case-insensitive). |
-| `has` | `def has(self, name: str) -> bool` |  | Check if header exists. |
-| `items` | `def items(self) -> Iterator[tuple[str, str]]` |  | Iterate over all headers. |
-| `keys` | `def keys(self) -> Iterator[str]` |  | Iterate over header names. |
-| `values` | `def values(self) -> Iterator[str]` |  | Iterate over header values. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, name: str, default: str \| None=None)` | Get first value for header (case-insensitive). |
+| `get_all` | `def get_all(self, name: str)` | Get all values for header (case-insensitive). |
+| `has` | `def has(self, name: str)` | Check if header exists. |
+| `items` | `def items(self)` | Iterate over all headers. |
+| `keys` | `def keys(self)` | Iterate over header names. |
+| `values` | `def values(self)` | Iterate over header values. |
 
-### Class: `URL`
+### `URL`
 
 - Source: `aquilia/_datastructures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Parsed URL representation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `scheme` | `str` |  |
-| `host` | `str` |  |
-| `port` | `int &#124; None` | `None` |
+| `scheme` | `str` | `` |
+| `host` | `str` | `` |
+| `port` | `int \| None` | `None` |
 | `path` | `str` | `'/'` |
 | `query` | `str` | `''` |
 | `fragment` | `str` | `''` |
-| `username` | `str &#124; None` | `None` |
-| `password` | `str &#124; None` | `None` |
+| `username` | `str \| None` | `None` |
+| `password` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `parse` | `def parse(cls, url: str) -> URL` | classmethod | Parse URL string into components. |
-| `netloc` | `def netloc(self) -> str` | property | Build netloc string. |
-| `replace` | `def replace(self, **kwargs) -> URL` |  | Create new URL with replaced components. |
-| `with_query` | `def with_query(self, **params) -> URL` |  | Create new URL with updated query parameters. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `parse` | `def parse(cls, url: str)` | Parse URL string into components. |
+| `netloc` | `def netloc(self)` | Build netloc string. |
+| `replace` | `def replace(self, **kwargs)` | Create new URL with replaced components. |
+| `with_query` | `def with_query(self, **params)` | Create new URL with updated query parameters. |
 
-### Class: `ParsedContentType`
+### `ParsedContentType`
 
 - Source: `aquilia/_datastructures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Parsed Content-Type header.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `media_type` | `str` |  |
+| `media_type` | `str` | `` |
 | `params` | `dict[str, str]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `parse` | `def parse(cls, content_type: str &#124; None) -> ParsedContentType &#124; None` | classmethod | Parse Content-Type header. |
-| `charset` | `def charset(self) -> str` | property | Get charset parameter (default: utf-8). |
-| `boundary` | `def boundary(self) -> str &#124; None` | property | Get boundary parameter (for multipart). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `parse` | `def parse(cls, content_type: str \| None)` | Parse Content-Type header. |
+| `charset` | `def charset(self)` | Get charset parameter (default: utf-8). |
+| `boundary` | `def boundary(self)` | Get boundary parameter (for multipart). |
 
-### Class: `Range`
+### `Range`
 
 - Source: `aquilia/_datastructures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Parsed HTTP Range header.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `unit` | `str` | `'bytes'` |
-| `ranges` | `list[tuple[int &#124; None, int &#124; None]]` | `field(default_factory=list)` |
+| `ranges` | `list[tuple[int \| None, int \| None]]` | `field(default_factory=list)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `parse` | `def parse(cls, range_header: str &#124; None) -> Range &#124; None` | classmethod | Parse Range header. |
-
-### Class: `UploadFile`
-
-- Source: `aquilia/_uploads.py`
-- Bases: `object`
-- Decorators: `dataclass`
-- Summary: Uploaded file representation.
-
-Attributes and fields:
-
-| Name | Type | Default |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `filename` | `str` |  |
-| `content_type` | `str` |  |
-| `size` | `int &#124; None` | `None` |
+| `parse` | `def parse(cls, range_header: str \| None)` | Parse Range header. |
 
-Methods:
-
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `read` | `async def read(self, size: int = -1) -> bytes` |  | Read file content. |
-| `stream` | `async def stream(self, chunk_size: int &#124; None = None) -> AsyncIterator[bytes]` |  | Stream file content in chunks. |
-| `save` | `async def save(self, path: str &#124; Path, overwrite: bool = False) -> Path` |  | Save uploaded file to disk. |
-| `close` | `async def close(self) -> None` |  | Clean up temporary file if exists. |
-
-### Class: `FormData`
+### `UploadFile`
 
 - Source: `aquilia/_uploads.py`
 - Bases: `object`
+- Summary: Uploaded file representation.
 - Decorators: `dataclass`
+
+Fields and class attributes:
+
+| Name | Type | Default / Value |
+| --- | --- | --- |
+| `filename` | `str` | `` |
+| `content_type` | `str` | `` |
+| `size` | `int \| None` | `None` |
+
+Methods:
+
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `read` | `async def read(self, size: int=-1)` | Read file content. |
+| `stream` | `async def stream(self, chunk_size: int \| None=None)` | Stream file content in chunks. |
+| `save` | `async def save(self, path: str \| Path, overwrite: bool=False)` | Save uploaded file to disk. |
+| `close` | `async def close(self)` | Clean up temporary file if exists. |
+
+### `FormData`
+
+- Source: `aquilia/_uploads.py`
+- Bases: `object`
 - Summary: Parsed form data containing both fields and files.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `fields` | `MultiDict` | `field(default_factory=MultiDict)` |
 | `files` | `dict[str, list[UploadFile]]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, name: str, default: FormValue &#124; None = None) -> FormValue &#124; None` |  | Get field or file by name. |
-| `get_field` | `def get_field(self, name: str, default: str &#124; None = None) -> str &#124; None` |  | Get form field value. |
-| `get_all_fields` | `def get_all_fields(self, name: str) -> list[str]` |  | Get all values for a form field. |
-| `get_file` | `def get_file(self, name: str) -> UploadFile &#124; None` |  | Get first uploaded file by name. |
-| `get_all_files` | `def get_all_files(self, name: str) -> list[UploadFile]` |  | Get all uploaded files by name. |
-| `cleanup` | `async def cleanup(self) -> None` |  | Clean up all temporary upload files. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, name: str, default: FormValue \| None=None)` | Get field or file by name. |
+| `get_field` | `def get_field(self, name: str, default: str \| None=None)` | Get form field value. |
+| `get_all_fields` | `def get_all_fields(self, name: str)` | Get all values for a form field. |
+| `get_file` | `def get_file(self, name: str)` | Get first uploaded file by name. |
+| `get_all_files` | `def get_all_files(self, name: str)` | Get all uploaded files by name. |
+| `cleanup` | `async def cleanup(self)` | Clean up all temporary upload files. |
 
-### Class: `UploadStore`
+### `UploadStore`
 
 - Source: `aquilia/_uploads.py`
 - Bases: `Protocol`
@@ -420,13 +451,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `write_chunk` | `async def write_chunk(self, upload_id: str, chunk: bytes) -> None` |  | Write a chunk of uploaded data. |
-| `finalize` | `async def finalize(self, upload_id: str, metadata: dict[str, Any] &#124; None = None) -> Path` |  | Finalize upload and return final path/identifier. |
-| `abort` | `async def abort(self, upload_id: str) -> None` |  | Abort upload and clean up partial data. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `write_chunk` | `async def write_chunk(self, upload_id: str, chunk: bytes)` | Write a chunk of uploaded data. |
+| `finalize` | `async def finalize(self, upload_id: str, metadata: dict[str, Any] \| None=None)` | Finalize upload and return final path/identifier. |
+| `abort` | `async def abort(self, upload_id: str)` | Abort upload and clean up partial data. |
 
-### Class: `LocalUploadStore`
+### `LocalUploadStore`
 
 - Source: `aquilia/_uploads.py`
 - Bases: `object`
@@ -434,88 +465,88 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `write_chunk` | `async def write_chunk(self, upload_id: str, chunk: bytes) -> None` |  | Write chunk to temporary file. |
-| `finalize` | `async def finalize(self, upload_id: str, metadata: dict[str, Any] &#124; None = None) -> Path` |  | Finalize upload and move to final location. |
-| `abort` | `async def abort(self, upload_id: str) -> None` |  | Abort upload and remove temp file. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `write_chunk` | `async def write_chunk(self, upload_id: str, chunk: bytes)` | Write chunk to temporary file. |
+| `finalize` | `async def finalize(self, upload_id: str, metadata: dict[str, Any] \| None=None)` | Finalize upload and move to final location. |
+| `abort` | `async def abort(self, upload_id: str)` | Abort upload and remove temp file. |
 
-### Class: `ASGIAdapter`
+### `ASGIAdapter`
 
 - Source: `aquilia/asgi.py`
 - Bases: `object`
-- Summary: ASGI application adapter.
+- Summary: ASGI application adapter. Converts ASGI events to Aquilia Request/Response. Uses controller-based routing exclusively.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `handle_http` | `async def handle_http(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None` |  | Handle HTTP request with optimized hot path. |
-| `handle_websocket` | `async def handle_websocket(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None` |  | Handle WebSocket connection. |
-| `handle_lifespan` | `async def handle_lifespan(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend) -> None` |  | Handle ASGI lifespan events. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `handle_http` | `async def handle_http(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend)` | Handle HTTP request with optimized hot path. |
+| `handle_websocket` | `async def handle_websocket(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend)` | Handle WebSocket connection. |
+| `handle_lifespan` | `async def handle_lifespan(self, scope: ASGIScope, receive: ASGIReceive, send: ASGISend)` | Handle ASGI lifespan events. |
 
-### Class: `NestedNamespace`
+### `NestedNamespace`
 
 - Source: `aquilia/config.py`
 - Bases: `object`
-- Summary: A namespace that supports nested attribute access for app configs.
+- Summary: A namespace that supports nested attribute access for app configs. Enables syntax like: config.apps.auth.secret_key
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Return the underlying data dictionary. |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Return the underlying data dictionary. |
+| `get` | `def get(self, key: str, default: Any=None)` |  |
 
-### Class: `Config`
+### `Config`
 
 - Source: `aquilia/config.py`
 - Bases: `object`
 - Summary: Base class for typed configuration classes.
 
-### Class: `ConfigError`
+### `ConfigError`
 
 - Source: `aquilia/config.py`
 - Bases: `Exception`
 - Summary: Raised when configuration validation fails.
 
-### Class: `ConfigLoader`
+### `ConfigLoader`
 
 - Source: `aquilia/config.py`
 - Bases: `object`
-- Summary: Loads and merges configuration from multiple sources with precedence:
+- Summary: Loads and merges configuration from multiple sources with precedence: CLI args > Environment variables > .env files > config files > defaults
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `def load(cls, paths: list[str] &#124; None = None, env_prefix: str = 'AQ_', env_file: str &#124; None = None, overrides: dict[str, Any] &#124; None = None) -> 'ConfigLoader'` | classmethod | Load configuration from multiple sources with proper merge strategy. |
-| `get` | `def get(self, path: str, default: Any = None) -> Any` |  | Get config value by dot-separated path. |
-| `get_app_config` | `def get_app_config(self, app_name: str, config_class: type[Config]) -> Config` |  | Get and validate configuration for a specific app. |
-| `to_dict` | `def to_dict(self) -> dict` |  | Export all config as dictionary. |
-| `get_session_config` | `def get_session_config(self) -> dict` |  | Get session configuration with defaults. |
-| `get_auth_config` | `def get_auth_config(self) -> dict` |  | Get auth configuration with defaults. |
-| `get_template_config` | `def get_template_config(self) -> dict` |  | Get template configuration with defaults. |
-| `get_security_config` | `def get_security_config(self) -> dict` |  | Get security configuration with defaults. |
-| `get_static_config` | `def get_static_config(self) -> dict` |  | Get static files configuration with defaults. |
-| `get_cache_config` | `def get_cache_config(self) -> dict` |  | Get cache configuration with defaults. |
-| `get_i18n_config` | `def get_i18n_config(self) -> dict` |  | Get i18n (internationalization) configuration with defaults. |
-| `get_mail_config` | `def get_mail_config(self) -> dict` |  | Get mail configuration with defaults. |
-| `get_tasks_config` | `def get_tasks_config(self) -> dict` |  | Get background tasks configuration with defaults. |
-| `get_storage_config` | `def get_storage_config(self) -> dict` |  | Get storage configuration with defaults. |
-| `get_middleware_config` | `def get_middleware_config(self) -> list` |  | Get middleware chain configuration. |
-| `get_versioning_config` | `def get_versioning_config(self) -> dict` |  | Get API versioning configuration with defaults. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `def load(cls, paths: list[str] \| None=None, env_prefix: str='AQ_', env_file: str \| None=None, overrides: dict[str, Any] \| None=None)` | Load configuration from multiple sources with proper merge strategy. |
+| `get` | `def get(self, path: str, default: Any=None)` | Get config value by dot-separated path. |
+| `get_app_config` | `def get_app_config(self, app_name: str, config_class: type[Config])` | Get and validate configuration for a specific app. |
+| `to_dict` | `def to_dict(self)` | Export all config as dictionary. |
+| `get_session_config` | `def get_session_config(self)` | Get session configuration with defaults. |
+| `get_auth_config` | `def get_auth_config(self)` | Get auth configuration with defaults. |
+| `get_template_config` | `def get_template_config(self)` | Get template configuration with defaults. |
+| `get_security_config` | `def get_security_config(self)` | Get security configuration with defaults. |
+| `get_static_config` | `def get_static_config(self)` | Get static files configuration with defaults. |
+| `get_cache_config` | `def get_cache_config(self)` | Get cache configuration with defaults. |
+| `get_i18n_config` | `def get_i18n_config(self)` | Get i18n (internationalization) configuration with defaults. |
+| `get_mail_config` | `def get_mail_config(self)` | Get mail configuration with defaults. |
+| `get_tasks_config` | `def get_tasks_config(self)` | Get background tasks configuration with defaults. |
+| `get_storage_config` | `def get_storage_config(self)` | Get storage configuration with defaults. |
+| `get_middleware_config` | `def get_middleware_config(self)` | Get middleware chain configuration. |
+| `get_versioning_config` | `def get_versioning_config(self)` | Get API versioning configuration with defaults. |
 
-### Class: `RuntimeConfig`
+### `RuntimeConfig`
 
 - Source: `aquilia/config_builders.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Runtime configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `mode` | `str` | `'dev'` |
 | `host` | `str` | `'127.0.0.1'` |
@@ -523,38 +554,38 @@ Attributes and fields:
 | `reload` | `bool` | `True` |
 | `workers` | `int` | `1` |
 
-### Class: `ModuleConfig`
+### `ModuleConfig`
 
 - Source: `aquilia/config_builders.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Module configuration -- workspace-level orchestration metadata.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `version` | `str` | `'0.1.0'` |
 | `description` | `str` | `''` |
-| `fault_domain` | `str &#124; None` | `None` |
-| `route_prefix` | `str &#124; None` | `None` |
+| `fault_domain` | `str \| None` | `None` |
+| `route_prefix` | `str \| None` | `None` |
 | `depends_on` | `list[str]` | `field(default_factory=list)` |
 | `tags` | `list[str]` | `field(default_factory=list)` |
 | `imports` | `list[str]` | `field(default_factory=list)` |
 | `exports` | `list[str]` | `field(default_factory=list)` |
-| `on_startup` | `str &#124; None` | `None` |
-| `on_shutdown` | `str &#124; None` | `None` |
-| `database` | `dict[str, Any] &#124; None` | `None` |
+| `on_startup` | `str \| None` | `None` |
+| `on_shutdown` | `str \| None` | `None` |
+| `database` | `dict[str, Any] \| None` | `None` |
 | `auto_discover` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert to dictionary format. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Convert to dictionary format. |
 
-### Class: `Module`
+### `Module`
 
 - Source: `aquilia/config_builders.py`
 - Bases: `object`
@@ -562,42 +593,42 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `auto_discover` | `def auto_discover(self, enabled: bool = True) -> 'Module'` |  | Configure auto-discovery behavior. |
-| `fault_domain` | `def fault_domain(self, domain: str) -> 'Module'` |  | Set fault domain. |
-| `route_prefix` | `def route_prefix(self, prefix: str) -> 'Module'` |  | Set route prefix. |
-| `depends_on` | `def depends_on(self, *modules: str) -> 'Module'` |  | Set module dependencies (legacy -- prefer imports()). |
-| `imports` | `def imports(self, *modules: str) -> 'Module'` |  | Declare module imports (v2 encapsulation). |
-| `exports` | `def exports(self, *components: str) -> 'Module'` |  | Declare exported components (v2 encapsulation). |
-| `tags` | `def tags(self, *module_tags: str) -> 'Module'` |  | Set module tags for organization and filtering. |
-| `register_controllers` | `def register_controllers(self, *controllers: str) -> 'Module'` |  | DEPRECATED -- declare controllers in modules/*/manifest.py instead. |
-| `register_services` | `def register_services(self, *services: str) -> 'Module'` |  | DEPRECATED -- declare services in modules/*/manifest.py instead. |
-| `register_providers` | `def register_providers(self, *providers: dict[str, Any]) -> 'Module'` |  | DEPRECATED -- declare providers in modules/*/manifest.py instead. |
-| `register_routes` | `def register_routes(self, *routes: dict[str, Any]) -> 'Module'` |  | DEPRECATED -- declare routes via controllers in modules/*/manifest.py instead. |
-| `register_sockets` | `def register_sockets(self, *sockets: str) -> 'Module'` |  | DEPRECATED -- declare socket controllers in modules/*/manifest.py instead. |
-| `register_middlewares` | `def register_middlewares(self, *middlewares: str) -> 'Module'` |  | DEPRECATED -- declare middleware in modules/*/manifest.py instead. |
-| `register_models` | `def register_models(self, *models: str) -> 'Module'` |  | DEPRECATED -- declare models in modules/*/manifest.py instead. |
-| `register_serializers` | `def register_serializers(self, *serializers: str) -> 'Module'` |  | DEPRECATED -- declare serializers in modules/*/manifest.py instead. |
-| `on_startup` | `def on_startup(self, hook: str) -> 'Module'` |  | Register a startup hook for this module. |
-| `on_shutdown` | `def on_shutdown(self, hook: str) -> 'Module'` |  | Register a shutdown hook for this module. |
-| `database` | `def database(self, url: str &#124; None = None, *, config: Any &#124; None = None, auto_connect: bool = True, auto_create: bool = True, auto_migrate: bool = False, migrations_dir: str = 'migrations', **kwargs) -> 'Module'` |  | Configure database for this module. |
-| `build` | `def build(self) -> ModuleConfig` |  | Build module configuration. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `auto_discover` | `def auto_discover(self, enabled: bool=True)` | Configure auto-discovery behavior. |
+| `fault_domain` | `def fault_domain(self, domain: str)` | Set fault domain. |
+| `route_prefix` | `def route_prefix(self, prefix: str)` | Set route prefix. |
+| `depends_on` | `def depends_on(self, *modules: str)` | Set module dependencies (legacy -- prefer imports()). |
+| `imports` | `def imports(self, *modules: str)` | Declare module imports (v2 encapsulation). |
+| `exports` | `def exports(self, *components: str)` | Declare exported components (v2 encapsulation). |
+| `tags` | `def tags(self, *module_tags: str)` | Set module tags for organization and filtering. |
+| `register_controllers` | `def register_controllers(self, *controllers: str)` | DEPRECATED -- declare controllers in modules/*/manifest.py instead. |
+| `register_services` | `def register_services(self, *services: str)` | DEPRECATED -- declare services in modules/*/manifest.py instead. |
+| `register_providers` | `def register_providers(self, *providers: dict[str, Any])` | DEPRECATED -- declare providers in modules/*/manifest.py instead. |
+| `register_routes` | `def register_routes(self, *routes: dict[str, Any])` | DEPRECATED -- declare routes via controllers in modules/*/manifest.py instead. |
+| `register_sockets` | `def register_sockets(self, *sockets: str)` | DEPRECATED -- declare socket controllers in modules/*/manifest.py instead. |
+| `register_middlewares` | `def register_middlewares(self, *middlewares: str)` | DEPRECATED -- declare middleware in modules/*/manifest.py instead. |
+| `register_models` | `def register_models(self, *models: str)` | DEPRECATED -- declare models in modules/*/manifest.py instead. |
+| `register_serializers` | `def register_serializers(self, *serializers: str)` | DEPRECATED -- declare serializers in modules/*/manifest.py instead. |
+| `on_startup` | `def on_startup(self, hook: str)` | Register a startup hook for this module. |
+| `on_shutdown` | `def on_shutdown(self, hook: str)` | Register a shutdown hook for this module. |
+| `database` | `def database(self, url: str \| None=None, *, config: Any \| None=None, auto_connect: bool=True, auto_create: bool=True, auto_migrate: bool=False, migrations_dir: str='migrations', **kwargs)` | Configure database for this module. |
+| `build` | `def build(self)` | Build module configuration. |
 
-### Class: `AuthConfig`
+### `AuthConfig`
 
 - Source: `aquilia/config_builders.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Authentication configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `store_type` | `str` | `'memory'` |
-| `secret_key` | `str &#124; None` | `None` |
+| `secret_key` | `str \| None` | `None` |
 | `algorithm` | `str` | `'HS256'` |
 | `issuer` | `str` | `'aquilia'` |
 | `audience` | `str` | `'aquilia-app'` |
@@ -607,11 +638,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert to dictionary format. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Convert to dictionary format. |
 
-### Class: `Integration`
+### `Integration`
 
 - Source: `aquilia/config_builders.py`
 - Bases: `object`
@@ -619,35 +650,35 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `auth` | `def auth(config: AuthConfig &#124; None = None, enabled: bool = True, store_type: str = 'memory', secret_key: str &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure authentication. |
-| `sessions` | `def sessions(policy: Any &#124; None = None, store: Any &#124; None = None, transport: Any &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure session integration with Aquilia's unique fluent syntax. |
-| `di` | `def di(auto_wire: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure dependency injection. |
-| `database` | `def database(url: str &#124; None = None, *, config: Any &#124; None = None, auto_connect: bool = True, auto_create: bool = True, auto_migrate: bool = False, migrations_dir: str = 'migrations', pool_size: int = 5, echo: bool = False, model_paths: list[str] &#124; None = None, scan_dirs: list[str] &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure database and AMDL model integration. |
-| `storage` | `def storage(default: str = 'default', backends: dict[str, Any] &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure file storage backends. |
-| `registry` | `def registry(**kwargs) -> dict[str, Any]` | staticmethod | Configure registry. |
-| `routing` | `def routing(strict_matching: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure routing. |
-| `fault_handling` | `def fault_handling(default_strategy: str = 'propagate', **kwargs) -> dict[str, Any]` | staticmethod | Configure fault handling. |
-| `cache` | `def cache(backend: str = 'memory', default_ttl: int = 300, max_size: int = 10000, eviction_policy: str = 'lru', namespace: str = 'default', key_prefix: str = 'aq:', serializer: str = 'json', redis_url: str = 'redis://localhost:6379/0', redis_max_connections: int = 10, l1_max_size: int = 1000, l1_ttl: int = 60, l2_backend: str = 'redis', middleware_enabled: bool = False, middleware_default_ttl: int = 60, **kwargs) -> dict[str, Any]` | staticmethod | Configure the caching subsystem. |
-| `tasks` | `def tasks(backend: str = 'memory', num_workers: int = 4, default_queue: str = 'default', cleanup_interval: float = 300.0, cleanup_max_age: float = 3600.0, max_retries: int = 3, retry_delay: float = 1.0, retry_backoff: float = 2.0, retry_max_delay: float = 300.0, default_timeout: float = 300.0, auto_start: bool = True, dead_letter_max: int = 1000, scheduler_tick: float = 15.0, **kwargs) -> dict[str, Any]` | staticmethod | Configure the background task subsystem. |
-| `admin` | `def admin(url_prefix: str = '/admin', site_title: str = 'Aquilia Admin', site_header: str = 'Aquilia Administration', auto_discover: bool = True, login_url: str &#124; None = None, list_per_page: int = 25, theme: str = 'auto', modules: Optional['Integration.AdminModules'] = None, audit: Optional['Integration.AdminAudit'] = None, monitoring: Optional['Integration.AdminMonitoring'] = None, sidebar: Optional['Integration.AdminSidebar'] = None, containers: Optional['Integration.AdminContainers'] = None, pods: Optional['Integration.AdminPods'] = None, security: Optional['Integration.AdminSecurity'] = None, enable_audit: bool &#124; None = None, audit_max_entries: int = 10000, enable_dashboard: bool &#124; None = None, enable_orm: bool &#124; None = None, enable_migrations: bool &#124; None = None, enable_config: bool &#124; None = None, enable_workspace: bool &#124; None = None, enable_permissions: bool &#124; None = None, enable_monitoring: bool &#124; None = None, enable_admin_users: bool &#124; None = None, enable_containers: bool &#124; None = None, enable_pods: bool &#124; None = None, enable_profile: bool &#124; None = None, audit_log_logins: bool &#124; None = None, audit_log_views: bool &#124; None = None, audit_log_searches: bool &#124; None = None, enable_api_keys: bool &#124; None = None, enable_preferences: bool &#124; None = None, audit_excluded_actions: list[str] &#124; None = None, monitoring_metrics: list[str] &#124; None = None, monitoring_refresh_interval: int &#124; None = None, sidebar_sections: dict[str, bool] &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure the admin dashboard integration. |
-| `patterns` | `def patterns(**kwargs) -> dict[str, Any]` | staticmethod | Configure patterns. |
-| `static_files` | `def static_files(directories: dict[str, str] &#124; None = None, cache_max_age: int = 86400, immutable: bool = False, etag: bool = True, gzip: bool = True, brotli: bool = True, memory_cache: bool = True, html5_history: bool = False, **kwargs) -> dict[str, Any]` | staticmethod | Configure static file serving middleware. |
-| `cors` | `def cors(allow_origins: list[str] &#124; None = None, allow_methods: list[str] &#124; None = None, allow_headers: list[str] &#124; None = None, expose_headers: list[str] &#124; None = None, allow_credentials: bool = False, max_age: int = 600, allow_origin_regex: str &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure CORS middleware. |
-| `csp` | `def csp(policy: dict[str, list[str]] &#124; None = None, report_only: bool = False, nonce: bool = True, preset: str = 'strict', **kwargs) -> dict[str, Any]` | staticmethod | Configure Content-Security-Policy middleware. |
-| `rate_limit` | `def rate_limit(limit: int = 100, window: int = 60, algorithm: str = 'sliding_window', per_user: bool = False, burst: int &#124; None = None, exempt_paths: list[str] &#124; None = None, **kwargs) -> dict[str, Any]` | staticmethod | Configure rate limiting middleware. |
-| `openapi` | `def openapi(title: str = 'Aquilia API', version: str = '1.0.0', description: str = '', terms_of_service: str = '', contact_name: str = '', contact_email: str = '', contact_url: str = '', license_name: str = '', license_url: str = '', servers: list[dict[str, str]] &#124; None = None, docs_path: str = '/docs', openapi_json_path: str = '/openapi.json', redoc_path: str = '/redoc', include_internal: bool = False, group_by_module: bool = True, infer_request_body: bool = True, infer_responses: bool = True, detect_security: bool = True, external_docs_url: str = '', external_docs_description: str = '', swagger_ui_theme: str = '', swagger_ui_config: dict[str, Any] &#124; None = None, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure OpenAPI specification generation and interactive documentation. |
-| `csrf` | `def csrf(secret_key: str = '', token_length: int = 32, header_name: str = 'X-CSRF-Token', field_name: str = '_csrf_token', cookie_name: str = '_csrf_cookie', cookie_path: str = '/', cookie_domain: str &#124; None = None, cookie_secure: bool = True, cookie_samesite: str = 'Lax', cookie_httponly: bool = False, cookie_max_age: int = 3600, safe_methods: list[str] &#124; None = None, exempt_paths: list[str] &#124; None = None, exempt_content_types: list[str] &#124; None = None, trust_ajax: bool = True, rotate_token: bool = False, failure_status: int = 403, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure CSRF (Cross-Site Request Forgery) protection integration. |
-| `logging` | `def logging(format: str = '%(method)s %(path)s %(status)s %(duration_ms).1fms', level: str = 'INFO', slow_threshold_ms: float = 1000.0, skip_paths: list[str] &#124; None = None, include_headers: bool = False, include_query: bool = True, include_user_agent: bool = False, log_request_body: bool = False, log_response_body: bool = False, colorize: bool = True, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure request/response logging integration. |
-| `mail` | `def mail(default_from: str = 'noreply@localhost', default_reply_to: str &#124; None = None, subject_prefix: str = '', providers: list[dict[str, Any]] &#124; None = None, auth: Any &#124; None = None, console_backend: bool = False, preview_mode: bool = False, template_dirs: list[str] &#124; None = None, retry_max_attempts: int = 5, retry_base_delay: float = 1.0, rate_limit_global: int = 1000, rate_limit_per_domain: int = 100, dkim_enabled: bool = False, dkim_domain: str &#124; None = None, dkim_selector: str = 'aquilia', require_tls: bool = True, pii_redaction: bool = False, metrics_enabled: bool = True, tracing_enabled: bool = False, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure AquilaMail -- the production-ready async mail subsystem. |
-| `mlops` | `def mlops(*, enabled: bool = True, registry_db: str = 'registry.db', blob_root: str = '.aquilia-store', storage_backend: str = 'filesystem', drift_method: str = 'psi', drift_threshold: float = 0.2, drift_num_bins: int = 10, max_batch_size: int = 16, max_latency_ms: float = 50.0, batching_strategy: str = 'hybrid', sample_rate: float = 0.01, log_dir: str = 'prediction_logs', hmac_secret: str &#124; None = None, signing_private_key: str &#124; None = None, signing_public_key: str &#124; None = None, encryption_key: Any &#124; None = None, plugin_auto_discover: bool = True, scaling_policy: dict[str, Any] &#124; None = None, rollout_default_strategy: str = 'canary', auto_rollback: bool = True, metrics_model_name: str = '', metrics_model_version: str = '', cache_enabled: bool = True, cache_ttl: int = 60, cache_namespace: str = 'mlops', artifact_store_dir: str = 'artifacts', fault_engine_debug: bool = False, **kwargs) -> dict[str, Any]` | staticmethod | Configure MLOps platform integration. |
-| `i18n` | `def i18n(*, default_locale: str = 'en', available_locales: list[str] &#124; None = None, fallback_locale: str = 'en', catalog_dirs: list[str] &#124; None = None, catalog_format: str = 'json', missing_key_strategy: str = 'log_and_key', auto_reload: bool = False, auto_detect: bool = True, cookie_name: str = 'aq_locale', query_param: str = 'lang', path_prefix: bool = False, resolver_order: list[str] &#124; None = None, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure the i18n (internationalization) subsystem. |
-| `serializers` | `def serializers(*, auto_discover: bool = True, strict_validation: bool = True, raise_on_error: bool = False, date_format: str = 'iso-8601', datetime_format: str = 'iso-8601', coerce_decimal_to_string: bool = True, compact_json: bool = True, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure global serializer settings. |
-| `render` | `def render(service_name: str &#124; None = None, region: str = 'oregon', plan: str = 'starter', num_instances: int = 1, image: str &#124; None = None, health_path: str = '/_health', auto_deploy: str = 'no', **kwargs) -> dict[str, Any]` | staticmethod | Configure Render PaaS deployment. |
-| `versioning` | `def versioning(strategy: str = 'header', versions: list[str] &#124; None = None, default_version: str &#124; None = None, require_version: bool = False, header_name: str = 'X-API-Version', query_param: str = 'api_version', url_prefix: str = 'v', url_segment_index: int = 0, strip_version_from_path: bool = True, media_type_param: str = 'version', channels: dict[str, str] &#124; None = None, channel_header: str = 'X-API-Channel', channel_query_param: str = 'api_channel', negotiation_mode: str = 'exact', sunset_policy: Any &#124; None = None, sunset_schedules: dict[str, dict[str, Any]] &#124; None = None, include_version_header: bool = True, response_header_name: str = 'X-API-Version', include_supported_versions_header: bool = True, neutral_paths: list[str] &#124; None = None, enabled: bool = True, **kwargs) -> dict[str, Any]` | staticmethod | Configure API versioning integration. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `auth` | `def auth(config: AuthConfig \| None=None, enabled: bool=True, store_type: str='memory', secret_key: str \| None=None, **kwargs)` | Configure authentication. |
+| `sessions` | `def sessions(policy: Any \| None=None, store: Any \| None=None, transport: Any \| None=None, **kwargs)` | Configure session integration with Aquilia's unique fluent syntax. |
+| `di` | `def di(auto_wire: bool=True, **kwargs)` | Configure dependency injection. |
+| `database` | `def database(url: str \| None=None, *, config: Any \| None=None, auto_connect: bool=True, auto_create: bool=True, auto_migrate: bool=False, migrations_dir: str='migrations', pool_size: int=5, echo: bool=False, model_paths: list[str] \| None=None, scan_dirs: list[str] \| None=None, **kwargs)` | Configure database and AMDL model integration. |
+| `storage` | `def storage(default: str='default', backends: dict[str, Any] \| None=None, **kwargs)` | Configure file storage backends. |
+| `registry` | `def registry(**kwargs)` | Configure registry. |
+| `routing` | `def routing(strict_matching: bool=True, **kwargs)` | Configure routing. |
+| `fault_handling` | `def fault_handling(default_strategy: str='propagate', **kwargs)` | Configure fault handling. |
+| `cache` | `def cache(backend: str='memory', default_ttl: int=300, max_size: int=10000, eviction_policy: str='lru', namespace: str='default', key_prefix: str='aq:', serializer: str='json', redis_url: str='redis://localhost:6379/0', redis_max_connections: int=10, l1_max_size: int=1000, l1_ttl: int=60, l2_backend: str='redis', middleware_enabled: bool=False, middleware_default_ttl: int=60, **kwargs)` | Configure the caching subsystem. |
+| `tasks` | `def tasks(backend: str='memory', num_workers: int=4, default_queue: str='default', cleanup_interval: float=300.0, cleanup_max_age: float=3600.0, max_retries: int=3, retry_delay: float=1.0, retry_backoff: float=2.0, retry_max_delay: float=300.0, default_timeout: float=300.0, auto_start: bool=True, dead_letter_max: int=1000, scheduler_tick: float=15.0, **kwargs)` | Configure the background task subsystem. |
+| `admin` | `def admin(url_prefix: str='/admin', site_title: str='Aquilia Admin', site_header: str='Aquilia Administration', auto_discover: bool=True, login_url: str \| None=None, list_per_page: int=25, theme: str='auto', modules: Optional['Integration.AdminModules']=None, audit: Optional['Integration.AdminAudit']=None, monitoring: Optional['Integration.AdminMonitoring']=None, sidebar: Optional['Integration.AdminSidebar']=None, containers: Optional['Integration.AdminContainers']=None, pods: Optional['Integration.AdminPods']=None, security: Optional['Integration.AdminSecurity']=None, enable_audit: bool \| None=None, audit_max_entries: int=10000, enable_dashboard: bool \| None=None, enable_orm: bool \| None=None, enable_migrations: bool \| None=None, enable_config: bool \| None=None, enable_workspace: bool \| None=None, enable_permissions: bool \| None=None, enable_monitoring: bool \| None=None, enable_admin_users: bool \| None=None, enable_containers: bool \| None=None, enable_pods: bool \| None=None, enable_profile: bool \| None=None, audit_log_logins: bool \| None=None, audit_log_views: bool \| None=None, audit_log_searches: bool \| None=None, enable_api_keys: bool \| None=None, enable_preferences: bool \| None=None, audit_excluded_actions: list[str] \| None=None, monitoring_metrics: list[str] \| None=None, monitoring_refresh_interval: int \| None=None, sidebar_sections: dict[str, bool] \| None=None, **kwargs)` | Configure the admin dashboard integration. |
+| `patterns` | `def patterns(**kwargs)` | Configure patterns. |
+| `static_files` | `def static_files(directories: dict[str, str] \| None=None, cache_max_age: int=86400, immutable: bool=False, etag: bool=True, gzip: bool=True, brotli: bool=True, memory_cache: bool=True, html5_history: bool=False, **kwargs)` | Configure static file serving middleware. |
+| `cors` | `def cors(allow_origins: list[str] \| None=None, allow_methods: list[str] \| None=None, allow_headers: list[str] \| None=None, expose_headers: list[str] \| None=None, allow_credentials: bool=False, max_age: int=600, allow_origin_regex: str \| None=None, **kwargs)` | Configure CORS middleware. |
+| `csp` | `def csp(policy: dict[str, list[str]] \| None=None, report_only: bool=False, nonce: bool=True, preset: str='strict', **kwargs)` | Configure Content-Security-Policy middleware. |
+| `rate_limit` | `def rate_limit(limit: int=100, window: int=60, algorithm: str='sliding_window', per_user: bool=False, burst: int \| None=None, exempt_paths: list[str] \| None=None, **kwargs)` | Configure rate limiting middleware. |
+| `openapi` | `def openapi(title: str='Aquilia API', version: str='1.0.0', description: str='', terms_of_service: str='', contact_name: str='', contact_email: str='', contact_url: str='', license_name: str='', license_url: str='', servers: list[dict[str, str]] \| None=None, docs_path: str='/docs', openapi_json_path: str='/openapi.json', redoc_path: str='/redoc', include_internal: bool=False, group_by_module: bool=True, infer_request_body: bool=True, infer_responses: bool=True, detect_security: bool=True, external_docs_url: str='', external_docs_description: str='', swagger_ui_theme: str='', swagger_ui_config: dict[str, Any] \| None=None, enabled: bool=True, **kwargs)` | Configure OpenAPI specification generation and interactive documentation. |
+| `csrf` | `def csrf(secret_key: str='', token_length: int=32, header_name: str='X-CSRF-Token', field_name: str='_csrf_token', cookie_name: str='_csrf_cookie', cookie_path: str='/', cookie_domain: str \| None=None, cookie_secure: bool=True, cookie_samesite: str='Lax', cookie_httponly: bool=False, cookie_max_age: int=3600, safe_methods: list[str] \| None=None, exempt_paths: list[str] \| None=None, exempt_content_types: list[str] \| None=None, trust_ajax: bool=True, rotate_token: bool=False, failure_status: int=403, enabled: bool=True, **kwargs)` | Configure CSRF (Cross-Site Request Forgery) protection integration. |
+| `logging` | `def logging(format: str='%(method)s %(path)s %(status)s %(duration_ms).1fms', level: str='INFO', slow_threshold_ms: float=1000.0, skip_paths: list[str] \| None=None, include_headers: bool=False, include_query: bool=True, include_user_agent: bool=False, log_request_body: bool=False, log_response_body: bool=False, colorize: bool=True, enabled: bool=True, **kwargs)` | Configure request/response logging integration. |
+| `mail` | `def mail(default_from: str='noreply@localhost', default_reply_to: str \| None=None, subject_prefix: str='', providers: list[dict[str, Any]] \| None=None, auth: Any \| None=None, console_backend: bool=False, preview_mode: bool=False, template_dirs: list[str] \| None=None, retry_max_attempts: int=5, retry_base_delay: float=1.0, rate_limit_global: int=1000, rate_limit_per_domain: int=100, dkim_enabled: bool=False, dkim_domain: str \| None=None, dkim_selector: str='aquilia', require_tls: bool=True, pii_redaction: bool=False, metrics_enabled: bool=True, tracing_enabled: bool=False, enabled: bool=True, **kwargs)` | Configure AquilaMail -- the production-ready async mail subsystem. |
+| `mlops` | `def mlops(*, enabled: bool=True, registry_db: str='registry.db', blob_root: str='.aquilia-store', storage_backend: str='filesystem', drift_method: str='psi', drift_threshold: float=0.2, drift_num_bins: int=10, max_batch_size: int=16, max_latency_ms: float=50.0, batching_strategy: str='hybrid', sample_rate: float=0.01, log_dir: str='prediction_logs', hmac_secret: str \| None=None, signing_private_key: str \| None=None, signing_public_key: str \| None=None, encryption_key: Any \| None=None, plugin_auto_discover: bool=True, scaling_policy: dict[str, Any] \| None=None, rollout_default_strategy: str='canary', auto_rollback: bool=True, metrics_model_name: str='', metrics_model_version: str='', cache_enabled: bool=True, cache_ttl: int=60, cache_namespace: str='mlops', artifact_store_dir: str='artifacts', fault_engine_debug: bool=False, **kwargs)` | Configure MLOps platform integration. |
+| `i18n` | `def i18n(*, default_locale: str='en', available_locales: list[str] \| None=None, fallback_locale: str='en', catalog_dirs: list[str] \| None=None, catalog_format: str='json', missing_key_strategy: str='log_and_key', auto_reload: bool=False, auto_detect: bool=True, cookie_name: str='aq_locale', query_param: str='lang', path_prefix: bool=False, resolver_order: list[str] \| None=None, enabled: bool=True, **kwargs)` | Configure the i18n (internationalization) subsystem. |
+| `serializers` | `def serializers(*, auto_discover: bool=True, strict_validation: bool=True, raise_on_error: bool=False, date_format: str='iso-8601', datetime_format: str='iso-8601', coerce_decimal_to_string: bool=True, compact_json: bool=True, enabled: bool=True, **kwargs)` | Configure global serializer settings. |
+| `render` | `def render(service_name: str \| None=None, region: str='oregon', plan: str='starter', num_instances: int=1, image: str \| None=None, health_path: str='/_health', auto_deploy: str='no', **kwargs)` | Configure Render PaaS deployment. |
+| `versioning` | `def versioning(strategy: str='header', versions: list[str] \| None=None, default_version: str \| None=None, require_version: bool=False, header_name: str='X-API-Version', query_param: str='api_version', url_prefix: str='v', url_segment_index: int=0, strip_version_from_path: bool=True, media_type_param: str='version', channels: dict[str, str] \| None=None, channel_header: str='X-API-Channel', channel_query_param: str='api_channel', negotiation_mode: str='exact', sunset_policy: Any \| None=None, sunset_schedules: dict[str, dict[str, Any]] \| None=None, include_version_header: bool=True, response_header_name: str='X-API-Version', include_supported_versions_header: bool=True, neutral_paths: list[str] \| None=None, enabled: bool=True, **kwargs)` | Configure API versioning integration. |
 
-### Class: `Workspace`
+### `Workspace`
 
 - Source: `aquilia/config_builders.py`
 - Bases: `object`
@@ -655,27 +686,27 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_startup` | `def on_startup(self, hook: str) -> 'Workspace'` |  | Register a workspace-level startup hook. |
-| `on_shutdown` | `def on_shutdown(self, hook: str) -> 'Workspace'` |  | Register a workspace-level shutdown hook. |
-| `env_config` | `def env_config(self, config_cls: 'type &#124; AquilaConfig') -> 'Workspace'` |  | Attach a :class:`~aquilia.pyconfig.AquilaConfig` subclass |
-| `starter` | `def starter(self, module_name: str) -> 'Workspace'` |  | Register the starter controller module. |
-| `middleware` | `def middleware(self, chain: 'Integration.middleware.Chain') -> 'Workspace'` |  | Configure the middleware chain for this workspace. |
-| `runtime` | `def runtime(self, mode: str = 'dev', host: str = '127.0.0.1', port: int = 8000, reload: bool = True, workers: int = 1) -> 'Workspace'` |  | Configure runtime settings. |
-| `module` | `def module(self, module: Module) -> 'Workspace'` |  | Add a module to the workspace. |
-| `integrate` | `def integrate(self, integration: 'dict[str, Any] &#124; Any') -> 'Workspace'` |  | Add an integration. |
-| `sessions` | `def sessions(self, policies: list[Any] &#124; None = None, **kwargs) -> 'Workspace'` |  | Configure session management. |
-| `i18n` | `def i18n(self, default_locale: str = 'en', available_locales: list[str] &#124; None = None, **kwargs) -> 'Workspace'` |  | Configure internationalization (shorthand for ``integrate(Integration.i18n(...))``). |
-| `tasks` | `def tasks(self, num_workers: int = 4, backend: str = 'memory', **kwargs) -> 'Workspace'` |  | Configure background tasks (shorthand for ``integrate(Integration.tasks(...))``). |
-| `storage` | `def storage(self, default: str = 'default', backends: dict[str, Any] &#124; None = None, **kwargs) -> 'Workspace'` |  | Configure file storage for the workspace. |
-| `security` | `def security(self, cors_enabled: bool = False, csrf_protection: bool = False, helmet_enabled: bool = True, rate_limiting: bool = False, https_redirect: bool = False, hsts: bool = True, proxy_fix: bool = False, **kwargs) -> 'Workspace'` |  | Configure security features. |
-| `telemetry` | `def telemetry(self, tracing_enabled: bool = False, metrics_enabled: bool = True, logging_enabled: bool = True, **kwargs) -> 'Workspace'` |  | Configure telemetry and observability. |
-| `database` | `def database(self, url: str &#124; None = None, *, config: Any &#124; None = None, auto_connect: bool = True, auto_create: bool = True, auto_migrate: bool = False, migrations_dir: str = 'migrations', **kwargs) -> 'Workspace'` |  | Configure global database for the workspace. |
-| `mlops` | `def mlops(self, enabled: bool = True, registry_db: str = 'registry.db', blob_root: str = '.aquilia-store', drift_method: str = 'psi', drift_threshold: float = 0.2, max_batch_size: int = 16, max_latency_ms: float = 50.0, plugin_auto_discover: bool = True, **kwargs) -> 'Workspace'` |  | Configure MLOps platform for this workspace. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert workspace to dictionary format compatible with ConfigLoader. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_startup` | `def on_startup(self, hook: str)` | Register a workspace-level startup hook. |
+| `on_shutdown` | `def on_shutdown(self, hook: str)` | Register a workspace-level shutdown hook. |
+| `env_config` | `def env_config(self, config_cls: 'type \| AquilaConfig')` | Attach a :class:`~aquilia.pyconfig.AquilaConfig` subclass (or instance) as the operational environment config. |
+| `starter` | `def starter(self, module_name: str)` | Register the starter controller module. |
+| `middleware` | `def middleware(self, chain: 'Integration.middleware.Chain')` | Configure the middleware chain for this workspace. |
+| `runtime` | `def runtime(self, mode: str='dev', host: str='127.0.0.1', port: int=8000, reload: bool=True, workers: int=1)` | Configure runtime settings. |
+| `module` | `def module(self, module: Module)` | Add a module to the workspace. |
+| `integrate` | `def integrate(self, integration: 'dict[str, Any] \| Any')` | Add an integration. |
+| `sessions` | `def sessions(self, policies: list[Any] \| None=None, **kwargs)` | Configure session management. |
+| `i18n` | `def i18n(self, default_locale: str='en', available_locales: list[str] \| None=None, **kwargs)` | Configure internationalization (shorthand for ``integrate(Integration.i18n(...))``). |
+| `tasks` | `def tasks(self, num_workers: int=4, backend: str='memory', **kwargs)` | Configure background tasks (shorthand for ``integrate(Integration.tasks(...))``). |
+| `storage` | `def storage(self, default: str='default', backends: dict[str, Any] \| None=None, **kwargs)` | Configure file storage for the workspace. |
+| `security` | `def security(self, cors_enabled: bool=False, csrf_protection: bool=False, helmet_enabled: bool=True, rate_limiting: bool=False, https_redirect: bool=False, hsts: bool=True, proxy_fix: bool=False, **kwargs)` | Configure security features. |
+| `telemetry` | `def telemetry(self, tracing_enabled: bool=False, metrics_enabled: bool=True, logging_enabled: bool=True, **kwargs)` | Configure telemetry and observability. |
+| `database` | `def database(self, url: str \| None=None, *, config: Any \| None=None, auto_connect: bool=True, auto_create: bool=True, auto_migrate: bool=False, migrations_dir: str='migrations', **kwargs)` | Configure global database for the workspace. |
+| `mlops` | `def mlops(self, enabled: bool=True, registry_db: str='registry.db', blob_root: str='.aquilia-store', drift_method: str='psi', drift_threshold: float=0.2, max_batch_size: int=16, max_latency_ms: float=50.0, plugin_auto_discover: bool=True, **kwargs)` | Configure MLOps platform for this workspace. |
+| `to_dict` | `def to_dict(self)` | Convert workspace to dictionary format compatible with ConfigLoader. |
 
-### Class: `DotEnv`
+### `DotEnv`
 
 - Source: `aquilia/dotenv.py`
 - Bases: `object`
@@ -683,13 +714,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `parse` | `def parse(cls, path: str &#124; Path, *, encoding: str = 'utf-8', interpolate: bool = True) -> dict[str, str]` | classmethod | Parse a .env file and return a dictionary of values. |
-| `parse_string` | `def parse_string(cls, content: str, *, interpolate: bool = True) -> dict[str, str]` | classmethod | Parse dotenv-formatted string content. |
-| `load` | `def load(cls, path: str &#124; Path &#124; None = None, *, override: bool = False, encoding: str = 'utf-8', interpolate: bool = True) -> dict[str, str]` | classmethod | Load environment variables from a .env file into os.environ. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `parse` | `def parse(cls, path: str \| Path, *, encoding: str='utf-8', interpolate: bool=True)` | Parse a .env file and return a dictionary of values. |
+| `parse_string` | `def parse_string(cls, content: str, *, interpolate: bool=True)` | Parse dotenv-formatted string content. |
+| `load` | `def load(cls, path: str \| Path \| None=None, *, override: bool=False, encoding: str='utf-8', interpolate: bool=True)` | Load environment variables from a .env file into os.environ. |
 
-### Class: `DotEnvLoader`
+### `DotEnvLoader`
 
 - Source: `aquilia/dotenv.py`
 - Bases: `object`
@@ -697,39 +728,39 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `configure` | `def configure(cls, *, search_paths: list[str] &#124; None = None, auto_load: bool = True, override: bool = False, interpolate: bool = True) -> None` | classmethod | Configure the loader before loading. |
-| `ensure_loaded` | `def ensure_loaded(cls, *, path: str &#124; Path &#124; None = None, search_paths: list[str] &#124; None = None) -> dict[str, str]` | classmethod | Ensure dotenv files are loaded (idempotent). |
-| `is_loaded` | `def is_loaded(cls) -> bool` | classmethod | Check if dotenv files have been loaded. |
-| `loaded_files` | `def loaded_files(cls) -> list[Path]` | classmethod | Return list of files that were loaded. |
-| `loaded_values` | `def loaded_values(cls) -> dict[str, str]` | classmethod | Return copy of all loaded values. |
-| `reset` | `def reset(cls) -> None` | classmethod | Reset the loader state. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `configure` | `def configure(cls, *, search_paths: list[str] \| None=None, auto_load: bool=True, override: bool=False, interpolate: bool=True)` | Configure the loader before loading. |
+| `ensure_loaded` | `def ensure_loaded(cls, *, path: str \| Path \| None=None, search_paths: list[str] \| None=None)` | Ensure dotenv files are loaded (idempotent). |
+| `is_loaded` | `def is_loaded(cls)` | Check if dotenv files have been loaded. |
+| `loaded_files` | `def loaded_files(cls)` | Return list of files that were loaded. |
+| `loaded_values` | `def loaded_values(cls)` | Return copy of all loaded values. |
+| `reset` | `def reset(cls)` | Reset the loader state. |
 
-### Class: `EffectKind`
+### `EffectKind`
 
 - Source: `aquilia/effects.py`
 - Bases: `Enum`
 - Summary: Categories of effects.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `DB` |  | `'db'` |
-| `CACHE` |  | `'cache'` |
-| `QUEUE` |  | `'queue'` |
-| `HTTP` |  | `'http'` |
-| `STORAGE` |  | `'storage'` |
-| `CUSTOM` |  | `'custom'` |
+| `DB` | `` | `'db'` |
+| `CACHE` | `` | `'cache'` |
+| `QUEUE` | `` | `'queue'` |
+| `HTTP` | `` | `'http'` |
+| `STORAGE` | `` | `'storage'` |
+| `CUSTOM` | `` | `'custom'` |
 
-### Class: `Effect`
+### `Effect`
 
 - Source: `aquilia/effects.py`
 - Bases: `Generic[T]`
 - Summary: Effect token representing a capability.
 
-### Class: `EffectProvider`
+### `EffectProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `ABC`
@@ -737,45 +768,45 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` | abstractmethod | Initialize the provider (called once at startup). |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None) -> Any` | abstractmethod | Acquire a resource for this effect (called per-request). |
-| `release` | `async def release(self, resource: Any, success: bool = True)` | abstractmethod | Release the resource (called at end of request). |
-| `finalize` | `async def finalize(self)` |  | Finalize provider (called at shutdown). |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Check provider health. Override for custom health reporting. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Initialize the provider (called once at startup). |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` | Acquire a resource for this effect (called per-request). |
+| `release` | `async def release(self, resource: Any, success: bool=True)` | Release the resource (called at end of request). |
+| `finalize` | `async def finalize(self)` | Finalize provider (called at shutdown). |
+| `health_check` | `async def health_check(self)` | Check provider health. Override for custom health reporting. |
 
-### Class: `DBTx`
+### `DBTx`
 
 - Source: `aquilia/effects.py`
 - Bases: `Effect`
 - Summary: Database transaction effect.
 
-### Class: `CacheEffect`
+### `CacheEffect`
 
 - Source: `aquilia/effects.py`
 - Bases: `Effect`
 - Summary: Cache effect.
 
-### Class: `QueueEffect`
+### `QueueEffect`
 
 - Source: `aquilia/effects.py`
 - Bases: `Effect`
 - Summary: Queue/message publish effect.
 
-### Class: `HTTPEffect`
+### `HTTPEffect`
 
 - Source: `aquilia/effects.py`
 - Bases: `Effect`
 - Summary: HTTP client effect for outbound requests.
 
-### Class: `StorageEffect`
+### `StorageEffect`
 
 - Source: `aquilia/effects.py`
 - Bases: `Effect`
 - Summary: File/blob storage effect.
 
-### Class: `DBTxProvider`
+### `DBTxProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `EffectProvider`
@@ -783,14 +814,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` |  | Initialize connection pool. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None)` |  | Acquire database connection. |
-| `release` | `async def release(self, resource: Any, success: bool = True)` |  | Release connection and commit/rollback transaction. |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Initialize connection pool. |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` | Acquire database connection. |
+| `release` | `async def release(self, resource: Any, success: bool=True)` | Release connection and commit/rollback transaction. |
+| `health_check` | `async def health_check(self)` |  |
 
-### Class: `CacheProvider`
+### `CacheProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `EffectProvider`
@@ -798,15 +829,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` |  | Initialize cache backend. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None)` |  | Get cache handle for namespace. |
-| `release` | `async def release(self, resource: Any, success: bool = True)` |  | Nothing to release for cache. |
-| `finalize` | `async def finalize(self)` |  | Shutdown underlying cache service. |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Initialize cache backend. |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` | Get cache handle for namespace. |
+| `release` | `async def release(self, resource: Any, success: bool=True)` | Nothing to release for cache. |
+| `finalize` | `async def finalize(self)` | Shutdown underlying cache service. |
+| `health_check` | `async def health_check(self)` |  |
 
-### Class: `QueueProvider`
+### `QueueProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `EffectProvider`
@@ -814,15 +845,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` |  | Method. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None)` |  | Return a queue handle for a topic/channel. |
-| `release` | `async def release(self, resource: Any, success: bool = True)` |  | Method. |
-| `finalize` | `async def finalize(self)` |  | Method. |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` |  |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` | Return a queue handle for a topic/channel. |
+| `release` | `async def release(self, resource: Any, success: bool=True)` |  |
+| `finalize` | `async def finalize(self)` |  |
+| `health_check` | `async def health_check(self)` |  |
 
-### Class: `TaskQueueProvider`
+### `TaskQueueProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `EffectProvider`
@@ -830,15 +861,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` |  | Method. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None)` |  | Method. |
-| `release` | `async def release(self, resource: Any, success: bool = True)` |  | Method. |
-| `finalize` | `async def finalize(self)` |  | Method. |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` |  |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` |  |
+| `release` | `async def release(self, resource: Any, success: bool=True)` |  |
+| `finalize` | `async def finalize(self)` |  |
+| `health_check` | `async def health_check(self)` |  |
 
-### Class: `HTTPProvider`
+### `HTTPProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `EffectProvider`
@@ -846,14 +877,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` |  | Create HTTP client session. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None)` |  | Return HTTP client handle. |
-| `release` | `async def release(self, resource: Any, success: bool = True)` |  | Method. |
-| `finalize` | `async def finalize(self)` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Create HTTP client session. |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` | Return HTTP client handle. |
+| `release` | `async def release(self, resource: Any, success: bool=True)` |  |
+| `finalize` | `async def finalize(self)` |  |
 
-### Class: `StorageProvider`
+### `StorageProvider`
 
 - Source: `aquilia/effects.py`
 - Bases: `EffectProvider`
@@ -861,14 +892,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self)` |  | Method. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None)` |  | Method. |
-| `release` | `async def release(self, resource: Any, success: bool = True)` |  | Method. |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` |  |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` |  |
+| `release` | `async def release(self, resource: Any, success: bool=True)` |  |
+| `health_check` | `async def health_check(self)` |  |
 
-### Class: `CacheServiceHandle`
+### `CacheServiceHandle`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -876,13 +907,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `async def get(self, key: str) -> Any &#124; None` |  | Method. |
-| `set` | `async def set(self, key: str, value: Any, ttl: int &#124; None = None)` |  | Method. |
-| `delete` | `async def delete(self, key: str)` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `async def get(self, key: str)` |  |
+| `set` | `async def set(self, key: str, value: Any, ttl: int \| None=None)` |  |
+| `delete` | `async def delete(self, key: str)` |  |
 
-### Class: `CacheHandle`
+### `CacheHandle`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -890,13 +921,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `async def get(self, key: str) -> Any &#124; None` |  | Get value from cache. |
-| `set` | `async def set(self, key: str, value: Any, ttl: int &#124; None = None)` |  | Set value in cache. |
-| `delete` | `async def delete(self, key: str)` |  | Delete value from cache. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `async def get(self, key: str)` | Get value from cache. |
+| `set` | `async def set(self, key: str, value: Any, ttl: int \| None=None)` | Set value in cache. |
+| `delete` | `async def delete(self, key: str)` | Delete value from cache. |
 
-### Class: `QueueHandle`
+### `QueueHandle`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -904,12 +935,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `publish` | `async def publish(self, payload: Any, *, headers: dict[str, str] &#124; None = None)` |  | Publish a message to the topic. |
-| `publish_batch` | `async def publish_batch(self, payloads: Sequence[Any])` |  | Publish multiple messages. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `publish` | `async def publish(self, payload: Any, *, headers: dict[str, str] \| None=None)` | Publish a message to the topic. |
+| `publish_batch` | `async def publish_batch(self, payloads: Sequence[Any])` | Publish multiple messages. |
 
-### Class: `TaskQueueHandle`
+### `TaskQueueHandle`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -917,13 +948,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `enqueue` | `async def enqueue(self, func, *args, **kwargs) -> str` |  | Enqueue a task for background execution. |
-| `publish` | `async def publish(self, payload: Any, *, headers: dict[str, str] &#124; None = None)` |  | Compatibility with QueueHandle -- enqueue payload as a task. |
-| `publish_batch` | `async def publish_batch(self, payloads: Sequence[Any])` |  | Compatibility with QueueHandle. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `enqueue` | `async def enqueue(self, func, *args, **kwargs)` | Enqueue a task for background execution. |
+| `publish` | `async def publish(self, payload: Any, *, headers: dict[str, str] \| None=None)` | Compatibility with QueueHandle -- enqueue payload as a task. |
+| `publish_batch` | `async def publish_batch(self, payloads: Sequence[Any])` | Compatibility with QueueHandle. |
 
-### Class: `HTTPHandle`
+### `HTTPHandle`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -931,14 +962,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `async def get(self, url: str, **kwargs) -> Any` |  | Method. |
-| `post` | `async def post(self, url: str, *, json: Any = None, **kwargs) -> Any` |  | Method. |
-| `put` | `async def put(self, url: str, *, json: Any = None, **kwargs) -> Any` |  | Method. |
-| `delete` | `async def delete(self, url: str, **kwargs) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `async def get(self, url: str, **kwargs)` |  |
+| `post` | `async def post(self, url: str, *, json: Any=None, **kwargs)` |  |
+| `put` | `async def put(self, url: str, *, json: Any=None, **kwargs)` |  |
+| `delete` | `async def delete(self, url: str, **kwargs)` |  |
 
-### Class: `StorageHandle`
+### `StorageHandle`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -946,14 +977,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `read` | `async def read(self, key: str) -> bytes &#124; None` |  | Method. |
-| `write` | `async def write(self, key: str, data: bytes) -> None` |  | Method. |
-| `delete` | `async def delete(self, key: str) -> bool` |  | Method. |
-| `exists` | `async def exists(self, key: str) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `read` | `async def read(self, key: str)` |  |
+| `write` | `async def write(self, key: str, data: bytes)` |  |
+| `delete` | `async def delete(self, key: str)` |  |
+| `exists` | `async def exists(self, key: str)` |  |
 
-### Class: `EffectRegistry`
+### `EffectRegistry`
 
 - Source: `aquilia/effects.py`
 - Bases: `object`
@@ -961,40 +992,40 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, effect_name: str, provider: EffectProvider)` |  | Register an effect provider. |
-| `unregister` | `def unregister(self, effect_name: str) -> EffectProvider &#124; None` |  | Unregister and return an effect provider. |
-| `initialize_all` | `async def initialize_all(self)` |  | Initialize all registered providers (lifecycle startup hook). |
-| `finalize_all` | `async def finalize_all(self)` |  | Finalize all providers (lifecycle shutdown hook). |
-| `acquire` | `async def acquire(self, effect_name: str, mode: str &#124; None = None) -> Any` |  | Acquire a resource for the named effect. |
-| `release` | `async def release(self, effect_name: str, resource: Any, *, success: bool = True) -> None` |  | Release a resource for the named effect. |
-| `startup` | `async def startup(self)` |  | DI lifecycle startup hook. |
-| `shutdown` | `async def shutdown(self)` |  | DI lifecycle shutdown hook. |
-| `has_effect` | `def has_effect(self, effect_name: str) -> bool` |  | Check if effect is available. |
-| `get_provider` | `def get_provider(self, effect_name: str) -> EffectProvider` |  | Get provider for effect. |
-| `health_check` | `async def health_check(self) -> dict[str, Any]` |  | Aggregate health from all providers. |
-| `register_with_container` | `def register_with_container(self, container: 'Any')` |  | Register this EffectRegistry and all effect providers with a DI container. |
-| `list_effects` | `def list_effects(self) -> list[str]` |  | Return all registered effect names. |
-| `get_metrics` | `def get_metrics(self) -> dict[str, dict[str, int]]` |  | Return per-effect metrics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, effect_name: str, provider: EffectProvider)` | Register an effect provider. |
+| `unregister` | `def unregister(self, effect_name: str)` | Unregister and return an effect provider. |
+| `initialize_all` | `async def initialize_all(self)` | Initialize all registered providers (lifecycle startup hook). |
+| `finalize_all` | `async def finalize_all(self)` | Finalize all providers (lifecycle shutdown hook). |
+| `acquire` | `async def acquire(self, effect_name: str, mode: str \| None=None)` | Acquire a resource for the named effect. |
+| `release` | `async def release(self, effect_name: str, resource: Any, *, success: bool=True)` | Release a resource for the named effect. |
+| `startup` | `async def startup(self)` | DI lifecycle startup hook. |
+| `shutdown` | `async def shutdown(self)` | DI lifecycle shutdown hook. |
+| `has_effect` | `def has_effect(self, effect_name: str)` | Check if effect is available. |
+| `get_provider` | `def get_provider(self, effect_name: str)` | Get provider for effect. |
+| `health_check` | `async def health_check(self)` | Aggregate health from all providers. |
+| `register_with_container` | `def register_with_container(self, container: 'Any')` | Register this EffectRegistry and all effect providers with a DI container. |
+| `list_effects` | `def list_effects(self)` | Return all registered effect names. |
+| `get_metrics` | `def get_metrics(self)` | Return per-effect metrics. |
 
-### Class: `LifecycleHook`
+### `LifecycleHook`
 
 - Source: `aquilia/engine.py`
 - Bases: `Enum`
 - Summary: Named lifecycle points that subsystems can subscribe to.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `BEFORE_REQUEST` |  | `auto()` |
-| `AFTER_REQUEST` |  | `auto()` |
-| `ON_ERROR` |  | `auto()` |
-| `ON_STARTUP` |  | `auto()` |
-| `ON_SHUTDOWN` |  | `auto()` |
+| `BEFORE_REQUEST` | `` | `auto()` |
+| `AFTER_REQUEST` | `` | `auto()` |
+| `ON_ERROR` | `` | `auto()` |
+| `ON_STARTUP` | `` | `auto()` |
+| `ON_SHUTDOWN` | `` | `auto()` |
 
-### Class: `EngineMetrics`
+### `EngineMetrics`
 
 - Source: `aquilia/engine.py`
 - Bases: `object`
@@ -1002,15 +1033,15 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `request_started` | `def request_started(self) -> None` |  | Method. |
-| `request_finished` | `def request_finished(self, latency_ms: float) -> None` |  | Method. |
-| `request_errored` | `def request_errored(self) -> None` |  | Method. |
-| `mean_latency_ms` | `def mean_latency_ms(self) -> float` | property | Method. |
-| `snapshot` | `def snapshot(self) -> dict[str, Any]` |  | Return a JSON-serialisable snapshot of current metrics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `request_started` | `def request_started(self)` |  |
+| `request_finished` | `def request_finished(self, latency_ms: float)` |  |
+| `request_errored` | `def request_errored(self)` |  |
+| `mean_latency_ms` | `def mean_latency_ms(self)` |  |
+| `snapshot` | `def snapshot(self)` | Return a JSON-serialisable snapshot of current metrics. |
 
-### Class: `RequestCtx`
+### `RequestCtx`
 
 - Source: `aquilia/engine.py`
 - Bases: `object`
@@ -1018,50 +1049,50 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `async def resolve(self, name: str, optional: bool = False) -> Any` |  | Resolve a dependency from the request-scoped container. |
-| `resolve_sync` | `def resolve_sync(self, name: str, optional: bool = False) -> Any` |  | Synchronous resolution -- only for sync-safe providers. |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Shorthand for ``ctx.state.get(key, default)``. |
-| `set` | `def set(self, key: str, value: Any) -> None` |  | Shorthand for ``ctx.state[key] = value``. |
-| `elapsed_ms` | `def elapsed_ms(self) -> float` | property | Milliseconds elapsed since this context was created. |
-| `add_cleanup` | `def add_cleanup(self, callback: CleanupCallback) -> None` |  | Register an async or sync callable to run on ``dispose()``. |
-| `dispose` | `async def dispose(self) -> None` |  | Dispose of the request context. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `async def resolve(self, name: str, optional: bool=False)` | Resolve a dependency from the request-scoped container. |
+| `resolve_sync` | `def resolve_sync(self, name: str, optional: bool=False)` | Synchronous resolution -- only for sync-safe providers. |
+| `get` | `def get(self, key: str, default: Any=None)` | Shorthand for ``ctx.state.get(key, default)``. |
+| `set` | `def set(self, key: str, value: Any)` | Shorthand for ``ctx.state[key] = value``. |
+| `elapsed_ms` | `def elapsed_ms(self)` | Milliseconds elapsed since this context was created. |
+| `add_cleanup` | `def add_cleanup(self, callback: CleanupCallback)` | Register an async or sync callable to run on ``dispose()``. |
+| `dispose` | `async def dispose(self)` | Dispose of the request context. |
 
-### Class: `FlowNodeType`
+### `FlowNodeType`
 
 - Source: `aquilia/flow.py`
 - Bases: `str, Enum`
 - Summary: Types of nodes in a flow pipeline.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `GUARD` |  | `'guard'` |
-| `TRANSFORM` |  | `'transform'` |
-| `HANDLER` |  | `'handler'` |
-| `HOOK` |  | `'hook'` |
-| `EFFECT` |  | `'effect'` |
-| `MIDDLEWARE` |  | `'middleware'` |
+| `GUARD` | `` | `'guard'` |
+| `TRANSFORM` | `` | `'transform'` |
+| `HANDLER` | `` | `'handler'` |
+| `HOOK` | `` | `'hook'` |
+| `EFFECT` | `` | `'effect'` |
+| `MIDDLEWARE` | `` | `'middleware'` |
 
-### Class: `FlowStatus`
+### `FlowStatus`
 
 - Source: `aquilia/flow.py`
 - Bases: `str, Enum`
 - Summary: Pipeline execution outcome.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SUCCESS` |  | `'success'` |
-| `GUARDED` |  | `'guarded'` |
-| `ERROR` |  | `'error'` |
-| `TIMEOUT` |  | `'timeout'` |
-| `CANCELLED` |  | `'cancelled'` |
+| `SUCCESS` | `` | `'success'` |
+| `GUARDED` | `` | `'guarded'` |
+| `ERROR` | `` | `'error'` |
+| `TIMEOUT` | `` | `'timeout'` |
+| `CANCELLED` | `` | `'cancelled'` |
 
-### Class: `FlowContext`
+### `FlowContext`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
@@ -1069,112 +1100,112 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_effect` | `def get_effect(self, name: str) -> Any` |  | Get an acquired effect resource by name. |
-| `has_effect` | `def has_effect(self, name: str) -> bool` |  | Check if an effect resource is currently acquired. |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Method. |
-| `set` | `def set(self, key: str, value: Any) -> None` |  | Method. |
-| `add_cleanup` | `def add_cleanup(self, callback: Callable[[], Awaitable[None]]) -> None` |  | Register a cleanup callback (LIFO execution order). |
-| `dispose` | `async def dispose(self) -> None` |  | Run all cleanup callbacks in LIFO order. |
-| `elapsed_ms` | `def elapsed_ms(self) -> float` | property | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert to dict for legacy FlowGuard compatibility. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_effect` | `def get_effect(self, name: str)` | Get an acquired effect resource by name. |
+| `has_effect` | `def has_effect(self, name: str)` | Check if an effect resource is currently acquired. |
+| `get` | `def get(self, key: str, default: Any=None)` |  |
+| `set` | `def set(self, key: str, value: Any)` |  |
+| `add_cleanup` | `def add_cleanup(self, callback: Callable[[], Awaitable[None]])` | Register a cleanup callback (LIFO execution order). |
+| `dispose` | `async def dispose(self)` | Run all cleanup callbacks in LIFO order. |
+| `elapsed_ms` | `def elapsed_ms(self)` |  |
+| `to_dict` | `def to_dict(self)` | Convert to dict for legacy FlowGuard compatibility. |
 
-### Class: `FlowNode`
+### `FlowNode`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A typed unit in a flow pipeline.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `FlowNodeType` |  |
-| `callable` | `Callable[..., Any]` |  |
-| `name` | `str` |  |
+| `type` | `FlowNodeType` | `` |
+| `callable` | `Callable[..., Any]` | `` |
+| `name` | `str` | `` |
 | `priority` | `int` | `PRIORITY_DEFAULT` |
 | `effects` | `list[str]` | `field(default_factory=list)` |
-| `condition` | `Callable[[FlowContext], bool] &#124; None` | `None` |
-| `timeout` | `float &#124; None` | `None` |
+| `condition` | `Callable[[FlowContext], bool] \| None` | `None` |
+| `timeout` | `float \| None` | `None` |
 
-### Class: `FlowResult`
+### `FlowResult`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of a flow pipeline execution.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `status` | `FlowStatus` |  |
+| `status` | `FlowStatus` | `` |
 | `value` | `Any` | `None` |
-| `context` | `FlowContext &#124; None` | `None` |
-| `error` | `Exception &#124; None` | `None` |
-| `guard` | `FlowNode &#124; None` | `None` |
+| `context` | `FlowContext \| None` | `None` |
+| `error` | `Exception \| None` | `None` |
+| `guard` | `FlowNode \| None` | `None` |
 | `timings` | `dict[str, float]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_success` | `def is_success(self) -> bool` | property | Method. |
-| `is_guarded` | `def is_guarded(self) -> bool` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_success` | `def is_success(self)` |  |
+| `is_guarded` | `def is_guarded(self)` |  |
 
-### Class: `FlowError`
+### `FlowError`
 
 - Source: `aquilia/flow.py`
 - Bases: `Exception`
 - Summary: Raised when a flow pipeline encounters an unrecoverable error.
 
-### Class: `Layer`
+### `Layer`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Composable effect layer -- separates effect construction from usage.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `factory` | `Callable[..., Any]` |  |
+| `name` | `str` | `` |
+| `factory` | `Callable[..., Any]` | `` |
 | `deps` | `list[str]` | `field(default_factory=list)` |
 | `scope` | `str` | `'app'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build` | `async def build(self, resolved_deps: dict[str, Any]) -> Any` |  | Build the effect provider using resolved dependencies. |
-| `merge` | `def merge(*layers: Layer) -> LayerComposition` | staticmethod | Merge multiple layers into a single composition. |
-| `provide` | `def provide(layer: Layer, *providers: Layer) -> LayerComposition` | staticmethod | Provide dependencies for a layer from other layers. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build` | `async def build(self, resolved_deps: dict[str, Any])` | Build the effect provider using resolved dependencies. |
+| `merge` | `def merge(*layers: Layer)` | Merge multiple layers into a single composition. |
+| `provide` | `def provide(layer: Layer, *providers: Layer)` | Provide dependencies for a layer from other layers. |
 
-### Class: `LayerComposition`
+### `LayerComposition`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A composition of multiple layers, resolved in dependency order.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `layers` | `list[Layer]` |  |
+| `layers` | `list[Layer]` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build_all` | `async def build_all(self, initial_deps: dict[str, Any] &#124; None = None) -> dict[str, Any]` |  | Build all layers in dependency order. |
-| `register_with` | `async def register_with(self, registry: EffectRegistry, initial_deps: dict[str, Any] &#124; None = None) -> None` |  | Build all layers and register providers with the registry. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build_all` | `async def build_all(self, initial_deps: dict[str, Any] \| None=None)` | Build all layers in dependency order. |
+| `register_with` | `async def register_with(self, registry: EffectRegistry, initial_deps: dict[str, Any] \| None=None)` | Build all layers and register providers with the registry. |
 
-### Class: `FlowPipeline`
+### `FlowPipeline`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
@@ -1182,57 +1213,57 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `guard` | `def guard(self, callable_or_node: Callable &#124; FlowNode, *, name: str &#124; None = None, priority: int = PRIORITY_AUTH, effects: list[str] &#124; None = None, condition: Callable &#124; None = None) -> FlowPipeline` |  | Add a guard node. Guards can short-circuit the pipeline. |
-| `transform` | `def transform(self, callable_or_node: Callable &#124; FlowNode, *, name: str &#124; None = None, priority: int = PRIORITY_TRANSFORM, effects: list[str] &#124; None = None) -> FlowPipeline` |  | Add a transform node. Transforms modify the context/request data. |
-| `handler` | `def handler(self, callable_or_node: Callable &#124; FlowNode, *, name: str &#124; None = None, priority: int = PRIORITY_DEFAULT, effects: list[str] &#124; None = None) -> FlowPipeline` |  | Set the handler node. The handler is the core business logic. |
-| `hook` | `def hook(self, callable_or_node: Callable &#124; FlowNode, *, name: str &#124; None = None, priority: int = PRIORITY_LOG, effects: list[str] &#124; None = None) -> FlowPipeline` |  | Add a post-handler hook. Hooks run after the handler. |
-| `effect` | `def effect(self, callable_or_node: Callable &#124; FlowNode, *, name: str &#124; None = None, priority: int = PRIORITY_DEFAULT - 5, effects: list[str] &#124; None = None) -> FlowPipeline` |  | Add an effect node. Effect nodes manage resource acquisition. |
-| `middleware` | `def middleware(self, callable_or_node: Callable &#124; FlowNode, *, name: str &#124; None = None, priority: int = PRIORITY_CRITICAL) -> FlowPipeline` |  | Add a middleware node. Middleware wraps the entire pipeline. |
-| `add_node` | `def add_node(self, node: FlowNode) -> FlowPipeline` |  | Add a pre-built FlowNode. |
-| `add_nodes` | `def add_nodes(self, nodes: Sequence[FlowNode]) -> FlowPipeline` |  | Add multiple pre-built FlowNodes. |
-| `compose` | `def compose(self, *other: FlowPipeline) -> FlowPipeline` |  | Compose this pipeline with others. |
-| `execute` | `async def execute(self, context: FlowContext, effect_registry: EffectRegistry &#124; None = None) -> FlowResult` |  | Execute the pipeline. |
-| `execute_with_timeout` | `async def execute_with_timeout(self, context: FlowContext, effect_registry: EffectRegistry &#124; None = None, timeout: float &#124; None = None) -> FlowResult` |  | Execute pipeline with optional timeout. |
-| `nodes` | `def nodes(self) -> list[FlowNode]` | property | Return a copy of the node list. |
-| `required_effects` | `def required_effects(self) -> set[str]` | property | All effects required by this pipeline. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `guard` | `def guard(self, callable_or_node: Callable \| FlowNode, *, name: str \| None=None, priority: int=PRIORITY_AUTH, effects: list[str] \| None=None, condition: Callable \| None=None)` | Add a guard node. Guards can short-circuit the pipeline. |
+| `transform` | `def transform(self, callable_or_node: Callable \| FlowNode, *, name: str \| None=None, priority: int=PRIORITY_TRANSFORM, effects: list[str] \| None=None)` | Add a transform node. Transforms modify the context/request data. |
+| `handler` | `def handler(self, callable_or_node: Callable \| FlowNode, *, name: str \| None=None, priority: int=PRIORITY_DEFAULT, effects: list[str] \| None=None)` | Set the handler node. The handler is the core business logic. |
+| `hook` | `def hook(self, callable_or_node: Callable \| FlowNode, *, name: str \| None=None, priority: int=PRIORITY_LOG, effects: list[str] \| None=None)` | Add a post-handler hook. Hooks run after the handler. |
+| `effect` | `def effect(self, callable_or_node: Callable \| FlowNode, *, name: str \| None=None, priority: int=PRIORITY_DEFAULT - 5, effects: list[str] \| None=None)` | Add an effect node. Effect nodes manage resource acquisition. |
+| `middleware` | `def middleware(self, callable_or_node: Callable \| FlowNode, *, name: str \| None=None, priority: int=PRIORITY_CRITICAL)` | Add a middleware node. Middleware wraps the entire pipeline. |
+| `add_node` | `def add_node(self, node: FlowNode)` | Add a pre-built FlowNode. |
+| `add_nodes` | `def add_nodes(self, nodes: Sequence[FlowNode])` | Add multiple pre-built FlowNodes. |
+| `compose` | `def compose(self, *other: FlowPipeline)` | Compose this pipeline with others. |
+| `execute` | `async def execute(self, context: FlowContext, effect_registry: EffectRegistry \| None=None)` | Execute the pipeline. |
+| `execute_with_timeout` | `async def execute_with_timeout(self, context: FlowContext, effect_registry: EffectRegistry \| None=None, timeout: float \| None=None)` | Execute pipeline with optional timeout. |
+| `nodes` | `def nodes(self)` | Return a copy of the node list. |
+| `required_effects` | `def required_effects(self)` | All effects required by this pipeline. |
 
-### Class: `EffectScope`
+### `EffectScope`
 
 - Source: `aquilia/flow.py`
 - Bases: `object`
 - Summary: Async context manager that acquires and releases effects.
 
-### Class: `SubsystemStatus`
+### `SubsystemStatus`
 
 - Source: `aquilia/health.py`
 - Bases: `str, Enum`
 - Summary: Status of a subsystem.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `HEALTHY` |  | `'healthy'` |
-| `DEGRADED` |  | `'degraded'` |
-| `UNHEALTHY` |  | `'unhealthy'` |
-| `UNKNOWN` |  | `'unknown'` |
-| `STARTING` |  | `'starting'` |
-| `STOPPED` |  | `'stopped'` |
+| `HEALTHY` | `` | `'healthy'` |
+| `DEGRADED` | `` | `'degraded'` |
+| `UNHEALTHY` | `` | `'unhealthy'` |
+| `UNKNOWN` | `` | `'unknown'` |
+| `STARTING` | `` | `'starting'` |
+| `STOPPED` | `` | `'stopped'` |
 
-### Class: `HealthStatus`
+### `HealthStatus`
 
 - Source: `aquilia/health.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Health status for a single subsystem.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `status` | `SubsystemStatus` | `SubsystemStatus.UNKNOWN` |
 | `latency_ms` | `float` | `0.0` |
 | `message` | `str` | `''` |
@@ -1241,11 +1272,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize for JSON response. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize for JSON response. |
 
-### Class: `HealthRegistry`
+### `HealthRegistry`
 
 - Source: `aquilia/health.py`
 - Bases: `object`
@@ -1253,57 +1284,57 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, name: str, status: HealthStatus) -> None` |  | Register or update a subsystem's health status. |
-| `register_check` | `def register_check(self, name: str, check: Callable[[], HealthStatus]) -> None` |  | Register a health check function for periodic evaluation. |
-| `update` | `def update(self, name: str, status: SubsystemStatus, message: str = '') -> None` |  | Update an existing subsystem's status. |
-| `get` | `def get(self, name: str) -> HealthStatus &#124; None` |  | Get a specific subsystem's health status. |
-| `all_statuses` | `def all_statuses(self) -> dict[str, HealthStatus]` | property | Get all registered health statuses. |
-| `overall` | `def overall(self) -> HealthStatus` |  | Compute aggregate health across all subsystems. |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize full health report for /health endpoint. |
-| `run_checks` | `async def run_checks(self) -> dict[str, HealthStatus]` |  | Run all registered health checks and update statuses. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, name: str, status: HealthStatus)` | Register or update a subsystem's health status. |
+| `register_check` | `def register_check(self, name: str, check: Callable[[], HealthStatus])` | Register a health check function for periodic evaluation. |
+| `update` | `def update(self, name: str, status: SubsystemStatus, message: str='')` | Update an existing subsystem's status. |
+| `get` | `def get(self, name: str)` | Get a specific subsystem's health status. |
+| `all_statuses` | `def all_statuses(self)` | Get all registered health statuses. |
+| `overall` | `def overall(self)` | Compute aggregate health across all subsystems. |
+| `to_dict` | `def to_dict(self)` | Serialize full health report for /health endpoint. |
+| `run_checks` | `async def run_checks(self)` | Run all registered health checks and update statuses. |
 
-### Class: `LifecyclePhase`
+### `LifecyclePhase`
 
 - Source: `aquilia/lifecycle.py`
 - Bases: `Enum`
 - Summary: Lifecycle phases.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `INIT` |  | `'init'` |
-| `STARTING` |  | `'starting'` |
-| `READY` |  | `'ready'` |
-| `STOPPING` |  | `'stopping'` |
-| `STOPPED` |  | `'stopped'` |
-| `ERROR` |  | `'error'` |
+| `INIT` | `` | `'init'` |
+| `STARTING` | `` | `'starting'` |
+| `READY` | `` | `'ready'` |
+| `STOPPING` | `` | `'stopping'` |
+| `STOPPED` | `` | `'stopped'` |
+| `ERROR` | `` | `'error'` |
 
-### Class: `LifecycleEvent`
+### `LifecycleEvent`
 
 - Source: `aquilia/lifecycle.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Event emitted during lifecycle transitions.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `phase` | `LifecyclePhase` |  |
-| `app_name` | `str &#124; None` | `None` |
-| `message` | `str &#124; None` | `None` |
-| `error` | `Exception &#124; None` | `None` |
+| `phase` | `LifecyclePhase` | `` |
+| `app_name` | `str \| None` | `None` |
+| `message` | `str \| None` | `None` |
+| `error` | `Exception \| None` | `None` |
 
-### Class: `LifecycleError`
+### `LifecycleError`
 
 - Source: `aquilia/lifecycle.py`
 - Bases: `Exception`
 - Summary: Raised when lifecycle operation fails.
 
-### Class: `LifecycleCoordinator`
+### `LifecycleCoordinator`
 
 - Source: `aquilia/lifecycle.py`
 - Bases: `object`
@@ -1311,15 +1342,15 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_event` | `def on_event(self, handler: Callable[[LifecycleEvent], None])` |  | Register event handler. |
-| `startup` | `async def startup(self)` |  | Execute startup hooks for all apps in dependency order. |
-| `shutdown` | `async def shutdown(self)` |  | Execute shutdown hooks for all started apps in reverse order. |
-| `restart` | `async def restart(self)` |  | Restart the application (shutdown then startup). |
-| `get_status` | `def get_status(self) -> dict[str, Any]` |  | Get current lifecycle status. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_event` | `def on_event(self, handler: Callable[[LifecycleEvent], None])` | Register event handler. |
+| `startup` | `async def startup(self)` | Execute startup hooks for all apps in dependency order. |
+| `shutdown` | `async def shutdown(self)` | Execute shutdown hooks for all started apps in reverse order. |
+| `restart` | `async def restart(self)` | Restart the application (shutdown then startup). |
+| `get_status` | `def get_status(self)` | Get current lifecycle status. |
 
-### Class: `LifecycleManager`
+### `LifecycleManager`
 
 - Source: `aquilia/lifecycle.py`
 - Bases: `object`
@@ -1327,85 +1358,85 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_event` | `def on_event(self, handler: Callable[[LifecycleEvent], None])` |  | Register event handler. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_event` | `def on_event(self, handler: Callable[[LifecycleEvent], None])` | Register event handler. |
 
-### Class: `ComponentKind`
+### `ComponentKind`
 
 - Source: `aquilia/manifest.py`
 - Bases: `str, Enum`
 - Summary: Classification of framework components for auto-discovery.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CONTROLLER` |  | `'controller'` |
-| `SERVICE` |  | `'service'` |
-| `MIDDLEWARE` |  | `'middleware'` |
-| `GUARD` |  | `'guard'` |
-| `PIPE` |  | `'pipe'` |
-| `INTERCEPTOR` |  | `'interceptor'` |
-| `EFFECT` |  | `'effect'` |
-| `MODEL` |  | `'model'` |
-| `FAULT_HANDLER` |  | `'fault_handler'` |
-| `SOCKET_CONTROLLER` |  | `'socket_controller'` |
-| `SERIALIZER` |  | `'serializer'` |
+| `CONTROLLER` | `` | `'controller'` |
+| `SERVICE` | `` | `'service'` |
+| `MIDDLEWARE` | `` | `'middleware'` |
+| `GUARD` | `` | `'guard'` |
+| `PIPE` | `` | `'pipe'` |
+| `INTERCEPTOR` | `` | `'interceptor'` |
+| `EFFECT` | `` | `'effect'` |
+| `MODEL` | `` | `'model'` |
+| `FAULT_HANDLER` | `` | `'fault_handler'` |
+| `SOCKET_CONTROLLER` | `` | `'socket_controller'` |
+| `SERIALIZER` | `` | `'serializer'` |
 
-### Class: `ComponentRef`
+### `ComponentRef`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Universal typed reference to any framework component.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `class_path` | `str` |  |
-| `kind` | `ComponentKind` |  |
+| `class_path` | `str` | `` |
+| `kind` | `ComponentKind` | `` |
 | `metadata` | `ManifestMetadata` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `module_path` | `def module_path(self) -> str` | property | Extract the module path (before ':'). |
-| `class_name` | `def class_name(self) -> str` | property | Extract the class name (after ':'). |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `module_path` | `def module_path(self)` | Extract the module path (before ':'). |
+| `class_name` | `def class_name(self)` | Extract the class name (after ':'). |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `ServiceScope`
+### `ServiceScope`
 
 - Source: `aquilia/manifest.py`
 - Bases: `str, Enum`
 - Summary: Service lifecycle scope.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SINGLETON` |  | `'singleton'` |
-| `APP` |  | `'app'` |
-| `REQUEST` |  | `'request'` |
-| `TRANSIENT` |  | `'transient'` |
-| `POOLED` |  | `'pooled'` |
-| `EPHEMERAL` |  | `'ephemeral'` |
+| `SINGLETON` | `` | `'singleton'` |
+| `APP` | `` | `'app'` |
+| `REQUEST` | `` | `'request'` |
+| `TRANSIENT` | `` | `'transient'` |
+| `POOLED` | `` | `'pooled'` |
+| `EPHEMERAL` | `` | `'ephemeral'` |
 
-### Class: `LifecycleConfig`
+### `LifecycleConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Lifecycle hook configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `on_startup` | `str &#124; None` | `None` |
-| `on_shutdown` | `str &#124; None` | `None` |
+| `on_startup` | `str \| None` | `None` |
+| `on_shutdown` | `str \| None` | `None` |
 | `depends_on` | `list[str]` | `field(default_factory=list)` |
 | `startup_timeout` | `float` | `30.0` |
 | `shutdown_timeout` | `float` | `30.0` |
@@ -1413,94 +1444,94 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `ServiceConfig`
+### `ServiceConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Service registration configuration with complete DI support.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `class_path` | `str` |  |
+| `class_path` | `str` | `` |
 | `scope` | `ServiceScope` | `ServiceScope.APP` |
 | `auto_discover` | `bool` | `True` |
-| `lifecycle` | `LifecycleConfig &#124; None` | `None` |
+| `lifecycle` | `LifecycleConfig \| None` | `None` |
 | `feature_flags` | `list[str]` | `field(default_factory=list)` |
 | `aliases` | `list[str]` | `field(default_factory=list)` |
-| `factory` | `str &#124; None` | `None` |
-| `factory_args` | `dict[str, Any] &#124; None` | `None` |
-| `config` | `dict[str, Any] &#124; None` | `None` |
+| `factory` | `str \| None` | `None` |
+| `factory_args` | `dict[str, Any] \| None` | `None` |
+| `config` | `dict[str, Any] \| None` | `None` |
 | `observable` | `bool` | `True` |
 | `required` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `MiddlewareConfig`
+### `MiddlewareConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Middleware registration configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `class_path` | `str` |  |
+| `class_path` | `str` | `` |
 | `scope` | `str` | `'global'` |
-| `scope_target` | `str &#124; None` | `None` |
+| `scope_target` | `str \| None` | `None` |
 | `priority` | `int` | `50` |
-| `condition` | `Callable &#124; None` | `None` |
-| `config` | `dict[str, Any] &#124; None` | `None` |
+| `condition` | `Callable \| None` | `None` |
+| `config` | `dict[str, Any] \| None` | `None` |
 | `on_error` | `str` | `'propagate'` |
-| `fallback` | `str &#124; None` | `None` |
+| `fallback` | `str \| None` | `None` |
 | `observable` | `bool` | `True` |
 | `log_requests` | `bool` | `False` |
 | `log_responses` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `SessionConfig`
+### `SessionConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Session management configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `enabled` | `bool` | `True` |
 | `ttl` | `timedelta` | `field(default_factory=lambda: timedelta(days=7))` |
-| `idle_timeout` | `timedelta &#124; None` | `None` |
-| `renewal` | `timedelta &#124; None` | `None` |
+| `idle_timeout` | `timedelta \| None` | `None` |
+| `renewal` | `timedelta \| None` | `None` |
 | `transport` | `str` | `'cookie'` |
-| `transport_config` | `dict[str, Any] &#124; None` | `None` |
+| `transport_config` | `dict[str, Any] \| None` | `None` |
 | `cookie_name` | `str` | `'session_id'` |
-| `cookie_domain` | `str &#124; None` | `None` |
+| `cookie_domain` | `str \| None` | `None` |
 | `cookie_path` | `str` | `'/'` |
 | `cookie_secure` | `bool` | `True` |
 | `cookie_httponly` | `bool` | `True` |
 | `cookie_samesite` | `str` | `'Strict'` |
 | `store` | `str` | `'memory'` |
-| `store_config` | `dict[str, Any] &#124; None` | `None` |
+| `store_config` | `dict[str, Any] \| None` | `None` |
 | `encryption_enabled` | `bool` | `True` |
 | `encryption_key_env` | `str` | `'SESSION_ENCRYPTION_KEY'` |
 | `serializer` | `str` | `'json'` |
@@ -1509,36 +1540,36 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
-
-### Class: `FaultHandlerConfig`
-
-- Source: `aquilia/manifest.py`
-- Bases: `object`
-- Decorators: `dataclass`
-- Summary: Fault handler configuration.
-
-Attributes and fields:
-
-| Name | Type | Default |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `domain` | `str` |  |
-| `handler_path` | `str` |  |
-| `recovery_strategy` | `str` | `'propagate'` |
-| `fallback_response` | `dict[str, Any] &#124; None` | `None` |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `FaultHandlingConfig`
+### `FaultHandlerConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
+- Summary: Fault handler configuration.
 - Decorators: `dataclass`
+
+Fields and class attributes:
+
+| Name | Type | Default / Value |
+| --- | --- | --- |
+| `domain` | `str` | `` |
+| `handler_path` | `str` | `` |
+| `recovery_strategy` | `str` | `'propagate'` |
+| `fallback_response` | `dict[str, Any] \| None` | `None` |
+
+### `FaultHandlingConfig`
+
+- Source: `aquilia/manifest.py`
+- Bases: `object`
 - Summary: Fault/error handling configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `default_domain` | `str` | `'APP'` |
 | `strategy` | `str` | `'propagate'` |
@@ -1548,24 +1579,24 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `FeatureConfig`
+### `FeatureConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Feature flag configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `enabled` | `bool` | `False` |
-| `conditions` | `dict[str, Any] &#124; None` | `None` |
+| `conditions` | `dict[str, Any] \| None` | `None` |
 | `services` | `list[str]` | `field(default_factory=list)` |
 | `controllers` | `list[str]` | `field(default_factory=list)` |
 | `middleware` | `list[MiddlewareConfig]` | `field(default_factory=list)` |
@@ -1575,20 +1606,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `BackgroundTaskConfig`
+### `BackgroundTaskConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Per-module background task configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `tasks` | `list[str]` | `field(default_factory=list)` |
 | `default_queue` | `str` | `'default'` |
@@ -1597,20 +1628,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `TemplateConfig`
+### `TemplateConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Template engine configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `search_paths` | `list[str]` | `field(default_factory=list)` |
@@ -1621,20 +1652,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `DatabaseConfig`
+### `DatabaseConfig`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: DEPRECATED: Manifest-level database configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `url` | `str` | `'sqlite:///db.sqlite3'` |
 | `auto_connect` | `bool` | `True` |
@@ -1648,144 +1679,144 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `AppManifest`
+### `AppManifest`
 
 - Source: `aquilia/manifest.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Production-grade application manifest for complete app configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
 | `description` | `str` | `''` |
 | `author` | `str` | `''` |
-| `services` | `list[str &#124; ServiceConfig &#124; ComponentRef]` | `field(default_factory=list)` |
-| `controllers` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `socket_controllers` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `models` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `serializers` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `guards` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `pipes` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `interceptors` | `list[str &#124; ComponentRef]` | `field(default_factory=list)` |
-| `middleware` | `list[str &#124; MiddlewareConfig &#124; ComponentRef]` | `field(default_factory=list)` |
+| `services` | `list[str \| ServiceConfig \| ComponentRef]` | `field(default_factory=list)` |
+| `controllers` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `socket_controllers` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `models` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `serializers` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `guards` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `pipes` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `interceptors` | `list[str \| ComponentRef]` | `field(default_factory=list)` |
+| `middleware` | `list[str \| MiddlewareConfig \| ComponentRef]` | `field(default_factory=list)` |
 | `route_prefix` | `str` | `'/'` |
-| `base_path` | `str &#124; None` | `None` |
-| `lifecycle` | `LifecycleConfig &#124; None` | `None` |
+| `base_path` | `str \| None` | `None` |
+| `lifecycle` | `LifecycleConfig \| None` | `None` |
 | `sessions` | `list[SessionConfig]` | `field(default_factory=list)` |
-| `templates` | `TemplateConfig &#124; None` | `None` |
-| `database` | `DatabaseConfig &#124; None` | `None` |
-| `faults` | `FaultHandlingConfig &#124; None` | `None` |
-| `background_tasks` | `BackgroundTaskConfig &#124; None` | `None` |
+| `templates` | `TemplateConfig \| None` | `None` |
+| `database` | `DatabaseConfig \| None` | `None` |
+| `faults` | `FaultHandlingConfig \| None` | `None` |
+| `background_tasks` | `BackgroundTaskConfig \| None` | `None` |
 | `features` | `list[FeatureConfig]` | `field(default_factory=list)` |
 | `exports` | `list[str]` | `field(default_factory=list)` |
 | `imports` | `list[str]` | `field(default_factory=list)` |
 | `depends_on` | `list[str]` | `field(default_factory=list)` |
 | `tags` | `list[str]` | `field(default_factory=list)` |
-| `config_schema` | `dict[str, Any] &#124; None` | `None` |
+| `config_schema` | `dict[str, Any] \| None` | `None` |
 | `auto_discover` | `bool` | `True` |
 | `discover_patterns` | `list[str]` | `field(default_factory=lambda: ['controllers', 'services', 'middleware', 'guards', 'models', 'tasks'])` |
 | `middlewares` | `list[tuple[str, dict]]` | `field(default_factory=list)` |
-| `default_fault_domain` | `str &#124; None` | `None` |
-| `on_startup` | `Callable &#124; None` | `None` |
-| `on_shutdown` | `Callable &#124; None` | `None` |
-| `config` | `type &#124; None` | `None` |
+| `default_fault_domain` | `str \| None` | `None` |
+| `on_startup` | `Callable \| None` | `None` |
+| `on_shutdown` | `Callable \| None` | `None` |
+| `config` | `type \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict` |  | Serialize manifest to dictionary (for fingerprinting and inspection). |
-| `fingerprint` | `def fingerprint(self) -> str` |  | Generate stable hash of manifest for reproducible deploys. |
-
-### Class: `MiddlewareDescriptor`
-
-- Source: `aquilia/middleware.py`
-- Bases: `object`
-- Decorators: `dataclass`
-- Summary: Descriptor for middleware registration.
-
-Attributes and fields:
-
-| Name | Type | Default |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `middleware` | `Middleware` |  |
-| `scope` | `str` |  |
-| `priority` | `int` |  |
-| `name` | `str` |  |
+| `to_dict` | `def to_dict(self)` | Serialize manifest to dictionary (for fingerprinting and inspection). |
+| `fingerprint` | `def fingerprint(self)` | Generate stable hash of manifest for reproducible deploys. |
 
-### Class: `MiddlewareStack`
+### `MiddlewareDescriptor`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
-- Summary: Manages middleware stack with deterministic ordering.
+- Summary: Descriptor for middleware registration.
+- Decorators: `dataclass`
+
+Fields and class attributes:
+
+| Name | Type | Default / Value |
+| --- | --- | --- |
+| `middleware` | `Middleware` | `` |
+| `scope` | `str` | `` |
+| `priority` | `int` | `` |
+| `name` | `str` | `` |
+
+### `MiddlewareStack`
+
+- Source: `aquilia/middleware.py`
+- Bases: `object`
+- Summary: Manages middleware stack with deterministic ordering. Order: Global < App < Controller < Route, then by priority.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, middleware: Middleware, scope: str = 'global', priority: int = 50, name: str &#124; None = None)` |  | Add middleware to stack. |
-| `build_handler` | `def build_handler(self, final_handler: Handler) -> Handler` |  | Build middleware chain wrapping the final handler. |
-| `build_fast_handler` | `def build_fast_handler(self, final_handler: Handler) -> Handler` |  | Build a *minimal* middleware chain for latency-sensitive routes. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, middleware: Middleware, scope: str='global', priority: int=50, name: str \| None=None)` | Add middleware to stack. |
+| `build_handler` | `def build_handler(self, final_handler: Handler)` | Build middleware chain wrapping the final handler. |
+| `build_fast_handler` | `def build_fast_handler(self, final_handler: Handler)` | Build a *minimal* middleware chain for latency-sensitive routes. |
 
-### Class: `RequestIdMiddleware`
+### `RequestIdMiddleware`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
 - Summary: Adds unique request ID to each request.
 
-### Class: `ExceptionMiddleware`
+### `ExceptionMiddleware`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
 - Summary: Catches exceptions and converts them to error responses.
 
-### Class: `LoggingMiddleware`
+### `LoggingMiddleware`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
 - Summary: Logs request/response with timing.
 
-### Class: `TimeoutMiddleware`
+### `TimeoutMiddleware`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
 - Summary: Enforces request timeout.
 
-### Class: `CORSMiddleware`
+### `CORSMiddleware`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
 - Summary: Handles CORS headers.
 
-### Class: `CompressionMiddleware`
+### `CompressionMiddleware`
 
 - Source: `aquilia/middleware.py`
 - Bases: `object`
 - Summary: Compresses response bodies.
 
-### Class: `Secret`
+### `Secret`
 
 - Source: `aquilia/pyconfig.py`
 - Bases: `object`
-- Summary: A configuration field that holds a sensitive value (password, API key ...).
+- Summary: A configuration field that holds a sensitive value (password, API key …).
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `reveal` | `def reveal(self) -> str &#124; None` |  | Return the actual secret value (use deliberately). |
-| `env_name` | `def env_name(self) -> str &#124; None` | property | Return the environment variable name, if any. |
-| `is_required` | `def is_required(self) -> bool` | property | Return whether this secret is required. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `reveal` | `def reveal(self)` | Return the actual secret value (use deliberately). |
+| `env_name` | `def env_name(self)` | Return the environment variable name, if any. |
+| `is_required` | `def is_required(self)` | Return whether this secret is required. |
 
-### Class: `Env`
+### `Env`
 
 - Source: `aquilia/pyconfig.py`
 - Bases: `object`
@@ -1793,41 +1824,41 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Return the environment variable name. |
-| `default` | `def default(self) -> ConfigValue` | property | Return the default value. |
-| `is_required` | `def is_required(self) -> bool` | property | Return whether this env var is required. |
-| `resolve` | `def resolve(self, *, use_cache: bool = False) -> ConfigValue` |  | Return the resolved value from the environment or default. |
-| `invalidate_cache` | `def invalidate_cache(self) -> None` |  | Invalidate the cached resolved value. |
-| `disable_auto_load` | `def disable_auto_load(cls) -> None` | classmethod | Disable automatic .env loading. |
-| `enable_auto_load` | `def enable_auto_load(cls) -> None` | classmethod | Enable automatic .env loading (default behavior). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` | Return the environment variable name. |
+| `default` | `def default(self)` | Return the default value. |
+| `is_required` | `def is_required(self)` | Return whether this env var is required. |
+| `resolve` | `def resolve(self, *, use_cache: bool=False)` | Return the resolved value from the environment or default. |
+| `invalidate_cache` | `def invalidate_cache(self)` | Invalidate the cached resolved value. |
+| `disable_auto_load` | `def disable_auto_load(cls)` | Disable automatic .env loading. |
+| `enable_auto_load` | `def enable_auto_load(cls)` | Enable automatic .env loading (default behavior). |
 
-### Class: `AquilaConfig`
+### `AquilaConfig`
 
 - Source: `aquilia/pyconfig.py`
 - Bases: `object`
 - Summary: Base class for Aquilia Python-native configuration.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `env` | `str` | `'dev'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(cls, *, use_cache: bool = True) -> dict[str, Any]` | classmethod | Serialise this config class into a plain nested dict. |
-| `invalidate_cache` | `def invalidate_cache(cls) -> None` | classmethod | Invalidate the cached config dict for this class. |
-| `clear_all_caches` | `def clear_all_caches(cls) -> None` | classmethod | Clear all config class caches. |
-| `to_loader` | `def to_loader(cls) -> ConfigLoader` | classmethod | Convert this Python config into a :class:`~aquilia.config.ConfigLoader`. |
-| `get` | `def get(cls, path: str, default: Any = None) -> Any` | classmethod | Dot-path accessor on the serialised config dict. |
-| `for_env` | `def for_env(cls, env_name: str) -> type[AquilaConfig]` | classmethod | Resolve the correct subclass for *env_name* from the subclass tree. |
-| `from_env_var` | `def from_env_var(cls, var: str = 'AQ_ENV', default: str = 'dev') -> type[AquilaConfig]` | classmethod | Read ``var`` from the environment and return the matching subclass. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(cls, *, use_cache: bool=True)` | Serialise this config class into a plain nested dict. |
+| `invalidate_cache` | `def invalidate_cache(cls)` | Invalidate the cached config dict for this class. |
+| `clear_all_caches` | `def clear_all_caches(cls)` | Clear all config class caches. |
+| `to_loader` | `def to_loader(cls)` | Convert this Python config into a :class:`~aquilia.config.ConfigLoader`. |
+| `get` | `def get(cls, path: str, default: Any=None)` | Dot-path accessor on the serialised config dict. |
+| `for_env` | `def for_env(cls, env_name: str)` | Resolve the correct subclass for *env_name* from the subclass tree. |
+| `from_env_var` | `def from_env_var(cls, var: str='AQ_ENV', default: str='dev')` | Read ``var`` from the environment and return the matching subclass. |
 
-### Class: `PyConfigLoader`
+### `PyConfigLoader`
 
 - Source: `aquilia/pyconfig.py`
 - Bases: `object`
@@ -1835,147 +1866,143 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_file` | `def from_file(cls, path: str &#124; Path, *, env: str &#124; None = None, var: str = 'AQ_ENV', default_env: str = 'dev') -> PyConfigLoader` | classmethod | Import a Python config file and resolve the right subclass. |
-| `to_aquilia_loader` | `def to_aquilia_loader(self)` |  | Return a fully populated :class:`~aquilia.config.ConfigLoader`. |
-| `config_class` | `def config_class(self) -> type[AquilaConfig]` | property | The resolved :class:`AquilaConfig` subclass. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_file` | `def from_file(cls, path: str \| Path, *, env: str \| None=None, var: str='AQ_ENV', default_env: str='dev')` | Import a Python config file and resolve the right subclass. |
+| `to_aquilia_loader` | `def to_aquilia_loader(self)` | Return a fully populated :class:`~aquilia.config.ConfigLoader`. |
+| `config_class` | `def config_class(self)` | The resolved :class:`AquilaConfig` subclass. |
 
-### Class: `RequestFault`
+### `RequestFault`
 
 - Source: `aquilia/request.py`
 - Bases: `Fault`
 - Summary: Base class for request-related faults.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `_FD_IO` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `True` |
+| `public` | `` | `True` |
 
-### Class: `BadRequest`
+### `BadRequest`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Malformed request (400).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'BAD_REQUEST'` |
-| `message` |  | `'Bad request'` |
+| `code` | `` | `'BAD_REQUEST'` |
+| `message` | `` | `'Bad request'` |
 
-### Class: `PayloadTooLarge`
+### `PayloadTooLarge`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Request payload exceeds limits (413).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'PAYLOAD_TOO_LARGE'` |
-| `message` |  | `'Payload too large'` |
+| `code` | `` | `'PAYLOAD_TOO_LARGE'` |
+| `message` | `` | `'Payload too large'` |
 
-### Class: `UnsupportedMediaType`
+### `UnsupportedMediaType`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Unsupported Content-Type (415).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'UNSUPPORTED_MEDIA_TYPE'` |
-| `message` |  | `'Unsupported media type'` |
+| `code` | `` | `'UNSUPPORTED_MEDIA_TYPE'` |
+| `message` | `` | `'Unsupported media type'` |
 
-### Class: `ClientDisconnect`
+### `ClientDisconnect`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Client disconnected during request (499).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'CLIENT_DISCONNECT'` |
-| `message` |  | `'Client disconnected'` |
-| `severity` |  | `Severity.WARN` |
+| `code` | `` | `'CLIENT_DISCONNECT'` |
+| `message` | `` | `'Client disconnected'` |
 
-### Class: `InvalidJSON`
+### `InvalidJSON`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Invalid JSON payload (400).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'INVALID_JSON'` |
-| `message` |  | `'Invalid JSON'` |
+| `code` | `` | `'INVALID_JSON'` |
+| `message` | `` | `'Invalid JSON'` |
 
-### Class: `InvalidCrous`
+### `InvalidCrous`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Invalid CROUS binary payload (400).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'INVALID_CROUS'` |
-| `message` |  | `'Invalid CROUS payload'` |
+| `code` | `` | `'INVALID_CROUS'` |
+| `message` | `` | `'Invalid CROUS payload'` |
 
-### Class: `CrousUnavailable`
+### `CrousUnavailable`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: CROUS library not installed (500-level).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'CROUS_UNAVAILABLE'` |
-| `message` |  | `'CROUS serializer not available'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
+| `code` | `` | `'CROUS_UNAVAILABLE'` |
+| `message` | `` | `'CROUS serializer not available'` |
+| `public` | `` | `False` |
 
-### Class: `InvalidHeader`
+### `InvalidHeader`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Invalid header format (400).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'INVALID_HEADER'` |
-| `message` |  | `'Invalid header'` |
+| `code` | `` | `'INVALID_HEADER'` |
+| `message` | `` | `'Invalid header'` |
 
-### Class: `MultipartParseError`
+### `MultipartParseError`
 
 - Source: `aquilia/request.py`
 - Bases: `RequestFault`
 - Summary: Multipart parsing failed (400).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'MULTIPART_PARSE_ERROR'` |
-| `message` |  | `'Multipart parsing failed'` |
+| `code` | `` | `'MULTIPART_PARSE_ERROR'` |
+| `message` | `` | `'Multipart parsing failed'` |
 
-### Class: `Request`
+### `Request`
 
 - Source: `aquilia/request.py`
 - Bases: `object`
@@ -1983,84 +2010,84 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `method` | `def method(self) -> str` | property | HTTP method (GET, POST, etc.). |
-| `http_version` | `def http_version(self) -> str` | property | HTTP version (e.g., '1.1', '2'). |
-| `path` | `def path(self) -> str` | property | Request path (decoded). |
-| `raw_path` | `def raw_path(self) -> bytes` | property | Raw request path (as bytes from ASGI). |
-| `query_string` | `def query_string(self) -> str` | property | Raw query string. |
-| `client` | `def client(self) -> tuple &#124; None` | property | Client address (host, port). |
-| `query_params` | `def query_params(self) -> MultiDict` | property | Get parsed query parameters as MultiDict. |
-| `query_param` | `def query_param(self, name: str, default: str &#124; None = None) -> str &#124; None` |  | Get single query parameter. |
-| `headers` | `def headers(self) -> Headers` | property | Get parsed headers. |
-| `header` | `def header(self, name: str, default: str &#124; None = None) -> str &#124; None` |  | Get single header (case-insensitive). |
-| `has_header` | `def has_header(self, name: str) -> bool` |  | Check if header exists. |
-| `cookies` | `def cookies(self) -> Mapping[str, str]` | property | Get parsed cookies. |
-| `cookie` | `def cookie(self, name: str, default: str &#124; None = None) -> str &#124; None` |  | Get single cookie value. |
-| `url` | `def url(self) -> URL` |  | Get full request URL. |
-| `base_url` | `def base_url(self) -> URL` |  | Get base URL (scheme + host + root_path). |
-| `url_for` | `def url_for(self, route_name: str, **params) -> str` |  | Build URL for named route. |
-| `client_ip` | `def client_ip(self) -> str` |  | Get client IP address. |
-| `content_type` | `def content_type(self) -> str &#124; None` |  | Get Content-Type header. |
-| `content_length` | `def content_length(self) -> int &#124; None` |  | Get Content-Length header as int. |
-| `is_json` | `def is_json(self) -> bool` |  | Check if request content type is JSON. |
-| `is_crous` | `def is_crous(self) -> bool` |  | Check if request content type is CROUS binary. |
-| `accepts` | `def accepts(self, *media_types: str) -> bool` |  | Check if client accepts any of the given media types. |
-| `accepts_crous` | `def accepts_crous(self) -> bool` |  | Check if the client accepts CROUS binary responses. |
-| `prefers_crous` | `def prefers_crous(self) -> bool` |  | Check if the client prefers CROUS over JSON. |
-| `best_response_format` | `def best_response_format(self) -> str` |  | Negotiate the best response format between CROUS and JSON. |
-| `range` | `def range(self) -> Range &#124; None` |  | Parse Range header. |
-| `if_modified_since` | `def if_modified_since(self) -> Any &#124; None` |  | Parse If-Modified-Since header. |
-| `if_none_match` | `def if_none_match(self) -> str &#124; None` |  | Get If-None-Match header (ETag). |
-| `auth_scheme` | `def auth_scheme(self) -> str &#124; None` |  | Get authorization scheme (e.g., 'Bearer', 'Basic'). |
-| `auth_credentials` | `def auth_credentials(self) -> str &#124; None` |  | Get authorization credentials. |
-| `is_disconnected` | `def is_disconnected(self) -> bool` |  | Check if client has disconnected. |
-| `iter_bytes` | `async def iter_bytes(self, chunk_size: int &#124; None = None) -> AsyncIterator[bytes]` |  | Stream request body in chunks. |
-| `iter_text` | `async def iter_text(self, encoding: str = 'utf-8', chunk_size: int &#124; None = None) -> AsyncIterator[str]` |  | Stream request body as text chunks. |
-| `body` | `async def body(self) -> bytes` |  | Read full request body (idempotent). |
-| `text` | `async def text(self, encoding: str &#124; None = None) -> str` |  | Read request body as text. |
-| `readexactly` | `async def readexactly(self, n: int) -> bytes` |  | Read exactly n bytes from request body. |
-| `json` | `async def json(self, model: type[T] &#124; None = None, *, strict: bool = True) -> Any &#124; T` |  | Parse request body as JSON. |
-| `crous` | `async def crous(self, model: type[T] &#124; None = None, *, strict: bool = True) -> Any &#124; T` |  | Parse request body as CROUS binary format. |
-| `data` | `async def data(self, model: type[T] &#124; None = None, *, strict: bool = True) -> Any &#124; T` |  | Parse request body as JSON **or** CROUS, auto-detected. |
-| `form` | `async def form(self) -> FormData` |  | Parse application/x-www-form-urlencoded form data. |
-| `multipart` | `async def multipart(self) -> FormData` |  | Parse multipart/form-data. |
-| `files` | `async def files(self) -> Mapping[str, list[UploadFile]]` |  | Get uploaded files from multipart request. |
-| `save_upload` | `async def save_upload(self, upload: UploadFile, dest: str &#124; PathLike, *, overwrite: bool = False) -> Path` |  | Save uploaded file to destination. |
-| `stream_upload_to_store` | `async def stream_upload_to_store(self, upload: UploadFile, store: UploadStore) -> Path` |  | Stream upload to custom storage backend. |
-| `identity` | `def identity(self) -> Any &#124; None` | property | Get authenticated identity (set by AuthMiddleware). |
-| `authenticated` | `def authenticated(self) -> bool` | property | Check if request is authenticated. |
-| `require_identity` | `def require_identity(self) -> Any` |  | Get identity or raise AUTH_REQUIRED fault. |
-| `has_role` | `def has_role(self, role: str) -> bool` |  | Check if identity has specific role. |
-| `has_scope` | `def has_scope(self, scope: str) -> bool` |  | Check if identity has OAuth scope. |
-| `session` | `def session(self) -> Any &#124; None` | property | Get session (set by SessionMiddleware). |
-| `session` | `def session(self, value)` | session.setter | Set session in request state. |
-| `require_session` | `def require_session(self) -> Any` |  | Get session or raise SESSION_REQUIRED fault. |
-| `session_id` | `def session_id(self) -> str &#124; None` | property | Get session ID. |
-| `container` | `def container(self) -> AsyncResolvableContainer &#124; SyncResolvableContainer &#124; None` | property | Get request-scoped DI container. |
-| `resolve` | `async def resolve(self, service_type: type[T], *, optional: bool = False) -> T &#124; None` |  | Resolve service from DI container. |
-| `inject` | `async def inject(self, **services) -> dict[str, Any]` |  | Inject multiple services by name. |
-| `flash_messages` | `def flash_messages(self) -> list[dict[str, Any]]` |  | Get and clear flash messages from session. |
-| `is_authenticated` | `def is_authenticated(self) -> bool` |  | Check if request is authenticated. |
-| `template_context` | `def template_context(self) -> dict[str, Any]` | property | Get template rendering context with auto-injected variables. |
-| `add_template_context` | `def add_template_context(self, **kwargs) -> None` |  | Add variables to template context. |
-| `emit_effect` | `async def emit_effect(self, effect_name: str, **data) -> None` |  | Emit effect for lifecycle hooks. |
-| `get_effect` | `def get_effect(self, name: str) -> Any` |  | Get an acquired effect resource by name. |
-| `has_effect` | `def has_effect(self, name: str) -> bool` |  | Check if an effect resource is currently acquired. |
-| `effects` | `def effects(self) -> dict[str, Any]` | property | All currently acquired effect resources. |
-| `flow_context` | `def flow_context(self) -> Any` | property | Get the FlowContext for this request, if available. |
-| `before_response` | `async def before_response(self, callback: Callable[..., Awaitable[None]]) -> None` |  | Register callback to run before response is sent. |
-| `after_response` | `async def after_response(self, callback: Callable[..., Awaitable[None]]) -> None` |  | Register callback to run after response is sent. |
-| `fault_context` | `def fault_context(self) -> dict[str, Any]` |  | Get context for fault reporting. |
-| `report_fault` | `async def report_fault(self, fault: Fault) -> None` |  | Report fault through FaultEngine with request context. |
-| `trace_id` | `def trace_id(self) -> str &#124; None` | property | Get trace ID for distributed tracing. |
-| `request_id` | `def request_id(self) -> str &#124; None` | property | Get unique request ID. |
-| `record_metric` | `def record_metric(self, name: str, value: float, **tags) -> None` |  | Record metric for this request. |
-| `cleanup` | `async def cleanup(self) -> None` |  | Clean up temporary resources. |
-| `path_params` | `def path_params(self) -> dict[str, Any]` |  | Get path parameters (set by router via state). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `method` | `def method(self)` | HTTP method (GET, POST, etc.). |
+| `http_version` | `def http_version(self)` | HTTP version (e.g., '1.1', '2'). |
+| `path` | `def path(self)` | Request path (decoded). |
+| `raw_path` | `def raw_path(self)` | Raw request path (as bytes from ASGI). |
+| `query_string` | `def query_string(self)` | Raw query string. |
+| `client` | `def client(self)` | Client address (host, port). |
+| `query_params` | `def query_params(self)` | Get parsed query parameters as MultiDict. |
+| `query_param` | `def query_param(self, name: str, default: str \| None=None)` | Get single query parameter. |
+| `headers` | `def headers(self)` | Get parsed headers. |
+| `header` | `def header(self, name: str, default: str \| None=None)` | Get single header (case-insensitive). |
+| `has_header` | `def has_header(self, name: str)` | Check if header exists. |
+| `cookies` | `def cookies(self)` | Get parsed cookies. |
+| `cookie` | `def cookie(self, name: str, default: str \| None=None)` | Get single cookie value. |
+| `url` | `def url(self)` | Get full request URL. |
+| `base_url` | `def base_url(self)` | Get base URL (scheme + host + root_path). |
+| `url_for` | `def url_for(self, route_name: str, /, **params)` | Build URL for named route. |
+| `client_ip` | `def client_ip(self)` | Get client IP address. |
+| `content_type` | `def content_type(self)` | Get Content-Type header. |
+| `content_length` | `def content_length(self)` | Get Content-Length header as int. |
+| `is_json` | `def is_json(self)` | Check if request content type is JSON. |
+| `is_crous` | `def is_crous(self)` | Check if request content type is CROUS binary. |
+| `accepts` | `def accepts(self, *media_types: str)` | Check if client accepts any of the given media types. |
+| `accepts_crous` | `def accepts_crous(self)` | Check if the client accepts CROUS binary responses. |
+| `prefers_crous` | `def prefers_crous(self)` | Check if the client prefers CROUS over JSON. |
+| `best_response_format` | `def best_response_format(self)` | Negotiate the best response format between CROUS and JSON. |
+| `range` | `def range(self)` | Parse Range header. |
+| `if_modified_since` | `def if_modified_since(self)` | Parse If-Modified-Since header. |
+| `if_none_match` | `def if_none_match(self)` | Get If-None-Match header (ETag). |
+| `auth_scheme` | `def auth_scheme(self)` | Get authorization scheme (e.g., 'Bearer', 'Basic'). |
+| `auth_credentials` | `def auth_credentials(self)` | Get authorization credentials. |
+| `is_disconnected` | `def is_disconnected(self)` | Check if client has disconnected. |
+| `iter_bytes` | `async def iter_bytes(self, chunk_size: int \| None=None)` | Stream request body in chunks. |
+| `iter_text` | `async def iter_text(self, encoding: str='utf-8', chunk_size: int \| None=None)` | Stream request body as text chunks. |
+| `body` | `async def body(self)` | Read full request body (idempotent). |
+| `text` | `async def text(self, encoding: str \| None=None)` | Read request body as text. |
+| `readexactly` | `async def readexactly(self, n: int)` | Read exactly n bytes from request body. |
+| `json` | `async def json(self, model: type[T] \| None=None, *, strict: bool=True)` | Parse request body as JSON. |
+| `crous` | `async def crous(self, model: type[T] \| None=None, *, strict: bool=True)` | Parse request body as CROUS binary format. |
+| `data` | `async def data(self, model: type[T] \| None=None, *, strict: bool=True)` | Parse request body as JSON **or** CROUS, auto-detected. |
+| `form` | `async def form(self)` | Parse application/x-www-form-urlencoded form data. |
+| `multipart` | `async def multipart(self)` | Parse multipart/form-data. |
+| `files` | `async def files(self)` | Get uploaded files from multipart request. |
+| `save_upload` | `async def save_upload(self, upload: UploadFile, dest: str \| PathLike, *, overwrite: bool=False)` | Save uploaded file to destination. |
+| `stream_upload_to_store` | `async def stream_upload_to_store(self, upload: UploadFile, store: UploadStore)` | Stream upload to custom storage backend. |
+| `identity` | `def identity(self)` | Get authenticated identity (set by AuthMiddleware). |
+| `authenticated` | `def authenticated(self)` | Check if request is authenticated. |
+| `require_identity` | `def require_identity(self)` | Get identity or raise AUTH_REQUIRED fault. |
+| `has_role` | `def has_role(self, role: str)` | Check if identity has specific role. |
+| `has_scope` | `def has_scope(self, scope: str)` | Check if identity has OAuth scope. |
+| `session` | `def session(self)` | Get session (set by SessionMiddleware). |
+| `session` | `def session(self, value)` | Set session in request state. |
+| `require_session` | `def require_session(self)` | Get session or raise SESSION_REQUIRED fault. |
+| `session_id` | `def session_id(self)` | Get session ID. |
+| `container` | `def container(self)` | Get request-scoped DI container. |
+| `resolve` | `async def resolve(self, service_type: type[T], *, optional: bool=False)` | Resolve service from DI container. |
+| `inject` | `async def inject(self, **services)` | Inject multiple services by name. |
+| `flash_messages` | `def flash_messages(self)` | Get and clear flash messages from session. |
+| `is_authenticated` | `def is_authenticated(self)` | Check if request is authenticated. |
+| `template_context` | `def template_context(self)` | Get template rendering context with auto-injected variables. |
+| `add_template_context` | `def add_template_context(self, **kwargs)` | Add variables to template context. |
+| `emit_effect` | `async def emit_effect(self, effect_name: str, **data)` | Emit effect for lifecycle hooks. |
+| `get_effect` | `def get_effect(self, name: str)` | Get an acquired effect resource by name. |
+| `has_effect` | `def has_effect(self, name: str)` | Check if an effect resource is currently acquired. |
+| `effects` | `def effects(self)` | All currently acquired effect resources. |
+| `flow_context` | `def flow_context(self)` | Get the FlowContext for this request, if available. |
+| `before_response` | `async def before_response(self, callback: Callable[..., Awaitable[None]])` | Register callback to run before response is sent. |
+| `after_response` | `async def after_response(self, callback: Callable[..., Awaitable[None]])` | Register callback to run after response is sent. |
+| `fault_context` | `def fault_context(self)` | Get context for fault reporting. |
+| `report_fault` | `async def report_fault(self, fault: Fault)` | Report fault through FaultEngine with request context. |
+| `trace_id` | `def trace_id(self)` | Get trace ID for distributed tracing. |
+| `request_id` | `def request_id(self)` | Get unique request ID. |
+| `record_metric` | `def record_metric(self, name: str, value: float, **tags)` | Record metric for this request. |
+| `cleanup` | `async def cleanup(self)` | Clean up temporary resources. |
+| `path_params` | `def path_params(self)` | Get path parameters (set by router via state). |
 
-### Class: `BackgroundTask`
+### `BackgroundTask`
 
 - Source: `aquilia/response.py`
 - Bases: `Protocol`
@@ -2068,121 +2095,121 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `run` | `async def run(self) -> None` |  | Execute the background task. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `run` | `async def run(self)` | Execute the background task. |
 
-### Class: `CallableBackgroundTask`
+### `CallableBackgroundTask`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Simple callable-based background task.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `func` | `Callable[[], Awaitable[None]]` |  |
+| `func` | `Callable[[], Awaitable[None]]` | `` |
 | `run_on_disconnect` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `run` | `async def run(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `run` | `async def run(self)` |  |
 
-### Class: `ServerSentEvent`
+### `ServerSentEvent`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Server-Sent Event data structure.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `data` | `str` |  |
-| `id` | `str &#124; None` | `None` |
-| `event` | `str &#124; None` | `None` |
-| `retry` | `int &#124; None` | `None` |
+| `data` | `str` | `` |
+| `id` | `str \| None` | `None` |
+| `event` | `str \| None` | `None` |
+| `retry` | `int \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `encode` | `def encode(self) -> bytes` |  | Encode SSE event according to spec. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `encode` | `def encode(self)` | Encode SSE event according to spec. |
 
-### Class: `MediaChunk`
+### `MediaChunk`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Type-safe media chunk container for streaming payloads.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `data` | `bytes &#124; str` |  |
-| `content_type` | `str &#124; None` | `None` |
+| `data` | `bytes \| str` | `` |
+| `content_type` | `str \| None` | `None` |
 | `is_final` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `encode` | `def encode(self, encoding: str = 'utf-8') -> bytes` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `encode` | `def encode(self, encoding: str='utf-8')` |  |
 
-### Class: `HLSSegment`
+### `HLSSegment`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Single media segment entry in an HLS media playlist.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `uri` | `str` |  |
-| `duration` | `float` |  |
-| `title` | `str &#124; None` | `None` |
-| `byte_range` | `str &#124; None` | `None` |
+| `uri` | `str` | `` |
+| `duration` | `float` | `` |
+| `title` | `str \| None` | `None` |
+| `byte_range` | `str \| None` | `None` |
 | `discontinuity` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `render` | `def render(self) -> list[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `render` | `def render(self)` |  |
 
-### Class: `HLSVariant`
+### `HLSVariant`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Variant stream descriptor for an HLS master playlist.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `uri` | `str` |  |
-| `bandwidth` | `int` |  |
-| `resolution` | `str &#124; None` | `None` |
-| `codecs` | `str &#124; None` | `None` |
-| `frame_rate` | `float &#124; None` | `None` |
-| `audio` | `str &#124; None` | `None` |
+| `uri` | `str` | `` |
+| `bandwidth` | `int` | `` |
+| `resolution` | `str \| None` | `None` |
+| `codecs` | `str \| None` | `None` |
+| `frame_rate` | `float \| None` | `None` |
+| `audio` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `render` | `def render(self) -> list[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `render` | `def render(self)` |  |
 
-### Class: `CookieSigner`
+### `CookieSigner`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
@@ -2190,97 +2217,85 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `def sign(self, value: str) -> str` |  | Sign a cookie value. |
-| `unsign` | `def unsign(self, signed_value: str) -> str &#124; None` |  | Verify and unsign a cookie value. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `def sign(self, value: str)` | Sign a cookie value. |
+| `unsign` | `def unsign(self, signed_value: str)` | Verify and unsign a cookie value. |
 
-### Class: `ResponseStreamError`
+### `ResponseStreamError`
 
 - Source: `aquilia/response.py`
 - Bases: `Fault`
 - Summary: Error during response streaming.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'RESPONSE_STREAM_ERROR'` |
-| `domain` |  | `FaultDomain.RESPONSE` |
-| `severity` |  | `Severity.ERROR` |
+| `code` | `` | `'RESPONSE_STREAM_ERROR'` |
 
-### Class: `TemplateRenderError`
+### `TemplateRenderError`
 
 - Source: `aquilia/response.py`
 - Bases: `Fault`
 - Summary: Template rendering error during response.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'TEMPLATE_RENDER_ERROR'` |
-| `domain` |  | `FaultDomain.RESPONSE` |
-| `severity` |  | `Severity.ERROR` |
-| `message` |  | `'Template rendering failed'` |
+| `code` | `` | `'TEMPLATE_RENDER_ERROR'` |
+| `message` | `` | `'Template rendering failed'` |
 
-### Class: `InvalidHeaderError`
+### `InvalidHeaderError`
 
 - Source: `aquilia/response.py`
 - Bases: `Fault`
 - Summary: Invalid header name or value (injection attempt).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'INVALID_HEADER'` |
-| `domain` |  | `FaultDomain.SECURITY` |
-| `severity` |  | `Severity.WARN` |
+| `code` | `` | `'INVALID_HEADER'` |
 
-### Class: `ClientDisconnectError`
+### `ClientDisconnectError`
 
 - Source: `aquilia/response.py`
 - Bases: `Fault`
 - Summary: Client disconnected during response send.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'CLIENT_DISCONNECT'` |
-| `domain` |  | `FaultDomain.IO` |
-| `severity` |  | `Severity.INFO` |
+| `code` | `` | `'CLIENT_DISCONNECT'` |
 
-### Class: `RangeNotSatisfiableError`
+### `RangeNotSatisfiableError`
 
 - Source: `aquilia/response.py`
 - Bases: `Fault`
 - Summary: Invalid Range header (416 response).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'RANGE_NOT_SATISFIABLE'` |
-| `domain` |  | `FaultDomain.RESPONSE` |
-| `severity` |  | `Severity.WARN` |
+| `code` | `` | `'RANGE_NOT_SATISFIABLE'` |
 
-### Class: `HLSManifestError`
+### `HLSManifestError`
 
 - Source: `aquilia/response.py`
 - Bases: `Fault`
 - Summary: Invalid HLS manifest payload or helper usage.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'HLS_MANIFEST_ERROR'` |
-| `domain` |  | `FaultDomain.RESPONSE` |
-| `severity` |  | `Severity.ERROR` |
+| `code` | `` | `'HLS_MANIFEST_ERROR'` |
 
-### Class: `Response`
+### `Response`
 
 - Source: `aquilia/response.py`
 - Bases: `object`
@@ -2288,84 +2303,84 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `headers` | `def headers(self) -> dict[str, str &#124; list[str]]` | property | Get response headers. |
-| `json` | `def json(cls, obj: Any, status: int = 200, *, encoder: Callable[[Any], str] &#124; None = None, headers: Mapping[str, str] &#124; None = None, **kwargs) -> Response` | classmethod | Create JSON response. |
-| `html` | `def html(cls, content: str, status: int = 200, **kwargs) -> Response` | classmethod | Create HTML response. |
-| `text` | `def text(cls, content: str, status: int = 200, **kwargs) -> Response` | classmethod | Create plain text response. |
-| `redirect` | `def redirect(cls, url: str, status: int = 307, *, headers: dict[str, str] &#124; None = None) -> Response` | classmethod | Create redirect response. |
-| `stream` | `def stream(cls, iterator: AsyncIterator[bytes] &#124; Iterator[bytes], status: int = 200, media_type: str = 'application/octet-stream', **kwargs) -> Response` | classmethod | Create streaming response. |
-| `media_stream` | `def media_stream(cls, chunks: AsyncIterator[MediaChunk] &#124; Iterator[MediaChunk], status: int = 200, media_type: str = 'application/octet-stream', **kwargs) -> Response` | classmethod | Create a type-safe media chunk streaming response. |
-| `sse` | `def sse(cls, event_iter: AsyncIterator[ServerSentEvent], status: int = 200, **kwargs) -> Response` | classmethod | Create Server-Sent Events (SSE) response. |
-| `crous` | `def crous(cls, obj: Any, status: int = 200, *, headers: Mapping[str, str] &#124; None = None, compression: str &#124; None = None, dedup: bool = True, **kwargs) -> Response` | classmethod | Create a CROUS binary response. |
-| `negotiated` | `def negotiated(cls, obj: Any, request: Any, status: int = 200, *, headers: Mapping[str, str] &#124; None = None, **kwargs) -> Response` | classmethod | Create a response with automatic content negotiation. |
-| `file` | `def file(cls, path: PathLike, *, filename: str &#124; None = None, media_type: str &#124; None = None, status: int = 200, use_sendfile: bool = True, chunk_size: int = 64 * 1024, **kwargs) -> Response` | classmethod | Create file download response. |
-| `hls_playlist` | `def hls_playlist(cls, segments: Sequence[HLSSegment], *, target_duration: int &#124; None = None, media_sequence: int = 0, version: int = 3, endlist: bool = True, status: int = 200, headers: Mapping[str, str] &#124; None = None) -> Response` | classmethod | Create an HLS media playlist (.m3u8) response. |
-| `hls_master_playlist` | `def hls_master_playlist(cls, variants: Sequence[HLSVariant], *, version: int = 3, status: int = 200, headers: Mapping[str, str] &#124; None = None) -> Response` | classmethod | Create an HLS master playlist response. |
-| `hls_segment` | `def hls_segment(cls, path: PathLike, *, status: int = 200, chunk_size: int = 64 * 1024, headers: Mapping[str, str] &#124; None = None) -> Response` | classmethod | Create an HLS segment file response with media-aware defaults. |
-| `render` | `async def render(cls, template_name: str, context: Mapping[str, Any] &#124; None = None, *, request: Any &#124; None = None, request_ctx: Any &#124; None = None, engine: Any &#124; None = None, status: int = 200, headers: Mapping &#124; None = None, **response_kwargs) -> Response` | classmethod | Render template with automatic context injection. |
-| `commit_session` | `async def commit_session(self, request: Any) -> None` |  | Commit session changes after response. |
-| `execute_before_send_hooks` | `async def execute_before_send_hooks(self, request: Any) -> None` |  | Execute before-response callbacks registered on request. |
-| `execute_after_send_hooks` | `async def execute_after_send_hooks(self, request: Any) -> None` |  | Execute after-response callbacks registered on request. |
-| `record_response_metrics` | `def record_response_metrics(self, request: Any, duration_ms: float) -> None` |  | Record response metrics. |
-| `from_fault` | `def from_fault(cls, fault: Fault, *, include_details: bool = False, request: Any &#124; None = None) -> Response` | classmethod | Create Response from Fault with appropriate status code. |
-| `set_cookie` | `def set_cookie(self, name: str, value: str, *, max_age: int &#124; None = None, expires: datetime &#124; None = None, path: str = '/', domain: str &#124; None = None, secure: bool = True, httponly: bool = True, samesite: str &#124; None = 'Lax', same_site_policy: str &#124; None = None, signed: bool = False, signer: CookieSigner &#124; None = None) -> None` |  | Set a cookie. |
-| `delete_cookie` | `def delete_cookie(self, name: str, path: str = '/', domain: str &#124; None = None) -> None` |  | Delete a cookie by setting Max-Age=0. |
-| `set_header` | `def set_header(self, name: str, value: str) -> None` |  | Set header (replaces existing). |
-| `add_header` | `def add_header(self, name: str, value: str) -> None` |  | Add header (supports multiple values). |
-| `unset_header` | `def unset_header(self, name: str) -> None` |  | Remove header. |
-| `set_etag` | `def set_etag(self, etag: str, weak: bool = False) -> None` |  | Set ETag header. |
-| `set_last_modified` | `def set_last_modified(self, dt: datetime) -> None` |  | Set Last-Modified header. |
-| `cache_control` | `def cache_control(self, **directives) -> None` |  | Set Cache-Control header. |
-| `secure_headers` | `def secure_headers(self, *, hsts: bool = True, hsts_max_age: int = 31536000, csp: str &#124; None = None, frame_options: str = 'DENY', content_type_options: bool = True, xss_protection: bool = True, referrer_policy: str = 'strict-origin-when-cross-origin') -> None` |  | Set recommended security headers. |
-| `send_asgi` | `async def send_asgi(self, send: Callable[[dict], Awaitable[None]], request: Any &#124; None = None) -> None` |  | Send response via ASGI. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `headers` | `def headers(self)` | Get response headers. |
+| `json` | `def json(cls, obj: Any, status: int=200, *, encoder: Callable[[Any], str] \| None=None, headers: Mapping[str, str] \| None=None, **kwargs)` | Create JSON response. |
+| `html` | `def html(cls, content: str, status: int=200, **kwargs)` | Create HTML response. |
+| `text` | `def text(cls, content: str, status: int=200, **kwargs)` | Create plain text response. |
+| `redirect` | `def redirect(cls, url: str, status: int=307, *, headers: dict[str, str] \| None=None)` | Create redirect response. |
+| `stream` | `def stream(cls, iterator: AsyncIterator[bytes] \| Iterator[bytes], status: int=200, media_type: str='application/octet-stream', **kwargs)` | Create streaming response. |
+| `media_stream` | `def media_stream(cls, chunks: AsyncIterator[MediaChunk] \| Iterator[MediaChunk], status: int=200, media_type: str='application/octet-stream', **kwargs)` | Create a type-safe media chunk streaming response. |
+| `sse` | `def sse(cls, event_iter: AsyncIterator[ServerSentEvent], status: int=200, **kwargs)` | Create Server-Sent Events (SSE) response. |
+| `crous` | `def crous(cls, obj: Any, status: int=200, *, headers: Mapping[str, str] \| None=None, compression: str \| None=None, dedup: bool=True, **kwargs)` | Create a CROUS binary response. |
+| `negotiated` | `def negotiated(cls, obj: Any, request: Any, status: int=200, *, headers: Mapping[str, str] \| None=None, **kwargs)` | Create a response with automatic content negotiation. |
+| `file` | `def file(cls, path: PathLike, *, filename: str \| None=None, media_type: str \| None=None, status: int=200, use_sendfile: bool=True, chunk_size: int=64 * 1024, **kwargs)` | Create file download response. |
+| `hls_playlist` | `def hls_playlist(cls, segments: Sequence[HLSSegment], *, target_duration: int \| None=None, media_sequence: int=0, version: int=3, endlist: bool=True, status: int=200, headers: Mapping[str, str] \| None=None)` | Create an HLS media playlist (.m3u8) response. |
+| `hls_master_playlist` | `def hls_master_playlist(cls, variants: Sequence[HLSVariant], *, version: int=3, status: int=200, headers: Mapping[str, str] \| None=None)` | Create an HLS master playlist response. |
+| `hls_segment` | `def hls_segment(cls, path: PathLike, *, status: int=200, chunk_size: int=64 * 1024, headers: Mapping[str, str] \| None=None)` | Create an HLS segment file response with media-aware defaults. |
+| `render` | `async def render(cls, template_name: str, context: Mapping[str, Any] \| None=None, *, request: Any \| None=None, request_ctx: Any \| None=None, engine: Any \| None=None, status: int=200, headers: Mapping \| None=None, **response_kwargs)` | Render template with automatic context injection. |
+| `commit_session` | `async def commit_session(self, request: Any)` | Commit session changes after response. |
+| `execute_before_send_hooks` | `async def execute_before_send_hooks(self, request: Any)` | Execute before-response callbacks registered on request. |
+| `execute_after_send_hooks` | `async def execute_after_send_hooks(self, request: Any)` | Execute after-response callbacks registered on request. |
+| `record_response_metrics` | `def record_response_metrics(self, request: Any, duration_ms: float)` | Record response metrics. |
+| `from_fault` | `def from_fault(cls, fault: Fault, *, include_details: bool=False, request: Any \| None=None)` | Create Response from Fault with appropriate status code. |
+| `set_cookie` | `def set_cookie(self, name: str, value: str, *, max_age: int \| None=None, expires: datetime \| None=None, path: str='/', domain: str \| None=None, secure: bool=True, httponly: bool=True, samesite: str \| None='Lax', same_site_policy: str \| None=None, signed: bool=False, signer: CookieSigner \| None=None)` | Set a cookie. |
+| `delete_cookie` | `def delete_cookie(self, name: str, path: str='/', domain: str \| None=None)` | Delete a cookie by setting Max-Age=0. |
+| `set_header` | `def set_header(self, name: str, value: str)` | Set header (replaces existing). |
+| `add_header` | `def add_header(self, name: str, value: str)` | Add header (supports multiple values). |
+| `unset_header` | `def unset_header(self, name: str)` | Remove header. |
+| `set_etag` | `def set_etag(self, etag: str, weak: bool=False)` | Set ETag header. |
+| `set_last_modified` | `def set_last_modified(self, dt: datetime)` | Set Last-Modified header. |
+| `cache_control` | `def cache_control(self, **directives)` | Set Cache-Control header. |
+| `secure_headers` | `def secure_headers(self, *, hsts: bool=True, hsts_max_age: int=31536000, csp: str \| None=None, frame_options: str='DENY', content_type_options: bool=True, xss_protection: bool=True, referrer_policy: str='strict-origin-when-cross-origin')` | Set recommended security headers. |
+| `send_asgi` | `async def send_asgi(self, send: Callable[[dict], Awaitable[None]], request: Any \| None=None)` | Send response via ASGI. |
 
-### Class: `RuntimePhase`
+### `RuntimePhase`
 
 - Source: `aquilia/runtime.py`
 - Bases: `str, Enum`
 - Summary: Lifecycle phase of an :class:`AquiliaRuntime` instance.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CREATED` |  | `'created'` |
-| `CONFIGURING` |  | `'configuring'` |
-| `DISCOVERING` |  | `'discovering'` |
-| `BOOTSTRAPPING` |  | `'bootstrapping'` |
-| `READY` |  | `'ready'` |
-| `RUNNING` |  | `'running'` |
-| `SHUTTING_DOWN` |  | `'shutting_down'` |
-| `STOPPED` |  | `'stopped'` |
-| `FAILED` |  | `'failed'` |
+| `CREATED` | `` | `'created'` |
+| `CONFIGURING` | `` | `'configuring'` |
+| `DISCOVERING` | `` | `'discovering'` |
+| `BOOTSTRAPPING` | `` | `'bootstrapping'` |
+| `READY` | `` | `'ready'` |
+| `RUNNING` | `` | `'running'` |
+| `SHUTTING_DOWN` | `` | `'shutting_down'` |
+| `STOPPED` | `` | `'stopped'` |
+| `FAILED` | `` | `'failed'` |
 
-### Class: `RuntimeConfig`
+### `RuntimeConfig`
 
 - Source: `aquilia/runtime.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Immutable configuration for an :class:`AquiliaRuntime` instance.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `workspace_root` | `Path` |  |
+| `workspace_root` | `Path` | `` |
 | `mode` | `Literal['dev', 'test', 'prod']` | `'prod'` |
-| `debug` | `bool &#124; None` | `None` |
+| `debug` | `bool \| None` | `None` |
 | `config_overrides` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_dev` | `def is_dev(self) -> bool` | property | Whether the runtime is in development mode. |
-| `workspace_file` | `def workspace_file(self) -> Path` | property | Path to ``workspace.py``. |
-| `modules_dir` | `def modules_dir(self) -> Path` | property | Path to the ``modules/`` directory. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_dev` | `def is_dev(self)` | Whether the runtime is in development mode. |
+| `workspace_file` | `def workspace_file(self)` | Path to ``workspace.py``. |
+| `modules_dir` | `def modules_dir(self)` | Path to the ``modules/`` directory. |
 
-### Class: `AquiliaRuntime`
+### `AquiliaRuntime`
 
 - Source: `aquilia/runtime.py`
 - Bases: `object`
@@ -2373,20 +2388,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `phase` | `def phase(self) -> RuntimePhase` | property | Current lifecycle phase. |
-| `app` | `def app(self) -> ASGIApplication` | property | The ASGI application callable. |
-| `server` | `def server(self) -> Any` | property | The :class:`~aquilia.server.AquiliaServer` instance. |
-| `workspace_name` | `def workspace_name(self) -> str` | property | Workspace name extracted from ``workspace.py``. |
-| `module_names` | `def module_names(self) -> list[str]` | property | List of discovered module names. |
-| `configure` | `def configure(self) -> AquiliaRuntime` |  | Bootstrap paths, environment variables, logging, and config. |
-| `discover` | `def discover(self) -> AquiliaRuntime` |  | Discover workspace name, module manifests, and workspace module configs. |
-| `bootstrap` | `def bootstrap(self) -> AquiliaRuntime` |  | Construct the :class:`~aquilia.server.AquiliaServer`. |
-| `from_workspace` | `def from_workspace(cls, workspace_root: Path &#124; str &#124; None = None, mode: str &#124; None = None, *, config_overrides: dict[str, Any] &#124; None = None) -> AquiliaRuntime` | classmethod | Create a fully bootstrapped runtime from workspace configuration. |
-| `create_app` | `def create_app(cls, workspace_root: Path &#124; str &#124; None = None, mode: str &#124; None = None, *, config_overrides: dict[str, Any] &#124; None = None) -> ASGIApplication` | classmethod | One-liner factory returning just the ASGI callable. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `phase` | `def phase(self)` | Current lifecycle phase. |
+| `app` | `def app(self)` | The ASGI application callable. |
+| `server` | `def server(self)` | The :class:`~aquilia.server.AquiliaServer` instance. |
+| `workspace_name` | `def workspace_name(self)` | Workspace name extracted from ``workspace.py``. |
+| `module_names` | `def module_names(self)` | List of discovered module names. |
+| `configure` | `def configure(self)` | Bootstrap paths, environment variables, logging, and config. |
+| `discover` | `def discover(self)` | Discover workspace name, module manifests, and workspace module configs. |
+| `bootstrap` | `def bootstrap(self)` | Construct the :class:`~aquilia.server.AquiliaServer`. |
+| `from_workspace` | `def from_workspace(cls, workspace_root: Path \| str \| None=None, mode: str \| None=None, *, config_overrides: dict[str, Any] \| None=None)` | Create a fully bootstrapped runtime from workspace configuration. |
+| `create_app` | `def create_app(cls, workspace_root: Path \| str \| None=None, mode: str \| None=None, *, config_overrides: dict[str, Any] \| None=None)` | One-liner factory returning just the ASGI callable. |
 
-### Class: `AquiliaServer`
+### `AquiliaServer`
 
 - Source: `aquilia/server.py`
 - Bases: `object`
@@ -2394,17 +2409,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `startup` | `async def startup(self)` |  | Execute startup sequence with Aquilary lifecycle management. |
-| `shutdown` | `async def shutdown(self)` |  | Execute shutdown sequence with Aquilary lifecycle management. |
-| `get_health` | `def get_health(self) -> dict` |  | Get current server health status (v2). |
-| `graceful_shutdown` | `async def graceful_shutdown(self, timeout: float = 30.0)` |  | Graceful shutdown sequence (v2). |
-| `run` | `def run(self, host: str &#124; None = None, port: int &#124; None = None, reload: bool &#124; None = None, log_level: str = 'info', graceful_timeout: float = 30.0)` |  | Run the development server with graceful shutdown support. |
-| `get_asgi_app` | `def get_asgi_app(self)` |  | Get the ASGI application for external servers. |
-| `lifespan` | `def lifespan(self)` |  | ASGI lifespan context manager. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `startup` | `async def startup(self)` | Execute startup sequence with Aquilary lifecycle management. |
+| `shutdown` | `async def shutdown(self)` | Execute shutdown sequence with Aquilary lifecycle management. |
+| `get_health` | `def get_health(self)` | Get current server health status (v2). |
+| `graceful_shutdown` | `async def graceful_shutdown(self, timeout: float=30.0)` | Graceful shutdown sequence (v2). |
+| `run` | `def run(self, host: str \| None=None, port: int \| None=None, reload: bool \| None=None, log_level: str='info', graceful_timeout: float=30.0)` | Run the development server with graceful shutdown support. |
+| `get_asgi_app` | `def get_asgi_app(self)` | Get the ASGI application for external servers. |
+| `lifespan` | `def lifespan(self)` | ASGI lifespan context manager. |
 
-### Class: `SignerBackend`
+### `SignerBackend`
 
 - Source: `aquilia/signing.py`
 - Bases: `ABC`
@@ -2412,27 +2427,27 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `def sign(self, message: bytes) -> bytes` | abstractmethod | Return the signature for *message*. |
-| `verify` | `def verify(self, message: bytes, signature: bytes) -> bool` | abstractmethod | Return ``True`` if *signature* is valid for *message*. |
-| `algorithm` | `def algorithm(self) -> str` | property, abstractmethod | The algorithm name (e.g. ``"HS256"``). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `def sign(self, message: bytes)` | Return the signature for *message*. |
+| `verify` | `def verify(self, message: bytes, signature: bytes)` | Return ``True`` if *signature* is valid for *message*. |
+| `algorithm` | `def algorithm(self)` | The algorithm name (e.g. ``"HS256"``). |
 
-### Class: `HmacSignerBackend`
+### `HmacSignerBackend`
 
 - Source: `aquilia/signing.py`
 - Bases: `SignerBackend`
-- Summary: Default signing backend - HMAC with a configurable digest.
+- Summary: Default signing backend — HMAC with a configurable digest.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `algorithm` | `def algorithm(self) -> str` | property | Method. |
-| `sign` | `def sign(self, message: bytes) -> bytes` |  | Return HMAC-{digest} signature of *message*. |
-| `verify` | `def verify(self, message: bytes, signature: bytes) -> bool` |  | Return ``True`` iff *signature* equals HMAC of *message* (constant-time). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `algorithm` | `def algorithm(self)` |  |
+| `sign` | `def sign(self, message: bytes)` | Return HMAC-{digest} signature of *message*. |
+| `verify` | `def verify(self, message: bytes, signature: bytes)` | Return ``True`` iff *signature* equals HMAC of *message* (constant-time). |
 
-### Class: `AsymmetricSignerBackend`
+### `AsymmetricSignerBackend`
 
 - Source: `aquilia/signing.py`
 - Bases: `SignerBackend`
@@ -2440,13 +2455,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `algorithm` | `def algorithm(self) -> str` | property | Method. |
-| `sign` | `def sign(self, message: bytes) -> bytes` |  | Method. |
-| `verify` | `def verify(self, message: bytes, signature: bytes) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `algorithm` | `def algorithm(self)` |  |
+| `sign` | `def sign(self, message: bytes)` |  |
+| `verify` | `def verify(self, message: bytes, signature: bytes)` |  |
 
-### Class: `Signer`
+### `Signer`
 
 - Source: `aquilia/signing.py`
 - Bases: `object`
@@ -2454,16 +2469,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `def sign(self, value: str, **kwargs: Any) -> str` |  | Sign *value* and return ``"<value><sep><b64sig>"``. |
-| `unsign` | `def unsign(self, signed_value: str, **kwargs: Any) -> str` |  | Verify and return the original value from a signed token. |
-| `sign_bytes` | `def sign_bytes(self, data: bytes) -> bytes` |  | Sign raw *data* and return ``data + sep_byte + b64sig`` as bytes. |
-| `unsign_bytes` | `def unsign_bytes(self, signed_data: bytes) -> bytes` |  | Verify and return the original bytes from signed byte data. |
-| `sign_object` | `def sign_object(self, obj: Any, **kwargs: Any) -> str` |  | Serialise *obj* to JSON, sign, and return a URL-safe token. |
-| `unsign_object` | `def unsign_object(self, token: str, **kwargs: Any) -> Any` |  | Verify *token* and deserialise the embedded JSON payload. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `def sign(self, value: str, **kwargs: Any)` | Sign *value* and return ``"<value><sep><b64sig>"``. |
+| `unsign` | `def unsign(self, signed_value: str, **kwargs: Any)` | Verify and return the original value from a signed token. |
+| `sign_bytes` | `def sign_bytes(self, data: bytes)` | Sign raw *data* and return ``data + sep_byte + b64sig`` as bytes. |
+| `unsign_bytes` | `def unsign_bytes(self, signed_data: bytes)` | Verify and return the original bytes from signed byte data. |
+| `sign_object` | `def sign_object(self, obj: Any, **kwargs: Any)` | Serialise *obj* to JSON, sign, and return a URL-safe token. |
+| `unsign_object` | `def unsign_object(self, token: str, **kwargs: Any)` | Verify *token* and deserialise the embedded JSON payload. |
 
-### Class: `TimestampSigner`
+### `TimestampSigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `Signer`
@@ -2471,15 +2486,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `def sign(self, value: str, *, timestamp: datetime &#124; None = None, **kwargs: Any) -> str` |  | Sign *value* with an embedded UTC timestamp. |
-| `unsign` | `def unsign(self, signed_value: str, max_age: float &#124; int &#124; timedelta &#124; None = None, **kwargs: Any) -> str` |  | Verify signature, optionally enforce ``max_age``, and return value. |
-| `unsign_with_timestamp` | `def unsign_with_timestamp(self, signed_value: str, max_age: float &#124; int &#124; timedelta &#124; None = None) -> tuple[str, datetime]` |  | Verify signature and return ``(value, timestamp)`` tuple. |
-| `sign_object` | `def sign_object(self, obj: Any, *, timestamp: datetime &#124; None = None, **kwargs: Any) -> str` |  | Sign a JSON-serialisable object with an embedded timestamp. |
-| `unsign_object` | `def unsign_object(self, token: str, max_age: float &#124; int &#124; timedelta &#124; None = None, **kwargs: Any) -> Any` |  | Verify and deserialise a JSON object from a timestamped token. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `def sign(self, value: str, *, timestamp: datetime \| None=None, **kwargs: Any)` | Sign *value* with an embedded UTC timestamp. |
+| `unsign` | `def unsign(self, signed_value: str, max_age: float \| int \| timedelta \| None=None, **kwargs: Any)` | Verify signature, optionally enforce ``max_age``, and return value. |
+| `unsign_with_timestamp` | `def unsign_with_timestamp(self, signed_value: str, max_age: float \| int \| timedelta \| None=None)` | Verify signature and return ``(value, timestamp)`` tuple. |
+| `sign_object` | `def sign_object(self, obj: Any, *, timestamp: datetime \| None=None, **kwargs: Any)` | Sign a JSON-serialisable object with an embedded timestamp. |
+| `unsign_object` | `def unsign_object(self, token: str, max_age: float \| int \| timedelta \| None=None, **kwargs: Any)` | Verify and deserialise a JSON object from a timestamped token. |
 
-### Class: `RotatingSigner`
+### `RotatingSigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `object`
@@ -2487,27 +2502,27 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `current_signer` | `def current_signer(self) -> Signer` | property | The active signer (used for new :meth:`sign` calls). |
-| `sign` | `def sign(self, value: str, **kwargs: Any) -> str` |  | Sign *value* with the current (first) secret. |
-| `unsign` | `def unsign(self, signed_value: str, max_age: float &#124; int &#124; timedelta &#124; None = None, **kwargs: Any) -> str` |  | Try each secret in order; return the value verified by the first match. |
-| `sign_object` | `def sign_object(self, obj: Any, **kwargs: Any) -> str` |  | Sign a JSON-serialisable object with the current secret. |
-| `unsign_object` | `def unsign_object(self, token: str, max_age: float &#124; int &#124; timedelta &#124; None = None) -> Any` |  | Verify and deserialise using each secret in order. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `current_signer` | `def current_signer(self)` | The active signer (used for new :meth:`sign` calls). |
+| `sign` | `def sign(self, value: str, **kwargs: Any)` | Sign *value* with the current (first) secret. |
+| `unsign` | `def unsign(self, signed_value: str, max_age: float \| int \| timedelta \| None=None, **kwargs: Any)` | Try each secret in order; return the value verified by the first match. |
+| `sign_object` | `def sign_object(self, obj: Any, **kwargs: Any)` | Sign a JSON-serialisable object with the current secret. |
+| `unsign_object` | `def unsign_object(self, token: str, max_age: float \| int \| timedelta \| None=None)` | Verify and deserialise using each secret in order. |
 
-### Class: `SessionSigner`
+### `SessionSigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `TimestampSigner`
 - Summary: Timestamped signer for Aquilia session cookies.
 
-### Class: `CSRFSigner`
+### `CSRFSigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `Signer`
 - Summary: Signer for CSRF tokens.
 
-### Class: `ActivationLinkSigner`
+### `ActivationLinkSigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `TimestampSigner`
@@ -2515,38 +2530,38 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `unsign` | `def unsign(self, signed_value: str, max_age: float &#124; int &#124; timedelta &#124; None = None, **kwargs: Any) -> str` |  | Unsign with a default 24-hour max_age unless overridden. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `unsign` | `def unsign(self, signed_value: str, max_age: float \| int \| timedelta \| None=None, **kwargs: Any)` | Unsign with a default 24-hour max_age unless overridden. |
 
-### Class: `CacheKeySigner`
+### `CacheKeySigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `Signer`
 - Summary: Signer for cache key integrity verification.
 
-### Class: `CookieSigner`
+### `CookieSigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `TimestampSigner`
 - Summary: Timestamped signer for signed HTTP cookies (non-session).
 
-### Class: `APIKeySigner`
+### `APIKeySigner`
 
 - Source: `aquilia/signing.py`
 - Bases: `TimestampSigner`
 - Summary: Timestamped signer for short-lived API access keys / signed URLs.
 
-### Class: `SigningConfig`
+### `SigningConfig`
 
 - Source: `aquilia/signing.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Runtime signing configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `secret` | `str` | `''` |
 | `fallback_secrets` | `list[str]` | `field(default_factory=list)` |
@@ -2559,123 +2574,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `apply` | `def apply(self) -> None` |  | Apply this config to the global signing registry. |
-| `make_session_signer` | `def make_session_signer(self) -> SessionSigner` |  | Method. |
-| `make_csrf_signer` | `def make_csrf_signer(self) -> CSRFSigner` |  | Method. |
-| `make_activation_signer` | `def make_activation_signer(self) -> ActivationLinkSigner` |  | Method. |
-| `make_cache_signer` | `def make_cache_signer(self) -> CacheKeySigner` |  | Method. |
-| `make_cookie_signer` | `def make_cookie_signer(self) -> CookieSigner` |  | Method. |
-| `make_api_key_signer` | `def make_api_key_signer(self) -> APIKeySigner` |  | Method. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `parse_date_header` | `aquilia/_datastructures.py` | `def parse_date_header(date_str: str &#124; None) -> datetime &#124; None` | Parse HTTP date header. |
-| `parse_authorization_header` | `aquilia/_datastructures.py` | `def parse_authorization_header(auth_header: str &#124; None) -> tuple[str, str] &#124; None` | Parse Authorization header. |
-| `create_upload_file_from_bytes` | `aquilia/_uploads.py` | `def create_upload_file_from_bytes(filename: str, content: bytes, content_type: str = 'application/octet-stream') -> UploadFile` | Create an UploadFile from bytes (in-memory). |
-| `create_upload_file_from_path` | `aquilia/_uploads.py` | `def create_upload_file_from_path(filename: str, file_path: Path, content_type: str = 'application/octet-stream') -> UploadFile` | Create an UploadFile from a disk path. |
-| `find_dotenv` | `aquilia/dotenv.py` | `def find_dotenv(filename: str = '.env', raise_error: bool = False, usecwd: bool = False) -> Path &#124; None` | Search for a .env file. |
-| `load_dotenv` | `aquilia/dotenv.py` | `def load_dotenv(dotenv_path: str &#124; Path &#124; None = None, *, override: bool = False, interpolate: bool = True, encoding: str = 'utf-8') -> bool` | Load a .env file into os.environ. |
-| `dotenv_values` | `aquilia/dotenv.py` | `def dotenv_values(dotenv_path: str &#124; Path &#124; None = None, *, interpolate: bool = True, encoding: str = 'utf-8') -> dict[str, str]` | Parse a .env file and return values WITHOUT loading into os.environ. |
-| `ensure_dotenv_loaded` | `aquilia/dotenv.py` | `def ensure_dotenv_loaded(path: str &#124; Path &#124; None = None, *, auto_load: bool &#124; None = None) -> None` | Ensure dotenv is loaded (idempotent). |
-| `is_dotenv_loaded` | `aquilia/dotenv.py` | `def is_dotenv_loaded() -> bool` | Check if dotenv has been loaded. |
-| `reset_dotenv_state` | `aquilia/dotenv.py` | `def reset_dotenv_state() -> None` | Reset dotenv loaded state. |
-| `get_engine_metrics` | `aquilia/engine.py` | `def get_engine_metrics() -> EngineMetrics` | Return the process-level engine metrics singleton. |
-| `create_app` | `aquilia/entrypoint.py` | `def create_app(workspace_root: Path &#124; None = None, mode: str &#124; None = None) -> Any` | Create the ASGI application from workspace configuration. |
-| `requires` | `aquilia/flow.py` | `def requires(*effect_names: str) -> Callable` | Decorator declaring effect dependencies on a handler or flow node. |
-| `get_required_effects` | `aquilia/flow.py` | `def get_required_effects(func: Callable) -> list[str]` | Extract declared effect requirements from a callable. |
-| `pipeline` | `aquilia/flow.py` | `def pipeline(name: str = 'pipeline', *, timeout: float &#124; None = None) -> FlowPipeline` | Create a new FlowPipeline. |
-| `guard` | `aquilia/flow.py` | `def guard(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_AUTH, effects: list[str] &#124; None = None) -> FlowNode` | Create a guard FlowNode. |
-| `transform` | `aquilia/flow.py` | `def transform(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_TRANSFORM, effects: list[str] &#124; None = None) -> FlowNode` | Create a transform FlowNode. |
-| `handler` | `aquilia/flow.py` | `def handler(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_DEFAULT, effects: list[str] &#124; None = None) -> FlowNode` | Create a handler FlowNode. |
-| `hook` | `aquilia/flow.py` | `def hook(fn: Callable, *, name: str &#124; None = None, priority: int = PRIORITY_LOG, effects: list[str] &#124; None = None) -> FlowNode` | Create a hook FlowNode. |
-| `from_pipeline_list` | `aquilia/flow.py` | `def from_pipeline_list(nodes: Sequence[Any], *, name: str = 'controller_pipeline') -> FlowPipeline` | Convert a controller-style pipeline list to a FlowPipeline. |
-| `create_lifecycle_coordinator` | `aquilia/lifecycle.py` | `def create_lifecycle_coordinator(runtime: Any, config: Any = None) -> LifecycleCoordinator` | Factory function to create lifecycle coordinator. |
-| `reset_dotenv_state` | `aquilia/pyconfig.py` | `def reset_dotenv_state() -> None` | Reset the dotenv loading state. |
-| `section` | `aquilia/pyconfig.py` | `def section(cls: type) -> type` | Mark a nested class as a config *section*. |
-| `has_crous` | `aquilia/response.py` | `def has_crous() -> bool` | Return ``True`` if the ``crous`` library is importable. |
-| `Ok` | `aquilia/response.py` | `def Ok(content: Any = None, **kwargs) -> Response` | 200 OK response. |
-| `Created` | `aquilia/response.py` | `def Created(content: Any = None, location: str &#124; None = None, **kwargs) -> Response` | 201 Created response. |
-| `NoContent` | `aquilia/response.py` | `def NoContent() -> Response` | 204 No Content response. |
-| `BadRequest` | `aquilia/response.py` | `def BadRequest(message: str = 'Bad Request', **kwargs) -> Response` | 400 Bad Request response. |
-| `Unauthorized` | `aquilia/response.py` | `def Unauthorized(message: str = 'Unauthorized', **kwargs) -> Response` | 401 Unauthorized response. |
-| `Forbidden` | `aquilia/response.py` | `def Forbidden(message: str = 'Forbidden', **kwargs) -> Response` | 403 Forbidden response. |
-| `NotFound` | `aquilia/response.py` | `def NotFound(message: str = 'Not Found', **kwargs) -> Response` | 404 Not Found response. |
-| `InternalError` | `aquilia/response.py` | `def InternalError(message: str = 'Internal Server Error', **kwargs) -> Response` | 500 Internal Server Error response. |
-| `generate_etag` | `aquilia/response.py` | `def generate_etag(content: bytes, weak: bool = False) -> str` | Generate ETag from content. |
-| `generate_etag_from_file` | `aquilia/response.py` | `def generate_etag_from_file(path: PathLike, weak: bool = True) -> str` | Generate ETag from file metadata. |
-| `check_not_modified` | `aquilia/response.py` | `def check_not_modified(request: Any, etag: str &#124; None = None, last_modified: datetime &#124; None = None) -> bool` | Check if response should be 304 Not Modified. |
-| `not_modified_response` | `aquilia/response.py` | `def not_modified_response(etag: str &#124; None = None) -> Response` | Create 304 Not Modified response. |
-| `requires_crous` | `aquilia/response.py` | `def requires_crous(func: Callable) -> Callable` | Mark a handler as preferring CROUS binary responses. |
-| `b64_encode` | `aquilia/signing.py` | `def b64_encode(data: bytes) -> str` | URL-safe, no-padding Base64 encode. |
-| `b64_decode` | `aquilia/signing.py` | `def b64_decode(data: str &#124; bytes) -> bytes` | URL-safe, no-padding Base64 decode. |
-| `constant_time_compare` | `aquilia/signing.py` | `def constant_time_compare(a: bytes &#124; str, b: bytes &#124; str) -> bool` | Compare two values in constant time to prevent timing attacks. |
-| `derive_key` | `aquilia/signing.py` | `def derive_key(secret: str &#124; bytes, salt: str, algorithm: str = 'HS256') -> bytes` | Derive a signing sub-key from *secret* and *salt* using HKDF-lite. |
-| `dumps` | `aquilia/signing.py` | `def dumps(obj: Any, *, secret: str &#124; bytes &#124; None = None, salt: str = 'aquilia.signing.dumps', algorithm: str = 'HS256', compress: bool = False, max_age: float &#124; int &#124; timedelta &#124; None = None, timestamp: bool = True) -> str` | Serialise *obj* to a signed URL-safe string. |
-| `loads` | `aquilia/signing.py` | `def loads(token: str, *, secret: str &#124; bytes &#124; None = None, salt: str = 'aquilia.signing.dumps', algorithm: str = 'HS256', max_age: float &#124; int &#124; timedelta &#124; None = None) -> Any` | Verify and deserialise a token produced by :func:`dumps`. |
-| `configure` | `aquilia/signing.py` | `def configure(secret: str &#124; bytes, *, fallback_secrets: Sequence[str &#124; bytes] &#124; None = None, algorithm: str = 'HS256', salt: str = 'aquilia.signing') -> None` | Configure the global signing secret used by module-level helpers. |
-| `make_signer` | `aquilia/signing.py` | `def make_signer(secret: str &#124; bytes &#124; None = None, *, salt: str = 'aquilia.signing', algorithm: str &#124; None = None) -> Signer` | Create a :class:`Signer` with the given (or global) settings. |
-| `make_timestamp_signer` | `aquilia/signing.py` | `def make_timestamp_signer(secret: str &#124; bytes &#124; None = None, *, salt: str = 'aquilia.signing.ts', algorithm: str &#124; None = None) -> TimestampSigner` | Create a :class:`TimestampSigner` with the given (or global) settings. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `VERSION` | `aquilia/_version.py` | `tuple[int, int, int]` |
-| `WORKSPACE_VERSION` | `aquilia/_version.py` | `str` |
-| `_VAR_NAME_PATTERN` | `aquilia/dotenv.py` | `Final` |
-| `_INTERPOLATE_BRACES` | `aquilia/dotenv.py` | `Final` |
-| `_INTERPOLATE_SIMPLE` | `aquilia/dotenv.py` | `Final` |
-| `T` | `aquilia/effects.py` | `TypeVar('T')` |
-| `T` | `aquilia/flow.py` | `TypeVar('T')` |
-| `R` | `aquilia/flow.py` | `TypeVar('R')` |
-| `E` | `aquilia/flow.py` | `TypeVar('E')` |
-| `PRIORITY_CRITICAL` | `aquilia/flow.py` | `10` |
-| `PRIORITY_AUTH` | `aquilia/flow.py` | `20` |
-| `PRIORITY_VALIDATE` | `aquilia/flow.py` | `30` |
-| `PRIORITY_TRANSFORM` | `aquilia/flow.py` | `40` |
-| `PRIORITY_DEFAULT` | `aquilia/flow.py` | `50` |
-| `PRIORITY_ENRICH` | `aquilia/flow.py` | `60` |
-| `PRIORITY_LOG` | `aquilia/flow.py` | `70` |
-| `PRIORITY_CLEANUP` | `aquilia/flow.py` | `80` |
-| `_FD_SECURITY` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.SECURITY)` |
-| `_FD_IO` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.IO)` |
-| `_FD_ROUTING` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.ROUTING)` |
-| `_FD_EFFECT` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.EFFECT)` |
-| `_FD_MODEL` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.MODEL)` |
-| `_FD_CACHE` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.CACHE)` |
-| `_FD_CONFIG` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.CONFIG)` |
-| `_FD_REGISTRY` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.REGISTRY)` |
-| `_FD_DI` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.DI)` |
-| `_FD_FLOW` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.FLOW)` |
-| `_FD_SYSTEM` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.SYSTEM)` |
-| `_FD_STORAGE` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.STORAGE)` |
-| `_FD_TASKS` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.TASKS)` |
-| `_FD_TEMPLATE` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.TEMPLATE)` |
-| `_FD_HTTP` | `aquilia/middleware.py` | `cast(FaultDomain, FaultDomain.HTTP)` |
-| `_FAST_SKIP_NAMES` | `aquilia/middleware.py` | `frozenset({'LoggingMiddleware', 'TimeoutMiddleware'})` |
-| `_FALLBACK_500_HTML` | `aquilia/middleware.py` | `'<!DOCTYPE html><html><head><meta charset="utf-8"><title>500 Internal Server Error</title><style>body{font-family:system-ui,sans-serif;background:#000;color:#ed` |
-| `T` | `aquilia/pyconfig.py` | `TypeVar('T')` |
-| `CROUS_MEDIA_TYPE` | `aquilia/request.py` | `'application/x-crous'` |
-| `CROUS_MEDIA_TYPES` | `aquilia/request.py` | `frozenset({'application/x-crous', 'application/crous', 'application/vnd.crous'})` |
-| `CROUS_MAGIC` | `aquilia/request.py` | `b'CROUSv1'` |
-| `T` | `aquilia/request.py` | `TypeVar('T')` |
-| `_FD_IO` | `aquilia/request.py` | `cast(FaultDomain, FaultDomain.IO)` |
-| `_FD_SECURITY` | `aquilia/request.py` | `cast(FaultDomain, FaultDomain.SECURITY)` |
-| `CROUS_MEDIA_TYPE` | `aquilia/response.py` | `'application/x-crous'` |
-| `CROUS_MAGIC` | `aquilia/response.py` | `b'CROUSv1'` |
-| `_PHASE_ORDER` | `aquilia/runtime.py` | `dict[RuntimePhase, int]` |
-| `_HMAC_ALGORITHMS` | `aquilia/signing.py` | `frozenset[str]` |
-| `_ASYMMETRIC_ALGORITHMS` | `aquilia/signing.py` | `frozenset[str]` |
-| `_ALL_ALGORITHMS` | `aquilia/signing.py` | `frozenset[str]` |
-| `_HMAC_DIGEST_MAP` | `aquilia/signing.py` | `dict[str, str]` |
-| `_SEP` | `aquilia/signing.py` | `':'` |
-| `_MIN_KEY_BYTES` | `aquilia/signing.py` | `32` |
-| `_EPOCH` | `aquilia/signing.py` | `int(datetime(2020, 1, 1, tzinfo=timezone.utc).timestamp() * 1000000)` |
-| `_TS_FORMAT_V1` | `aquilia/signing.py` | `1` |
-| `_GLOBAL_SECRETS` | `aquilia/signing.py` | `list[str &#124; bytes]` |
-| `_GLOBAL_ALGORITHM` | `aquilia/signing.py` | `str` |
-| `_GLOBAL_SALT` | `aquilia/signing.py` | `str` |
+| `apply` | `def apply(self)` | Apply this config to the global signing registry. |
+| `make_session_signer` | `def make_session_signer(self)` |  |
+| `make_csrf_signer` | `def make_csrf_signer(self)` |  |
+| `make_activation_signer` | `def make_activation_signer(self)` |  |
+| `make_cache_signer` | `def make_cache_signer(self)` |  |
+| `make_cookie_signer` | `def make_cookie_signer(self)` |  |
+| `make_api_key_signer` | `def make_api_key_signer(self)` |  |

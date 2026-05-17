@@ -1,38 +1,53 @@
-# Controllers Configuration
+# Controller Configuration
 
-## Configuration Entry Points
+Controller base class, route decorators, compiler, router, execution engine, renderers, filters, pagination, and OpenAPI generation.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/controller/__init__.py` | 169 | 0 | 0 | Aquilia Controller System |
+| `aquilia/controller/base.py` | 650 | 5 | 0 | Controller Base Class |
+| `aquilia/controller/compiler.py` | 381 | 3 | 0 | Controller Compiler - Compiles controllers to patterns and routes. |
+| `aquilia/controller/decorators.py` | 739 | 10 | 1 | Controller Method Decorators |
+| `aquilia/controller/engine.py` | 1386 | 1 | 0 | Controller Engine - Executes controller methods with full integration. |
+| `aquilia/controller/factory.py` | 403 | 3 | 0 | Controller Factory |
+| `aquilia/controller/filters.py` | 766 | 5 | 5 | Aquilia Filter System -- declarative filtering, searching, and ordering. |
+| `aquilia/controller/metadata.py` | 461 | 3 | 1 | Controller Metadata Extraction |
+| `aquilia/controller/openapi.py` | 1089 | 3 | 2 | OpenAPI 3.1.0 Generation for Aquilia Controllers. |
+| `aquilia/controller/pagination.py` | 724 | 5 | 0 | Aquilia Pagination System -- declarative pagination backends. |
+| `aquilia/controller/renderers.py` | 453 | 8 | 1 | Aquilia Content Negotiation & Renderer System. |
+| `aquilia/controller/router.py` | 592 | 2 | 0 | Controller Router - Pattern-based router for controllers. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `CompiledRoute` | `aquilia/controller/compiler.py` | controller_class: type, controller_metadata: ControllerMetadata, route_metadata: RouteMetadata, compiled_pattern: CompiledPattern, full_path: str, http_method: str, specificity: int, app_name: str &#124; None, version_metadata: dict[str, Any] &#124; None | A compiled controller route with pattern and handler. |
-| `CompiledController` | `aquilia/controller/compiler.py` | controller_class: type, metadata: ControllerMetadata, routes: list[CompiledRoute] | A fully compiled controller with all routes. |
-| `ParameterMetadata` | `aquilia/controller/metadata.py` | name: str, type: type, default: Any, source: str, required: bool, pattern: str &#124; None | Metadata for a route method parameter. |
-| `RouteMetadata` | `aquilia/controller/metadata.py` | http_method: str, path_template: str, full_path: str, handler_name: str, parameters: list[ParameterMetadata], pipeline: list[Any], summary: str, description: str, tags: list[str], deprecated: bool, response_model: type &#124; None, status_code: int, ... | Metadata for a single route (controller method). |
-| `ControllerMetadata` | `aquilia/controller/metadata.py` | class_name: str, module_path: str, prefix: str, routes: list[RouteMetadata], pipeline: list[Any], tags: list[str], instantiation_mode: str, constructor_params: list[ParameterMetadata], version: Any &#124; None | Complete metadata for a Controller class. |
-| `ParsedDocstring` | `aquilia/controller/openapi.py` | summary: str, description: str, params: dict[str, str], returns: str, raises: list[dict[str, str]], request_body: str &#124; None | Parsed handler docstring with structured sections. |
-| `OpenAPIConfig` | `aquilia/controller/openapi.py` | title: str, version: str, description: str, terms_of_service: str, contact_name: str, contact_email: str, contact_url: str, license_name: str, license_url: str, servers: list[dict[str, str]], docs_path: str, openapi_json_path: str, ... | Configuration for OpenAPI spec generation. |
-| `ControllerRouteMatch` | `aquilia/controller/router.py` | route: CompiledRoute, params: dict[str, Any], query: dict[str, Any] | Result of a successful controller route match. |
+| `OpenAPIConfig` | `aquilia/controller/openapi.py` | `from_dict` | Configuration for OpenAPI spec generation. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

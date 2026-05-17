@@ -1,72 +1,95 @@
-# Dependency Injection Architecture
+# Di Architecture
 
-## Runtime Role
+Scoped dependency injection container, providers, request DAG, decorators, lifecycle disposal, diagnostics, scopes, and testing utilities.
 
-The scoped dependency injection container, provider model, lifecycle disposal, dependency graph, request DAG, and testing overrides.
+## Source Boundaries
 
-The implementation is split across 14 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/di/__init__.py` | 132 | 0 | 0 | Aquilia Dependency Injection System |
+| `aquilia/di/cli.py` | 479 | 0 | 7 | CLI commands for DI system. |
+| `aquilia/di/compat.py` | 105 | 1 | 3 | Compatibility layer with legacy Aquilia DI system. |
+| `aquilia/di/core.py` | 1034 | 5 | 0 | Core DI types and protocols. |
+| `aquilia/di/decorators.py` | 242 | 1 | 5 | Decorators and injection helpers for ergonomic DI usage. |
+| `aquilia/di/dep.py` | 398 | 4 | 0 | Dep -- Composable dependency descriptor for annotation-driven DI. |
+| `aquilia/di/diagnostics.py` | 122 | 5 | 0 | DI Diagnostics - Observability and event tracking for DI containers. |
+| `aquilia/di/errors.py` | 239 | 9 | 0 | DI-specific error types with rich diagnostics. |
+| `aquilia/di/graph.py` | 261 | 1 | 0 | Graph analysis and cycle detection for DI system. |
+| `aquilia/di/lifecycle.py` | 241 | 4 | 0 | Lifecycle management for providers and containers. |
+| `aquilia/di/providers.py` | 822 | 8 | 0 | Provider implementations for different instantiation strategies. |
+| `aquilia/di/request_dag.py` | 431 | 1 | 0 | RequestDAG -- Per-request dependency graph resolver. |
+| `aquilia/di/scopes.py` | 99 | 3 | 0 | Scope definitions and validation. |
+| `aquilia/di/testing.py` | 195 | 2 | 1 | Testing utilities for DI system. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/di/__init__.py`: Aquilia Dependency Injection System
-- `aquilia/di/cli.py`: CLI commands for DI system.
-- `aquilia/di/compat.py`: Compatibility layer with legacy Aquilia DI system.
-- `aquilia/di/core.py`: Core DI types and protocols.
-- `aquilia/di/decorators.py`: Decorators and injection helpers for ergonomic DI usage.
-- `aquilia/di/dep.py`: Dep -- Composable dependency descriptor for annotation-driven DI.
-- `aquilia/di/diagnostics.py`: DI Diagnostics - Observability and event tracking for DI containers.
-- `aquilia/di/errors.py`: DI-specific error types with rich diagnostics.
-- `aquilia/di/graph.py`: Graph analysis and cycle detection for DI system.
-- `aquilia/di/lifecycle.py`: Lifecycle management for providers and containers.
-- `aquilia/di/providers.py`: Provider implementations for different instantiation strategies.
-- `aquilia/di/request_dag.py`: RequestDAG -- Per-request dependency graph resolver.
-- `aquilia/di/scopes.py`: Scope definitions and validation.
-- `aquilia/di/testing.py`: Testing utilities for DI system.
+`di` has 14 Python files, 44 public classes, 16 public module-level functions, and 8 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.core` | 5 |
+| `.errors` | 4 |
+| `.dep` | 2 |
+| `.providers` | 2 |
+| `.compat` | 1 |
+| `.decorators` | 1 |
+| `.graph` | 1 |
+| `.lifecycle` | 1 |
+| `.request_dag` | 1 |
+| `.scopes` | 1 |
+| `.testing` | 1 |
+| `aquilia._version` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `typing` | 11 |
 | `collections` | 7 |
 | `dataclasses` | 6 |
 | `asyncio` | 5 |
-| `core` | 5 |
-| `errors` | 4 |
 | `inspect` | 4 |
 | `contextlib` | 3 |
 | `enum` | 3 |
 | `logging` | 3 |
 | `__future__` | 2 |
-| `dep` | 2 |
-| `providers` | 2 |
 | `sys` | 2 |
 | `time` | 2 |
-| `aquilia` | 1 |
-| `compat` | 1 |
 | `contextvars` | 1 |
-| `decorators` | 1 |
 | `functools` | 1 |
-| `graph` | 1 |
 | `json` | 1 |
-| `lifecycle` | 1 |
 | `pathlib` | 1 |
-| `request_dag` | 1 |
-| `scopes` | 1 |
-| `testing` | 1 |
 | `types` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `ProviderMeta` | `aquilia/di/core.py` | Compact, serializable provider metadata. |
+| `Provider` | `aquilia/di/core.py` | Provider protocol - how to instantiate a dependency. |
+| `Registry` | `aquilia/di/core.py` | Registry - builds and validates provider graph from manifests. |
+| `ProviderNotFoundError` | `aquilia/di/errors.py` | Provider not found for requested token. |
+| `AmbiguousProviderError` | `aquilia/di/errors.py` | Multiple providers found for token without tag. |
+| `LifecycleHook` | `aquilia/di/lifecycle.py` | Lifecycle hook registration. |
+| `ClassProvider` | `aquilia/di/providers.py` | Provider that instantiates a class by resolving constructor dependencies. |
+| `FactoryProvider` | `aquilia/di/providers.py` | Provider that calls a factory function to produce instances. |
+| `ValueProvider` | `aquilia/di/providers.py` | Provider that returns a pre-bound constant value. |
+| `PoolProvider` | `aquilia/di/providers.py` | Provider that manages a pool of instances. |
+| `AliasProvider` | `aquilia/di/providers.py` | Provider that aliases one token to another. |
+| `LazyProxyProvider` | `aquilia/di/providers.py` | Provider that creates a lazy proxy for cycle resolution. |
+| `ScopedProvider` | `aquilia/di/providers.py` | Wrapper provider that enforces scope semantics. |
+| `BlueprintProvider` | `aquilia/di/providers.py` | DI Provider that creates Blueprint instances with request context. |
+| `MockProvider` | `aquilia/di/testing.py` | Mock provider for testing. |
+| `TestRegistry` | `aquilia/di/testing.py` | Registry with testing support. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`DIError`, `ProviderNotFoundError`, `DependencyCycleError`, `ScopeViolationError`, `AmbiguousProviderError`, `ManifestValidationError`, `CrossAppDependencyError`, `CircularDependencyError`, `MissingDependencyError`

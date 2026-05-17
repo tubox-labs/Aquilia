@@ -1,43 +1,25 @@
-# SQLite Edge Cases And Limitations
+# Sqlite Edge Cases And Limitations
 
-## Fault And Error Types
+Native async SQLite compatibility layer, connection pool, transactions, cursors, rows, PRAGMAs, backup, metrics, and errors.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `SqliteError` | `aquilia/sqlite/_errors.py` | Base exception for all aquilia.sqlite errors. |
-| `SqliteConnectionError` | `aquilia/sqlite/_errors.py` | Connection open / close failed. |
-| `PoolExhaustedError` | `aquilia/sqlite/_errors.py` | All connections in the pool are busy and the wait timed out. |
-| `SqliteQueryError` | `aquilia/sqlite/_errors.py` | Query execution failed. |
-| `SqliteIntegrityError` | `aquilia/sqlite/_errors.py` | Integrity constraint violated (UNIQUE, FK, CHECK, NOT NULL). |
-| `SqliteSchemaError` | `aquilia/sqlite/_errors.py` | Schema-level error (missing table, missing column). |
-| `SqliteTimeoutError` | `aquilia/sqlite/_errors.py` | Query or connection timed out. |
-| `SqliteSecurityError` | `aquilia/sqlite/_errors.py` | Security violation (path traversal, sandbox escape). |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`SqliteError`, `SqliteConnectionError`, `PoolExhaustedError`, `SqliteQueryError`, `SqliteIntegrityError`, `SqliteSchemaError`, `SqliteTimeoutError`, `SqliteSecurityError`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/sqlite/__init__.py`: ``aquilia.sqlite`` - Native async SQLite module for the Aquilia framework.
-- `aquilia/sqlite/_backup.py`: Backup - Online SQLite backup API.
-- `aquilia/sqlite/_compat.py`: Compatibility Shim - aiosqlite-compatible API for gradual migration.
-- `aquilia/sqlite/_config.py`: SQLite Configuration - Extended pool and PRAGMA config for native SQLite.
-- `aquilia/sqlite/_connection.py`: Async Connection - Thread-dispatched wrapper around ``sqlite3.Connection``.
-- `aquilia/sqlite/_cursor.py`: Async Cursor - Streaming row iteration over query results.
-- `aquilia/sqlite/_errors.py`: SQLite Errors - Exception hierarchy and fault mapping.
-- `aquilia/sqlite/_metrics.py`: SQLite Metrics - Observable counters for the native SQLite module.
-- `aquilia/sqlite/_pool.py`: Connection Pool - Async pool with N readers + 1 writer.
-- `aquilia/sqlite/_pragma.py`: PRAGMA Builder - Build and apply SQLite PRAGMA statements from config.
-- `aquilia/sqlite/_rows.py`: SQLite Row - Dict-like row with attribute access.
-- `aquilia/sqlite/_service.py`: SQLite Service - DI-integrated pool lifecycle management.
-- `aquilia/sqlite/_statement_cache.py`: Statement Cache - Per-connection LRU cache for prepared statements.
-- `aquilia/sqlite/_transaction.py`: Transaction & Savepoint - Async context managers for transaction control.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

@@ -1,23 +1,12 @@
-# Aquilary Registry Integration Guide
+# Aquilary Integration Guide
 
-## Workspace Integration
+Manifest registry, validation, dependency graph, route table compilation metadata, fingerprinting, and runtime registry construction.
 
-Use workspace-level configuration for cross-cutting behavior and module manifests for component registration.
+## Where This Module Fits
 
-```python
-from aquilia import Module, Workspace
+Import the public classes/functions listed in `api-reference.md` or wire the module through manifests and services.
 
-workspace = (
-    Workspace("myapp")
-    .module(Module("example").route_prefix("/example"))
-)
-```
-
-If this subsystem has a typed integration object, attach it with `workspace.integrate(...)`. See `configuration.md` for detected configuration datatypes.
-
-## Module Manifest Integration
-
-Register application-owned classes from `modules/<name>/manifest.py`.
+## Manifest Pattern
 
 ```python
 from aquilia import AppManifest
@@ -27,14 +16,12 @@ manifest = AppManifest(
     version="1.0.0",
     controllers=["modules.example.controllers:ExampleController"],
     services=["modules.example.services:ExampleService"],
-    base_path="modules.example",
 )
 ```
 
-## Request-Time Integration
+## Verification
 
-When this module participates in request handling, data normally flows through `RequestCtx`, `request.state`, DI containers, middleware, controllers, or providers. Use the public service methods shown in `api-reference.md` instead of reaching into private attributes.
-
-## Testing Integration
-
-Use the classes and helpers listed in `api-reference.md` directly in unit tests. For framework-level behavior, prefer Aquilia testing helpers from `aquilia.testing` and keep tests scoped to the module boundary.
+- `aq validate` checks manifest structure.
+- `aq doctor` runs broader workspace diagnostics.
+- `aq inspect config` shows resolved configuration.
+- `aq inspect routes` shows compiled HTTP routes after discovery/compilation.

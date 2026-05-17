@@ -1,10 +1,15 @@
 # Sessions Documentation
 
-This directory is the professional documentation set for `sessions`. It is implementation-driven and aligned with the current source files under `aquilia/sessions`.
+Session IDs, policies, stores, transports, engine, decorators, typed session state, and session faults.
 
-## What This Covers
+## Coverage Snapshot
 
-The session subsystem with policy builders, stores, transports, guards, decorators, state objects, session engine, lifecycle rules, and typed session faults.
+- Source files: 9
+- Source lines: 3159
+- Public classes: 41
+- Public module functions: 3
+- Constants/module flags: 9
+- Public exports in `__all__`: 48
 
 ## Source Files Read
 
@@ -20,39 +25,11 @@ The session subsystem with policy builders, stores, transports, guards, decorato
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 9
-- Public classes: 41
-- Configuration or dataclass-like types: 6
-- Public functions: 3
-- Constants detected: 6
-
-## Fast Start
-
-```python
-from datetime import timedelta
-from aquilia.sessions import SessionPolicy, PersistencePolicy, TransportPolicy
-
-user_sessions = SessionPolicy(
-    name="user",
-    ttl=timedelta(days=7),
-    idle_timeout=timedelta(hours=1),
-    persistence=PersistencePolicy(enabled=True, store_name="memory"),
-    transport=TransportPolicy(adapter="cookie", cookie_httponly=True),
-    scope="user",
-)
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

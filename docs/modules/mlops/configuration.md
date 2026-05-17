@@ -1,74 +1,128 @@
-# MLOps Configuration
+# Mlops Configuration
 
-## Configuration Entry Points
+Model operations platform: modelpacks, serving, registries, runtimes, orchestration, observability, rollout, optimization, plugins, scheduler, and security.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/mlops/__init__.py` | 317 | 0 | 0 | Aquilia MLOps Platform |
+| `aquilia/mlops/_structures.py` | 1374 | 17 | 0 | MLOps Data Structures -- High-performance primitives for ML pipelines. |
+| `aquilia/mlops/_types.py` | 746 | 30 | 0 | Aquilia MLOps Platform -- Shared type definitions. |
+| `aquilia/mlops/api/__init__.py` | 14 | 0 | 0 | Aquilia MLOps API Layer. |
+| `aquilia/mlops/api/blueprints.py` | 403 | 26 | 0 | MLOps Blueprints -- Aquilia Blueprint definitions for all MLOps data types. |
+| `aquilia/mlops/api/functional.py` | 113 | 0 | 1 | Functional Serving -- ``@serve`` decorator for minimal model definitions. |
+| `aquilia/mlops/api/model_class.py` | 207 | 1 | 2 | AquiliaModel -- declarative base class and ``@model`` decorator. |
+| `aquilia/mlops/api/route_generator.py` | 250 | 2 | 0 | Route Generator -- auto-generate Aquilia controller endpoints per model. |
+| `aquilia/mlops/di/providers.py` | 597 | 1 | 1 | MLOps DI Integration -- Wires all MLOps services into Aquilia's DI container. |
+| `aquilia/mlops/engine/__init__.py` | 31 | 0 | 0 | Aquilia MLOps Execution Engine. |
+| `aquilia/mlops/engine/faults.py` | 644 | 40 | 0 | MLOps Fault Domain -- Structured error handling for the entire ML pipeline. |
+| `aquilia/mlops/engine/hooks.py` | 177 | 1 | 8 | Pipeline Hooks -- decorator-based lifecycle and inference hooks. |
+| `aquilia/mlops/engine/lifecycle.py` | 355 | 0 | 2 | MLOps Lifecycle Hooks -- Startup / shutdown integration with Aquilia's LifecycleCoordinator. |
+| `aquilia/mlops/engine/module.py` | 111 | 1 | 0 | MLOps Aquilary Module -- register MLOps as an Aquilary application module. |
+| `aquilia/mlops/engine/pipeline.py` | 313 | 2 | 0 | Inference Pipeline -- async preprocess → batch/infer → postprocess pipeline. |
+| `aquilia/mlops/explain/__init__.py` | 1 | 0 | 0 | Explainability and privacy hooks. |
+| `aquilia/mlops/explain/hooks.py` | 251 | 5 | 1 | Explainability hooks -- SHAP & LIME wrappers with a unified interface. |
+| `aquilia/mlops/explain/privacy.py` | 197 | 5 | 0 | Privacy helpers -- PII redaction, differential privacy noise, and input sanitisation transforms for inference payloads. |
+| `aquilia/mlops/manifest/__init__.py` | 15 | 0 | 0 | Aquilia MLOps Manifest Configuration. |
+| `aquilia/mlops/manifest/config.py` | 159 | 2 | 1 | Manifest Config -- parse ``[mlops]`` config from Aquilia workspace config. |
+| `aquilia/mlops/manifest/schema.py` | 116 | 1 | 2 | Manifest Schema Validation for MLOps configuration. |
+| `aquilia/mlops/observe/__init__.py` | 1 | 0 | 0 | Observability: metrics, drift detection, logging. |
+| `aquilia/mlops/observe/drift.py` | 324 | 1 | 0 | Drift detection -- PSI, KS-test, and distribution tracking. |
+| `aquilia/mlops/observe/logger.py` | 108 | 1 | 0 | Feature and prediction logger. |
+| `aquilia/mlops/observe/metrics.py` | 253 | 2 | 0 | Prometheus-compatible metrics collector. |
+| `aquilia/mlops/optimizer/__init__.py` | 1 | 0 | 0 | Optimization pipeline: quantize, prune, export. |
+| `aquilia/mlops/optimizer/export.py` | 197 | 2 | 1 | Edge export utilities -- TFLite, CoreML, quantized ONNX. |
+| `aquilia/mlops/optimizer/pipeline.py` | 169 | 2 | 0 | Optimization Pipeline -- orchestrates quantization, pruning, fusion, compilation. |
+| `aquilia/mlops/orchestrator/__init__.py` | 22 | 0 | 0 | Aquilia MLOps Model Orchestrator. |
+| `aquilia/mlops/orchestrator/loader.py` | 520 | 2 | 0 | Model Loader -- lazy loading, hot reload, and lifecycle state management. |
+| `aquilia/mlops/orchestrator/orchestrator.py` | 263 | 1 | 0 | Model Orchestrator -- top-level façade for ML inference. |
+| `aquilia/mlops/orchestrator/persistence.py` | 163 | 6 | 0 | Model Persistence System -- Robust loading and saving for production models. |
+| `aquilia/mlops/orchestrator/registry.py` | 264 | 3 | 0 | Model Registry -- in-memory metadata-only registry for ML models. |
+| `aquilia/mlops/orchestrator/router.py` | 154 | 2 | 0 | Version Router -- routes inference requests to the correct model version. |
+| `aquilia/mlops/orchestrator/versioning.py` | 100 | 1 | 0 | Version Manager -- semantic versioning, promotion, and rollback. |
+| `aquilia/mlops/pack/__init__.py` | 1 | 0 | 0 | Modelpack builder and content store. |
+| `aquilia/mlops/pack/builder.py` | 319 | 1 | 0 | Modelpack Builder -- Creates ``.aquilia`` archive artifacts. |
+| `aquilia/mlops/pack/content_store.py` | 111 | 1 | 0 | Content-addressable blob store. |
+| `aquilia/mlops/pack/manifest_schema.py` | 161 | 0 | 1 | JSON Schema for modelpack ``manifest.json``. |
+| `aquilia/mlops/pack/signer.py` | 132 | 3 | 2 | Artifact signing and verification. |
+| `aquilia/mlops/plugins/__init__.py` | 1 | 0 | 0 | Plugin system and marketplace. |
+| `aquilia/mlops/plugins/example_plugin.py` | 66 | 1 | 0 | Example Aquilia MLOps plugin -- demonstrates how to write a plugin. |
+| `aquilia/mlops/plugins/host.py` | 230 | 4 | 0 | Plugin host -- discovers, loads, and manages lifecycle of MLOps plugins. |
+| `aquilia/mlops/plugins/marketplace.py` | 134 | 2 | 0 | Plugin marketplace -- lightweight discovery & installation of community and first-party MLOps plugins from a remote index. |
+| `aquilia/mlops/registry/__init__.py` | 1 | 0 | 0 | Registry service and storage adapters. |
+| `aquilia/mlops/registry/models.py` | 181 | 1 | 0 | Registry data models -- SQLite backend (default). |
+| `aquilia/mlops/registry/service.py` | 301 | 4 | 0 | Registry Service -- HTTP API for publishing, fetching and managing modelpacks. |
+| `aquilia/mlops/registry/storage/__init__.py` | 1 | 0 | 0 | Storage adapter implementations. |
+| `aquilia/mlops/registry/storage/base.py` | 31 | 1 | 0 | Base storage adapter -- abstract interface for blob backends. |
+| `aquilia/mlops/registry/storage/filesystem.py` | 55 | 1 | 0 | Filesystem storage adapter -- stores blobs on local disk. |
+| `aquilia/mlops/registry/storage/s3.py` | 100 | 1 | 0 | S3 / MinIO storage adapter for registry blob storage. |
+| `aquilia/mlops/release/__init__.py` | 1 | 0 | 0 | Release management: rollouts, CI/CD. |
+| `aquilia/mlops/release/ci.py` | 153 | 0 | 2 | CI/CD templates and GitHub Actions configuration. |
+| `aquilia/mlops/release/rollout.py` | 185 | 3 | 0 | Release rollout engine -- canary, A/B, shadow traffic management. |
+| `aquilia/mlops/runtime/__init__.py` | 1 | 0 | 0 | Runtime adapters for model inference. |
+| `aquilia/mlops/runtime/base.py` | 343 | 4 | 1 | Runtime base -- abstract interface for inference backends. |
+| `aquilia/mlops/runtime/bento_exporter.py` | 75 | 1 | 0 | BentoML exporter -- generates BentoML-compatible service bundles. |
+| `aquilia/mlops/runtime/device_manager.py` | 335 | 3 | 0 | Device Manager -- auto-detection, fallback, monitoring, and locking for compute devices (CPU, CUDA, MPS, NPU). |
+| `aquilia/mlops/runtime/executor.py` | 238 | 2 | 0 | Inference Executor -- offloads blocking inference to thread/process pools. |
+| `aquilia/mlops/runtime/onnx_runtime.py` | 137 | 1 | 0 | ONNX Runtime adapter -- high-performance inference via onnxruntime. |
+| `aquilia/mlops/runtime/python_runtime.py` | 500 | 1 | 0 | Python in-process runtime -- loads and runs models natively in Python. |
+| `aquilia/mlops/runtime/torchserve_exporter.py` | 91 | 1 | 0 | TorchServe exporter -- generates TorchServe-compatible model archives. |
+| `aquilia/mlops/runtime/triton_adapter.py` | 101 | 1 | 0 | Triton Inference Server adapter. |
+| `aquilia/mlops/scheduler/__init__.py` | 1 | 0 | 0 | Autoscaling and placement scheduling. |
+| `aquilia/mlops/scheduler/autoscaler.py` | 319 | 3 | 0 | Autoscaler -- K8s HPA metrics exporter and scaling policy engine. |
+| `aquilia/mlops/scheduler/placement.py` | 196 | 3 | 0 | Hardware-aware placement scheduler. |
+| `aquilia/mlops/security/__init__.py` | 1 | 0 | 0 | Security: signing, encryption, RBAC. |
+| `aquilia/mlops/security/encryption.py` | 37 | 1 | 0 | Encryption at rest for registry blobs. |
+| `aquilia/mlops/security/rbac.py` | 111 | 3 | 0 | RBAC for registry operations. |
+| `aquilia/mlops/security/signing.py` | 91 | 2 | 0 | Security -- artifact signing, verification, and encryption at rest. |
+| `aquilia/mlops/serving/__init__.py` | 1 | 0 | 0 | Model serving layer. |
+| `aquilia/mlops/serving/batching.py` | 382 | 1 | 0 | Dynamic Batching Scheduler. |
+| `aquilia/mlops/serving/controllers.py` | 800 | 1 | 0 | MLOps Controller -- HTTP endpoints for model serving, registry, and observability. |
+| `aquilia/mlops/serving/middleware.py` | 296 | 0 | 5 | MLOps Middleware -- Inference metrics, rate limiting, and circuit breaker integration as Aquilia middleware. |
+| `aquilia/mlops/serving/router.py` | 221 | 2 | 0 | Traffic router -- canary, A/B, shadow, sticky routing for model deployments. |
+| `aquilia/mlops/serving/server.py` | 514 | 2 | 0 | Model Serving Server -- dev and production serving with typed endpoints. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `LineageNode` | `aquilia/mlops/_structures.py` | model_id: str, version: str, framework: str, created_at: float, metadata: dict[str, Any], parents: list[str], children: list[str] | A single node in the model lineage graph. |
-| `ExperimentArm` | `aquilia/mlops/_structures.py` | name: str, model_version: str, weight: float, metrics: dict[str, float], request_count: int | One arm of an A/B experiment. |
-| `Experiment` | `aquilia/mlops/_structures.py` | experiment_id: str, description: str, arms: list[ExperimentArm], status: str, created_at: float, metadata: dict[str, Any] | A/B experiment definition. |
-| `TensorSpec` | `aquilia/mlops/_types.py` | name: str, dtype: DType, shape: list[Any] | Describes a single tensor in the inference signature. |
-| `BlobRef` | `aquilia/mlops/_types.py` | path: str, digest: str, size: int | Reference to a blob inside a modelpack. |
-| `Provenance` | `aquilia/mlops/_types.py` | git_sha: str, dataset_snapshot: str, dockerfile: str, build_timestamp: str | Provenance metadata for reproducibility. |
-| `LLMConfig` | `aquilia/mlops/_types.py` | model_type: ModelType, max_seq_length: int, max_new_tokens: int, max_batch_tokens: int, kv_cache_max_mb: int, tensor_parallel: int, pipeline_parallel: int, dtype: str, device: DeviceType, trust_remote_code: bool, tokenizer_name: str, chat_template: str, ... | Configuration specific to LLM/SLM model serving. |
-| `ModelpackManifest` | `aquilia/mlops/_types.py` | name: str, version: str, framework: str, entrypoint: str, inputs: list[TensorSpec], outputs: list[TensorSpec], env_lock: str, provenance: Provenance, blobs: list[BlobRef], created_at: str, signed_by: str, metadata: dict[str, Any], ... | Complete manifest for a modelpack artifact. |
-| `InferenceRequest` | `aquilia/mlops/_types.py` | request_id: str, inputs: dict[str, Any], parameters: dict[str, Any], timestamp: float, priority: int, stream: bool, max_tokens: int, timeout_ms: float | A single inference request. |
-| `InferenceResult` | `aquilia/mlops/_types.py` | request_id: str, outputs: dict[str, Any], latency_ms: float, metadata: dict[str, Any], token_count: int, prompt_tokens: int, finish_reason: str | Result of a single inference. |
-| `StreamChunk` | `aquilia/mlops/_types.py` | request_id: str, token: str, token_id: int, is_finished: bool, finish_reason: str, cumulative_tokens: int, latency_ms: float | A single chunk in a streaming inference response. |
-| `BatchRequest` | `aquilia/mlops/_types.py` | requests: list[InferenceRequest], batch_id: str | Aggregated batch of inference requests. |
-| `PlacementScore` | `aquilia/mlops/_types.py` | node_id: str, device_affinity: float, memory_fit: float, current_load: float, cold_start_cost: float, total: float | Score for scheduler placement decisions. |
-| `RolloutConfig` | `aquilia/mlops/_types.py` | from_version: str, to_version: str, strategy: RolloutStrategy, percentage: int, metric: str, threshold: float, auto_rollback: bool, step_interval_seconds: int | Configuration for a traffic rollout. |
-| `DriftReport` | `aquilia/mlops/_types.py` | method: DriftMethod, score: float, threshold: float, is_drifted: bool, feature_scores: dict[str, float], window_start: str, window_end: str | Result of a drift detection analysis. |
-| `CircuitBreakerConfig` | `aquilia/mlops/_types.py` | failure_threshold: int, success_threshold: int, timeout_seconds: float, half_open_max_calls: int | Configuration for inference circuit breaker. |
-| `TokenUsage` | `aquilia/mlops/_types.py` | prompt_tokens: int, completion_tokens: int, total_tokens: int, tokens_per_second: float, time_to_first_token_ms: float, kv_cache_usage_mb: float | Token usage tracking for LLM inference. |
-| `RouteDefinition` | `aquilia/mlops/api/route_generator.py` | method: str, path: str, handler: Callable, model_name: str, description: str | A generated route definition ready for controller compilation. |
-| `MLOpsConfig` | `aquilia/mlops/di/providers.py` | See class attributes and constructor methods. | Typed configuration for MLOps DI registration. |
-| `PipelineContext` | `aquilia/mlops/engine/pipeline.py` | request_id: str, model_name: str, model_version: str, trace_id: str, start_time: float, stage_timings: dict[str, float], metadata: dict[str, Any] | Per-request context flowing through the pipeline. |
-| `FeatureAttribution` | `aquilia/mlops/explain/hooks.py` | name: str, value: float, base_value: float | Single feature's contribution. |
-| `Explanation` | `aquilia/mlops/explain/hooks.py` | method: ExplainMethod, attributions: list[FeatureAttribution], prediction: Any, extra: dict[str, Any] | Complete explanation for one prediction. |
-| `PIIMatch` | `aquilia/mlops/explain/privacy.py` | kind: PIIKind, start: int, end: int, text: str | Configuration or typed data class. |
-| `ModelManifestEntry` | `aquilia/mlops/manifest/config.py` | name: str, class_path: str, version: str, device: str, batch_size: int, max_batch_latency_ms: float, warmup_requests: int, workers: int, timeout_ms: float, artifacts_dir: str, supports_streaming: bool, tags: list[str], ... | Configuration for a single model from the manifest. |
-| `MLOpsManifestConfig` | `aquilia/mlops/manifest/config.py` | enabled: bool, default_device: str, default_workers: int, default_batch_size: int, default_max_batch_latency_ms: float, default_timeout_ms: float, route_prefix: str, models: list[ModelManifestEntry] | Parsed ``[mlops]`` configuration from Aquilia workspace config. |
-| `MetricPoint` | `aquilia/mlops/observe/metrics.py` | name: str, value: float, labels: dict[str, str], timestamp: float | Single metric data point. |
-| `ExportResult` | `aquilia/mlops/optimizer/export.py` | target: str, output_path: str, size_bytes: int, notes: list[str] | Result of an edge export. |
-| `OptimizationResult` | `aquilia/mlops/optimizer/pipeline.py` | original_size_bytes: int, optimized_size_bytes: int, original_path: str, optimized_path: str, preset: str, compression_ratio: float, notes: list[str] | Result of an optimization pass. |
-| `ModelBundle` | `aquilia/mlops/orchestrator/persistence.py` | name: str, version: str, weights_path: Path, metadata: dict[str, Any], framework: str, dtype: str | A complete model bundle ready for persistence. |
-| `ModelConfig` | `aquilia/mlops/orchestrator/registry.py` | device: str, batch_size: int, max_batch_latency_ms: float, warmup_requests: int, workers: int, timeout_ms: float, artifacts_dir: str, metadata: dict[str, Any] | Per-model configuration (from manifest or decorator). |
-| `ModelEntry` | `aquilia/mlops/orchestrator/registry.py` | name: str, version: str, model_class: Any, config: ModelConfig, state: ModelState, registered_at: float, supports_streaming: bool, tags: list[str] | Registry entry for a single model version. |
-| `CanaryConfig` | `aquilia/mlops/orchestrator/router.py` | canary_version: str, base_version: str, percentage: float | Active canary configuration for a model. |
-| `PluginDescriptor` | `aquilia/mlops/plugins/host.py` | name: str, version: str, module: str, state: PluginState, instance: Any, error: str &#124; None, metadata: dict[str, Any] | Configuration or typed data class. |
-| `MarketplaceEntry` | `aquilia/mlops/plugins/marketplace.py` | name: str, version: str, description: str, author: str, pypi_name: str, homepage: str, tags: list[str], downloads: int, verified: bool | Configuration or typed data class. |
-| `RolloutState` | `aquilia/mlops/release/rollout.py` | id: str, config: RolloutConfig, phase: RolloutPhase, current_percentage: int, steps_completed: int, started_at: float, completed_at: float, metrics_history: list[dict[str, Any]], error: str | Current state of a rollout. |
-| `DeviceInfo` | `aquilia/mlops/runtime/device_manager.py` | name: str, kind: DeviceKind, index: int, total_memory_mb: float, available_memory_mb: float, is_available: bool, metadata: dict[str, Any] | Snapshot of a single compute device. |
-| `ScalingPolicy` | `aquilia/mlops/scheduler/autoscaler.py` | min_replicas: int, max_replicas: int, target_concurrency: float, target_latency_p95_ms: float, scale_up_threshold: float, scale_down_threshold: float, cooldown_seconds: int, window_seconds: float, bucket_width: float, target_gpu_utilization: float, gpu_scale_up_threshold: float, gpu_scale_down_threshold: float, ... | Autoscaling policy definition. |
-| `ScalingDecision` | `aquilia/mlops/scheduler/autoscaler.py` | current_replicas: int, desired_replicas: int, reason: str, metrics: dict[str, float] | Output of a scaling evaluation. |
-| `NodeInfo` | `aquilia/mlops/scheduler/placement.py` | node_id: str, device_type: str, total_memory_mb: float, available_memory_mb: float, current_load: float, gpu_available: bool, models_loaded: list[str], gpu_memory_total_mb: float, gpu_memory_available_mb: float, gpu_utilization: float, gpu_name: str, compute_capability: str | Information about a compute node. |
-| `PlacementRequest` | `aquilia/mlops/scheduler/placement.py` | model_name: str, model_size_mb: float, preferred_device: str, gpu_required: bool, gpu_memory_required_mb: float, model_type: str, quantized: bool, min_compute_capability: str | Request for model placement. |
-| `Role` | `aquilia/mlops/security/rbac.py` | name: str, permissions: set[Permission], description: str | A named role with a set of permissions. |
-| `RouteTarget` | `aquilia/mlops/serving/router.py` | version: str, weight: float, handler: Callable &#124; None, request_count: int, error_count: int, total_latency_ms: float | A model version target with associated weight. |
+| `LLMConfig` | `aquilia/mlops/_types.py` | `to_dict`, `from_dict` | Configuration specific to LLM/SLM model serving. |
+| `RolloutConfig` | `aquilia/mlops/_types.py` |  | Configuration for a traffic rollout. |
+| `CircuitBreakerConfig` | `aquilia/mlops/_types.py` |  | Configuration for inference circuit breaker. |
+| `RolloutConfigBlueprint` | `aquilia/mlops/api/blueprints.py` |  | Validates rollout configuration payloads. |
+| `ScalingPolicyBlueprint` | `aquilia/mlops/api/blueprints.py` |  | Validates autoscaler policy configuration. |
+| `LLMConfigBlueprint` | `aquilia/mlops/api/blueprints.py` |  | Validates LLM configuration payloads. |
+| `MLOpsConfig` | `aquilia/mlops/di/providers.py` |  | Typed configuration for MLOps DI registration. |
+| `MLOpsManifestConfig` | `aquilia/mlops/manifest/config.py` |  | Parsed ``[mlops]`` configuration from Aquilia workspace config. |
+| `ModelConfig` | `aquilia/mlops/orchestrator/registry.py` | `from_dict` | Per-model configuration (from manifest or decorator). |
+| `CanaryConfig` | `aquilia/mlops/orchestrator/router.py` |  | Active canary configuration for a model. |
+| `ModelpackBuilder` | `aquilia/mlops/pack/builder.py` | `add_model`, `add_file`, `add_env_lock`, `set_signature`, `set_provenance`, `set_metadata`, `save`, `unpack`, `inspect` | Builds a modelpack archive from local files. |
+| `ScalingPolicy` | `aquilia/mlops/scheduler/autoscaler.py` |  | Autoscaling policy definition. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- `MLOpsIntegration`
-- `MLOpsConfig`
-- `Runtime configuration dataclasses`
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

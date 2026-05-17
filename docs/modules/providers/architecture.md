@@ -1,45 +1,55 @@
 # Providers Architecture
 
-## Runtime Role
+Cloud provider clients and deployment tooling, currently focused on the Render provider and encrypted credential store.
 
-Deployment provider clients and data types, currently centered on Render deployment configuration, API client behavior, deployer orchestration, and credential storage.
+## Source Boundaries
 
-The implementation is split across 11 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/providers/__init__.py` | 21 | 0 | 0 | Aquilia Cloud Providers — Pluggable PaaS/IaaS Deployment Backends. |
+| `aquilia/providers/render/__init__.py` | 153 | 0 | 0 | Aquilia Render Provider — Comprehensive PaaS Deployment v2. |
+| `aquilia/providers/render/client.py` | 1406 | 1 | 0 | Render REST API Client — Comprehensive v2. |
+| `aquilia/providers/render/deployer.py` | 661 | 2 | 0 | Render Deployment Orchestrator — Enhanced v2. |
+| `aquilia/providers/render/store.py` | 752 | 1 | 0 | Render Credential Store — Military-Grade Encrypted Token Persistence. |
+| `aquilia/providers/render/types.py` | 993 | 53 | 0 | Render API Type Definitions — Comprehensive v2. |
+| `aquilia/providers/render_backup_phase10/__init__.py` | 53 | 0 | 0 | Aquilia Render Provider — One-command PaaS deployment. |
+| `aquilia/providers/render_backup_phase10/client.py` | 571 | 1 | 0 | Render REST API Client. |
+| `aquilia/providers/render_backup_phase10/deployer.py` | 544 | 2 | 0 | Render Deployment Orchestrator. |
+| `aquilia/providers/render_backup_phase10/store.py` | 344 | 1 | 0 | Render Credential Store — Crous-Encrypted Token Persistence. |
+| `aquilia/providers/render_backup_phase10/types.py` | 384 | 11 | 0 | Render API Type Definitions. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/providers/__init__.py`: Aquilia Cloud Providers - Pluggable PaaS/IaaS Deployment Backends.
-- `aquilia/providers/render/__init__.py`: Aquilia Render Provider - Comprehensive PaaS Deployment v2.
-- `aquilia/providers/render/client.py`: Render REST API Client - Comprehensive v2.
-- `aquilia/providers/render/deployer.py`: Render Deployment Orchestrator - Enhanced v2.
-- `aquilia/providers/render/store.py`: Render Credential Store - Military-Grade Encrypted Token Persistence.
-- `aquilia/providers/render/types.py`: Render API Type Definitions - Comprehensive v2.
-- `aquilia/providers/render_backup_phase10/__init__.py`: Aquilia Render Provider - One-command PaaS deployment.
-- `aquilia/providers/render_backup_phase10/client.py`: Render REST API Client.
-- `aquilia/providers/render_backup_phase10/deployer.py`: Render Deployment Orchestrator.
-- `aquilia/providers/render_backup_phase10/store.py`: Render Credential Store - Crous-Encrypted Token Persistence.
-- `aquilia/providers/render_backup_phase10/types.py`: Render API Type Definitions.
+`providers` has 11 Python files, 72 public classes, 0 public module-level functions, and 42 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- This module has `aq` command coverage documented in `cli-reference.md`; 16 commands map to this subsystem.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.types` | 6 |
+| `aquilia.faults.domains` | 6 |
+| `.client` | 4 |
+| `.deployer` | 2 |
+| `.store` | 2 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `__future__` | 8 |
 | `typing` | 8 |
-| `aquilia` | 6 |
 | `logging` | 6 |
 | `time` | 6 |
-| `types` | 6 |
 | `urllib` | 6 |
-| `client` | 4 |
 | `dataclasses` | 4 |
 | `json` | 4 |
 | `pathlib` | 4 |
 | `collections` | 2 |
 | `contextlib` | 2 |
-| `deployer` | 2 |
 | `enum` | 2 |
 | `hashlib` | 2 |
 | `hmac` | 2 |
@@ -47,22 +57,22 @@ The table below is derived from import statements in the module. It shows which 
 | `platform` | 2 |
 | `secrets` | 2 |
 | `ssl` | 2 |
-| `store` | 2 |
 | `struct` | 2 |
 | `subprocess` | 2 |
 | `ctypes` | 1 |
 | `datetime` | 1 |
 | `sys` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `RenderCredentialStore` | `aquilia/providers/render/store.py` | Military-grade, file-based credential store for Render API tokens. |
+| `RenderRegistryCredential` | `aquilia/providers/render/types.py` | Private container registry credential. |
+| `RenderDeployConfig` | `aquilia/providers/render/types.py` | Complete deployment configuration for ``aq deploy render``. |
+| `RenderCredentialStore` | `aquilia/providers/render_backup_phase10/store.py` | Secure, file-based credential store for Render API tokens. |
+| `RenderDeployConfig` | `aquilia/providers/render_backup_phase10/types.py` | Complete deployment configuration for ``aq deploy render``. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+This module does not define public `Fault` or `Error` classes in its own files. Errors are usually raised through shared `aquilia.faults` domains or consuming subsystems.

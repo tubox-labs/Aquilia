@@ -1,34 +1,25 @@
-# Controllers Edge Cases And Limitations
+# Controller Edge Cases And Limitations
 
-## Fault And Error Types
+Controller base class, route decorators, compiler, router, execution engine, renderers, filters, pagination, and OpenAPI generation.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `ScopeViolationError` | `aquilia/controller/factory.py` | Raised when a scope rule is violated. |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`ScopeViolationError`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/controller/__init__.py`: Aquilia Controller System
-- `aquilia/controller/base.py`: Controller Base Class
-- `aquilia/controller/compiler.py`: Controller Compiler - Compiles controllers to patterns and routes.
-- `aquilia/controller/decorators.py`: Controller Method Decorators
-- `aquilia/controller/engine.py`: Controller Engine - Executes controller methods with full integration.
-- `aquilia/controller/factory.py`: Controller Factory
-- `aquilia/controller/filters.py`: Aquilia Filter System -- declarative filtering, searching, and ordering.
-- `aquilia/controller/metadata.py`: Controller Metadata Extraction
-- `aquilia/controller/openapi.py`: OpenAPI 3.1.0 Generation for Aquilia Controllers.
-- `aquilia/controller/pagination.py`: Aquilia Pagination System -- declarative pagination backends.
-- `aquilia/controller/renderers.py`: Aquilia Content Negotiation & Renderer System.
-- `aquilia/controller/router.py`: Controller Router - Pattern-based router for controllers.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

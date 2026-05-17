@@ -1,55 +1,65 @@
-# Typing Contracts Architecture
+# Typing Architecture
 
-## Runtime Role
+Shared protocols, typed dictionaries, aliases, and interface contracts for ASGI, containers, config, controllers, effects, manifests, middleware, and request state.
 
-Shared type aliases and protocols for ASGI, config, containers, controllers, request state, effects, manifests, middleware, and JSON-like values.
+## Source Boundaries
 
-The implementation is split across 10 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/typing/__init__.py` | 144 | 0 | 0 |  |
+| `aquilia/typing/asgi.py` | 151 | 21 | 0 |  |
+| `aquilia/typing/common.py` | 24 | 0 | 0 |  |
+| `aquilia/typing/config.py` | 121 | 4 | 0 | Configuration type definitions for Aquilia. |
+| `aquilia/typing/container.py` | 46 | 7 | 0 |  |
+| `aquilia/typing/controller.py` | 30 | 1 | 0 |  |
+| `aquilia/typing/effects.py` | 21 | 1 | 0 |  |
+| `aquilia/typing/manifest.py` | 26 | 2 | 0 |  |
+| `aquilia/typing/middleware.py` | 20 | 1 | 0 |  |
+| `aquilia/typing/request_state.py` | 10 | 0 | 0 |  |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/typing/__init__.py`: Implementation file.
-- `aquilia/typing/asgi.py`: Implementation file.
-- `aquilia/typing/common.py`: Implementation file.
-- `aquilia/typing/config.py`: Configuration type definitions for Aquilia.
-- `aquilia/typing/container.py`: Implementation file.
-- `aquilia/typing/controller.py`: Implementation file.
-- `aquilia/typing/effects.py`: Implementation file.
-- `aquilia/typing/manifest.py`: Implementation file.
-- `aquilia/typing/middleware.py`: Implementation file.
-- `aquilia/typing/request_state.py`: Implementation file.
+`typing` has 10 Python files, 37 public classes, 0 public module-level functions, and 4 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.common` | 4 |
+| `.asgi` | 1 |
+| `.config` | 1 |
+| `.container` | 1 |
+| `.controller` | 1 |
+| `.effects` | 1 |
+| `.manifest` | 1 |
+| `.middleware` | 1 |
+| `.request_state` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `__future__` | 9 |
 | `typing` | 9 |
 | `collections` | 6 |
-| `common` | 4 |
-| `asgi` | 1 |
-| `config` | 1 |
-| `container` | 1 |
-| `controller` | 1 |
 | `dataclasses` | 1 |
 | `datetime` | 1 |
-| `effects` | 1 |
-| `manifest` | 1 |
-| `middleware` | 1 |
 | `pathlib` | 1 |
-| `request_state` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `ConfigSource` | `aquilia/typing/config.py` | Protocol for configuration sources that can be converted to dict. |
+| `ConfigSection` | `aquilia/typing/config.py` | Protocol for config section classes. |
+| `ControllerRouteMatchLike` | `aquilia/typing/controller.py` |  |
+| `EffectProviderProtocol` | `aquilia/typing/effects.py` |  |
+| `MiddlewareProtocol` | `aquilia/typing/middleware.py` |  |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+This module does not define public `Fault` or `Error` classes in its own files. Errors are usually raised through shared `aquilia.faults` domains or consuming subsystems.

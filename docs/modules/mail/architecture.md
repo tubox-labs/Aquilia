@@ -1,74 +1,116 @@
 # Mail Architecture
 
-## Runtime Role
+Async mail subsystem with message classes, config blueprints, providers, DI registration, templates, faults, and convenience send APIs.
 
-The async mail subsystem with configuration, messages, envelopes, provider registry, SMTP, SES, SendGrid, console, file providers, templates, and testing helpers.
+## Source Boundaries
 
-The implementation is split across 14 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/mail/__init__.py` | 156 | 0 | 0 | AquilaMail -- Production-ready async mail subsystem for Aquilia. |
+| `aquilia/mail/config.py` | 819 | 15 | 0 | AquilaMail Configuration -- Serializer-based, DI-aware mail configuration. |
+| `aquilia/mail/di_providers.py` | 298 | 3 | 3 | AquilaMail -- DI Providers |
+| `aquilia/mail/envelope.py` | 261 | 4 | 0 | AquilaMail Envelope -- The internal representation of a mail message. |
+| `aquilia/mail/faults.py` | 179 | 7 | 0 | AquilaMail Faults -- Structured, typed fault definitions for the mail subsystem. |
+| `aquilia/mail/message.py` | 368 | 3 | 0 | AquilaMail Messages -- Developer-facing message classes. |
+| `aquilia/mail/providers/__init__.py` | 129 | 3 | 0 | AquilaMail Provider Interface -- Protocol + result types for mail providers. |
+| `aquilia/mail/providers/console.py` | 86 | 1 | 0 | Console Provider -- prints emails to stdout/logger (development). |
+| `aquilia/mail/providers/file.py` | 351 | 1 | 0 | File Provider -- Writes emails to .eml files on disk. |
+| `aquilia/mail/providers/sendgrid.py` | 396 | 1 | 0 | SendGrid Provider -- Async SendGrid Web API v3 delivery via httpx. |
+| `aquilia/mail/providers/ses.py` | 440 | 1 | 0 | AWS SES Provider -- Async Amazon Simple Email Service delivery. |
+| `aquilia/mail/providers/smtp.py` | 536 | 1 | 0 | SMTP Provider -- Production-grade async SMTP delivery via aiosmtplib. |
+| `aquilia/mail/service.py` | 433 | 1 | 3 | AquilaMail Service -- Main orchestrator for the mail subsystem. |
+| `aquilia/mail/template/__init__.py` | 147 | 0 | 3 | AquilaMail ATS (Aquilia Template Syntax) -- Stub module. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/mail/__init__.py`: AquilaMail -- Production-ready async mail subsystem for Aquilia.
-- `aquilia/mail/config.py`: AquilaMail Configuration -- Serializer-based, DI-aware mail configuration.
-- `aquilia/mail/di_providers.py`: AquilaMail -- DI Providers
-- `aquilia/mail/envelope.py`: AquilaMail Envelope -- The internal representation of a mail message.
-- `aquilia/mail/faults.py`: AquilaMail Faults -- Structured, typed fault definitions for the mail subsystem.
-- `aquilia/mail/message.py`: AquilaMail Messages -- Developer-facing message classes.
-- `aquilia/mail/providers/__init__.py`: AquilaMail Provider Interface -- Protocol + result types for mail providers.
-- `aquilia/mail/providers/console.py`: Console Provider -- prints emails to stdout/logger (development).
-- `aquilia/mail/providers/file.py`: File Provider -- Writes emails to .eml files on disk.
-- `aquilia/mail/providers/sendgrid.py`: SendGrid Provider -- Async SendGrid Web API v3 delivery via httpx.
-- `aquilia/mail/providers/ses.py`: AWS SES Provider -- Async Amazon Simple Email Service delivery.
-- `aquilia/mail/providers/smtp.py`: SMTP Provider -- Production-grade async SMTP delivery via aiosmtplib.
-- `aquilia/mail/service.py`: AquilaMail Service -- Main orchestrator for the mail subsystem.
-- `aquilia/mail/template/__init__.py`: AquilaMail ATS (Aquilia Template Syntax) -- Stub module.
+`mail` has 14 Python files, 41 public classes, 9 public module-level functions, and 14 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- This module has `aq` command coverage documented in `cli-reference.md`; 3 commands map to this subsystem.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `..envelope` | 5 |
+| `..providers` | 5 |
+| `.envelope` | 3 |
+| `.faults` | 3 |
+| `..di.decorators` | 2 |
+| `.config` | 2 |
+| `..blueprints.core` | 1 |
+| `..blueprints.facets` | 1 |
+| `..faults` | 1 |
+| `..faults.core` | 1 |
+| `.console` | 1 |
+| `.di_providers` | 1 |
+| `.file` | 1 |
+| `.message` | 1 |
+| `.providers` | 1 |
+| `.sendgrid` | 1 |
+| `.service` | 1 |
+| `.ses` | 1 |
+| `.smtp` | 1 |
+| `aquilia._version` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `email` | 15 |
 | `__future__` | 13 |
 | `typing` | 10 |
-| `envelope` | 8 |
 | `collections` | 7 |
 | `logging` | 7 |
-| `providers` | 6 |
-| `faults` | 5 |
 | `asyncio` | 4 |
 | `contextlib` | 3 |
 | `pathlib` | 3 |
-| `blueprints` | 2 |
-| `config` | 2 |
 | `dataclasses` | 2 |
 | `datetime` | 2 |
-| `di` | 2 |
 | `enum` | 2 |
 | `hashlib` | 2 |
 | `re` | 2 |
-| `aquilia` | 1 |
 | `base64` | 1 |
-| `console` | 1 |
-| `di_providers` | 1 |
-| `file` | 1 |
 | `json` | 1 |
-| `message` | 1 |
-| `sendgrid` | 1 |
-| `service` | 1 |
-| `ses` | 1 |
-| `smtp` | 1 |
+| `ssl` | 1 |
+| `time` | 1 |
+| `uuid` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `ProviderConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for a single mail provider configuration. |
+| `MailAuthConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for mail provider authentication credentials. |
+| `RetryConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for retry / backoff configuration. |
+| `RateLimitConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for global and per-domain rate-limiting. |
+| `SecurityConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for security / deliverability settings. |
+| `TemplateConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for ATS template engine configuration. |
+| `QueueConfigBlueprint` | `aquilia/mail/config.py` | Blueprint for queue / storage settings. |
+| `ProviderConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for a validated provider config. |
+| `RetryConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for a validated retry config. |
+| `RateLimitConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for a validated rate-limit config. |
+| `SecurityConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for a validated security config. |
+| `TemplateConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for a validated template config. |
+| `QueueConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for a validated queue config. |
+| `MailAuthConfig` | `aquilia/mail/config.py` | Attribute-access wrapper for validated mail authentication credentials. |
+| `MailConfig` | `aquilia/mail/config.py` | Top-level mail configuration. |
+| `MailConfigProvider` | `aquilia/mail/di_providers.py` | DI provider that builds and validates MailConfig from workspace data. |
+| `MailServiceProvider` | `aquilia/mail/di_providers.py` | DI provider for MailService -- the central mail orchestrator. |
+| `MailProviderRegistry` | `aquilia/mail/di_providers.py` | Auto-discovers IMailProvider implementations using Aquilia's PackageScanner (discovery system). |
+| `MailConfigFault` | `aquilia/mail/faults.py` | Mail configuration error (missing provider, bad credentials, etc.). |
+| `ProviderResultStatus` | `aquilia/mail/providers/__init__.py` | Granular result from a provider send attempt. |
+| `ProviderResult` | `aquilia/mail/providers/__init__.py` | Result returned by IMailProvider.send(). |
+| `IMailProvider` | `aquilia/mail/providers/__init__.py` | Interface that all mail provider backends must implement. |
+| `ConsoleProvider` | `aquilia/mail/providers/console.py` | Provider that logs emails to the console instead of sending them. |
+| `FileProvider` | `aquilia/mail/providers/file.py` | Mail provider that writes emails to .eml files on disk. |
+| `SendGridProvider` | `aquilia/mail/providers/sendgrid.py` | Async SendGrid mail provider using the v3 Web API. |
+| `SESProvider` | `aquilia/mail/providers/ses.py` | Async AWS SES mail provider. |
+| `SMTPProvider` | `aquilia/mail/providers/smtp.py` | Async SMTP mail provider backed by aiosmtplib. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`MailFault`, `MailSendFault`, `MailTemplateFault`, `MailConfigFault`, `MailSuppressedFault`, `MailRateLimitFault`, `MailValidationFault`

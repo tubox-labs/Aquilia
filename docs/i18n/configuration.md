@@ -1,114 +1,55 @@
-# I18n Configuration
+<!-- Legacy mirror. Canonical page: ../modules/i18n/configuration.md -->
 
-## Configuration Entry Points
+# I18N Configuration
 
-I18n configuration can enter the system from four primary places:
+Internationalization service, locale negotiation, catalogs, formatting, plural rules, lazy strings, middleware, CLI helpers, and template integration.
 
-1. `Integration.i18n(...)` in `aquilia/config_builders.py`
-2. `Workspace.i18n(...)` shorthand in `aquilia/config_builders.py`
-3. Typed integration object `I18nIntegration` in `aquilia/integrations/i18n.py`
-4. Runtime merge defaults from `ConfigLoader.get_i18n_config()` in `aquilia/config.py`
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-Typed integration option:
+## Configuration Model
 
-- `I18nIntegration` dataclass in `aquilia/integrations/i18n.py` mirrors builder fields and serializes with `to_dict()`.
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
 
-At server boot, effective config is converted with `I18nConfig.from_dict(...)`.
+## Source Inventory
 
-## Precedence and Runtime Merge
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/i18n/__init__.py` | 182 | 0 | 0 | AquilaI18n — Industry-grade Internationalization & Localization for Aquilia. |
+| `aquilia/i18n/catalog.py` | 810 | 6 | 1 | Translation Catalogs — Storage and retrieval of translation strings. |
+| `aquilia/i18n/di_integration.py` | 183 | 0 | 2 | I18n DI Integration — Register i18n providers in Aquilia's DI container. |
+| `aquilia/i18n/faults.py` | 187 | 5 | 0 | I18n Faults — Typed fault signals for the i18n subsystem. |
+| `aquilia/i18n/formatter.py` | 627 | 1 | 9 | Message Formatter — ICU MessageFormat-inspired interpolation & locale formatting. |
+| `aquilia/i18n/lazy.py` | 289 | 2 | 4 | Lazy Strings — Deferred translation resolution. |
+| `aquilia/i18n/locale.py` | 352 | 1 | 5 | Locale — BCP 47 locale tag parsing, normalization, and negotiation. |
+| `aquilia/i18n/middleware.py` | 423 | 8 | 1 | I18n Middleware — Request-scoped locale resolution & injection. |
+| `aquilia/i18n/plural.py` | 515 | 1 | 2 | Plural Rules — CLDR-based plural category selection for 200+ languages. |
+| `aquilia/i18n/service.py` | 425 | 3 | 1 | I18n Service — Central orchestrator for all translation operations. |
+| `aquilia/i18n/template_integration.py` | 197 | 1 | 1 | I18n Template Integration — Jinja2 globals, filters, and extensions. |
 
-Effective behavior at runtime follows this path:
+## Detected Config-Oriented Classes
 
-1. User config under `i18n` or `integrations.i18n`
-2. Merged with `ConfigLoader.get_i18n_config()` defaults
-3. Converted by `I18nConfig.from_dict`
-4. Used by `create_i18n_service`
+| Class | Source | Methods | Summary |
+| --- | --- | --- | --- |
+| `I18nMiddleware` | `aquilia/i18n/middleware.py` |  | Aquilia middleware that resolves locale and injects i18n into requests. |
+| `I18nConfig` | `aquilia/i18n/service.py` | `from_dict`, `to_dict` | Configuration for the i18n service. |
 
-If i18n is not explicitly enabled, server setup skips subsystem wiring.
+## Runtime Wiring Paths
 
-## Effective Keys
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-| Key | Type | Purpose |
-|---|---|---|
-| `enabled` | `bool` | Enables subsystem boot in server setup |
-| `default_locale` | `str` | Default locale tag |
-| `available_locales` | `list[str]` | Allowed locale set for middleware/service checks |
-| `fallback_locale` | `str` | Global fallback locale when lookup misses |
-| `catalog_dirs` | `list[str]` | Locale directory roots |
-| `catalog_format` | `str` | Backend preference (`crous`, `json`, `yaml` metadata) |
-| `missing_key_strategy` | `str` | Missing-key handling policy |
-| `auto_reload` | `bool` | Intended hot-reload behavior metadata |
-| `auto_detect` | `bool` | Intended auto-detect behavior metadata |
-| `cookie_name` | `str` | Locale cookie key |
-| `query_param` | `str` | Locale query parameter |
-| `path_prefix` | `bool` | Path-prefix mode intent (`/en/...`) |
-| `resolver_order` | `list[str]` | Ordered resolver chain names |
+## Verification Checklist
 
-## Default Value Matrix
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-Defaults are not fully uniform across all entry points.
+## Related Pages
 
-| Key | `ConfigLoader.get_i18n_config()` | `Integration.i18n(...)` | `I18nIntegration` | `I18nConfig` dataclass | `I18nConfig.from_dict` fallback |
-|---|---|---|---|---|---|
-| `enabled` | `False` | `True` | `True` | `True` | `True` |
-| `catalog_format` | `crous` | `json` | `json` | `crous` | `json` |
-| `resolver_order` | `query,cookie,header` | `query,cookie,header` | `query,cookie,header` | `query,cookie,header` | `query,cookie,header` |
-
-Practical implication:
-
-- Server runtime usually uses ConfigLoader defaults (`enabled=False`, `catalog_format=crous`) unless user config overrides.
-- Constructing `I18nConfig` manually without `ConfigLoader` can produce different behavior.
-
-## Missing Key Strategies
-
-Supported strategy names:
-
-- `return_key`
-- `return_empty`
-- `return_default`
-- `raise`
-- `log_and_key`
-
-Behavior notes:
-
-- Passing `default=...` to `t` or `tn` bypasses strategy and returns provided default.
-- `raise` emits `MissingTranslationFault`.
-- `return_default` returns `default or key`; with no explicit default this behaves like `return_key`.
-
-## Resolver Order and Names
-
-Accepted resolver names in `build_resolver`:
-
-- `header`
-- `cookie`
-- `query`
-- `path`
-- `session`
-
-Unknown names are ignored with a warning log.
-
-## Recommended Production Config
-
-```python
-.integrate(
-    Integration.i18n(
-        enabled=True,
-        default_locale="en",
-        available_locales=["en", "fr", "de", "ja"],
-        fallback_locale="en",
-        catalog_dirs=["locales", "modules/auth/locales"],
-        catalog_format="crous",
-        missing_key_strategy="log_and_key",
-        resolver_order=["query", "cookie", "session", "header"],
-        cookie_name="aq_locale",
-        query_param="lang",
-        auto_reload=False,
-    )
-)
-```
-
-## Operational Notes
-
-- `path_prefix` and `auto_detect` are currently configuration metadata fields; resolver behavior is controlled directly by `resolver_order`.
-- In service boot wiring, any non-`crous` `catalog_format` currently creates a `FileCatalog` with default extensions (`.json` only). YAML files are not loaded by default through `I18nService._build_catalog`.
-- `CrousCatalog` scans `.crous`, `.json`, `.yaml`, and `.yml`, and can auto-compile JSON to CROUS when `crous` is installed.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

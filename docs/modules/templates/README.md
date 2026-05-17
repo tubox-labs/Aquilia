@@ -1,10 +1,15 @@
 # Templates Documentation
 
-This directory is the professional documentation set for `templates`. It is implementation-driven and aligned with the current source files under `aquilia/templates`.
+Jinja2 template engine, loaders, manager, middleware, bytecode cache, sandbox, DI providers, manifest/session/auth/i18n integration, and template CLI helpers.
 
-## What This Covers
+## Coverage Snapshot
 
-The sandboxed Jinja2 template subsystem with loaders, engines, managers, bytecode cache, manifest integration, static tags, security, DI, sessions, auth helpers, middleware, and CLI tooling.
+- Source files: 15
+- Source lines: 4409
+- Public classes: 32
+- Public module functions: 35
+- Constants/module flags: 3
+- Public exports in `__all__`: 31
 
 ## Source Files Read
 
@@ -16,7 +21,7 @@ The sandboxed Jinja2 template subsystem with loaders, engines, managers, bytecod
 - `aquilia/templates/di_providers.py`: AquilaTemplates - DI Providers
 - `aquilia/templates/engine.py`: Template Engine - Core async-capable Jinja2 template rendering engine.
 - `aquilia/templates/extensions.py`: Jinja2 template extensions used by Aquilia templates.
-- `aquilia/templates/faults.py`: AquilaTemplates - Fault Classes.
+- `aquilia/templates/faults.py`: AquilaTemplates — Fault Classes.
 - `aquilia/templates/loader.py`: Template Loader - Namespace-aware filesystem and package template loaders.
 - `aquilia/templates/manager.py`: Template Manager - Compilation, linting, and manifest integration.
 - `aquilia/templates/manifest_integration.py`: AquilaTemplates - Manifest Integration
@@ -26,32 +31,11 @@ The sandboxed Jinja2 template subsystem with loaders, engines, managers, bytecod
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 15
-- Public classes: 32
-- Configuration or dataclass-like types: 5
-- Public functions: 35
-- Constants detected: 2
-
-## Fast Start
-
-```python
-from aquilia.templates import TemplateEngine, create_development_engine
-
-engine = create_development_engine(search_paths=["templates"])
-html = await engine.render("orders/detail.html", {"order_id": "ord_001"})
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

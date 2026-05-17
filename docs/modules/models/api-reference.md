@@ -1,10 +1,52 @@
-# Models And ORM API Reference
+# Models API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/models/__init__.py` | 611 | 0 | 0 | Aquilia Model System -- Pure Python, production-grade ORM. |
+| `aquilia/models/__init__old.py` | 113 | 0 | 0 | Aquilia Model System -- AMDL-based, async-first models. |
+| `aquilia/models/aggregate.py` | 308 | 13 | 0 | Aquilia Aggregates -- Sum, Avg, Count, Max, Min for QuerySet. |
+| `aquilia/models/ast_nodes.py` | 234 | 10 | 0 | AMDL AST Node Types -- Aquilia Model Definition Language. |
+| `aquilia/models/base.py` | 1696 | 2 | 0 | Aquilia Model Base -- Pure Python, metaclass-driven, async-first ORM. |
+| `aquilia/models/constraint.py` | 169 | 3 | 0 | Aquilia Model Constraints -- CheckConstraint, ExclusionConstraint. |
+| `aquilia/models/deletion.py` | 288 | 4 | 1 | Aquilia Model Deletion -- on_delete behaviors for ForeignKey fields. |
+| `aquilia/models/enums.py` | 116 | 2 | 0 | Aquilia Model Enums -- standard enum helpers for model fields. |
+| `aquilia/models/expression.py` | 1001 | 36 | 0 | Aquilia Expression System -- F(), Value(), RawSQL() for query expressions. |
+| `aquilia/models/fields/__init__.py` | 260 | 0 | 0 | Aquilia Model Fields Package -- split-module field system. |
+| `aquilia/models/fields/composite.py` | 214 | 3 | 0 | Aquilia Composite Fields -- group multiple primitives into one logical attribute. |
+| `aquilia/models/fields/enum_field.py` | 120 | 1 | 0 | Aquilia EnumField -- store Python enums with database mapping. |
+| `aquilia/models/fields/lookups.py` | 338 | 22 | 3 | Aquilia Field Lookups -- extensible lookup system for query filters. |
+| `aquilia/models/fields/mixins.py` | 418 | 6 | 0 | Aquilia Field Mixins -- reusable behaviors for model fields. |
+| `aquilia/models/fields/validators.py` | 421 | 16 | 0 | Aquilia Field Validators -- reusable validation callables. |
+| `aquilia/models/fields_module.py` | 2335 | 51 | 0 | Aquilia Model Fields -- Pure Python, production-grade field system. |
+| `aquilia/models/index.py` | 156 | 5 | 0 | Aquilia Model Indexes -- standalone index rendering. |
+| `aquilia/models/manager.py` | 520 | 3 | 0 | Aquilia Model Manager -- descriptor-based QuerySet access. |
+| `aquilia/models/metaclass.py` | 150 | 1 | 0 | Aquilia Model Metaclass -- field collection, auto-PK, Meta parsing, registration. |
+| `aquilia/models/migration_dsl.py` | 848 | 16 | 1 | Aquilia Migration DSL -- declarative, human-readable migration operations. |
+| `aquilia/models/migration_gen.py` | 324 | 0 | 1 | Aquilia Migration File Generator -- creates DSL migration files. |
+| `aquilia/models/migration_runner.py` | 561 | 2 | 2 | Aquilia Migration Runner -- executes DSL and raw-SQL migrations. |
+| `aquilia/models/migrations.py` | 988 | 3 | 2 | Aquilia Migration System -- generate and apply schema migrations. |
+| `aquilia/models/options.py` | 136 | 1 | 0 | Aquilia Model Options -- parsed from inner Meta class. |
+| `aquilia/models/parser.py` | 406 | 1 | 3 | AMDL Parser -- Aquilia Model Definition Language. |
+| `aquilia/models/query.py` | 1730 | 3 | 0 | Aquilia Query Builder -- chainable, immutable, async-terminal Q object. |
+| `aquilia/models/registry.py` | 277 | 1 | 0 | Aquilia Model Registry -- global registry for all Model subclasses. |
+| `aquilia/models/runtime.py` | 922 | 3 | 2 | Aquilia Model Runtime -- ModelProxy, Q (query), and ModelRegistry. |
+| `aquilia/models/schema_snapshot.py` | 723 | 2 | 5 | Aquilia Schema Snapshot & Diff Engine. |
+| `aquilia/models/signals.py` | 361 | 1 | 1 | Aquilia Model Signals -- pre/post save, delete, init hooks. |
+| `aquilia/models/sql_builder.py` | 590 | 8 | 0 | Aquilia SQL Builder -- safe, parameterized SQL generation. |
+| `aquilia/models/startup_guard.py` | 142 | 1 | 1 | Aquilia Safe DB Startup -- guards against implicit database creation. |
+| `aquilia/models/transactions.py` | 369 | 2 | 1 | Aquilia Transactions -- atomic() context manager with savepoint support. |
+
+## Public Exports
+
+`AMDLFile`, `AMDLParseError`, `AMDLParseFault`, `Abs`, `Aggregate`, `ArrayAgg`, `ArrayField`, `Atomic`, `AutoField`, `AutoNowMixin`, `Avg`, `BaseManager`, `BaseValidator`, `BigAutoField`, `BigIntegerField`, `BigIntegerRangeField`, `BinaryField`, `BoolAnd`, `BoolOr`, `BooleanField`, `BrinIndex`, `C`, `CASCADE`, `CICharField`, `CIEmailField`, `CITextField`, `Case`, `Cast`, `CharField`, `CheckConstraint`, `ChoiceMixin`, `Choices`, `Coalesce`, `Col`, `ColumnDef`, `Combinable`, `CombinedExpression`, `CompositeAttribute`, `CompositeField`, `CompositePrimaryKey`, `Concat`, `Contains`, `Count`, `CreateTableBuilder`, `DO_NOTHING`, `DSLAddConstraint`, `DSLAddField`, `DSLAlterField`, `DSLCreateIndex`, `DSLCreateModel`, `DSLDropIndex`, `DSLDropModel`, `DSLMigrationRunner`, `DSLRemoveConstraint`, `DSLRemoveField`, `DSLRenameField`, `DSLRenameModel`, `DSLRunPython`, `DSLRunSQL`, `DatabaseConnectionFault`, `DatabaseNotReadyError`, `Date`, `DateField`, `DateRangeField`, `DateTimeField`, `DateTimeRangeField`, `Day`, `DecimalField`, `DecimalRangeField`, `DecimalValidator`, `Deferrable`, `DeleteBuilder`, `DurationField`, `EmailField`, `EmailValidator`, `EncryptedMixin`, `EndsWith`, `EnhancedOptions`, `EnumField`, `Exact`, `ExclusionConstraint`, `Exists`, `Expression`, `ExpressionWrapper`, `F`, `Field`, `FieldType`, `FieldValidationError`, `FileExtensionValidator`, `FileField`, `FilePathField`, `FloatField`, `ForeignKey`, `Func`, `FunctionalIndex`, `GeneratedField`, `GenericIPAddressField`, `GinIndex`, `GistIndex`, `Greatest`, `GroupConcat`, `Gt`, `Gte`, `HStoreField`, `HashIndex`, `HookNode`, `IContains`, `IEndsWith`, `IExact`, `IRegex`, `IStartsWith`, `ImageField`, `In`, `Index`, `IndexNode`, `IndexedMixin`, `InetAddressField`, `InsertBuilder`, `IntegerChoices`, `IntegerField`, `IntegerRangeField`, `IsNull`, `JSONField`, `LTrim`, `Least`, `Left`, `LegacyModelRegistry`, `LegacyQ`, `Length`, `LinkKind`, `LinkNode`, `Lookup`, `Lower`, `Lt`, `Lte`, `Manager`, `ManyToManyField`, `Max`, `MaxLengthValidator`, `MaxValueValidator`, `MetaNode`, `Migration`, `MigrationConflictFault`, `MigrationFault`, `MigrationInfo`, `MigrationOps`, `MigrationRunner`, `Min`, `MinLengthValidator`, `MinValueValidator`, `Model`, `ModelDiff`, `ModelFault`, `ModelMeta`, `ModelNode`, `ModelNotFoundFault`, `ModelProxy`, `ModelRegistrationFault`, `ModelRegistry`, `Month`, `NewModelRegistry`, `NoteNode`, `Now`, `NullIf`, `NullableMixin`, `OnDeleteHandler`, `OneToOneField`, `Operation`, `Options`, `OrderBy`, `OrderWrt`, `OuterRef`, `PROTECT`, `PositiveBigIntegerField`, `PositiveIntegerField`, `PositiveSmallIntegerField`, `Power`, `Prefetch`, `ProhibitNullCharactersValidator`, `ProtectedError`, `Q`, `QCombination`, `QNode`, `QueryBuilder`, `QueryFault`, `QuerySet`, `RESTRICT`, `RTrim`, `Range`, `RangeField`, `RangeValidator`, `RawSQL`, `Regex`, `RegexValidator`, `RelationField`, `Replace`, `RestrictedError`, `Right`, `Round`, `SET`, `SET_DEFAULT`, `SET_NULL`, `SQLBuilder`, `SchemaDiff`, `SchemaFault`, `Signal`, `SlotNode`, `SlugField`, `SlugValidator`, `SmallAutoField`, `SmallIntegerField`, `Star`, `StartsWith`, `StdDev`, `StepValueValidator`, `StringAgg`, `Subquery`, `Substr`, `Sum`, `TextChoices`, `TextField`, `TimeField`, `TransactionManager`, `Trim`, `UNSET`, `URLField`, `URLValidator`, `UUIDField`, `UniqueConstraint`, `UniqueForDateValidator`, `UniqueMixin`, `UpdateBuilder`, `Upper`, `UpsertBuilder`, `UpsertIgnoreBuilder`, `ValidationError`, `Value`, `VarcharField`, `Variance`, `When`, `Year`, `atomic`, `check_db_exists`, `check_db_ready`, `check_migrations_applied`, `class_prepared`, `columns`, `compute_diff`, `create_snapshot`, `diff_to_operations`, `generate_create_index_sql`, `generate_create_table_sql`, `generate_dsl_migration`, `generate_migration_file`, `generate_migration_from_models`, `load_snapshot`, `lookup_registry`, `m2m_changed`, `normalize_on_delete`, `op`, `parse_amdl`, `parse_amdl_directory`, `parse_amdl_file`, `post_delete`, `post_init`, `post_migrate`, `post_save`, `pre_delete`, `pre_init`, `pre_migrate`, `pre_save`, `receiver`, `register_lookup`, `resolve_lookup`, `save_snapshot`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `Aggregate` | `aquilia/models/aggregate.py` | Expression | Base class for aggregate functions. |
 | `Sum` | `aquilia/models/aggregate.py` | Aggregate | SQL SUM() aggregate. |
@@ -67,7 +109,7 @@ This page is extracted from the current Python source. It includes public classe
 | `Trim` | `aquilia/models/expression.py` | Func | SQL TRIM() -- remove leading and trailing whitespace. |
 | `LTrim` | `aquilia/models/expression.py` | Func | SQL LTRIM() -- remove leading whitespace. |
 | `RTrim` | `aquilia/models/expression.py` | Func | SQL RTRIM() -- remove trailing whitespace. |
-| `Concat` | `aquilia/models/expression.py` | Expression &#124; SQL concatenation -- dialect-aware ( &#124; | for SQLite/PG, CONCAT for MySQL). |
+| `Concat` | `aquilia/models/expression.py` | Expression | SQL concatenation -- dialect-aware (\|\| for SQLite/PG, CONCAT for MySQL). |
 | `Left` | `aquilia/models/expression.py` | Expression | SQL LEFT() / SUBSTR() -- extract leftmost characters. |
 | `Right` | `aquilia/models/expression.py` | Expression | SQL RIGHT() / SUBSTR() -- extract rightmost characters. |
 | `Substr` | `aquilia/models/expression.py` | Func | SQL SUBSTR() -- extract substring. |
@@ -76,25 +118,25 @@ This page is extracted from the current Python source. It includes public classe
 | `Round` | `aquilia/models/expression.py` | Expression | SQL ROUND() -- round to specified decimal places. |
 | `Power` | `aquilia/models/expression.py` | Expression | SQL POWER() -- raise to a power. |
 | `Now` | `aquilia/models/expression.py` | Expression | SQL current timestamp -- dialect-aware. |
-| `CompositeAttribute` | `aquilia/models/fields/composite.py` | object | Descriptor that provides read/write access to a group of columns |
+| `CompositeAttribute` | `aquilia/models/fields/composite.py` | object | Descriptor that provides read/write access to a group of columns as a single Python dict/namedtuple. |
 | `CompositeField` | `aquilia/models/fields/composite.py` | Field | Groups multiple primitive fields into one logical attribute. |
 | `CompositePrimaryKey` | `aquilia/models/fields/composite.py` | object | Declares a composite primary key across multiple fields. |
 | `EnumField` | `aquilia/models/fields/enum_field.py` | Field | Stores a Python Enum value in the database. |
 | `Lookup` | `aquilia/models/fields/lookups.py` | object | Base class for field lookups. |
-| `Exact` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
+| `Exact` | `aquilia/models/fields/lookups.py` | Lookup |  |
 | `IExact` | `aquilia/models/fields/lookups.py` | Lookup | Case-insensitive exact match. |
-| `Contains` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
+| `Contains` | `aquilia/models/fields/lookups.py` | Lookup |  |
 | `IContains` | `aquilia/models/fields/lookups.py` | Lookup | Case-insensitive contains. |
-| `StartsWith` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
+| `StartsWith` | `aquilia/models/fields/lookups.py` | Lookup |  |
 | `IStartsWith` | `aquilia/models/fields/lookups.py` | Lookup | Case-insensitive startswith. |
-| `EndsWith` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
+| `EndsWith` | `aquilia/models/fields/lookups.py` | Lookup |  |
 | `IEndsWith` | `aquilia/models/fields/lookups.py` | Lookup | Case-insensitive endswith. |
-| `In` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
-| `Gt` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
-| `Gte` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
-| `Lt` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
-| `Lte` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
-| `IsNull` | `aquilia/models/fields/lookups.py` | Lookup | Public class. |
+| `In` | `aquilia/models/fields/lookups.py` | Lookup |  |
+| `Gt` | `aquilia/models/fields/lookups.py` | Lookup |  |
+| `Gte` | `aquilia/models/fields/lookups.py` | Lookup |  |
+| `Lt` | `aquilia/models/fields/lookups.py` | Lookup |  |
+| `Lte` | `aquilia/models/fields/lookups.py` | Lookup |  |
+| `IsNull` | `aquilia/models/fields/lookups.py` | Lookup |  |
 | `Range` | `aquilia/models/fields/lookups.py` | Lookup | Filter within a range: field__range=(lo, hi). |
 | `Regex` | `aquilia/models/fields/lookups.py` | Lookup | Filter by regex (PostgreSQL: ~, SQLite: REGEXP if loaded). |
 | `IRegex` | `aquilia/models/fields/lookups.py` | Lookup | Case-insensitive regex. |
@@ -162,11 +204,11 @@ This page is extracted from the current Python source. It includes public classe
 | `ArrayField` | `aquilia/models/fields_module.py` | Field | PostgreSQL array field. |
 | `HStoreField` | `aquilia/models/fields_module.py` | Field | PostgreSQL hstore field (key-value pairs). |
 | `RangeField` | `aquilia/models/fields_module.py` | Field | Base class for PostgreSQL range fields. |
-| `IntegerRangeField` | `aquilia/models/fields_module.py` | RangeField | Public class. |
-| `BigIntegerRangeField` | `aquilia/models/fields_module.py` | RangeField | Public class. |
-| `DecimalRangeField` | `aquilia/models/fields_module.py` | RangeField | Public class. |
-| `DateRangeField` | `aquilia/models/fields_module.py` | RangeField | Public class. |
-| `DateTimeRangeField` | `aquilia/models/fields_module.py` | RangeField | Public class. |
+| `IntegerRangeField` | `aquilia/models/fields_module.py` | RangeField |  |
+| `BigIntegerRangeField` | `aquilia/models/fields_module.py` | RangeField |  |
+| `DecimalRangeField` | `aquilia/models/fields_module.py` | RangeField |  |
+| `DateRangeField` | `aquilia/models/fields_module.py` | RangeField |  |
+| `DateTimeRangeField` | `aquilia/models/fields_module.py` | RangeField |  |
 | `CICharField` | `aquilia/models/fields_module.py` | CharField | Case-insensitive CharField (PostgreSQL CITEXT). |
 | `CIEmailField` | `aquilia/models/fields_module.py` | EmailField | Case-insensitive EmailField (PostgreSQL CITEXT). |
 | `CITextField` | `aquilia/models/fields_module.py` | TextField | Case-insensitive TextField (PostgreSQL CITEXT). |
@@ -231,35 +273,35 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `normalize_on_delete` | `aquilia/models/deletion.py` | `def normalize_on_delete(action: Any) -> Any` | Normalize an on_delete value to its canonical constant. |
-| `lookup_registry` | `aquilia/models/fields/lookups.py` | `def lookup_registry() -> dict[str, type[Lookup]]` | Return a copy of the lookup registry. |
-| `register_lookup` | `aquilia/models/fields/lookups.py` | `def register_lookup(name: str, cls: type[Lookup]) -> None` | Register a custom lookup type. |
-| `resolve_lookup` | `aquilia/models/fields/lookups.py` | `def resolve_lookup(field_name: str, lookup_name: str, value: Any) -> Lookup` | Resolve a lookup name to a Lookup instance. |
-| `raw_sql_to_operations` | `aquilia/models/migration_dsl.py` | `def raw_sql_to_operations(upgrade_sql: str, downgrade_sql: str = '') -> list[Operation]` | Convert raw SQL strings into a list of RunSQL operations. |
-| `generate_dsl_migration` | `aquilia/models/migration_gen.py` | `def generate_dsl_migration(model_classes: list, migrations_dir: str &#124; Path, snapshot_path: str &#124; Path &#124; None = None, slug: str &#124; None = None) -> Path &#124; None` | Generate a DSL migration file from the diff between the current |
-| `check_db_exists` | `aquilia/models/migration_runner.py` | `def check_db_exists(db_url: str) -> bool` | Check if a SQLite database file exists WITHOUT creating WAL/SHM files. |
-| `check_migrations_applied` | `aquilia/models/migration_runner.py` | `def check_migrations_applied(db_url: str, migrations_dir: str &#124; Path = 'migrations') -> bool` | Check if there are unapplied migrations WITHOUT creating WAL/SHM. |
-| `generate_migration_file` | `aquilia/models/migrations.py` | `def generate_migration_file(models: list[ModelNode], migrations_dir: str &#124; Path, slug: str &#124; None = None, dialect: str = 'sqlite') -> Path` | Generate a migration file from AMDL model nodes. |
-| `generate_migration_from_models` | `aquilia/models/migrations.py` | `def generate_migration_from_models(model_classes: list, migrations_dir: str &#124; Path, slug: str &#124; None = None, dialect: str = 'sqlite') -> Path` | Generate a migration file from new Python Model subclasses. |
-| `parse_amdl` | `aquilia/models/parser.py` | `def parse_amdl(source: str, file_path: str = '<string>') -> AMDLFile` | Parse AMDL source text into an AMDLFile. |
-| `parse_amdl_file` | `aquilia/models/parser.py` | `def parse_amdl_file(path: str &#124; Path) -> AMDLFile` | Parse an `.amdl` file from disk. |
-| `parse_amdl_directory` | `aquilia/models/parser.py` | `def parse_amdl_directory(directory: str &#124; Path) -> list[AMDLFile]` | Parse all `.amdl` files in a directory (non-recursive). |
-| `generate_create_table_sql` | `aquilia/models/runtime.py` | `def generate_create_table_sql(model: ModelNode, dialect: str = 'sqlite') -> str` | Generate CREATE TABLE SQL from a ModelNode. |
-| `generate_create_index_sql` | `aquilia/models/runtime.py` | `def generate_create_index_sql(model: ModelNode, dialect: str = 'sqlite') -> list[str]` | Generate CREATE INDEX statements for non-unique indexes. |
-| `create_snapshot` | `aquilia/models/schema_snapshot.py` | `def create_snapshot(model_classes: list) -> dict[str, Any]` | Create a schema snapshot from a list of Model subclasses. |
-| `save_snapshot` | `aquilia/models/schema_snapshot.py` | `def save_snapshot(snapshot: dict[str, Any], path: Path) -> None` | Write snapshot to file in CROUS binary format. |
-| `load_snapshot` | `aquilia/models/schema_snapshot.py` | `def load_snapshot(path: Path) -> dict[str, Any] &#124; None` | Load snapshot from file in CROUS binary format. |
-| `compute_diff` | `aquilia/models/schema_snapshot.py` | `def compute_diff(old_snapshot: dict[str, Any], new_snapshot: dict[str, Any]) -> SchemaDiff` | Compute the diff between two schema snapshots. |
-| `diff_to_operations` | `aquilia/models/schema_snapshot.py` | `def diff_to_operations(diff: SchemaDiff, old_snapshot: dict[str, Any], new_snapshot: dict[str, Any]) -> list[Operation]` | Convert a SchemaDiff into a list of DSL operations. |
-| `receiver` | `aquilia/models/signals.py` | `def receiver(signal: Signal, *, sender: type &#124; None = None)` | Shorthand decorator to connect a function to a signal. |
-| `check_db_ready` | `aquilia/models/startup_guard.py` | `def check_db_ready(db_url: str = 'sqlite:///db.sqlite3', migrations_dir: str &#124; Path = 'migrations', *, auto_migrate: bool &#124; None = None) -> bool` | Check if the database is ready for the application to start. |
-| `atomic` | `aquilia/models/transactions.py` | `def atomic(db: AquiliaDatabase &#124; None = None, *, savepoint: bool = True, durable: bool = False, isolation: str &#124; None = None) -> Atomic` | Create an atomic transaction context manager. |
+| `normalize_on_delete` | `aquilia/models/deletion.py` | `def normalize_on_delete(action: Any)` | Normalize an on_delete value to its canonical constant. |
+| `lookup_registry` | `aquilia/models/fields/lookups.py` | `def lookup_registry()` | Return a copy of the lookup registry. |
+| `register_lookup` | `aquilia/models/fields/lookups.py` | `def register_lookup(name: str, cls: type[Lookup])` | Register a custom lookup type. |
+| `resolve_lookup` | `aquilia/models/fields/lookups.py` | `def resolve_lookup(field_name: str, lookup_name: str, value: Any)` | Resolve a lookup name to a Lookup instance. |
+| `raw_sql_to_operations` | `aquilia/models/migration_dsl.py` | `def raw_sql_to_operations(upgrade_sql: str, downgrade_sql: str='')` | Convert raw SQL strings into a list of RunSQL operations. |
+| `generate_dsl_migration` | `aquilia/models/migration_gen.py` | `def generate_dsl_migration(model_classes: list, migrations_dir: str \| Path, snapshot_path: str \| Path \| None=None, slug: str \| None=None)` | Generate a DSL migration file from the diff between the current snapshot and the current model definitions. |
+| `check_db_exists` | `aquilia/models/migration_runner.py` | `def check_db_exists(db_url: str)` | Check if a SQLite database file exists WITHOUT creating WAL/SHM files. |
+| `check_migrations_applied` | `aquilia/models/migration_runner.py` | `def check_migrations_applied(db_url: str, migrations_dir: str \| Path='migrations')` | Check if there are unapplied migrations WITHOUT creating WAL/SHM. |
+| `generate_migration_file` | `aquilia/models/migrations.py` | `def generate_migration_file(models: list[ModelNode], migrations_dir: str \| Path, slug: str \| None=None, dialect: str='sqlite')` | Generate a migration file from AMDL model nodes. |
+| `generate_migration_from_models` | `aquilia/models/migrations.py` | `def generate_migration_from_models(model_classes: list, migrations_dir: str \| Path, slug: str \| None=None, dialect: str='sqlite')` | Generate a migration file from new Python Model subclasses. |
+| `parse_amdl` | `aquilia/models/parser.py` | `def parse_amdl(source: str, file_path: str='<string>')` | Parse AMDL source text into an AMDLFile. |
+| `parse_amdl_file` | `aquilia/models/parser.py` | `def parse_amdl_file(path: str \| Path)` | Parse an `.amdl` file from disk. |
+| `parse_amdl_directory` | `aquilia/models/parser.py` | `def parse_amdl_directory(directory: str \| Path)` | Parse all `.amdl` files in a directory (non-recursive). |
+| `generate_create_table_sql` | `aquilia/models/runtime.py` | `def generate_create_table_sql(model: ModelNode, dialect: str='sqlite')` | Generate CREATE TABLE SQL from a ModelNode. |
+| `generate_create_index_sql` | `aquilia/models/runtime.py` | `def generate_create_index_sql(model: ModelNode, dialect: str='sqlite')` | Generate CREATE INDEX statements for non-unique indexes. |
+| `create_snapshot` | `aquilia/models/schema_snapshot.py` | `def create_snapshot(model_classes: list)` | Create a schema snapshot from a list of Model subclasses. |
+| `save_snapshot` | `aquilia/models/schema_snapshot.py` | `def save_snapshot(snapshot: dict[str, Any], path: Path)` | Write snapshot to file in CROUS binary format. |
+| `load_snapshot` | `aquilia/models/schema_snapshot.py` | `def load_snapshot(path: Path)` | Load snapshot from file in CROUS binary format. |
+| `compute_diff` | `aquilia/models/schema_snapshot.py` | `def compute_diff(old_snapshot: dict[str, Any], new_snapshot: dict[str, Any])` | Compute the diff between two schema snapshots. |
+| `diff_to_operations` | `aquilia/models/schema_snapshot.py` | `def diff_to_operations(diff: SchemaDiff, old_snapshot: dict[str, Any], new_snapshot: dict[str, Any])` | Convert a SchemaDiff into a list of DSL operations. |
+| `receiver` | `aquilia/models/signals.py` | `def receiver(signal: Signal, *, sender: type \| None=None)` | Shorthand decorator to connect a function to a signal. |
+| `check_db_ready` | `aquilia/models/startup_guard.py` | `def check_db_ready(db_url: str='sqlite:///db.sqlite3', migrations_dir: str \| Path='migrations', *, auto_migrate: bool \| None=None)` | Check if the database is ready for the application to start. |
+| `atomic` | `aquilia/models/transactions.py` | `def atomic(db: AquiliaDatabase \| None=None, *, savepoint: bool=True, durable: bool=False, isolation: str \| None=None)` | Create an atomic transaction context manager. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `CASCADE` | `aquilia/models/deletion.py` | `'CASCADE'` |
 | `SET_NULL` | `aquilia/models/deletion.py` | `'SET NULL'` |
@@ -267,7 +309,7 @@ This page is extracted from the current Python source. It includes public classe
 | `SET_DEFAULT` | `aquilia/models/deletion.py` | `'SET DEFAULT'` |
 | `DO_NOTHING` | `aquilia/models/deletion.py` | `'DO NOTHING'` |
 | `RESTRICT` | `aquilia/models/deletion.py` | `'RESTRICT'` |
-| `_ON_DELETE_ALIASES` | `aquilia/models/deletion.py` | `{'CASCADE': CASCADE, 'SET_NULL': SET_NULL, 'SET NULL': SET_NULL, 'SETNULL': SET_NULL, 'PROTECT': PROTECT, 'SET_DEFAULT': SET_DEFAULT, 'SET DEFAULT': SET_DEFAULT` |
+| `_ON_DELETE_ALIASES` | `aquilia/models/deletion.py` | `{'CASCADE': CASCADE, 'SET_NULL': SET_NULL, 'SET NULL': SET_NULL, 'SETNULL': SET_NULL, 'PROTECT': PROTECT, 'SET_DEFAULT': SET_DEFAULT, 'SET DEFAULT': SET_DEFAULT, 'SETDEFAULT': SET_DEFAULT, 'DO_NOTHING': DO_NOTHING, 'DO NOTHING': DO_NOTHING, 'DONOTHING': DO_NOTHING, 'RESTRICT': RESTRICT}` |
 | `_SAFE_FUNC_RE` | `aquilia/models/expression.py` | `re.compile('^[A-Z_][A-Z0-9_]*$', re.IGNORECASE)` |
 | `_SAFE_TYPE_RE` | `aquilia/models/expression.py` | `re.compile('^[A-Z][A-Z0-9_ ]*(?:\\([0-9]+(?:\\s*,\\s*[0-9]+)?\\))?$', re.IGNORECASE)` |
 | `_REGISTRY` | `aquilia/models/fields/lookups.py` | `dict[str, type[Lookup]]` |
@@ -280,11 +322,11 @@ This page is extracted from the current Python source. It includes public classe
 | `MIGRATION_TABLE` | `aquilia/models/migration_runner.py` | `'aquilia_migrations'` |
 | `MIGRATION_TABLE` | `aquilia/models/migrations.py` | `'aquilia_migrations'` |
 | `ALLOWED_DEFAULTS` | `aquilia/models/parser.py` | `frozenset({'now_utc()', 'uuid4()', 'seq()'})` |
-| `ALLOWED_DEFAULT_PATTERN` | `aquilia/models/parser.py` | `re.compile('^(now_utc\\(\\) &#124; uuid4\\(\\) &#124; seq\\(\\) &#124; env\\("[A-Za-z_][A-Za-z0-9_]*"\\))$')` |
+| `ALLOWED_DEFAULT_PATTERN` | `aquilia/models/parser.py` | `re.compile('^(now_utc\\(\\)\|uuid4\\(\\)\|seq\\(\\)\|env\\("[A-Za-z_][A-Za-z0-9_]*"\\))$')` |
 | `RE_MODEL_OPEN` | `aquilia/models/parser.py` | `re.compile('^\\s*≪\\s*MODEL\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*≫\\s*$')` |
 | `RE_MODEL_CLOSE` | `aquilia/models/parser.py` | `re.compile('^\\s*≪\\s*/MODEL\\s*≫\\s*$')` |
 | `RE_SLOT` | `aquilia/models/parser.py` | `re.compile('^\\s*slot\\s+([a-z_][a-z0-9_]*)\\s*::\\s*([A-Za-z]+(?:\\([^)]*\\))?)\\s*(?:\\[([^\\]]*)\\])?\\s*$')` |
-| `RE_LINK` | `aquilia/models/parser.py` | `re.compile('^\\s*link\\s+([a-z_][a-z0-9_]*)\\s*->\\s*(ONE &#124; MANY &#124; MANY_THROUGH)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:\\[([^\\]]*)\\])?\\s*$')` |
+| `RE_LINK` | `aquilia/models/parser.py` | `re.compile('^\\s*link\\s+([a-z_][a-z0-9_]*)\\s*->\\s*(ONE\|MANY\|MANY_THROUGH)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:\\[([^\\]]*)\\])?\\s*$')` |
 | `RE_INDEX` | `aquilia/models/parser.py` | `re.compile('^\\s*index\\s+\\[([^\\]]+)\\]\\s*(unique)?\\s*$')` |
 | `RE_HOOK` | `aquilia/models/parser.py` | `re.compile('^\\s*hook\\s+([a-z_][a-z0-9_]*)\\s*->\\s*([a-z_][a-z0-9_]*)\\s*$')` |
 | `RE_META` | `aquilia/models/parser.py` | `re.compile('^\\s*meta\\s+([a-z_][a-z0-9_]*)\\s*=\\s*"([^"]*)"\\s*$')` |
@@ -293,10 +335,10 @@ This page is extracted from the current Python source. It includes public classe
 | `_SAFE_FIELD_RE` | `aquilia/models/query.py` | `re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')` |
 | `_EXPR_OP_MAP` | `aquilia/models/query.py` | `{'exact': '=', 'gt': '>', 'gte': '>=', 'lt': '<', 'lte': '<=', 'ne': '!='}` |
 | `_SAFE_DEFAULTS` | `aquilia/models/runtime.py` | `{'now_utc()': lambda: datetime.datetime.now(datetime.timezone.utc), 'uuid4()': lambda: str(uuid.uuid4()), 'seq()': lambda: None}` |
-| `SQLITE_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'INTEGER', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'INTEGER', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'INTEGER', ` |
-| `POSTGRES_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'SERIAL', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'BIGINT', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'BOOLEAN', Fi` |
-| `MYSQL_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'INTEGER', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'BIGINT', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'TINYINT(1)'` |
-| `ORACLE_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'NUMBER(10)', FieldType.INT: 'NUMBER(10)', FieldType.BIGINT: 'NUMBER(19)', FieldType.STR: 'VARCHAR2', FieldType.TEXT: 'CLOB', FieldType.BOOL: '` |
+| `SQLITE_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'INTEGER', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'INTEGER', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'INTEGER', FieldType.FLOAT: 'REAL', FieldType.DECIMAL: 'DECIMAL', FieldType.JSON: 'TEXT', FieldType.BYTES: 'BLOB', FieldType.DATETIME: 'TIMESTAMP', FieldType.DATE: 'DATE', FieldType.TIME: 'TIME', FieldType.UUID: 'VARCHAR(36)', FieldType.ENUM: 'VARCHAR(100)', FieldType.FOREIGN_KEY: 'INTEGER'}` |
+| `POSTGRES_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'SERIAL', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'BIGINT', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'BOOLEAN', FieldType.FLOAT: 'DOUBLE PRECISION', FieldType.DECIMAL: 'DECIMAL', FieldType.JSON: 'JSONB', FieldType.BYTES: 'BYTEA', FieldType.DATETIME: 'TIMESTAMP WITH TIME ZONE', FieldType.DATE: 'DATE', FieldType.TIME: 'TIME', FieldType.UUID: 'UUID', FieldType.ENUM: 'VARCHAR(100)', FieldType.FOREIGN_KEY: 'INTEGER'}` |
+| `MYSQL_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'INTEGER', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'BIGINT', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'TINYINT(1)', FieldType.FLOAT: 'DOUBLE', FieldType.DECIMAL: 'DECIMAL', FieldType.JSON: 'JSON', FieldType.BYTES: 'LONGBLOB', FieldType.DATETIME: 'DATETIME', FieldType.DATE: 'DATE', FieldType.TIME: 'TIME', FieldType.UUID: 'VARCHAR(36)', FieldType.ENUM: 'VARCHAR(100)', FieldType.FOREIGN_KEY: 'INTEGER'}` |
+| `ORACLE_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'NUMBER(10)', FieldType.INT: 'NUMBER(10)', FieldType.BIGINT: 'NUMBER(19)', FieldType.STR: 'VARCHAR2', FieldType.TEXT: 'CLOB', FieldType.BOOL: 'NUMBER(1)', FieldType.FLOAT: 'BINARY_DOUBLE', FieldType.DECIMAL: 'NUMBER', FieldType.JSON: 'CLOB', FieldType.BYTES: 'BLOB', FieldType.DATETIME: 'TIMESTAMP WITH TIME ZONE', FieldType.DATE: 'DATE', FieldType.TIME: 'TIMESTAMP', FieldType.UUID: 'VARCHAR2(36)', FieldType.ENUM: 'VARCHAR2(100)', FieldType.FOREIGN_KEY: 'NUMBER(10)'}` |
 | `_TYPE_MAPS` | `aquilia/models/runtime.py` | `{'sqlite': SQLITE_TYPE_MAP, 'postgresql': POSTGRES_TYPE_MAP, 'mysql': MYSQL_TYPE_MAP, 'oracle': ORACLE_TYPE_MAP}` |
 | `SNAPSHOT_VERSION` | `aquilia/models/schema_snapshot.py` | `1` |
 | `RENAME_THRESHOLD` | `aquilia/models/schema_snapshot.py` | `0.6` |
@@ -307,379 +349,379 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `Aggregate`
+### `Aggregate`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Expression`
 - Summary: Base class for aggregate functions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `function` | `str` | `''` |
 | `template` | `str` | `'{function}({distinct}{expression})'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Sum`
+### `Sum`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL SUM() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'SUM'` |
+| `function` | `` | `'SUM'` |
 
-### Class: `Avg`
+### `Avg`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL AVG() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'AVG'` |
+| `function` | `` | `'AVG'` |
 
-### Class: `Count`
+### `Count`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL COUNT() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'COUNT'` |
+| `function` | `` | `'COUNT'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Max`
+### `Max`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL MAX() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'MAX'` |
+| `function` | `` | `'MAX'` |
 
-### Class: `Min`
+### `Min`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL MIN() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'MIN'` |
+| `function` | `` | `'MIN'` |
 
-### Class: `StdDev`
+### `StdDev`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL STDDEV() aggregate (PostgreSQL) / stdev (SQLite extension).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'STDDEV'` |
+| `function` | `` | `'STDDEV'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Variance`
+### `Variance`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: SQL VARIANCE() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'VARIANCE'` |
+| `function` | `` | `'VARIANCE'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `ArrayAgg`
+### `ArrayAgg`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: PostgreSQL ARRAY_AGG() -- collect values into an array.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'ARRAY_AGG'` |
+| `function` | `` | `'ARRAY_AGG'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `StringAgg`
+### `StringAgg`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: PostgreSQL STRING_AGG() -- concatenate strings with a delimiter.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'STRING_AGG'` |
+| `function` | `` | `'STRING_AGG'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `GroupConcat`
+### `GroupConcat`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: MySQL/SQLite GROUP_CONCAT() aggregate.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'GROUP_CONCAT'` |
+| `function` | `` | `'GROUP_CONCAT'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `BoolAnd`
+### `BoolAnd`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: PostgreSQL BOOL_AND() -- returns true if ALL values are true.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'BOOL_AND'` |
+| `function` | `` | `'BOOL_AND'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `BoolOr`
+### `BoolOr`
 
 - Source: `aquilia/models/aggregate.py`
 - Bases: `Aggregate`
 - Summary: PostgreSQL BOOL_OR() -- returns true if ANY value is true.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `function` |  | `'BOOL_OR'` |
+| `function` | `` | `'BOOL_OR'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `FieldType`
+### `FieldType`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `str, Enum`
 - Summary: Built-in AMDL field types.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `AUTO` |  | `'Auto'` |
-| `INT` |  | `'Int'` |
-| `BIGINT` |  | `'BigInt'` |
-| `STR` |  | `'Str'` |
-| `TEXT` |  | `'Text'` |
-| `BOOL` |  | `'Bool'` |
-| `FLOAT` |  | `'Float'` |
-| `DECIMAL` |  | `'Decimal'` |
-| `JSON` |  | `'JSON'` |
-| `BYTES` |  | `'Bytes'` |
-| `DATETIME` |  | `'DateTime'` |
-| `DATE` |  | `'Date'` |
-| `TIME` |  | `'Time'` |
-| `UUID` |  | `'UUID'` |
-| `ENUM` |  | `'Enum'` |
-| `FOREIGN_KEY` |  | `'ForeignKey'` |
+| `AUTO` | `` | `'Auto'` |
+| `INT` | `` | `'Int'` |
+| `BIGINT` | `` | `'BigInt'` |
+| `STR` | `` | `'Str'` |
+| `TEXT` | `` | `'Text'` |
+| `BOOL` | `` | `'Bool'` |
+| `FLOAT` | `` | `'Float'` |
+| `DECIMAL` | `` | `'Decimal'` |
+| `JSON` | `` | `'JSON'` |
+| `BYTES` | `` | `'Bytes'` |
+| `DATETIME` | `` | `'DateTime'` |
+| `DATE` | `` | `'Date'` |
+| `TIME` | `` | `'Time'` |
+| `UUID` | `` | `'UUID'` |
+| `ENUM` | `` | `'Enum'` |
+| `FOREIGN_KEY` | `` | `'ForeignKey'` |
 
-### Class: `LinkKind`
+### `LinkKind`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `str, Enum`
 - Summary: Relationship cardinality.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ONE` |  | `'ONE'` |
-| `MANY` |  | `'MANY'` |
-| `MANY_THROUGH` |  | `'MANY_THROUGH'` |
+| `ONE` | `` | `'ONE'` |
+| `MANY` | `` | `'MANY'` |
+| `MANY_THROUGH` | `` | `'MANY_THROUGH'` |
 
-### Class: `SlotNode`
+### `SlotNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a `slot` directive -- a model field/column.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `field_type` | `FieldType` |  |
-| `type_params` | `tuple[Any, ...] &#124; None` | `None` |
+| `name` | `str` | `` |
+| `field_type` | `FieldType` | `` |
+| `type_params` | `tuple[Any, ...] \| None` | `None` |
 | `modifiers` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `is_pk` | `bool` | `False` |
 | `is_unique` | `bool` | `False` |
 | `is_nullable` | `bool` | `False` |
-| `max_length` | `int &#124; None` | `None` |
-| `default_expr` | `str &#124; None` | `None` |
-| `note` | `str &#124; None` | `None` |
+| `max_length` | `int \| None` | `None` |
+| `default_expr` | `str \| None` | `None` |
+| `note` | `str \| None` | `None` |
 | `line_number` | `int` | `0` |
 | `source_file` | `str` | `''` |
 
-### Class: `LinkNode`
+### `LinkNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a `link` directive -- a relationship.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `kind` | `LinkKind` |  |
-| `target_model` | `str` |  |
-| `fk_field` | `str &#124; None` | `None` |
-| `back_name` | `str &#124; None` | `None` |
-| `through_model` | `str &#124; None` | `None` |
+| `name` | `str` | `` |
+| `kind` | `LinkKind` | `` |
+| `target_model` | `str` | `` |
+| `fk_field` | `str \| None` | `None` |
+| `back_name` | `str \| None` | `None` |
+| `through_model` | `str \| None` | `None` |
 | `modifiers` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `line_number` | `int` | `0` |
 | `source_file` | `str` | `''` |
 
-### Class: `IndexNode`
+### `IndexNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents an `index` directive.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `fields` | `list[str]` | `field(default_factory=list)` |
 | `is_unique` | `bool` | `False` |
-| `name` | `str &#124; None` | `None` |
+| `name` | `str \| None` | `None` |
 | `line_number` | `int` | `0` |
 | `source_file` | `str` | `''` |
 
-### Class: `HookNode`
+### `HookNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a `hook` directive -- lifecycle binding.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `event` | `str` |  |
-| `handler_name` | `str` |  |
+| `event` | `str` | `` |
+| `handler_name` | `str` | `` |
 | `line_number` | `int` | `0` |
 | `source_file` | `str` | `''` |
 
-### Class: `MetaNode`
+### `MetaNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a `meta` directive.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `key` | `str` |  |
-| `value` | `str` |  |
+| `key` | `str` | `` |
+| `value` | `str` | `` |
 | `line_number` | `int` | `0` |
 | `source_file` | `str` | `''` |
 
-### Class: `NoteNode`
+### `NoteNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a `note` directive -- freeform documentation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `text` | `str` |  |
+| `text` | `str` | `` |
 | `line_number` | `int` | `0` |
 | `source_file` | `str` | `''` |
 
-### Class: `ModelNode`
+### `ModelNode`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a complete MODEL stanza.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `slots` | `list[SlotNode]` | `field(default_factory=list)` |
 | `links` | `list[LinkNode]` | `field(default_factory=list)` |
 | `indexes` | `list[IndexNode]` | `field(default_factory=list)` |
@@ -692,29 +734,29 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `table_name` | `def table_name(self) -> str` | property | Get table name from meta or derive from model name. |
-| `pk_slot` | `def pk_slot(self) -> SlotNode &#124; None` | property | Get primary key slot, if any. |
-| `get_slot` | `def get_slot(self, name: str) -> SlotNode &#124; None` |  | Find slot by name. |
-| `fingerprint` | `def fingerprint(self) -> str` |  | Compute a deterministic hash for migration diffing. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `table_name` | `def table_name(self)` | Get table name from meta or derive from model name. |
+| `pk_slot` | `def pk_slot(self)` | Get primary key slot, if any. |
+| `get_slot` | `def get_slot(self, name: str)` | Find slot by name. |
+| `fingerprint` | `def fingerprint(self)` | Compute a deterministic hash for migration diffing. |
 
-### Class: `AMDLFile`
+### `AMDLFile`
 
 - Source: `aquilia/models/ast_nodes.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents a parsed `.amdl` file containing one or more models.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `path` | `str` |  |
+| `path` | `str` | `` |
 | `models` | `list[ModelNode]` | `field(default_factory=list)` |
 | `errors` | `list[str]` | `field(default_factory=list)` |
 
-### Class: `ModelRegistry`
+### `ModelRegistry`
 
 - Source: `aquilia/models/base.py`
 - Bases: `object`
@@ -722,83 +764,82 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(cls, model_cls: type[Model]) -> None` | classmethod | Method. |
-| `get` | `def get(cls, name: str) -> type[Model] &#124; None` | classmethod | Method. |
-| `all_models` | `def all_models(cls) -> dict[str, type[Model]]` | classmethod | Method. |
-| `set_database` | `def set_database(cls, db: AquiliaDatabase) -> None` | classmethod | Method. |
-| `get_database` | `def get_database(cls) -> AquiliaDatabase &#124; None` | classmethod | Method. |
-| `create_tables` | `async def create_tables(cls, db: AquiliaDatabase &#124; None = None) -> list[str]` | classmethod | Method. |
-| `reset` | `def reset(cls) -> None` | classmethod | Method. |
-| `on_startup` | `async def on_startup(self) -> None` |  | Lifecycle hook -- called by LifecycleCoordinator at app start. |
-| `on_shutdown` | `async def on_shutdown(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(cls, model_cls: type[Model])` |  |
+| `get` | `def get(cls, name: str)` |  |
+| `all_models` | `def all_models(cls)` |  |
+| `set_database` | `def set_database(cls, db: AquiliaDatabase)` |  |
+| `get_database` | `def get_database(cls)` |  |
+| `create_tables` | `async def create_tables(cls, db: AquiliaDatabase \| None=None)` |  |
+| `reset` | `def reset(cls)` |  |
+| `on_startup` | `async def on_startup(self)` | Lifecycle hook -- called by LifecycleCoordinator at app start. |
+| `on_shutdown` | `async def on_shutdown(self)` |  |
 
-### Class: `Model`
+### `Model`
 
 - Source: `aquilia/models/base.py`
 - Bases: `object`
 - Summary: Aquilia Model base class -- pure Python, async-first ORM.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `objects` | `ClassVar[Manager]` |  |
-| `refresh_from_db` |  | `refresh` |
+| `objects` | `ClassVar[Manager]` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `pk` | `def pk(self) -> Any` | property | Shortcut for accessing the primary key value. |
-| `pk` | `def pk(self, value: Any) -> None` | pk.setter | Set the primary key value. |
-| `create` | `async def create(cls, **data: Any) -> Model` | classmethod | Create and persist a new record. |
-| `get` | `async def get(cls, pk: Any = None, **filters: Any) -> Model` | classmethod | Get a single record by PK or filters. |
-| `get_or_none` | `async def get_or_none(cls, pk: Any = None, **filters: Any) -> Model &#124; None` | classmethod | Get a single record, returning ``None`` if not found. |
-| `get_or_create` | `async def get_or_create(cls, defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` | classmethod | Get existing or create new record. |
-| `update_or_create` | `async def update_or_create(cls, defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` | classmethod | Update existing or create new record. |
-| `find_or_create` | `async def find_or_create(cls, defaults: dict[str, Any] &#124; None = None, create_defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` | classmethod | Atomically find an existing record or create a new one. |
-| `bulk_create` | `async def bulk_create(cls, instances: list[dict[str, Any]], *, batch_size: int &#124; None = None, ignore_conflicts: bool = False) -> list[Model]` | classmethod | Create multiple records efficiently using batched inserts. |
-| `bulk_update` | `async def bulk_update(cls, instances: list[Model], fields: list[str], *, batch_size: int &#124; None = None) -> int` | classmethod | Update specific fields on multiple model instances efficiently. |
-| `query` | `def query(cls) -> Q` | classmethod | Start a query chain. |
-| `all` | `async def all(cls) -> list[Model]` | classmethod | Shortcut: get all records. |
-| `count` | `async def count(cls) -> int` | classmethod | Shortcut: count all records. |
-| `latest` | `async def latest(cls, field_name: str &#124; None = None) -> Model` | classmethod | Return the latest record by date field. |
-| `earliest` | `async def earliest(cls, field_name: str &#124; None = None) -> Model` | classmethod | Return the earliest record by date field. |
-| `raw` | `async def raw(cls, sql: str, params: list[Any] &#124; None = None) -> list[Model]` | classmethod | Execute raw SQL and return model instances. |
-| `using` | `def using(cls, db_alias: str) -> Q` | classmethod | Target a specific database for this query. |
-| `save` | `async def save(self, *, update_fields: list[str] &#124; None = None, force_insert: bool = False, force_update: bool = False, validate: bool = False) -> Model` |  | Save instance (insert or update). |
-| `delete_instance` | `async def delete_instance(self) -> int` |  | Delete this instance from database. |
-| `full_clean` | `def full_clean(self, exclude: list[str] &#124; None = None) -> None` |  | Validate instance completely. |
-| `clean_fields` | `def clean_fields(self, exclude: list[str] &#124; None = None) -> None` |  | Validate all fields on this instance. |
-| `clean` | `def clean(self) -> None` |  | Model-level validation hook -- override in subclasses. |
-| `refresh` | `async def refresh(self, fields: list[str] &#124; None = None) -> Model` |  | Reload instance from database. |
-| `get_dirty_fields` | `def get_dirty_fields(self) -> dict[str, Any]` |  | Return dict of fields whose values differ from the DB snapshot. |
-| `related` | `async def related(self, name: str) -> Any` |  | Access a related model via FK or M2M. |
-| `attach` | `async def attach(self, name: str, *targets: Any) -> None` |  | Attach records to a M2M relationship. |
-| `detach` | `async def detach(self, name: str, *targets: Any) -> None` |  | Detach records from a M2M relationship. |
-| `to_dict` | `def to_dict(self, *, fields: list[str] &#124; None = None, exclude: list[str] &#124; None = None) -> dict[str, Any]` |  | Serialize model instance to dict. |
-| `from_row` | `def from_row(cls, row: dict[str, Any]) -> Model` | classmethod | Create model instance from database row dict. |
-| `generate_create_table_sql` | `def generate_create_table_sql(cls, dialect: str = 'sqlite') -> str` | classmethod | Generate CREATE TABLE SQL using CreateTableBuilder. |
-| `generate_index_sql` | `def generate_index_sql(cls, dialect: str = 'sqlite') -> list[str]` | classmethod | Generate CREATE INDEX statements from Meta.indexes. |
-| `generate_m2m_sql` | `def generate_m2m_sql(cls, dialect: str = 'sqlite') -> list[str]` | classmethod | Generate junction table SQL for M2M fields. |
-| `fingerprint` | `def fingerprint(cls) -> str` | classmethod | Compute deterministic hash for migration diffing. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `pk` | `def pk(self)` | Shortcut for accessing the primary key value. |
+| `pk` | `def pk(self, value: Any)` | Set the primary key value. |
+| `create` | `async def create(cls, **data: Any)` | Create and persist a new record. |
+| `get` | `async def get(cls, pk: Any=None, **filters: Any)` | Get a single record by PK or filters. |
+| `get_or_none` | `async def get_or_none(cls, pk: Any=None, **filters: Any)` | Get a single record, returning ``None`` if not found. |
+| `get_or_create` | `async def get_or_create(cls, defaults: dict[str, Any] \| None=None, **lookup: Any)` | Get existing or create new record. |
+| `update_or_create` | `async def update_or_create(cls, defaults: dict[str, Any] \| None=None, **lookup: Any)` | Update existing or create new record. |
+| `find_or_create` | `async def find_or_create(cls, defaults: dict[str, Any] \| None=None, create_defaults: dict[str, Any] \| None=None, **lookup: Any)` | Atomically find an existing record or create a new one. |
+| `bulk_create` | `async def bulk_create(cls, instances: list[dict[str, Any]], *, batch_size: int \| None=None, ignore_conflicts: bool=False)` | Create multiple records efficiently using batched inserts. |
+| `bulk_update` | `async def bulk_update(cls, instances: list[Model], fields: list[str], *, batch_size: int \| None=None)` | Update specific fields on multiple model instances efficiently. |
+| `query` | `def query(cls)` | Start a query chain. |
+| `all` | `async def all(cls)` | Shortcut: get all records. |
+| `count` | `async def count(cls)` | Shortcut: count all records. |
+| `latest` | `async def latest(cls, field_name: str \| None=None)` | Return the latest record by date field. |
+| `earliest` | `async def earliest(cls, field_name: str \| None=None)` | Return the earliest record by date field. |
+| `raw` | `async def raw(cls, sql: str, params: list[Any] \| None=None)` | Execute raw SQL and return model instances. |
+| `using` | `def using(cls, db_alias: str)` | Target a specific database for this query. |
+| `save` | `async def save(self, *, update_fields: list[str] \| None=None, force_insert: bool=False, force_update: bool=False, validate: bool=False)` | Save instance (insert or update). |
+| `delete_instance` | `async def delete_instance(self)` | Delete this instance from database. |
+| `full_clean` | `def full_clean(self, exclude: list[str] \| None=None)` | Validate instance completely. |
+| `clean_fields` | `def clean_fields(self, exclude: list[str] \| None=None)` | Validate all fields on this instance. |
+| `clean` | `def clean(self)` | Model-level validation hook -- override in subclasses. |
+| `refresh` | `async def refresh(self, fields: list[str] \| None=None)` | Reload instance from database. |
+| `get_dirty_fields` | `def get_dirty_fields(self)` | Return dict of fields whose values differ from the DB snapshot. |
+| `related` | `async def related(self, name: str)` | Access a related model via FK or M2M. |
+| `attach` | `async def attach(self, name: str, *targets: Any)` | Attach records to a M2M relationship. |
+| `detach` | `async def detach(self, name: str, *targets: Any)` | Detach records from a M2M relationship. |
+| `to_dict` | `def to_dict(self, *, fields: list[str] \| None=None, exclude: list[str] \| None=None)` | Serialize model instance to dict. |
+| `from_row` | `def from_row(cls, row: dict[str, Any])` | Create model instance from database row dict. |
+| `generate_create_table_sql` | `def generate_create_table_sql(cls, dialect: str='sqlite')` | Generate CREATE TABLE SQL using CreateTableBuilder. |
+| `generate_index_sql` | `def generate_index_sql(cls, dialect: str='sqlite')` | Generate CREATE INDEX statements from Meta.indexes. |
+| `generate_m2m_sql` | `def generate_m2m_sql(cls, dialect: str='sqlite')` | Generate junction table SQL for M2M fields. |
+| `fingerprint` | `def fingerprint(cls)` | Compute deterministic hash for migration diffing. |
 
-### Class: `Deferrable`
+### `Deferrable`
 
 - Source: `aquilia/models/constraint.py`
 - Bases: `object`
 - Summary: Constraint deferral modes for PostgreSQL.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `DEFERRED` |  | `'DEFERRABLE INITIALLY DEFERRED'` |
-| `IMMEDIATE` |  | `'DEFERRABLE INITIALLY IMMEDIATE'` |
+| `DEFERRED` | `` | `'DEFERRABLE INITIALLY DEFERRED'` |
+| `IMMEDIATE` | `` | `'DEFERRABLE INITIALLY IMMEDIATE'` |
 
-### Class: `CheckConstraint`
+### `CheckConstraint`
 
 - Source: `aquilia/models/constraint.py`
 - Bases: `object`
@@ -806,14 +847,14 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql` | `def sql(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Generate the constraint SQL for CREATE TABLE body. |
-| `sql_alter_add` | `def sql_alter_add(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Generate ALTER TABLE ADD CONSTRAINT SQL. |
-| `sql_alter_drop` | `def sql_alter_drop(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Generate ALTER TABLE DROP CONSTRAINT SQL. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql` | `def sql(self, table_name: str, dialect: str='sqlite')` | Generate the constraint SQL for CREATE TABLE body. |
+| `sql_alter_add` | `def sql_alter_add(self, table_name: str, dialect: str='sqlite')` | Generate ALTER TABLE ADD CONSTRAINT SQL. |
+| `sql_alter_drop` | `def sql_alter_drop(self, table_name: str, dialect: str='sqlite')` | Generate ALTER TABLE DROP CONSTRAINT SQL. |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `ExclusionConstraint`
+### `ExclusionConstraint`
 
 - Source: `aquilia/models/constraint.py`
 - Bases: `object`
@@ -821,14 +862,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql` | `def sql(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Generate constraint SQL (PostgreSQL only). |
-| `sql_alter_add` | `def sql_alter_add(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Method. |
-| `sql_alter_drop` | `def sql_alter_drop(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql` | `def sql(self, table_name: str, dialect: str='sqlite')` | Generate constraint SQL (PostgreSQL only). |
+| `sql_alter_add` | `def sql_alter_add(self, table_name: str, dialect: str='sqlite')` |  |
+| `sql_alter_drop` | `def sql_alter_drop(self, table_name: str, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `OnDeleteHandler`
+### `OnDeleteHandler`
 
 - Source: `aquilia/models/deletion.py`
 - Bases: `object`
@@ -836,12 +877,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `handle` | `async def handle(self, db, source_model, target_field_name: str, pk_value: Any) -> int` |  | Execute the on_delete action. |
-| `for_action` | `def for_action(cls, action: Any) -> OnDeleteHandler` | classmethod | Factory method -- create an OnDeleteHandler from any on_delete value. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `handle` | `async def handle(self, db, source_model, target_field_name: str, pk_value: Any)` | Execute the on_delete action. |
+| `for_action` | `def for_action(cls, action: Any)` | Factory method -- create an OnDeleteHandler from any on_delete value. |
 
-### Class: `SET`
+### `SET`
 
 - Source: `aquilia/models/deletion.py`
 - Bases: `object`
@@ -849,24 +890,24 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `value` | `def value(self) -> Any` | property | The raw value or callable (for backward compatibility). |
-| `resolve` | `def resolve(self) -> Any` |  | Resolve the SET value -- call it if it's a callable. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `value` | `def value(self)` | The raw value or callable (for backward compatibility). |
+| `resolve` | `def resolve(self)` | Resolve the SET value -- call it if it's a callable. |
 
-### Class: `ProtectedError`
+### `ProtectedError`
 
 - Source: `aquilia/models/deletion.py`
 - Bases: `ProtectedDeleteFault, Exception`
 - Summary: Raised when trying to delete a protected object.
 
-### Class: `RestrictedError`
+### `RestrictedError`
 
 - Source: `aquilia/models/deletion.py`
 - Bases: `RestrictedDeleteFault, Exception`
 - Summary: Raised when trying to delete a restricted object.
 
-### Class: `TextChoices`
+### `TextChoices`
 
 - Source: `aquilia/models/enums.py`
 - Bases: `str, Enum`
@@ -874,11 +915,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `label` | `def label(self) -> str` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `label` | `def label(self)` |  |
 
-### Class: `IntegerChoices`
+### `IntegerChoices`
 
 - Source: `aquilia/models/enums.py`
 - Bases: `int, Enum`
@@ -886,29 +927,29 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `label` | `def label(self) -> str` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `label` | `def label(self)` |  |
 
-### Class: `Combinable`
+### `Combinable`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `object`
 - Summary: Base class providing arithmetic operators for expressions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ADD` |  | `'+'` |
-| `SUB` |  | `'-'` |
-| `MUL` |  | `'*'` |
-| `DIV` |  | `'/'` |
-| `MOD` |  | `'%'` |
-| `BITAND` |  | `'&'` |
-| `BITOR` | &#124; `' | '` |
+| `ADD` | `` | `'+'` |
+| `SUB` | `` | `'-'` |
+| `MUL` | `` | `'*'` |
+| `DIV` | `` | `'/'` |
+| `MOD` | `` | `'%'` |
+| `BITAND` | `` | `'&'` |
+| `BITOR` | `` | `'\|'` |
 
-### Class: `Expression`
+### `Expression`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Combinable`
@@ -916,12 +957,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Render expression to SQL with bind parameters. |
-| `resolve_expression` | `def resolve_expression(self, query = None, allow_joins = True)` |  | Hook for QuerySet to resolve the expression in context. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` | Render expression to SQL with bind parameters. |
+| `resolve_expression` | `def resolve_expression(self, query=None, allow_joins=True)` | Hook for QuerySet to resolve the expression in context. |
 
-### Class: `OrderBy`
+### `OrderBy`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `object`
@@ -929,11 +970,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `F`
+### `F`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -941,13 +982,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
-| `asc` | `def asc(self, *, nulls_first: bool &#124; None = None, nulls_last: bool &#124; None = None) -> OrderBy` |  | Create ascending ORDER BY directive. |
-| `desc` | `def desc(self, *, nulls_first: bool &#124; None = None, nulls_last: bool &#124; None = None) -> OrderBy` |  | Create descending ORDER BY directive. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
+| `asc` | `def asc(self, *, nulls_first: bool \| None=None, nulls_last: bool \| None=None)` | Create ascending ORDER BY directive. |
+| `desc` | `def desc(self, *, nulls_first: bool \| None=None, nulls_last: bool \| None=None)` | Create descending ORDER BY directive. |
 
-### Class: `Value`
+### `Value`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -955,11 +996,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `RawSQL`
+### `RawSQL`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -967,11 +1008,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Col`
+### `Col`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -979,11 +1020,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Star`
+### `Star`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -991,11 +1032,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `CombinedExpression`
+### `CombinedExpression`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1003,11 +1044,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `When`
+### `When`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1015,11 +1056,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Case`
+### `Case`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1027,11 +1068,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Subquery`
+### `Subquery`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1039,11 +1080,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Exists`
+### `Exists`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1051,17 +1092,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `OuterRef`
+### `OuterRef`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `F`
 - Summary: Reference to a field from the outer query (for use in Subquery/Exists).
 
-### Class: `ExpressionWrapper`
+### `ExpressionWrapper`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1069,11 +1110,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Func`
+### `Func`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1081,11 +1122,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Cast`
+### `Cast`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1093,17 +1134,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Coalesce`
+### `Coalesce`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL COALESCE() -- returns first non-NULL argument.
 
-### Class: `Greatest`
+### `Greatest`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
@@ -1111,11 +1152,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Least`
+### `Least`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
@@ -1123,11 +1164,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `NullIf`
+### `NullIf`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1135,47 +1176,47 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Length`
+### `Length`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL LENGTH() -- return string length.
 
-### Class: `Upper`
+### `Upper`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL UPPER() -- convert to uppercase.
 
-### Class: `Lower`
+### `Lower`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL LOWER() -- convert to lowercase.
 
-### Class: `Trim`
+### `Trim`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL TRIM() -- remove leading and trailing whitespace.
 
-### Class: `LTrim`
+### `LTrim`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL LTRIM() -- remove leading whitespace.
 
-### Class: `RTrim`
+### `RTrim`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL RTRIM() -- remove trailing whitespace.
 
-### Class: `Concat`
+### `Concat`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1183,11 +1224,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Left`
+### `Left`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1195,11 +1236,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Right`
+### `Right`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1207,29 +1248,29 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Substr`
+### `Substr`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL SUBSTR() -- extract substring.
 
-### Class: `Replace`
+### `Replace`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL REPLACE() -- replace occurrences in a string.
 
-### Class: `Abs`
+### `Abs`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Func`
 - Summary: SQL ABS() -- absolute value.
 
-### Class: `Round`
+### `Round`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1237,11 +1278,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Power`
+### `Power`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1249,11 +1290,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Now`
+### `Now`
 
 - Source: `aquilia/models/expression.py`
 - Bases: `Expression`
@@ -1261,17 +1302,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `CompositeAttribute`
+### `CompositeAttribute`
 
 - Source: `aquilia/models/fields/composite.py`
 - Bases: `object`
-- Summary: Descriptor that provides read/write access to a group of columns
+- Summary: Descriptor that provides read/write access to a group of columns as a single Python dict/namedtuple.
 
-### Class: `CompositeField`
+### `CompositeField`
 
 - Source: `aquilia/models/fields/composite.py`
 - Bases: `Field`
@@ -1279,15 +1320,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `CompositePrimaryKey`
+### `CompositePrimaryKey`
 
 - Source: `aquilia/models/fields/composite.py`
 - Bases: `object`
@@ -1295,12 +1336,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql` | `def sql(self) -> str` |  | Generate the SQL PRIMARY KEY constraint. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql` | `def sql(self)` | Generate the SQL PRIMARY KEY constraint. |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `EnumField`
+### `EnumField`
 
 - Source: `aquilia/models/fields/enum_field.py`
 - Bases: `Field`
@@ -1308,23 +1349,23 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `Lookup`
+### `Lookup`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `object`
 - Summary: Base class for field lookups.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `lookup_name` | `ClassVar[str]` | `''` |
 | `sql_operator` | `ClassVar[str]` | `'='` |
@@ -1332,379 +1373,379 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Return (sql_clause, params) for this lookup. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` | Return (sql_clause, params) for this lookup. |
 
-### Class: `Exact`
+### `Exact`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'exact'` |
-| `sql_operator` |  | `'='` |
+| `lookup_name` | `` | `'exact'` |
+| `sql_operator` | `` | `'='` |
 
-### Class: `IExact`
+### `IExact`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Case-insensitive exact match.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'iexact'` |
+| `lookup_name` | `` | `'iexact'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Contains`
+### `Contains`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'contains'` |
-| `sql_operator` |  | `'LIKE'` |
+| `lookup_name` | `` | `'contains'` |
+| `sql_operator` | `` | `'LIKE'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `IContains`
+### `IContains`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Case-insensitive contains.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'icontains'` |
+| `lookup_name` | `` | `'icontains'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `StartsWith`
+### `StartsWith`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'startswith'` |
+| `lookup_name` | `` | `'startswith'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `IStartsWith`
+### `IStartsWith`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Case-insensitive startswith.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'istartswith'` |
+| `lookup_name` | `` | `'istartswith'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `EndsWith`
+### `EndsWith`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'endswith'` |
+| `lookup_name` | `` | `'endswith'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `IEndsWith`
+### `IEndsWith`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Case-insensitive endswith.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'iendswith'` |
+| `lookup_name` | `` | `'iendswith'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `In`
+### `In`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'in'` |
+| `lookup_name` | `` | `'in'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Gt`
+### `Gt`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'gt'` |
-| `sql_operator` |  | `'>'` |
+| `lookup_name` | `` | `'gt'` |
+| `sql_operator` | `` | `'>'` |
 
-### Class: `Gte`
+### `Gte`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'gte'` |
-| `sql_operator` |  | `'>='` |
+| `lookup_name` | `` | `'gte'` |
+| `sql_operator` | `` | `'>='` |
 
-### Class: `Lt`
+### `Lt`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'lt'` |
-| `sql_operator` |  | `'<'` |
+| `lookup_name` | `` | `'lt'` |
+| `sql_operator` | `` | `'<'` |
 
-### Class: `Lte`
+### `Lte`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'lte'` |
-| `sql_operator` |  | `'<='` |
+| `lookup_name` | `` | `'lte'` |
+| `sql_operator` | `` | `'<='` |
 
-### Class: `IsNull`
+### `IsNull`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'isnull'` |
+| `lookup_name` | `` | `'isnull'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Range`
+### `Range`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Filter within a range: field__range=(lo, hi).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'range'` |
+| `lookup_name` | `` | `'range'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Regex`
+### `Regex`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Filter by regex (PostgreSQL: ~, SQLite: REGEXP if loaded).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'regex'` |
+| `lookup_name` | `` | `'regex'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `IRegex`
+### `IRegex`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Case-insensitive regex.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'iregex'` |
+| `lookup_name` | `` | `'iregex'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Date`
+### `Date`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Extract date from datetime and compare.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'date'` |
+| `lookup_name` | `` | `'date'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Year`
+### `Year`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Extract year and compare.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'year'` |
+| `lookup_name` | `` | `'year'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Month`
+### `Month`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Extract month and compare.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'month'` |
+| `lookup_name` | `` | `'month'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `Day`
+### `Day`
 
 - Source: `aquilia/models/fields/lookups.py`
 - Bases: `Lookup`
 - Summary: Extract day and compare.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `lookup_name` |  | `'day'` |
+| `lookup_name` | `` | `'day'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `as_sql` | `def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `as_sql` | `def as_sql(self, dialect: str='sqlite')` |  |
 
-### Class: `NullableMixin`
+### `NullableMixin`
 
 - Source: `aquilia/models/fields/mixins.py`
 - Bases: `object`
 - Summary: Mixin that makes a field nullable with sensible defaults.
 
-### Class: `UniqueMixin`
+### `UniqueMixin`
 
 - Source: `aquilia/models/fields/mixins.py`
 - Bases: `object`
 - Summary: Mixin that enforces uniqueness on a field.
 
-### Class: `IndexedMixin`
+### `IndexedMixin`
 
 - Source: `aquilia/models/fields/mixins.py`
 - Bases: `object`
 - Summary: Mixin that auto-adds a database index to a field.
 
-### Class: `AutoNowMixin`
+### `AutoNowMixin`
 
 - Source: `aquilia/models/fields/mixins.py`
 - Bases: `object`
 - Summary: Mixin for fields that auto-update on save (like updated_at).
 
-### Class: `ChoiceMixin`
+### `ChoiceMixin`
 
 - Source: `aquilia/models/fields/mixins.py`
 - Bases: `object`
@@ -1712,12 +1753,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_display` | `def get_display(self, value: Any) -> str` |  | Return the human-readable display value for a stored value. |
-| `choice_values` | `def choice_values(self) -> list` | property | Return list of valid stored values. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_display` | `def get_display(self, value: Any)` | Return the human-readable display value for a stored value. |
+| `choice_values` | `def choice_values(self)` | Return list of valid stored values. |
 
-### Class: `EncryptedMixin`
+### `EncryptedMixin`
 
 - Source: `aquilia/models/fields/mixins.py`
 - Bases: `object`
@@ -1725,272 +1766,272 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `configure_encryption_key` | `def configure_encryption_key(cls, key: str &#124; bytes) -> None` | classmethod | Configure symmetric encryption using *key*. |
-| `configure_encryption` | `def configure_encryption(cls, encrypt: Callable[[str], str], decrypt: Callable[[str], str]) -> None` | classmethod | Configure encryption/decryption functions. |
-| `to_db` | `def to_db(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `configure_encryption_key` | `def configure_encryption_key(cls, key: str \| bytes)` | Configure symmetric encryption using *key*. |
+| `configure_encryption` | `def configure_encryption(cls, encrypt: Callable[[str], str], decrypt: Callable[[str], str])` | Configure encryption/decryption functions. |
+| `to_db` | `def to_db(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
 
-### Class: `ValidationError`
+### `ValidationError`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `ValueError`
 - Summary: Raised by validators when a value fails validation.
 
-### Class: `BaseValidator`
+### `BaseValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `object`
 - Summary: Base class for all validators.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `message` | `str` | `'Invalid value.'` |
 | `code` | `str` | `'invalid'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Override in subclasses. Return True if value is valid. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` | Override in subclasses. Return True if value is valid. |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `MinValueValidator`
+### `MinValueValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Ensure value >= limit.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'min_value'` |
+| `code` | `` | `'min_value'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `MaxValueValidator`
+### `MaxValueValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Ensure value <= limit.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'max_value'` |
+| `code` | `` | `'max_value'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `MinLengthValidator`
+### `MinLengthValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Ensure string length >= limit.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'min_length'` |
+| `code` | `` | `'min_length'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `MaxLengthValidator`
+### `MaxLengthValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Ensure string length <= limit.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'max_length'` |
+| `code` | `` | `'max_length'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `RegexValidator`
+### `RegexValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Validate against a regex pattern.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'invalid'` |
+| `code` | `` | `'invalid'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `EmailValidator`
+### `EmailValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `RegexValidator`
 - Summary: Validate email address format.
 
-### Class: `URLValidator`
+### `URLValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `RegexValidator`
 - Summary: Validate URL format.
 
-### Class: `SlugValidator`
+### `SlugValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `RegexValidator`
 - Summary: Validate slug format (letters, numbers, hyphens, underscores).
 
-### Class: `ProhibitNullCharactersValidator`
+### `ProhibitNullCharactersValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Reject strings containing null characters.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'null_characters_not_allowed'` |
-| `message` |  | `'Null characters are not allowed.'` |
+| `code` | `` | `'null_characters_not_allowed'` |
+| `message` | `` | `'Null characters are not allowed.'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
 
-### Class: `DecimalValidator`
+### `DecimalValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Validate decimal precision and scale.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'invalid_decimal'` |
+| `code` | `` | `'invalid_decimal'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `FileExtensionValidator`
+### `FileExtensionValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Validate file extension against an allowed list.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'invalid_extension'` |
+| `code` | `` | `'invalid_extension'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `StepValueValidator`
+### `StepValueValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Ensure value is a multiple of step (from offset).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'invalid_step'` |
+| `code` | `` | `'invalid_step'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `RangeValidator`
+### `RangeValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Ensure value falls within [min_val, max_val] range.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'out_of_range'` |
+| `code` | `` | `'out_of_range'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
-| `get_message` | `def get_message(self, value: Any) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
+| `get_message` | `def get_message(self, value: Any)` |  |
 
-### Class: `UniqueForDateValidator`
+### `UniqueForDateValidator`
 
 - Source: `aquilia/models/fields/validators.py`
 - Bases: `BaseValidator`
 - Summary: Validate uniqueness for a date-based scope.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'unique_for_date'` |
+| `code` | `` | `'unique_for_date'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_valid` | `def is_valid(self, value: Any) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_valid` | `def is_valid(self, value: Any)` |  |
 
-### Class: `FieldValidationError`
+### `FieldValidationError`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `_FieldValidationFault, ValueError`
 - Summary: Raised when field validation fails.
 
-### Class: `Field`
+### `Field`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `object`
@@ -1998,20 +2039,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `column_name` | `def column_name(self) -> str` | property | Database column name. |
-| `has_default` | `def has_default(self) -> bool` |  | Check if field has a default value. |
-| `get_default` | `def get_default(self) -> Any` |  | Get default value, calling it if callable. |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Validate and coerce value. Returns cleaned value. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Convert database value to Python object. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Convert Python value to database-ready value. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Return SQL type string for this field. |
-| `sql_column_def` | `def sql_column_def(self, dialect: str = 'sqlite') -> str` |  | Generate full SQL column definition. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Serialize field definition for migrations. |
-| `clone` | `def clone(self) -> Field` |  | Create a deep copy of this field. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `column_name` | `def column_name(self)` | Database column name. |
+| `has_default` | `def has_default(self)` | Check if field has a default value. |
+| `get_default` | `def get_default(self)` | Get default value, calling it if callable. |
+| `validate` | `def validate(self, value: Any)` | Validate and coerce value. Returns cleaned value. Override in subclasses for type-specific validation. |
+| `to_python` | `def to_python(self, value: Any)` | Convert database value to Python object. |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` | Convert Python value to database-ready value. |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` | Return SQL type string for this field. |
+| `sql_column_def` | `def sql_column_def(self, dialect: str='sqlite')` | Generate full SQL column definition. |
+| `deconstruct` | `def deconstruct(self)` | Serialize field definition for migrations. |
+| `clone` | `def clone(self)` | Create a deep copy of this field. |
 
-### Class: `AutoField`
+### `AutoField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2019,12 +2060,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `BigAutoField`
+### `BigAutoField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2032,12 +2073,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `SmallAutoField`
+### `SmallAutoField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `AutoField`
@@ -2045,12 +2086,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `IntegerField`
+### `IntegerField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2058,12 +2099,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `BigIntegerField`
+### `BigIntegerField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2071,12 +2112,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `SmallIntegerField`
+### `SmallIntegerField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2084,12 +2125,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `PositiveIntegerField`
+### `PositiveIntegerField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2097,12 +2138,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `PositiveSmallIntegerField`
+### `PositiveSmallIntegerField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2110,12 +2151,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `PositiveBigIntegerField`
+### `PositiveBigIntegerField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2123,12 +2164,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `FloatField`
+### `FloatField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2136,12 +2177,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `DecimalField`
+### `DecimalField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2149,15 +2190,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `CharField`
+### `CharField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2165,19 +2206,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `VarcharField`
+### `VarcharField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
 - Summary: Explicit alias for CharField, representing a variable-length string.
 
-### Class: `TextField`
+### `TextField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2185,12 +2226,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `SlugField`
+### `SlugField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
@@ -2198,11 +2239,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
 
-### Class: `EmailField`
+### `EmailField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
@@ -2210,11 +2251,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
 
-### Class: `URLField`
+### `URLField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
@@ -2222,11 +2263,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
 
-### Class: `UUIDField`
+### `UUIDField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2234,20 +2275,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `FilePathField`
+### `FilePathField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
 - Summary: File system path field.
 
-### Class: `DateField`
+### `DateField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2255,15 +2296,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `pre_save` | `def pre_save(self, instance: Any, is_create: bool) -> Any` |  | Auto-set value before save. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `pre_save` | `def pre_save(self, instance: Any, is_create: bool)` | Auto-set value before save. |
 
-### Class: `TimeField`
+### `TimeField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2271,15 +2312,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `pre_save` | `def pre_save(self, instance: Any, is_create: bool) -> Any` |  | Auto-set time value before save. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `pre_save` | `def pre_save(self, instance: Any, is_create: bool)` | Auto-set time value before save. |
 
-### Class: `DateTimeField`
+### `DateTimeField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2287,15 +2328,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `pre_save` | `def pre_save(self, instance: Any, is_create: bool) -> Any` |  | Auto-set value before save. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `pre_save` | `def pre_save(self, instance: Any, is_create: bool)` | Auto-set value before save. |
 
-### Class: `DurationField`
+### `DurationField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2303,14 +2344,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `BooleanField`
+### `BooleanField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2318,14 +2359,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `BinaryField`
+### `BinaryField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2333,13 +2374,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `JSONField`
+### `JSONField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2347,14 +2388,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `RelationField`
+### `RelationField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2362,12 +2403,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `related_model` | `def related_model(self) -> type[Model] &#124; None` | property | Resolve the related model (handles forward references). |
-| `resolve_model` | `def resolve_model(self, registry: dict[str, type[Model]]) -> None` |  | Resolve string-based model reference. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `related_model` | `def related_model(self)` | Resolve the related model (handles forward references). |
+| `resolve_model` | `def resolve_model(self, registry: dict[str, type[Model]])` | Resolve string-based model reference. |
 
-### Class: `ForeignKey`
+### `ForeignKey`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `RelationField`
@@ -2375,20 +2416,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `sql_column_def` | `def sql_column_def(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `sql_column_def` | `def sql_column_def(self, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `OneToOneField`
+### `OneToOneField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `ForeignKey`
 - Summary: One-to-one relationship field.
 
-### Class: `ManyToManyField`
+### `ManyToManyField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `RelationField`
@@ -2396,15 +2437,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `junction_table_name` | `def junction_table_name(self, source_model: type[Model]) -> str` |  | Generate junction table name. |
-| `junction_columns` | `def junction_columns(self, source_model: type[Model]) -> tuple[str, str]` |  | Return (source_fk_col, target_fk_col) for junction table. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `sql_column_def` | `def sql_column_def(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `junction_table_name` | `def junction_table_name(self, source_model: type[Model])` | Generate junction table name. |
+| `junction_columns` | `def junction_columns(self, source_model: type[Model])` | Return (source_fk_col, target_fk_col) for junction table. |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `sql_column_def` | `def sql_column_def(self, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `GenericIPAddressField`
+### `GenericIPAddressField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2412,24 +2453,24 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `FileField`
+### `FileField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
 - Summary: File path/URL field -- stores the path to the uploaded file.
 
-### Class: `ImageField`
+### `ImageField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `FileField`
 - Summary: Image file field -- extends FileField with image validation.
 
-### Class: `ArrayField`
+### `ArrayField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2437,14 +2478,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `HStoreField`
+### `HStoreField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2452,14 +2493,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `RangeField`
+### `RangeField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2467,68 +2508,68 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `to_python` | `def to_python(self, value: Any) -> Any` |  | Method. |
-| `to_db` | `def to_db(self, value: Any, dialect: str = 'sqlite') -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `to_python` | `def to_python(self, value: Any)` |  |
+| `to_db` | `def to_db(self, value: Any, dialect: str='sqlite')` |  |
 
-### Class: `IntegerRangeField`
-
-- Source: `aquilia/models/fields_module.py`
-- Bases: `RangeField`
-
-Methods:
-
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-
-### Class: `BigIntegerRangeField`
+### `IntegerRangeField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `RangeField`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `DecimalRangeField`
-
-- Source: `aquilia/models/fields_module.py`
-- Bases: `RangeField`
-
-Methods:
-
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-
-### Class: `DateRangeField`
+### `BigIntegerRangeField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `RangeField`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `DateTimeRangeField`
+### `DecimalRangeField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `RangeField`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `CICharField`
+### `DateRangeField`
+
+- Source: `aquilia/models/fields_module.py`
+- Bases: `RangeField`
+
+Methods:
+
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+
+### `DateTimeRangeField`
+
+- Source: `aquilia/models/fields_module.py`
+- Bases: `RangeField`
+
+Methods:
+
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+
+### `CICharField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `CharField`
@@ -2536,12 +2577,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `CIEmailField`
+### `CIEmailField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `EmailField`
@@ -2549,11 +2590,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `CITextField`
+### `CITextField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `TextField`
@@ -2561,18 +2602,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate` | `def validate(self, value: Any) -> Any` |  | Method. |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate` | `def validate(self, value: Any)` |  |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
 
-### Class: `InetAddressField`
+### `InetAddressField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `GenericIPAddressField`
 - Summary: PostgreSQL INET field -- stores IP address with optional netmask.
 
-### Class: `GeneratedField`
+### `GeneratedField`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `Field`
@@ -2580,18 +2621,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql_type` | `def sql_type(self, dialect: str = 'sqlite') -> str` |  | Method. |
-| `sql_column_def` | `def sql_column_def(self, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql_type` | `def sql_type(self, dialect: str='sqlite')` |  |
+| `sql_column_def` | `def sql_column_def(self, dialect: str='sqlite')` |  |
 
-### Class: `OrderWrt`
+### `OrderWrt`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `IntegerField`
 - Summary: Internal ordering helper field.
 
-### Class: `Index`
+### `Index`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `object`
@@ -2599,41 +2640,41 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql` | `def sql(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql` | `def sql(self, table_name: str, dialect: str='sqlite')` |  |
 
-### Class: `UniqueConstraint`
+### `UniqueConstraint`
 
 - Source: `aquilia/models/fields_module.py`
 - Bases: `object`
 - Summary: Unique constraint declaration.
 
-### Class: `GinIndex`
+### `GinIndex`
 
 - Source: `aquilia/models/index.py`
 - Bases: `_PostgresOnlyIndex`
 - Summary: PostgreSQL GIN index -- useful for full-text search, JSONB, arrays.
 
-### Class: `GistIndex`
+### `GistIndex`
 
 - Source: `aquilia/models/index.py`
 - Bases: `_PostgresOnlyIndex`
 - Summary: PostgreSQL GiST index -- useful for geometric, range types, exclusion constraints.
 
-### Class: `BrinIndex`
+### `BrinIndex`
 
 - Source: `aquilia/models/index.py`
 - Bases: `_PostgresOnlyIndex`
 - Summary: PostgreSQL BRIN index -- useful for very large tables with natural ordering.
 
-### Class: `HashIndex`
+### `HashIndex`
 
 - Source: `aquilia/models/index.py`
 - Bases: `_PostgresOnlyIndex`
 - Summary: PostgreSQL Hash index -- useful for equality lookups only.
 
-### Class: `FunctionalIndex`
+### `FunctionalIndex`
 
 - Source: `aquilia/models/index.py`
 - Bases: `object`
@@ -2641,12 +2682,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sql` | `def sql(self, table_name: str, dialect: str = 'sqlite') -> str` |  | Method. |
-| `deconstruct` | `def deconstruct(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sql` | `def sql(self, table_name: str, dialect: str='sqlite')` |  |
+| `deconstruct` | `def deconstruct(self)` |  |
 
-### Class: `QuerySet`
+### `QuerySet`
 
 - Source: `aquilia/models/manager.py`
 - Bases: `object`
@@ -2654,73 +2695,67 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_queryset` | `def get_queryset(self) -> Q` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_queryset` | `def get_queryset(self)` |  |
 
-### Class: `BaseManager`
+### `BaseManager`
 
 - Source: `aquilia/models/manager.py`
 - Bases: `object`
 - Summary: Base manager with Python descriptor protocol.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `order_by` |  | `order` |
-
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_queryset` | `def get_queryset(self) -> Q` |  | Override point for custom managers. |
-| `filter` | `def filter(self, *q_nodes: Any, **kwargs: Any) -> Q` |  | Field filtering. See Q.filter() for details. |
-| `exclude` | `def exclude(self, **kwargs: Any) -> Q` |  | Negated filter. See Q.exclude() for details. |
-| `where` | `def where(self, clause: str, *args: Any, **kwargs: Any) -> Q` |  | Raw WHERE clause (Aquilia-only). See Q.where() for details. |
-| `order` | `def order(self, *fields: Any) -> Q` |  | ORDER BY. See Q.order() for details -- supports str, F().desc(), OrderBy. |
-| `limit` | `def limit(self, n: int) -> Q` |  | Method. |
-| `offset` | `def offset(self, n: int) -> Q` |  | Method. |
-| `distinct` | `def distinct(self) -> Q` |  | Method. |
-| `only` | `def only(self, *fields: str) -> Q` |  | Load only specified fields. |
-| `defer` | `def defer(self, *fields: str) -> Q` |  | Defer loading of specified fields. |
-| `annotate` | `def annotate(self, **expressions: Any) -> Q` |  | Add annotations. See Q.annotate() for details. |
-| `group_by` | `def group_by(self, *fields: str) -> Q` |  | Method. |
-| `having` | `def having(self, clause: str, *args: Any) -> Q` |  | HAVING clause (use after group_by). |
-| `union` | `def union(self, *querysets: Any, all: bool = False) -> Q` |  | UNION set operation. |
-| `intersection` | `def intersection(self, *querysets: Any) -> Q` |  | INTERSECT set operation. |
-| `difference` | `def difference(self, *querysets: Any) -> Q` |  | EXCEPT set operation. |
-| `select_related` | `def select_related(self, *fields: str) -> Q` |  | JOIN-based eager loading. |
-| `prefetch_related` | `def prefetch_related(self, *lookups: Any) -> Q` |  | Separate-query prefetching. Accepts strings or Prefetch objects. |
-| `select_for_update` | `def select_for_update(self, **kwargs: Any) -> Q` |  | SELECT ... FOR UPDATE (locking). |
-| `iterator` | `def iterator(self, chunk_size: int = 2000) -> Q` |  | Memory-efficient chunked iteration. See Q.iterator() for details. |
-| `using` | `def using(self, db_alias: str) -> Q` |  | Target a specific database. |
-| `none` | `def none(self) -> Q` |  | Return an empty queryset. |
-| `apply_q` | `def apply_q(self, q_node: Any) -> Q` |  | Apply a QNode filter. |
-| `all` | `async def all(self) -> list[Model]` |  | Method. |
-| `first` | `async def first(self) -> Model &#124; None` |  | Method. |
-| `last` | `async def last(self) -> Model &#124; None` |  | Method. |
-| `one` | `async def one(self) -> Model` |  | Return exactly one row. Raises if 0 or >1 (Aquilia-only). |
-| `latest` | `async def latest(self, field_name: str &#124; None = None) -> Model` |  | Return latest record by date field. |
-| `earliest` | `async def earliest(self, field_name: str &#124; None = None) -> Model` |  | Return earliest record by date field. |
-| `count` | `async def count(self) -> int` |  | Method. |
-| `exists` | `async def exists(self) -> bool` |  | Method. |
-| `values` | `async def values(self, *fields: str) -> list[dict[str, Any]]` |  | Method. |
-| `values_list` | `async def values_list(self, *fields: str, flat: bool = False) -> list[Any]` |  | Method. |
-| `update` | `async def update(self, values: dict[str, Any] &#124; None = None, **kwargs: Any) -> int` |  | Method. |
-| `delete` | `async def delete(self) -> int` |  | Method. |
-| `aggregate` | `async def aggregate(self, **expressions: Any) -> dict[str, Any]` |  | Compute aggregates. See Q.aggregate() for details. |
-| `in_bulk` | `async def in_bulk(self, id_list: list[Any]) -> dict[Any, Model]` |  | Return dict mapping PKs to instances. |
-| `explain` | `async def explain(self, **kwargs: Any) -> str` |  | Return query execution plan. |
-| `get` | `async def get(self, pk: Any = None, **filters: Any) -> Model &#124; None` |  | Get a single instance by PK or filter kwargs. |
-| `get_or_create` | `async def get_or_create(self, defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` |  | Get existing instance or create a new one. |
-| `update_or_create` | `async def update_or_create(self, defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` |  | Update existing instance or create a new one. |
-| `create` | `async def create(self, **data: Any) -> Model` |  | Create and save a new instance. |
-| `bulk_create` | `async def bulk_create(self, instances: list[Any], *, batch_size: int &#124; None = None, ignore_conflicts: bool = False) -> list[Model]` |  | Create multiple instances efficiently. |
-| `bulk_update` | `async def bulk_update(self, instances: list[Model], fields: list[str], *, batch_size: int &#124; None = None) -> int` |  | Update specific fields on multiple instances. |
-| `raw` | `async def raw(self, sql: str, params: list[Any] &#124; None = None) -> list[Model]` |  | Execute raw SQL and return model instances. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_queryset` | `def get_queryset(self)` | Override point for custom managers. |
+| `filter` | `def filter(self, *q_nodes: Any, **kwargs: Any)` | Field filtering. See Q.filter() for details. |
+| `exclude` | `def exclude(self, **kwargs: Any)` | Negated filter. See Q.exclude() for details. |
+| `where` | `def where(self, clause: str, *args: Any, **kwargs: Any)` | Raw WHERE clause (Aquilia-only). See Q.where() for details. |
+| `order` | `def order(self, *fields: Any)` | ORDER BY. See Q.order() for details -- supports str, F().desc(), OrderBy. |
+| `limit` | `def limit(self, n: int)` |  |
+| `offset` | `def offset(self, n: int)` |  |
+| `distinct` | `def distinct(self)` |  |
+| `only` | `def only(self, *fields: str)` | Load only specified fields. |
+| `defer` | `def defer(self, *fields: str)` | Defer loading of specified fields. |
+| `annotate` | `def annotate(self, **expressions: Any)` | Add annotations. See Q.annotate() for details. |
+| `group_by` | `def group_by(self, *fields: str)` |  |
+| `having` | `def having(self, clause: str, *args: Any)` | HAVING clause (use after group_by). |
+| `union` | `def union(self, *querysets: Any, all: bool=False)` | UNION set operation. |
+| `intersection` | `def intersection(self, *querysets: Any)` | INTERSECT set operation. |
+| `difference` | `def difference(self, *querysets: Any)` | EXCEPT set operation. |
+| `select_related` | `def select_related(self, *fields: str)` | JOIN-based eager loading. |
+| `prefetch_related` | `def prefetch_related(self, *lookups: Any)` | Separate-query prefetching. Accepts strings or Prefetch objects. |
+| `select_for_update` | `def select_for_update(self, **kwargs: Any)` | SELECT ... FOR UPDATE (locking). |
+| `iterator` | `def iterator(self, chunk_size: int=2000)` | Memory-efficient chunked iteration. See Q.iterator() for details. |
+| `using` | `def using(self, db_alias: str)` | Target a specific database. |
+| `none` | `def none(self)` | Return an empty queryset. |
+| `apply_q` | `def apply_q(self, q_node: Any)` | Apply a QNode filter. |
+| `all` | `async def all(self)` |  |
+| `first` | `async def first(self)` |  |
+| `last` | `async def last(self)` |  |
+| `one` | `async def one(self)` | Return exactly one row. Raises if 0 or >1 (Aquilia-only). |
+| `latest` | `async def latest(self, field_name: str \| None=None)` | Return latest record by date field. |
+| `earliest` | `async def earliest(self, field_name: str \| None=None)` | Return earliest record by date field. |
+| `count` | `async def count(self)` |  |
+| `exists` | `async def exists(self)` |  |
+| `values` | `async def values(self, *fields: str)` |  |
+| `values_list` | `async def values_list(self, *fields: str, flat: bool=False)` |  |
+| `update` | `async def update(self, values: dict[str, Any] \| None=None, **kwargs: Any)` |  |
+| `delete` | `async def delete(self)` |  |
+| `aggregate` | `async def aggregate(self, **expressions: Any)` | Compute aggregates. See Q.aggregate() for details. |
+| `in_bulk` | `async def in_bulk(self, id_list: list[Any])` | Return dict mapping PKs to instances. |
+| `explain` | `async def explain(self, **kwargs: Any)` | Return query execution plan. |
+| `get` | `async def get(self, pk: Any=None, **filters: Any)` | Get a single instance by PK or filter kwargs. |
+| `get_or_create` | `async def get_or_create(self, defaults: dict[str, Any] \| None=None, **lookup: Any)` | Get existing instance or create a new one. |
+| `update_or_create` | `async def update_or_create(self, defaults: dict[str, Any] \| None=None, **lookup: Any)` | Update existing instance or create a new one. |
+| `create` | `async def create(self, **data: Any)` | Create and save a new instance. |
+| `bulk_create` | `async def bulk_create(self, instances: list[Any], *, batch_size: int \| None=None, ignore_conflicts: bool=False)` | Create multiple instances efficiently. |
+| `bulk_update` | `async def bulk_update(self, instances: list[Model], fields: list[str], *, batch_size: int \| None=None)` | Update specific fields on multiple instances. |
+| `raw` | `async def raw(self, sql: str, params: list[Any] \| None=None)` | Execute raw SQL and return model instances. |
 
-### Class: `Manager`
+### `Manager`
 
 - Source: `aquilia/models/manager.py`
 - Bases: `BaseManager`
@@ -2728,408 +2763,408 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_queryset` | `def from_queryset(cls, queryset_class: type, class_name: str &#124; None = None) -> type` | classmethod | Create a Manager subclass that includes methods from a QuerySet. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_queryset` | `def from_queryset(cls, queryset_class: type, class_name: str \| None=None)` | Create a Manager subclass that includes methods from a QuerySet. |
 
-### Class: `ModelMeta`
+### `ModelMeta`
 
 - Source: `aquilia/models/metaclass.py`
 - Bases: `type`
 - Summary: Metaclass for Aquilia models.
 
-### Class: `ColumnDef`
+### `ColumnDef`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A column definition in the DSL.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `col_type` | `str` |  |
+| `name` | `str` | `` |
+| `col_type` | `str` | `` |
 | `primary_key` | `bool` | `False` |
 | `autoincrement` | `bool` | `False` |
 | `unique` | `bool` | `False` |
 | `nullable` | `bool` | `False` |
 | `default` | `Any` | `_SENTINEL` |
-| `references` | `tuple[str, str] &#124; None` | `None` |
+| `references` | `tuple[str, str] \| None` | `None` |
 | `on_delete` | `str` | `'CASCADE'` |
 | `on_update` | `str` | `'CASCADE'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> str` |  | Compile this column to a SQL column definition. |
-| `to_snapshot` | `def to_snapshot(self) -> dict[str, Any]` |  | Serialize this column to a snapshot-compatible dict. |
-| `from_snapshot` | `def from_snapshot(cls, data: dict[str, Any]) -> ColumnDef` | classmethod | Deserialize from snapshot dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` | Compile this column to a SQL column definition. |
+| `to_snapshot` | `def to_snapshot(self)` | Serialize this column to a snapshot-compatible dict. |
+| `from_snapshot` | `def from_snapshot(cls, data: dict[str, Any])` | Deserialize from snapshot dict. |
 
-### Class: `Operation`
+### `Operation`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `object`
 - Summary: Base class for all migration operations.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `reversible` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Compile this operation to SQL statement(s). |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Compile the reverse of this operation to SQL. |
-| `describe` | `def describe(self) -> str` |  | Human-readable description. |
-| `to_snapshot_delta` | `def to_snapshot_delta(self) -> dict[str, Any]` |  | Describe the snapshot change this operation implies. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` | Compile this operation to SQL statement(s). |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` | Compile the reverse of this operation to SQL. |
+| `describe` | `def describe(self)` | Human-readable description. |
+| `to_snapshot_delta` | `def to_snapshot_delta(self)` | Describe the snapshot change this operation implies. |
 
-### Class: `CreateModel`
+### `CreateModel`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Create a new database table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `table` | `str` |  |
+| `name` | `str` | `` |
+| `table` | `str` | `` |
 | `fields` | `list[ColumnDef]` | `field(default_factory=list)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `DropModel`
+### `DropModel`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Drop a table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `table` | `str` |  |
+| `name` | `str` | `` |
+| `table` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `RenameModel`
+### `RenameModel`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Rename a table (preserves data).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `old_name` | `str` |  |
-| `new_name` | `str` |  |
-| `old_table` | `str` |  |
-| `new_table` | `str` |  |
+| `old_name` | `str` | `` |
+| `new_name` | `str` | `` |
+| `old_table` | `str` | `` |
+| `new_table` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `AddField`
+### `AddField`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Add a column to an existing table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `model_name` | `str` |  |
-| `table` | `str` |  |
+| `model_name` | `str` | `` |
+| `table` | `str` | `` |
 | `column` | `ColumnDef` | `field(default_factory=lambda: ColumnDef(name='', col_type=''))` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `RemoveField`
+### `RemoveField`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Remove a column from an existing table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `model_name` | `str` |  |
-| `table` | `str` |  |
-| `column_name` | `str` |  |
+| `model_name` | `str` | `` |
+| `table` | `str` | `` |
+| `column_name` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `AlterField`
+### `AlterField`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Alter a column's type, constraints, or default.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `model_name` | `str` |  |
-| `table` | `str` |  |
-| `column_name` | `str` |  |
-| `new_type` | `str &#124; None` | `None` |
-| `nullable` | `bool &#124; None` | `None` |
+| `model_name` | `str` | `` |
+| `table` | `str` | `` |
+| `column_name` | `str` | `` |
+| `new_type` | `str \| None` | `None` |
+| `nullable` | `bool \| None` | `None` |
 | `new_default` | `Any` | `_SENTINEL` |
 | `drop_default` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `RenameField`
+### `RenameField`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Rename a column (preserves data).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `model_name` | `str` |  |
-| `table` | `str` |  |
-| `old_name` | `str` |  |
-| `new_name` | `str` |  |
+| `model_name` | `str` | `` |
+| `table` | `str` | `` |
+| `old_name` | `str` | `` |
+| `new_name` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `CreateIndex`
+### `CreateIndex`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Create a database index.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `table` | `str` |  |
+| `name` | `str` | `` |
+| `table` | `str` | `` |
 | `columns` | `list[str]` | `field(default_factory=list)` |
 | `unique` | `bool` | `False` |
-| `condition` | `str &#124; None` | `None` |
+| `condition` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `DropIndex`
+### `DropIndex`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Drop a database index.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `table` | `str &#124; None` | `None` |
+| `name` | `str` | `` |
+| `table` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `AddConstraint`
+### `AddConstraint`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Add a constraint to a table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `table` | `str` |  |
-| `constraint_sql` | `str` |  |
+| `table` | `str` | `` |
+| `constraint_sql` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `RemoveConstraint`
+### `RemoveConstraint`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Remove a constraint from a table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `table` | `str` |  |
-| `name` | `str` |  |
+| `table` | `str` | `` |
+| `name` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `RunSQL`
+### `RunSQL`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Execute raw SQL statements (forward and optionally reverse).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `sql` | `str &#124; list[str]` | `''` |
-| `reverse` | `str &#124; list[str]` | `''` |
+| `sql` | `str \| list[str]` | `''` |
+| `reverse` | `str \| list[str]` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `RunPython`
+### `RunPython`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `Operation`
-- Decorators: `dataclass`
 - Summary: Execute a Python callable as a data migration step.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `forward` | `Callable &#124; None` | `None` |
-| `reverse` | `Callable &#124; None` | `None` |
-| `reversible` |  | `True` |
+| `forward` | `Callable \| None` | `None` |
+| `reverse` | `Callable \| None` | `None` |
+| `reversible` | `` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_sql` | `def to_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `reverse_sql` | `def reverse_sql(self, dialect: str = 'sqlite') -> list[str]` |  | Method. |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_sql` | `def to_sql(self, dialect: str='sqlite')` |  |
+| `reverse_sql` | `def reverse_sql(self, dialect: str='sqlite')` |  |
+| `describe` | `def describe(self)` |  |
 
-### Class: `Migration`
+### `Migration`
 
 - Source: `aquilia/models/migration_dsl.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Container for a set of migration operations with metadata.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `revision` | `str` |  |
-| `slug` | `str` |  |
+| `revision` | `str` | `` |
+| `slug` | `str` | `` |
 | `models` | `list[str]` | `field(default_factory=list)` |
 | `dependencies` | `list[str]` | `field(default_factory=list)` |
 | `operations` | `list[Operation]` | `field(default_factory=list)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `compile_upgrade` | `def compile_upgrade(self, dialect: str = 'sqlite') -> list[str]` |  | Compile all operations to forward SQL. |
-| `compile_downgrade` | `def compile_downgrade(self, dialect: str = 'sqlite') -> list[str]` |  | Compile all operations (reversed) to rollback SQL. |
-| `get_python_ops` | `def get_python_ops(self) -> list[RunPython]` |  | Get all RunPython operations (for the runner). |
-| `describe` | `def describe(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `compile_upgrade` | `def compile_upgrade(self, dialect: str='sqlite')` | Compile all operations to forward SQL. |
+| `compile_downgrade` | `def compile_downgrade(self, dialect: str='sqlite')` | Compile all operations (reversed) to rollback SQL. |
+| `get_python_ops` | `def get_python_ops(self)` | Get all RunPython operations (for the runner). |
+| `describe` | `def describe(self)` |  |
 
-### Class: `MigrationRecord`
+### `MigrationRecord`
 
 - Source: `aquilia/models/migration_runner.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A record in the aquilia_migrations tracking table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `revision` | `str` |  |
-| `slug` | `str` |  |
-| `checksum` | `str` |  |
-| `applied_at` | `str &#124; None` | `None` |
+| `revision` | `str` | `` |
+| `slug` | `str` | `` |
+| `checksum` | `str` | `` |
+| `applied_at` | `str \| None` | `None` |
 
-### Class: `MigrationRunner`
+### `MigrationRunner`
 
 - Source: `aquilia/models/migration_runner.py`
 - Bases: `object`
@@ -3137,19 +3172,19 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `ensure_tracking_table` | `async def ensure_tracking_table(self) -> None` |  | Create the aquilia_migrations tracking table if it doesn't exist. |
-| `get_applied` | `async def get_applied(self) -> list[str]` |  | Get list of applied revision IDs, ordered by application time. |
-| `get_pending` | `async def get_pending(self) -> list[Path]` |  | Get migration files that haven't been applied yet. |
-| `status` | `async def status(self) -> dict[str, Any]` |  | Get migration status -- applied, pending, totals. |
-| `show_status` | `async def show_status(self) -> str` |  | Return a human-readable status string. |
-| `plan` | `async def plan(self, target: str &#124; None = None) -> list[str]` |  | Preview migrations without executing (--plan / dry-run). |
-| `sqlmigrate` | `async def sqlmigrate(self, revision: str) -> list[str]` |  | Get the SQL for a specific migration (aq db sqlmigrate). |
-| `migrate` | `async def migrate(self, *, target: str &#124; None = None, fake: bool = False, database: str &#124; None = None) -> list[str]` |  | Apply all pending migrations. |
-| `verify_checksums` | `async def verify_checksums(self) -> list[dict[str, str]]` |  | Verify that applied migration files haven't been tampered with. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `ensure_tracking_table` | `async def ensure_tracking_table(self)` | Create the aquilia_migrations tracking table if it doesn't exist. |
+| `get_applied` | `async def get_applied(self)` | Get list of applied revision IDs, ordered by application time. |
+| `get_pending` | `async def get_pending(self)` | Get migration files that haven't been applied yet. |
+| `status` | `async def status(self)` | Get migration status -- applied, pending, totals. |
+| `show_status` | `async def show_status(self)` | Return a human-readable status string. |
+| `plan` | `async def plan(self, target: str \| None=None)` | Preview migrations without executing (--plan / dry-run). |
+| `sqlmigrate` | `async def sqlmigrate(self, revision: str)` | Get the SQL for a specific migration (aq db sqlmigrate). |
+| `migrate` | `async def migrate(self, *, target: str \| None=None, fake: bool=False, database: str \| None=None)` | Apply all pending migrations. |
+| `verify_checksums` | `async def verify_checksums(self)` | Verify that applied migration files haven't been tampered with. |
 
-### Class: `MigrationOps`
+### `MigrationOps`
 
 - Source: `aquilia/models/migrations.py`
 - Bases: `object`
@@ -3157,58 +3192,58 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `dialect` | `def dialect(self) -> str` | property | Method. |
-| `dialect` | `def dialect(self, value: str) -> None` | dialect.setter | Method. |
-| `create_table` | `def create_table(self, name: str, columns: list[str]) -> None` |  | Generate CREATE TABLE statement. |
-| `drop_table` | `def drop_table(self, name: str, cascade: bool = False) -> None` |  | Generate DROP TABLE statement. |
-| `rename_table` | `def rename_table(self, old_name: str, new_name: str) -> None` |  | Generate RENAME TABLE statement (dialect-aware). |
-| `add_column` | `def add_column(self, table: str, column_def: str) -> None` |  | Generate ALTER TABLE ADD COLUMN. |
-| `drop_column` | `def drop_column(self, table: str, column: str) -> None` |  | Generate ALTER TABLE DROP COLUMN (dialect-aware). |
-| `rename_column` | `def rename_column(self, table: str, old_name: str, new_name: str) -> None` |  | Generate ALTER TABLE RENAME COLUMN (dialect-aware). |
-| `alter_column` | `def alter_column(self, table: str, column: str, *, type: str &#124; None = None, nullable: bool &#124; None = None, default: Any &#124; None = None, drop_default: bool = False) -> None` |  | Generate ALTER TABLE ALTER COLUMN (dialect-aware). |
-| `create_index` | `def create_index(self, name: str, table: str, columns: list[str], unique: bool = False, condition: str &#124; None = None) -> None` |  | Generate CREATE INDEX (with optional partial index condition). |
-| `drop_index` | `def drop_index(self, name: str, table: str &#124; None = None) -> None` |  | Generate DROP INDEX (dialect-aware). |
-| `add_constraint` | `def add_constraint(self, table: str, constraint_sql: str) -> None` |  | Generate ALTER TABLE ADD CONSTRAINT. |
-| `drop_constraint` | `def drop_constraint(self, table: str, name: str) -> None` |  | Generate ALTER TABLE DROP CONSTRAINT (not supported on SQLite). |
-| `execute_sql` | `def execute_sql(self, sql: str) -> None` |  | Add raw SQL statement. |
-| `run_python` | `def run_python(self, func: Callable) -> None` |  | Mark a Python callable as a data-migration step. |
-| `pk` | `def pk(name: str = 'id', *, dialect: str = 'sqlite') -> str` | staticmethod | Primary key column definition. |
-| `bigpk` | `def bigpk(name: str = 'id', *, dialect: str = 'sqlite') -> str` | staticmethod | Big integer primary key. |
-| `integer` | `def integer(name: str, nullable: bool = False, unique: bool = False) -> str` | staticmethod | Method. |
-| `biginteger` | `def biginteger(name: str, nullable: bool = False, unique: bool = False, *, dialect: str = 'sqlite') -> str` | staticmethod | Big integer column. |
-| `varchar` | `def varchar(name: str, length: int = 255, nullable: bool = False, unique: bool = False) -> str` | staticmethod | Method. |
-| `text` | `def text(name: str, nullable: bool = False) -> str` | staticmethod | Method. |
-| `blob` | `def blob(name: str, nullable: bool = False) -> str` | staticmethod | Method. |
-| `boolean` | `def boolean(name: str, nullable: bool = False, default: bool &#124; None = None, *, dialect: str = 'sqlite') -> str` | staticmethod | Boolean column (dialect-aware). |
-| `timestamp` | `def timestamp(name: str, nullable: bool = False, default: str &#124; None = None, *, dialect: str = 'sqlite') -> str` | staticmethod | Timestamp column (dialect-aware). |
-| `decimal` | `def decimal(name: str, max_digits: int = 10, decimal_places: int = 2, nullable: bool = False, *, dialect: str = 'sqlite') -> str` | staticmethod | Decimal / numeric column. |
-| `json` | `def json(name: str, nullable: bool = False, *, dialect: str = 'sqlite') -> str` | staticmethod | JSON column (dialect-aware). |
-| `uuid` | `def uuid(name: str, nullable: bool = False, *, dialect: str = 'sqlite') -> str` | staticmethod | UUID column (dialect-aware). |
-| `real` | `def real(name: str, nullable: bool = False) -> str` | staticmethod | Method. |
-| `foreign_key` | `def foreign_key(name: str, ref_table: str, ref_column: str = 'id', on_delete: str = 'CASCADE', nullable: bool = False) -> str` | staticmethod | Foreign key column with inline REFERENCES. |
-| `get_statements` | `def get_statements(self) -> list[Any]` |  | Return accumulated SQL statements (strings and callables). |
-| `clear` | `def clear(self) -> None` |  | Reset accumulated statements. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `dialect` | `def dialect(self)` |  |
+| `dialect` | `def dialect(self, value: str)` |  |
+| `create_table` | `def create_table(self, name: str, columns: list[str])` | Generate CREATE TABLE statement. |
+| `drop_table` | `def drop_table(self, name: str, cascade: bool=False)` | Generate DROP TABLE statement. |
+| `rename_table` | `def rename_table(self, old_name: str, new_name: str)` | Generate RENAME TABLE statement (dialect-aware). |
+| `add_column` | `def add_column(self, table: str, column_def: str)` | Generate ALTER TABLE ADD COLUMN. |
+| `drop_column` | `def drop_column(self, table: str, column: str)` | Generate ALTER TABLE DROP COLUMN (dialect-aware). |
+| `rename_column` | `def rename_column(self, table: str, old_name: str, new_name: str)` | Generate ALTER TABLE RENAME COLUMN (dialect-aware). |
+| `alter_column` | `def alter_column(self, table: str, column: str, *, type: str \| None=None, nullable: bool \| None=None, default: Any \| None=None, drop_default: bool=False)` | Generate ALTER TABLE ALTER COLUMN (dialect-aware). |
+| `create_index` | `def create_index(self, name: str, table: str, columns: list[str], unique: bool=False, condition: str \| None=None)` | Generate CREATE INDEX (with optional partial index condition). |
+| `drop_index` | `def drop_index(self, name: str, table: str \| None=None)` | Generate DROP INDEX (dialect-aware). |
+| `add_constraint` | `def add_constraint(self, table: str, constraint_sql: str)` | Generate ALTER TABLE ADD CONSTRAINT. |
+| `drop_constraint` | `def drop_constraint(self, table: str, name: str)` | Generate ALTER TABLE DROP CONSTRAINT (not supported on SQLite). |
+| `execute_sql` | `def execute_sql(self, sql: str)` | Add raw SQL statement. |
+| `run_python` | `def run_python(self, func: Callable)` | Mark a Python callable as a data-migration step. |
+| `pk` | `def pk(name: str='id', *, dialect: str='sqlite')` | Primary key column definition. |
+| `bigpk` | `def bigpk(name: str='id', *, dialect: str='sqlite')` | Big integer primary key. |
+| `integer` | `def integer(name: str, nullable: bool=False, unique: bool=False)` |  |
+| `biginteger` | `def biginteger(name: str, nullable: bool=False, unique: bool=False, *, dialect: str='sqlite')` | Big integer column. |
+| `varchar` | `def varchar(name: str, length: int=255, nullable: bool=False, unique: bool=False)` |  |
+| `text` | `def text(name: str, nullable: bool=False)` |  |
+| `blob` | `def blob(name: str, nullable: bool=False)` |  |
+| `boolean` | `def boolean(name: str, nullable: bool=False, default: bool \| None=None, *, dialect: str='sqlite')` | Boolean column (dialect-aware). |
+| `timestamp` | `def timestamp(name: str, nullable: bool=False, default: str \| None=None, *, dialect: str='sqlite')` | Timestamp column (dialect-aware). |
+| `decimal` | `def decimal(name: str, max_digits: int=10, decimal_places: int=2, nullable: bool=False, *, dialect: str='sqlite')` | Decimal / numeric column. |
+| `json` | `def json(name: str, nullable: bool=False, *, dialect: str='sqlite')` | JSON column (dialect-aware). |
+| `uuid` | `def uuid(name: str, nullable: bool=False, *, dialect: str='sqlite')` | UUID column (dialect-aware). |
+| `real` | `def real(name: str, nullable: bool=False)` |  |
+| `foreign_key` | `def foreign_key(name: str, ref_table: str, ref_column: str='id', on_delete: str='CASCADE', nullable: bool=False)` | Foreign key column with inline REFERENCES. |
+| `get_statements` | `def get_statements(self)` | Return accumulated SQL statements (strings and callables). |
+| `clear` | `def clear(self)` | Reset accumulated statements. |
 
-### Class: `MigrationInfo`
+### `MigrationInfo`
 
 - Source: `aquilia/models/migrations.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Metadata for a single migration file.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `revision` | `str` |  |
-| `slug` | `str` |  |
-| `models` | `list[str]` |  |
-| `path` | `Path &#124; None` | `None` |
+| `revision` | `str` | `` |
+| `slug` | `str` | `` |
+| `models` | `list[str]` | `` |
+| `path` | `Path \| None` | `None` |
 | `applied` | `bool` | `False` |
 
-### Class: `MigrationRunner`
+### `MigrationRunner`
 
 - Source: `aquilia/models/migrations.py`
 - Bases: `object`
@@ -3216,19 +3251,19 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `ensure_tracking_table` | `async def ensure_tracking_table(self) -> None` |  | Create the migrations tracking table if it doesn't exist. |
-| `get_applied` | `async def get_applied(self) -> list[str]` |  | Get list of applied revision IDs. |
-| `get_pending` | `async def get_pending(self) -> list[Path]` |  | Get migration files that haven't been applied yet. |
-| `status` | `async def status(self) -> dict[str, Any]` |  | Get migration status -- applied, pending, and total counts. |
-| `show_status` | `async def show_status(self) -> str` |  | Return a human-readable status string. |
-| `dry_run` | `async def dry_run(self, target: str &#124; None = None) -> list[str]` |  | Preview migrations without executing. Returns list of SQL strings. |
-| `apply_migration` | `async def apply_migration(self, path: Path) -> None` |  | Apply a single migration file. |
-| `migrate` | `async def migrate(self, target: str &#124; None = None) -> list[str]` |  | Apply all pending migrations. |
-| `verify_checksums` | `async def verify_checksums(self) -> list[dict[str, str]]` |  | Verify that applied migration files haven't been tampered with. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `ensure_tracking_table` | `async def ensure_tracking_table(self)` | Create the migrations tracking table if it doesn't exist. |
+| `get_applied` | `async def get_applied(self)` | Get list of applied revision IDs. |
+| `get_pending` | `async def get_pending(self)` | Get migration files that haven't been applied yet. |
+| `status` | `async def status(self)` | Get migration status -- applied, pending, and total counts. |
+| `show_status` | `async def show_status(self)` | Return a human-readable status string. |
+| `dry_run` | `async def dry_run(self, target: str \| None=None)` | Preview migrations without executing. Returns list of SQL strings. |
+| `apply_migration` | `async def apply_migration(self, path: Path)` | Apply a single migration file. |
+| `migrate` | `async def migrate(self, target: str \| None=None)` | Apply all pending migrations. |
+| `verify_checksums` | `async def verify_checksums(self)` | Verify that applied migration files haven't been tampered with. |
 
-### Class: `Options`
+### `Options`
 
 - Source: `aquilia/models/options.py`
 - Bases: `object`
@@ -3236,96 +3271,90 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `label` | `def label(self) -> str` | property | Return app_label.ModelName style label. |
-| `label_lower` | `def label_lower(self) -> str` | property | Return app_label.model_name style label (lowercase). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `label` | `def label(self)` | Return app_label.ModelName style label. |
+| `label_lower` | `def label_lower(self)` | Return app_label.model_name style label (lowercase). |
 
-### Class: `AMDLParseError`
+### `AMDLParseError`
 
 - Source: `aquilia/models/parser.py`
 - Bases: `AMDLParseFault`
 - Summary: Raised when AMDL parsing fails.
 
-### Class: `QNode`
+### `QNode`
 
 - Source: `aquilia/models/query.py`
 - Bases: `object`
 - Summary: Composable filter node for complex WHERE clauses.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `AND` |  | `'AND'` |
-| `OR` |  | `'OR'` |
+| `AND` | `` | `'AND'` |
+| `OR` | `` | `'OR'` |
 
-### Class: `Prefetch`
+### `Prefetch`
 
 - Source: `aquilia/models/query.py`
 - Bases: `object`
 - Summary: Custom prefetch descriptor for prefetch_related().
 
-### Class: `Q`
+### `Q`
 
 - Source: `aquilia/models/query.py`
 - Bases: `object`
 - Summary: Aquilia QuerySet -- chainable, immutable, async-terminal query builder.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `order_by` |  | `order` |
-
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `where` | `def where(self, clause: str, *args: Any, **kwargs: Any) -> Q` |  | Add raw WHERE clause (Aquilia-only syntax). |
-| `filter` | `def filter(self, *q_nodes: Any, **kwargs: Any) -> Q` |  | Field lookup filter. |
-| `exclude` | `def exclude(self, *q_nodes: Any, **kwargs: Any) -> Q` |  | Negated filter -- exclude matching records. |
-| `order` | `def order(self, *fields: Any) -> Q` |  | ORDER BY -- Aquilia's primary ordering method. |
-| `union` | `def union(self, *querysets: Q, all: bool = False) -> Q` |  | Combine this queryset with others using UNION. |
-| `intersection` | `def intersection(self, *querysets: Q) -> Q` |  | Combine with INTERSECT -- only rows in ALL querysets. |
-| `difference` | `def difference(self, *querysets: Q) -> Q` |  | Combine with EXCEPT -- rows in this set but not in others. |
-| `limit` | `def limit(self, n: int) -> Q` |  | Set LIMIT on query results. |
-| `offset` | `def offset(self, n: int) -> Q` |  | Set OFFSET for pagination. |
-| `distinct` | `def distinct(self) -> Q` |  | Apply SELECT DISTINCT. |
-| `only` | `def only(self, *fields: str) -> Q` |  | Load only specified fields (deferred loading for others). |
-| `defer` | `def defer(self, *fields: str) -> Q` |  | Defer loading of specified fields. |
-| `annotate` | `def annotate(self, **expressions: Any) -> Q` |  | Add aggregate/expression annotations to each row. |
-| `group_by` | `def group_by(self, *fields: str) -> Q` |  | GROUP BY clause. |
-| `having` | `def having(self, clause: str, *args: Any) -> Q` |  | HAVING clause (use after group_by). |
-| `select_related` | `def select_related(self, *fields: str) -> Q` |  | Eager-load FK/OneToOne relations via JOINs. |
-| `prefetch_related` | `def prefetch_related(self, *lookups: Any) -> Q` |  | Prefetch related objects via separate queries. |
-| `select_for_update` | `def select_for_update(self, *, nowait: bool = False, skip_locked: bool = False) -> Q` |  | Lock selected rows (SELECT ... FOR UPDATE). |
-| `using` | `def using(self, db_alias: str) -> Q` |  | Target a specific database for this query. |
-| `apply_q` | `def apply_q(self, q_node: QNode) -> Q` |  | Apply a QNode filter to this queryset (Aquilia-only). |
-| `iterator` | `def iterator(self, chunk_size: int = 2000) -> Q` |  | Return a queryset that uses chunked iteration for memory efficiency. |
-| `none` | `def none(self) -> Q` |  | Return an empty queryset that evaluates to []. |
-| `all` | `async def all(self) -> list[Model]` |  | Execute and return all matching rows as model instances. |
-| `one` | `async def one(self) -> Model` |  | Return exactly one row. Raises if 0 or >1 (Aquilia-only). |
-| `first` | `async def first(self) -> Model &#124; None` |  | Return first matching row or None. |
-| `last` | `async def last(self) -> Model &#124; None` |  | Return last matching row or None (reverses ordering). |
-| `latest` | `async def latest(self, field_name: str &#124; None = None) -> Model` |  | Return the latest record by date field. |
-| `earliest` | `async def earliest(self, field_name: str &#124; None = None) -> Model` |  | Return the earliest record by date field. |
-| `count` | `async def count(self) -> int` |  | Return count of matching rows. |
-| `exists` | `async def exists(self) -> bool` |  | Check if any matching rows exist. |
-| `update` | `async def update(self, values: dict[str, Any] &#124; None = None, **kwargs: Any) -> int` |  | Update matching rows. Returns number of affected rows. |
-| `delete` | `async def delete(self) -> int` |  | Delete matching rows. Returns number of deleted rows. |
-| `values` | `async def values(self, *fields: str) -> list[dict[str, Any]]` |  | Return rows as dicts with only specified field values. |
-| `values_list` | `async def values_list(self, *fields: str, flat: bool = False) -> list[Any]` |  | Return field values as tuples, or flat list if single field + flat=True. |
-| `in_bulk` | `async def in_bulk(self, id_list: list[Any], *, batch_size: int = 999) -> dict[Any, Model]` |  | Return a dict mapping PKs to instances for the given ID list. |
-| `aggregate` | `async def aggregate(self, **expressions: Any) -> dict[str, Any]` |  | Compute aggregates and return a dict. |
-| `create` | `async def create(self, **data: Any) -> Model` |  | Create a new record (shortcut on queryset). |
-| `get_or_create` | `async def get_or_create(self, defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` |  | Get existing or create new. |
-| `update_or_create` | `async def update_or_create(self, defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` |  | Update existing or create new. |
-| `find_or_create` | `async def find_or_create(self, defaults: dict[str, Any] &#124; None = None, create_defaults: dict[str, Any] &#124; None = None, **lookup: Any) -> tuple[Model, bool]` |  | Atomically find an existing record or create a new one. |
-| `explain` | `async def explain(self, *, format: str &#124; None = None) -> str` |  | Return the query execution plan (EXPLAIN). |
-| `query` | `def query(self) -> str` | property | Return the raw SQL that would be executed. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `where` | `def where(self, clause: str, *args: Any, **kwargs: Any)` | Add raw WHERE clause (Aquilia-only syntax). |
+| `filter` | `def filter(self, *q_nodes: Any, **kwargs: Any)` | Field lookup filter. |
+| `exclude` | `def exclude(self, *q_nodes: Any, **kwargs: Any)` | Negated filter -- exclude matching records. |
+| `order` | `def order(self, *fields: Any)` | ORDER BY -- Aquilia's primary ordering method. |
+| `union` | `def union(self, *querysets: Q, all: bool=False)` | Combine this queryset with others using UNION. |
+| `intersection` | `def intersection(self, *querysets: Q)` | Combine with INTERSECT -- only rows in ALL querysets. |
+| `difference` | `def difference(self, *querysets: Q)` | Combine with EXCEPT -- rows in this set but not in others. |
+| `limit` | `def limit(self, n: int)` | Set LIMIT on query results. |
+| `offset` | `def offset(self, n: int)` | Set OFFSET for pagination. |
+| `distinct` | `def distinct(self)` | Apply SELECT DISTINCT. |
+| `only` | `def only(self, *fields: str)` | Load only specified fields (deferred loading for others). |
+| `defer` | `def defer(self, *fields: str)` | Defer loading of specified fields. |
+| `annotate` | `def annotate(self, **expressions: Any)` | Add aggregate/expression annotations to each row. |
+| `group_by` | `def group_by(self, *fields: str)` | GROUP BY clause. |
+| `having` | `def having(self, clause: str, *args: Any)` | HAVING clause (use after group_by). |
+| `select_related` | `def select_related(self, *fields: str)` | Eager-load FK/OneToOne relations via JOINs. |
+| `prefetch_related` | `def prefetch_related(self, *lookups: Any)` | Prefetch related objects via separate queries. |
+| `select_for_update` | `def select_for_update(self, *, nowait: bool=False, skip_locked: bool=False)` | Lock selected rows (SELECT ... FOR UPDATE). |
+| `using` | `def using(self, db_alias: str)` | Target a specific database for this query. |
+| `apply_q` | `def apply_q(self, q_node: QNode)` | Apply a QNode filter to this queryset (Aquilia-only). |
+| `iterator` | `def iterator(self, chunk_size: int=2000)` | Return a queryset that uses chunked iteration for memory efficiency. |
+| `none` | `def none(self)` | Return an empty queryset that evaluates to []. |
+| `all` | `async def all(self)` | Execute and return all matching rows as model instances. |
+| `one` | `async def one(self)` | Return exactly one row. Raises if 0 or >1 (Aquilia-only). |
+| `first` | `async def first(self)` | Return first matching row or None. |
+| `last` | `async def last(self)` | Return last matching row or None (reverses ordering). |
+| `latest` | `async def latest(self, field_name: str \| None=None)` | Return the latest record by date field. |
+| `earliest` | `async def earliest(self, field_name: str \| None=None)` | Return the earliest record by date field. |
+| `count` | `async def count(self)` | Return count of matching rows. |
+| `exists` | `async def exists(self)` | Check if any matching rows exist. |
+| `update` | `async def update(self, values: dict[str, Any] \| None=None, **kwargs: Any)` | Update matching rows. Returns number of affected rows. |
+| `delete` | `async def delete(self)` | Delete matching rows. Returns number of deleted rows. |
+| `values` | `async def values(self, *fields: str)` | Return rows as dicts with only specified field values. |
+| `values_list` | `async def values_list(self, *fields: str, flat: bool=False)` | Return field values as tuples, or flat list if single field + flat=True. |
+| `in_bulk` | `async def in_bulk(self, id_list: list[Any], *, batch_size: int=999)` | Return a dict mapping PKs to instances for the given ID list. |
+| `aggregate` | `async def aggregate(self, **expressions: Any)` | Compute aggregates and return a dict. |
+| `create` | `async def create(self, **data: Any)` | Create a new record (shortcut on queryset). |
+| `get_or_create` | `async def get_or_create(self, defaults: dict[str, Any] \| None=None, **lookup: Any)` | Get existing or create new. |
+| `update_or_create` | `async def update_or_create(self, defaults: dict[str, Any] \| None=None, **lookup: Any)` | Update existing or create new. |
+| `find_or_create` | `async def find_or_create(self, defaults: dict[str, Any] \| None=None, create_defaults: dict[str, Any] \| None=None, **lookup: Any)` | Atomically find an existing record or create a new one. |
+| `explain` | `async def explain(self, *, format: str \| None=None)` | Return the query execution plan (EXPLAIN). |
+| `query` | `def query(self)` | Return the raw SQL that would be executed. |
 
-### Class: `ModelRegistry`
+### `ModelRegistry`
 
 - Source: `aquilia/models/registry.py`
 - Bases: `object`
@@ -3333,22 +3362,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(cls, model_cls: type[Model]) -> None` | classmethod | Register a model class. |
-| `get` | `def get(cls, name: str) -> type[Model] &#124; None` | classmethod | Get model class by name. |
-| `all_models` | `def all_models(cls) -> dict[str, type[Model]]` | classmethod | Get all registered models. |
-| `get_app_models` | `def get_app_models(cls, app_label: str) -> dict[str, type[Model]]` | classmethod | Get all models for a specific app. |
-| `set_database` | `def set_database(cls, db: AquiliaDatabase) -> None` | classmethod | Set global database for all models. |
-| `get_database` | `def get_database(cls) -> AquiliaDatabase &#124; None` | classmethod | Method. |
-| `create_tables` | `async def create_tables(cls, db: AquiliaDatabase &#124; None = None) -> list[str]` | classmethod | Create tables for all registered models in topological order. |
-| `drop_tables` | `async def drop_tables(cls, db: AquiliaDatabase &#124; None = None) -> list[str]` | classmethod | Drop all registered model tables (dangerous!). |
-| `reset` | `def reset(cls) -> None` | classmethod | Clear registry (for testing). |
-| `check_constraints` | `def check_constraints(cls) -> list[str]` | classmethod | Validate all model constraints and return a list of issues. |
-| `on_startup` | `async def on_startup(self) -> None` |  | Method. |
-| `on_shutdown` | `async def on_shutdown(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(cls, model_cls: type[Model])` | Register a model class. |
+| `get` | `def get(cls, name: str)` | Get model class by name. |
+| `all_models` | `def all_models(cls)` | Get all registered models. |
+| `get_app_models` | `def get_app_models(cls, app_label: str)` | Get all models for a specific app. |
+| `set_database` | `def set_database(cls, db: AquiliaDatabase)` | Set global database for all models. |
+| `get_database` | `def get_database(cls)` |  |
+| `create_tables` | `async def create_tables(cls, db: AquiliaDatabase \| None=None)` | Create tables for all registered models in topological order. |
+| `drop_tables` | `async def drop_tables(cls, db: AquiliaDatabase \| None=None)` | Drop all registered model tables (dangerous!). |
+| `reset` | `def reset(cls)` | Clear registry (for testing). |
+| `check_constraints` | `def check_constraints(cls)` | Validate all model constraints and return a list of issues. |
+| `on_startup` | `async def on_startup(self)` |  |
+| `on_shutdown` | `async def on_shutdown(self)` |  |
 
-### Class: `Q`
+### `Q`
 
 - Source: `aquilia/models/runtime.py`
 - Bases: `object`
@@ -3356,43 +3385,43 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `where` | `def where(self, clause: str, *args: Any, **kwargs: Any) -> Q` |  | Add WHERE clause. |
-| `filter` | `def filter(self, **kwargs: Any) -> Q` |  | Field lookups. |
-| `order` | `def order(self, *fields: str) -> Q` |  | Add ORDER BY clause. |
-| `limit` | `def limit(self, n: int) -> Q` |  | Set LIMIT. |
-| `offset` | `def offset(self, n: int) -> Q` |  | Set OFFSET. |
-| `all` | `async def all(self) -> list[ModelProxy]` |  | Execute query and return all matching rows as proxy instances. |
-| `one` | `async def one(self) -> ModelProxy` |  | Execute query and return exactly one row. Raises ModelNotFoundFault if 0 or >1. |
-| `first` | `async def first(self) -> ModelProxy &#124; None` |  | Return first matching row or None. |
-| `count` | `async def count(self) -> int` |  | Return count of matching rows. |
-| `update` | `async def update(self, values: dict[str, Any]) -> int` |  | Update matching rows. Returns affected row count. |
-| `delete` | `async def delete(self) -> int` |  | Delete matching rows. Returns affected row count. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `where` | `def where(self, clause: str, *args: Any, **kwargs: Any)` | Add WHERE clause. |
+| `filter` | `def filter(self, **kwargs: Any)` | Field lookups. |
+| `order` | `def order(self, *fields: str)` | Add ORDER BY clause. |
+| `limit` | `def limit(self, n: int)` | Set LIMIT. |
+| `offset` | `def offset(self, n: int)` | Set OFFSET. |
+| `all` | `async def all(self)` | Execute query and return all matching rows as proxy instances. |
+| `one` | `async def one(self)` | Execute query and return exactly one row. Raises ModelNotFoundFault if 0 or >1. |
+| `first` | `async def first(self)` | Return first matching row or None. |
+| `count` | `async def count(self)` | Return count of matching rows. |
+| `update` | `async def update(self, values: dict[str, Any])` | Update matching rows. Returns affected row count. |
+| `delete` | `async def delete(self)` | Delete matching rows. Returns affected row count. |
 
-### Class: `ModelRegistry`
+### `ModelRegistry`
 
 - Source: `aquilia/models/runtime.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: Central registry for AMDL models and their runtime proxies.
+- Decorators: `service(scope='app', name='ModelRegistry')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_startup` | `async def on_startup(self) -> None` |  | Lifecycle hook -- create tables for all registered models. |
-| `on_shutdown` | `async def on_shutdown(self) -> None` |  | Lifecycle hook -- cleanup (reserved for future use). |
-| `register_model` | `def register_model(self, model: ModelNode) -> type[ModelProxy]` |  | Register an AMDL model and generate its runtime proxy class. |
-| `get_model` | `def get_model(self, name: str) -> ModelNode &#124; None` |  | Get parsed model AST by name. |
-| `get_proxy` | `def get_proxy(self, name: str) -> type[ModelProxy] &#124; None` |  | Get generated proxy class by model name. |
-| `all_models` | `def all_models(self) -> list[ModelNode]` |  | Get all registered model nodes. |
-| `all_proxies` | `def all_proxies(self) -> dict[str, type[ModelProxy]]` |  | Get all proxy classes. |
-| `create_tables` | `async def create_tables(self, db: AquiliaDatabase &#124; None = None) -> list[str]` |  | Create all registered model tables. |
-| `set_database` | `def set_database(self, db: AquiliaDatabase) -> None` |  | Update database reference for all proxies. |
-| `emit_python` | `def emit_python(self) -> str` |  | Generate Python source code for all model proxies. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_startup` | `async def on_startup(self)` | Lifecycle hook -- create tables for all registered models. |
+| `on_shutdown` | `async def on_shutdown(self)` | Lifecycle hook -- cleanup (reserved for future use). |
+| `register_model` | `def register_model(self, model: ModelNode)` | Register an AMDL model and generate its runtime proxy class. |
+| `get_model` | `def get_model(self, name: str)` | Get parsed model AST by name. |
+| `get_proxy` | `def get_proxy(self, name: str)` | Get generated proxy class by model name. |
+| `all_models` | `def all_models(self)` | Get all registered model nodes. |
+| `all_proxies` | `def all_proxies(self)` | Get all proxy classes. |
+| `create_tables` | `async def create_tables(self, db: AquiliaDatabase \| None=None)` | Create all registered model tables. |
+| `set_database` | `def set_database(self, db: AquiliaDatabase)` | Update database reference for all proxies. |
+| `emit_python` | `def emit_python(self)` | Generate Python source code for all model proxies. Useful for `aq model dump --emit`. |
 
-### Class: `ModelProxy`
+### `ModelProxy`
 
 - Source: `aquilia/models/runtime.py`
 - Bases: `object`
@@ -3400,20 +3429,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize model instance to dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize model instance to dict. |
 
-### Class: `SchemaDiff`
+### `SchemaDiff`
 
 - Source: `aquilia/models/schema_snapshot.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of comparing two snapshots.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `added_models` | `list[str]` | `field(default_factory=list)` |
 | `removed_models` | `list[str]` | `field(default_factory=list)` |
@@ -3422,20 +3451,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `has_changes` | `def has_changes(self) -> bool` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `has_changes` | `def has_changes(self)` |  |
 
-### Class: `ModelDiff`
+### `ModelDiff`
 
 - Source: `aquilia/models/schema_snapshot.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Changes within a single model.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `added_fields` | `list[str]` | `field(default_factory=list)` |
 | `removed_fields` | `list[str]` | `field(default_factory=list)` |
@@ -3446,11 +3475,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `has_changes` | `def has_changes(self) -> bool` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `has_changes` | `def has_changes(self)` |  |
 
-### Class: `Signal`
+### `Signal`
 
 - Source: `aquilia/models/signals.py`
 - Bases: `object`
@@ -3458,19 +3487,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `connect` | `def connect(self, receiver: Callable = None, *, sender: type &#124; None = None, weak: bool = False, priority: int = 100)` |  | Connect a receiver function. Can be used as a decorator. |
-| `disconnect` | `def disconnect(self, receiver: Callable, *, sender: type &#124; None = None) -> bool` |  | Disconnect a receiver. |
-| `send` | `async def send(self, sender: type, **kwargs) -> list[Any]` |  | Fire the signal, calling all connected receivers. |
-| `send_sync` | `def send_sync(self, sender: type, **kwargs) -> list[Any]` |  | Fire the signal synchronously (for sync receivers only). |
-| `robust_send` | `async def robust_send(self, sender: type, **kwargs) -> list[Any]` |  | Fire the signal, catching exceptions from each receiver. |
-| `receivers` | `def receivers(self) -> list[Callable]` | property | List of connected receiver functions (resolved, alive only). |
-| `has_listeners` | `def has_listeners(self, sender: type &#124; None = None) -> bool` |  | Check if any receivers are connected (optionally for a sender). |
-| `connected` | `def connected(self, fn: Callable, *, sender: type &#124; None = None, priority: int = 100)` | contextlib.contextmanager | Context manager for temporary signal connection. |
-| `clear` | `def clear(self) -> None` |  | Remove all receivers (useful for testing). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `connect` | `def connect(self, receiver: Callable=None, *, sender: type \| None=None, weak: bool=False, priority: int=100)` | Connect a receiver function. Can be used as a decorator. |
+| `disconnect` | `def disconnect(self, receiver: Callable, *, sender: type \| None=None)` | Disconnect a receiver. |
+| `send` | `async def send(self, sender: type, **kwargs)` | Fire the signal, calling all connected receivers. |
+| `send_sync` | `def send_sync(self, sender: type, **kwargs)` | Fire the signal synchronously (for sync receivers only). |
+| `robust_send` | `async def robust_send(self, sender: type, **kwargs)` | Fire the signal, catching exceptions from each receiver. |
+| `receivers` | `def receivers(self)` | List of connected receiver functions (resolved, alive only). |
+| `has_listeners` | `def has_listeners(self, sender: type \| None=None)` | Check if any receivers are connected (optionally for a sender). |
+| `connected` | `def connected(self, fn: Callable, *, sender: type \| None=None, priority: int=100)` | Context manager for temporary signal connection. |
+| `clear` | `def clear(self)` | Remove all receivers (useful for testing). |
 
-### Class: `SQLBuilder`
+### `SQLBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3478,25 +3507,25 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `select` | `def select(self, *columns: str) -> SQLBuilder` |  | Set columns to select. |
-| `from_table` | `def from_table(self, table: str, alias: str &#124; None = None) -> SQLBuilder` |  | Set the FROM table. |
-| `distinct` | `def distinct(self) -> SQLBuilder` |  | Add DISTINCT modifier. |
-| `join` | `def join(self, table: str, on: str, join_type: str = 'INNER', params: list[Any] &#124; None = None) -> SQLBuilder` |  | Add a JOIN clause. |
-| `left_join` | `def left_join(self, table: str, on: str, params: list[Any] &#124; None = None) -> SQLBuilder` |  | Method. |
-| `right_join` | `def right_join(self, table: str, on: str, params: list[Any] &#124; None = None) -> SQLBuilder` |  | Method. |
-| `where` | `def where(self, clause: str, *args: Any) -> SQLBuilder` |  | Add a WHERE condition with parameters. |
-| `where_in` | `def where_in(self, column: str, values: Sequence[Any]) -> SQLBuilder` |  | Add a WHERE ... IN (...) clause. |
-| `group_by` | `def group_by(self, *columns: str) -> SQLBuilder` |  | Add GROUP BY columns. |
-| `having` | `def having(self, clause: str, *args: Any) -> SQLBuilder` |  | Add HAVING condition. |
-| `order_by` | `def order_by(self, *fields: str) -> SQLBuilder` |  | Add ORDER BY clause. |
-| `limit` | `def limit(self, n: int) -> SQLBuilder` |  | Method. |
-| `offset` | `def offset(self, n: int) -> SQLBuilder` |  | Method. |
-| `build` | `def build(self) -> tuple[str, list[Any]]` |  | Build the final SQL string and parameter list. |
-| `build_count` | `def build_count(self) -> tuple[str, list[Any]]` |  | Build a COUNT(*) version of this query. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `select` | `def select(self, *columns: str)` | Set columns to select. |
+| `from_table` | `def from_table(self, table: str, alias: str \| None=None)` | Set the FROM table. |
+| `distinct` | `def distinct(self)` | Add DISTINCT modifier. |
+| `join` | `def join(self, table: str, on: str, join_type: str='INNER', params: list[Any] \| None=None)` | Add a JOIN clause. |
+| `left_join` | `def left_join(self, table: str, on: str, params: list[Any] \| None=None)` |  |
+| `right_join` | `def right_join(self, table: str, on: str, params: list[Any] \| None=None)` |  |
+| `where` | `def where(self, clause: str, *args: Any)` | Add a WHERE condition with parameters. |
+| `where_in` | `def where_in(self, column: str, values: Sequence[Any])` | Add a WHERE ... IN (...) clause. |
+| `group_by` | `def group_by(self, *columns: str)` | Add GROUP BY columns. |
+| `having` | `def having(self, clause: str, *args: Any)` | Add HAVING condition. |
+| `order_by` | `def order_by(self, *fields: str)` | Add ORDER BY clause. |
+| `limit` | `def limit(self, n: int)` |  |
+| `offset` | `def offset(self, n: int)` |  |
+| `build` | `def build(self)` | Build the final SQL string and parameter list. |
+| `build_count` | `def build_count(self)` | Build a COUNT(*) version of this query. |
 
-### Class: `InsertBuilder`
+### `InsertBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3504,16 +3533,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `columns` | `def columns(self, *cols: str) -> InsertBuilder` |  | Method. |
-| `values` | `def values(self, *vals: Any) -> InsertBuilder` |  | Method. |
-| `from_dict` | `def from_dict(self, data: dict[str, Any]) -> InsertBuilder` |  | Set columns and values from a dict. |
-| `returning` | `def returning(self, column: str) -> InsertBuilder` |  | Add RETURNING clause (PostgreSQL). |
-| `build` | `def build(self) -> tuple[str, list[Any]]` |  | Method. |
-| `build_many` | `def build_many(self, rows: list[dict[str, Any]]) -> tuple[str, list[list[Any]]]` |  | Build INSERT for executemany. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `columns` | `def columns(self, *cols: str)` |  |
+| `values` | `def values(self, *vals: Any)` |  |
+| `from_dict` | `def from_dict(self, data: dict[str, Any])` | Set columns and values from a dict. |
+| `returning` | `def returning(self, column: str)` | Add RETURNING clause (PostgreSQL). |
+| `build` | `def build(self)` |  |
+| `build_many` | `def build_many(self, rows: list[dict[str, Any]])` | Build INSERT for executemany. |
 
-### Class: `UpdateBuilder`
+### `UpdateBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3521,14 +3550,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `set` | `def set(self, **kwargs: Any) -> UpdateBuilder` |  | Method. |
-| `set_dict` | `def set_dict(self, data: dict[str, Any]) -> UpdateBuilder` |  | Method. |
-| `where` | `def where(self, clause: str, *args: Any) -> UpdateBuilder` |  | Method. |
-| `build` | `def build(self) -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `set` | `def set(self, **kwargs: Any)` |  |
+| `set_dict` | `def set_dict(self, data: dict[str, Any])` |  |
+| `where` | `def where(self, clause: str, *args: Any)` |  |
+| `build` | `def build(self)` |  |
 
-### Class: `DeleteBuilder`
+### `DeleteBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3536,12 +3565,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `where` | `def where(self, clause: str, *args: Any) -> DeleteBuilder` |  | Method. |
-| `build` | `def build(self) -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `where` | `def where(self, clause: str, *args: Any)` |  |
+| `build` | `def build(self)` |  |
 
-### Class: `CreateTableBuilder`
+### `CreateTableBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3549,13 +3578,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `column` | `def column(self, definition: str) -> CreateTableBuilder` |  | Method. |
-| `constraint` | `def constraint(self, definition: str) -> CreateTableBuilder` |  | Method. |
-| `build` | `def build(self) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `column` | `def column(self, definition: str)` |  |
+| `constraint` | `def constraint(self, definition: str)` |  |
+| `build` | `def build(self)` |  |
 
-### Class: `AlterTableBuilder`
+### `AlterTableBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3563,22 +3592,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_column` | `def add_column(self, column_def: str) -> AlterTableBuilder` |  | Add a column. |
-| `drop_column` | `def drop_column(self, column: str) -> AlterTableBuilder` |  | Drop a column (SQLite 3.35+, PostgreSQL, MySQL). |
-| `rename_column` | `def rename_column(self, old_name: str, new_name: str) -> AlterTableBuilder` |  | Rename a column (SQLite 3.25+, PostgreSQL, MySQL 8+). |
-| `rename_to` | `def rename_to(self, new_name: str) -> AlterTableBuilder` |  | Rename the table. |
-| `add_constraint` | `def add_constraint(self, constraint_sql: str) -> AlterTableBuilder` |  | Add a constraint. |
-| `drop_constraint` | `def drop_constraint(self, name: str) -> AlterTableBuilder` |  | Drop a constraint (not supported on SQLite). |
-| `alter_column_type` | `def alter_column_type(self, column: str, new_type: str) -> AlterTableBuilder` |  | Change column type (PostgreSQL only; generates comment for SQLite). |
-| `set_not_null` | `def set_not_null(self, column: str) -> AlterTableBuilder` |  | Set NOT NULL on a column. |
-| `drop_not_null` | `def drop_not_null(self, column: str) -> AlterTableBuilder` |  | Drop NOT NULL from a column. |
-| `set_default` | `def set_default(self, column: str, default_value: str) -> AlterTableBuilder` |  | Set a default value on a column. |
-| `drop_default` | `def drop_default(self, column: str) -> AlterTableBuilder` |  | Drop the default value from a column. |
-| `build` | `def build(self) -> list[str]` |  | Return the list of ALTER TABLE DDL statements. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_column` | `def add_column(self, column_def: str)` | Add a column. |
+| `drop_column` | `def drop_column(self, column: str)` | Drop a column (SQLite 3.35+, PostgreSQL, MySQL). |
+| `rename_column` | `def rename_column(self, old_name: str, new_name: str)` | Rename a column (SQLite 3.25+, PostgreSQL, MySQL 8+). |
+| `rename_to` | `def rename_to(self, new_name: str)` | Rename the table. |
+| `add_constraint` | `def add_constraint(self, constraint_sql: str)` | Add a constraint. |
+| `drop_constraint` | `def drop_constraint(self, name: str)` | Drop a constraint (not supported on SQLite). |
+| `alter_column_type` | `def alter_column_type(self, column: str, new_type: str)` | Change column type (PostgreSQL only; generates comment for SQLite). |
+| `set_not_null` | `def set_not_null(self, column: str)` | Set NOT NULL on a column. |
+| `drop_not_null` | `def drop_not_null(self, column: str)` | Drop NOT NULL from a column. |
+| `set_default` | `def set_default(self, column: str, default_value: str)` | Set a default value on a column. |
+| `drop_default` | `def drop_default(self, column: str)` | Drop the default value from a column. |
+| `build` | `def build(self)` | Return the list of ALTER TABLE DDL statements. |
 
-### Class: `UpsertBuilder`
+### `UpsertBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3586,16 +3615,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `columns` | `def columns(self, *cols: str) -> UpsertBuilder` |  | Method. |
-| `values` | `def values(self, *vals: Any) -> UpsertBuilder` |  | Method. |
-| `from_dict` | `def from_dict(self, data: dict[str, Any]) -> UpsertBuilder` |  | Set columns and values from a dict. |
-| `conflict_target` | `def conflict_target(self, *columns: str) -> UpsertBuilder` |  | Set the conflict detection columns (unique constraint). |
-| `update_columns` | `def update_columns(self, *columns: str) -> UpsertBuilder` |  | Set columns to update on conflict. |
-| `build` | `def build(self) -> tuple[str, list[Any]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `columns` | `def columns(self, *cols: str)` |  |
+| `values` | `def values(self, *vals: Any)` |  |
+| `from_dict` | `def from_dict(self, data: dict[str, Any])` | Set columns and values from a dict. |
+| `conflict_target` | `def conflict_target(self, *columns: str)` | Set the conflict detection columns (unique constraint). |
+| `update_columns` | `def update_columns(self, *columns: str)` | Set columns to update on conflict. |
+| `build` | `def build(self)` |  |
 
-### Class: `UpsertIgnoreBuilder`
+### `UpsertIgnoreBuilder`
 
 - Source: `aquilia/models/sql_builder.py`
 - Bases: `object`
@@ -3603,21 +3632,21 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `columns` | `def columns(self, *cols: str) -> UpsertIgnoreBuilder` |  | Set the column names for the INSERT. |
-| `values` | `def values(self, *vals: Any) -> UpsertIgnoreBuilder` |  | Set the values for the INSERT. |
-| `from_dict` | `def from_dict(self, data: dict[str, Any]) -> UpsertIgnoreBuilder` |  | Set columns and values from a dict. |
-| `conflict_target` | `def conflict_target(self, *columns: str) -> UpsertIgnoreBuilder` |  | Set the conflict detection columns (unique constraint). |
-| `build` | `def build(self) -> tuple[str, list[Any]]` |  | Build the SQL statement and parameters. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `columns` | `def columns(self, *cols: str)` | Set the column names for the INSERT. |
+| `values` | `def values(self, *vals: Any)` | Set the values for the INSERT. |
+| `from_dict` | `def from_dict(self, data: dict[str, Any])` | Set columns and values from a dict. |
+| `conflict_target` | `def conflict_target(self, *columns: str)` | Set the conflict detection columns (unique constraint). |
+| `build` | `def build(self)` | Build the SQL statement and parameters. |
 
-### Class: `DatabaseNotReadyError`
+### `DatabaseNotReadyError`
 
 - Source: `aquilia/models/startup_guard.py`
 - Bases: `SystemExit`
 - Summary: Raised when the database is not ready at server startup.
 
-### Class: `Atomic`
+### `Atomic`
 
 - Source: `aquilia/models/transactions.py`
 - Bases: `object`
@@ -3625,15 +3654,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_commit` | `def on_commit(self, fn: Callable) -> None` |  | Register a function to call after successful outermost commit. |
-| `on_rollback` | `def on_rollback(self, fn: Callable) -> None` |  | Register a function to call if this block rolls back. |
-| `savepoint` | `async def savepoint(self) -> str` |  | Create an explicit savepoint within this atomic block. |
-| `rollback_to_savepoint` | `async def rollback_to_savepoint(self, savepoint_id: str) -> None` |  | Roll back to a specific savepoint. |
-| `release_savepoint` | `async def release_savepoint(self, savepoint_id: str) -> None` |  | Release (commit) a savepoint. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_commit` | `def on_commit(self, fn: Callable)` | Register a function to call after successful outermost commit. |
+| `on_rollback` | `def on_rollback(self, fn: Callable)` | Register a function to call if this block rolls back. |
+| `savepoint` | `async def savepoint(self)` | Create an explicit savepoint within this atomic block. |
+| `rollback_to_savepoint` | `async def rollback_to_savepoint(self, savepoint_id: str)` | Roll back to a specific savepoint. |
+| `release_savepoint` | `async def release_savepoint(self, savepoint_id: str)` | Release (commit) a savepoint. |
 
-### Class: `TransactionManager`
+### `TransactionManager`
 
 - Source: `aquilia/models/transactions.py`
 - Bases: `object`
@@ -3641,84 +3670,8 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_commit` | `def on_commit(self, func: Callable) -> None` |  | Register a function to be called after successful commit. |
-| `on_rollback` | `def on_rollback(self, func: Callable) -> None` |  | Register a function to be called on rollback. |
-| `atomic` | `async def atomic(self, **kwargs) -> AsyncIterator[Atomic]` | asynccontextmanager | Use as: async with manager.atomic() as txn: ... |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `normalize_on_delete` | `aquilia/models/deletion.py` | `def normalize_on_delete(action: Any) -> Any` | Normalize an on_delete value to its canonical constant. |
-| `lookup_registry` | `aquilia/models/fields/lookups.py` | `def lookup_registry() -> dict[str, type[Lookup]]` | Return a copy of the lookup registry. |
-| `register_lookup` | `aquilia/models/fields/lookups.py` | `def register_lookup(name: str, cls: type[Lookup]) -> None` | Register a custom lookup type. |
-| `resolve_lookup` | `aquilia/models/fields/lookups.py` | `def resolve_lookup(field_name: str, lookup_name: str, value: Any) -> Lookup` | Resolve a lookup name to a Lookup instance. |
-| `raw_sql_to_operations` | `aquilia/models/migration_dsl.py` | `def raw_sql_to_operations(upgrade_sql: str, downgrade_sql: str = '') -> list[Operation]` | Convert raw SQL strings into a list of RunSQL operations. |
-| `generate_dsl_migration` | `aquilia/models/migration_gen.py` | `def generate_dsl_migration(model_classes: list, migrations_dir: str &#124; Path, snapshot_path: str &#124; Path &#124; None = None, slug: str &#124; None = None) -> Path &#124; None` | Generate a DSL migration file from the diff between the current |
-| `check_db_exists` | `aquilia/models/migration_runner.py` | `def check_db_exists(db_url: str) -> bool` | Check if a SQLite database file exists WITHOUT creating WAL/SHM files. |
-| `check_migrations_applied` | `aquilia/models/migration_runner.py` | `def check_migrations_applied(db_url: str, migrations_dir: str &#124; Path = 'migrations') -> bool` | Check if there are unapplied migrations WITHOUT creating WAL/SHM. |
-| `generate_migration_file` | `aquilia/models/migrations.py` | `def generate_migration_file(models: list[ModelNode], migrations_dir: str &#124; Path, slug: str &#124; None = None, dialect: str = 'sqlite') -> Path` | Generate a migration file from AMDL model nodes. |
-| `generate_migration_from_models` | `aquilia/models/migrations.py` | `def generate_migration_from_models(model_classes: list, migrations_dir: str &#124; Path, slug: str &#124; None = None, dialect: str = 'sqlite') -> Path` | Generate a migration file from new Python Model subclasses. |
-| `parse_amdl` | `aquilia/models/parser.py` | `def parse_amdl(source: str, file_path: str = '<string>') -> AMDLFile` | Parse AMDL source text into an AMDLFile. |
-| `parse_amdl_file` | `aquilia/models/parser.py` | `def parse_amdl_file(path: str &#124; Path) -> AMDLFile` | Parse an `.amdl` file from disk. |
-| `parse_amdl_directory` | `aquilia/models/parser.py` | `def parse_amdl_directory(directory: str &#124; Path) -> list[AMDLFile]` | Parse all `.amdl` files in a directory (non-recursive). |
-| `generate_create_table_sql` | `aquilia/models/runtime.py` | `def generate_create_table_sql(model: ModelNode, dialect: str = 'sqlite') -> str` | Generate CREATE TABLE SQL from a ModelNode. |
-| `generate_create_index_sql` | `aquilia/models/runtime.py` | `def generate_create_index_sql(model: ModelNode, dialect: str = 'sqlite') -> list[str]` | Generate CREATE INDEX statements for non-unique indexes. |
-| `create_snapshot` | `aquilia/models/schema_snapshot.py` | `def create_snapshot(model_classes: list) -> dict[str, Any]` | Create a schema snapshot from a list of Model subclasses. |
-| `save_snapshot` | `aquilia/models/schema_snapshot.py` | `def save_snapshot(snapshot: dict[str, Any], path: Path) -> None` | Write snapshot to file in CROUS binary format. |
-| `load_snapshot` | `aquilia/models/schema_snapshot.py` | `def load_snapshot(path: Path) -> dict[str, Any] &#124; None` | Load snapshot from file in CROUS binary format. |
-| `compute_diff` | `aquilia/models/schema_snapshot.py` | `def compute_diff(old_snapshot: dict[str, Any], new_snapshot: dict[str, Any]) -> SchemaDiff` | Compute the diff between two schema snapshots. |
-| `diff_to_operations` | `aquilia/models/schema_snapshot.py` | `def diff_to_operations(diff: SchemaDiff, old_snapshot: dict[str, Any], new_snapshot: dict[str, Any]) -> list[Operation]` | Convert a SchemaDiff into a list of DSL operations. |
-| `receiver` | `aquilia/models/signals.py` | `def receiver(signal: Signal, *, sender: type &#124; None = None)` | Shorthand decorator to connect a function to a signal. |
-| `check_db_ready` | `aquilia/models/startup_guard.py` | `def check_db_ready(db_url: str = 'sqlite:///db.sqlite3', migrations_dir: str &#124; Path = 'migrations', *, auto_migrate: bool &#124; None = None) -> bool` | Check if the database is ready for the application to start. |
-| `atomic` | `aquilia/models/transactions.py` | `def atomic(db: AquiliaDatabase &#124; None = None, *, savepoint: bool = True, durable: bool = False, isolation: str &#124; None = None) -> Atomic` | Create an atomic transaction context manager. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `CASCADE` | `aquilia/models/deletion.py` | `'CASCADE'` |
-| `SET_NULL` | `aquilia/models/deletion.py` | `'SET NULL'` |
-| `PROTECT` | `aquilia/models/deletion.py` | `'PROTECT'` |
-| `SET_DEFAULT` | `aquilia/models/deletion.py` | `'SET DEFAULT'` |
-| `DO_NOTHING` | `aquilia/models/deletion.py` | `'DO NOTHING'` |
-| `RESTRICT` | `aquilia/models/deletion.py` | `'RESTRICT'` |
-| `_ON_DELETE_ALIASES` | `aquilia/models/deletion.py` | `{'CASCADE': CASCADE, 'SET_NULL': SET_NULL, 'SET NULL': SET_NULL, 'SETNULL': SET_NULL, 'PROTECT': PROTECT, 'SET_DEFAULT': SET_DEFAULT, 'SET DEFAULT': SET_DEFAULT` |
-| `_SAFE_FUNC_RE` | `aquilia/models/expression.py` | `re.compile('^[A-Z_][A-Z0-9_]*$', re.IGNORECASE)` |
-| `_SAFE_TYPE_RE` | `aquilia/models/expression.py` | `re.compile('^[A-Z][A-Z0-9_ ]*(?:\\([0-9]+(?:\\s*,\\s*[0-9]+)?\\))?$', re.IGNORECASE)` |
-| `_REGISTRY` | `aquilia/models/fields/lookups.py` | `dict[str, type[Lookup]]` |
-| `_ON_DELETE_SQL_MAP` | `aquilia/models/fields_module.py` | `dict[str, str]` |
-| `UNSET` | `aquilia/models/fields_module.py` | `_Unset()` |
-| `M` | `aquilia/models/manager.py` | `TypeVar('M', bound='BaseManager')` |
-| `_ON_DELETE_SQL_MAP` | `aquilia/models/migration_dsl.py` | `dict[str, str]` |
-| `_SENTINEL` | `aquilia/models/migration_dsl.py` | `_SentinelType()` |
-| `C` | `aquilia/models/migration_dsl.py` | `columns` |
-| `MIGRATION_TABLE` | `aquilia/models/migration_runner.py` | `'aquilia_migrations'` |
-| `MIGRATION_TABLE` | `aquilia/models/migrations.py` | `'aquilia_migrations'` |
-| `ALLOWED_DEFAULTS` | `aquilia/models/parser.py` | `frozenset({'now_utc()', 'uuid4()', 'seq()'})` |
-| `ALLOWED_DEFAULT_PATTERN` | `aquilia/models/parser.py` | `re.compile('^(now_utc\\(\\) &#124; uuid4\\(\\) &#124; seq\\(\\) &#124; env\\("[A-Za-z_][A-Za-z0-9_]*"\\))$')` |
-| `RE_MODEL_OPEN` | `aquilia/models/parser.py` | `re.compile('^\\s*≪\\s*MODEL\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*≫\\s*$')` |
-| `RE_MODEL_CLOSE` | `aquilia/models/parser.py` | `re.compile('^\\s*≪\\s*/MODEL\\s*≫\\s*$')` |
-| `RE_SLOT` | `aquilia/models/parser.py` | `re.compile('^\\s*slot\\s+([a-z_][a-z0-9_]*)\\s*::\\s*([A-Za-z]+(?:\\([^)]*\\))?)\\s*(?:\\[([^\\]]*)\\])?\\s*$')` |
-| `RE_LINK` | `aquilia/models/parser.py` | `re.compile('^\\s*link\\s+([a-z_][a-z0-9_]*)\\s*->\\s*(ONE &#124; MANY &#124; MANY_THROUGH)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:\\[([^\\]]*)\\])?\\s*$')` |
-| `RE_INDEX` | `aquilia/models/parser.py` | `re.compile('^\\s*index\\s+\\[([^\\]]+)\\]\\s*(unique)?\\s*$')` |
-| `RE_HOOK` | `aquilia/models/parser.py` | `re.compile('^\\s*hook\\s+([a-z_][a-z0-9_]*)\\s*->\\s*([a-z_][a-z0-9_]*)\\s*$')` |
-| `RE_META` | `aquilia/models/parser.py` | `re.compile('^\\s*meta\\s+([a-z_][a-z0-9_]*)\\s*=\\s*"([^"]*)"\\s*$')` |
-| `RE_NOTE` | `aquilia/models/parser.py` | `re.compile('^\\s*note\\s+"([^"]*)"\\s*$')` |
-| `FIELD_TYPE_MAP` | `aquilia/models/parser.py` | `{ft.value: ft for ft in FieldType}` |
-| `_SAFE_FIELD_RE` | `aquilia/models/query.py` | `re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')` |
-| `_EXPR_OP_MAP` | `aquilia/models/query.py` | `{'exact': '=', 'gt': '>', 'gte': '>=', 'lt': '<', 'lte': '<=', 'ne': '!='}` |
-| `_SAFE_DEFAULTS` | `aquilia/models/runtime.py` | `{'now_utc()': lambda: datetime.datetime.now(datetime.timezone.utc), 'uuid4()': lambda: str(uuid.uuid4()), 'seq()': lambda: None}` |
-| `SQLITE_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'INTEGER', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'INTEGER', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'INTEGER', ` |
-| `POSTGRES_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'SERIAL', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'BIGINT', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'BOOLEAN', Fi` |
-| `MYSQL_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'INTEGER', FieldType.INT: 'INTEGER', FieldType.BIGINT: 'BIGINT', FieldType.STR: 'VARCHAR', FieldType.TEXT: 'TEXT', FieldType.BOOL: 'TINYINT(1)'` |
-| `ORACLE_TYPE_MAP` | `aquilia/models/runtime.py` | `{FieldType.AUTO: 'NUMBER(10)', FieldType.INT: 'NUMBER(10)', FieldType.BIGINT: 'NUMBER(19)', FieldType.STR: 'VARCHAR2', FieldType.TEXT: 'CLOB', FieldType.BOOL: '` |
-| `_TYPE_MAPS` | `aquilia/models/runtime.py` | `{'sqlite': SQLITE_TYPE_MAP, 'postgresql': POSTGRES_TYPE_MAP, 'mysql': MYSQL_TYPE_MAP, 'oracle': ORACLE_TYPE_MAP}` |
-| `SNAPSHOT_VERSION` | `aquilia/models/schema_snapshot.py` | `1` |
-| `RENAME_THRESHOLD` | `aquilia/models/schema_snapshot.py` | `0.6` |
-| `_YELLOW` | `aquilia/models/startup_guard.py` | `'\x1b[93m'` |
-| `_RESET` | `aquilia/models/startup_guard.py` | `'\x1b[0m'` |
-| `_BOLD` | `aquilia/models/startup_guard.py` | `'\x1b[1m'` |
-| `_SP_NAME_RE` | `aquilia/models/transactions.py` | `re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')` |
+| `on_commit` | `def on_commit(self, func: Callable)` | Register a function to be called after successful commit. |
+| `on_rollback` | `def on_rollback(self, func: Callable)` | Register a function to be called on rollback. |
+| `atomic` | `async def atomic(self, **kwargs)` | Use as: async with manager.atomic() as txn: ... |

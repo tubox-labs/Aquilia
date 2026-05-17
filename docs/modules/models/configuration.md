@@ -1,58 +1,82 @@
-# Models And ORM Configuration
+# Models Configuration
 
-## Configuration Entry Points
+Pure-Python async ORM, fields, query builder, managers, SQL builders, migrations, schema snapshots, legacy AMDL parser/runtime, and transactions.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/models/__init__.py` | 611 | 0 | 0 | Aquilia Model System -- Pure Python, production-grade ORM. |
+| `aquilia/models/__init__old.py` | 113 | 0 | 0 | Aquilia Model System -- AMDL-based, async-first models. |
+| `aquilia/models/aggregate.py` | 308 | 13 | 0 | Aquilia Aggregates -- Sum, Avg, Count, Max, Min for QuerySet. |
+| `aquilia/models/ast_nodes.py` | 234 | 10 | 0 | AMDL AST Node Types -- Aquilia Model Definition Language. |
+| `aquilia/models/base.py` | 1696 | 2 | 0 | Aquilia Model Base -- Pure Python, metaclass-driven, async-first ORM. |
+| `aquilia/models/constraint.py` | 169 | 3 | 0 | Aquilia Model Constraints -- CheckConstraint, ExclusionConstraint. |
+| `aquilia/models/deletion.py` | 288 | 4 | 1 | Aquilia Model Deletion -- on_delete behaviors for ForeignKey fields. |
+| `aquilia/models/enums.py` | 116 | 2 | 0 | Aquilia Model Enums -- standard enum helpers for model fields. |
+| `aquilia/models/expression.py` | 1001 | 36 | 0 | Aquilia Expression System -- F(), Value(), RawSQL() for query expressions. |
+| `aquilia/models/fields/__init__.py` | 260 | 0 | 0 | Aquilia Model Fields Package -- split-module field system. |
+| `aquilia/models/fields/composite.py` | 214 | 3 | 0 | Aquilia Composite Fields -- group multiple primitives into one logical attribute. |
+| `aquilia/models/fields/enum_field.py` | 120 | 1 | 0 | Aquilia EnumField -- store Python enums with database mapping. |
+| `aquilia/models/fields/lookups.py` | 338 | 22 | 3 | Aquilia Field Lookups -- extensible lookup system for query filters. |
+| `aquilia/models/fields/mixins.py` | 418 | 6 | 0 | Aquilia Field Mixins -- reusable behaviors for model fields. |
+| `aquilia/models/fields/validators.py` | 421 | 16 | 0 | Aquilia Field Validators -- reusable validation callables. |
+| `aquilia/models/fields_module.py` | 2335 | 51 | 0 | Aquilia Model Fields -- Pure Python, production-grade field system. |
+| `aquilia/models/index.py` | 156 | 5 | 0 | Aquilia Model Indexes -- standalone index rendering. |
+| `aquilia/models/manager.py` | 520 | 3 | 0 | Aquilia Model Manager -- descriptor-based QuerySet access. |
+| `aquilia/models/metaclass.py` | 150 | 1 | 0 | Aquilia Model Metaclass -- field collection, auto-PK, Meta parsing, registration. |
+| `aquilia/models/migration_dsl.py` | 848 | 16 | 1 | Aquilia Migration DSL -- declarative, human-readable migration operations. |
+| `aquilia/models/migration_gen.py` | 324 | 0 | 1 | Aquilia Migration File Generator -- creates DSL migration files. |
+| `aquilia/models/migration_runner.py` | 561 | 2 | 2 | Aquilia Migration Runner -- executes DSL and raw-SQL migrations. |
+| `aquilia/models/migrations.py` | 988 | 3 | 2 | Aquilia Migration System -- generate and apply schema migrations. |
+| `aquilia/models/options.py` | 136 | 1 | 0 | Aquilia Model Options -- parsed from inner Meta class. |
+| `aquilia/models/parser.py` | 406 | 1 | 3 | AMDL Parser -- Aquilia Model Definition Language. |
+| `aquilia/models/query.py` | 1730 | 3 | 0 | Aquilia Query Builder -- chainable, immutable, async-terminal Q object. |
+| `aquilia/models/registry.py` | 277 | 1 | 0 | Aquilia Model Registry -- global registry for all Model subclasses. |
+| `aquilia/models/runtime.py` | 922 | 3 | 2 | Aquilia Model Runtime -- ModelProxy, Q (query), and ModelRegistry. |
+| `aquilia/models/schema_snapshot.py` | 723 | 2 | 5 | Aquilia Schema Snapshot & Diff Engine. |
+| `aquilia/models/signals.py` | 361 | 1 | 1 | Aquilia Model Signals -- pre/post save, delete, init hooks. |
+| `aquilia/models/sql_builder.py` | 590 | 8 | 0 | Aquilia SQL Builder -- safe, parameterized SQL generation. |
+| `aquilia/models/startup_guard.py` | 142 | 1 | 1 | Aquilia Safe DB Startup -- guards against implicit database creation. |
+| `aquilia/models/transactions.py` | 369 | 2 | 1 | Aquilia Transactions -- atomic() context manager with savepoint support. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `SlotNode` | `aquilia/models/ast_nodes.py` | name: str, field_type: FieldType, type_params: tuple[Any, ...] &#124; None, modifiers: dict[str, Any], is_pk: bool, is_unique: bool, is_nullable: bool, max_length: int &#124; None, default_expr: str &#124; None, note: str &#124; None, line_number: int, source_file: str | Represents a `slot` directive -- a model field/column. |
-| `LinkNode` | `aquilia/models/ast_nodes.py` | name: str, kind: LinkKind, target_model: str, fk_field: str &#124; None, back_name: str &#124; None, through_model: str &#124; None, modifiers: dict[str, Any], line_number: int, source_file: str | Represents a `link` directive -- a relationship. |
-| `IndexNode` | `aquilia/models/ast_nodes.py` | fields: list[str], is_unique: bool, name: str &#124; None, line_number: int, source_file: str | Represents an `index` directive. |
-| `HookNode` | `aquilia/models/ast_nodes.py` | event: str, handler_name: str, line_number: int, source_file: str | Represents a `hook` directive -- lifecycle binding. |
-| `MetaNode` | `aquilia/models/ast_nodes.py` | key: str, value: str, line_number: int, source_file: str | Represents a `meta` directive. |
-| `NoteNode` | `aquilia/models/ast_nodes.py` | text: str, line_number: int, source_file: str | Represents a `note` directive -- freeform documentation. |
-| `ModelNode` | `aquilia/models/ast_nodes.py` | name: str, slots: list[SlotNode], links: list[LinkNode], indexes: list[IndexNode], hooks: list[HookNode], meta: dict[str, str], notes: list[str], source_file: str, start_line: int, end_line: int | Represents a complete MODEL stanza. |
-| `AMDLFile` | `aquilia/models/ast_nodes.py` | path: str, models: list[ModelNode], errors: list[str] | Represents a parsed `.amdl` file containing one or more models. |
-| `ColumnDef` | `aquilia/models/migration_dsl.py` | name: str, col_type: str, primary_key: bool, autoincrement: bool, unique: bool, nullable: bool, default: Any, references: tuple[str, str] &#124; None, on_delete: str, on_update: str | A column definition in the DSL. |
-| `CreateModel` | `aquilia/models/migration_dsl.py` | name: str, table: str, fields: list[ColumnDef] | Create a new database table. |
-| `DropModel` | `aquilia/models/migration_dsl.py` | name: str, table: str | Drop a table. |
-| `RenameModel` | `aquilia/models/migration_dsl.py` | old_name: str, new_name: str, old_table: str, new_table: str | Rename a table (preserves data). |
-| `AddField` | `aquilia/models/migration_dsl.py` | model_name: str, table: str, column: ColumnDef | Add a column to an existing table. |
-| `RemoveField` | `aquilia/models/migration_dsl.py` | model_name: str, table: str, column_name: str | Remove a column from an existing table. |
-| `AlterField` | `aquilia/models/migration_dsl.py` | model_name: str, table: str, column_name: str, new_type: str &#124; None, nullable: bool &#124; None, new_default: Any, drop_default: bool | Alter a column's type, constraints, or default. |
-| `RenameField` | `aquilia/models/migration_dsl.py` | model_name: str, table: str, old_name: str, new_name: str | Rename a column (preserves data). |
-| `CreateIndex` | `aquilia/models/migration_dsl.py` | name: str, table: str, columns: list[str], unique: bool, condition: str &#124; None | Create a database index. |
-| `DropIndex` | `aquilia/models/migration_dsl.py` | name: str, table: str &#124; None | Drop a database index. |
-| `AddConstraint` | `aquilia/models/migration_dsl.py` | table: str, constraint_sql: str | Add a constraint to a table. |
-| `RemoveConstraint` | `aquilia/models/migration_dsl.py` | table: str, name: str | Remove a constraint from a table. |
-| `RunSQL` | `aquilia/models/migration_dsl.py` | sql: str &#124; list[str], reverse: str &#124; list[str] | Execute raw SQL statements (forward and optionally reverse). |
-| `RunPython` | `aquilia/models/migration_dsl.py` | forward: Callable &#124; None, reverse: Callable &#124; None | Execute a Python callable as a data migration step. |
-| `Migration` | `aquilia/models/migration_dsl.py` | revision: str, slug: str, models: list[str], dependencies: list[str], operations: list[Operation] | Container for a set of migration operations with metadata. |
-| `MigrationRecord` | `aquilia/models/migration_runner.py` | revision: str, slug: str, checksum: str, applied_at: str &#124; None | A record in the aquilia_migrations tracking table. |
-| `MigrationInfo` | `aquilia/models/migrations.py` | revision: str, slug: str, models: list[str], path: Path &#124; None, applied: bool | Metadata for a single migration file. |
-| `Options` | `aquilia/models/options.py` | See class attributes and constructor methods. | Parsed model options from inner Meta class. |
-| `SchemaDiff` | `aquilia/models/schema_snapshot.py` | added_models: list[str], removed_models: list[str], renamed_models: list[tuple[str, str]], altered_models: dict[str, ModelDiff] | Result of comparing two snapshots. |
-| `ModelDiff` | `aquilia/models/schema_snapshot.py` | added_fields: list[str], removed_fields: list[str], renamed_fields: list[tuple[str, str]], altered_fields: list[str], added_indexes: list[dict[str, Any]], removed_indexes: list[dict[str, Any]] | Changes within a single model. |
+| `Options` | `aquilia/models/options.py` | `label`, `label_lower` | Parsed model options from inner Meta class. |
+| `SQLBuilder` | `aquilia/models/sql_builder.py` | `select`, `from_table`, `distinct`, `join`, `left_join`, `right_join`, `where`, `where_in`, `group_by`, `having`, `order_by`, `limit`, `offset`, `build`, `build_count` | SELECT query builder with safe parameter binding. |
+| `InsertBuilder` | `aquilia/models/sql_builder.py` | `columns`, `values`, `from_dict`, `returning`, `build`, `build_many` | INSERT query builder. |
+| `UpdateBuilder` | `aquilia/models/sql_builder.py` | `set`, `set_dict`, `where`, `build` | UPDATE query builder. |
+| `DeleteBuilder` | `aquilia/models/sql_builder.py` | `where`, `build` | DELETE query builder. |
+| `CreateTableBuilder` | `aquilia/models/sql_builder.py` | `column`, `constraint`, `build` | CREATE TABLE DDL builder. |
+| `AlterTableBuilder` | `aquilia/models/sql_builder.py` | `add_column`, `drop_column`, `rename_column`, `rename_to`, `add_constraint`, `drop_constraint`, `alter_column_type`, `set_not_null`, `drop_not_null`, `set_default`, `drop_default`, `build` | ALTER TABLE DDL builder -- dialect-aware. |
+| `UpsertBuilder` | `aquilia/models/sql_builder.py` | `columns`, `values`, `from_dict`, `conflict_target`, `update_columns`, `build` | INSERT ... ON CONFLICT (upsert) query builder -- dialect-aware. |
+| `UpsertIgnoreBuilder` | `aquilia/models/sql_builder.py` | `columns`, `values`, `from_dict`, `conflict_target`, `build` | INSERT ... ON CONFLICT DO NOTHING query builder -- dialect-aware. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

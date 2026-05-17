@@ -1,65 +1,92 @@
 # Sessions Architecture
 
-## Runtime Role
+Session IDs, policies, stores, transports, engine, decorators, typed session state, and session faults.
 
-The session subsystem with policy builders, stores, transports, guards, decorators, state objects, session engine, lifecycle rules, and typed session faults.
+## Source Boundaries
 
-The implementation is split across 9 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sessions/__init__.py` | 144 | 0 | 0 | AquilaSessions - Production-grade session management for Aquilia. |
+| `aquilia/sessions/core.py` | 602 | 5 | 0 | AquilaSessions - Core types. |
+| `aquilia/sessions/decorators.py` | 442 | 4 | 2 | Unique Session Decorators for Aquilia. |
+| `aquilia/sessions/engine.py` | 407 | 1 | 0 | AquilaSessions - Session Engine. |
+| `aquilia/sessions/faults.py` | 320 | 16 | 0 | AquilaSessions - Fault definitions. |
+| `aquilia/sessions/policy.py` | 456 | 5 | 0 | AquilaSessions - Policy types. |
+| `aquilia/sessions/state.py` | 189 | 4 | 0 | Typed Session State for Aquilia. |
+| `aquilia/sessions/store.py` | 309 | 3 | 0 | AquilaSessions - Session storage abstraction. |
+| `aquilia/sessions/transport.py` | 290 | 3 | 1 | AquilaSessions - Transport adapters. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/sessions/__init__.py`: AquilaSessions - Production-grade session management for Aquilia.
-- `aquilia/sessions/core.py`: AquilaSessions - Core types.
-- `aquilia/sessions/decorators.py`: Unique Session Decorators for Aquilia.
-- `aquilia/sessions/engine.py`: AquilaSessions - Session Engine.
-- `aquilia/sessions/faults.py`: AquilaSessions - Fault definitions.
-- `aquilia/sessions/policy.py`: AquilaSessions - Policy types.
-- `aquilia/sessions/state.py`: Typed Session State for Aquilia.
-- `aquilia/sessions/store.py`: AquilaSessions - Session storage abstraction.
-- `aquilia/sessions/transport.py`: AquilaSessions - Transport adapters.
+`sessions` has 9 Python files, 41 public classes, 3 public module-level functions, and 9 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.core` | 4 |
+| `.faults` | 3 |
+| `.decorators` | 1 |
+| `.engine` | 1 |
+| `.policy` | 1 |
+| `.state` | 1 |
+| `.store` | 1 |
+| `.transport` | 1 |
+| `aquilia._version` | 1 |
+| `aquilia.faults` | 1 |
+| `aquilia.faults.core` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `typing` | 7 |
 | `__future__` | 5 |
 | `datetime` | 5 |
-| `core` | 4 |
-| `aquilia` | 3 |
-| `dataclasses` | 3 |
-| `faults` | 3 |
+| `dataclasses` | 4 |
 | `collections` | 2 |
 | `contextlib` | 2 |
 | `hashlib` | 2 |
 | `asyncio` | 1 |
 | `base64` | 1 |
-| `decorators` | 1 |
-| `engine` | 1 |
 | `enum` | 1 |
 | `functools` | 1 |
 | `inspect` | 1 |
 | `json` | 1 |
 | `logging` | 1 |
 | `pathlib` | 1 |
-| `policy` | 1 |
 | `re` | 1 |
 | `secrets` | 1 |
-| `state` | 1 |
-| `store` | 1 |
-| `transport` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `SessionContextManager` | `aquilia/sessions/decorators.py` | Context manager for scoped session access. |
+| `SessionGuard` | `aquilia/sessions/decorators.py` | Advanced session guards for complex authorization logic. |
+| `SessionEngine` | `aquilia/sessions/engine.py` | Session lifecycle orchestrator. |
+| `SessionPolicyViolationFault` | `aquilia/sessions/faults.py` | Session violates policy constraints. |
+| `SessionStoreUnavailableFault` | `aquilia/sessions/faults.py` | Session store is unavailable. Transient error - retry may succeed. |
+| `SessionStoreCorruptedFault` | `aquilia/sessions/faults.py` | Session data in store is corrupted. |
+| `SessionTransportFault` | `aquilia/sessions/faults.py` | Error extracting or injecting session via transport. |
+| `PersistencePolicy` | `aquilia/sessions/policy.py` | Controls how sessions persist to storage. |
+| `ConcurrencyPolicy` | `aquilia/sessions/policy.py` | Controls concurrent session limits per principal. |
+| `TransportPolicy` | `aquilia/sessions/policy.py` | Controls how sessions travel across network. |
+| `SessionPolicy` | `aquilia/sessions/policy.py` | Master policy that defines how sessions behave. |
+| `SessionPolicyBuilder` | `aquilia/sessions/policy.py` | Fluent builder for SessionPolicy with unique Aquilia syntax. |
+| `SessionStore` | `aquilia/sessions/store.py` | Abstract session storage interface. |
+| `MemoryStore` | `aquilia/sessions/store.py` | In-memory session storage for development and testing. |
+| `FileStore` | `aquilia/sessions/store.py` | File-based session storage for debugging and development. NOT suitable for production. |
+| `SessionTransport` | `aquilia/sessions/transport.py` | Abstract transport interface for session ID delivery. |
+| `CookieTransport` | `aquilia/sessions/transport.py` | Cookie-based session transport. |
+| `HeaderTransport` | `aquilia/sessions/transport.py` | Header-based session transport for APIs and mobile apps. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`SessionRequiredFault`, `SessionFault`, `SessionExpiredFault`, `SessionIdleTimeoutFault`, `SessionAbsoluteTimeoutFault`, `SessionInvalidFault`, `SessionNotFoundFault`, `SessionPolicyViolationFault`, `SessionConcurrencyViolationFault`, `SessionLockedFault`, `SessionStoreUnavailableFault`, `SessionStoreCorruptedFault`, `SessionRotationFailedFault`, `SessionTransportFault`, `SessionForgeryAttemptFault`, `SessionHijackAttemptFault`, `SessionFingerprintMismatchFault`

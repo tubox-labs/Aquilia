@@ -1,14 +1,32 @@
 # Sessions API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sessions/__init__.py` | 144 | 0 | 0 | AquilaSessions - Production-grade session management for Aquilia. |
+| `aquilia/sessions/core.py` | 602 | 5 | 0 | AquilaSessions - Core types. |
+| `aquilia/sessions/decorators.py` | 442 | 4 | 2 | Unique Session Decorators for Aquilia. |
+| `aquilia/sessions/engine.py` | 407 | 1 | 0 | AquilaSessions - Session Engine. |
+| `aquilia/sessions/faults.py` | 320 | 16 | 0 | AquilaSessions - Fault definitions. |
+| `aquilia/sessions/policy.py` | 456 | 5 | 0 | AquilaSessions - Policy types. |
+| `aquilia/sessions/state.py` | 189 | 4 | 0 | Typed Session State for Aquilia. |
+| `aquilia/sessions/store.py` | 309 | 3 | 0 | AquilaSessions - Session storage abstraction. |
+| `aquilia/sessions/transport.py` | 290 | 3 | 1 | AquilaSessions - Transport adapters. |
+
+## Public Exports
+
+`ADMIN_POLICY`, `API_TOKEN_POLICY`, `CartState`, `ConcurrencyPolicy`, `CookieTransport`, `DEFAULT_USER_POLICY`, `EPHEMERAL_POLICY`, `Field`, `FileStore`, `HeaderTransport`, `MemoryStore`, `PersistencePolicy`, `Session`, `SessionAbsoluteTimeoutFault`, `SessionConcurrencyViolationFault`, `SessionContext`, `SessionEngine`, `SessionExpiredFault`, `SessionFault`, `SessionFingerprintMismatchFault`, `SessionFlag`, `SessionForgeryAttemptFault`, `SessionGuard`, `SessionHijackAttemptFault`, `SessionID`, `SessionIdleTimeoutFault`, `SessionInvalidFault`, `SessionLockedFault`, `SessionNotFoundFault`, `SessionPolicy`, `SessionPolicyBuilder`, `SessionPolicyViolationFault`, `SessionPrincipal`, `SessionRequiredFault`, `SessionRotationFailedFault`, `SessionScope`, `SessionState`, `SessionStore`, `SessionStoreCorruptedFault`, `SessionStoreUnavailableFault`, `SessionTransport`, `SessionTransportFault`, `TransportPolicy`, `UserPreferencesState`, `create_transport`, `requires`, `session`, `stateful`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `SessionID` | `aquilia/sessions/core.py` | object | Opaque session identifier with cryptographic randomness. |
-| `SessionScope` | `aquilia/sessions/core.py` | str, Enum | Public class. |
-| `SessionFlag` | `aquilia/sessions/core.py` | str, Enum | Public class. |
+| `SessionScope` | `aquilia/sessions/core.py` | str, Enum |  |
+| `SessionFlag` | `aquilia/sessions/core.py` | str, Enum |  |
 | `SessionPrincipal` | `aquilia/sessions/core.py` | object | Represents who the session belongs to. |
 | `Session` | `aquilia/sessions/core.py` | object | Core session object - explicit state container with lifecycle. |
 | `SessionRequiredFault` | `aquilia/sessions/decorators.py` | Fault | Raised when session is required but missing. |
@@ -43,175 +61,175 @@ This page is extracted from the current Python source. It includes public classe
 | `UserPreferencesState` | `aquilia/sessions/state.py` | SessionState | User preferences session state. |
 | `SessionStore` | `aquilia/sessions/store.py` | Protocol | Abstract session storage interface. |
 | `MemoryStore` | `aquilia/sessions/store.py` | object | In-memory session storage for development and testing. |
-| `FileStore` | `aquilia/sessions/store.py` | object | File-based session storage for debugging and development. |
+| `FileStore` | `aquilia/sessions/store.py` | object | File-based session storage for debugging and development. NOT suitable for production. |
 | `SessionTransport` | `aquilia/sessions/transport.py` | Protocol | Abstract transport interface for session ID delivery. |
 | `CookieTransport` | `aquilia/sessions/transport.py` | object | Cookie-based session transport. |
 | `HeaderTransport` | `aquilia/sessions/transport.py` | object | Header-based session transport for APIs and mobile apps. |
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `stateful` | `aquilia/sessions/decorators.py` | `def stateful(func: F) -> F` | Shorthand decorator for stateful sessions. |
+| `stateful` | `aquilia/sessions/decorators.py` | `def stateful(func: F)` | Shorthand decorator for stateful sessions. |
 | `requires` | `aquilia/sessions/decorators.py` | `def requires(*guards: SessionGuard)` | Decorator to require multiple session guards. |
-| `create_transport` | `aquilia/sessions/transport.py` | `def create_transport(policy: TransportPolicy) -> CookieTransport &#124; HeaderTransport` | Create transport adapter from policy. |
+| `create_transport` | `aquilia/sessions/transport.py` | `def create_transport(policy: TransportPolicy)` | Create transport adapter from policy. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `F` | `aquilia/sessions/decorators.py` | `TypeVar('F', bound=Callable[..., Any])` |
-| `DEFAULT_USER_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='user_default', ttl=timedelta(days=7), idle_timeout=timedelta(minutes=30), rotate_on_use=False, rotate_on_privilege_change=True, persistence=` |
-| `API_TOKEN_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='api_token', ttl=timedelta(hours=1), idle_timeout=None, rotate_on_use=False, rotate_on_privilege_change=False, persistence=PersistencePolicy(` |
-| `EPHEMERAL_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='ephemeral', ttl=None, idle_timeout=None, rotate_on_use=False, rotate_on_privilege_change=False, persistence=PersistencePolicy(enabled=False)` |
-| `ADMIN_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='admin', ttl=timedelta(hours=8), idle_timeout=timedelta(minutes=15), absolute_timeout=timedelta(hours=12), rotate_on_use=True, rotate_on_priv` |
+| `DEFAULT_USER_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='user_default', ttl=timedelta(days=7), idle_timeout=timedelta(minutes=30), rotate_on_use=False, rotate_on_privilege_change=True, persistence=PersistencePolicy(enabled=True, store_name='default'), concurrency=ConcurrencyPolicy(max_sessions_per_principal=5, behavior_on_limit='evict_oldest'), transport=TransportPolicy(adapter='cookie'), scope='user')` |
+| `API_TOKEN_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='api_token', ttl=timedelta(hours=1), idle_timeout=None, rotate_on_use=False, rotate_on_privilege_change=False, persistence=PersistencePolicy(enabled=True, store_name='default'), concurrency=ConcurrencyPolicy(max_sessions_per_principal=None), transport=TransportPolicy(adapter='header', header_name='X-API-Token'), scope='user')` |
+| `EPHEMERAL_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='ephemeral', ttl=None, idle_timeout=None, rotate_on_use=False, rotate_on_privilege_change=False, persistence=PersistencePolicy(enabled=False), concurrency=ConcurrencyPolicy(max_sessions_per_principal=None), transport=TransportPolicy(adapter='cookie'), scope='request')` |
+| `ADMIN_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='admin', ttl=timedelta(hours=8), idle_timeout=timedelta(minutes=15), absolute_timeout=timedelta(hours=12), rotate_on_use=True, rotate_on_privilege_change=True, fingerprint_binding=True, persistence=PersistencePolicy(enabled=True, store_name='default'), concurrency=ConcurrencyPolicy(max_sessions_per_principal=1, behavior_on_limit='evict_all'), transport=TransportPolicy(adapter='cookie', cookie_samesite='strict'), scope='user')` |
 | `T` | `aquilia/sessions/state.py` | `TypeVar('T', bound='SessionState')` |
 
 ## Detailed Classes And Methods
 
-### Class: `SessionID`
+### `SessionID`
 
 - Source: `aquilia/sessions/core.py`
 - Bases: `object`
 - Summary: Opaque session identifier with cryptographic randomness.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `ENTROPY_BYTES` |  | `32` |
-| `PREFIX` |  | `'sess_'` |
+| `ENTROPY_BYTES` | `` | `32` |
+| `PREFIX` | `` | `'sess_'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_string` | `def from_string(cls, encoded: str) -> SessionID` | classmethod | Method. |
-| `raw` | `def raw(self) -> bytes` | property | Method. |
-| `fingerprint` | `def fingerprint(self) -> str` |  | Privacy-safe fingerprint for logging. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_string` | `def from_string(cls, encoded: str)` |  |
+| `raw` | `def raw(self)` |  |
+| `fingerprint` | `def fingerprint(self)` | Privacy-safe fingerprint for logging. |
 
-### Class: `SessionScope`
+### `SessionScope`
 
 - Source: `aquilia/sessions/core.py`
 - Bases: `str, Enum`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `REQUEST` |  | `'request'` |
-| `CONNECTION` |  | `'connection'` |
-| `USER` |  | `'user'` |
-| `DEVICE` |  | `'device'` |
+| `REQUEST` | `` | `'request'` |
+| `CONNECTION` | `` | `'connection'` |
+| `USER` | `` | `'user'` |
+| `DEVICE` | `` | `'device'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `requires_persistence` | `def requires_persistence(self) -> bool` |  | Method. |
-| `is_ephemeral` | `def is_ephemeral(self) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `requires_persistence` | `def requires_persistence(self)` |  |
+| `is_ephemeral` | `def is_ephemeral(self)` |  |
 
-### Class: `SessionFlag`
+### `SessionFlag`
 
 - Source: `aquilia/sessions/core.py`
 - Bases: `str, Enum`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `AUTHENTICATED` |  | `'authenticated'` |
-| `EPHEMERAL` |  | `'ephemeral'` |
-| `ROTATABLE` |  | `'rotatable'` |
-| `RENEWABLE` |  | `'renewable'` |
-| `READ_ONLY` |  | `'read_only'` |
-| `LOCKED` |  | `'locked'` |
+| `AUTHENTICATED` | `` | `'authenticated'` |
+| `EPHEMERAL` | `` | `'ephemeral'` |
+| `ROTATABLE` | `` | `'rotatable'` |
+| `RENEWABLE` | `` | `'renewable'` |
+| `READ_ONLY` | `` | `'read_only'` |
+| `LOCKED` | `` | `'locked'` |
 
-### Class: `SessionPrincipal`
+### `SessionPrincipal`
 
 - Source: `aquilia/sessions/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Represents who the session belongs to.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `kind` | `Literal['user', 'service', 'device', 'anonymous']` |  |
-| `id` | `str` |  |
+| `kind` | `Literal['user', 'service', 'device', 'anonymous']` | `` |
+| `id` | `str` | `` |
 | `attributes` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_user` | `def is_user(self) -> bool` |  | Method. |
-| `is_service` | `def is_service(self) -> bool` |  | Method. |
-| `is_device` | `def is_device(self) -> bool` |  | Method. |
-| `is_anonymous` | `def is_anonymous(self) -> bool` |  | Method. |
-| `has_attribute` | `def has_attribute(self, key: str) -> bool` |  | Method. |
-| `get_attribute` | `def get_attribute(self, key: str, default: Any = None) -> Any` |  | Method. |
-| `set_attribute` | `def set_attribute(self, key: str, value: Any) -> None` |  | Method. |
-| `remove_attribute` | `def remove_attribute(self, key: str) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_user` | `def is_user(self)` |  |
+| `is_service` | `def is_service(self)` |  |
+| `is_device` | `def is_device(self)` |  |
+| `is_anonymous` | `def is_anonymous(self)` |  |
+| `has_attribute` | `def has_attribute(self, key: str)` |  |
+| `get_attribute` | `def get_attribute(self, key: str, default: Any=None)` |  |
+| `set_attribute` | `def set_attribute(self, key: str, value: Any)` |  |
+| `remove_attribute` | `def remove_attribute(self, key: str)` |  |
 
-### Class: `Session`
+### `Session`
 
 - Source: `aquilia/sessions/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Core session object - explicit state container with lifecycle.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `SessionID` |  |
-| `principal` | `SessionPrincipal &#124; None` | `None` |
+| `id` | `SessionID` | `` |
+| `principal` | `SessionPrincipal \| None` | `None` |
 | `data` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `created_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
 | `last_accessed_at` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
-| `expires_at` | `datetime &#124; None` | `None` |
+| `expires_at` | `datetime \| None` | `None` |
 | `scope` | `SessionScope` | `SessionScope.USER` |
 | `flags` | `set[SessionFlag]` | `field(default_factory=set)` |
 | `version` | `int` | `0` |
-| `MAX_DATA_KEYS` |  | `256` |
+| `MAX_DATA_KEYS` | `` | `256` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Method. |
-| `set` | `def set(self, key: str, value: Any) -> None` |  | Method. |
-| `delete` | `def delete(self, key: str) -> None` |  | Method. |
-| `clear_data` | `def clear_data(self) -> None` |  | Method. |
-| `is_expired` | `def is_expired(self, now: datetime &#124; None = None) -> bool` |  | Method. |
-| `idle_duration` | `def idle_duration(self, now: datetime &#124; None = None) -> timedelta` |  | Method. |
-| `age` | `def age(self, now: datetime &#124; None = None) -> timedelta` |  | Total session age since creation. |
-| `touch` | `def touch(self, now: datetime &#124; None = None) -> None` |  | Method. |
-| `extend_expiry` | `def extend_expiry(self, ttl: timedelta, now: datetime &#124; None = None) -> None` |  | Method. |
-| `mark_authenticated` | `def mark_authenticated(self, principal: SessionPrincipal) -> None` |  | Method. |
-| `clear_authentication` | `def clear_authentication(self) -> None` |  | Method. |
-| `is_authenticated` | `def is_authenticated(self) -> bool` | property | Method. |
-| `is_anonymous` | `def is_anonymous(self) -> bool` | property | Method. |
-| `is_dirty` | `def is_dirty(self) -> bool` | property | Method. |
-| `mark_clean` | `def mark_clean(self) -> None` |  | Method. |
-| `mark_dirty` | `def mark_dirty(self) -> None` |  | Method. |
-| `is_ephemeral` | `def is_ephemeral(self) -> bool` | property | Method. |
-| `is_read_only` | `def is_read_only(self) -> bool` | property | Method. |
-| `is_locked` | `def is_locked(self) -> bool` | property | Method. |
-| `bind_fingerprint` | `def bind_fingerprint(self, ip: str &#124; None = None, user_agent: str &#124; None = None) -> None` |  | Bind session to client properties for hijack detection. |
-| `verify_fingerprint` | `def verify_fingerprint(self, ip: str &#124; None = None, user_agent: str &#124; None = None) -> bool` |  | Verify client fingerprint matches. Returns True if unset. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> Session` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, key: str, default: Any=None)` |  |
+| `set` | `def set(self, key: str, value: Any)` |  |
+| `delete` | `def delete(self, key: str)` |  |
+| `clear_data` | `def clear_data(self)` |  |
+| `is_expired` | `def is_expired(self, now: datetime \| None=None)` |  |
+| `idle_duration` | `def idle_duration(self, now: datetime \| None=None)` |  |
+| `age` | `def age(self, now: datetime \| None=None)` | Total session age since creation. |
+| `touch` | `def touch(self, now: datetime \| None=None)` |  |
+| `extend_expiry` | `def extend_expiry(self, ttl: timedelta, now: datetime \| None=None)` |  |
+| `mark_authenticated` | `def mark_authenticated(self, principal: SessionPrincipal)` |  |
+| `clear_authentication` | `def clear_authentication(self)` |  |
+| `is_authenticated` | `def is_authenticated(self)` |  |
+| `is_anonymous` | `def is_anonymous(self)` |  |
+| `is_dirty` | `def is_dirty(self)` |  |
+| `mark_clean` | `def mark_clean(self)` |  |
+| `mark_dirty` | `def mark_dirty(self)` |  |
+| `is_ephemeral` | `def is_ephemeral(self)` |  |
+| `is_read_only` | `def is_read_only(self)` |  |
+| `is_locked` | `def is_locked(self)` |  |
+| `bind_fingerprint` | `def bind_fingerprint(self, ip: str \| None=None, user_agent: str \| None=None)` | Bind session to client properties for hijack detection. |
+| `verify_fingerprint` | `def verify_fingerprint(self, ip: str \| None=None, user_agent: str \| None=None)` | Verify client fingerprint matches. Returns True if unset. |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` |  |
 
-### Class: `SessionRequiredFault`
+### `SessionRequiredFault`
 
 - Source: `aquilia/sessions/decorators.py`
 - Bases: `Fault`
 - Summary: Raised when session is required but missing.
 
-### Class: `SessionDecorators`
+### `SessionDecorators`
 
 - Source: `aquilia/sessions/decorators.py`
 - Bases: `object`
@@ -219,13 +237,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `require` | `def require(authenticated: bool = False, **kwargs) -> Callable[[F], F]` | staticmethod | Require session with specific properties. |
-| `ensure` | `def ensure() -> Callable[[F], F]` | staticmethod | Ensure session exists (create if missing). |
-| `optional` | `def optional() -> Callable[[F], F]` &#124; staticmethod | Session is optional. The handler will receive Session | None. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `require` | `def require(authenticated: bool=False, **kwargs)` | Require session with specific properties. |
+| `ensure` | `def ensure()` | Ensure session exists (create if missing). |
+| `optional` | `def optional()` | Session is optional. The handler will receive Session \| None. |
 
-### Class: `SessionContextManager`
+### `SessionContextManager`
 
 - Source: `aquilia/sessions/decorators.py`
 - Bases: `object`
@@ -233,13 +251,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `authenticated` | `async def authenticated(ctx)` | staticmethod, asynccontextmanager | Context manager for authenticated sessions. |
-| `ensure` | `async def ensure(ctx)` | staticmethod, asynccontextmanager | Context manager that ensures session exists. |
-| `transactional` | `async def transactional(ctx)` | staticmethod, asynccontextmanager | Transactional session context with rollback on exception. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `authenticated` | `async def authenticated(ctx)` | Context manager for authenticated sessions. |
+| `ensure` | `async def ensure(ctx)` | Context manager that ensures session exists. |
+| `transactional` | `async def transactional(ctx)` | Transactional session context with rollback on exception. |
 
-### Class: `SessionGuard`
+### `SessionGuard`
 
 - Source: `aquilia/sessions/decorators.py`
 - Bases: `object`
@@ -247,11 +265,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `async def check(self, session: Session) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `check` | `async def check(self, session: Session)` |  |
 
-### Class: `SessionEngine`
+### `SessionEngine`
 
 - Source: `aquilia/sessions/engine.py`
 - Bases: `object`
@@ -259,318 +277,297 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `async def resolve(self, request: Request, container: Container &#124; None = None) -> Session` |  | Resolve session for request (Phase 1-4). |
-| `commit` | `async def commit(self, session: Session, response: Response, privilege_changed: bool = False) -> None` |  | Commit session changes (Phase 6-7: Commit, Emission). |
-| `destroy` | `async def destroy(self, session: Session, response: Response) -> None` |  | Destroy session (logout). |
-| `check_concurrency` | `async def check_concurrency(self, session: Session) -> None` |  | Check concurrency limits for session's principal. |
-| `refresh` | `async def refresh(self, session: Session, now: datetime &#124; None = None) -> None` |  | Refresh session expiry (extend TTL). |
-| `on_event` | `def on_event(self, handler: callable) -> None` |  | Register event handler for observability. |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Remove expired sessions from store. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Gracefully shutdown engine. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `async def resolve(self, request: Request, container: Container \| None=None)` | Resolve session for request (Phase 1-4). |
+| `commit` | `async def commit(self, session: Session, response: Response, privilege_changed: bool=False)` | Commit session changes (Phase 6-7: Commit, Emission). |
+| `destroy` | `async def destroy(self, session: Session, response: Response)` | Destroy session (logout). |
+| `check_concurrency` | `async def check_concurrency(self, session: Session)` | Check concurrency limits for session's principal. |
+| `refresh` | `async def refresh(self, session: Session, now: datetime \| None=None)` | Refresh session expiry (extend TTL). |
+| `on_event` | `def on_event(self, handler: callable)` | Register event handler for observability. |
+| `cleanup_expired` | `async def cleanup_expired(self)` | Remove expired sessions from store. |
+| `shutdown` | `async def shutdown(self)` | Gracefully shutdown engine. |
 
-### Class: `SessionFault`
+### `SessionFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `Fault`
 - Summary: Base class for session-related faults.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `domain` |  | `FaultDomain.SECURITY` |
-
-### Class: `SessionExpiredFault`
+### `SessionExpiredFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session has expired (TTL exceeded).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_EXPIRED'` |
-| `message` |  | `'Session has expired'` |
-| `severity` |  | `Severity.WARN` |
-| `public` |  | `True` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_EXPIRED'` |
+| `message` | `` | `'Session has expired'` |
+| `public` | `` | `True` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionIdleTimeoutFault`
+### `SessionIdleTimeoutFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session idle timeout exceeded.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_IDLE_TIMEOUT'` |
-| `message` |  | `'Session idle timeout exceeded'` |
-| `severity` |  | `Severity.WARN` |
-| `public` |  | `True` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_IDLE_TIMEOUT'` |
+| `message` | `` | `'Session idle timeout exceeded'` |
+| `public` | `` | `True` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionAbsoluteTimeoutFault`
+### `SessionAbsoluteTimeoutFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session absolute timeout exceeded (OWASP requirement).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_ABSOLUTE_TIMEOUT'` |
-| `message` |  | `'Session absolute timeout exceeded'` |
-| `severity` |  | `Severity.WARN` |
-| `public` |  | `True` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_ABSOLUTE_TIMEOUT'` |
+| `message` | `` | `'Session absolute timeout exceeded'` |
+| `public` | `` | `True` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionInvalidFault`
+### `SessionInvalidFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session ID is invalid or malformed.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_INVALID'` |
-| `message` |  | `'Invalid session identifier'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `True` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_INVALID'` |
+| `message` | `` | `'Invalid session identifier'` |
+| `public` | `` | `True` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionNotFoundFault`
+### `SessionNotFoundFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session ID not found in store.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_NOT_FOUND'` |
-| `message` |  | `'Session not found'` |
-| `severity` |  | `Severity.WARN` |
-| `public` |  | `True` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_NOT_FOUND'` |
+| `message` | `` | `'Session not found'` |
+| `public` | `` | `True` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionPolicyViolationFault`
+### `SessionPolicyViolationFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session violates policy constraints.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_POLICY_VIOLATION'` |
-| `message` |  | `'Session violates policy constraints'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_POLICY_VIOLATION'` |
+| `message` | `` | `'Session violates policy constraints'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionConcurrencyViolationFault`
+### `SessionConcurrencyViolationFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Too many concurrent sessions for principal.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_CONCURRENCY_VIOLATION'` |
-| `message` |  | `'Too many concurrent sessions'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `True` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_CONCURRENCY_VIOLATION'` |
+| `message` | `` | `'Too many concurrent sessions'` |
+| `public` | `` | `True` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionLockedFault`
+### `SessionLockedFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session is locked by another operation. Retry after lock is released.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_LOCKED'` |
-| `message` |  | `'Session is locked'` |
-| `severity` |  | `Severity.WARN` |
-| `public` |  | `False` |
-| `retryable` |  | `True` |
+| `code` | `` | `'SESSION_LOCKED'` |
+| `message` | `` | `'Session is locked'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `True` |
 
-### Class: `SessionStoreUnavailableFault`
+### `SessionStoreUnavailableFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session store is unavailable. Transient error - retry may succeed.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_STORE_UNAVAILABLE'` |
-| `message` |  | `'Session storage unavailable'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `True` |
+| `code` | `` | `'SESSION_STORE_UNAVAILABLE'` |
+| `message` | `` | `'Session storage unavailable'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `True` |
 
-### Class: `SessionStoreCorruptedFault`
+### `SessionStoreCorruptedFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session data in store is corrupted.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_STORE_CORRUPTED'` |
-| `message` |  | `'Session data corrupted'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_STORE_CORRUPTED'` |
+| `message` | `` | `'Session data corrupted'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionRotationFailedFault`
+### `SessionRotationFailedFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session ID rotation failed. Session may be in inconsistent state.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_ROTATION_FAILED'` |
-| `message` |  | `'Session rotation failed'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `True` |
+| `code` | `` | `'SESSION_ROTATION_FAILED'` |
+| `message` | `` | `'Session rotation failed'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `True` |
 
-### Class: `SessionTransportFault`
+### `SessionTransportFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Error extracting or injecting session via transport.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_TRANSPORT_ERROR'` |
-| `message` |  | `'Session transport error'` |
-| `severity` |  | `Severity.WARN` |
-| `public` |  | `False` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_TRANSPORT_ERROR'` |
+| `message` | `` | `'Session transport error'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionForgeryAttemptFault`
+### `SessionForgeryAttemptFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Suspected session forgery or tampering. Security event.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_FORGERY_ATTEMPT'` |
-| `message` |  | `'Suspected session forgery'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_FORGERY_ATTEMPT'` |
+| `message` | `` | `'Suspected session forgery'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionHijackAttemptFault`
+### `SessionHijackAttemptFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Suspected session hijacking (IP/User-Agent mismatch).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_HIJACK_ATTEMPT'` |
-| `message` |  | `'Suspected session hijacking'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_HIJACK_ATTEMPT'` |
+| `message` | `` | `'Suspected session hijacking'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `False` |
 
-### Class: `SessionFingerprintMismatchFault`
+### `SessionFingerprintMismatchFault`
 
 - Source: `aquilia/sessions/faults.py`
 - Bases: `SessionFault`
 - Summary: Session fingerprint does not match client (OWASP hijack detection).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'SESSION_FINGERPRINT_MISMATCH'` |
-| `message` |  | `'Session fingerprint mismatch - possible hijack'` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `False` |
-| `retryable` |  | `False` |
+| `code` | `` | `'SESSION_FINGERPRINT_MISMATCH'` |
+| `message` | `` | `'Session fingerprint mismatch - possible hijack'` |
+| `public` | `` | `False` |
+| `retryable` | `` | `False` |
 
-### Class: `PersistencePolicy`
+### `PersistencePolicy`
 
 - Source: `aquilia/sessions/policy.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Controls how sessions persist to storage.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `store_name` | `str` | `'default'` |
 | `write_through` | `bool` | `True` |
 | `compress` | `bool` | `False` |
 
-### Class: `ConcurrencyPolicy`
+### `ConcurrencyPolicy`
 
 - Source: `aquilia/sessions/policy.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Controls concurrent session limits per principal.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `max_sessions_per_principal` | `int &#124; None` | `None` |
+| `max_sessions_per_principal` | `int \| None` | `None` |
 | `behavior_on_limit` | `Literal['reject', 'evict_oldest', 'evict_all']` | `'evict_oldest'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `violated` | `def violated(self, principal: SessionPrincipal, active_count: int) -> bool` |  | Method. |
-| `should_reject` | `def should_reject(self) -> bool` |  | Method. |
-| `should_evict_oldest` | `def should_evict_oldest(self) -> bool` |  | Method. |
-| `should_evict_all` | `def should_evict_all(self) -> bool` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `violated` | `def violated(self, principal: SessionPrincipal, active_count: int)` |  |
+| `should_reject` | `def should_reject(self)` |  |
+| `should_evict_oldest` | `def should_evict_oldest(self)` |  |
+| `should_evict_all` | `def should_evict_all(self)` |  |
 
-### Class: `TransportPolicy`
+### `TransportPolicy`
 
 - Source: `aquilia/sessions/policy.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Controls how sessions travel across network.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `adapter` | `Literal['cookie', 'header', 'token']` | `'cookie'` |
 | `cookie_name` | `str` | `'aquilia_session'` |
@@ -578,24 +575,24 @@ Attributes and fields:
 | `cookie_secure` | `bool` | `True` |
 | `cookie_samesite` | `Literal['strict', 'lax', 'none']` | `'lax'` |
 | `cookie_path` | `str` | `'/'` |
-| `cookie_domain` | `str &#124; None` | `None` |
+| `cookie_domain` | `str \| None` | `None` |
 | `header_name` | `str` | `'X-Session-ID'` |
 
-### Class: `SessionPolicy`
+### `SessionPolicy`
 
 - Source: `aquilia/sessions/policy.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Master policy that defines how sessions behave.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `ttl` | `timedelta &#124; None` | `None` |
-| `idle_timeout` | `timedelta &#124; None` | `None` |
-| `absolute_timeout` | `timedelta &#124; None` | `None` |
+| `name` | `str` | `` |
+| `ttl` | `timedelta \| None` | `None` |
+| `idle_timeout` | `timedelta \| None` | `None` |
+| `absolute_timeout` | `timedelta \| None` | `None` |
 | `rotate_on_use` | `bool` | `False` |
 | `rotate_on_privilege_change` | `bool` | `True` |
 | `fingerprint_binding` | `bool` | `False` |
@@ -606,20 +603,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_rotate` | `def should_rotate(self, session: Session, privilege_changed: bool = False) -> bool` |  | Method. |
-| `calculate_expiry` | `def calculate_expiry(self, now: datetime &#124; None = None) -> datetime &#124; None` |  | Method. |
-| `is_valid` | `def is_valid(self, session: Session, now: datetime &#124; None = None) -> tuple[bool, str]` |  | Validate session against policy. |
-| `should_persist` | `def should_persist(self, session: Session) -> bool` |  | Method. |
-| `requires_store` | `def requires_store(self) -> bool` |  | Method. |
-| `from_dict` | `def from_dict(cls, name: str, config: dict) -> SessionPolicy` | classmethod | Create policy from configuration dictionary. |
-| `for_web_users` | `def for_web_users(cls) -> SessionPolicyBuilder` | classmethod | Method. |
-| `for_api_tokens` | `def for_api_tokens(cls) -> SessionPolicyBuilder` | classmethod | Method. |
-| `for_mobile_users` | `def for_mobile_users(cls) -> SessionPolicyBuilder` | classmethod | Method. |
-| `for_admin_users` | `def for_admin_users(cls) -> SessionPolicyBuilder` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_rotate` | `def should_rotate(self, session: Session, privilege_changed: bool=False)` |  |
+| `calculate_expiry` | `def calculate_expiry(self, now: datetime \| None=None)` |  |
+| `is_valid` | `def is_valid(self, session: Session, now: datetime \| None=None)` | Validate session against policy. |
+| `should_persist` | `def should_persist(self, session: Session)` |  |
+| `requires_store` | `def requires_store(self)` |  |
+| `from_dict` | `def from_dict(cls, name: str, config: dict)` | Create policy from configuration dictionary. |
+| `for_web_users` | `def for_web_users(cls)` |  |
+| `for_api_tokens` | `def for_api_tokens(cls)` |  |
+| `for_mobile_users` | `def for_mobile_users(cls)` |  |
+| `for_admin_users` | `def for_admin_users(cls)` |  |
 
-### Class: `SessionPolicyBuilder`
+### `SessionPolicyBuilder`
 
 - Source: `aquilia/sessions/policy.py`
 - Bases: `object`
@@ -627,33 +624,33 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `named` | `def named(self, name: str) -> SessionPolicyBuilder` |  | Method. |
-| `lasting` | `def lasting(self, days: int = None, hours: int = None, minutes: int = None) -> SessionPolicyBuilder` |  | Method. |
-| `idle_timeout` | `def idle_timeout(self, hours: int = None, minutes: int = None, days: int = None) -> SessionPolicyBuilder` |  | Method. |
-| `no_idle_timeout` | `def no_idle_timeout(self) -> SessionPolicyBuilder` |  | Method. |
-| `absolute_timeout` | `def absolute_timeout(self, hours: int = None, minutes: int = None, days: int = None) -> SessionPolicyBuilder` |  | Set absolute timeout (OWASP: max total session lifetime). |
-| `with_fingerprint_binding` | `def with_fingerprint_binding(self) -> SessionPolicyBuilder` |  | Enable OWASP session-to-client fingerprint binding. |
-| `rotating_on_auth` | `def rotating_on_auth(self) -> SessionPolicyBuilder` |  | Method. |
-| `rotating_on_use` | `def rotating_on_use(self) -> SessionPolicyBuilder` |  | Method. |
-| `scoped_to` | `def scoped_to(self, scope: str) -> SessionPolicyBuilder` |  | Method. |
-| `max_concurrent` | `def max_concurrent(self, limit: int) -> SessionPolicyBuilder` |  | Method. |
-| `unlimited_concurrent` | `def unlimited_concurrent(self) -> SessionPolicyBuilder` |  | Method. |
-| `with_smart_defaults` | `def with_smart_defaults(self) -> SessionPolicyBuilder` |  | Method. |
-| `web_defaults` | `def web_defaults(self) -> SessionPolicyBuilder` |  | Method. |
-| `api_defaults` | `def api_defaults(self) -> SessionPolicyBuilder` |  | Method. |
-| `mobile_defaults` | `def mobile_defaults(self) -> SessionPolicyBuilder` |  | Method. |
-| `admin_defaults` | `def admin_defaults(self) -> SessionPolicyBuilder` |  | Enhanced security defaults for admin users with fingerprint binding. |
-| `build` | `def build(self) -> SessionPolicy` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `named` | `def named(self, name: str)` |  |
+| `lasting` | `def lasting(self, days: int=None, hours: int=None, minutes: int=None)` |  |
+| `idle_timeout` | `def idle_timeout(self, hours: int=None, minutes: int=None, days: int=None)` |  |
+| `no_idle_timeout` | `def no_idle_timeout(self)` |  |
+| `absolute_timeout` | `def absolute_timeout(self, hours: int=None, minutes: int=None, days: int=None)` | Set absolute timeout (OWASP: max total session lifetime). |
+| `with_fingerprint_binding` | `def with_fingerprint_binding(self)` | Enable OWASP session-to-client fingerprint binding. |
+| `rotating_on_auth` | `def rotating_on_auth(self)` |  |
+| `rotating_on_use` | `def rotating_on_use(self)` |  |
+| `scoped_to` | `def scoped_to(self, scope: str)` |  |
+| `max_concurrent` | `def max_concurrent(self, limit: int)` |  |
+| `unlimited_concurrent` | `def unlimited_concurrent(self)` |  |
+| `with_smart_defaults` | `def with_smart_defaults(self)` |  |
+| `web_defaults` | `def web_defaults(self)` |  |
+| `api_defaults` | `def api_defaults(self)` |  |
+| `mobile_defaults` | `def mobile_defaults(self)` |  |
+| `admin_defaults` | `def admin_defaults(self)` | Enhanced security defaults for admin users with fingerprint binding. |
+| `build` | `def build(self)` |  |
 
-### Class: `Field`
+### `Field`
 
 - Source: `aquilia/sessions/state.py`
 - Bases: `object`
 - Summary: Field descriptor for SessionState.
 
-### Class: `SessionState`
+### `SessionState`
 
 - Source: `aquilia/sessions/state.py`
 - Bases: `object`
@@ -661,41 +658,41 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Get state value with default. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert state to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, key: str, default: Any=None)` | Get state value with default. |
+| `to_dict` | `def to_dict(self)` | Convert state to dictionary. |
 
-### Class: `CartState`
+### `CartState`
 
 - Source: `aquilia/sessions/state.py`
 - Bases: `SessionState`
 - Summary: Shopping cart session state.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `items` | `list` | `Field(default_factory=list)` |
 | `total` | `float` | `Field(default=0.0)` |
 | `currency` | `str` | `Field(default='USD')` |
 
-### Class: `UserPreferencesState`
+### `UserPreferencesState`
 
 - Source: `aquilia/sessions/state.py`
 - Bases: `SessionState`
 - Summary: User preferences session state.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `theme` | `str` | `Field(default='light')` |
 | `language` | `str` | `Field(default='en')` |
 | `notifications` | `bool` | `Field(default=True)` |
 | `timezone` | `str` | `Field(default='UTC')` |
 
-### Class: `SessionStore`
+### `SessionStore`
 
 - Source: `aquilia/sessions/store.py`
 - Bases: `Protocol`
@@ -703,18 +700,18 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `async def load(self, session_id: SessionID) -> Session &#124; None` |  | Method. |
-| `save` | `async def save(self, session: Session) -> None` |  | Method. |
-| `delete` | `async def delete(self, session_id: SessionID) -> None` |  | Method. |
-| `exists` | `async def exists(self, session_id: SessionID) -> bool` |  | Method. |
-| `list_by_principal` | `async def list_by_principal(self, principal_id: str) -> list[Session]` |  | Method. |
-| `count_by_principal` | `async def count_by_principal(self, principal_id: str) -> int` |  | Method. |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `async def load(self, session_id: SessionID)` |  |
+| `save` | `async def save(self, session: Session)` |  |
+| `delete` | `async def delete(self, session_id: SessionID)` |  |
+| `exists` | `async def exists(self, session_id: SessionID)` |  |
+| `list_by_principal` | `async def list_by_principal(self, principal_id: str)` |  |
+| `count_by_principal` | `async def count_by_principal(self, principal_id: str)` |  |
+| `cleanup_expired` | `async def cleanup_expired(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
 
-### Class: `MemoryStore`
+### `MemoryStore`
 
 - Source: `aquilia/sessions/store.py`
 - Bases: `object`
@@ -722,43 +719,43 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `async def load(self, session_id: SessionID) -> Session &#124; None` |  | Method. |
-| `save` | `async def save(self, session: Session) -> None` |  | Method. |
-| `delete` | `async def delete(self, session_id: SessionID) -> None` |  | Method. |
-| `exists` | `async def exists(self, session_id: SessionID) -> bool` |  | Method. |
-| `list_by_principal` | `async def list_by_principal(self, principal_id: str) -> list[Session]` |  | Method. |
-| `count_by_principal` | `async def count_by_principal(self, principal_id: str) -> int` |  | Method. |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `get_stats` | `def get_stats(self) -> dict[str, Any]` |  | Method. |
-| `web_optimized` | `def web_optimized(cls) -> MemoryStore` | classmethod | Method. |
-| `api_optimized` | `def api_optimized(cls) -> MemoryStore` | classmethod | Method. |
-| `development_focused` | `def development_focused(cls) -> MemoryStore` | classmethod | Method. |
-| `high_throughput` | `def high_throughput(cls) -> MemoryStore` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `async def load(self, session_id: SessionID)` |  |
+| `save` | `async def save(self, session: Session)` |  |
+| `delete` | `async def delete(self, session_id: SessionID)` |  |
+| `exists` | `async def exists(self, session_id: SessionID)` |  |
+| `list_by_principal` | `async def list_by_principal(self, principal_id: str)` |  |
+| `count_by_principal` | `async def count_by_principal(self, principal_id: str)` |  |
+| `cleanup_expired` | `async def cleanup_expired(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `get_stats` | `def get_stats(self)` |  |
+| `web_optimized` | `def web_optimized(cls)` |  |
+| `api_optimized` | `def api_optimized(cls)` |  |
+| `development_focused` | `def development_focused(cls)` |  |
+| `high_throughput` | `def high_throughput(cls)` |  |
 
-### Class: `FileStore`
+### `FileStore`
 
 - Source: `aquilia/sessions/store.py`
 - Bases: `object`
-- Summary: File-based session storage for debugging and development.
+- Summary: File-based session storage for debugging and development. NOT suitable for production.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `async def load(self, session_id: SessionID) -> Session &#124; None` |  | Method. |
-| `save` | `async def save(self, session: Session) -> None` |  | Method. |
-| `delete` | `async def delete(self, session_id: SessionID) -> None` |  | Method. |
-| `exists` | `async def exists(self, session_id: SessionID) -> bool` |  | Method. |
-| `list_by_principal` | `async def list_by_principal(self, principal_id: str) -> list[Session]` |  | Method. |
-| `count_by_principal` | `async def count_by_principal(self, principal_id: str) -> int` |  | Method. |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `get_stats` | `def get_stats(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `async def load(self, session_id: SessionID)` |  |
+| `save` | `async def save(self, session: Session)` |  |
+| `delete` | `async def delete(self, session_id: SessionID)` |  |
+| `exists` | `async def exists(self, session_id: SessionID)` |  |
+| `list_by_principal` | `async def list_by_principal(self, principal_id: str)` |  |
+| `count_by_principal` | `async def count_by_principal(self, principal_id: str)` |  |
+| `cleanup_expired` | `async def cleanup_expired(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `get_stats` | `def get_stats(self)` |  |
 
-### Class: `SessionTransport`
+### `SessionTransport`
 
 - Source: `aquilia/sessions/transport.py`
 - Bases: `Protocol`
@@ -766,13 +763,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `extract` | `def extract(self, request: Request) -> str &#124; None` |  | Method. |
-| `inject` | `def inject(self, response: Response, session: Session) -> None` |  | Method. |
-| `clear` | `def clear(self, response: Response) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `extract` | `def extract(self, request: Request)` |  |
+| `inject` | `def inject(self, response: Response, session: Session)` |  |
+| `clear` | `def clear(self, response: Response)` |  |
 
-### Class: `CookieTransport`
+### `CookieTransport`
 
 - Source: `aquilia/sessions/transport.py`
 - Bases: `object`
@@ -780,17 +777,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `extract` | `def extract(self, request: Request) -> str &#124; None` |  | Extract session ID from cookie. |
-| `inject` | `def inject(self, response: Response, session: Session) -> None` |  | Inject session ID as cookie via response.set_cookie(). |
-| `clear` | `def clear(self, response: Response) -> None` |  | Clear session cookie (logout). |
-| `for_web_browsers` | `def for_web_browsers(cls) -> CookieTransport` | classmethod | Method. |
-| `for_spa_applications` | `def for_spa_applications(cls) -> CookieTransport` | classmethod | Method. |
-| `for_mobile_webviews` | `def for_mobile_webviews(cls) -> CookieTransport` | classmethod | Method. |
-| `with_aquilia_defaults` | `def with_aquilia_defaults(cls) -> CookieTransport` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `extract` | `def extract(self, request: Request)` | Extract session ID from cookie. |
+| `inject` | `def inject(self, response: Response, session: Session)` | Inject session ID as cookie via response.set_cookie(). |
+| `clear` | `def clear(self, response: Response)` | Clear session cookie (logout). |
+| `for_web_browsers` | `def for_web_browsers(cls)` |  |
+| `for_spa_applications` | `def for_spa_applications(cls)` |  |
+| `for_mobile_webviews` | `def for_mobile_webviews(cls)` |  |
+| `with_aquilia_defaults` | `def with_aquilia_defaults(cls)` |  |
 
-### Class: `HeaderTransport`
+### `HeaderTransport`
 
 - Source: `aquilia/sessions/transport.py`
 - Bases: `object`
@@ -798,32 +795,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `extract` | `def extract(self, request: Request) -> str &#124; None` |  | Method. |
-| `inject` | `def inject(self, response: Response, session: Session) -> None` |  | Method. |
-| `clear` | `def clear(self, response: Response) -> None` |  | Method. |
-| `for_rest_apis` | `def for_rest_apis(cls) -> HeaderTransport` | classmethod | Method. |
-| `for_graphql_apis` | `def for_graphql_apis(cls) -> HeaderTransport` | classmethod | Method. |
-| `for_mobile_apis` | `def for_mobile_apis(cls) -> HeaderTransport` | classmethod | Method. |
-| `for_microservices` | `def for_microservices(cls) -> HeaderTransport` | classmethod | Method. |
-| `with_aquilia_defaults` | `def with_aquilia_defaults(cls) -> HeaderTransport` | classmethod | Method. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `stateful` | `aquilia/sessions/decorators.py` | `def stateful(func: F) -> F` | Shorthand decorator for stateful sessions. |
-| `requires` | `aquilia/sessions/decorators.py` | `def requires(*guards: SessionGuard)` | Decorator to require multiple session guards. |
-| `create_transport` | `aquilia/sessions/transport.py` | `def create_transport(policy: TransportPolicy) -> CookieTransport &#124; HeaderTransport` | Create transport adapter from policy. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `F` | `aquilia/sessions/decorators.py` | `TypeVar('F', bound=Callable[..., Any])` |
-| `DEFAULT_USER_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='user_default', ttl=timedelta(days=7), idle_timeout=timedelta(minutes=30), rotate_on_use=False, rotate_on_privilege_change=True, persistence=` |
-| `API_TOKEN_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='api_token', ttl=timedelta(hours=1), idle_timeout=None, rotate_on_use=False, rotate_on_privilege_change=False, persistence=PersistencePolicy(` |
-| `EPHEMERAL_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='ephemeral', ttl=None, idle_timeout=None, rotate_on_use=False, rotate_on_privilege_change=False, persistence=PersistencePolicy(enabled=False)` |
-| `ADMIN_POLICY` | `aquilia/sessions/policy.py` | `SessionPolicy(name='admin', ttl=timedelta(hours=8), idle_timeout=timedelta(minutes=15), absolute_timeout=timedelta(hours=12), rotate_on_use=True, rotate_on_priv` |
-| `T` | `aquilia/sessions/state.py` | `TypeVar('T', bound='SessionState')` |
+| `extract` | `def extract(self, request: Request)` |  |
+| `inject` | `def inject(self, response: Response, session: Session)` |  |
+| `clear` | `def clear(self, response: Response)` |  |
+| `for_rest_apis` | `def for_rest_apis(cls)` |  |
+| `for_graphql_apis` | `def for_graphql_apis(cls)` |  |
+| `for_mobile_apis` | `def for_mobile_apis(cls)` |  |
+| `for_microservices` | `def for_microservices(cls)` |  |
+| `with_aquilia_defaults` | `def with_aquilia_defaults(cls)` |  |

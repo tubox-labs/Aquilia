@@ -1,10 +1,30 @@
 # Versioning API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/versioning/__init__.py` | 181 | 0 | 0 | Aquilia Versioning System — Epoch-Based API Versioning |
+| `aquilia/versioning/core.py` | 290 | 3 | 0 | Aquilia Versioning — Core Types |
+| `aquilia/versioning/decorators.py` | 138 | 0 | 3 | Aquilia Versioning — Route-Level Decorators |
+| `aquilia/versioning/errors.py` | 144 | 6 | 0 | Aquilia Versioning — Version Errors |
+| `aquilia/versioning/graph.py` | 261 | 2 | 0 | Aquilia Versioning — Version Graph |
+| `aquilia/versioning/middleware.py` | 223 | 1 | 0 | Aquilia Versioning — Version Middleware |
+| `aquilia/versioning/negotiation.py` | 193 | 2 | 0 | Aquilia Versioning — Version Negotiation |
+| `aquilia/versioning/parser.py` | 137 | 2 | 0 | Aquilia Versioning — Version Parser |
+| `aquilia/versioning/resolvers.py` | 486 | 8 | 0 | Aquilia Versioning — Version Resolvers |
+| `aquilia/versioning/strategy.py` | 500 | 2 | 0 | Aquilia Versioning — Version Strategy |
+| `aquilia/versioning/sunset.py` | 291 | 4 | 0 | Aquilia Versioning — Sunset Lifecycle |
+
+## Public Exports
+
+`ApiVersion`, `BaseVersionResolver`, `ChannelResolver`, `CompositeResolver`, `HeaderResolver`, `InvalidVersionError`, `MediaTypeResolver`, `MissingVersionError`, `QueryParamResolver`, `SemanticVersionParser`, `SunsetEnforcer`, `SunsetEntry`, `SunsetPolicy`, `SunsetRegistry`, `URLPathResolver`, `UnsupportedVersionError`, `VERSION_ANY`, `VERSION_NEUTRAL`, `VersionChannel`, `VersionConfig`, `VersionError`, `VersionGraph`, `VersionMiddleware`, `VersionNegotiationError`, `VersionNegotiator`, `VersionNode`, `VersionParser`, `VersionStatus`, `VersionStrategy`, `VersionSunsetError`, `version`, `version_neutral`, `version_range`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `VersionStatus` | `aquilia/versioning/core.py` | str, Enum | Version lifecycle status. |
 | `VersionChannel` | `aquilia/versioning/core.py` | str, Enum | Named release channels. |
@@ -39,15 +59,15 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `version` | `aquilia/versioning/decorators.py` | `def version(ver: str &#124; list[str] &#124; ApiVersion &#124; list[ApiVersion]) -> Callable[[F], F]` | Bind a specific version (or list of versions) to a route. |
-| `version_neutral` | `aquilia/versioning/decorators.py` | `def version_neutral(func: F) -> F` | Mark a route as version-neutral. |
-| `version_range` | `aquilia/versioning/decorators.py` | `def version_range(min_version: str &#124; ApiVersion, max_version: str &#124; ApiVersion &#124; None = None) -> Callable[[F], F]` | Bind a version range to a route. |
+| `version` | `aquilia/versioning/decorators.py` | `def version(ver: str \| list[str] \| ApiVersion \| list[ApiVersion])` | Bind a specific version (or list of versions) to a route. |
+| `version_neutral` | `aquilia/versioning/decorators.py` | `def version_neutral(func: F)` | Mark a route as version-neutral. |
+| `version_range` | `aquilia/versioning/decorators.py` | `def version_range(min_version: str \| ApiVersion, max_version: str \| ApiVersion \| None=None)` | Bind a version range to a route. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `VERSION_NEUTRAL` | `aquilia/versioning/core.py` | `_VersionSentinel('VERSION_NEUTRAL')` |
 | `VERSION_ANY` | `aquilia/versioning/core.py` | `_VersionSentinel('VERSION_ANY')` |
@@ -57,194 +77,192 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `VersionStatus`
+### `VersionStatus`
 
 - Source: `aquilia/versioning/core.py`
 - Bases: `str, Enum`
 - Summary: Version lifecycle status.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PREVIEW` |  | `'preview'` |
-| `ACTIVE` |  | `'active'` |
-| `DEPRECATED` |  | `'deprecated'` |
-| `SUNSET` |  | `'sunset'` |
-| `RETIRED` |  | `'retired'` |
+| `PREVIEW` | `` | `'preview'` |
+| `ACTIVE` | `` | `'active'` |
+| `DEPRECATED` | `` | `'deprecated'` |
+| `SUNSET` | `` | `'sunset'` |
+| `RETIRED` | `` | `'retired'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_usable` | `def is_usable(self) -> bool` | property | Whether this version can still serve requests. |
-| `is_warn` | `def is_warn(self) -> bool` | property | Whether clients should be warned. |
-| `is_terminal` | `def is_terminal(self) -> bool` | property | Whether this version is permanently unavailable. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_usable` | `def is_usable(self)` | Whether this version can still serve requests. |
+| `is_warn` | `def is_warn(self)` | Whether clients should be warned. |
+| `is_terminal` | `def is_terminal(self)` | Whether this version is permanently unavailable. |
 
-### Class: `VersionChannel`
+### `VersionChannel`
 
 - Source: `aquilia/versioning/core.py`
 - Bases: `str, Enum`
 - Summary: Named release channels.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `STABLE` |  | `'stable'` |
-| `PREVIEW` |  | `'preview'` |
-| `LEGACY` |  | `'legacy'` |
-| `SUNSET` |  | `'sunset'` |
-| `CANARY` |  | `'canary'` |
+| `STABLE` | `` | `'stable'` |
+| `PREVIEW` | `` | `'preview'` |
+| `LEGACY` | `` | `'legacy'` |
+| `SUNSET` | `` | `'sunset'` |
+| `CANARY` | `` | `'canary'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_string` | `def from_string(cls, value: str) -> VersionChannel` | classmethod | Parse channel from string (case-insensitive). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_string` | `def from_string(cls, value: str)` | Parse channel from string (case-insensitive). |
 
-### Class: `ApiVersion`
+### `ApiVersion`
 
 - Source: `aquilia/versioning/core.py`
 - Bases: `object`
-- Decorators: `total_ordering, dataclass`
 - Summary: Immutable API version value object.
+- Decorators: `total_ordering`, `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `major` | `int` |  |
+| `major` | `int` | `` |
 | `minor` | `int` | `0` |
 | `patch` | `int` | `0` |
 | `label` | `str` | `''` |
 | `status` | `VersionStatus` | `VersionStatus.ACTIVE` |
-| `channel` | `VersionChannel &#124; None` | `None` |
+| `channel` | `VersionChannel \| None` | `None` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict, hash=False, compare=False)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_usable` | `def is_usable(self) -> bool` | property | Whether this version can serve requests. |
-| `short` | `def short(self) -> str` | property | Short display form (e.g. 'v2.1'). |
-| `url_segment` | `def url_segment(self) -> str` | property | URL path segment form (e.g. 'v2' or 'v2.1'). |
-| `matches` | `def matches(self, other: ApiVersion) -> bool` |  | Check if this version matches another (major.minor match only). |
-| `is_compatible_with` | `def is_compatible_with(self, other: ApiVersion) -> bool` |  | Check if this version is backward-compatible with another. |
-| `with_status` | `def with_status(self, status: VersionStatus) -> ApiVersion` |  | Return a copy with updated status. |
-| `with_channel` | `def with_channel(self, channel: VersionChannel) -> ApiVersion` |  | Return a copy with updated channel. |
-| `parse` | `def parse(cls, raw: str) -> ApiVersion` | classmethod | Parse version from string. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_usable` | `def is_usable(self)` | Whether this version can serve requests. |
+| `short` | `def short(self)` | Short display form (e.g. 'v2.1'). |
+| `url_segment` | `def url_segment(self)` | URL path segment form (e.g. 'v2' or 'v2.1'). |
+| `matches` | `def matches(self, other: ApiVersion)` | Check if this version matches another (major.minor match only). |
+| `is_compatible_with` | `def is_compatible_with(self, other: ApiVersion)` | Check if this version is backward-compatible with another. |
+| `with_status` | `def with_status(self, status: VersionStatus)` | Return a copy with updated status. |
+| `with_channel` | `def with_channel(self, channel: VersionChannel)` | Return a copy with updated channel. |
+| `parse` | `def parse(cls, raw: str)` | Parse version from string. |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 
-### Class: `VersionError`
+### `VersionError`
 
 - Source: `aquilia/versioning/errors.py`
 - Bases: `Fault`
 - Summary: Base class for all versioning errors.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `domain` |  | `FaultDomain.ROUTING` |
-| `severity` |  | `Severity.ERROR` |
-| `public` |  | `True` |
+| `public` | `` | `True` |
 
-### Class: `InvalidVersionError`
+### `InvalidVersionError`
 
 - Source: `aquilia/versioning/errors.py`
 - Bases: `VersionError`
 - Summary: Raised when a version string cannot be parsed.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'INVALID_API_VERSION'` |
-| `message` |  | `'Invalid API version'` |
+| `code` | `` | `'INVALID_API_VERSION'` |
+| `message` | `` | `'Invalid API version'` |
 
-### Class: `UnsupportedVersionError`
+### `UnsupportedVersionError`
 
 - Source: `aquilia/versioning/errors.py`
 - Bases: `VersionError`
 - Summary: Raised when a valid version is not in the supported set.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'UNSUPPORTED_API_VERSION'` |
-| `message` |  | `'Unsupported API version'` |
+| `code` | `` | `'UNSUPPORTED_API_VERSION'` |
+| `message` | `` | `'Unsupported API version'` |
 
-### Class: `VersionSunsetError`
+### `VersionSunsetError`
 
 - Source: `aquilia/versioning/errors.py`
 - Bases: `VersionError`
 - Summary: Raised when a version has been sunset (permanently retired).
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'API_VERSION_SUNSET'` |
-| `message` |  | `'API version has been retired'` |
+| `code` | `` | `'API_VERSION_SUNSET'` |
+| `message` | `` | `'API version has been retired'` |
 
-### Class: `MissingVersionError`
+### `MissingVersionError`
 
 - Source: `aquilia/versioning/errors.py`
 - Bases: `VersionError`
 - Summary: Raised when no version is present and no default is configured.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'MISSING_API_VERSION'` |
-| `message` |  | `'API version is required'` |
+| `code` | `` | `'MISSING_API_VERSION'` |
+| `message` | `` | `'API version is required'` |
 
-### Class: `VersionNegotiationError`
+### `VersionNegotiationError`
 
 - Source: `aquilia/versioning/errors.py`
 - Bases: `VersionError`
 - Summary: Raised when version negotiation fails.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `code` |  | `'VERSION_NEGOTIATION_FAILED'` |
-| `message` |  | `'Version negotiation failed'` |
+| `code` | `` | `'VERSION_NEGOTIATION_FAILED'` |
+| `message` | `` | `'Version negotiation failed'` |
 
-### Class: `VersionNode`
+### `VersionNode`
 
 - Source: `aquilia/versioning/graph.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A node in the version graph.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `version` | `ApiVersion` |  |
-| `successor` | `ApiVersion &#124; None` | `None` |
-| `predecessor` | `ApiVersion &#124; None` | `None` |
+| `version` | `ApiVersion` | `` |
+| `successor` | `ApiVersion \| None` | `None` |
+| `predecessor` | `ApiVersion \| None` | `None` |
 | `channels` | `set[VersionChannel]` | `field(default_factory=set)` |
 | `routes` | `set[str]` | `field(default_factory=set)` |
 | `controllers` | `set[str]` | `field(default_factory=set)` |
-| `deprecated_at` | `datetime &#124; None` | `None` |
-| `sunset_at` | `datetime &#124; None` | `None` |
-| `migration_url` | `str &#124; None` | `None` |
+| `deprecated_at` | `datetime \| None` | `None` |
+| `sunset_at` | `datetime \| None` | `None` |
+| `migration_url` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `status` | `def status(self) -> VersionStatus` | property | Method. |
-| `is_usable` | `def is_usable(self) -> bool` | property | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize for admin dashboard / API. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `status` | `def status(self)` |  |
+| `is_usable` | `def is_usable(self)` |  |
+| `to_dict` | `def to_dict(self)` | Serialize for admin dashboard / API. |
 
-### Class: `VersionGraph`
+### `VersionGraph`
 
 - Source: `aquilia/versioning/graph.py`
 - Bases: `object`
@@ -252,49 +270,49 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, version: ApiVersion, *, successor: ApiVersion &#124; None = None, predecessor: ApiVersion &#124; None = None, channels: set[VersionChannel] &#124; None = None, deprecated_at: datetime &#124; None = None, sunset_at: datetime &#124; None = None, migration_url: str &#124; None = None) -> VersionNode` |  | Register a version in the graph. |
-| `register_route` | `def register_route(self, version: ApiVersion, method: str, path: str) -> None` |  | Associate a route with a version. |
-| `register_controller` | `def register_controller(self, version: ApiVersion, controller_name: str) -> None` |  | Associate a controller with a version. |
-| `set_channel` | `def set_channel(self, channel: VersionChannel, version: ApiVersion) -> None` |  | Map a channel to a concrete version. |
-| `freeze` | `def freeze(self) -> None` |  | Freeze the graph after startup. |
-| `get` | `def get(self, version: ApiVersion) -> VersionNode &#124; None` |  | Get node by ApiVersion. |
-| `get_by_string` | `def get_by_string(self, version_str: str) -> ApiVersion &#124; None` |  | Get ApiVersion by string representation. |
-| `get_by_channel` | `def get_by_channel(self, channel: VersionChannel) -> ApiVersion &#124; None` |  | Get version for a named channel. |
-| `latest` | `def latest(self) -> ApiVersion &#124; None` | property | The latest active version. |
-| `versions` | `def versions(self) -> list[ApiVersion]` | property | All registered versions (sorted ascending). |
-| `active_versions` | `def active_versions(self) -> list[ApiVersion]` | property | Only active/preview versions. |
-| `channels` | `def channels(self) -> dict[VersionChannel, ApiVersion]` | property | Channel -> version mapping. |
-| `contains` | `def contains(self, version: ApiVersion) -> bool` |  | Check if a version is registered. |
-| `is_supported` | `def is_supported(self, version: ApiVersion) -> bool` |  | Check if a version is registered AND usable. |
-| `get_successor` | `def get_successor(self, version: ApiVersion) -> ApiVersion &#124; None` |  | Get the successor version (for migration hints). |
-| `get_migration_url` | `def get_migration_url(self, version: ApiVersion) -> str &#124; None` |  | Get migration guide URL for a version. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize entire graph for admin dashboard. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, version: ApiVersion, *, successor: ApiVersion \| None=None, predecessor: ApiVersion \| None=None, channels: set[VersionChannel] \| None=None, deprecated_at: datetime \| None=None, sunset_at: datetime \| None=None, migration_url: str \| None=None)` | Register a version in the graph. |
+| `register_route` | `def register_route(self, version: ApiVersion, method: str, path: str)` | Associate a route with a version. |
+| `register_controller` | `def register_controller(self, version: ApiVersion, controller_name: str)` | Associate a controller with a version. |
+| `set_channel` | `def set_channel(self, channel: VersionChannel, version: ApiVersion)` | Map a channel to a concrete version. |
+| `freeze` | `def freeze(self)` | Freeze the graph after startup. |
+| `get` | `def get(self, version: ApiVersion)` | Get node by ApiVersion. |
+| `get_by_string` | `def get_by_string(self, version_str: str)` | Get ApiVersion by string representation. |
+| `get_by_channel` | `def get_by_channel(self, channel: VersionChannel)` | Get version for a named channel. |
+| `latest` | `def latest(self)` | The latest active version. |
+| `versions` | `def versions(self)` | All registered versions (sorted ascending). |
+| `active_versions` | `def active_versions(self)` | Only active/preview versions. |
+| `channels` | `def channels(self)` | Channel → version mapping. |
+| `contains` | `def contains(self, version: ApiVersion)` | Check if a version is registered. |
+| `is_supported` | `def is_supported(self, version: ApiVersion)` | Check if a version is registered AND usable. |
+| `get_successor` | `def get_successor(self, version: ApiVersion)` | Get the successor version (for migration hints). |
+| `get_migration_url` | `def get_migration_url(self, version: ApiVersion)` | Get migration guide URL for a version. |
+| `to_dict` | `def to_dict(self)` | Serialize entire graph for admin dashboard. |
 
-### Class: `VersionMiddleware`
+### `VersionMiddleware`
 
 - Source: `aquilia/versioning/middleware.py`
 - Bases: `object`
 - Summary: Middleware that resolves API version for every request.
 
-### Class: `NegotiationMode`
+### `NegotiationMode`
 
 - Source: `aquilia/versioning/negotiation.py`
 - Bases: `str, Enum`
 - Summary: Version negotiation mode.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `EXACT` |  | `'exact'` |
-| `COMPATIBLE` |  | `'compatible'` |
-| `LATEST` |  | `'latest'` |
-| `BEST_MATCH` |  | `'best_match'` |
-| `NEAREST` |  | `'nearest'` |
+| `EXACT` | `` | `'exact'` |
+| `COMPATIBLE` | `` | `'compatible'` |
+| `LATEST` | `` | `'latest'` |
+| `BEST_MATCH` | `` | `'best_match'` |
+| `NEAREST` | `` | `'nearest'` |
 
-### Class: `VersionNegotiator`
+### `VersionNegotiator`
 
 - Source: `aquilia/versioning/negotiation.py`
 - Bases: `object`
@@ -302,12 +320,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `mode` | `def mode(self) -> NegotiationMode` | property | Method. |
-| `negotiate` | `def negotiate(self, requested: ApiVersion, *, fallback: ApiVersion &#124; None = None) -> ApiVersion` |  | Negotiate the best version for a request. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `mode` | `def mode(self)` |  |
+| `negotiate` | `def negotiate(self, requested: ApiVersion, *, fallback: ApiVersion \| None=None)` | Negotiate the best version for a request. |
 
-### Class: `VersionParser`
+### `VersionParser`
 
 - Source: `aquilia/versioning/parser.py`
 - Bases: `ABC`
@@ -315,12 +333,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `parse` | `def parse(self, raw: str) -> ApiVersion` | abstractmethod | Parse a raw version string into an ``ApiVersion``. |
-| `format` | `def format(self, version: ApiVersion) -> str` | abstractmethod | Format an ``ApiVersion`` back to a string. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `parse` | `def parse(self, raw: str)` | Parse a raw version string into an ``ApiVersion``. |
+| `format` | `def format(self, version: ApiVersion)` | Format an ``ApiVersion`` back to a string. |
 
-### Class: `SemanticVersionParser`
+### `SemanticVersionParser`
 
 - Source: `aquilia/versioning/parser.py`
 - Bases: `VersionParser`
@@ -328,12 +346,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `parse` | `def parse(self, raw: str) -> ApiVersion` |  | Parse version string. |
-| `format` | `def format(self, version: ApiVersion) -> str` |  | Format version to string. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `parse` | `def parse(self, raw: str)` | Parse version string. |
+| `format` | `def format(self, version: ApiVersion)` | Format version to string. |
 
-### Class: `BaseVersionResolver`
+### `BaseVersionResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `ABC`
@@ -341,12 +359,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property, abstractmethod | Human-readable name for this resolver. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` | abstractmethod | Extract version string from request. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` | Human-readable name for this resolver. |
+| `resolve` | `def resolve(self, request: Request)` | Extract version string from request. |
 
-### Class: `URLPathResolver`
+### `URLPathResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -354,14 +372,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `strip_from_path` | `def strip_from_path(self) -> bool` | property | Method. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
-| `strip_version_from_path` | `def strip_version_from_path(self, path: str) -> str` |  | Remove the version segment from the path. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `strip_from_path` | `def strip_from_path(self)` |  |
+| `resolve` | `def resolve(self, request: Request)` |  |
+| `strip_version_from_path` | `def strip_version_from_path(self, path: str)` | Remove the version segment from the path. |
 
-### Class: `HeaderResolver`
+### `HeaderResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -369,12 +387,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `resolve` | `def resolve(self, request: Request)` |  |
 
-### Class: `QueryParamResolver`
+### `QueryParamResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -382,12 +400,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `resolve` | `def resolve(self, request: Request)` |  |
 
-### Class: `MediaTypeResolver`
+### `MediaTypeResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -395,12 +413,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `resolve` | `def resolve(self, request: Request)` |  |
 
-### Class: `ChannelResolver`
+### `ChannelResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -408,13 +426,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
-| `update_channel` | `def update_channel(self, channel: str, version: str) -> None` |  | Update channel -> version mapping (for deployment-time changes). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `resolve` | `def resolve(self, request: Request)` |  |
+| `update_channel` | `def update_channel(self, channel: str, version: str)` | Update channel → version mapping (for deployment-time changes). |
 
-### Class: `CompositeResolver`
+### `CompositeResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -422,15 +440,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `add` | `def add(self, resolver: BaseVersionResolver) -> CompositeResolver` |  | Add a resolver to the chain. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
-| `resolvers` | `def resolvers(self) -> list[BaseVersionResolver]` | property | Get the resolver chain. |
-| `get_url_resolver` | `def get_url_resolver(self) -> URLPathResolver &#124; None` |  | Get the URL path resolver (if any) for path stripping. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `add` | `def add(self, resolver: BaseVersionResolver)` | Add a resolver to the chain. |
+| `resolve` | `def resolve(self, request: Request)` |  |
+| `resolvers` | `def resolvers(self)` | Get the resolver chain. |
+| `get_url_resolver` | `def get_url_resolver(self)` | Get the URL path resolver (if any) for path stripping. |
 
-### Class: `CustomResolver`
+### `CustomResolver`
 
 - Source: `aquilia/versioning/resolvers.py`
 - Bases: `BaseVersionResolver`
@@ -438,25 +456,25 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `resolve` | `def resolve(self, request: Request) -> str &#124; None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `resolve` | `def resolve(self, request: Request)` |  |
 
-### Class: `VersionConfig`
+### `VersionConfig`
 
 - Source: `aquilia/versioning/strategy.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Complete versioning configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `strategy` | `str` | `'header'` |
 | `versions` | `list[str]` | `field(default_factory=list)` |
-| `default_version` | `str &#124; None` | `None` |
+| `default_version` | `str \| None` | `None` |
 | `require_version` | `bool` | `False` |
 | `header_name` | `str` | `'X-API-Version'` |
 | `query_param` | `str` | `'api_version'` |
@@ -468,7 +486,7 @@ Attributes and fields:
 | `channel_header` | `str` | `'X-API-Channel'` |
 | `channel_query_param` | `str` | `'api_channel'` |
 | `negotiation_mode` | `str` | `'exact'` |
-| `sunset_policy` | `SunsetPolicy &#124; None` | `None` |
+| `sunset_policy` | `SunsetPolicy \| None` | `None` |
 | `sunset_schedules` | `dict[str, dict[str, Any]]` | `field(default_factory=dict)` |
 | `include_version_header` | `bool` | `True` |
 | `response_header_name` | `str` | `'X-API-Version'` |
@@ -478,11 +496,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `VersionStrategy`
+### `VersionStrategy`
 
 - Source: `aquilia/versioning/strategy.py`
 - Bases: `object`
@@ -490,80 +508,80 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve` | `def resolve(self, request: Request) -> ApiVersion` |  | Resolve API version from request. |
-| `get_response_headers` | `def get_response_headers(self, version: ApiVersion) -> dict[str, str]` |  | Get response headers to add for this version. |
-| `strip_version_from_path` | `def strip_version_from_path(self, request: Request) -> str &#124; None` |  | If using URL path versioning, strip the version segment from |
-| `register_version` | `def register_version(self, version: ApiVersion) -> None` |  | Register a version discovered from a controller/route. |
-| `register_controller_version` | `def register_controller_version(self, version: ApiVersion, controller_name: str) -> None` |  | Register a controller's version binding. |
-| `register_route_version` | `def register_route_version(self, version: ApiVersion, method: str, path: str) -> None` |  | Register a route's version binding. |
-| `config` | `def config(self) -> VersionConfig` | property | Method. |
-| `graph` | `def graph(self) -> VersionGraph` | property | Method. |
-| `parser` | `def parser(self) -> VersionParser` | property | Method. |
-| `resolver` | `def resolver(self) -> BaseVersionResolver` | property | Method. |
-| `negotiator` | `def negotiator(self) -> VersionNegotiator` | property | Method. |
-| `sunset_registry` | `def sunset_registry(self) -> SunsetRegistry` | property | Method. |
-| `sunset_policy` | `def sunset_policy(self) -> SunsetPolicy` | property | Method. |
-| `default_version` | `def default_version(self) -> ApiVersion &#124; None` | property | Method. |
-| `is_neutral_path` | `def is_neutral_path(self, path: str) -> bool` |  | Check if a path is version-neutral. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize for admin dashboard. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve` | `def resolve(self, request: Request)` | Resolve API version from request. |
+| `get_response_headers` | `def get_response_headers(self, version: ApiVersion)` | Get response headers to add for this version. |
+| `strip_version_from_path` | `def strip_version_from_path(self, request: Request)` | If using URL path versioning, strip the version segment from the path so the router sees the version-less path. |
+| `register_version` | `def register_version(self, version: ApiVersion)` | Register a version discovered from a controller/route. |
+| `register_controller_version` | `def register_controller_version(self, version: ApiVersion, controller_name: str)` | Register a controller's version binding. |
+| `register_route_version` | `def register_route_version(self, version: ApiVersion, method: str, path: str)` | Register a route's version binding. |
+| `config` | `def config(self)` |  |
+| `graph` | `def graph(self)` |  |
+| `parser` | `def parser(self)` |  |
+| `resolver` | `def resolver(self)` |  |
+| `negotiator` | `def negotiator(self)` |  |
+| `sunset_registry` | `def sunset_registry(self)` |  |
+| `sunset_policy` | `def sunset_policy(self)` |  |
+| `default_version` | `def default_version(self)` |  |
+| `is_neutral_path` | `def is_neutral_path(self, path: str)` | Check if a path is version-neutral. |
+| `to_dict` | `def to_dict(self)` | Serialize for admin dashboard. |
 
-### Class: `SunsetPolicy`
+### `SunsetPolicy`
 
 - Source: `aquilia/versioning/sunset.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Global sunset policy configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `warn_header` | `bool` | `True` |
 | `grace_period` | `timedelta` | `field(default_factory=lambda: timedelta(days=180))` |
 | `enforce_sunset` | `bool` | `True` |
 | `enforce_retired` | `bool` | `True` |
 | `sunset_message` | `str` | `'This API version has been retired. Please migrate to the latest version.'` |
-| `migration_url_template` | `str &#124; None` | `None` |
+| `migration_url_template` | `str \| None` | `None` |
 | `gradual_rejection_percent` | `int` | `0` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SunsetEntry`
+### `SunsetEntry`
 
 - Source: `aquilia/versioning/sunset.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Per-version sunset schedule entry.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `version` | `ApiVersion` |  |
-| `deprecated_at` | `datetime &#124; None` | `None` |
-| `sunset_at` | `datetime &#124; None` | `None` |
-| `retired_at` | `datetime &#124; None` | `None` |
-| `successor` | `ApiVersion &#124; None` | `None` |
-| `migration_url` | `str &#124; None` | `None` |
+| `version` | `ApiVersion` | `` |
+| `deprecated_at` | `datetime \| None` | `None` |
+| `sunset_at` | `datetime \| None` | `None` |
+| `retired_at` | `datetime \| None` | `None` |
+| `successor` | `ApiVersion \| None` | `None` |
+| `migration_url` | `str \| None` | `None` |
 | `notes` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_deprecated` | `def is_deprecated(self) -> bool` | property | Method. |
-| `is_sunset` | `def is_sunset(self) -> bool` | property | Method. |
-| `is_retired` | `def is_retired(self) -> bool` | property | Method. |
-| `effective_status` | `def effective_status(self) -> VersionStatus` | property | Compute current status from dates. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_deprecated` | `def is_deprecated(self)` |  |
+| `is_sunset` | `def is_sunset(self)` |  |
+| `is_retired` | `def is_retired(self)` |  |
+| `effective_status` | `def effective_status(self)` | Compute current status from dates. |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SunsetRegistry`
+### `SunsetRegistry`
 
 - Source: `aquilia/versioning/sunset.py`
 - Bases: `object`
@@ -571,17 +589,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, version: ApiVersion, *, deprecated_at: datetime &#124; None = None, sunset_at: datetime &#124; None = None, retired_at: datetime &#124; None = None, successor: ApiVersion &#124; None = None, migration_url: str &#124; None = None, notes: str = '') -> SunsetEntry` |  | Register a sunset schedule for a version. |
-| `get` | `def get(self, version: ApiVersion) -> SunsetEntry &#124; None` |  | Get sunset entry for a version. |
-| `get_deprecated` | `def get_deprecated(self) -> list[SunsetEntry]` |  | Get all currently deprecated versions. |
-| `get_sunset` | `def get_sunset(self) -> list[SunsetEntry]` |  | Get all currently sunset versions. |
-| `get_retired` | `def get_retired(self) -> list[SunsetEntry]` |  | Get all retired versions. |
-| `entries` | `def entries(self) -> list[SunsetEntry]` | property | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, version: ApiVersion, *, deprecated_at: datetime \| None=None, sunset_at: datetime \| None=None, retired_at: datetime \| None=None, successor: ApiVersion \| None=None, migration_url: str \| None=None, notes: str='')` | Register a sunset schedule for a version. |
+| `get` | `def get(self, version: ApiVersion)` | Get sunset entry for a version. |
+| `get_deprecated` | `def get_deprecated(self)` | Get all currently deprecated versions. |
+| `get_sunset` | `def get_sunset(self)` | Get all currently sunset versions. |
+| `get_retired` | `def get_retired(self)` | Get all retired versions. |
+| `entries` | `def entries(self)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SunsetEnforcer`
+### `SunsetEnforcer`
 
 - Source: `aquilia/versioning/sunset.py`
 - Bases: `object`
@@ -589,25 +607,7 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `check` | `def check(self, version: ApiVersion) -> dict[str, Any] &#124; None` |  | Check if a version is sunset/retired and should be rejected. |
-| `get_headers` | `def get_headers(self, version: ApiVersion) -> dict[str, str]` |  | Get deprecation/sunset response headers for a version. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `version` | `aquilia/versioning/decorators.py` | `def version(ver: str &#124; list[str] &#124; ApiVersion &#124; list[ApiVersion]) -> Callable[[F], F]` | Bind a specific version (or list of versions) to a route. |
-| `version_neutral` | `aquilia/versioning/decorators.py` | `def version_neutral(func: F) -> F` | Mark a route as version-neutral. |
-| `version_range` | `aquilia/versioning/decorators.py` | `def version_range(min_version: str &#124; ApiVersion, max_version: str &#124; ApiVersion &#124; None = None) -> Callable[[F], F]` | Bind a version range to a route. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `VERSION_NEUTRAL` | `aquilia/versioning/core.py` | `_VersionSentinel('VERSION_NEUTRAL')` |
-| `VERSION_ANY` | `aquilia/versioning/core.py` | `_VersionSentinel('VERSION_ANY')` |
-| `F` | `aquilia/versioning/decorators.py` | `TypeVar('F', bound=Callable[..., Any])` |
-| `_SEMANTIC_RE` | `aquilia/versioning/parser.py` | `re.compile('^v?(\\d+)(?:\\.(\\d+))?(?:\\.(\\d+))?$', re.IGNORECASE)` |
-| `_EPOCH_RE` | `aquilia/versioning/parser.py` | `re.compile('^(\\d{4})-(\\d{1,2})(?:-(\\d{1,2}))?$')` |
+| `check` | `def check(self, version: ApiVersion)` | Check if a version is sunset/retired and should be rejected. |
+| `get_headers` | `def get_headers(self, version: ApiVersion)` | Get deprecation/sunset response headers for a version. |

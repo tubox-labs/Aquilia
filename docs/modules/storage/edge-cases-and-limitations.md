@@ -1,42 +1,25 @@
 # Storage Edge Cases And Limitations
 
-## Fault And Error Types
+Async storage abstraction with local, memory, S3, GCS, Azure, SFTP, composite backends, registry, configs, effects, and lifecycle subsystem.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `StorageError` | `aquilia/storage/base.py` | Base fault for all storage operations. |
-| `FileNotFoundError` | `aquilia/storage/base.py` | Raised when a file does not exist in the storage backend. |
-| `PermissionError` | `aquilia/storage/base.py` | Raised when the caller lacks permission for the operation. |
-| `StorageFullError` | `aquilia/storage/base.py` | Raised when the storage quota is exceeded. |
-| `BackendUnavailableError` | `aquilia/storage/base.py` | Raised when the storage backend is unreachable or not configured. |
-| `StorageIOFault` | `aquilia/storage/base.py` | Raised on I/O operation errors (closed file, wrong mode). |
-| `StorageConfigFault` | `aquilia/storage/base.py` | Raised on storage configuration / registry errors. |
+- Storage registry startup/shutdown failures are logged as non-fatal.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`StorageError`, `FileNotFoundError`, `PermissionError`, `StorageFullError`, `BackendUnavailableError`, `StorageIOFault`, `StorageConfigFault`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/storage/__init__.py`: Aquilia Storage -- Production-grade, async-first file storage abstraction.
-- `aquilia/storage/backends/__init__.py`: Storage Backends -- concrete StorageBackend implementations.
-- `aquilia/storage/backends/azure.py`: Azure Blob Storage Backend.
-- `aquilia/storage/backends/composite.py`: Composite / Multi-Backend Storage.
-- `aquilia/storage/backends/gcs.py`: Google Cloud Storage Backend.
-- `aquilia/storage/backends/local.py`: Local Filesystem Storage Backend.
-- `aquilia/storage/backends/memory.py`: In-Memory Storage Backend.
-- `aquilia/storage/backends/s3.py`: Amazon S3 / S3-Compatible Storage Backend.
-- `aquilia/storage/backends/sftp.py`: SFTP / SSH Storage Backend.
-- `aquilia/storage/base.py`: Storage Base -- Abstract backend contract and core types.
-- `aquilia/storage/configs.py`: Storage Configs -- Typed configuration dataclasses for each backend.
-- `aquilia/storage/effects.py`: Storage Effect Provider -- Bridges storage into the Aquilia Effect system.
-- `aquilia/storage/registry.py`: Storage Registry -- Named backend registry.
-- `aquilia/storage/subsystem.py`: Storage Subsystem -- Aquilia boot lifecycle integration for storage.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

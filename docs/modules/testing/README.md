@@ -1,10 +1,15 @@
 # Testing Documentation
 
-This directory is the professional documentation set for `testing`. It is implementation-driven and aligned with the current source files under `aquilia/testing`.
+Test client/server, test cases, fixtures, auth/cache/mail/fault/effect/DI test helpers, config overrides, and request factory utilities.
 
-## What This Covers
+## Coverage Snapshot
 
-Testing helpers for requests, responses, test clients, WebSocket clients, live servers, DI overrides, auth factories, cache and mail mixins, effects, assertions, and captured faults.
+- Source files: 14
+- Source lines: 3874
+- Public classes: 25
+- Public module functions: 30
+- Constants/module flags: 3
+- Public exports in `__all__`: 35
 
 ## Source Files Read
 
@@ -25,34 +30,11 @@ Testing helpers for requests, responses, test clients, WebSocket clients, live s
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 14
-- Public classes: 25
-- Configuration or dataclass-like types: 4
-- Public functions: 30
-- Constants detected: 2
-
-## Fast Start
-
-```python
-from aquilia.testing import make_test_request, TestClient
-
-request = make_test_request(method="GET", path="/health")
-client = TestClient(app)
-response = await client.get("/health")
-assert response.status_code == 200
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

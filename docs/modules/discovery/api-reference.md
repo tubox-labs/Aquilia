@@ -1,10 +1,21 @@
 # Discovery API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/discovery/__init__.py` | 51 | 0 | 0 | Aquilia Discovery - Component auto-discovery subsystem. |
+| `aquilia/discovery/engine.py` | 696 | 9 | 0 | Auto-Discovery Engine -- AST-based component classification and manifest sync. |
+
+## Public Exports
+
+`ASTClassifier`, `AutoDiscoveryEngine`, `ClassifiedComponent`, `DiscoveryResult`, `FileScanner`, `ManifestDiffer`, `ManifestWriter`, `PackageScanner`, `SyncAction`, `SyncReport`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `ClassifiedComponent` | `aquilia/discovery/engine.py` | object | A component discovered by the AST classifier. |
 | `DiscoveryResult` | `aquilia/discovery/engine.py` | object | Result of scanning a single module. |
@@ -16,114 +27,102 @@ This page is extracted from the current Python source. It includes public classe
 | `ManifestWriter` | `aquilia/discovery/engine.py` | object | Safely updates manifest.py files using text manipulation. |
 | `AutoDiscoveryEngine` | `aquilia/discovery/engine.py` | object | Scans module directories for components and syncs manifest.py files. |
 
-## Public Function Summary
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| None detected |  |  |  |
-
-## Constants
-
-| Name | Source | Value or type |
-| --- | --- | --- |
-| None detected |  |  |
-
 ## Detailed Classes And Methods
 
-### Class: `ClassifiedComponent`
+### `ClassifiedComponent`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A component discovered by the AST classifier.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `kind` | `ComponentKind` |  |
-| `file_path` | `Path` |  |
-| `line` | `int` |  |
+| `name` | `str` | `` |
+| `kind` | `ComponentKind` | `` |
+| `file_path` | `Path` | `` |
+| `line` | `int` | `` |
 | `import_path` | `str` | `''` |
 | `bases` | `list[str]` | `field(default_factory=list)` |
 | `decorators` | `list[str]` | `field(default_factory=list)` |
 
-### Class: `DiscoveryResult`
+### `DiscoveryResult`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of scanning a single module.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `module_name` | `str` |  |
+| `module_name` | `str` | `` |
 | `components` | `list[ClassifiedComponent]` | `field(default_factory=list)` |
 | `errors` | `list[str]` | `field(default_factory=list)` |
 | `files_scanned` | `int` | `0` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `controllers` | `def controllers(self) -> list[ClassifiedComponent]` | property | Method. |
-| `services` | `def services(self) -> list[ClassifiedComponent]` | property | Method. |
-| `middleware` | `def middleware(self) -> list[ClassifiedComponent]` | property | Method. |
-| `guards` | `def guards(self) -> list[ClassifiedComponent]` | property | Method. |
-| `models` | `def models(self) -> list[ClassifiedComponent]` | property | Method. |
-| `pipes` | `def pipes(self) -> list[ClassifiedComponent]` | property | Method. |
-| `interceptors` | `def interceptors(self) -> list[ClassifiedComponent]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `controllers` | `def controllers(self)` |  |
+| `services` | `def services(self)` |  |
+| `middleware` | `def middleware(self)` |  |
+| `guards` | `def guards(self)` |  |
+| `models` | `def models(self)` |  |
+| `pipes` | `def pipes(self)` |  |
+| `interceptors` | `def interceptors(self)` |  |
 
-### Class: `SyncAction`
+### `SyncAction`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Describes a change to make to a manifest file.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `action` | `str` |  |
-| `component` | `ClassifiedComponent` |  |
-| `field_name` | `str` |  |
+| `action` | `str` | `` |
+| `component` | `ClassifiedComponent` | `` |
+| `field_name` | `str` | `` |
 
-### Class: `SyncReport`
+### `SyncReport`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Report from a manifest sync operation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `module_name` | `str` |  |
-| `manifest_path` | `Path` |  |
+| `module_name` | `str` | `` |
+| `manifest_path` | `Path` | `` |
 | `actions` | `list[SyncAction]` | `field(default_factory=list)` |
 | `dry_run` | `bool` | `False` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `added` | `def added(self) -> list[SyncAction]` | property | Method. |
-| `has_changes` | `def has_changes(self) -> bool` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `added` | `def added(self)` |  |
+| `has_changes` | `def has_changes(self)` |  |
 
-### Class: `ASTClassifier`
+### `ASTClassifier`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
 - Summary: Classifies Python classes using AST analysis -- no imports needed.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `CONTROLLER_BASES` | `set[str]` | `{'Controller', 'BaseController', 'RestController'}` |
 | `SOCKET_CONTROLLER_BASES` | `set[str]` | `{'WebSocketController', 'SocketController'}` |
@@ -140,49 +139,49 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `classify_file` | `def classify_file(self, file_path: Path) -> list[ClassifiedComponent]` |  | Parse a Python file with AST and classify its classes. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `classify_file` | `def classify_file(self, file_path: Path)` | Parse a Python file with AST and classify its classes. |
 
-### Class: `FileScanner`
+### `FileScanner`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
 - Summary: Scans module directories for Python files matching discovery patterns.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `SKIP_FILES` | `set[str]` | `{'__init__.py', '__pycache__', 'manifest.py', 'conftest.py', 'setup.py', 'workspace.py'}` |
 | `SKIP_PREFIXES` | `tuple[str, ...]` | `('test_', '_', '.')` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `scan_module` | `def scan_module(self, module_name: str, patterns: list[str] &#124; None = None) -> list[Path]` |  | Find all Python files in a module directory. |
-| `discover_modules` | `def discover_modules(self) -> list[str]` |  | Discover all module directories (contain __init__.py or manifest.py). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `scan_module` | `def scan_module(self, module_name: str, patterns: list[str] \| None=None)` | Find all Python files in a module directory. |
+| `discover_modules` | `def discover_modules(self)` | Discover all module directories (contain __init__.py or manifest.py). |
 
-### Class: `ManifestDiffer`
+### `ManifestDiffer`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
 - Summary: Compares discovered components against declared manifest components.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `KIND_TO_FIELD` |  | `{ComponentKind.CONTROLLER: 'controllers', ComponentKind.SERVICE: 'services', ComponentKind.MIDDLEWARE: 'middleware', Com` |
+| `KIND_TO_FIELD` | `` | `{ComponentKind.CONTROLLER: 'controllers', ComponentKind.SERVICE: 'services', ComponentKind.MIDDLEWARE: 'middleware', ComponentKind.GUARD: 'guards', ComponentKind.PIPE: 'pipes', ComponentKind.INTERCEPTOR: 'interceptors', ComponentKind.MODEL: 'models', ComponentKind.SOCKET_CONTROLLER: 'socket_controllers', ComponentKind.SERIALIZER: 'serializers'}` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `diff` | `def diff(self, discovered: list[ClassifiedComponent], manifest_refs: dict[str, list[str]]) -> list[SyncAction]` |  | Calculate actions needed to sync manifest with discovered components. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `diff` | `def diff(self, discovered: list[ClassifiedComponent], manifest_refs: dict[str, list[str]])` | Calculate actions needed to sync manifest with discovered components. |
 
-### Class: `ManifestWriter`
+### `ManifestWriter`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
@@ -190,11 +189,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `write_sync_actions` | `def write_sync_actions(self, manifest_path: Path, actions: list[SyncAction], dry_run: bool = False) -> int` |  | Apply sync actions to a manifest file. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `write_sync_actions` | `def write_sync_actions(self, manifest_path: Path, actions: list[SyncAction], dry_run: bool=False)` | Apply sync actions to a manifest file. |
 
-### Class: `AutoDiscoveryEngine`
+### `AutoDiscoveryEngine`
 
 - Source: `aquilia/discovery/engine.py`
 - Bases: `object`
@@ -202,9 +201,9 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `discover` | `def discover(self, module_name: str, patterns: list[str] &#124; None = None) -> DiscoveryResult` |  | Discover all components in a module directory. |
-| `discover_all` | `def discover_all(self) -> dict[str, DiscoveryResult]` |  | Discover components in all modules. |
-| `sync_manifest` | `def sync_manifest(self, module_name: str, dry_run: bool = False) -> SyncReport` |  | Sync discovered components into the module's manifest.py. |
-| `sync_all` | `def sync_all(self, dry_run: bool = False) -> list[SyncReport]` |  | Sync manifests for all discovered modules. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `discover` | `def discover(self, module_name: str, patterns: list[str] \| None=None)` | Discover all components in a module directory. |
+| `discover_all` | `def discover_all(self)` | Discover components in all modules. |
+| `sync_manifest` | `def sync_manifest(self, module_name: str, dry_run: bool=False)` | Sync discovered components into the module's manifest.py. |
+| `sync_all` | `def sync_all(self, dry_run: bool=False)` | Sync manifests for all discovered modules. |

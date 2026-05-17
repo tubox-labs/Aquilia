@@ -1,10 +1,15 @@
 # Patterns Documentation
 
-This directory is the professional documentation set for `patterns`. It is implementation-driven and aligned with the current source files under `aquilia/patterns`.
+URL pattern grammar, parser, compiler, matcher, type/validator/transform registries, specificity scoring, OpenAPI conversion, diagnostics, autofix, and LSP metadata.
 
-## What This Covers
+## Coverage Snapshot
 
-The route pattern grammar, parser, compiler, matcher, specificity model, diagnostics, type registry, transforms, constraints, OpenAPI parameter generation, and autofix suggestions.
+- Source files: 21
+- Source lines: 3246
+- Public classes: 35
+- Public module functions: 18
+- Constants/module flags: 13
+- Public exports in `__all__`: 39
 
 ## Source Files Read
 
@@ -32,32 +37,11 @@ The route pattern grammar, parser, compiler, matcher, specificity model, diagnos
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 21
-- Public classes: 35
-- Configuration or dataclass-like types: 19
-- Public functions: 18
-- Constants detected: 6
-
-## Fast Start
-
-```python
-from aquilia.patterns import __version__, AutoFixEngine, DiagnosticFix, ErrorRecovery, FixSuggestion, generate_fix_suggestions
-
-# The imported symbols above are public exports from this module.
-# See api-reference.md for constructor signatures, methods, and data fields.
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

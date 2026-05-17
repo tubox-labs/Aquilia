@@ -1,10 +1,15 @@
 # Storage Documentation
 
-This directory is the professional documentation set for `storage`. It is implementation-driven and aligned with the current source files under `aquilia/storage`.
+Async storage abstraction with local, memory, S3, GCS, Azure, SFTP, composite backends, registry, configs, effects, and lifecycle subsystem.
 
-## What This Covers
+## Coverage Snapshot
 
-The async storage abstraction for local, memory, S3, GCS, Azure Blob, SFTP, composite storage, registry, configs, effects, metadata, and subsystem lifecycle.
+- Source files: 14
+- Source lines: 3166
+- Public classes: 28
+- Public module functions: 2
+- Constants/module flags: 5
+- Public exports in `__all__`: 29
 
 ## Source Files Read
 
@@ -25,34 +30,11 @@ The async storage abstraction for local, memory, S3, GCS, Azure Blob, SFTP, comp
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 14
-- Public classes: 28
-- Configuration or dataclass-like types: 9
-- Public functions: 2
-- Constants detected: 3
-
-## Fast Start
-
-```python
-from aquilia.storage import LocalConfig, LocalStorage
-
-storage = LocalStorage(LocalConfig(root="var/uploads"))
-await storage.save("avatars/ada.txt", b"profile data", content_type="text/plain")
-file = await storage.open("avatars/ada.txt")
-metadata = await storage.stat("avatars/ada.txt")
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

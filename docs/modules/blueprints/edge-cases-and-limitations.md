@@ -1,37 +1,25 @@
 # Blueprints Edge Cases And Limitations
 
-## Fault And Error Types
+Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `BlueprintFault` | `aquilia/blueprints/exceptions.py` | Base fault for all Blueprint errors. |
-| `CastFault` | `aquilia/blueprints/exceptions.py` | Raised when incoming data cannot be cast to the expected type. |
-| `SealFault` | `aquilia/blueprints/exceptions.py` | Raised when a validation seal is broken. |
-| `ImprintFault` | `aquilia/blueprints/exceptions.py` | Raised when a write (imprint) operation fails. |
-| `ProjectionFault` | `aquilia/blueprints/exceptions.py` | Raised when an invalid projection is requested. |
-| `LensDepthFault` | `aquilia/blueprints/exceptions.py` | Raised when Lens traversal exceeds maximum depth. |
-| `LensCycleFault` | `aquilia/blueprints/exceptions.py` | Raised when a circular Lens reference is detected. |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`BlueprintFault`, `CastFault`, `SealFault`, `ImprintFault`, `ProjectionFault`, `LensDepthFault`, `LensCycleFault`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/blueprints/__init__.py`: Aquilia Blueprints -- first-class model↔world contracts.
-- `aquilia/blueprints/annotations.py`: Aquilia Blueprint Annotations -- type-annotation-driven schema declaration.
-- `aquilia/blueprints/core.py`: Aquilia Blueprint Core -- the Blueprint metaclass and base class.
-- `aquilia/blueprints/exceptions.py`: Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy.
-- `aquilia/blueprints/facets.py`: Aquilia Blueprint Facets -- the field-level primitives of a Blueprint.
-- `aquilia/blueprints/integration.py`: Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response.
-- `aquilia/blueprints/lenses.py`: Aquilia Blueprint Lenses -- depth-controlled relational views.
-- `aquilia/blueprints/projections.py`: Aquilia Blueprint Projections -- named, reusable field subsets.
-- `aquilia/blueprints/schema.py`: Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

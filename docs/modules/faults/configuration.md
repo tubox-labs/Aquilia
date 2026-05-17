@@ -1,36 +1,68 @@
 # Faults Configuration
 
-## Configuration Entry Points
+Structured fault taxonomy, domains, handlers, middleware, response mapping, and subsystem patch integrations.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/faults/__init__.py` | 292 | 0 | 0 | AquilaFaults - Production-grade fault handling system. |
+| `aquilia/faults/core.py` | 490 | 8 | 0 | AquilaFaults - Core types and fault taxonomy. |
+| `aquilia/faults/default_handlers.py` | 535 | 8 | 0 | AquilaFaults - Default Handlers. |
+| `aquilia/faults/domains.py` | 1540 | 92 | 1 | AquilaFaults - Domain-specific fault types. |
+| `aquilia/faults/engine.py` | 499 | 2 | 2 | AquilaFaults - Fault Engine. |
+| `aquilia/faults/handlers.py` | 193 | 3 | 0 | AquilaFaults - Fault handlers. |
+| `aquilia/faults/integrations/__init__.py` | 130 | 0 | 2 | AquilaFaults - Subsystem Integrations. |
+| `aquilia/faults/integrations/di.py` | 185 | 3 | 2 | AquilaFaults - DI Integration. |
+| `aquilia/faults/integrations/flow.py` | 355 | 3 | 7 | AquilaFaults - Flow Engine Integration. |
+| `aquilia/faults/integrations/models.py` | 223 | 1 | 4 | AquilaFaults - Model/Database Integration. |
+| `aquilia/faults/integrations/registry.py` | 148 | 4 | 2 | AquilaFaults - Registry Integration. |
+| `aquilia/faults/integrations/routing.py` | 211 | 3 | 3 | AquilaFaults - Routing Integration. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `FaultContext` | `aquilia/faults/core.py` | fault: Fault, trace_id: str, timestamp: datetime, app: str &#124; None, route: str &#124; None, request_id: str &#124; None, cause: Exception &#124; None, stack: list[Any], metadata: dict[str, Any], parent: FaultContext &#124; None | Runtime context wrapper for faults. |
-| `Resolved` | `aquilia/faults/core.py` | response: Any | Fault was resolved and should not propagate further. |
-| `Transformed` | `aquilia/faults/core.py` | fault: Fault, preserve_context: bool | Fault was transformed into another fault. |
-| `Escalate` | `aquilia/faults/core.py` | See class attributes and constructor methods. | Fault should escalate to next handler in chain. |
-| `ExceptionMapping` | `aquilia/faults/default_handlers.py` | exception_type: type[Exception], fault_factory: Callable[[Exception], Any], retryable: bool | Maps exception type to Fault factory. |
-| `HTTPResponse` | `aquilia/faults/default_handlers.py` | status_code: int, body: dict[str, Any], headers: dict[str, str] | HTTP response representation. |
+| `ConfigFault` | `aquilia/faults/domains.py` |  | Base class for configuration faults. |
+| `ConfigMissingFault` | `aquilia/faults/domains.py` |  | Required configuration is missing. |
+| `ConfigInvalidFault` | `aquilia/faults/domains.py` |  | Configuration value is invalid. |
+| `ProviderNotFoundFault` | `aquilia/faults/domains.py` |  | DI provider not found. |
+| `MiddlewareFault` | `aquilia/faults/domains.py` |  | Middleware execution failed. |
+| `ProviderFault` | `aquilia/faults/domains.py` |  | Base class for cloud provider integration faults. |
+| `ProviderAPIFault` | `aquilia/faults/domains.py` |  | Cloud provider API returned an error response. |
+| `ProviderAuthFault` | `aquilia/faults/domains.py` |  | Cloud provider authentication failure (401/403). |
+| `ProviderRateLimitFault` | `aquilia/faults/domains.py` |  | Cloud provider rate limit exceeded (429). |
+| `ProviderTokenFault` | `aquilia/faults/domains.py` |  | Provider API token is missing, invalid, or expired. |
+| `ProviderCredentialFault` | `aquilia/faults/domains.py` |  | Credential storage or retrieval failure. |
+| `ProviderConnectionFault` | `aquilia/faults/domains.py` |  | Network connection to provider API failed. |
+| `DeployConfigFault` | `aquilia/faults/domains.py` |  | Deployment configuration is invalid or incomplete. |
+| `FaultMiddleware` | `aquilia/faults/engine.py` |  | Middleware that bridges the FaultEngine with the request/response lifecycle. |
+| `ProviderRegistrationFault` | `aquilia/faults/integrations/di.py` |  | Provider registration failed. |
+| `MiddlewareChainFault` | `aquilia/faults/integrations/flow.py` |  | Middleware chain execution failed. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

@@ -1,10 +1,15 @@
 # Mail Documentation
 
-This directory is the professional documentation set for `mail`. It is implementation-driven and aligned with the current source files under `aquilia/mail`.
+Async mail subsystem with message classes, config blueprints, providers, DI registration, templates, faults, and convenience send APIs.
 
-## What This Covers
+## Coverage Snapshot
 
-The async mail subsystem with configuration, messages, envelopes, provider registry, SMTP, SES, SendGrid, console, file providers, templates, and testing helpers.
+- Source files: 14
+- Source lines: 4599
+- Public classes: 41
+- Public module functions: 9
+- Constants/module flags: 14
+- Public exports in `__all__`: 40
 
 ## Source Files Read
 
@@ -25,34 +30,11 @@ The async mail subsystem with configuration, messages, envelopes, provider regis
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 14
-- Public classes: 41
-- Configuration or dataclass-like types: 11
-- Public functions: 9
-- Constants detected: 12
-
-## Fast Start
-
-```python
-from aquilia.mail import EmailMessage, MailConfig, MailService
-from aquilia.mail.providers.console import ConsoleProvider
-
-service = MailService(config=MailConfig(default_from="noreply@example.test"), provider=ConsoleProvider())
-message = EmailMessage(to=["user@example.test"], subject="Welcome", body="Hello")
-result = await service.send(message)
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.
