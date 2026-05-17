@@ -22,6 +22,7 @@ import asyncio
 import logging
 import os
 import sqlite3
+import uuid
 from collections import deque
 from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
@@ -94,6 +95,7 @@ class ConnectionPool:
         "_reader_semaphore",
         "_metrics",
         "_conn_counter",
+        "_memory_uri",
         "_opened",
         "_closed",
     )
@@ -111,6 +113,9 @@ class ConnectionPool:
         self._readers: deque[AsyncConnection] = deque()
         self._reader_semaphore: asyncio.Semaphore | None = None
         self._conn_counter = 0
+        self._memory_uri = (
+            f"file:aquilia_mem_{uuid.uuid4().hex}?mode=memory&cache=shared" if config.path in (":memory:", "") else None
+        )
         self._opened = False
         self._closed = False
 
@@ -400,8 +405,8 @@ class ConnectionPool:
             # connections (readers + writer) share the same database.
             db_path = self._config.path
             uri = False
-            if db_path == ":memory:" or db_path == "":
-                db_path = "file::memory:?cache=shared"
+            if self._memory_uri is not None:
+                db_path = self._memory_uri
                 uri = True
             raw = sqlite3.connect(
                 db_path,
@@ -436,7 +441,7 @@ class ConnectionPool:
 
     def _validate_path(self) -> None:
         """Validate the database path for security."""
-        if self._config.path == ":memory:":
+        if self._config.path in (":memory:", ""):
             return
 
         if not self._config.enforce_path_security:
