@@ -1,51 +1,46 @@
-# utils Module
+# Utilities Documentation
 
-## Purpose
+This directory is the professional documentation set for `utils`. It is implementation-driven and aligned with the current source files under `aquilia/utils`.
 
-Small shared utilities. Use this module for package scanning, path joining, path normalization, and data helper objects.
+## What This Covers
 
-## Source Coverage
+Small utilities for package scanning, URL path normalization, joining, and data helper objects.
+
+## Source Files Read
+
+- `aquilia/utils/__init__.py`: Aquilia Utils Package
+- `aquilia/utils/data.py`: Data Utilities - Provides flexible data structures for the framework.
+- `aquilia/utils/scanner.py`: Package Scanner Utility.
+- `aquilia/utils/urls.py`: URL Utilities for Aquilia.
+
+## Document Map
+
+- `architecture.md`: Runtime architecture and module boundaries
+- `configuration.md`: Configuration entry points, datatypes, and precedence
+- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
+- `integration-guide.md`: How to wire the module into a real Aquilia application
+- `cli-reference.md`: Command line surface and operational commands
+- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
+- `troubleshooting.md`: Common failures and diagnosis steps
+- `examples.md`: Code examples and usage patterns
+
+## Public Surface Snapshot
 
 - Python files: 4
 - Public classes: 2
-- Dataclasses: 0
-- Enums: 0
+- Configuration or dataclass-like types: 0
 - Public functions: 2
+- Constants detected: 0
 
-## How It Fits In Aquilia
+## Fast Start
 
-1. Import the package from `aquilia.utils` or its concrete submodules.
-2. Configure it through workspace integrations, manifests, or direct service construction depending on the subsystem.
-3. Keep business logic outside transport and framework glue so the subsystem stays testable.
+```python
+from aquilia.utils import PackageScanner, join_paths, normalize_path
 
-## Practical Guidance
+# The imported symbols above are public exports from this module.
+# See api-reference.md for constructor signatures, methods, and data fields.
+```
 
-- Prefer typed configuration objects and framework helpers over ad hoc dictionaries when they exist.
-- Use the tests in `tests/` as behavioral examples when changing this subsystem.
+## Read Next
 
-## Public Classes
-
-| Name | Source | Role |
-| --- | --- | --- |
-| `DataObject` | `aquilia/utils/data.py` | A dictionary subclass that supports dot-notation access to its keys. |
-| `PackageScanner` | `aquilia/utils/scanner.py` | Enhanced scanner for discovering classes in Python packages. |
-
-## Public Functions
-
-| Name | Source | Role |
-| --- | --- | --- |
-| `join_paths` | `aquilia/utils/urls.py` | Robustly join URL path segments. |
-| `normalize_path` | `aquilia/utils/urls.py` | Normalize a URL path. |
-
-## Implementation Map
-
-| File | What To Look For |
-| --- | --- |
-| `aquilia/utils/__init__.py` | Aquilia Utils Package |
-| `aquilia/utils/data.py` | Data Utilities - Provides flexible data structures for the framework. |
-| `aquilia/utils/scanner.py` | Package Scanner Utility. |
-| `aquilia/utils/urls.py` | URL Utilities for Aquilia. |
-
-## Testing Pointers
-
-Search `tests/` for `utils` to find behavior-level examples. The test suite is especially useful for edge cases because many modules expose lightweight public APIs but enforce important security and lifecycle behavior internally.
+Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.

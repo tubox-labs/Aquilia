@@ -1,55 +1,44 @@
-# discovery Module
+# Discovery Documentation
 
-## Purpose
+This directory is the professional documentation set for `discovery`. It is implementation-driven and aligned with the current source files under `aquilia/discovery`.
 
-AST-based component discovery. Use this module to scan module directories, classify controllers and services, compare manifests, and write sync reports.
+## What This Covers
 
-## Source Coverage
+The AST-based scanner and manifest sync tooling used to find controllers, services, middleware, models, tasks, and other module components.
+
+## Source Files Read
+
+- `aquilia/discovery/__init__.py`: Aquilia Discovery - Component auto-discovery subsystem.
+- `aquilia/discovery/engine.py`: Auto-Discovery Engine -- AST-based component classification and manifest sync.
+
+## Document Map
+
+- `architecture.md`: Runtime architecture and module boundaries
+- `configuration.md`: Configuration entry points, datatypes, and precedence
+- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
+- `integration-guide.md`: How to wire the module into a real Aquilia application
+- `cli-reference.md`: Command line surface and operational commands
+- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
+- `troubleshooting.md`: Common failures and diagnosis steps
+- `examples.md`: Code examples and usage patterns
+
+## Public Surface Snapshot
 
 - Python files: 2
 - Public classes: 9
-- Dataclasses: 4
-- Enums: 0
+- Configuration or dataclass-like types: 4
 - Public functions: 0
+- Constants detected: 0
 
-## How It Fits In Aquilia
+## Fast Start
 
-1. Import the package from `aquilia.discovery` or its concrete submodules.
-2. Configure it through workspace integrations, manifests, or direct service construction depending on the subsystem.
-3. Keep business logic outside transport and framework glue so the subsystem stays testable.
+```python
+from aquilia.discovery import PackageScanner, ASTClassifier, AutoDiscoveryEngine, ClassifiedComponent, DiscoveryResult, FileScanner
 
-## Practical Guidance
+# The imported symbols above are public exports from this module.
+# See api-reference.md for constructor signatures, methods, and data fields.
+```
 
-- Prefer typed configuration objects and framework helpers over ad hoc dictionaries when they exist.
-- Use the tests in `tests/` as behavioral examples when changing this subsystem.
+## Read Next
 
-## Public Classes
-
-| Name | Source | Role |
-| --- | --- | --- |
-| `ClassifiedComponent` | `aquilia/discovery/engine.py` | A component discovered by the AST classifier. |
-| `DiscoveryResult` | `aquilia/discovery/engine.py` | Result of scanning a single module. |
-| `SyncAction` | `aquilia/discovery/engine.py` | Describes a change to make to a manifest file. |
-| `SyncReport` | `aquilia/discovery/engine.py` | Report from a manifest sync operation. |
-| `ASTClassifier` | `aquilia/discovery/engine.py` | Classifies Python classes using AST analysis -- no imports needed. |
-| `FileScanner` | `aquilia/discovery/engine.py` | Scans module directories for Python files matching discovery patterns. |
-| `ManifestDiffer` | `aquilia/discovery/engine.py` | Compares discovered components against declared manifest components. |
-| `ManifestWriter` | `aquilia/discovery/engine.py` | Safely updates manifest.py files using text manipulation. |
-| `AutoDiscoveryEngine` | `aquilia/discovery/engine.py` | Scans module directories for components and syncs manifest.py files. |
-
-## Public Functions
-
-| Name | Source | Role |
-| --- | --- | --- |
-| None detected |  |  |
-
-## Implementation Map
-
-| File | What To Look For |
-| --- | --- |
-| `aquilia/discovery/__init__.py` | Aquilia Discovery - Component auto-discovery subsystem. |
-| `aquilia/discovery/engine.py` | Auto-Discovery Engine -- AST-based component classification and manifest sync. |
-
-## Testing Pointers
-
-Search `tests/` for `discovery` to find behavior-level examples. The test suite is especially useful for edge cases because many modules expose lightweight public APIs but enforce important security and lifecycle behavior internally.
+Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
