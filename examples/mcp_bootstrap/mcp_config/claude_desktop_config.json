@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "aquilia": {
+      "command": "python",
+      "args": [
+        "-m",
+        "aquilia.mcp",
+        "--stdio",
+        "--workspace",
+        "/path/to/Aquilia"
+      ]
+    }
+  }
+}

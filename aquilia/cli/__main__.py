@@ -99,6 +99,7 @@ _NO_WORKSPACE_REQUIRED = frozenset(
         "--help",
         "help",
         "doctor",
+        "mcp",
     }
 )
 
@@ -118,6 +119,12 @@ def _require_workspace(ctx: click.Context) -> None:
 
     if "--help" in _sys.argv or "-h" in _sys.argv:
         return
+    for arg in _sys.argv[1:]:
+        if arg.startswith("-"):
+            continue
+        if arg in _NO_WORKSPACE_REQUIRED:
+            return
+        break
 
     # Walk up the invocation chain to find the actual sub-command name
     parts: list[str] = []
@@ -227,7 +234,7 @@ class AquiliaGroup(click.Group):
         "Database": ["db"],
         "Admin": ["admin"],
         "Inspect": ["inspect", "manifest", "analytics"],
-        "Subsystems": ["ws", "cache", "mail", "i18n"],
+        "Subsystems": ["ws", "cache", "mail", "i18n", "mcp"],
         "MLOps": ["pack", "model", "mlops-deploy", "observe", "export", "plugin", "lineage", "experiment"],
         "Deploy": ["deploy-gen", "artifact"],
         "Migration": ["migrate"],
@@ -2156,6 +2163,15 @@ import contextlib
 from .commands.provider import provider_group
 
 cli.add_command(provider_group)
+
+
+# ============================================================================
+# MCP server commands
+# ============================================================================
+
+from .commands.mcp import mcp_group
+
+cli.add_command(mcp_group)
 
 
 # ============================================================================
