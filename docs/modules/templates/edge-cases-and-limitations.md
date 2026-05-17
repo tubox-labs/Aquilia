@@ -1,39 +1,25 @@
 # Templates Edge Cases And Limitations
 
-## Fault And Error Types
+Jinja2 template engine, loaders, manager, middleware, bytecode cache, sandbox, DI providers, manifest/session/auth/i18n integration, and template CLI helpers.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `TemplateFault` | `aquilia/templates/faults.py` | Base fault for the template subsystem. |
-| `TemplateEngineUnavailableFault` | `aquilia/templates/faults.py` | Template engine not available. |
-| `TemplateCacheIntegrityFault` | `aquilia/templates/faults.py` | Bytecode cache integrity check failed. |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`TemplateFault`, `TemplateEngineUnavailableFault`, `TemplateCacheIntegrityFault`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/templates/__init__.py`: AquilaTemplates - First-class Jinja2-based template rendering for Aquilia.
-- `aquilia/templates/auth_integration.py`: AquilaTemplates - Auth Integration
-- `aquilia/templates/bytecode_cache.py`: Bytecode Cache - Template compilation caching system.
-- `aquilia/templates/cli.py`: Template CLI - Command-line interface for template management.
-- `aquilia/templates/context.py`: Template Context - Context building and injection helpers.
-- `aquilia/templates/di_providers.py`: AquilaTemplates - DI Providers
-- `aquilia/templates/engine.py`: Template Engine - Core async-capable Jinja2 template rendering engine.
-- `aquilia/templates/extensions.py`: Jinja2 template extensions used by Aquilia templates.
-- `aquilia/templates/faults.py`: AquilaTemplates - Fault Classes.
-- `aquilia/templates/loader.py`: Template Loader - Namespace-aware filesystem and package template loaders.
-- `aquilia/templates/manager.py`: Template Manager - Compilation, linting, and manifest integration.
-- `aquilia/templates/manifest_integration.py`: AquilaTemplates - Manifest Integration
-- `aquilia/templates/middleware.py`: Template Middleware - Automatic context injection for templates.
-- `aquilia/templates/security.py`: Template Security - Sandboxing and security policies.
-- `aquilia/templates/sessions_integration.py`: AquilaTemplates - Session Integration
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

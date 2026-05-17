@@ -1,36 +1,42 @@
 # Filesystem Troubleshooting
 
-## First Checks
+Native async filesystem API, file handles, directory operations, streaming, locks, temporary files, path security, metrics, and service facade.
 
-1. Confirm the module is registered in `workspace.py` when it is application-facing.
-2. Confirm the component is declared in `modules/<name>/manifest.py` when it is a controller, service, model, task, middleware, or socket controller.
-3. Confirm configuration dataclasses or integration objects serialize with the values you expect by inspecting `workspace.to_dict()`.
-4. Confirm imports point at real `module.path:ClassName` strings.
-5. Run focused tests for the subsystem and read the fault metadata when one is raised.
+## Fast Diagnosis Flow
 
-## Common Symptoms
+1. Confirm the command is run from a directory containing `workspace.py` unless it is help/version/init/doctor.
+2. Run `aq doctor` for workspace, environment, registry, integration, and deployment checks.
+3. Run `aq validate` to catch manifest errors.
+4. Run `aq inspect config` to inspect resolved settings.
+5. Run `aq inspect modules` and `aq inspect routes` when discovery or routing is suspect.
+6. Check `api-reference.md` for exact public API signatures.
 
-| Symptom | Likely Cause | What To Check |
+## Symptoms And Actions
+
+| Symptom | Likely Source | Action |
 | --- | --- | --- |
-| Component is not found | Manifest path is wrong or module was not discovered | `AppManifest` component lists and workspace module name |
-| Runtime starts but route or handler is missing | Controller decorator metadata did not compile or route prefix differs | Controller `prefix`, route decorators, `Module.route_prefix()` |
-| Config appears ignored | Value is in manifest when runtime expects workspace integration, or the integration key differs | `configuration.md` and `workspace.to_dict()` |
-| State disappears between requests | In-memory backend or request-scoped object was used for durable state | Backend choice and DI scope |
-| Fault response is too generic | Raw exception escaped or fault handler mapping is missing | Fault type, fault engine debug mode, middleware order |
+| Import error during startup | Bad manifest class path or optional provider dependency | Check `modules/<name>/manifest.py`, install the relevant extra, and rerun `aq validate`. |
+| Route not found | Controller omitted from manifest, wrong route prefix, or startup conflict | Run `aq inspect routes`; inspect controller decorators and `Module.route_prefix()`. |
+| Dependency not found | Service not registered or constructor annotation cannot be resolved | Check `AppManifest.services`, DI provider registrations, and `aq inspect di`. |
+| Config value missing | Dotenv/env overlay not loaded or wrong nested key | Check `ConfigLoader` precedence and `AQ_` double-underscore key names. |
+| Production security failure | Insecure secret or required key not configured | Set `AQ_SECRET_KEY`, `SECRET_KEY`, or Python-native secret config. |
+| Optional subsystem unavailable | Provider/backend dependency or startup connection failed | Check startup logs; optional subsystems often log non-fatal failures. |
 
-## Diagnostic Snippets
+## Source Files To Inspect
 
-```python
-# Inspect effective workspace config
-import workspace
-print(workspace.workspace.to_dict())
-```
-
-```python
-# Check public API availability
-import aquilia.filesystem
-```
-
-## Escalation Path
-
-If a behavior is unclear, inspect the source file listed beside the class or function in `api-reference.md`, then search `tests/` for the class name. The repository tests are the best source for edge-case behavior.
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/filesystem/__init__.py` | 269 | 0 | 0 | Aquilia Filesystem — High-performance native async file I/O. |
+| `aquilia/filesystem/_config.py` | 114 | 1 | 0 | Filesystem Configuration — Typed, frozen dataclass for module settings. |
+| `aquilia/filesystem/_directory.py` | 356 | 1 | 7 | Directory Operations — Async wrappers for directory manipulation. |
+| `aquilia/filesystem/_errors.py` | 281 | 11 | 1 | Filesystem Errors — Typed fault hierarchy for file operations. |
+| `aquilia/filesystem/_handle.py` | 357 | 1 | 0 | Async File Handle — Core I/O primitive for the Aquilia filesystem module. |
+| `aquilia/filesystem/_lock.py` | 252 | 2 | 0 | Async File Locking — Advisory file locks for concurrent access safety. |
+| `aquilia/filesystem/_metrics.py` | 163 | 1 | 0 | Filesystem Metrics — Lightweight operation counters and latency tracking. |
+| `aquilia/filesystem/_ops.py` | 573 | 1 | 9 | Convenience Filesystem Operations — High-level async file I/O functions. |
+| `aquilia/filesystem/_path.py` | 525 | 1 | 0 | Async Path — Async equivalent of ``pathlib.Path``. |
+| `aquilia/filesystem/_pool.py` | 170 | 1 | 0 | Filesystem Thread Pool — Dedicated executor for blocking file I/O. |
+| `aquilia/filesystem/_security.py` | 244 | 0 | 3 | Filesystem Security — Path validation, sanitization, and sandbox enforcement. |
+| `aquilia/filesystem/_service.py` | 495 | 1 | 0 | FileSystem Service — DI-injectable facade for async file operations. |
+| `aquilia/filesystem/_streaming.py` | 308 | 2 | 2 | Streaming Pipeline — High-performance async file streaming. |
+| `aquilia/filesystem/_tempfile.py` | 210 | 2 | 0 | Async Temporary Files — Secure temporary file and directory management. |

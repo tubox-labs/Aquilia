@@ -1,10 +1,15 @@
 # Cache Documentation
 
-This directory is the professional documentation set for `cache`. It is implementation-driven and aligned with the current source files under `aquilia/cache`.
+Async cache abstraction with memory, Redis, composite, null backends, serializers, decorators, DI providers, and HTTP caching middleware.
 
-## What This Covers
+## Coverage Snapshot
 
-The async cache abstraction with memory, null, Redis, and composite backends, serializers, key builders, decorators, and middleware.
+- Source files: 14
+- Source lines: 3813
+- Public classes: 27
+- Public module functions: 10
+- Constants/module flags: 5
+- Public exports in `__all__`: 32
 
 ## Source Files Read
 
@@ -25,37 +30,11 @@ The async cache abstraction with memory, null, Redis, and composite backends, se
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 14
-- Public classes: 27
-- Configuration or dataclass-like types: 4
-- Public functions: 10
-- Constants detected: 3
-
-## Fast Start
-
-```python
-from aquilia.cache import CacheService, MemoryBackend, cached
-
-cache = CacheService(backend=MemoryBackend())
-await cache.set("catalog:featured", [{"sku": "AQ-STARTER"}], ttl=300)
-items = await cache.get("catalog:featured")
-
-@cached(ttl=60)
-async def expensive_lookup(key: str):
-    return {"key": key}
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

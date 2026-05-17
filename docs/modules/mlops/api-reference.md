@@ -1,17 +1,102 @@
-# MLOps API Reference
+# Mlops API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/mlops/__init__.py` | 317 | 0 | 0 | Aquilia MLOps Platform |
+| `aquilia/mlops/_structures.py` | 1374 | 17 | 0 | MLOps Data Structures -- High-performance primitives for ML pipelines. |
+| `aquilia/mlops/_types.py` | 746 | 30 | 0 | Aquilia MLOps Platform -- Shared type definitions. |
+| `aquilia/mlops/api/__init__.py` | 14 | 0 | 0 | Aquilia MLOps API Layer. |
+| `aquilia/mlops/api/blueprints.py` | 403 | 26 | 0 | MLOps Blueprints -- Aquilia Blueprint definitions for all MLOps data types. |
+| `aquilia/mlops/api/functional.py` | 113 | 0 | 1 | Functional Serving -- ``@serve`` decorator for minimal model definitions. |
+| `aquilia/mlops/api/model_class.py` | 207 | 1 | 2 | AquiliaModel -- declarative base class and ``@model`` decorator. |
+| `aquilia/mlops/api/route_generator.py` | 250 | 2 | 0 | Route Generator -- auto-generate Aquilia controller endpoints per model. |
+| `aquilia/mlops/di/providers.py` | 597 | 1 | 1 | MLOps DI Integration -- Wires all MLOps services into Aquilia's DI container. |
+| `aquilia/mlops/engine/__init__.py` | 31 | 0 | 0 | Aquilia MLOps Execution Engine. |
+| `aquilia/mlops/engine/faults.py` | 644 | 40 | 0 | MLOps Fault Domain -- Structured error handling for the entire ML pipeline. |
+| `aquilia/mlops/engine/hooks.py` | 177 | 1 | 8 | Pipeline Hooks -- decorator-based lifecycle and inference hooks. |
+| `aquilia/mlops/engine/lifecycle.py` | 355 | 0 | 2 | MLOps Lifecycle Hooks -- Startup / shutdown integration with Aquilia's LifecycleCoordinator. |
+| `aquilia/mlops/engine/module.py` | 111 | 1 | 0 | MLOps Aquilary Module -- register MLOps as an Aquilary application module. |
+| `aquilia/mlops/engine/pipeline.py` | 313 | 2 | 0 | Inference Pipeline -- async preprocess → batch/infer → postprocess pipeline. |
+| `aquilia/mlops/explain/__init__.py` | 1 | 0 | 0 | Explainability and privacy hooks. |
+| `aquilia/mlops/explain/hooks.py` | 251 | 5 | 1 | Explainability hooks -- SHAP & LIME wrappers with a unified interface. |
+| `aquilia/mlops/explain/privacy.py` | 197 | 5 | 0 | Privacy helpers -- PII redaction, differential privacy noise, and input sanitisation transforms for inference payloads. |
+| `aquilia/mlops/manifest/__init__.py` | 15 | 0 | 0 | Aquilia MLOps Manifest Configuration. |
+| `aquilia/mlops/manifest/config.py` | 159 | 2 | 1 | Manifest Config -- parse ``[mlops]`` config from Aquilia workspace config. |
+| `aquilia/mlops/manifest/schema.py` | 116 | 1 | 2 | Manifest Schema Validation for MLOps configuration. |
+| `aquilia/mlops/observe/__init__.py` | 1 | 0 | 0 | Observability: metrics, drift detection, logging. |
+| `aquilia/mlops/observe/drift.py` | 324 | 1 | 0 | Drift detection -- PSI, KS-test, and distribution tracking. |
+| `aquilia/mlops/observe/logger.py` | 108 | 1 | 0 | Feature and prediction logger. |
+| `aquilia/mlops/observe/metrics.py` | 253 | 2 | 0 | Prometheus-compatible metrics collector. |
+| `aquilia/mlops/optimizer/__init__.py` | 1 | 0 | 0 | Optimization pipeline: quantize, prune, export. |
+| `aquilia/mlops/optimizer/export.py` | 197 | 2 | 1 | Edge export utilities -- TFLite, CoreML, quantized ONNX. |
+| `aquilia/mlops/optimizer/pipeline.py` | 169 | 2 | 0 | Optimization Pipeline -- orchestrates quantization, pruning, fusion, compilation. |
+| `aquilia/mlops/orchestrator/__init__.py` | 22 | 0 | 0 | Aquilia MLOps Model Orchestrator. |
+| `aquilia/mlops/orchestrator/loader.py` | 520 | 2 | 0 | Model Loader -- lazy loading, hot reload, and lifecycle state management. |
+| `aquilia/mlops/orchestrator/orchestrator.py` | 263 | 1 | 0 | Model Orchestrator -- top-level façade for ML inference. |
+| `aquilia/mlops/orchestrator/persistence.py` | 163 | 6 | 0 | Model Persistence System -- Robust loading and saving for production models. |
+| `aquilia/mlops/orchestrator/registry.py` | 264 | 3 | 0 | Model Registry -- in-memory metadata-only registry for ML models. |
+| `aquilia/mlops/orchestrator/router.py` | 154 | 2 | 0 | Version Router -- routes inference requests to the correct model version. |
+| `aquilia/mlops/orchestrator/versioning.py` | 100 | 1 | 0 | Version Manager -- semantic versioning, promotion, and rollback. |
+| `aquilia/mlops/pack/__init__.py` | 1 | 0 | 0 | Modelpack builder and content store. |
+| `aquilia/mlops/pack/builder.py` | 319 | 1 | 0 | Modelpack Builder -- Creates ``.aquilia`` archive artifacts. |
+| `aquilia/mlops/pack/content_store.py` | 111 | 1 | 0 | Content-addressable blob store. |
+| `aquilia/mlops/pack/manifest_schema.py` | 161 | 0 | 1 | JSON Schema for modelpack ``manifest.json``. |
+| `aquilia/mlops/pack/signer.py` | 132 | 3 | 2 | Artifact signing and verification. |
+| `aquilia/mlops/plugins/__init__.py` | 1 | 0 | 0 | Plugin system and marketplace. |
+| `aquilia/mlops/plugins/example_plugin.py` | 66 | 1 | 0 | Example Aquilia MLOps plugin -- demonstrates how to write a plugin. |
+| `aquilia/mlops/plugins/host.py` | 230 | 4 | 0 | Plugin host -- discovers, loads, and manages lifecycle of MLOps plugins. |
+| `aquilia/mlops/plugins/marketplace.py` | 134 | 2 | 0 | Plugin marketplace -- lightweight discovery & installation of community and first-party MLOps plugins from a remote index. |
+| `aquilia/mlops/registry/__init__.py` | 1 | 0 | 0 | Registry service and storage adapters. |
+| `aquilia/mlops/registry/models.py` | 181 | 1 | 0 | Registry data models -- SQLite backend (default). |
+| `aquilia/mlops/registry/service.py` | 301 | 4 | 0 | Registry Service -- HTTP API for publishing, fetching and managing modelpacks. |
+| `aquilia/mlops/registry/storage/__init__.py` | 1 | 0 | 0 | Storage adapter implementations. |
+| `aquilia/mlops/registry/storage/base.py` | 31 | 1 | 0 | Base storage adapter -- abstract interface for blob backends. |
+| `aquilia/mlops/registry/storage/filesystem.py` | 55 | 1 | 0 | Filesystem storage adapter -- stores blobs on local disk. |
+| `aquilia/mlops/registry/storage/s3.py` | 100 | 1 | 0 | S3 / MinIO storage adapter for registry blob storage. |
+| `aquilia/mlops/release/__init__.py` | 1 | 0 | 0 | Release management: rollouts, CI/CD. |
+| `aquilia/mlops/release/ci.py` | 153 | 0 | 2 | CI/CD templates and GitHub Actions configuration. |
+| `aquilia/mlops/release/rollout.py` | 185 | 3 | 0 | Release rollout engine -- canary, A/B, shadow traffic management. |
+| `aquilia/mlops/runtime/__init__.py` | 1 | 0 | 0 | Runtime adapters for model inference. |
+| `aquilia/mlops/runtime/base.py` | 343 | 4 | 1 | Runtime base -- abstract interface for inference backends. |
+| `aquilia/mlops/runtime/bento_exporter.py` | 75 | 1 | 0 | BentoML exporter -- generates BentoML-compatible service bundles. |
+| `aquilia/mlops/runtime/device_manager.py` | 335 | 3 | 0 | Device Manager -- auto-detection, fallback, monitoring, and locking for compute devices (CPU, CUDA, MPS, NPU). |
+| `aquilia/mlops/runtime/executor.py` | 238 | 2 | 0 | Inference Executor -- offloads blocking inference to thread/process pools. |
+| `aquilia/mlops/runtime/onnx_runtime.py` | 137 | 1 | 0 | ONNX Runtime adapter -- high-performance inference via onnxruntime. |
+| `aquilia/mlops/runtime/python_runtime.py` | 500 | 1 | 0 | Python in-process runtime -- loads and runs models natively in Python. |
+| `aquilia/mlops/runtime/torchserve_exporter.py` | 91 | 1 | 0 | TorchServe exporter -- generates TorchServe-compatible model archives. |
+| `aquilia/mlops/runtime/triton_adapter.py` | 101 | 1 | 0 | Triton Inference Server adapter. |
+| `aquilia/mlops/scheduler/__init__.py` | 1 | 0 | 0 | Autoscaling and placement scheduling. |
+| `aquilia/mlops/scheduler/autoscaler.py` | 319 | 3 | 0 | Autoscaler -- K8s HPA metrics exporter and scaling policy engine. |
+| `aquilia/mlops/scheduler/placement.py` | 196 | 3 | 0 | Hardware-aware placement scheduler. |
+| `aquilia/mlops/security/__init__.py` | 1 | 0 | 0 | Security: signing, encryption, RBAC. |
+| `aquilia/mlops/security/encryption.py` | 37 | 1 | 0 | Encryption at rest for registry blobs. |
+| `aquilia/mlops/security/rbac.py` | 111 | 3 | 0 | RBAC for registry operations. |
+| `aquilia/mlops/security/signing.py` | 91 | 2 | 0 | Security -- artifact signing, verification, and encryption at rest. |
+| `aquilia/mlops/serving/__init__.py` | 1 | 0 | 0 | Model serving layer. |
+| `aquilia/mlops/serving/batching.py` | 382 | 1 | 0 | Dynamic Batching Scheduler. |
+| `aquilia/mlops/serving/controllers.py` | 800 | 1 | 0 | MLOps Controller -- HTTP endpoints for model serving, registry, and observability. |
+| `aquilia/mlops/serving/middleware.py` | 296 | 0 | 5 | MLOps Middleware -- Inference metrics, rate limiting, and circuit breaker integration as Aquilia middleware. |
+| `aquilia/mlops/serving/router.py` | 221 | 2 | 0 | Traffic router -- canary, A/B, shadow, sticky routing for model deployments. |
+| `aquilia/mlops/serving/server.py` | 514 | 2 | 0 | Model Serving Server -- dev and production serving with typed endpoints. |
+
+## Public Exports
+
+`AdaptiveBatchQueue`, `AquiliaModel`, `AtomicCounter`, `AutoRollbackFault`, `BaseRuntime`, `BaseStreamingRuntime`, `BatchRequest`, `BatchTimeoutFault`, `BatchingStrategy`, `BlobRef`, `BloomFilter`, `CircuitBreaker`, `CircuitBreakerConfig`, `CircuitBreakerExhaustedFault`, `CircuitBreakerFault`, `CircuitBreakerOpenFault`, `CircuitState`, `ConsistentHash`, `ContentStore`, `DeviceInfo`, `DeviceKind`, `DeviceManager`, `DeviceType`, `DriftDetectionFault`, `DriftDetector`, `DriftMethod`, `DriftReport`, `DynamicBatcher`, `EncryptionFault`, `Experiment`, `ExperimentArm`, `ExperimentLedger`, `ExponentialDecay`, `ExportTarget`, `Framework`, `HookRegistry`, `ImmutabilityViolationFault`, `InferenceExecutor`, `InferenceFault`, `InferenceMode`, `InferencePipeline`, `InferenceRequest`, `InferenceResult`, `InvalidStateTransition`, `LLMConfig`, `LRUCache`, `LineageNode`, `MLOpsConfig`, `MLOpsController`, `MLOpsFault`, `MLOpsManifestConfig`, `MemoryFault`, `MemoryHardLimitFault`, `MemorySoftLimitFault`, `MemoryTracker`, `MetricsCollector`, `MetricsExportFault`, `ModelEntry`, `ModelLineageDAG`, `ModelLoader`, `ModelManifestEntry`, `ModelOrchestrator`, `ModelRegistry`, `ModelServingServer`, `ModelState`, `ModelType`, `ModelpackBuilder`, `ModelpackManifest`, `PackBuildFault`, `PackIntegrityFault`, `PackNotFoundFault`, `PackSignatureFault`, `PermissionDeniedFault`, `PlacementFault`, `PlacementScore`, `PluginHook`, `PluginHookFault`, `PluginHost`, `PluginLoadFault`, `PoolKind`, `Provenance`, `PythonRuntime`, `QuantizePreset`, `RateLimitFault`, `RegistryConnectionFault`, `RegistryService`, `RingBuffer`, `RolloutAdvanceFault`, `RolloutConfig`, `RolloutStrategy`, `RouteDefinition`, `RouteGenerator`, `Runtime`, `RuntimeKind`, `RuntimeLoadFault`, `ScalingFault`, `SigningFault`, `SlidingWindow`, `StorageAdapter`, `StreamChunk`, `StreamInterruptedFault`, `StreamingFault`, `StreamingRuntime`, `TensorSpec`, `TokenBucketRateLimiter`, `TokenLimitExceededFault`, `TokenUsage`, `TopKHeap`, `VersionManager`, `VersionRouter`, `WarmupFault`, `WarmupStrategy`, `after_predict`, `before_predict`, `collect_hooks`, `mlops_circuit_breaker_middleware`, `mlops_metrics_middleware`, `mlops_on_shutdown`, `mlops_on_startup`, `mlops_rate_limit_middleware`, `mlops_request_id_middleware`, `model`, `on_error`, `on_load`, `on_unload`, `parse_mlops_config`, `postprocess`, `preprocess`, `register_mlops_middleware`, `register_mlops_providers`, `serve`, `validate_manifest_config`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `RingBuffer` | `aquilia/mlops/_structures.py` | Generic[T] | Fixed-capacity circular buffer backed by a pre-allocated list. |
 | `LRUCache` | `aquilia/mlops/_structures.py` | Generic[KT, VT] | O(1) get / put / evict cache backed by :class:`OrderedDict`. |
 | `AtomicCounter` | `aquilia/mlops/_structures.py` | object | Thread-safe monotonic counter (integers only). |
 | `ExponentialDecay` | `aquilia/mlops/_structures.py` | object | EWMA (Exponentially Weighted Moving Average). |
 | `SlidingWindow` | `aquilia/mlops/_structures.py` | object | Time-bucketed sliding window for rate/latency tracking. |
-| `TopKHeap` | `aquilia/mlops/_structures.py` | Generic[KT] | Maintains the top-K elements by score using a dict + sort-on-read |
+| `TopKHeap` | `aquilia/mlops/_structures.py` | Generic[KT] | Maintains the top-K elements by score using a dict + sort-on-read strategy (optimal for K ≤ ~1000). |
 | `BloomFilter` | `aquilia/mlops/_structures.py` | object | Space-efficient probabilistic set for fast negative lookups. |
 | `ConsistentHash` | `aquilia/mlops/_structures.py` | object | Jump-consistent hash for sticky model-to-node routing. |
 | `LineageNode` | `aquilia/mlops/_structures.py` | object | A single node in the model lineage graph. |
@@ -19,7 +104,7 @@ This page is extracted from the current Python source. It includes public classe
 | `ExperimentArm` | `aquilia/mlops/_structures.py` | object | One arm of an A/B experiment. |
 | `Experiment` | `aquilia/mlops/_structures.py` | object | A/B experiment definition. |
 | `ExperimentLedger` | `aquilia/mlops/_structures.py` | object | Records A/B experiment assignments and collects per-arm metrics. |
-| `CircuitBreaker` | `aquilia/mlops/_structures.py` | object | Three-state circuit breaker (CLOSED -> OPEN -> HALF_OPEN -> CLOSED). |
+| `CircuitBreaker` | `aquilia/mlops/_structures.py` | object | Three-state circuit breaker (CLOSED → OPEN → HALF_OPEN → CLOSED). |
 | `TokenBucketRateLimiter` | `aquilia/mlops/_structures.py` | object | Token-bucket rate limiter for inference request throttling. |
 | `AdaptiveBatchQueue` | `aquilia/mlops/_structures.py` | Generic[T] | Priority-aware batch queue with adaptive sizing for LLM serving. |
 | `MemoryTracker` | `aquilia/mlops/_structures.py` | object | Tracks memory allocations for model serving with watermark alerts. |
@@ -127,16 +212,16 @@ This page is extracted from the current Python source. It includes public classe
 | `MLOpsManifest` | `aquilia/mlops/engine/module.py` | object | Aquilary-compatible manifest for the MLOps subsystem. |
 | `PipelineContext` | `aquilia/mlops/engine/pipeline.py` | object | Per-request context flowing through the pipeline. |
 | `InferencePipeline` | `aquilia/mlops/engine/pipeline.py` | object | Async inference pipeline with hooks and metrics. |
-| `ExplainMethod` | `aquilia/mlops/explain/hooks.py` | str, Enum | Public class. |
+| `ExplainMethod` | `aquilia/mlops/explain/hooks.py` | str, Enum |  |
 | `FeatureAttribution` | `aquilia/mlops/explain/hooks.py` | object | Single feature's contribution. |
 | `Explanation` | `aquilia/mlops/explain/hooks.py` | object | Complete explanation for one prediction. |
-| `SHAPExplainer` | `aquilia/mlops/explain/hooks.py` | object | Wraps ``shap.KernelExplainer``, ``shap.TreeExplainer`` or |
-| `LIMEExplainer` | `aquilia/mlops/explain/hooks.py` | object | Wraps ``lime.lime_tabular.LimeTabularExplainer`` (default) or |
-| `PIIKind` | `aquilia/mlops/explain/privacy.py` | str, Enum | Public class. |
-| `PIIMatch` | `aquilia/mlops/explain/privacy.py` | object | Public class. |
+| `SHAPExplainer` | `aquilia/mlops/explain/hooks.py` | object | Wraps ``shap.KernelExplainer``, ``shap.TreeExplainer`` or ``shap.DeepExplainer`` behind a single ``explain()`` call. |
+| `LIMEExplainer` | `aquilia/mlops/explain/hooks.py` | object | Wraps ``lime.lime_tabular.LimeTabularExplainer`` (default) or ``lime.lime_text.LimeTextExplainer`` behind a single ``explain()`` call. |
+| `PIIKind` | `aquilia/mlops/explain/privacy.py` | str, Enum |  |
+| `PIIMatch` | `aquilia/mlops/explain/privacy.py` | object |  |
 | `PIIRedactor` | `aquilia/mlops/explain/privacy.py` | object | Scans text for PII and replaces matches with a configurable placeholder. |
 | `LaplaceNoise` | `aquilia/mlops/explain/privacy.py` | object | Adds calibrated Laplace noise to numeric values. |
-| `InputSanitiser` | `aquilia/mlops/explain/privacy.py` | object | Pipeline of transforms applied to inference payloads before they |
+| `InputSanitiser` | `aquilia/mlops/explain/privacy.py` | object | Pipeline of transforms applied to inference payloads before they reach the model. |
 | `ModelManifestEntry` | `aquilia/mlops/manifest/config.py` | object | Configuration for a single model from the manifest. |
 | `MLOpsManifestConfig` | `aquilia/mlops/manifest/config.py` | object | Parsed ``[mlops]`` configuration from Aquilia workspace config. |
 | `ManifestValidationError` | `aquilia/mlops/manifest/schema.py` | ValueError | Raised when manifest validation fails. |
@@ -169,11 +254,11 @@ This page is extracted from the current Python source. It includes public classe
 | `HMACSigner` | `aquilia/mlops/pack/signer.py` | object | HMAC-SHA256 signer for modelpack archives. |
 | `RSASigner` | `aquilia/mlops/pack/signer.py` | object | RSA signer using ``cryptography`` (already an Aquilia dependency). |
 | `HealthCheckPlugin` | `aquilia/mlops/plugins/example_plugin.py` | object | Minimal example plugin implementing the ``PluginHook`` protocol. |
-| `PluginState` | `aquilia/mlops/plugins/host.py` | str, Enum | Public class. |
-| `PluginDescriptor` | `aquilia/mlops/plugins/host.py` | object | Public class. |
+| `PluginState` | `aquilia/mlops/plugins/host.py` | str, Enum |  |
+| `PluginDescriptor` | `aquilia/mlops/plugins/host.py` | object |  |
 | `PluginHookProtocol` | `aquilia/mlops/plugins/host.py` | Protocol | Minimal interface a plugin must satisfy. |
 | `PluginHost` | `aquilia/mlops/plugins/host.py` | object | Central plugin manager. |
-| `MarketplaceEntry` | `aquilia/mlops/plugins/marketplace.py` | object | Public class. |
+| `MarketplaceEntry` | `aquilia/mlops/plugins/marketplace.py` | object |  |
 | `PluginMarketplace` | `aquilia/mlops/plugins/marketplace.py` | object | Browse and install plugins from a remote JSON index. |
 | `RegistryDB` | `aquilia/mlops/registry/models.py` | object | Async SQLite backend for registry metadata. |
 | `RegistryError` | `aquilia/mlops/registry/service.py` | Exception | Base error for registry operations (kept for backward compatibility). |
@@ -183,7 +268,7 @@ This page is extracted from the current Python source. It includes public classe
 | `BaseStorageAdapter` | `aquilia/mlops/registry/storage/base.py` | abc.ABC | Abstract base for blob storage backends. |
 | `FilesystemStorageAdapter` | `aquilia/mlops/registry/storage/filesystem.py` | BaseStorageAdapter | Store blobs on local filesystem in a content-addressable layout. |
 | `S3StorageAdapter` | `aquilia/mlops/registry/storage/s3.py` | BaseStorageAdapter | Store blobs in an S3-compatible bucket. |
-| `RolloutPhase` | `aquilia/mlops/release/rollout.py` | str, Enum | Public class. |
+| `RolloutPhase` | `aquilia/mlops/release/rollout.py` | str, Enum |  |
 | `RolloutState` | `aquilia/mlops/release/rollout.py` | object | Current state of a rollout. |
 | `RolloutEngine` | `aquilia/mlops/release/rollout.py` | object | Manages progressive rollouts with metric-based gating. |
 | `ModelState` | `aquilia/mlops/runtime/base.py` | str, Enum | Lifecycle states for a model runtime. |
@@ -198,7 +283,7 @@ This page is extracted from the current Python source. It includes public classe
 | `InferenceExecutor` | `aquilia/mlops/runtime/executor.py` | object | Async-compatible executor for CPU/GPU-bound inference work. |
 | `ONNXRuntimeAdapter` | `aquilia/mlops/runtime/onnx_runtime.py` | BaseRuntime | ONNX Runtime inference adapter. |
 | `PythonRuntime` | `aquilia/mlops/runtime/python_runtime.py` | BaseStreamingRuntime | In-process Python runtime with LLM streaming support. |
-| `TorchServeExporter` | `aquilia/mlops/runtime/torchserve_exporter.py` | BaseRuntime | Export modelpacks to TorchServe ``.mar`` format and |
+| `TorchServeExporter` | `aquilia/mlops/runtime/torchserve_exporter.py` | BaseRuntime | Export modelpacks to TorchServe ``.mar`` format and optionally forward inference via TorchServe REST API. |
 | `TritonAdapter` | `aquilia/mlops/runtime/triton_adapter.py` | BaseRuntime | Triton Inference Server adapter. |
 | `ScalingPolicy` | `aquilia/mlops/scheduler/autoscaler.py` | object | Autoscaling policy definition. |
 | `ScalingDecision` | `aquilia/mlops/scheduler/autoscaler.py` | object | Output of a scaling evaluation. |
@@ -221,42 +306,42 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `serve` | `aquilia/mlops/api/functional.py` | `def serve(name: str, version: str = 'v1', device: str = 'auto', batch_size: int = 16, max_batch_latency_ms: float = 50.0, workers: int = 4, tags: list[str] &#124; None = None) -> Callable` | Decorator that wraps a function into a registered model. |
-| `set_global_registry` | `aquilia/mlops/api/model_class.py` | `def set_global_registry(registry: Any) -> None` | Set the global model registry (called by DI providers). |
-| `model` | `aquilia/mlops/api/model_class.py` | `def model(name: str, version: str = 'v1', device: str = 'auto', batch_size: int = 16, max_batch_latency_ms: float = 50.0, warmup_requests: int = 0, workers: int = 4, timeout_ms: float = 30000.0, tags: list[str] &#124; None = None, supports_streaming: bool = False) -> Callable[[type[T]], type[T]]` | Decorator that registers an ``AquiliaModel`` subclass with the model registry. |
-| `register_mlops_providers` | `aquilia/mlops/di/providers.py` | `def register_mlops_providers(container: Container, config: dict[str, Any] &#124; None = None) -> None` | Register all MLOps services as DI providers. |
-| `on_load` | `aquilia/mlops/engine/hooks.py` | `def on_load(fn: F) -> F` | Mark method as a post-load lifecycle hook. |
-| `on_unload` | `aquilia/mlops/engine/hooks.py` | `def on_unload(fn: F) -> F` | Mark method as a pre-unload lifecycle hook. |
-| `preprocess` | `aquilia/mlops/engine/hooks.py` | `def preprocess(fn: F) -> F` | Mark method as input preprocessor. |
-| `postprocess` | `aquilia/mlops/engine/hooks.py` | `def postprocess(fn: F) -> F` | Mark method as output postprocessor. |
-| `before_predict` | `aquilia/mlops/engine/hooks.py` | `def before_predict(fn: F) -> F` | Mark method as a before-prediction hook. |
-| `after_predict` | `aquilia/mlops/engine/hooks.py` | `def after_predict(fn: F) -> F` | Mark method as an after-prediction hook. |
-| `on_error` | `aquilia/mlops/engine/hooks.py` | `def on_error(fn: F) -> F` | Mark method as an inference error handler. |
-| `collect_hooks` | `aquilia/mlops/engine/hooks.py` | `def collect_hooks(instance: Any) -> HookRegistry` | Scan an object instance for decorated hook methods. |
-| `mlops_on_startup` | `aquilia/mlops/engine/lifecycle.py` | `async def mlops_on_startup(config: dict[str, Any] &#124; None = None, di_container: Any = None) -> None` | MLOps startup hook. |
-| `mlops_on_shutdown` | `aquilia/mlops/engine/lifecycle.py` | `async def mlops_on_shutdown(config: dict[str, Any] &#124; None = None, di_container: Any = None) -> None` | MLOps shutdown hook. |
-| `create_explainer` | `aquilia/mlops/explain/hooks.py` | `def create_explainer(method: ExplainMethod, predict_fn: Callable, data: Any, feature_names: Sequence[str] &#124; None = None, **kwargs: Any) -> SHAPExplainer &#124; LIMEExplainer` | Factory that returns the right explainer for the requested method. |
-| `parse_mlops_config` | `aquilia/mlops/manifest/config.py` | `def parse_mlops_config(config: dict[str, Any]) -> MLOpsManifestConfig` | Parse an ``[mlops]`` config dict into ``MLOpsManifestConfig``. |
-| `validate_manifest_config` | `aquilia/mlops/manifest/schema.py` | `def validate_manifest_config(config: MLOpsManifestConfig) -> list[str]` | Validate a parsed manifest config. |
-| `validate_and_raise` | `aquilia/mlops/manifest/schema.py` | `def validate_and_raise(config: MLOpsManifestConfig) -> None` | Validate and raise ``ManifestValidationError`` if invalid. |
-| `profile_model` | `aquilia/mlops/optimizer/export.py` | `async def profile_model(model_path: str, target_device: str = 'cpu') -> dict[str, Any]` | Estimate latency and memory for a model on a target device. |
-| `validate_manifest` | `aquilia/mlops/pack/manifest_schema.py` | `def validate_manifest(data: dict) -> list[str]` | Validate manifest dict against schema. |
-| `sign_archive` | `aquilia/mlops/pack/signer.py` | `async def sign_archive(archive_path: str, signer: HMACSigner &#124; RSASigner, output_sig_path: str &#124; None = None) -> str` | Sign a modelpack archive and write signature file. |
-| `verify_archive` | `aquilia/mlops/pack/signer.py` | `async def verify_archive(archive_path: str, sig_path: str, signer: HMACSigner &#124; RSASigner) -> bool` | Verify a modelpack archive against its signature file. |
-| `generate_ci_workflow` | `aquilia/mlops/release/ci.py` | `def generate_ci_workflow(output_dir: str = '.github/workflows') -> str` | Generate GitHub Actions workflow file. |
-| `generate_dockerfile` | `aquilia/mlops/release/ci.py` | `def generate_dockerfile(output_dir: str = '.') -> str` | Generate Dockerfile for model serving. |
-| `select_runtime` | `aquilia/mlops/runtime/base.py` | `def select_runtime(manifest: ModelpackManifest, preferred: str &#124; None = None, gpu_available: bool = False) -> BaseRuntime` | Select the best runtime for the given manifest. |
-| `register_mlops_middleware` | `aquilia/mlops/serving/middleware.py` | `def register_mlops_middleware(stack: MiddlewareStack, metrics_collector: Any = None, rate_limiter: Any = None, circuit_breaker: Any = None, fault_engine: Any = None, path_prefix: str = '/mlops') -> None` | Register all MLOps middleware with proper scope and priority |
-| `mlops_metrics_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_metrics_middleware(metrics_collector: Any, path_prefix: str = '/mlops') -> Callable` | Create an inference metrics middleware. |
-| `mlops_request_id_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_request_id_middleware() -> Callable` | Middleware that injects a unique request ID into the context. |
-| `mlops_rate_limit_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_rate_limit_middleware(rate_limiter: Any, path_prefix: str = '/mlops', status_code: int = 429, fault_engine: Any = None) -> Callable` | Rate-limiting middleware using a token-bucket rate limiter. |
-| `mlops_circuit_breaker_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_circuit_breaker_middleware(circuit_breaker: Any, path_prefix: str = '/mlops/predict', status_code: int = 503, fault_engine: Any = None) -> Callable` | Circuit-breaker middleware for inference endpoints. |
+| `serve` | `aquilia/mlops/api/functional.py` | `def serve(name: str, version: str='v1', device: str='auto', batch_size: int=16, max_batch_latency_ms: float=50.0, workers: int=4, tags: list[str] \| None=None)` | Decorator that wraps a function into a registered model. |
+| `set_global_registry` | `aquilia/mlops/api/model_class.py` | `def set_global_registry(registry: Any)` | Set the global model registry (called by DI providers). |
+| `model` | `aquilia/mlops/api/model_class.py` | `def model(name: str, version: str='v1', device: str='auto', batch_size: int=16, max_batch_latency_ms: float=50.0, warmup_requests: int=0, workers: int=4, timeout_ms: float=30000.0, tags: list[str] \| None=None, supports_streaming: bool=False)` | Decorator that registers an ``AquiliaModel`` subclass with the model registry. |
+| `register_mlops_providers` | `aquilia/mlops/di/providers.py` | `def register_mlops_providers(container: Container, config: dict[str, Any] \| None=None)` | Register all MLOps services as DI providers. |
+| `on_load` | `aquilia/mlops/engine/hooks.py` | `def on_load(fn: F)` | Mark method as a post-load lifecycle hook. |
+| `on_unload` | `aquilia/mlops/engine/hooks.py` | `def on_unload(fn: F)` | Mark method as a pre-unload lifecycle hook. |
+| `preprocess` | `aquilia/mlops/engine/hooks.py` | `def preprocess(fn: F)` | Mark method as input preprocessor. |
+| `postprocess` | `aquilia/mlops/engine/hooks.py` | `def postprocess(fn: F)` | Mark method as output postprocessor. |
+| `before_predict` | `aquilia/mlops/engine/hooks.py` | `def before_predict(fn: F)` | Mark method as a before-prediction hook. |
+| `after_predict` | `aquilia/mlops/engine/hooks.py` | `def after_predict(fn: F)` | Mark method as an after-prediction hook. |
+| `on_error` | `aquilia/mlops/engine/hooks.py` | `def on_error(fn: F)` | Mark method as an inference error handler. |
+| `collect_hooks` | `aquilia/mlops/engine/hooks.py` | `def collect_hooks(instance: Any)` | Scan an object instance for decorated hook methods. |
+| `mlops_on_startup` | `aquilia/mlops/engine/lifecycle.py` | `async def mlops_on_startup(config: dict[str, Any] \| None=None, di_container: Any=None)` | MLOps startup hook. |
+| `mlops_on_shutdown` | `aquilia/mlops/engine/lifecycle.py` | `async def mlops_on_shutdown(config: dict[str, Any] \| None=None, di_container: Any=None)` | MLOps shutdown hook. |
+| `create_explainer` | `aquilia/mlops/explain/hooks.py` | `def create_explainer(method: ExplainMethod, predict_fn: Callable, data: Any, feature_names: Sequence[str] \| None=None, **kwargs: Any)` | Factory that returns the right explainer for the requested method. |
+| `parse_mlops_config` | `aquilia/mlops/manifest/config.py` | `def parse_mlops_config(config: dict[str, Any])` | Parse an ``[mlops]`` config dict into ``MLOpsManifestConfig``. |
+| `validate_manifest_config` | `aquilia/mlops/manifest/schema.py` | `def validate_manifest_config(config: MLOpsManifestConfig)` | Validate a parsed manifest config. |
+| `validate_and_raise` | `aquilia/mlops/manifest/schema.py` | `def validate_and_raise(config: MLOpsManifestConfig)` | Validate and raise ``ManifestValidationError`` if invalid. |
+| `profile_model` | `aquilia/mlops/optimizer/export.py` | `async def profile_model(model_path: str, target_device: str='cpu')` | Estimate latency and memory for a model on a target device. |
+| `validate_manifest` | `aquilia/mlops/pack/manifest_schema.py` | `def validate_manifest(data: dict)` | Validate manifest dict against schema. |
+| `sign_archive` | `aquilia/mlops/pack/signer.py` | `async def sign_archive(archive_path: str, signer: HMACSigner \| RSASigner, output_sig_path: str \| None=None)` | Sign a modelpack archive and write signature file. |
+| `verify_archive` | `aquilia/mlops/pack/signer.py` | `async def verify_archive(archive_path: str, sig_path: str, signer: HMACSigner \| RSASigner)` | Verify a modelpack archive against its signature file. |
+| `generate_ci_workflow` | `aquilia/mlops/release/ci.py` | `def generate_ci_workflow(output_dir: str='.github/workflows')` | Generate GitHub Actions workflow file. |
+| `generate_dockerfile` | `aquilia/mlops/release/ci.py` | `def generate_dockerfile(output_dir: str='.')` | Generate Dockerfile for model serving. |
+| `select_runtime` | `aquilia/mlops/runtime/base.py` | `def select_runtime(manifest: ModelpackManifest, preferred: str \| None=None, gpu_available: bool=False)` | Select the best runtime for the given manifest. |
+| `register_mlops_middleware` | `aquilia/mlops/serving/middleware.py` | `def register_mlops_middleware(stack: MiddlewareStack, metrics_collector: Any=None, rate_limiter: Any=None, circuit_breaker: Any=None, fault_engine: Any=None, path_prefix: str='/mlops')` | Register all MLOps middleware with proper scope and priority on an Aquilia :class:`~aquilia.middleware.MiddlewareStack`. |
+| `mlops_metrics_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_metrics_middleware(metrics_collector: Any, path_prefix: str='/mlops')` | Create an inference metrics middleware. |
+| `mlops_request_id_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_request_id_middleware()` | Middleware that injects a unique request ID into the context. |
+| `mlops_rate_limit_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_rate_limit_middleware(rate_limiter: Any, path_prefix: str='/mlops', status_code: int=429, fault_engine: Any=None)` | Rate-limiting middleware using a token-bucket rate limiter. |
+| `mlops_circuit_breaker_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_circuit_breaker_middleware(circuit_breaker: Any, path_prefix: str='/mlops/predict', status_code: int=503, fault_engine: Any=None)` | Circuit-breaker middleware for inference endpoints. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `T` | `aquilia/mlops/_structures.py` | `TypeVar('T')` |
 | `KT` | `aquilia/mlops/_structures.py` | `TypeVar('KT', bound=Hashable)` |
@@ -268,8 +353,8 @@ This page is extracted from the current Python source. It includes public classe
 | `MANIFEST_SCHEMA` | `aquilia/mlops/pack/manifest_schema.py` | `dict` |
 | `ENTRYPOINT_GROUP` | `aquilia/mlops/plugins/host.py` | `'aquilia_mlops_plugin'` |
 | `DEFAULT_INDEX_URL` | `aquilia/mlops/plugins/marketplace.py` | `'https://plugins.aquilia.dev/v1/index.json'` |
-| `GITHUB_ACTIONS_WORKFLOW` | `aquilia/mlops/release/ci.py` | `'# Aquilia MLOps CI/CD Pipeline\n# Auto-generated by: aq ci generate\n\nname: Aquilia Model CI/CD\n\non:\n  push:\n    branches: [main, master]\n    paths:\n   ` |
-| `DOCKERFILE_TEMPLATE` | `aquilia/mlops/release/ci.py` | `'# Aquilia Model Serving Container\n# Auto-generated by: aq ci generate\n\nFROM python:3.11-slim AS base\n\nWORKDIR /app\n\n# Install system deps\nRUN apt-get u` |
+| `GITHUB_ACTIONS_WORKFLOW` | `aquilia/mlops/release/ci.py` | `'# Aquilia MLOps CI/CD Pipeline\n# Auto-generated by: aq ci generate\n\nname: Aquilia Model CI/CD\n\non:\n  push:\n    branches: [main, master]\n    paths:\n      - \'models/**\'\n      - \'manifest.json\'\n  pull_request:\n    branches: [main, master]\n  workflow_dispatch:\n\njobs:\n  build-modelpack:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n\n      - name: Set up Python\n        uses: actions/setup-python@v5\n        with:\n          python-version: \'3.11\'\n\n      - name: Install dependencies\n        run: \|\n          pip install -e ".[dev]"\n          pip install aquilia\n\n      - name: Validate manifest\n        run: aq validate\n\n      - name: Run model unit tests\n        run: pytest tests/ -v --tb=short\n\n      - name: Build modelpack\n        run: aq pack save --name ${{ github.event.repository.name }} --version v${{ github.run_number }}\n\n      - name: Smoke test (local serve)\n        run: \|\n          aq serve --model *.aquilia --timeout 30 --smoke-test\n\n      - name: Upload modelpack artifact\n        uses: actions/upload-artifact@v4\n        with:\n          name: modelpack\n          path: \'*.aquilia\'\n\n  publish:\n    needs: build-modelpack\n    if: github.ref == \'refs/heads/main\'\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/download-artifact@v4\n        with:\n          name: modelpack\n\n      - name: Publish to registry\n        run: \|\n          aq pack push *.aquilia \\\n            --registry ${{ secrets.AQUILIA_REGISTRY_URL }} \\\n            --token ${{ secrets.AQUILIA_REGISTRY_TOKEN }}\n\n  deploy-staging:\n    needs: publish\n    if: github.ref == \'refs/heads/main\'\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n\n      - name: Deploy to staging\n        run: \|\n          aq deploy \\\n            registry://${{ github.event.repository.name }}:latest \\\n            --to k8s \\\n            --namespace staging \\\n            --replicas 1\n        env:\n          KUBECONFIG: ${{ secrets.KUBECONFIG }}\n'` |
+| `DOCKERFILE_TEMPLATE` | `aquilia/mlops/release/ci.py` | `'# Aquilia Model Serving Container\n# Auto-generated by: aq ci generate\n\nFROM python:3.11-slim AS base\n\nWORKDIR /app\n\n# Install system deps\nRUN apt-get update && apt-get install -y --no-install-recommends \\\n    curl \\\n    && rm -rf /var/lib/apt/lists/*\n\n# Install Python deps\nCOPY requirements.txt env.lock* ./\nRUN pip install --no-cache-dir -r requirements.txt 2>/dev/null \|\| true\nRUN pip install --no-cache-dir aquilia\n\n# Copy model artifacts\nCOPY *.aquilia ./\nRUN aq pack inspect *.aquilia\n\n# Expose serving port\nEXPOSE 8080\n\n# Health check\nHEALTHCHECK --interval=30s --timeout=5s --retries=3 \\\n    CMD curl -f http://localhost:8080/health \|\| exit 1\n\n# Run model server\nCMD ["aq", "serve", "--bind", "0.0.0.0:8080"]\n\nLABEL org.opencontainers.image.source="aquilia-mlops"\n'` |
 | `_TRANSITIONS` | `aquilia/mlops/runtime/base.py` | `dict[ModelState, set]` |
 | `T` | `aquilia/mlops/runtime/executor.py` | `TypeVar('T')` |
 | `VIEWER` | `aquilia/mlops/security/rbac.py` | `Role(name='viewer', permissions={Permission.PACK_READ}, description='Read-only access to modelpacks')` |
@@ -280,7 +365,7 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `RingBuffer`
+### `RingBuffer`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `Generic[T]`
@@ -288,17 +373,17 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `append` | `def append(self, value: T) -> None` |  | Method. |
-| `extend` | `def extend(self, values: Sequence[T]) -> None` |  | Method. |
-| `clear` | `def clear(self) -> None` |  | Method. |
-| `capacity` | `def capacity(self) -> int` | property | Method. |
-| `last` | `def last(self) -> T` |  | Return the most recently appended element. |
-| `to_list` | `def to_list(self) -> list[T]` |  | Method. |
-| `percentile` | `def percentile(self, p: float) -> float` |  | Compute the *p*-th percentile (0-100) over numeric elements. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `append` | `def append(self, value: T)` |  |
+| `extend` | `def extend(self, values: Sequence[T])` |  |
+| `clear` | `def clear(self)` |  |
+| `capacity` | `def capacity(self)` |  |
+| `last` | `def last(self)` | Return the most recently appended element. |
+| `to_list` | `def to_list(self)` |  |
+| `percentile` | `def percentile(self, p: float)` | Compute the *p*-th percentile (0–100) over numeric elements. |
 
-### Class: `LRUCache`
+### `LRUCache`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `Generic[KT, VT]`
@@ -306,16 +391,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, key: KT, default: VT &#124; None = None) -> VT &#124; None` |  | Method. |
-| `put` | `def put(self, key: KT, value: VT) -> None` |  | Method. |
-| `invalidate` | `def invalidate(self, key: KT) -> bool` |  | Method. |
-| `clear` | `def clear(self) -> None` |  | Method. |
-| `hit_rate` | `def hit_rate(self) -> float` | property | Method. |
-| `stats` | `def stats(self) -> dict[str, Any]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, key: KT, default: VT \| None=None)` |  |
+| `put` | `def put(self, key: KT, value: VT)` |  |
+| `invalidate` | `def invalidate(self, key: KT)` |  |
+| `clear` | `def clear(self)` |  |
+| `hit_rate` | `def hit_rate(self)` |  |
+| `stats` | `def stats(self)` |  |
 
-### Class: `AtomicCounter`
+### `AtomicCounter`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -323,14 +408,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `inc` | `def inc(self, n: int = 1) -> int` |  | Method. |
-| `dec` | `def dec(self, n: int = 1) -> int` |  | Method. |
-| `value` | `def value(self) -> int` | property | Method. |
-| `reset` | `def reset(self, to: int = 0) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `inc` | `def inc(self, n: int=1)` |  |
+| `dec` | `def dec(self, n: int=1)` |  |
+| `value` | `def value(self)` |  |
+| `reset` | `def reset(self, to: int=0)` |  |
 
-### Class: `ExponentialDecay`
+### `ExponentialDecay`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -338,13 +423,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `update` | `def update(self, sample: float) -> float` |  | Method. |
-| `value` | `def value(self) -> float` | property | Method. |
-| `reset` | `def reset(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `update` | `def update(self, sample: float)` |  |
+| `value` | `def value(self)` |  |
+| `reset` | `def reset(self)` |  |
 
-### Class: `SlidingWindow`
+### `SlidingWindow`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -352,29 +437,29 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, value: float = 1.0, *, ts: float &#124; None = None) -> None` |  | Method. |
-| `count` | `def count(self, *, ts: float &#124; None = None) -> int` |  | Method. |
-| `total` | `def total(self, *, ts: float &#124; None = None) -> float` |  | Method. |
-| `rate` | `def rate(self, *, ts: float &#124; None = None) -> float` |  | Events per second over the window. |
-| `mean` | `def mean(self, *, ts: float &#124; None = None) -> float` |  | Method. |
-| `clear` | `def clear(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, value: float=1.0, *, ts: float \| None=None)` |  |
+| `count` | `def count(self, *, ts: float \| None=None)` |  |
+| `total` | `def total(self, *, ts: float \| None=None)` |  |
+| `rate` | `def rate(self, *, ts: float \| None=None)` | Events per second over the window. |
+| `mean` | `def mean(self, *, ts: float \| None=None)` |  |
+| `clear` | `def clear(self)` |  |
 
-### Class: `TopKHeap`
+### `TopKHeap`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `Generic[KT]`
-- Summary: Maintains the top-K elements by score using a dict + sort-on-read
+- Summary: Maintains the top-K elements by score using a dict + sort-on-read strategy (optimal for K ≤ ~1000).
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `push` | `def push(self, key: KT, score: float) -> None` |  | Method. |
-| `top` | `def top(self) -> list[tuple[KT, float]]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `push` | `def push(self, key: KT, score: float)` |  |
+| `top` | `def top(self)` |  |
 
-### Class: `BloomFilter`
+### `BloomFilter`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -382,13 +467,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, item: str) -> None` |  | Method. |
-| `size_bytes` | `def size_bytes(self) -> int` | property | Method. |
-| `clear` | `def clear(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, item: str)` |  |
+| `size_bytes` | `def size_bytes(self)` |  |
+| `clear` | `def clear(self)` |  |
 
-### Class: `ConsistentHash`
+### `ConsistentHash`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -396,33 +481,33 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `bucket` | `def bucket(self, key: str) -> int` |  | Method. |
-| `add_bucket` | `def add_bucket(self) -> int` |  | Method. |
-| `remove_bucket` | `def remove_bucket(self) -> int` |  | Method. |
-| `num_buckets` | `def num_buckets(self) -> int` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `bucket` | `def bucket(self, key: str)` |  |
+| `add_bucket` | `def add_bucket(self)` |  |
+| `remove_bucket` | `def remove_bucket(self)` |  |
+| `num_buckets` | `def num_buckets(self)` |  |
 
-### Class: `LineageNode`
+### `LineageNode`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single node in the model lineage graph.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `model_id` | `str` |  |
-| `version` | `str` |  |
+| `model_id` | `str` | `` |
+| `version` | `str` | `` |
 | `framework` | `str` | `''` |
 | `created_at` | `float` | `field(default_factory=time.time)` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `parents` | `list[str]` | `field(default_factory=list)` |
 | `children` | `list[str]` | `field(default_factory=list)` |
 
-### Class: `ModelLineageDAG`
+### `ModelLineageDAG`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -430,53 +515,53 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_model` | `def add_model(self, model_id: str, version: str, *, framework: str = '', parents: list[str] &#124; None = None, metadata: dict[str, Any] &#124; None = None) -> LineageNode` |  | Method. |
-| `ancestors` | `def ancestors(self, model_id: str) -> list[str]` |  | All transitive ancestors (BFS). |
-| `descendants` | `def descendants(self, model_id: str) -> list[str]` |  | All transitive descendants (BFS). |
-| `path` | `def path(self, from_id: str, to_id: str) -> list[str] &#124; None` |  | Find shortest derivation path from ``from_id`` -> ``to_id``. |
-| `roots` | `def roots(self) -> list[str]` |  | Models with no parents (base models). |
-| `leaves` | `def leaves(self) -> list[str]` |  | Models with no children (leaf / production models). |
-| `get` | `def get(self, model_id: str) -> LineageNode &#124; None` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialise the full DAG for storage / visualisation. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_model` | `def add_model(self, model_id: str, version: str, *, framework: str='', parents: list[str] \| None=None, metadata: dict[str, Any] \| None=None)` |  |
+| `ancestors` | `def ancestors(self, model_id: str)` | All transitive ancestors (BFS). |
+| `descendants` | `def descendants(self, model_id: str)` | All transitive descendants (BFS). |
+| `path` | `def path(self, from_id: str, to_id: str)` | Find shortest derivation path from ``from_id`` → ``to_id``. |
+| `roots` | `def roots(self)` | Models with no parents (base models). |
+| `leaves` | `def leaves(self)` | Models with no children (leaf / production models). |
+| `get` | `def get(self, model_id: str)` |  |
+| `to_dict` | `def to_dict(self)` | Serialise the full DAG for storage / visualisation. |
 
-### Class: `ExperimentArm`
+### `ExperimentArm`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: One arm of an A/B experiment.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `model_version` | `str` |  |
+| `name` | `str` | `` |
+| `model_version` | `str` | `` |
 | `weight` | `float` | `0.5` |
 | `metrics` | `dict[str, float]` | `field(default_factory=dict)` |
 | `request_count` | `int` | `0` |
 
-### Class: `Experiment`
+### `Experiment`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A/B experiment definition.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `experiment_id` | `str` |  |
+| `experiment_id` | `str` | `` |
 | `description` | `str` | `''` |
 | `arms` | `list[ExperimentArm]` | `field(default_factory=list)` |
 | `status` | `str` | `'active'` |
 | `created_at` | `float` | `field(default_factory=time.time)` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `ExperimentLedger`
+### `ExperimentLedger`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -484,40 +569,40 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `create` | `def create(self, experiment_id: str, *, description: str = '', arms: list[dict[str, Any]] &#124; None = None, metadata: dict[str, Any] &#124; None = None) -> Experiment` |  | Method. |
-| `assign` | `def assign(self, experiment_id: str, request_id: str) -> str` |  | Deterministically assign a request to an experiment arm. |
-| `record` | `def record(self, experiment_id: str, arm_name: str, metric: str, value: float) -> None` |  | Record a metric observation for an experiment arm (running average). |
-| `get` | `def get(self, experiment_id: str) -> Experiment &#124; None` |  | Method. |
-| `list_active` | `def list_active(self) -> list[Experiment]` |  | Method. |
-| `conclude` | `def conclude(self, experiment_id: str, winner: str = '') -> None` |  | Mark experiment as completed, optionally recording the winning arm. |
-| `pause` | `def pause(self, experiment_id: str) -> None` |  | Method. |
-| `resume` | `def resume(self, experiment_id: str) -> None` |  | Method. |
-| `summary` | `def summary(self, experiment_id: str) -> dict[str, Any]` |  | Get experiment summary with per-arm metrics. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `create` | `def create(self, experiment_id: str, *, description: str='', arms: list[dict[str, Any]] \| None=None, metadata: dict[str, Any] \| None=None)` |  |
+| `assign` | `def assign(self, experiment_id: str, request_id: str)` | Deterministically assign a request to an experiment arm. |
+| `record` | `def record(self, experiment_id: str, arm_name: str, metric: str, value: float)` | Record a metric observation for an experiment arm (running average). |
+| `get` | `def get(self, experiment_id: str)` |  |
+| `list_active` | `def list_active(self)` |  |
+| `conclude` | `def conclude(self, experiment_id: str, winner: str='')` | Mark experiment as completed, optionally recording the winning arm. |
+| `pause` | `def pause(self, experiment_id: str)` |  |
+| `resume` | `def resume(self, experiment_id: str)` |  |
+| `summary` | `def summary(self, experiment_id: str)` | Get experiment summary with per-arm metrics. |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `CircuitBreaker`
+### `CircuitBreaker`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
-- Summary: Three-state circuit breaker (CLOSED -> OPEN -> HALF_OPEN -> CLOSED).
+- Summary: Three-state circuit breaker (CLOSED → OPEN → HALF_OPEN → CLOSED).
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `state` | `def state(self) -> str` | property | Method. |
-| `allow_request` | `def allow_request(self) -> bool` |  | Check if a request should be allowed through. |
-| `record_success` | `def record_success(self) -> None` |  | Record a successful request. |
-| `record_failure` | `def record_failure(self) -> None` |  | Record a failed request. |
-| `reset` | `def reset(self) -> None` |  | Force reset to closed state. |
-| `force_open` | `def force_open(self) -> None` |  | Force the circuit breaker into OPEN state (reject all requests). |
-| `force_close` | `def force_close(self) -> None` |  | Force the circuit breaker into CLOSED state (allow all requests). |
-| `force_half_open` | `def force_half_open(self) -> None` |  | Force the circuit breaker into HALF_OPEN state (limited probes). |
-| `stats` | `def stats(self) -> dict[str, Any]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `state` | `def state(self)` |  |
+| `allow_request` | `def allow_request(self)` | Check if a request should be allowed through. |
+| `record_success` | `def record_success(self)` | Record a successful request. |
+| `record_failure` | `def record_failure(self)` | Record a failed request. |
+| `reset` | `def reset(self)` | Force reset to closed state. |
+| `force_open` | `def force_open(self)` | Force the circuit breaker into OPEN state (reject all requests). |
+| `force_close` | `def force_close(self)` | Force the circuit breaker into CLOSED state (allow all requests). |
+| `force_half_open` | `def force_half_open(self)` | Force the circuit breaker into HALF_OPEN state (limited probes). |
+| `stats` | `def stats(self)` |  |
 
-### Class: `TokenBucketRateLimiter`
+### `TokenBucketRateLimiter`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -525,15 +610,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `acquire` | `def acquire(self, tokens: int = 1) -> bool` |  | Try to consume tokens. Returns True if allowed. |
-| `acquire_wait_time` | `def acquire_wait_time(self, tokens: int = 1) -> float` |  | Return seconds to wait before tokens become available, 0 if available now. |
-| `available` | `def available(self) -> float` | property | Method. |
-| `stats` | `def stats(self) -> dict[str, Any]` | property | Method. |
-| `reset` | `def reset(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `acquire` | `def acquire(self, tokens: int=1)` | Try to consume tokens. Returns True if allowed. |
+| `acquire_wait_time` | `def acquire_wait_time(self, tokens: int=1)` | Return seconds to wait before tokens become available, 0 if available now. |
+| `available` | `def available(self)` |  |
+| `stats` | `def stats(self)` |  |
+| `reset` | `def reset(self)` |  |
 
-### Class: `AdaptiveBatchQueue`
+### `AdaptiveBatchQueue`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `Generic[T]`
@@ -541,14 +626,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `put` | `def put(self, item: T, priority: int = 0, token_estimate: int = 1) -> bool` |  | Enqueue an item. Returns False if queue is at capacity (backpressure). |
-| `drain` | `def drain(self, max_items: int = 0, max_tokens: int = 0) -> list[T]` |  | Drain items from the queue respecting token budget and/or max items. |
-| `peek_token_total` | `def peek_token_total(self) -> int` |  | Total estimated tokens currently in the queue. |
-| `stats` | `def stats(self) -> dict[str, Any]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `put` | `def put(self, item: T, priority: int=0, token_estimate: int=1)` | Enqueue an item. Returns False if queue is at capacity (backpressure). Higher priority values are dequeued first. |
+| `drain` | `def drain(self, max_items: int=0, max_tokens: int=0)` | Drain items from the queue respecting token budget and/or max items. |
+| `peek_token_total` | `def peek_token_total(self)` | Total estimated tokens currently in the queue. |
+| `stats` | `def stats(self)` |  |
 
-### Class: `MemoryTracker`
+### `MemoryTracker`
 
 - Source: `aquilia/mlops/_structures.py`
 - Bases: `object`
@@ -556,302 +641,302 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `allocate` | `def allocate(self, name: str, size_mb: int) -> bool` |  | Allocate memory for a model. Returns False if hard limit would be exceeded. |
-| `release` | `def release(self, name: str) -> int` |  | Release memory for a model. Returns freed MB. |
-| `current_usage_mb` | `def current_usage_mb(self) -> int` | property | Method. |
-| `is_above_soft_limit` | `def is_above_soft_limit(self) -> bool` | property | Method. |
-| `is_above_hard_limit` | `def is_above_hard_limit(self) -> bool` | property | Method. |
-| `available_mb` | `def available_mb(self) -> int` | property | Method. |
-| `largest_model` | `def largest_model(self) -> tuple[str, int] &#124; None` |  | Return the name and size of the largest allocated model. |
-| `eviction_candidates` | `def eviction_candidates(self) -> list[tuple[str, int]]` |  | Return models sorted by size ascending (smallest first) for eviction. |
-| `stats` | `def stats(self) -> dict[str, Any]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `allocate` | `def allocate(self, name: str, size_mb: int)` | Allocate memory for a model. Returns False if hard limit would be exceeded. |
+| `release` | `def release(self, name: str)` | Release memory for a model. Returns freed MB. |
+| `current_usage_mb` | `def current_usage_mb(self)` |  |
+| `is_above_soft_limit` | `def is_above_soft_limit(self)` |  |
+| `is_above_hard_limit` | `def is_above_hard_limit(self)` |  |
+| `available_mb` | `def available_mb(self)` |  |
+| `largest_model` | `def largest_model(self)` | Return the name and size of the largest allocated model. |
+| `eviction_candidates` | `def eviction_candidates(self)` | Return models sorted by size ascending (smallest first) for eviction. |
+| `stats` | `def stats(self)` |  |
 
-### Class: `DType`
+### `DType`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Centralized DType system for Aquilia MLOps.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `FLOAT64` |  | `'float64'` |
-| `FLOAT32` |  | `'float32'` |
-| `FLOAT16` |  | `'float16'` |
-| `BFLOAT16` |  | `'bfloat16'` |
-| `INT64` |  | `'int64'` |
-| `INT32` |  | `'int32'` |
-| `INT16` |  | `'int16'` |
-| `INT8` |  | `'int8'` |
-| `UINT8` |  | `'uint8'` |
-| `BOOL` |  | `'bool'` |
-| `STRING` |  | `'string'` |
-| `OBJECT` |  | `'object'` |
+| `FLOAT64` | `` | `'float64'` |
+| `FLOAT32` | `` | `'float32'` |
+| `FLOAT16` | `` | `'float16'` |
+| `BFLOAT16` | `` | `'bfloat16'` |
+| `INT64` | `` | `'int64'` |
+| `INT32` | `` | `'int32'` |
+| `INT16` | `` | `'int16'` |
+| `INT8` | `` | `'int8'` |
+| `UINT8` | `` | `'uint8'` |
+| `BOOL` | `` | `'bool'` |
+| `STRING` | `` | `'string'` |
+| `OBJECT` | `` | `'object'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_floating` | `def is_floating(self) -> bool` | property | Method. |
-| `is_integer` | `def is_integer(self) -> bool` | property | Method. |
-| `itemsize` | `def itemsize(self) -> int` | property | Returns size in bytes. |
-| `from_numpy` | `def from_numpy(cls, dtype: Any) -> DType` | classmethod | Convert numpy dtype to MLOps DType. |
-| `from_torch` | `def from_torch(cls, dtype: Any) -> DType` | classmethod | Convert torch dtype to MLOps DType. |
-| `to_torch` | `def to_torch(self) -> Any` |  | Convert to torch dtype. |
-| `validate` | `def validate(self, value: Any) -> bool` |  | Runtime validation of a value against this DType. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_floating` | `def is_floating(self)` |  |
+| `is_integer` | `def is_integer(self)` |  |
+| `itemsize` | `def itemsize(self)` | Returns size in bytes. |
+| `from_numpy` | `def from_numpy(cls, dtype: Any)` | Convert numpy dtype to MLOps DType. |
+| `from_torch` | `def from_torch(cls, dtype: Any)` | Convert torch dtype to MLOps DType. |
+| `to_torch` | `def to_torch(self)` | Convert to torch dtype. |
+| `validate` | `def validate(self, value: Any)` | Runtime validation of a value against this DType. |
 
-### Class: `Framework`
+### `Framework`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Supported ML frameworks.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PYTORCH` |  | `'pytorch'` |
-| `TENSORFLOW` |  | `'tensorflow'` |
-| `ONNX` |  | `'onnx'` |
-| `SKLEARN` |  | `'sklearn'` |
-| `XGBOOST` |  | `'xgboost'` |
-| `LIGHTGBM` |  | `'lightgbm'` |
-| `HUGGINGFACE` |  | `'huggingface'` |
-| `VLLM` |  | `'vllm'` |
-| `LLAMACPP` |  | `'llamacpp'` |
-| `CTRANSFORMERS` |  | `'ctransformers'` |
-| `CUSTOM` |  | `'custom'` |
+| `PYTORCH` | `` | `'pytorch'` |
+| `TENSORFLOW` | `` | `'tensorflow'` |
+| `ONNX` | `` | `'onnx'` |
+| `SKLEARN` | `` | `'sklearn'` |
+| `XGBOOST` | `` | `'xgboost'` |
+| `LIGHTGBM` | `` | `'lightgbm'` |
+| `HUGGINGFACE` | `` | `'huggingface'` |
+| `VLLM` | `` | `'vllm'` |
+| `LLAMACPP` | `` | `'llamacpp'` |
+| `CTRANSFORMERS` | `` | `'ctransformers'` |
+| `CUSTOM` | `` | `'custom'` |
 
-### Class: `RuntimeKind`
+### `RuntimeKind`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Available runtime backends.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PYTHON` |  | `'python'` |
-| `ONNXRUNTIME` |  | `'onnxruntime'` |
-| `TRITON` |  | `'triton'` |
-| `TORCHSERVE` |  | `'torchserve'` |
-| `BENTOML` |  | `'bentoml'` |
-| `VLLM` |  | `'vllm'` |
-| `LLAMACPP` |  | `'llamacpp'` |
-| `TGI` |  | `'tgi'` |
+| `PYTHON` | `` | `'python'` |
+| `ONNXRUNTIME` | `` | `'onnxruntime'` |
+| `TRITON` | `` | `'triton'` |
+| `TORCHSERVE` | `` | `'torchserve'` |
+| `BENTOML` | `` | `'bentoml'` |
+| `VLLM` | `` | `'vllm'` |
+| `LLAMACPP` | `` | `'llamacpp'` |
+| `TGI` | `` | `'tgi'` |
 
-### Class: `QuantizePreset`
+### `QuantizePreset`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Quantization presets.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `MOBILE` |  | `'mobile'` |
-| `EDGE` |  | `'edge'` |
-| `FP16` |  | `'fp16'` |
-| `BF16` |  | `'bf16'` |
-| `INT8` |  | `'int8'` |
-| `INT4` |  | `'int4'` |
-| `DYNAMIC` |  | `'dynamic'` |
-| `GGUF_Q4` |  | `'gguf_q4'` |
-| `GGUF_Q5` |  | `'gguf_q5'` |
-| `GGUF_Q8` |  | `'gguf_q8'` |
-| `AWQ` |  | `'awq'` |
-| `GPTQ` |  | `'gptq'` |
+| `MOBILE` | `` | `'mobile'` |
+| `EDGE` | `` | `'edge'` |
+| `FP16` | `` | `'fp16'` |
+| `BF16` | `` | `'bf16'` |
+| `INT8` | `` | `'int8'` |
+| `INT4` | `` | `'int4'` |
+| `DYNAMIC` | `` | `'dynamic'` |
+| `GGUF_Q4` | `` | `'gguf_q4'` |
+| `GGUF_Q5` | `` | `'gguf_q5'` |
+| `GGUF_Q8` | `` | `'gguf_q8'` |
+| `AWQ` | `` | `'awq'` |
+| `GPTQ` | `` | `'gptq'` |
 
-### Class: `ExportTarget`
+### `ExportTarget`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Edge export targets.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `TFLITE` |  | `'tflite'` |
-| `COREML` |  | `'coreml'` |
-| `ONNX_QUANTIZED` |  | `'onnx-quantized'` |
-| `TENSORRT` |  | `'tensorrt'` |
-| `TVM` |  | `'tvm'` |
-| `GGUF` |  | `'gguf'` |
-| `CTRANSLATE2` |  | `'ctranslate2'` |
+| `TFLITE` | `` | `'tflite'` |
+| `COREML` | `` | `'coreml'` |
+| `ONNX_QUANTIZED` | `` | `'onnx-quantized'` |
+| `TENSORRT` | `` | `'tensorrt'` |
+| `TVM` | `` | `'tvm'` |
+| `GGUF` | `` | `'gguf'` |
+| `CTRANSLATE2` | `` | `'ctranslate2'` |
 
-### Class: `BatchingStrategy`
+### `BatchingStrategy`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Batching strategy modes.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SIZE` |  | `'size'` |
-| `TIME` |  | `'time'` |
-| `HYBRID` |  | `'hybrid'` |
-| `CONTINUOUS` |  | `'continuous'` |
-| `ADAPTIVE` |  | `'adaptive'` |
+| `SIZE` | `` | `'size'` |
+| `TIME` | `` | `'time'` |
+| `HYBRID` | `` | `'hybrid'` |
+| `CONTINUOUS` | `` | `'continuous'` |
+| `ADAPTIVE` | `` | `'adaptive'` |
 
-### Class: `RolloutStrategy`
+### `RolloutStrategy`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Release rollout strategies.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CANARY` |  | `'canary'` |
-| `AB_TEST` |  | `'ab_test'` |
-| `SHADOW` |  | `'shadow'` |
-| `BLUE_GREEN` |  | `'blue_green'` |
-| `ROLLING` |  | `'rolling'` |
+| `CANARY` | `` | `'canary'` |
+| `AB_TEST` | `` | `'ab_test'` |
+| `SHADOW` | `` | `'shadow'` |
+| `BLUE_GREEN` | `` | `'blue_green'` |
+| `ROLLING` | `` | `'rolling'` |
 
-### Class: `DriftMethod`
+### `DriftMethod`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Drift detection methods.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PSI` |  | `'psi'` |
-| `KS_TEST` |  | `'ks_test'` |
-| `DISTRIBUTION` |  | `'distribution'` |
-| `EMBEDDING` |  | `'embedding'` |
-| `PERPLEXITY` |  | `'perplexity'` |
+| `PSI` | `` | `'psi'` |
+| `KS_TEST` | `` | `'ks_test'` |
+| `DISTRIBUTION` | `` | `'distribution'` |
+| `EMBEDDING` | `` | `'embedding'` |
+| `PERPLEXITY` | `` | `'perplexity'` |
 
-### Class: `ModelType`
+### `ModelType`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Model type classification for serving strategy selection.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CLASSICAL_ML` |  | `'classical_ml'` |
-| `DEEP_LEARNING` |  | `'deep_learning'` |
-| `SLM` |  | `'slm'` |
-| `LLM` |  | `'llm'` |
-| `VISION` |  | `'vision'` |
-| `MULTIMODAL` |  | `'multimodal'` |
-| `EMBEDDING` |  | `'embedding'` |
-| `CUSTOM` |  | `'custom'` |
+| `CLASSICAL_ML` | `` | `'classical_ml'` |
+| `DEEP_LEARNING` | `` | `'deep_learning'` |
+| `SLM` | `` | `'slm'` |
+| `LLM` | `` | `'llm'` |
+| `VISION` | `` | `'vision'` |
+| `MULTIMODAL` | `` | `'multimodal'` |
+| `EMBEDDING` | `` | `'embedding'` |
+| `CUSTOM` | `` | `'custom'` |
 
-### Class: `InferenceMode`
+### `InferenceMode`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Inference execution modes.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SYNC` |  | `'sync'` |
-| `ASYNC` |  | `'async'` |
-| `STREAMING` |  | `'streaming'` |
-| `BATCH` |  | `'batch'` |
+| `SYNC` | `` | `'sync'` |
+| `ASYNC` | `` | `'async'` |
+| `STREAMING` | `` | `'streaming'` |
+| `BATCH` | `` | `'batch'` |
 
-### Class: `DeviceType`
+### `DeviceType`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Compute device types.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CPU` |  | `'cpu'` |
-| `CUDA` |  | `'cuda'` |
-| `MPS` |  | `'mps'` |
-| `NPU` |  | `'npu'` |
-| `TPU` |  | `'tpu'` |
-| `AUTO` |  | `'auto'` |
+| `CPU` | `` | `'cpu'` |
+| `CUDA` | `` | `'cuda'` |
+| `MPS` | `` | `'mps'` |
+| `NPU` | `` | `'npu'` |
+| `TPU` | `` | `'tpu'` |
+| `AUTO` | `` | `'auto'` |
 
-### Class: `CircuitState`
+### `CircuitState`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `str, Enum`
 - Summary: Circuit breaker states.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CLOSED` |  | `'closed'` |
-| `OPEN` |  | `'open'` |
-| `HALF_OPEN` |  | `'half_open'` |
+| `CLOSED` | `` | `'closed'` |
+| `OPEN` | `` | `'open'` |
+| `HALF_OPEN` | `` | `'half_open'` |
 
-### Class: `TensorSpec`
+### `TensorSpec`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Describes a single tensor in the inference signature.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `dtype` | `DType` |  |
-| `shape` | `list[Any]` |  |
+| `name` | `str` | `` |
+| `dtype` | `DType` | `` |
+| `shape` | `list[Any]` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> TensorSpec` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
 
-### Class: `BlobRef`
+### `BlobRef`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Reference to a blob inside a modelpack.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `path` | `str` |  |
-| `digest` | `str` |  |
-| `size` | `int` |  |
+| `path` | `str` | `` |
+| `digest` | `str` | `` |
+| `size` | `int` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> BlobRef` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
 
-### Class: `Provenance`
+### `Provenance`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Provenance metadata for reproducibility.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `git_sha` | `str` | `''` |
 | `dataset_snapshot` | `str` | `''` |
@@ -860,21 +945,21 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> Provenance` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
 
-### Class: `LLMConfig`
+### `LLMConfig`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Configuration specific to LLM/SLM model serving.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `model_type` | `ModelType` | `ModelType.CUSTOM` |
 | `max_seq_length` | `int` | `4096` |
@@ -888,7 +973,7 @@ Attributes and fields:
 | `trust_remote_code` | `bool` | `False` |
 | `tokenizer_name` | `str` | `''` |
 | `chat_template` | `str` | `''` |
-| `rope_scaling` | `dict[str, Any] &#124; None` | `None` |
+| `rope_scaling` | `dict[str, Any] \| None` | `None` |
 | `stop_sequences` | `list[str]` | `field(default_factory=list)` |
 | `temperature` | `float` | `1.0` |
 | `top_p` | `float` | `1.0` |
@@ -902,26 +987,26 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> LLMConfig` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
 
-### Class: `ModelpackManifest`
+### `ModelpackManifest`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Complete manifest for a modelpack artifact.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
-| `framework` | `str` |  |
-| `entrypoint` | `str` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
+| `framework` | `str` | `` |
+| `entrypoint` | `str` | `` |
 | `inputs` | `list[TensorSpec]` | `field(default_factory=list)` |
 | `outputs` | `list[TensorSpec]` | `field(default_factory=list)` |
 | `env_lock` | `str` | `'env.lock'` |
@@ -931,30 +1016,30 @@ Attributes and fields:
 | `signed_by` | `str` | `''` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `model_type` | `str` | `'custom'` |
-| `llm_config` | `LLMConfig &#124; None` | `None` |
+| `llm_config` | `LLMConfig \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> ModelpackManifest` | classmethod | Method. |
-| `content_digest` | `def content_digest(self) -> str` |  | Compute a content-addressable digest for this manifest. |
-| `is_llm` | `def is_llm(self) -> bool` | property | Check if this manifest represents an LLM/SLM. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
+| `content_digest` | `def content_digest(self)` | Compute a content-addressable digest for this manifest. |
+| `is_llm` | `def is_llm(self)` | Check if this manifest represents an LLM/SLM. |
 
-### Class: `InferenceRequest`
+### `InferenceRequest`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single inference request.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `request_id` | `str` |  |
-| `inputs` | `dict[str, Any]` |  |
+| `request_id` | `str` | `` |
+| `inputs` | `dict[str, Any]` | `` |
 | `parameters` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `timestamp` | `float` | `field(default_factory=time.time)` |
 | `priority` | `int` | `0` |
@@ -962,77 +1047,77 @@ Attributes and fields:
 | `max_tokens` | `int` | `0` |
 | `timeout_ms` | `float` | `0.0` |
 
-### Class: `InferenceResult`
+### `InferenceResult`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of a single inference.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `request_id` | `str` |  |
-| `outputs` | `dict[str, Any]` |  |
+| `request_id` | `str` | `` |
+| `outputs` | `dict[str, Any]` | `` |
 | `latency_ms` | `float` | `0.0` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `token_count` | `int` | `0` |
 | `prompt_tokens` | `int` | `0` |
 | `finish_reason` | `str` | `''` |
 
-### Class: `StreamChunk`
+### `StreamChunk`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single chunk in a streaming inference response.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `request_id` | `str` |  |
-| `token` | `str` |  |
+| `request_id` | `str` | `` |
+| `token` | `str` | `` |
 | `token_id` | `int` | `0` |
 | `is_finished` | `bool` | `False` |
 | `finish_reason` | `str` | `''` |
 | `cumulative_tokens` | `int` | `0` |
 | `latency_ms` | `float` | `0.0` |
 
-### Class: `BatchRequest`
+### `BatchRequest`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Aggregated batch of inference requests.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `requests` | `list[InferenceRequest]` |  |
+| `requests` | `list[InferenceRequest]` | `` |
 | `batch_id` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `size` | `def size(self) -> int` | property | Method. |
-| `total_tokens` | `def total_tokens(self) -> int` | property | Estimate total token budget for LLM batches. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `size` | `def size(self)` |  |
+| `total_tokens` | `def total_tokens(self)` | Estimate total token budget for LLM batches. |
 
-### Class: `PlacementScore`
+### `PlacementScore`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Score for scheduler placement decisions.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `node_id` | `str` |  |
+| `node_id` | `str` | `` |
 | `device_affinity` | `float` | `0.0` |
 | `memory_fit` | `float` | `0.0` |
 | `current_load` | `float` | `0.0` |
@@ -1041,23 +1126,23 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `compute` | `def compute(self, w1: float = 0.3, w2: float = 0.3, w3: float = 0.25, w4: float = 0.15) -> float` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `compute` | `def compute(self, w1: float=0.3, w2: float=0.3, w3: float=0.25, w4: float=0.15)` |  |
 
-### Class: `RolloutConfig`
+### `RolloutConfig`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Configuration for a traffic rollout.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `from_version` | `str` |  |
-| `to_version` | `str` |  |
+| `from_version` | `str` | `` |
+| `to_version` | `str` | `` |
 | `strategy` | `RolloutStrategy` | `RolloutStrategy.CANARY` |
 | `percentage` | `int` | `10` |
 | `metric` | `str` | `'latency_p95'` |
@@ -1065,51 +1150,51 @@ Attributes and fields:
 | `auto_rollback` | `bool` | `True` |
 | `step_interval_seconds` | `int` | `300` |
 
-### Class: `DriftReport`
+### `DriftReport`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of a drift detection analysis.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `method` | `DriftMethod` |  |
-| `score` | `float` |  |
-| `threshold` | `float` |  |
-| `is_drifted` | `bool` |  |
+| `method` | `DriftMethod` | `` |
+| `score` | `float` | `` |
+| `threshold` | `float` | `` |
+| `is_drifted` | `bool` | `` |
 | `feature_scores` | `dict[str, float]` | `field(default_factory=dict)` |
 | `window_start` | `str` | `''` |
 | `window_end` | `str` | `''` |
 
-### Class: `CircuitBreakerConfig`
+### `CircuitBreakerConfig`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Configuration for inference circuit breaker.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `failure_threshold` | `int` | `5` |
 | `success_threshold` | `int` | `3` |
 | `timeout_seconds` | `float` | `30.0` |
 | `half_open_max_calls` | `int` | `3` |
 
-### Class: `TokenUsage`
+### `TokenUsage`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Token usage tracking for LLM inference.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `prompt_tokens` | `int` | `0` |
 | `completion_tokens` | `int` | `0` |
@@ -1118,512 +1203,236 @@ Attributes and fields:
 | `time_to_first_token_ms` | `float` | `0.0` |
 | `kv_cache_usage_mb` | `float` | `0.0` |
 
-### Class: `StorageAdapter`
+### `StorageAdapter`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for blob storage backends.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `put_blob` | `async def put_blob(self, digest: str, data: bytes) -> str` |  | Store blob, return storage path. |
-| `get_blob` | `async def get_blob(self, digest: str) -> bytes` |  | Retrieve blob by digest. |
-| `has_blob` | `async def has_blob(self, digest: str) -> bool` |  | Check if blob exists. |
-| `delete_blob` | `async def delete_blob(self, digest: str) -> None` |  | Delete blob. |
-| `list_blobs` | `async def list_blobs(self) -> list[str]` |  | List all blob digests. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `put_blob` | `async def put_blob(self, digest: str, data: bytes)` | Store blob, return storage path. |
+| `get_blob` | `async def get_blob(self, digest: str)` | Retrieve blob by digest. |
+| `has_blob` | `async def has_blob(self, digest: str)` | Check if blob exists. |
+| `delete_blob` | `async def delete_blob(self, digest: str)` | Delete blob. |
+| `list_blobs` | `async def list_blobs(self)` | List all blob digests. |
 
-### Class: `Runtime`
+### `Runtime`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for model runtime backends.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Prepare runtime with modelpack artifacts. |
-| `load` | `async def load(self) -> None` |  | Load model into memory. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Run inference on a batch. |
-| `health` | `async def health(self) -> dict[str, Any]` |  | Health check. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Collect runtime metrics. |
-| `unload` | `async def unload(self) -> None` |  | Unload model and free resources. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` | Prepare runtime with modelpack artifacts. |
+| `load` | `async def load(self)` | Load model into memory. |
+| `infer` | `async def infer(self, batch: BatchRequest)` | Run inference on a batch. |
+| `health` | `async def health(self)` | Health check. |
+| `metrics` | `async def metrics(self)` | Collect runtime metrics. |
+| `unload` | `async def unload(self)` | Unload model and free resources. |
 
-### Class: `StreamingRuntime`
+### `StreamingRuntime`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for runtimes that support streaming inference (LLMs).
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Method. |
-| `load` | `async def load(self) -> None` |  | Method. |
-| `unload` | `async def unload(self) -> None` |  | Method. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Non-streaming inference. |
-| `stream_infer` | `async def stream_infer(self, request: InferenceRequest) -> AsyncIterator[StreamChunk]` |  | Stream tokens one at a time. |
-| `health` | `async def health(self) -> dict[str, Any]` |  | Method. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Method. |
-| `token_usage` | `async def token_usage(self) -> TokenUsage` |  | Return current token usage stats. |
-| `memory_info` | `async def memory_info(self) -> dict[str, Any]` |  | Return memory/device usage info. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` |  |
+| `load` | `async def load(self)` |  |
+| `unload` | `async def unload(self)` |  |
+| `infer` | `async def infer(self, batch: BatchRequest)` | Non-streaming inference. |
+| `stream_infer` | `async def stream_infer(self, request: InferenceRequest)` | Stream tokens one at a time. |
+| `health` | `async def health(self)` |  |
+| `metrics` | `async def metrics(self)` |  |
+| `token_usage` | `async def token_usage(self)` | Return current token usage stats. |
+| `memory_info` | `async def memory_info(self)` | Return memory/device usage info. |
 
-### Class: `PluginHook`
+### `PluginHook`
 
 - Source: `aquilia/mlops/_types.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for plugin lifecycle hooks.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_load` | `async def on_load(self, context: dict[str, Any]) -> None` |  | Method. |
-| `on_prepare` | `async def on_prepare(self, manifest: ModelpackManifest) -> None` |  | Method. |
-| `on_infer` | `async def on_infer(self, batch: BatchRequest, results: list[InferenceResult]) -> None` |  | Method. |
-| `on_stream_chunk` | `async def on_stream_chunk(self, chunk: StreamChunk) -> None` |  | Method. |
-| `on_unload` | `async def on_unload(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_load` | `async def on_load(self, context: dict[str, Any])` |  |
+| `on_prepare` | `async def on_prepare(self, manifest: ModelpackManifest)` |  |
+| `on_infer` | `async def on_infer(self, batch: BatchRequest, results: list[InferenceResult])` |  |
+| `on_stream_chunk` | `async def on_stream_chunk(self, chunk: StreamChunk)` |  |
+| `on_unload` | `async def on_unload(self)` |  |
 
-### Class: `TensorSpecBlueprint`
+### `TensorSpecBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates and renders tensor specifications.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `name` |  | `TextFacet(max_length=128)` |
-| `dtype` |  | `TextFacet(max_length=32)` |
-| `shape` |  | `ListFacet(required=True)` |
-
-### Class: `BlobRefBlueprint`
+### `BlobRefBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates blob references.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `path` |  | `TextFacet(max_length=512)` |
-| `digest` |  | `TextFacet(max_length=128)` |
-| `size` |  | `IntFacet(min_value=0)` |
-
-### Class: `ProvenanceBlueprint`
+### `ProvenanceBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates provenance metadata.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `git_sha` |  | `TextFacet(max_length=64, required=False, default='')` |
-| `dataset_snapshot` |  | `TextFacet(max_length=256, required=False, default='')` |
-| `dockerfile` |  | `TextFacet(max_length=256, required=False, default='')` |
-| `build_timestamp` |  | `TextFacet(max_length=64, required=False, default='')` |
-
-### Class: `ModelpackManifestBlueprint`
+### `ModelpackManifestBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Full manifest blueprint with deep validation.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `name` |  | `TextFacet(max_length=256)` |
-| `version` |  | `TextFacet(max_length=64)` |
-| `framework` |  | `ChoiceFacet(choices=[f.value for f in Framework], required=False, default='custom')` |
-| `entrypoint` |  | `TextFacet(max_length=256, required=False, default='')` |
-| `env_lock` |  | `TextFacet(max_length=128, required=False, default='env.lock')` |
-| `created_at` |  | `TextFacet(required=False, default='')` |
-| `signed_by` |  | `TextFacet(max_length=256, required=False, default='')` |
-| `metadata` |  | `DictFacet(required=False, default=dict)` |
-
-### Class: `InferenceRequestBlueprint`
+### `InferenceRequestBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates incoming inference request payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `request_id` |  | `TextFacet(max_length=128)` |
-| `inputs` |  | `DictFacet(required=True)` |
-| `parameters` |  | `DictFacet(required=False, default=dict)` |
-
-### Class: `InferenceResultBlueprint`
+### `InferenceResultBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders inference results for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `request_id` |  | `ReadOnly()` |
-| `outputs` |  | `DictFacet()` |
-| `latency_ms` |  | `FloatFacet(min_value=0.0)` |
-| `metadata` |  | `DictFacet(required=False, default=dict)` |
-
-### Class: `DriftReportBlueprint`
+### `DriftReportBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders drift detection reports.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `method` |  | `ChoiceFacet(choices=[m.value for m in DriftMethod])` |
-| `score` |  | `FloatFacet()` |
-| `threshold` |  | `FloatFacet()` |
-| `is_drifted` |  | `BoolFacet()` |
-| `feature_scores` |  | `DictFacet(required=False, default=dict)` |
-| `window_start` |  | `TextFacet(required=False, default='')` |
-| `window_end` |  | `TextFacet(required=False, default='')` |
-
-### Class: `RolloutConfigBlueprint`
+### `RolloutConfigBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates rollout configuration payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `from_version` |  | `TextFacet(max_length=64)` |
-| `to_version` |  | `TextFacet(max_length=64)` |
-| `strategy` |  | `ChoiceFacet(choices=[s.value for s in RolloutStrategy], required=False, default='canary')` |
-| `percentage` |  | `IntFacet(min_value=0, max_value=100, required=False, default=10)` |
-| `metric` |  | `TextFacet(max_length=64, required=False, default='latency_p95')` |
-| `threshold` |  | `FloatFacet(required=False, default=0.0)` |
-| `auto_rollback` |  | `BoolFacet(required=False, default=True)` |
-| `step_interval_seconds` |  | `IntFacet(min_value=1, required=False, default=300)` |
-
-### Class: `RolloutStateBlueprint`
+### `RolloutStateBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders rollout state for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `id` |  | `ReadOnly()` |
-| `phase` |  | `ReadOnly()` |
-| `current_percentage` |  | `IntFacet()` |
-| `steps_completed` |  | `IntFacet()` |
-| `started_at` |  | `FloatFacet()` |
-| `completed_at` |  | `FloatFacet()` |
-| `error` |  | `TextFacet(required=False, default='')` |
-
-### Class: `ScalingPolicyBlueprint`
+### `ScalingPolicyBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates autoscaler policy configuration.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `min_replicas` |  | `IntFacet(min_value=0, required=False, default=1)` |
-| `max_replicas` |  | `IntFacet(min_value=1, required=False, default=10)` |
-| `target_concurrency` |  | `FloatFacet(min_value=0.1, required=False, default=10.0)` |
-| `target_latency_p95_ms` |  | `FloatFacet(min_value=0.0, required=False, default=100.0)` |
-| `scale_up_threshold` |  | `FloatFacet(min_value=0.0, max_value=1.0, required=False, default=0.8)` |
-| `scale_down_threshold` |  | `FloatFacet(min_value=0.0, max_value=1.0, required=False, default=0.3)` |
-| `cooldown_seconds` |  | `IntFacet(min_value=0, required=False, default=60)` |
-
-### Class: `NodeInfoBlueprint`
+### `NodeInfoBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates compute node registration payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `node_id` |  | `TextFacet(max_length=128)` |
-| `device_type` |  | `ChoiceFacet(choices=['cpu', 'gpu', 'npu'], required=False, default='cpu')` |
-| `total_memory_mb` |  | `FloatFacet(min_value=0.0, required=False, default=0.0)` |
-| `available_memory_mb` |  | `FloatFacet(min_value=0.0, required=False, default=0.0)` |
-| `current_load` |  | `FloatFacet(min_value=0.0, max_value=1.0, required=False, default=0.0)` |
-| `gpu_available` |  | `BoolFacet(required=False, default=False)` |
-
-### Class: `PlacementRequestBlueprint`
+### `PlacementRequestBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates model placement request payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `model_name` |  | `TextFacet(max_length=256)` |
-| `model_size_mb` |  | `FloatFacet(min_value=0.0)` |
-| `preferred_device` |  | `ChoiceFacet(choices=['cpu', 'gpu', 'npu', 'any'], required=False, default='any')` |
-| `gpu_required` |  | `BoolFacet(required=False, default=False)` |
-
-### Class: `PluginDescriptorBlueprint`
+### `PluginDescriptorBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders plugin descriptor for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `name` |  | `ReadOnly()` |
-| `version` |  | `ReadOnly()` |
-| `module` |  | `ReadOnly()` |
-| `state` |  | `ReadOnly()` |
-| `error` |  | `TextFacet(required=False, default='')` |
-| `metadata` |  | `DictFacet(required=False, default=dict)` |
-
-### Class: `MetricsSummaryBlueprint`
+### `MetricsSummaryBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders metrics summary for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `model_name` |  | `ReadOnly()` |
-| `model_version` |  | `ReadOnly()` |
-
-### Class: `LLMConfigBlueprint`
+### `LLMConfigBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates LLM configuration payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `max_tokens` |  | `IntFacet(min_value=1, required=False, default=512)` |
-| `temperature` |  | `FloatFacet(min_value=0.0, max_value=2.0, required=False, default=1.0)` |
-| `top_k` |  | `IntFacet(min_value=1, required=False, default=50)` |
-| `top_p` |  | `FloatFacet(min_value=0.0, max_value=1.0, required=False, default=1.0)` |
-| `repetition_penalty` |  | `FloatFacet(min_value=0.0, required=False, default=1.0)` |
-| `stop_sequences` |  | `ListFacet(required=False, default=list)` |
-| `context_length` |  | `IntFacet(min_value=1, required=False, default=2048)` |
-| `dtype` |  | `TextFacet(max_length=16, required=False, default='float16')` |
-| `device_map` |  | `TextFacet(max_length=32, required=False, default='auto')` |
-| `quantize` |  | `ChoiceFacet(choices=[q.value for q in QuantizePreset], required=False, default='none')` |
-| `trust_remote_code` |  | `BoolFacet(required=False, default=False)` |
-
-### Class: `StreamChunkBlueprint`
+### `StreamChunkBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders a single streaming token/chunk for SSE responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `request_id` |  | `ReadOnly()` |
-| `token` |  | `TextFacet(required=False, default='')` |
-| `token_index` |  | `IntFacet(min_value=0)` |
-| `finish_reason` |  | `TextFacet(required=False, default='')` |
-| `logprob` |  | `FloatFacet(required=False)` |
-
-### Class: `TokenUsageBlueprint`
+### `TokenUsageBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders token usage statistics for LLM inference.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `prompt_tokens` |  | `IntFacet(min_value=0)` |
-| `completion_tokens` |  | `IntFacet(min_value=0)` |
-| `total_tokens` |  | `IntFacet(min_value=0)` |
-
-### Class: `LLMInferenceRequestBlueprint`
+### `LLMInferenceRequestBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates incoming LLM inference request payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `request_id` |  | `TextFacet(max_length=128)` |
-| `inputs` |  | `DictFacet(required=True)` |
-| `parameters` |  | `DictFacet(required=False, default=dict)` |
-| `priority` |  | `IntFacet(min_value=0, max_value=10, required=False, default=5)` |
-| `stream` |  | `BoolFacet(required=False, default=False)` |
-| `max_tokens` |  | `IntFacet(min_value=1, required=False, default=512)` |
-| `timeout_ms` |  | `FloatFacet(min_value=0.0, required=False, default=30000.0)` |
-| `temperature` |  | `FloatFacet(min_value=0.0, max_value=2.0, required=False, default=1.0)` |
-| `top_k` |  | `IntFacet(min_value=1, required=False, default=50)` |
-
-### Class: `LLMInferenceResultBlueprint`
+### `LLMInferenceResultBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders LLM inference results including token metrics.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `request_id` |  | `ReadOnly()` |
-| `outputs` |  | `DictFacet()` |
-| `latency_ms` |  | `FloatFacet(min_value=0.0)` |
-| `token_count` |  | `IntFacet(min_value=0, required=False, default=0)` |
-| `prompt_tokens` |  | `IntFacet(min_value=0, required=False, default=0)` |
-| `finish_reason` |  | `TextFacet(required=False, default='')` |
-| `metadata` |  | `DictFacet(required=False, default=dict)` |
-| `usage` |  | `DictFacet(required=False, default=dict)` |
-
-### Class: `ChatMessageBlueprint`
+### `ChatMessageBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates a single chat message.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `role` |  | `ChoiceFacet(choices=['system', 'user', 'assistant', 'function'], required=True)` |
-| `content` |  | `TextFacet(required=True)` |
-| `name` |  | `TextFacet(max_length=64, required=False, default='')` |
-
-### Class: `ChatRequestBlueprint`
+### `ChatRequestBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Validates chat-style LLM request payloads.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `messages` |  | `ListFacet(required=True)` |
-| `model` |  | `TextFacet(max_length=256, required=False, default='')` |
-| `stream` |  | `BoolFacet(required=False, default=False)` |
-| `max_tokens` |  | `IntFacet(min_value=1, required=False, default=512)` |
-| `temperature` |  | `FloatFacet(min_value=0.0, max_value=2.0, required=False, default=1.0)` |
-| `top_k` |  | `IntFacet(min_value=1, required=False, default=50)` |
-| `top_p` |  | `FloatFacet(min_value=0.0, max_value=1.0, required=False, default=1.0)` |
-| `stop` |  | `ListFacet(required=False, default=list)` |
-
-### Class: `ChatResponseBlueprint`
+### `ChatResponseBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders chat-style LLM response.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `id` |  | `ReadOnly()` |
-| `model` |  | `ReadOnly()` |
-| `choices` |  | `ListFacet()` |
-| `usage` |  | `DictFacet(required=False, default=dict)` |
-| `created` |  | `FloatFacet(required=False)` |
-
-### Class: `CircuitBreakerStatusBlueprint`
+### `CircuitBreakerStatusBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders circuit breaker state for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `state` |  | `ChoiceFacet(choices=['closed', 'open', 'half_open'])` |
-| `failure_count` |  | `IntFacet(min_value=0)` |
-| `success_count` |  | `IntFacet(min_value=0)` |
-| `total_requests` |  | `IntFacet(min_value=0)` |
-| `total_rejections` |  | `IntFacet(min_value=0)` |
-| `last_failure_time` |  | `FloatFacet(required=False, default=0.0)` |
-
-### Class: `RateLimiterStatusBlueprint`
+### `RateLimiterStatusBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders rate limiter state for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `rate_rps` |  | `FloatFacet(min_value=0.0)` |
-| `capacity` |  | `IntFacet(min_value=0)` |
-| `available_tokens` |  | `FloatFacet(min_value=0.0)` |
-
-### Class: `MemoryStatusBlueprint`
+### `MemoryStatusBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders memory tracker state for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `current_mb` |  | `FloatFacet(min_value=0.0)` |
-| `soft_limit_mb` |  | `FloatFacet(min_value=0.0)` |
-| `hard_limit_mb` |  | `FloatFacet(min_value=0.0)` |
-| `utilization_pct` |  | `FloatFacet(min_value=0.0, max_value=100.0)` |
-| `exceeds_soft` |  | `BoolFacet()` |
-| `exceeds_hard` |  | `BoolFacet()` |
-
-### Class: `ModelCapabilitiesBlueprint`
+### `ModelCapabilitiesBlueprint`
 
 - Source: `aquilia/mlops/api/blueprints.py`
 - Bases: `Blueprint`
 - Summary: Renders model capabilities for API responses.
 
-Attributes and fields:
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `model_name` |  | `ReadOnly()` |
-| `model_type` |  | `ChoiceFacet(choices=[t.value for t in ModelType], required=False, default='SLM')` |
-| `supports_streaming` |  | `BoolFacet(required=False, default=False)` |
-| `supports_chat` |  | `BoolFacet(required=False, default=False)` |
-| `inference_modes` |  | `ListFacet(required=False, default=list)` |
-| `device` |  | `TextFacet(required=False, default='cpu')` |
-| `max_context_length` |  | `IntFacet(min_value=0, required=False, default=0)` |
-
-### Class: `AquiliaModel`
+### `AquiliaModel`
 
 - Source: `aquilia/mlops/api/model_class.py`
 - Bases: `object`
@@ -1631,34 +1440,34 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `async def load(self, artifacts_dir: str, device: str) -> None` |  | Load model weights / artifacts into memory. |
-| `unload` | `async def unload(self) -> None` |  | Release model resources. Called during shutdown or hot reload. |
-| `predict` | `async def predict(self, inputs: dict[str, Any]) -> dict[str, Any]` |  | Run inference on preprocessed inputs. |
-| `preprocess` | `async def preprocess(self, inputs: dict[str, Any]) -> dict[str, Any]` |  | Transform raw inputs before prediction. |
-| `postprocess` | `async def postprocess(self, outputs: dict[str, Any]) -> dict[str, Any]` |  | Transform prediction outputs before returning to client. |
-| `health` | `async def health(self) -> dict[str, Any]` |  | Custom health check. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Custom metrics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `async def load(self, artifacts_dir: str, device: str)` | Load model weights / artifacts into memory. |
+| `unload` | `async def unload(self)` | Release model resources. Called during shutdown or hot reload. |
+| `predict` | `async def predict(self, inputs: dict[str, Any])` | Run inference on preprocessed inputs. |
+| `preprocess` | `async def preprocess(self, inputs: dict[str, Any])` | Transform raw inputs before prediction. |
+| `postprocess` | `async def postprocess(self, outputs: dict[str, Any])` | Transform prediction outputs before returning to client. |
+| `health` | `async def health(self)` | Custom health check. |
+| `metrics` | `async def metrics(self)` | Custom metrics. |
 
-### Class: `RouteDefinition`
+### `RouteDefinition`
 
 - Source: `aquilia/mlops/api/route_generator.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A generated route definition ready for controller compilation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `method` | `str` |  |
-| `path` | `str` |  |
-| `handler` | `Callable` |  |
+| `method` | `str` | `` |
+| `path` | `str` | `` |
+| `handler` | `Callable` | `` |
 | `model_name` | `str` | `''` |
 | `description` | `str` | `''` |
 
-### Class: `RouteGenerator`
+### `RouteGenerator`
 
 - Source: `aquilia/mlops/api/route_generator.py`
 - Bases: `object`
@@ -1666,258 +1475,258 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate` | `def generate(self) -> list[RouteDefinition]` |  | Generate all route definitions for all registered models. |
-| `route_table` | `def route_table(self) -> list[dict[str, str]]` |  | Return a human-readable route table. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate` | `def generate(self)` | Generate all route definitions for all registered models. |
+| `route_table` | `def route_table(self)` | Return a human-readable route table. |
 
-### Class: `MLOpsConfig`
+### `MLOpsConfig`
 
 - Source: `aquilia/mlops/di/providers.py`
 - Bases: `object`
 - Summary: Typed configuration for MLOps DI registration.
 
-### Class: `MLOpsFault`
+### `MLOpsFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `Fault`
 - Summary: Base fault for all MLOps operations.
 
-### Class: `PackFault`
+### `PackFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for model packaging.
 
-### Class: `PackBuildFault`
+### `PackBuildFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `PackFault`
 - Summary: Model pack build failed.
 
-### Class: `PackIntegrityFault`
+### `PackIntegrityFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `PackFault`
 - Summary: Blob integrity check failed (SHA-256 mismatch) or structural issue.
 
-### Class: `PackSignatureFault`
+### `PackSignatureFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `PackFault`
 - Summary: Artifact signature verification failed.
 
-### Class: `RegistryFault`
+### `RegistryFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for registry operations.
 
-### Class: `RegistryConnectionFault`
+### `RegistryConnectionFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `RegistryFault`
 - Summary: Cannot connect to registry backend.
 
-### Class: `PackNotFoundFault`
+### `PackNotFoundFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `RegistryFault`
 - Summary: Requested modelpack not found in registry.
 
-### Class: `ImmutabilityViolationFault`
+### `ImmutabilityViolationFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `RegistryFault`
 - Summary: Attempted to overwrite an immutable artifact.
 
-### Class: `ServingFault`
+### `ServingFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for model serving.
 
-### Class: `RuntimeLoadFault`
+### `RuntimeLoadFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `ServingFault`
 - Summary: Model failed to load into runtime.
 
-### Class: `InferenceFault`
+### `InferenceFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `ServingFault`
 - Summary: Inference failed for a request.
 
-### Class: `BatchTimeoutFault`
+### `BatchTimeoutFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `ServingFault`
 - Summary: Batch processing exceeded deadline.
 
-### Class: `WarmupFault`
+### `WarmupFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `ServingFault`
 - Summary: Model warm-up failed.
 
-### Class: `ObserveFault`
+### `ObserveFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for observability.
 
-### Class: `DriftDetectionFault`
+### `DriftDetectionFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `ObserveFault`
 - Summary: Drift detection computation failed.
 
-### Class: `MetricsExportFault`
+### `MetricsExportFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `ObserveFault`
 - Summary: Metrics export/scrape failed.
 
-### Class: `RolloutFault`
+### `RolloutFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for release management.
 
-### Class: `RolloutAdvanceFault`
+### `RolloutAdvanceFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `RolloutFault`
 - Summary: Rollout advancement failed due to metric degradation.
 
-### Class: `AutoRollbackFault`
+### `AutoRollbackFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `RolloutFault`
 - Summary: Automatic rollback triggered.
 
-### Class: `SchedulerFault`
+### `SchedulerFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for scheduling.
 
-### Class: `PlacementFault`
+### `PlacementFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `SchedulerFault`
 - Summary: No suitable node found for model placement.
 
-### Class: `ScalingFault`
+### `ScalingFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `SchedulerFault`
 - Summary: Scaling operation failed.
 
-### Class: `MLOpsSecurityFault`
+### `MLOpsSecurityFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for MLOps security.
 
-### Class: `SigningFault`
+### `SigningFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsSecurityFault`
 - Summary: Artifact signing failed.
 
-### Class: `PermissionDeniedFault`
+### `PermissionDeniedFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsSecurityFault`
 - Summary: User lacks required RBAC permission.
 
-### Class: `EncryptionFault`
+### `EncryptionFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsSecurityFault`
 - Summary: Encryption / decryption operation failed.
 
-### Class: `PluginFault`
+### `PluginFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for plugin operations.
 
-### Class: `PluginLoadFault`
+### `PluginLoadFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `PluginFault`
 - Summary: Plugin failed to load.
 
-### Class: `PluginHookFault`
+### `PluginHookFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `PluginFault`
 - Summary: Plugin hook execution failed.
 
-### Class: `CircuitBreakerFault`
+### `CircuitBreakerFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for circuit breaker events.
 
-### Class: `CircuitBreakerOpenFault`
+### `CircuitBreakerOpenFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `CircuitBreakerFault`
 - Summary: Circuit breaker is OPEN -- requests are being rejected.
 
-### Class: `CircuitBreakerExhaustedFault`
+### `CircuitBreakerExhaustedFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `CircuitBreakerFault`
 - Summary: Circuit breaker half-open probe failed -- returning to OPEN state.
 
-### Class: `RateLimitFault`
+### `RateLimitFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Request rejected due to rate limiting.
 
-### Class: `StreamingFault`
+### `StreamingFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for streaming inference.
 
-### Class: `StreamInterruptedFault`
+### `StreamInterruptedFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `StreamingFault`
 - Summary: Streaming generation was interrupted (client disconnect, timeout, etc.).
 
-### Class: `TokenLimitExceededFault`
+### `TokenLimitExceededFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `StreamingFault`
 - Summary: Token generation exceeded max_tokens limit.
 
-### Class: `MemoryFault`
+### `MemoryFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MLOpsFault`
 - Summary: Base fault for memory management.
 
-### Class: `MemorySoftLimitFault`
+### `MemorySoftLimitFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MemoryFault`
 - Summary: Memory usage crossed soft limit -- eviction candidates available.
 
-### Class: `MemoryHardLimitFault`
+### `MemoryHardLimitFault`
 
 - Source: `aquilia/mlops/engine/faults.py`
 - Bases: `MemoryFault`
 - Summary: Memory usage crossed hard limit -- requests must be rejected.
 
-### Class: `HookRegistry`
+### `HookRegistry`
 
 - Source: `aquilia/mlops/engine/hooks.py`
 - Bases: `object`
@@ -1925,25 +1734,25 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get` | `def get(self, kind: str) -> list[Callable]` |  | Get hooks by kind name. |
-| `has` | `def has(self, kind: str) -> bool` |  | Check if any hooks of this kind are registered. |
-| `summary` | `def summary(self) -> dict[str, int]` |  | Return counts of registered hooks per kind. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get` | `def get(self, kind: str)` | Get hooks by kind name. |
+| `has` | `def has(self, kind: str)` | Check if any hooks of this kind are registered. |
+| `summary` | `def summary(self)` | Return counts of registered hooks per kind. |
 
-### Class: `MLOpsManifest`
+### `MLOpsManifest`
 
 - Source: `aquilia/mlops/engine/module.py`
 - Bases: `object`
 - Summary: Aquilary-compatible manifest for the MLOps subsystem.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` |  | `'mlops'` |
-| `version` |  | `'1.0.0'` |
-| `description` |  | `'Aquilia MLOps Platform -- model packaging, registry, serving & observability'` |
+| `name` | `` | `'mlops'` |
+| `version` | `` | `'1.0.0'` |
+| `description` | `` | `'Aquilia MLOps Platform -- model packaging, registry, serving & observability'` |
 | `depends_on` | `list[str]` | `[]` |
 | `controllers` | `list[str]` | `['aquilia.mlops.serving.controllers.MLOpsController']` |
 | `services` | `list[str]` | `['aquilia.mlops.registry.service.RegistryService', 'aquilia.mlops.observe.metrics.MetricsCollector', 'aquilia.mlops.observe.drift.DriftDetector', 'aquilia.mlops.observe.logger.PredictionLogger', 'aquilia.mlops.serving.server.ModelServingServer', 'aquilia.mlops.serving.batching.DynamicBatcher', 'aquilia.mlops.plugins.host.PluginHost', 'aquilia.mlops.release.rollout.RolloutEngine', 'aquilia.mlops.scheduler.autoscaler.Autoscaler', 'aquilia.mlops.scheduler.placement.PlacementScheduler', 'aquilia.mlops.security.rbac.RBACManager', 'aquilia.mlops.security.signing.ArtifactSigner', 'aquilia.mlops.security.encryption.EncryptionManager', 'aquilia.mlops._structures.CircuitBreaker', 'aquilia.mlops._structures.TokenBucketRateLimiter', 'aquilia.mlops._structures.MemoryTracker']` |
@@ -1953,23 +1762,23 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `on_startup` | `async def on_startup(config: dict[str, Any] &#124; None = None, **kwargs: Any) -> None` | staticmethod | Method. |
-| `on_shutdown` | `async def on_shutdown(**kwargs: Any) -> None` | staticmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `on_startup` | `async def on_startup(config: dict[str, Any] \| None=None, **kwargs: Any)` |  |
+| `on_shutdown` | `async def on_shutdown(**kwargs: Any)` |  |
 
-### Class: `PipelineContext`
+### `PipelineContext`
 
 - Source: `aquilia/mlops/engine/pipeline.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Per-request context flowing through the pipeline.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `request_id` | `str` |  |
+| `request_id` | `str` | `` |
 | `model_name` | `str` | `''` |
 | `model_version` | `str` | `''` |
 | `trace_id` | `str` | `''` |
@@ -1977,7 +1786,7 @@ Attributes and fields:
 | `stage_timings` | `dict[str, float]` | `field(default_factory=dict)` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `InferencePipeline`
+### `InferencePipeline`
 
 - Source: `aquilia/mlops/engine/pipeline.py`
 - Bases: `object`
@@ -1985,121 +1794,121 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `execute` | `async def execute(self, request: InferenceRequest, model_name: str = '', model_version: str = '') -> InferenceResult` |  | Execute the full inference pipeline for a single request. |
-| `execute_batch` | `async def execute_batch(self, requests: list[InferenceRequest], model_name: str = '', model_version: str = '') -> list[InferenceResult]` |  | Execute the pipeline for multiple requests concurrently. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `execute` | `async def execute(self, request: InferenceRequest, model_name: str='', model_version: str='')` | Execute the full inference pipeline for a single request. |
+| `execute_batch` | `async def execute_batch(self, requests: list[InferenceRequest], model_name: str='', model_version: str='')` | Execute the pipeline for multiple requests concurrently. |
 
-### Class: `ExplainMethod`
+### `ExplainMethod`
 
 - Source: `aquilia/mlops/explain/hooks.py`
 - Bases: `str, Enum`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SHAP_KERNEL` |  | `'shap_kernel'` |
-| `SHAP_TREE` |  | `'shap_tree'` |
-| `SHAP_DEEP` |  | `'shap_deep'` |
-| `LIME_TABULAR` |  | `'lime_tabular'` |
-| `LIME_TEXT` |  | `'lime_text'` |
-| `LIME_IMAGE` |  | `'lime_image'` |
+| `SHAP_KERNEL` | `` | `'shap_kernel'` |
+| `SHAP_TREE` | `` | `'shap_tree'` |
+| `SHAP_DEEP` | `` | `'shap_deep'` |
+| `LIME_TABULAR` | `` | `'lime_tabular'` |
+| `LIME_TEXT` | `` | `'lime_text'` |
+| `LIME_IMAGE` | `` | `'lime_image'` |
 
-### Class: `FeatureAttribution`
+### `FeatureAttribution`
 
 - Source: `aquilia/mlops/explain/hooks.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Single feature's contribution.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `value` | `float` |  |
-| `base_value` | `float` |  |
+| `name` | `str` | `` |
+| `value` | `float` | `` |
+| `base_value` | `float` | `` |
 
-### Class: `Explanation`
+### `Explanation`
 
 - Source: `aquilia/mlops/explain/hooks.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Complete explanation for one prediction.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `method` | `ExplainMethod` |  |
-| `attributions` | `list[FeatureAttribution]` |  |
+| `method` | `ExplainMethod` | `` |
+| `attributions` | `list[FeatureAttribution]` | `` |
 | `prediction` | `Any` | `None` |
 | `extra` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `top_k` | `def top_k(self) -> list[FeatureAttribution]` | property | Top 10 features by absolute attribution. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `top_k` | `def top_k(self)` | Top 10 features by absolute attribution. |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SHAPExplainer`
-
-- Source: `aquilia/mlops/explain/hooks.py`
-- Bases: `object`
-- Summary: Wraps ``shap.KernelExplainer``, ``shap.TreeExplainer`` or
-
-Methods:
-
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `explain` | `def explain(self, instance: Any, **kwargs: Any) -> Explanation` |  | Compute SHAP values for *instance* (single row). |
-
-### Class: `LIMEExplainer`
+### `SHAPExplainer`
 
 - Source: `aquilia/mlops/explain/hooks.py`
 - Bases: `object`
-- Summary: Wraps ``lime.lime_tabular.LimeTabularExplainer`` (default) or
+- Summary: Wraps ``shap.KernelExplainer``, ``shap.TreeExplainer`` or ``shap.DeepExplainer`` behind a single ``explain()`` call.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `explain` | `def explain(self, instance: Any, **kwargs: Any) -> Explanation` |  | Explain a single instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `explain` | `def explain(self, instance: Any, **kwargs: Any)` | Compute SHAP values for *instance* (single row). |
 
-### Class: `PIIKind`
+### `LIMEExplainer`
+
+- Source: `aquilia/mlops/explain/hooks.py`
+- Bases: `object`
+- Summary: Wraps ``lime.lime_tabular.LimeTabularExplainer`` (default) or ``lime.lime_text.LimeTextExplainer`` behind a single ``explain()`` call.
+
+Methods:
+
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `explain` | `def explain(self, instance: Any, **kwargs: Any)` | Explain a single instance. |
+
+### `PIIKind`
 
 - Source: `aquilia/mlops/explain/privacy.py`
 - Bases: `str, Enum`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `EMAIL` |  | `'email'` |
-| `PHONE` |  | `'phone'` |
-| `SSN` |  | `'ssn'` |
-| `CREDIT_CARD` |  | `'credit_card'` |
-| `IP_ADDRESS` |  | `'ip_address'` |
-| `CUSTOM` |  | `'custom'` |
+| `EMAIL` | `` | `'email'` |
+| `PHONE` | `` | `'phone'` |
+| `SSN` | `` | `'ssn'` |
+| `CREDIT_CARD` | `` | `'credit_card'` |
+| `IP_ADDRESS` | `` | `'ip_address'` |
+| `CUSTOM` | `` | `'custom'` |
 
-### Class: `PIIMatch`
+### `PIIMatch`
 
 - Source: `aquilia/mlops/explain/privacy.py`
 - Bases: `object`
-- Decorators: `dataclass`
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `kind` | `PIIKind` |  |
-| `start` | `int` |  |
-| `end` | `int` |  |
-| `text` | `str` |  |
+| `kind` | `PIIKind` | `` |
+| `start` | `int` | `` |
+| `end` | `int` | `` |
+| `text` | `str` | `` |
 
-### Class: `PIIRedactor`
+### `PIIRedactor`
 
 - Source: `aquilia/mlops/explain/privacy.py`
 - Bases: `object`
@@ -2107,13 +1916,13 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `scan` | `def scan(self, text: str) -> list[PIIMatch]` |  | Return all PII matches found in *text*. |
-| `redact` | `def redact(self, text: str) -> str` |  | Return *text* with all PII replaced. |
-| `redact_dict` | `def redact_dict(self, data: dict[str, Any]) -> dict[str, Any]` |  | Recursively redact string values in a dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `scan` | `def scan(self, text: str)` | Return all PII matches found in *text*. |
+| `redact` | `def redact(self, text: str)` | Return *text* with all PII replaced. |
+| `redact_dict` | `def redact_dict(self, data: dict[str, Any])` | Recursively redact string values in a dict. |
 
-### Class: `LaplaceNoise`
+### `LaplaceNoise`
 
 - Source: `aquilia/mlops/explain/privacy.py`
 - Bases: `object`
@@ -2121,38 +1930,38 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_noise` | `def add_noise(self, value: float) -> float` |  | Return *value* + Laplace(0, scale). |
-| `add_noise_array` | `def add_noise_array(self, values: Sequence[float]) -> list[float]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_noise` | `def add_noise(self, value: float)` | Return *value* + Laplace(0, scale). |
+| `add_noise_array` | `def add_noise_array(self, values: Sequence[float])` |  |
 
-### Class: `InputSanitiser`
+### `InputSanitiser`
 
 - Source: `aquilia/mlops/explain/privacy.py`
 - Bases: `object`
-- Summary: Pipeline of transforms applied to inference payloads before they
+- Summary: Pipeline of transforms applied to inference payloads before they reach the model.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_transform` | `def add_transform(self, fn: Callable[[dict[str, Any]], dict[str, Any]]) -> InputSanitiser` |  | Method. |
-| `sanitise` | `def sanitise(self, payload: dict[str, Any]) -> dict[str, Any]` |  | Method. |
-| `default` | `def default(cls) -> InputSanitiser` | classmethod | Pre-configured sanitiser with PII redaction. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_transform` | `def add_transform(self, fn: Callable[[dict[str, Any]], dict[str, Any]])` |  |
+| `sanitise` | `def sanitise(self, payload: dict[str, Any])` |  |
+| `default` | `def default(cls)` | Pre-configured sanitiser with PII redaction. |
 
-### Class: `ModelManifestEntry`
+### `ModelManifestEntry`
 
 - Source: `aquilia/mlops/manifest/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Configuration for a single model from the manifest.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `class_path` | `str` |  |
+| `name` | `str` | `` |
+| `class_path` | `str` | `` |
 | `version` | `str` | `'v1'` |
 | `device` | `str` | `'auto'` |
 | `batch_size` | `int` | `16` |
@@ -2167,21 +1976,21 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `resolve_class` | `def resolve_class(self) -> Any` |  | Import and return the model class from its dotted path. |
-| `to_config_dict` | `def to_config_dict(self) -> dict[str, Any]` |  | Convert to a config dict for ModelRegistry.register(). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `resolve_class` | `def resolve_class(self)` | Import and return the model class from its dotted path. |
+| `to_config_dict` | `def to_config_dict(self)` | Convert to a config dict for ModelRegistry.register(). |
 
-### Class: `MLOpsManifestConfig`
+### `MLOpsManifestConfig`
 
 - Source: `aquilia/mlops/manifest/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Parsed ``[mlops]`` configuration from Aquilia workspace config.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `default_device` | `str` | `'auto'` |
@@ -2192,13 +2001,13 @@ Attributes and fields:
 | `route_prefix` | `str` | `'/mlops'` |
 | `models` | `list[ModelManifestEntry]` | `field(default_factory=list)` |
 
-### Class: `ManifestValidationError`
+### `ManifestValidationError`
 
 - Source: `aquilia/mlops/manifest/schema.py`
 - Bases: `ValueError`
 - Summary: Raised when manifest validation fails.
 
-### Class: `DriftDetector`
+### `DriftDetector`
 
 - Source: `aquilia/mlops/observe/drift.py`
 - Bases: `object`
@@ -2206,13 +2015,13 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `set_reference` | `def set_reference(self, data: dict[str, Sequence[float]]) -> None` |  | Set the reference (training) distribution. |
-| `detect` | `def detect(self, current: dict[str, Sequence[float]], window_start: str = '', window_end: str = '') -> DriftReport` |  | Run drift detection against the reference distribution. |
-| `check` | `def check(self, reference: Sequence[float], current: Sequence[float], feature_name: str = 'feature') -> DriftReport` |  | Quick single-feature drift check (no need to set reference first). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `set_reference` | `def set_reference(self, data: dict[str, Sequence[float]])` | Set the reference (training) distribution. |
+| `detect` | `def detect(self, current: dict[str, Sequence[float]], window_start: str='', window_end: str='')` | Run drift detection against the reference distribution. |
+| `check` | `def check(self, reference: Sequence[float], current: Sequence[float], feature_name: str='feature')` | Quick single-feature drift check (no need to set reference first). |
 
-### Class: `PredictionLogger`
+### `PredictionLogger`
 
 - Source: `aquilia/mlops/observe/logger.py`
 - Bases: `object`
@@ -2220,29 +2029,29 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `set_sink` | `def set_sink(self, sink: Callable[[dict[str, Any]], None]) -> None` |  | Set a custom log sink function. |
-| `log` | `def log(self, request: InferenceRequest, result: InferenceResult, *, force: bool = False) -> bool` |  | Log a request/result pair (subject to sampling). |
-| `get_log_count` | `def get_log_count(self) -> int` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `set_sink` | `def set_sink(self, sink: Callable[[dict[str, Any]], None])` | Set a custom log sink function. |
+| `log` | `def log(self, request: InferenceRequest, result: InferenceResult, *, force: bool=False)` | Log a request/result pair (subject to sampling). |
+| `get_log_count` | `def get_log_count(self)` |  |
 
-### Class: `MetricPoint`
+### `MetricPoint`
 
 - Source: `aquilia/mlops/observe/metrics.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Single metric data point.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `value` | `float` |  |
+| `name` | `str` | `` |
+| `value` | `float` | `` |
 | `labels` | `dict[str, str]` | `field(default_factory=dict)` |
 | `timestamp` | `float` | `field(default_factory=time.time)` |
 
-### Class: `MetricsCollector`
+### `MetricsCollector`
 
 - Source: `aquilia/mlops/observe/metrics.py`
 - Bases: `object`
@@ -2250,41 +2059,41 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `total_inferences` | `def total_inferences(self) -> int` | property | Total number of inference requests processed. |
-| `total_tokens` | `def total_tokens(self) -> int` | property | Total tokens generated across all requests. |
-| `inc` | `def inc(self, name: str, value: float = 1.0) -> None` |  | Increment a counter. |
-| `set_gauge` | `def set_gauge(self, name: str, value: float) -> None` |  | Set a gauge value. |
-| `observe` | `def observe(self, name: str, value: float) -> None` |  | Record a histogram observation (bounded ring buffer). |
-| `inc_for_model` | `def inc_for_model(self, model_name: str, name: str, value: float = 1.0) -> None` |  | Increment a counter scoped to a specific model. |
-| `observe_for_model` | `def observe_for_model(self, model_name: str, name: str, value: float) -> None` |  | Record a histogram observation scoped to a specific model. |
-| `model_summary` | `def model_summary(self, model_name: str) -> dict[str, Any]` |  | Get metrics summary scoped to a specific model. |
-| `record_inference` | `def record_inference(self, latency_ms: float, batch_size: int = 1, error: bool = False, model_name: str = '', token_count: int = 0, prompt_tokens: int = 0, streaming: bool = False, time_to_first_token_ms: float = 0.0) -> None` |  | Record an inference event (convenience method). |
-| `hot_models` | `def hot_models(self, k: int = 10) -> list` |  | Return the top-K most-active models. |
-| `percentile` | `def percentile(self, name: str, p: float) -> float` |  | Compute p-th percentile for a histogram metric. |
-| `ewma` | `def ewma(self, name: str) -> float` |  | Return the EWMA-smoothed value for a metric. |
-| `get_summary` | `def get_summary(self) -> dict[str, Any]` |  | Get a summary of all metrics as a dict. |
-| `to_prometheus` | `def to_prometheus(self) -> str` |  | Export all metrics in Prometheus text exposition format. |
-| `reset` | `def reset(self) -> None` |  | Reset all metrics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `total_inferences` | `def total_inferences(self)` | Total number of inference requests processed. |
+| `total_tokens` | `def total_tokens(self)` | Total tokens generated across all requests. |
+| `inc` | `def inc(self, name: str, value: float=1.0)` | Increment a counter. |
+| `set_gauge` | `def set_gauge(self, name: str, value: float)` | Set a gauge value. |
+| `observe` | `def observe(self, name: str, value: float)` | Record a histogram observation (bounded ring buffer). |
+| `inc_for_model` | `def inc_for_model(self, model_name: str, name: str, value: float=1.0)` | Increment a counter scoped to a specific model. |
+| `observe_for_model` | `def observe_for_model(self, model_name: str, name: str, value: float)` | Record a histogram observation scoped to a specific model. |
+| `model_summary` | `def model_summary(self, model_name: str)` | Get metrics summary scoped to a specific model. |
+| `record_inference` | `def record_inference(self, latency_ms: float, batch_size: int=1, error: bool=False, model_name: str='', token_count: int=0, prompt_tokens: int=0, streaming: bool=False, time_to_first_token_ms: float=0.0)` | Record an inference event (convenience method). |
+| `hot_models` | `def hot_models(self, k: int=10)` | Return the top-K most-active models. |
+| `percentile` | `def percentile(self, name: str, p: float)` | Compute p-th percentile for a histogram metric. |
+| `ewma` | `def ewma(self, name: str)` | Return the EWMA-smoothed value for a metric. |
+| `get_summary` | `def get_summary(self)` | Get a summary of all metrics as a dict. |
+| `to_prometheus` | `def to_prometheus(self)` | Export all metrics in Prometheus text exposition format. |
+| `reset` | `def reset(self)` | Reset all metrics. |
 
-### Class: `ExportResult`
+### `ExportResult`
 
 - Source: `aquilia/mlops/optimizer/export.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of an edge export.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `target` | `str` |  |
-| `output_path` | `str` |  |
-| `size_bytes` | `int` |  |
-| `notes` | `list[str]` |  |
+| `target` | `str` | `` |
+| `output_path` | `str` | `` |
+| `size_bytes` | `int` | `` |
+| `notes` | `list[str]` | `` |
 
-### Class: `EdgeExporter`
+### `EdgeExporter`
 
 - Source: `aquilia/mlops/optimizer/export.py`
 - Bases: `object`
@@ -2292,30 +2101,30 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `export` | `async def export(self, model_path: str, target: ExportTarget, output_dir: str = '.', optimize: bool = True) -> ExportResult` |  | Export model to edge target format. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `export` | `async def export(self, model_path: str, target: ExportTarget, output_dir: str='.', optimize: bool=True)` | Export model to edge target format. |
 
-### Class: `OptimizationResult`
+### `OptimizationResult`
 
 - Source: `aquilia/mlops/optimizer/pipeline.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Result of an optimization pass.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `original_size_bytes` | `int` |  |
-| `optimized_size_bytes` | `int` |  |
-| `original_path` | `str` |  |
-| `optimized_path` | `str` |  |
-| `preset` | `str` |  |
+| `original_size_bytes` | `int` | `` |
+| `optimized_size_bytes` | `int` | `` |
+| `original_path` | `str` | `` |
+| `optimized_path` | `str` | `` |
+| `preset` | `str` | `` |
 | `compression_ratio` | `float` | `0.0` |
 | `notes` | `list[str]` | `None` |
 
-### Class: `OptimizationPipeline`
+### `OptimizationPipeline`
 
 - Source: `aquilia/mlops/optimizer/pipeline.py`
 - Bases: `object`
@@ -2323,17 +2132,17 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `run` | `async def run(self, model_path: str, preset: QuantizePreset = QuantizePreset.DYNAMIC, output_dir: str = '.') -> OptimizationResult` |  | Run optimization pipeline. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `run` | `async def run(self, model_path: str, preset: QuantizePreset=QuantizePreset.DYNAMIC, output_dir: str='.')` | Run optimization pipeline. |
 
-### Class: `LoadedModel`
+### `LoadedModel`
 
 - Source: `aquilia/mlops/orchestrator/loader.py`
 - Bases: `object`
 - Summary: Container for a loaded model instance and its associated resources.
 
-### Class: `ModelLoader`
+### `ModelLoader`
 
 - Source: `aquilia/mlops/orchestrator/loader.py`
 - Bases: `object`
@@ -2341,18 +2150,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `ensure_loaded` | `async def ensure_loaded(self, name: str, version: str) -> LoadedModel` |  | Ensure a model is loaded and return its ``LoadedModel``. |
-| `hot_reload` | `async def hot_reload(self, name: str, new_version: str) -> LoadedModel` |  | Hot-reload a model to a new version. |
-| `unload` | `async def unload(self, name: str, version: str) -> bool` |  | Unload a specific model version. |
-| `unload_all` | `async def unload_all(self) -> None` |  | Unload all loaded models (shutdown). |
-| `is_loaded` | `def is_loaded(self, name: str, version: str) -> bool` |  | Check if a model version is currently loaded. |
-| `get_loaded` | `def get_loaded(self, name: str, version: str) -> LoadedModel &#124; None` |  | Get a loaded model instance if available. |
-| `loaded_models` | `def loaded_models(self) -> list[str]` |  | List all currently loaded model keys. |
-| `summary` | `def summary(self) -> dict[str, Any]` |  | Summary for health endpoints. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `ensure_loaded` | `async def ensure_loaded(self, name: str, version: str)` | Ensure a model is loaded and return its ``LoadedModel``. |
+| `hot_reload` | `async def hot_reload(self, name: str, new_version: str)` | Hot-reload a model to a new version. |
+| `unload` | `async def unload(self, name: str, version: str)` | Unload a specific model version. |
+| `unload_all` | `async def unload_all(self)` | Unload all loaded models (shutdown). |
+| `is_loaded` | `def is_loaded(self, name: str, version: str)` | Check if a model version is currently loaded. |
+| `get_loaded` | `def get_loaded(self, name: str, version: str)` | Get a loaded model instance if available. |
+| `loaded_models` | `def loaded_models(self)` | List all currently loaded model keys. |
+| `summary` | `def summary(self)` | Summary for health endpoints. |
 
-### Class: `ModelOrchestrator`
+### `ModelOrchestrator`
 
 - Source: `aquilia/mlops/orchestrator/orchestrator.py`
 - Bases: `object`
@@ -2360,37 +2169,37 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `predict` | `async def predict(self, model_name: str, inputs: dict[str, Any], parameters: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, request_id: str = '') -> InferenceResult` |  | Run a prediction through the full orchestrated pipeline. |
-| `predict_batch` | `async def predict_batch(self, model_name: str, batch_inputs: list[dict[str, Any]], parameters: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None) -> list[InferenceResult]` |  | Run batch predictions. |
-| `stream_predict` | `async def stream_predict(self, model_name: str, inputs: dict[str, Any], parameters: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, request_id: str = '') -> AsyncIterator[StreamChunk]` |  | Stream inference for LLM models. |
-| `get_health` | `async def get_health(self, model_name: str &#124; None = None) -> dict[str, Any]` |  | Get health status for one model or all models. |
-| `get_metrics` | `async def get_metrics(self, model_name: str &#124; None = None) -> dict[str, Any]` |  | Get metrics for one model or all models. |
-| `list_models` | `async def list_models(self) -> list[dict[str, Any]]` |  | List all registered models with their status. |
-| `reload_model` | `async def reload_model(self, model_name: str, version: str) -> dict[str, Any]` |  | Hot-reload a model to a specific version. |
-| `unload_model` | `async def unload_model(self, model_name: str, version: str &#124; None = None) -> bool` |  | Unload a specific model version. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Graceful shutdown -- unload all models. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `predict` | `async def predict(self, model_name: str, inputs: dict[str, Any], parameters: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, request_id: str='')` | Run a prediction through the full orchestrated pipeline. |
+| `predict_batch` | `async def predict_batch(self, model_name: str, batch_inputs: list[dict[str, Any]], parameters: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None)` | Run batch predictions. |
+| `stream_predict` | `async def stream_predict(self, model_name: str, inputs: dict[str, Any], parameters: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, request_id: str='')` | Stream inference for LLM models. |
+| `get_health` | `async def get_health(self, model_name: str \| None=None)` | Get health status for one model or all models. |
+| `get_metrics` | `async def get_metrics(self, model_name: str \| None=None)` | Get metrics for one model or all models. |
+| `list_models` | `async def list_models(self)` | List all registered models with their status. |
+| `reload_model` | `async def reload_model(self, model_name: str, version: str)` | Hot-reload a model to a specific version. |
+| `unload_model` | `async def unload_model(self, model_name: str, version: str \| None=None)` | Unload a specific model version. |
+| `shutdown` | `async def shutdown(self)` | Graceful shutdown -- unload all models. |
 
-### Class: `ModelBundle`
+### `ModelBundle`
 
 - Source: `aquilia/mlops/orchestrator/persistence.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A complete model bundle ready for persistence.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
-| `weights_path` | `Path` |  |
-| `metadata` | `dict[str, Any]` |  |
-| `framework` | `str` |  |
-| `dtype` | `str` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
+| `weights_path` | `Path` | `` |
+| `metadata` | `dict[str, Any]` | `` |
+| `framework` | `str` | `` |
+| `dtype` | `str` | `` |
 
-### Class: `ModelLoader`
+### `ModelLoader`
 
 - Source: `aquilia/mlops/orchestrator/persistence.py`
 - Bases: `abc.ABC`
@@ -2398,11 +2207,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `def load(self, path: Path, **kwargs) -> Any` | abc.abstractmethod | Load model from path. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `def load(self, path: Path, **kwargs)` | Load model from path. |
 
-### Class: `ModelSaver`
+### `ModelSaver`
 
 - Source: `aquilia/mlops/orchestrator/persistence.py`
 - Bases: `abc.ABC`
@@ -2410,11 +2219,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save` | `def save(self, model: Any, path: Path, **kwargs) -> None` | abc.abstractmethod | Save model to path. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save` | `def save(self, model: Any, path: Path, **kwargs)` | Save model to path. |
 
-### Class: `PyTorchModelLoader`
+### `PyTorchModelLoader`
 
 - Source: `aquilia/mlops/orchestrator/persistence.py`
 - Bases: `ModelLoader`
@@ -2422,11 +2231,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load` | `def load(self, path: Path, device: str = 'cpu', **kwargs) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load` | `def load(self, path: Path, device: str='cpu', **kwargs)` |  |
 
-### Class: `PyTorchModelSaver`
+### `PyTorchModelSaver`
 
 - Source: `aquilia/mlops/orchestrator/persistence.py`
 - Bases: `ModelSaver`
@@ -2434,11 +2243,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `save` | `def save(self, model: Any, path: Path, **kwargs) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `save` | `def save(self, model: Any, path: Path, **kwargs)` |  |
 
-### Class: `ModelPersistenceManager`
+### `ModelPersistenceManager`
 
 - Source: `aquilia/mlops/orchestrator/persistence.py`
 - Bases: `object`
@@ -2446,22 +2255,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register_framework` | `def register_framework(self, name: str, loader: ModelLoader, saver: ModelSaver)` |  | Method. |
-| `save_bundle` | `async def save_bundle(self, bundle: ModelBundle) -> Path` |  | Save a complete model bundle. |
-| `load_model` | `async def load_model(self, name: str, version: str, device: str = 'cpu') -> Any` |  | Load a model by name and version. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register_framework` | `def register_framework(self, name: str, loader: ModelLoader, saver: ModelSaver)` |  |
+| `save_bundle` | `async def save_bundle(self, bundle: ModelBundle)` | Save a complete model bundle. |
+| `load_model` | `async def load_model(self, name: str, version: str, device: str='cpu')` | Load a model by name and version. |
 
-### Class: `ModelConfig`
+### `ModelConfig`
 
 - Source: `aquilia/mlops/orchestrator/registry.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Per-model configuration (from manifest or decorator).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `device` | `str` | `'auto'` |
 | `batch_size` | `int` | `16` |
@@ -2474,24 +2283,24 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_dict` | `def from_dict(cls, d: dict[str, Any]) -> ModelConfig` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_dict` | `def from_dict(cls, d: dict[str, Any])` |  |
 
-### Class: `ModelEntry`
+### `ModelEntry`
 
 - Source: `aquilia/mlops/orchestrator/registry.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Registry entry for a single model version.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
-| `model_class` | `Any` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
+| `model_class` | `Any` | `` |
 | `config` | `ModelConfig` | `field(default_factory=ModelConfig)` |
 | `state` | `ModelState` | `ModelState.UNLOADED` |
 | `registered_at` | `float` | `field(default_factory=time.time)` |
@@ -2500,12 +2309,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `key` | `def key(self) -> str` | property | Unique key for this model version. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize for API responses. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `key` | `def key(self)` | Unique key for this model version. |
+| `to_dict` | `def to_dict(self)` | Serialize for API responses. |
 
-### Class: `ModelRegistry`
+### `ModelRegistry`
 
 - Source: `aquilia/mlops/orchestrator/registry.py`
 - Bases: `object`
@@ -2513,60 +2322,60 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `async def register(self, name: str, model_class: Any, version: str = 'v1', config: dict[str, Any] &#124; None = None, supports_streaming: bool = False, tags: list[str] &#124; None = None, set_active: bool = True) -> ModelEntry` |  | Register a model (metadata only -- no loading). |
-| `register_sync` | `def register_sync(self, name: str, model_class: Any, version: str = 'v1', config: dict[str, Any] &#124; None = None, supports_streaming: bool = False, tags: list[str] &#124; None = None, set_active: bool = True) -> ModelEntry` |  | Synchronous registration (for use at import time via decorators). |
-| `get` | `def get(self, name: str, version: str &#124; None = None) -> ModelEntry &#124; None` |  | Get a model entry by name and optional version. |
-| `get_active_version` | `def get_active_version(self, name: str) -> str &#124; None` |  | Get the active version for a model. |
-| `list_models` | `def list_models(self) -> list[str]` |  | List all unique model names. |
-| `list_versions` | `def list_versions(self, name: str) -> list[str]` |  | List all versions of a model. |
-| `list_entries` | `def list_entries(self) -> list[ModelEntry]` |  | List all model entries. |
-| `has` | `def has(self, name: str, version: str &#124; None = None) -> bool` |  | Check if a model (and optionally a specific version) is registered. |
-| `update_state` | `def update_state(self, name: str, version: str, state: ModelState) -> None` |  | Update the lifecycle state of a model entry. |
-| `set_active_version` | `async def set_active_version(self, name: str, version: str) -> bool` |  | Set the active version for a model. |
-| `unregister` | `async def unregister(self, name: str, version: str) -> bool` |  | Remove a model version from the registry. |
-| `summary` | `def summary(self) -> dict[str, Any]` |  | Summary for health/debug endpoints. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `async def register(self, name: str, model_class: Any, version: str='v1', config: dict[str, Any] \| None=None, supports_streaming: bool=False, tags: list[str] \| None=None, set_active: bool=True)` | Register a model (metadata only -- no loading). |
+| `register_sync` | `def register_sync(self, name: str, model_class: Any, version: str='v1', config: dict[str, Any] \| None=None, supports_streaming: bool=False, tags: list[str] \| None=None, set_active: bool=True)` | Synchronous registration (for use at import time via decorators). |
+| `get` | `def get(self, name: str, version: str \| None=None)` | Get a model entry by name and optional version. |
+| `get_active_version` | `def get_active_version(self, name: str)` | Get the active version for a model. |
+| `list_models` | `def list_models(self)` | List all unique model names. |
+| `list_versions` | `def list_versions(self, name: str)` | List all versions of a model. |
+| `list_entries` | `def list_entries(self)` | List all model entries. |
+| `has` | `def has(self, name: str, version: str \| None=None)` | Check if a model (and optionally a specific version) is registered. |
+| `update_state` | `def update_state(self, name: str, version: str, state: ModelState)` | Update the lifecycle state of a model entry. |
+| `set_active_version` | `async def set_active_version(self, name: str, version: str)` | Set the active version for a model. |
+| `unregister` | `async def unregister(self, name: str, version: str)` | Remove a model version from the registry. |
+| `summary` | `def summary(self)` | Summary for health/debug endpoints. |
 
-### Class: `CanaryConfig`
+### `CanaryConfig`
 
 - Source: `aquilia/mlops/orchestrator/router.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Active canary configuration for a model.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `canary_version` | `str` |  |
-| `base_version` | `str` |  |
+| `canary_version` | `str` | `` |
+| `base_version` | `str` | `` |
 | `percentage` | `float` | `10.0` |
 
-### Class: `VersionRouter`
+### `VersionRouter`
 
 - Source: `aquilia/mlops/orchestrator/router.py`
 - Bases: `object`
 - Summary: Routes inference requests to the correct model version.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `VERSION_HEADER` |  | `'x-model-version'` |
+| `VERSION_HEADER` | `` | `'x-model-version'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `route` | `async def route(self, model_name: str, headers: dict[str, str] &#124; None = None, metadata: dict[str, Any] &#124; None = None) -> str` |  | Resolve which model version should handle this request. |
-| `set_canary` | `def set_canary(self, model_name: str, canary_version: str, percentage: float = 10.0, base_version: str &#124; None = None) -> None` |  | Configure canary routing for a model. |
-| `clear_canary` | `def clear_canary(self, model_name: str) -> None` |  | Remove canary routing for a model. |
-| `get_canary` | `def get_canary(self, model_name: str) -> CanaryConfig &#124; None` |  | Get the active canary config for a model. |
-| `has_canary` | `def has_canary(self, model_name: str) -> bool` |  | Check if a canary is active for a model. |
-| `summary` | `def summary(self) -> dict[str, Any]` |  | Canary routing summary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `route` | `async def route(self, model_name: str, headers: dict[str, str] \| None=None, metadata: dict[str, Any] \| None=None)` | Resolve which model version should handle this request. |
+| `set_canary` | `def set_canary(self, model_name: str, canary_version: str, percentage: float=10.0, base_version: str \| None=None)` | Configure canary routing for a model. |
+| `clear_canary` | `def clear_canary(self, model_name: str)` | Remove canary routing for a model. |
+| `get_canary` | `def get_canary(self, model_name: str)` | Get the active canary config for a model. |
+| `has_canary` | `def has_canary(self, model_name: str)` | Check if a canary is active for a model. |
+| `summary` | `def summary(self)` | Canary routing summary. |
 
-### Class: `VersionManager`
+### `VersionManager`
 
 - Source: `aquilia/mlops/orchestrator/versioning.py`
 - Bases: `object`
@@ -2574,14 +2383,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `promote` | `async def promote(self, name: str, from_version: str, to_tag: str = 'active') -> bool` |  | Promote a model version to the active slot. |
-| `rollback` | `async def rollback(self, name: str) -> str &#124; None` |  | Roll back to the previous active version. |
-| `history` | `def history(self, name: str) -> list[str]` |  | Return the version rollback history for a model. |
-| `can_rollback` | `def can_rollback(self, name: str) -> bool` |  | Check if a rollback is available. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `promote` | `async def promote(self, name: str, from_version: str, to_tag: str='active')` | Promote a model version to the active slot. |
+| `rollback` | `async def rollback(self, name: str)` | Roll back to the previous active version. |
+| `history` | `def history(self, name: str)` | Return the version rollback history for a model. |
+| `can_rollback` | `def can_rollback(self, name: str)` | Check if a rollback is available. |
 
-### Class: `ModelpackBuilder`
+### `ModelpackBuilder`
 
 - Source: `aquilia/mlops/pack/builder.py`
 - Bases: `object`
@@ -2589,19 +2398,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_model` | `def add_model(self, path: str, *, framework: str &#124; None = None, entrypoint: bool = True) -> ModelpackBuilder` |  | Add a model file to the pack. |
-| `add_file` | `def add_file(self, path: str) -> ModelpackBuilder` |  | Add an auxiliary file to the pack. |
-| `add_env_lock` | `def add_env_lock(self, path: str) -> ModelpackBuilder` |  | Set the environment lock file. |
-| `set_signature` | `def set_signature(self, inputs: list[TensorSpec], outputs: list[TensorSpec]) -> ModelpackBuilder` |  | Set the inference signature. |
-| `set_provenance` | `def set_provenance(self, git_sha: str = '', dataset_snapshot: str = '', dockerfile: str = '') -> ModelpackBuilder` |  | Set provenance metadata. |
-| `set_metadata` | `def set_metadata(self, **kwargs: Any) -> ModelpackBuilder` |  | Set arbitrary metadata key-value pairs. |
-| `save` | `async def save(self, output_dir: str = '.', *, content_store: ContentStore &#124; None = None, sign_key: str &#124; None = None) -> str` |  | Build the ``.aquilia`` archive and return its path. |
-| `unpack` | `async def unpack(archive_path: str, output_dir: str = '.') -> ModelpackManifest` | staticmethod | Unpack a ``.aquilia`` archive and return its manifest. |
-| `inspect` | `async def inspect(archive_path: str) -> ModelpackManifest` | staticmethod | Read manifest from archive without full extraction. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_model` | `def add_model(self, path: str, *, framework: str \| None=None, entrypoint: bool=True)` | Add a model file to the pack. |
+| `add_file` | `def add_file(self, path: str)` | Add an auxiliary file to the pack. |
+| `add_env_lock` | `def add_env_lock(self, path: str)` | Set the environment lock file. |
+| `set_signature` | `def set_signature(self, inputs: list[TensorSpec], outputs: list[TensorSpec])` | Set the inference signature. |
+| `set_provenance` | `def set_provenance(self, git_sha: str='', dataset_snapshot: str='', dockerfile: str='')` | Set provenance metadata. |
+| `set_metadata` | `def set_metadata(self, **kwargs: Any)` | Set arbitrary metadata key-value pairs. |
+| `save` | `async def save(self, output_dir: str='.', *, content_store: ContentStore \| None=None, sign_key: str \| None=None)` | Build the ``.aquilia`` archive and return its path. |
+| `unpack` | `async def unpack(archive_path: str, output_dir: str='.')` | Unpack a ``.aquilia`` archive and return its manifest. |
+| `inspect` | `async def inspect(archive_path: str)` | Read manifest from archive without full extraction. |
 
-### Class: `ContentStore`
+### `ContentStore`
 
 - Source: `aquilia/mlops/pack/content_store.py`
 - Bases: `object`
@@ -2609,23 +2418,23 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `store` | `async def store(self, digest: str, data: bytes) -> str` |  | Store blob by digest. Idempotent -- skips if already exists. |
-| `retrieve` | `async def retrieve(self, digest: str) -> bytes` |  | Retrieve blob by digest. |
-| `exists` | `async def exists(self, digest: str) -> bool` |  | Check if blob exists. |
-| `delete` | `async def delete(self, digest: str) -> None` |  | Delete blob by digest. |
-| `list_digests` | `async def list_digests(self) -> list[str]` |  | List all stored blob digests. |
-| `gc` | `async def gc(self, referenced_digests: set[str]) -> int` |  | Garbage-collect unreferenced blobs. |
-| `size_bytes` | `def size_bytes(self) -> int` | property | Total size of all stored blobs in bytes. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `store` | `async def store(self, digest: str, data: bytes)` | Store blob by digest. Idempotent -- skips if already exists. |
+| `retrieve` | `async def retrieve(self, digest: str)` | Retrieve blob by digest. |
+| `exists` | `async def exists(self, digest: str)` | Check if blob exists. |
+| `delete` | `async def delete(self, digest: str)` | Delete blob by digest. |
+| `list_digests` | `async def list_digests(self)` | List all stored blob digests. |
+| `gc` | `async def gc(self, referenced_digests: set[str])` | Garbage-collect unreferenced blobs. |
+| `size_bytes` | `def size_bytes(self)` | Total size of all stored blobs in bytes. |
 
-### Class: `SignatureError`
+### `SignatureError`
 
 - Source: `aquilia/mlops/pack/signer.py`
 - Bases: `Exception`
 - Summary: Raised when signature verification fails.
 
-### Class: `HMACSigner`
+### `HMACSigner`
 
 - Source: `aquilia/mlops/pack/signer.py`
 - Bases: `object`
@@ -2633,12 +2442,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `def sign(self, data: bytes) -> str` |  | Produce an HMAC-SHA256 hex signature. |
-| `verify` | `def verify(self, data: bytes, signature: str) -> bool` |  | Verify an HMAC-SHA256 hex signature. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `def sign(self, data: bytes)` | Produce an HMAC-SHA256 hex signature. |
+| `verify` | `def verify(self, data: bytes, signature: str)` | Verify an HMAC-SHA256 hex signature. |
 
-### Class: `RSASigner`
+### `RSASigner`
 
 - Source: `aquilia/mlops/pack/signer.py`
 - Bases: `object`
@@ -2646,86 +2455,86 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `def sign(self, data: bytes) -> bytes` |  | Sign data with RSA private key. |
-| `verify` | `def verify(self, data: bytes, signature: bytes) -> bool` |  | Verify RSA signature with public key. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `def sign(self, data: bytes)` | Sign data with RSA private key. |
+| `verify` | `def verify(self, data: bytes, signature: bytes)` | Verify RSA signature with public key. |
 
-### Class: `HealthCheckPlugin`
+### `HealthCheckPlugin`
 
 - Source: `aquilia/mlops/plugins/example_plugin.py`
 - Bases: `object`
 - Summary: Minimal example plugin implementing the ``PluginHook`` protocol.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` |  | `'health-check'` |
-| `version` |  | `'0.1.0'` |
+| `name` | `` | `'health-check'` |
+| `version` | `` | `'0.1.0'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `activate` | `def activate(self, ctx: dict[str, Any]) -> None` |  | Method. |
-| `deactivate` | `def deactivate(self) -> None` |  | Method. |
-| `stats` | `def stats(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `activate` | `def activate(self, ctx: dict[str, Any])` |  |
+| `deactivate` | `def deactivate(self)` |  |
+| `stats` | `def stats(self)` |  |
 
-### Class: `PluginState`
+### `PluginState`
 
 - Source: `aquilia/mlops/plugins/host.py`
 - Bases: `str, Enum`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `DISCOVERED` |  | `'discovered'` |
-| `LOADED` |  | `'loaded'` |
-| `ACTIVATED` |  | `'activated'` |
-| `DEACTIVATED` |  | `'deactivated'` |
-| `ERROR` |  | `'error'` |
+| `DISCOVERED` | `` | `'discovered'` |
+| `LOADED` | `` | `'loaded'` |
+| `ACTIVATED` | `` | `'activated'` |
+| `DEACTIVATED` | `` | `'deactivated'` |
+| `ERROR` | `` | `'error'` |
 
-### Class: `PluginDescriptor`
+### `PluginDescriptor`
 
 - Source: `aquilia/mlops/plugins/host.py`
 - Bases: `object`
 - Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
-| `module` | `str` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
+| `module` | `str` | `` |
 | `state` | `PluginState` | `PluginState.DISCOVERED` |
 | `instance` | `Any` | `None` |
-| `error` | `str &#124; None` | `None` |
+| `error` | `str \| None` | `None` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `PluginHookProtocol`
+### `PluginHookProtocol`
 
 - Source: `aquilia/mlops/plugins/host.py`
 - Bases: `Protocol`
 - Summary: Minimal interface a plugin must satisfy.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `activate` | `def activate(self, ctx: dict[str, Any]) -> None` |  | Method. |
-| `deactivate` | `def deactivate(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `activate` | `def activate(self, ctx: dict[str, Any])` |  |
+| `deactivate` | `def deactivate(self)` |  |
 
-### Class: `PluginHost`
+### `PluginHost`
 
 - Source: `aquilia/mlops/plugins/host.py`
 - Bases: `object`
@@ -2733,42 +2542,42 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `discover_entrypoints` | `def discover_entrypoints(self) -> list[PluginDescriptor]` |  | Scan installed packages for plugins. |
-| `register` | `def register(self, plugin: Any) -> PluginDescriptor` |  | Manually register a plugin class or instance. |
-| `load` | `def load(self, name: str) -> PluginDescriptor` |  | Import and instantiate a discovered plugin. |
-| `activate` | `def activate(self, name: str, ctx: dict[str, Any] &#124; None = None) -> None` |  | Activate a loaded plugin. |
-| `deactivate` | `def deactivate(self, name: str) -> None` |  | Deactivate a running plugin. |
-| `activate_all` | `def activate_all(self, ctx: dict[str, Any] &#124; None = None) -> None` |  | Method. |
-| `deactivate_all` | `def deactivate_all(self) -> None` |  | Method. |
-| `on` | `def on(self, event: str, callback: Callable) -> None` |  | Register a hook callback for *event*. |
-| `emit` | `def emit(self, event: str, **kwargs: Any) -> list[Any]` |  | Fire all callbacks for *event* and collect results. |
-| `list_plugins` | `def list_plugins(self) -> list[PluginDescriptor]` |  | Method. |
-| `get` | `def get(self, name: str) -> PluginDescriptor &#124; None` |  | Method. |
-| `active_plugins` | `def active_plugins(self) -> list[PluginDescriptor]` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `discover_entrypoints` | `def discover_entrypoints(self)` | Scan installed packages for plugins. |
+| `register` | `def register(self, plugin: Any)` | Manually register a plugin class or instance. |
+| `load` | `def load(self, name: str)` | Import and instantiate a discovered plugin. |
+| `activate` | `def activate(self, name: str, ctx: dict[str, Any] \| None=None)` | Activate a loaded plugin. |
+| `deactivate` | `def deactivate(self, name: str)` | Deactivate a running plugin. |
+| `activate_all` | `def activate_all(self, ctx: dict[str, Any] \| None=None)` |  |
+| `deactivate_all` | `def deactivate_all(self)` |  |
+| `on` | `def on(self, event: str, callback: Callable)` | Register a hook callback for *event*. |
+| `emit` | `def emit(self, event: str, **kwargs: Any)` | Fire all callbacks for *event* and collect results. |
+| `list_plugins` | `def list_plugins(self)` |  |
+| `get` | `def get(self, name: str)` |  |
+| `active_plugins` | `def active_plugins(self)` |  |
 
-### Class: `MarketplaceEntry`
+### `MarketplaceEntry`
 
 - Source: `aquilia/mlops/plugins/marketplace.py`
 - Bases: `object`
-- Decorators: `dataclass`
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
-| `description` | `str` |  |
-| `author` | `str` |  |
-| `pypi_name` | `str` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
+| `description` | `str` | `` |
+| `author` | `str` | `` |
+| `pypi_name` | `str` | `` |
 | `homepage` | `str` | `''` |
 | `tags` | `list[str]` | `field(default_factory=list)` |
 | `downloads` | `int` | `0` |
 | `verified` | `bool` | `False` |
 
-### Class: `PluginMarketplace`
+### `PluginMarketplace`
 
 - Source: `aquilia/mlops/plugins/marketplace.py`
 - Bases: `object`
@@ -2776,14 +2585,14 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `fetch_index` | `async def fetch_index(self) -> list[MarketplaceEntry]` |  | Download the plugin index. |
-| `search` | `def search(self, query: str, *, tags: list[str] &#124; None = None, verified_only: bool = False) -> list[MarketplaceEntry]` |  | Search the cached index. |
-| `install` | `def install(self, entry_or_name: MarketplaceEntry &#124; str) -> bool` |  | Install a plugin via pip. |
-| `uninstall` | `def uninstall(self, pypi_name: str) -> bool` |  | Uninstall a plugin package. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `fetch_index` | `async def fetch_index(self)` | Download the plugin index. |
+| `search` | `def search(self, query: str, *, tags: list[str] \| None=None, verified_only: bool=False)` | Search the cached index. |
+| `install` | `def install(self, entry_or_name: MarketplaceEntry \| str)` | Install a plugin via pip. |
+| `uninstall` | `def uninstall(self, pypi_name: str)` | Uninstall a plugin package. |
 
-### Class: `RegistryDB`
+### `RegistryDB`
 
 - Source: `aquilia/mlops/registry/models.py`
 - Bases: `object`
@@ -2791,38 +2600,38 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self) -> None` |  | Create tables if they don't exist. |
-| `close` | `async def close(self) -> None` |  | Method. |
-| `insert_pack` | `async def insert_pack(self, name: str, tag: str, digest: str, manifest_json: str, signed_by: str = '') -> None` |  | Insert a pack record. Ignores if digest already exists. |
-| `get_pack` | `async def get_pack(self, name: str, tag: str) -> dict[str, Any] &#124; None` |  | Get pack by name:tag via the tags table. |
-| `get_pack_by_digest` | `async def get_pack_by_digest(self, digest: str) -> dict[str, Any] &#124; None` |  | Get pack by content digest. |
-| `list_versions` | `async def list_versions(self, name: str) -> list[dict[str, Any]]` |  | List all versions (tags) of a named pack. |
-| `list_packs` | `async def list_packs(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]` |  | List distinct pack names with latest tag info. |
-| `upsert_tag` | `async def upsert_tag(self, name: str, tag: str, digest: str) -> None` |  | Insert or update a tag pointer. |
-| `delete_tag` | `async def delete_tag(self, name: str, tag: str) -> None` |  | Delete a tag. |
-| `insert_blob` | `async def insert_blob(self, digest: str, size: int, storage_path: str = '') -> None` |  | Track a blob in the registry. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Create tables if they don't exist. |
+| `close` | `async def close(self)` |  |
+| `insert_pack` | `async def insert_pack(self, name: str, tag: str, digest: str, manifest_json: str, signed_by: str='')` | Insert a pack record. Ignores if digest already exists. |
+| `get_pack` | `async def get_pack(self, name: str, tag: str)` | Get pack by name:tag via the tags table. |
+| `get_pack_by_digest` | `async def get_pack_by_digest(self, digest: str)` | Get pack by content digest. |
+| `list_versions` | `async def list_versions(self, name: str)` | List all versions (tags) of a named pack. |
+| `list_packs` | `async def list_packs(self, limit: int=100, offset: int=0)` | List distinct pack names with latest tag info. |
+| `upsert_tag` | `async def upsert_tag(self, name: str, tag: str, digest: str)` | Insert or update a tag pointer. |
+| `delete_tag` | `async def delete_tag(self, name: str, tag: str)` | Delete a tag. |
+| `insert_blob` | `async def insert_blob(self, digest: str, size: int, storage_path: str='')` | Track a blob in the registry. |
 
-### Class: `RegistryError`
+### `RegistryError`
 
 - Source: `aquilia/mlops/registry/service.py`
 - Bases: `Exception`
 - Summary: Base error for registry operations (kept for backward compatibility).
 
-### Class: `PackNotFoundError`
+### `PackNotFoundError`
 
 - Source: `aquilia/mlops/registry/service.py`
 - Bases: `RegistryError`
 - Summary: Raised when a modelpack is not found (kept for backward compatibility).
 
-### Class: `ImmutabilityError`
+### `ImmutabilityError`
 
 - Source: `aquilia/mlops/registry/service.py`
 - Bases: `RegistryError`
 - Summary: Raised when attempting to overwrite an immutable artifact (kept for backward compatibility).
 
-### Class: `RegistryService`
+### `RegistryService`
 
 - Source: `aquilia/mlops/registry/service.py`
 - Bases: `object`
@@ -2830,21 +2639,21 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self) -> None` |  | Initialize database schema. |
-| `close` | `async def close(self) -> None` |  | Close database connections. |
-| `publish` | `async def publish(self, manifest: ModelpackManifest, blobs: dict[str, bytes] &#124; None = None, *, force: bool = False) -> str` |  | Publish a modelpack to the registry. |
-| `fetch` | `async def fetch(self, name: str, tag: str = 'latest') -> ModelpackManifest` |  | Fetch a modelpack manifest by name and tag. |
-| `fetch_by_digest` | `async def fetch_by_digest(self, digest: str) -> ModelpackManifest` |  | Fetch a modelpack by its content digest (LRU-cached). |
-| `cache_stats` | `def cache_stats(self) -> dict[str, Any]` | property | Return LRU cache hit/miss statistics. |
-| `list_versions` | `async def list_versions(self, name: str) -> list[dict[str, Any]]` |  | List all versions of a modelpack. |
-| `list_packs` | `async def list_packs(self, limit: int = 100, offset: int = 0) -> list[dict[str, Any]]` |  | List all modelpacks. |
-| `promote` | `async def promote(self, name: str, tag: str, target_tag: str) -> None` |  | Promote a modelpack tag to another tag (e.g., staging -> production). |
-| `delete` | `async def delete(self, name: str, tag: str) -> None` |  | Delete a modelpack tag (admin only). |
-| `verify` | `async def verify(self, name: str, tag: str) -> dict[str, Any]` |  | Verify integrity of a modelpack. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Initialize database schema. |
+| `close` | `async def close(self)` | Close database connections. |
+| `publish` | `async def publish(self, manifest: ModelpackManifest, blobs: dict[str, bytes] \| None=None, *, force: bool=False)` | Publish a modelpack to the registry. |
+| `fetch` | `async def fetch(self, name: str, tag: str='latest')` | Fetch a modelpack manifest by name and tag. |
+| `fetch_by_digest` | `async def fetch_by_digest(self, digest: str)` | Fetch a modelpack by its content digest (LRU-cached). |
+| `cache_stats` | `def cache_stats(self)` | Return LRU cache hit/miss statistics. |
+| `list_versions` | `async def list_versions(self, name: str)` | List all versions of a modelpack. |
+| `list_packs` | `async def list_packs(self, limit: int=100, offset: int=0)` | List all modelpacks. |
+| `promote` | `async def promote(self, name: str, tag: str, target_tag: str)` | Promote a modelpack tag to another tag (e.g., staging → production). |
+| `delete` | `async def delete(self, name: str, tag: str)` | Delete a modelpack tag (admin only). |
+| `verify` | `async def verify(self, name: str, tag: str)` | Verify integrity of a modelpack. |
 
-### Class: `BaseStorageAdapter`
+### `BaseStorageAdapter`
 
 - Source: `aquilia/mlops/registry/storage/base.py`
 - Bases: `abc.ABC`
@@ -2852,15 +2661,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `put_blob` | `async def put_blob(self, digest: str, data: bytes) -> str` | abc.abstractmethod | Store a blob, return storage path or URI. |
-| `get_blob` | `async def get_blob(self, digest: str) -> bytes` | abc.abstractmethod | Retrieve a blob by digest. |
-| `has_blob` | `async def has_blob(self, digest: str) -> bool` | abc.abstractmethod | Check if a blob exists. |
-| `delete_blob` | `async def delete_blob(self, digest: str) -> None` | abc.abstractmethod | Delete a blob. |
-| `list_blobs` | `async def list_blobs(self) -> list[str]` | abc.abstractmethod | List all blob digests. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `put_blob` | `async def put_blob(self, digest: str, data: bytes)` | Store a blob, return storage path or URI. |
+| `get_blob` | `async def get_blob(self, digest: str)` | Retrieve a blob by digest. |
+| `has_blob` | `async def has_blob(self, digest: str)` | Check if a blob exists. |
+| `delete_blob` | `async def delete_blob(self, digest: str)` | Delete a blob. |
+| `list_blobs` | `async def list_blobs(self)` | List all blob digests. |
 
-### Class: `FilesystemStorageAdapter`
+### `FilesystemStorageAdapter`
 
 - Source: `aquilia/mlops/registry/storage/filesystem.py`
 - Bases: `BaseStorageAdapter`
@@ -2868,15 +2677,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `put_blob` | `async def put_blob(self, digest: str, data: bytes) -> str` |  | Method. |
-| `get_blob` | `async def get_blob(self, digest: str) -> bytes` |  | Method. |
-| `has_blob` | `async def has_blob(self, digest: str) -> bool` |  | Method. |
-| `delete_blob` | `async def delete_blob(self, digest: str) -> None` |  | Method. |
-| `list_blobs` | `async def list_blobs(self) -> list[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `put_blob` | `async def put_blob(self, digest: str, data: bytes)` |  |
+| `get_blob` | `async def get_blob(self, digest: str)` |  |
+| `has_blob` | `async def has_blob(self, digest: str)` |  |
+| `delete_blob` | `async def delete_blob(self, digest: str)` |  |
+| `list_blobs` | `async def list_blobs(self)` |  |
 
-### Class: `S3StorageAdapter`
+### `S3StorageAdapter`
 
 - Source: `aquilia/mlops/registry/storage/s3.py`
 - Bases: `BaseStorageAdapter`
@@ -2884,43 +2693,43 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `put_blob` | `async def put_blob(self, digest: str, data: bytes) -> str` |  | Method. |
-| `get_blob` | `async def get_blob(self, digest: str) -> bytes` |  | Method. |
-| `has_blob` | `async def has_blob(self, digest: str) -> bool` |  | Method. |
-| `delete_blob` | `async def delete_blob(self, digest: str) -> None` |  | Method. |
-| `list_blobs` | `async def list_blobs(self) -> list[str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `put_blob` | `async def put_blob(self, digest: str, data: bytes)` |  |
+| `get_blob` | `async def get_blob(self, digest: str)` |  |
+| `has_blob` | `async def has_blob(self, digest: str)` |  |
+| `delete_blob` | `async def delete_blob(self, digest: str)` |  |
+| `list_blobs` | `async def list_blobs(self)` |  |
 
-### Class: `RolloutPhase`
+### `RolloutPhase`
 
 - Source: `aquilia/mlops/release/rollout.py`
 - Bases: `str, Enum`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PENDING` |  | `'pending'` |
-| `IN_PROGRESS` |  | `'in_progress'` |
-| `PAUSED` |  | `'paused'` |
-| `COMPLETED` |  | `'completed'` |
-| `ROLLED_BACK` |  | `'rolled_back'` |
-| `FAILED` |  | `'failed'` |
+| `PENDING` | `` | `'pending'` |
+| `IN_PROGRESS` | `` | `'in_progress'` |
+| `PAUSED` | `` | `'paused'` |
+| `COMPLETED` | `` | `'completed'` |
+| `ROLLED_BACK` | `` | `'rolled_back'` |
+| `FAILED` | `` | `'failed'` |
 
-### Class: `RolloutState`
+### `RolloutState`
 
 - Source: `aquilia/mlops/release/rollout.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Current state of a rollout.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str` |  |
-| `config` | `RolloutConfig` |  |
+| `id` | `str` | `` |
+| `config` | `RolloutConfig` | `` |
 | `phase` | `RolloutPhase` | `RolloutPhase.PENDING` |
 | `current_percentage` | `int` | `0` |
 | `steps_completed` | `int` | `0` |
@@ -2929,7 +2738,7 @@ Attributes and fields:
 | `metrics_history` | `list[dict[str, Any]]` | `field(default_factory=list)` |
 | `error` | `str` | `''` |
 
-### Class: `RolloutEngine`
+### `RolloutEngine`
 
 - Source: `aquilia/mlops/release/rollout.py`
 - Bases: `object`
@@ -2937,39 +2746,39 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `start` | `async def start(self, config: RolloutConfig) -> RolloutState` |  | Start a new rollout. |
-| `advance` | `async def advance(self, rollout_id: str, percentage: int &#124; None = None) -> RolloutState` |  | Advance a rollout to a higher canary percentage. |
-| `complete` | `async def complete(self, rollout_id: str) -> RolloutState` |  | Complete a rollout (100% traffic to new version). |
-| `rollback` | `async def rollback(self, rollout_id: str, reason: str = '') -> RolloutState` |  | Rollback a rollout to the original version. |
-| `get_rollout` | `def get_rollout(self, rollout_id: str) -> RolloutState &#124; None` |  | Method. |
-| `list_rollouts` | `def list_rollouts(self) -> list[RolloutState]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `start` | `async def start(self, config: RolloutConfig)` | Start a new rollout. |
+| `advance` | `async def advance(self, rollout_id: str, percentage: int \| None=None)` | Advance a rollout to a higher canary percentage. |
+| `complete` | `async def complete(self, rollout_id: str)` | Complete a rollout (100% traffic to new version). |
+| `rollback` | `async def rollback(self, rollout_id: str, reason: str='')` | Rollback a rollout to the original version. |
+| `get_rollout` | `def get_rollout(self, rollout_id: str)` |  |
+| `list_rollouts` | `def list_rollouts(self)` |  |
 
-### Class: `ModelState`
+### `ModelState`
 
 - Source: `aquilia/mlops/runtime/base.py`
 - Bases: `str, Enum`
 - Summary: Lifecycle states for a model runtime.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `UNLOADED` |  | `'unloaded'` |
-| `PREPARED` |  | `'prepared'` |
-| `LOADING` |  | `'loading'` |
-| `LOADED` |  | `'loaded'` |
-| `FAILED` |  | `'failed'` |
-| `UNLOADING` |  | `'unloading'` |
+| `UNLOADED` | `` | `'unloaded'` |
+| `PREPARED` | `` | `'prepared'` |
+| `LOADING` | `` | `'loading'` |
+| `LOADED` | `` | `'loaded'` |
+| `FAILED` | `` | `'failed'` |
+| `UNLOADING` | `` | `'unloading'` |
 
-### Class: `InvalidStateTransition`
+### `InvalidStateTransition`
 
 - Source: `aquilia/mlops/runtime/base.py`
 - Bases: `RuntimeError`
 - Summary: Raised when an illegal state transition is attempted.
 
-### Class: `BaseRuntime`
+### `BaseRuntime`
 
 - Source: `aquilia/mlops/runtime/base.py`
 - Bases: `abc.ABC`
@@ -2977,24 +2786,24 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `state` | `def state(self) -> ModelState` | property | Current model lifecycle state. |
-| `is_loaded` | `def is_loaded(self) -> bool` | property | Backward-compatible loaded check. |
-| `manifest` | `def manifest(self) -> ModelpackManifest &#124; None` | property | Method. |
-| `device` | `def device(self) -> str` | property | Method. |
-| `last_error` | `def last_error(self) -> str &#124; None` | property | Method. |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` | abc.abstractmethod | Prepare runtime with model artifacts (download, validate). |
-| `load` | `async def load(self) -> None` | abc.abstractmethod | Load model into memory / accelerator. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` | abc.abstractmethod | Run inference on a batch of requests. |
-| `preprocess` | `async def preprocess(self, raw_input: dict[str, Any]) -> dict[str, Any]` |  | Transform raw request inputs before inference. |
-| `postprocess` | `async def postprocess(self, raw_output: dict[str, Any]) -> dict[str, Any]` |  | Transform raw model outputs before returning to the client. |
-| `health` | `async def health(self) -> dict[str, Any]` |  | Health check. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Collect runtime-specific metrics. |
-| `unload` | `async def unload(self) -> None` |  | Unload model and free resources. |
-| `memory_info` | `async def memory_info(self) -> dict[str, Any]` |  | Return memory / device usage info (override in subclasses). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `state` | `def state(self)` | Current model lifecycle state. |
+| `is_loaded` | `def is_loaded(self)` | Backward-compatible loaded check. |
+| `manifest` | `def manifest(self)` |  |
+| `device` | `def device(self)` |  |
+| `last_error` | `def last_error(self)` |  |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` | Prepare runtime with model artifacts (download, validate). |
+| `load` | `async def load(self)` | Load model into memory / accelerator. |
+| `infer` | `async def infer(self, batch: BatchRequest)` | Run inference on a batch of requests. |
+| `preprocess` | `async def preprocess(self, raw_input: dict[str, Any])` | Transform raw request inputs before inference. |
+| `postprocess` | `async def postprocess(self, raw_output: dict[str, Any])` | Transform raw model outputs before returning to the client. |
+| `health` | `async def health(self)` | Health check. |
+| `metrics` | `async def metrics(self)` | Collect runtime-specific metrics. |
+| `unload` | `async def unload(self)` | Unload model and free resources. |
+| `memory_info` | `async def memory_info(self)` | Return memory / device usage info (override in subclasses). |
 
-### Class: `BaseStreamingRuntime`
+### `BaseStreamingRuntime`
 
 - Source: `aquilia/mlops/runtime/base.py`
 - Bases: `BaseRuntime`
@@ -3002,13 +2811,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `stream_infer` | `async def stream_infer(self, request: InferenceRequest) -> AsyncIterator[StreamChunk]` | abc.abstractmethod | Stream tokens one at a time. Must be an async generator. |
-| `token_usage` | `async def token_usage(self) -> TokenUsage` |  | Return lifetime token usage statistics. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Extended metrics including token stats. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `stream_infer` | `async def stream_infer(self, request: InferenceRequest)` | Stream tokens one at a time. Must be an async generator. |
+| `token_usage` | `async def token_usage(self)` | Return lifetime token usage statistics. |
+| `metrics` | `async def metrics(self)` | Extended metrics including token stats. |
 
-### Class: `BentoExporter`
+### `BentoExporter`
 
 - Source: `aquilia/mlops/runtime/bento_exporter.py`
 - Bases: `BaseRuntime`
@@ -3016,42 +2825,42 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Method. |
-| `load` | `async def load(self) -> None` |  | Method. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Method. |
-| `export_bento` | `async def export_bento(self, output_dir: str = '.') -> str` |  | Export a BentoML-compatible service file. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` |  |
+| `load` | `async def load(self)` |  |
+| `infer` | `async def infer(self, batch: BatchRequest)` |  |
+| `export_bento` | `async def export_bento(self, output_dir: str='.')` | Export a BentoML-compatible service file. |
 
-### Class: `DeviceKind`
+### `DeviceKind`
 
 - Source: `aquilia/mlops/runtime/device_manager.py`
 - Bases: `str, Enum`
 - Summary: Hardware device categories.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CPU` |  | `'cpu'` |
-| `CUDA` |  | `'cuda'` |
-| `MPS` |  | `'mps'` |
-| `NPU` |  | `'npu'` |
-| `TPU` |  | `'tpu'` |
+| `CPU` | `` | `'cpu'` |
+| `CUDA` | `` | `'cuda'` |
+| `MPS` | `` | `'mps'` |
+| `NPU` | `` | `'npu'` |
+| `TPU` | `` | `'tpu'` |
 
-### Class: `DeviceInfo`
+### `DeviceInfo`
 
 - Source: `aquilia/mlops/runtime/device_manager.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Snapshot of a single compute device.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `kind` | `DeviceKind` |  |
+| `name` | `str` | `` |
+| `kind` | `DeviceKind` | `` |
 | `index` | `int` | `0` |
 | `total_memory_mb` | `float` | `0.0` |
 | `available_memory_mb` | `float` | `0.0` |
@@ -3060,12 +2869,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `utilization` | `def utilization(self) -> float` |  | Memory utilization ratio (0.0-1.0). |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `utilization` | `def utilization(self)` | Memory utilization ratio (0.0–1.0). |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `DeviceManager`
+### `DeviceManager`
 
 - Source: `aquilia/mlops/runtime/device_manager.py`
 - Bases: `object`
@@ -3073,31 +2882,31 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `initialize` | `async def initialize(self) -> None` |  | Detect all available devices and populate the registry. |
-| `select_device` | `async def select_device(self, preference: str = 'auto', memory_required_mb: float = 0.0) -> str` |  | Select the best device for a model load. |
-| `acquire` | `def acquire(self, device_name: str) -> _DeviceGuard` |  | Acquire an exclusive lock on a device. |
-| `refresh` | `async def refresh(self, device_name: str &#124; None = None) -> None` |  | Refresh memory stats for one or all devices. |
-| `get_device` | `def get_device(self, name: str) -> DeviceInfo &#124; None` |  | Get info for a specific device. |
-| `list_devices` | `def list_devices(self) -> list[DeviceInfo]` |  | Return all known devices. |
-| `default_device` | `def default_device(self) -> str` | property | Method. |
-| `summary` | `def summary(self) -> dict[str, Any]` |  | Return a summary dict suitable for health check responses. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `initialize` | `async def initialize(self)` | Detect all available devices and populate the registry. |
+| `select_device` | `async def select_device(self, preference: str='auto', memory_required_mb: float=0.0)` | Select the best device for a model load. |
+| `acquire` | `def acquire(self, device_name: str)` | Acquire an exclusive lock on a device. |
+| `refresh` | `async def refresh(self, device_name: str \| None=None)` | Refresh memory stats for one or all devices. |
+| `get_device` | `def get_device(self, name: str)` | Get info for a specific device. |
+| `list_devices` | `def list_devices(self)` | Return all known devices. |
+| `default_device` | `def default_device(self)` |  |
+| `summary` | `def summary(self)` | Return a summary dict suitable for health check responses. |
 
-### Class: `PoolKind`
+### `PoolKind`
 
 - Source: `aquilia/mlops/runtime/executor.py`
 - Bases: `str, Enum`
 - Summary: Executor pool types.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `THREAD` |  | `'thread'` |
-| `PROCESS` |  | `'process'` |
+| `THREAD` | `` | `'thread'` |
+| `PROCESS` | `` | `'process'` |
 
-### Class: `InferenceExecutor`
+### `InferenceExecutor`
 
 - Source: `aquilia/mlops/runtime/executor.py`
 - Bases: `object`
@@ -3105,17 +2914,17 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `start` | `async def start(self) -> None` |  | Create the underlying executor pool. |
-| `shutdown` | `async def shutdown(self, timeout: float = 30.0) -> None` |  | Gracefully shut down the executor. |
-| `submit` | `async def submit(self, fn: Callable[..., T], *args: Any, **kwargs: Any) -> T` |  | Submit a blocking callable and return its result asynchronously. |
-| `is_running` | `def is_running(self) -> bool` | property | Method. |
-| `active_tasks` | `def active_tasks(self) -> int` | property | Method. |
-| `max_workers` | `def max_workers(self) -> int` | property | Method. |
-| `metrics` | `def metrics(self) -> dict` |  | Return executor metrics for health/monitoring endpoints. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `start` | `async def start(self)` | Create the underlying executor pool. |
+| `shutdown` | `async def shutdown(self, timeout: float=30.0)` | Gracefully shut down the executor. |
+| `submit` | `async def submit(self, fn: Callable[..., T], *args: Any, **kwargs: Any)` | Submit a blocking callable and return its result asynchronously. |
+| `is_running` | `def is_running(self)` |  |
+| `active_tasks` | `def active_tasks(self)` |  |
+| `max_workers` | `def max_workers(self)` |  |
+| `metrics` | `def metrics(self)` | Return executor metrics for health/monitoring endpoints. |
 
-### Class: `ONNXRuntimeAdapter`
+### `ONNXRuntimeAdapter`
 
 - Source: `aquilia/mlops/runtime/onnx_runtime.py`
 - Bases: `BaseRuntime`
@@ -3123,15 +2932,15 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Method. |
-| `load` | `async def load(self) -> None` |  | Method. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Method. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Method. |
-| `unload` | `async def unload(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` |  |
+| `load` | `async def load(self)` |  |
+| `infer` | `async def infer(self, batch: BatchRequest)` |  |
+| `metrics` | `async def metrics(self)` |  |
+| `unload` | `async def unload(self)` |  |
 
-### Class: `PythonRuntime`
+### `PythonRuntime`
 
 - Source: `aquilia/mlops/runtime/python_runtime.py`
 - Bases: `BaseStreamingRuntime`
@@ -3139,35 +2948,35 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Prepare runtime: validate manifest, detect device. |
-| `load` | `async def load(self) -> None` |  | Load model into memory, transitioning through LOADING -> LOADED. |
-| `unload` | `async def unload(self) -> None` |  | Unload model and free resources. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Method. |
-| `stream_infer` | `async def stream_infer(self, request: InferenceRequest) -> AsyncIterator[StreamChunk]` |  | Stream tokens one at a time for LLM inference. |
-| `preprocess` | `async def preprocess(self, raw_input: dict[str, Any]) -> dict[str, Any]` |  | Default preprocessing -- identity pass-through. |
-| `postprocess` | `async def postprocess(self, raw_output: dict[str, Any]) -> dict[str, Any]` |  | Default postprocessing -- identity pass-through. |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Method. |
-| `memory_info` | `async def memory_info(self) -> dict[str, Any]` |  | Return GPU/CPU memory info. |
-| `set_predict_fn` | `def set_predict_fn(self, fn: Callable) -> None` |  | Set a custom prediction function. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` | Prepare runtime: validate manifest, detect device. |
+| `load` | `async def load(self)` | Load model into memory, transitioning through LOADING → LOADED. |
+| `unload` | `async def unload(self)` | Unload model and free resources. |
+| `infer` | `async def infer(self, batch: BatchRequest)` |  |
+| `stream_infer` | `async def stream_infer(self, request: InferenceRequest)` | Stream tokens one at a time for LLM inference. |
+| `preprocess` | `async def preprocess(self, raw_input: dict[str, Any])` | Default preprocessing -- identity pass-through. |
+| `postprocess` | `async def postprocess(self, raw_output: dict[str, Any])` | Default postprocessing -- identity pass-through. |
+| `metrics` | `async def metrics(self)` |  |
+| `memory_info` | `async def memory_info(self)` | Return GPU/CPU memory info. |
+| `set_predict_fn` | `def set_predict_fn(self, fn: Callable)` | Set a custom prediction function. |
 
-### Class: `TorchServeExporter`
+### `TorchServeExporter`
 
 - Source: `aquilia/mlops/runtime/torchserve_exporter.py`
 - Bases: `BaseRuntime`
-- Summary: Export modelpacks to TorchServe ``.mar`` format and
+- Summary: Export modelpacks to TorchServe ``.mar`` format and optionally forward inference via TorchServe REST API.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Method. |
-| `load` | `async def load(self) -> None` |  | Method. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Method. |
-| `export_mar` | `async def export_mar(self, output_dir: str = '.') -> str` |  | Export a TorchServe-compatible ``.mar`` archive. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` |  |
+| `load` | `async def load(self)` |  |
+| `infer` | `async def infer(self, batch: BatchRequest)` |  |
+| `export_mar` | `async def export_mar(self, output_dir: str='.')` | Export a TorchServe-compatible ``.mar`` archive. |
 
-### Class: `TritonAdapter`
+### `TritonAdapter`
 
 - Source: `aquilia/mlops/runtime/triton_adapter.py`
 - Bases: `BaseRuntime`
@@ -3175,23 +2984,23 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str) -> None` |  | Method. |
-| `load` | `async def load(self) -> None` |  | Method. |
-| `infer` | `async def infer(self, batch: BatchRequest) -> list[InferenceResult]` |  | Method. |
-| `unload` | `async def unload(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `prepare` | `async def prepare(self, manifest: ModelpackManifest, model_dir: str)` |  |
+| `load` | `async def load(self)` |  |
+| `infer` | `async def infer(self, batch: BatchRequest)` |  |
+| `unload` | `async def unload(self)` |  |
 
-### Class: `ScalingPolicy`
+### `ScalingPolicy`
 
 - Source: `aquilia/mlops/scheduler/autoscaler.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Autoscaling policy definition.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `min_replicas` | `int` | `1` |
 | `max_replicas` | `int` | `10` |
@@ -3209,23 +3018,23 @@ Attributes and fields:
 | `token_scale_up_factor` | `float` | `0.8` |
 | `token_scale_down_factor` | `float` | `0.3` |
 
-### Class: `ScalingDecision`
+### `ScalingDecision`
 
 - Source: `aquilia/mlops/scheduler/autoscaler.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Output of a scaling evaluation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `current_replicas` | `int` |  |
-| `desired_replicas` | `int` |  |
-| `reason` | `str` |  |
+| `current_replicas` | `int` | `` |
+| `desired_replicas` | `int` | `` |
+| `reason` | `str` | `` |
 | `metrics` | `dict[str, float]` | `field(default_factory=dict)` |
 
-### Class: `Autoscaler`
+### `Autoscaler`
 
 - Source: `aquilia/mlops/scheduler/autoscaler.py`
 - Bases: `object`
@@ -3233,30 +3042,30 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `record_request` | `def record_request(self, latency_ms: float = 0.0, error: bool = False, tokens: int = 0) -> None` |  | Record a single request into the sliding windows. |
-| `record_gpu_utilization` | `def record_gpu_utilization(self, utilization: float) -> None` |  | Record GPU utilization (0.0-1.0) into the sliding window. |
-| `window_rps` | `def window_rps(self) -> float` | property | Current requests-per-second from the sliding window. |
-| `window_avg_latency` | `def window_avg_latency(self) -> float` | property | Average latency across the current window. |
-| `window_error_rate` | `def window_error_rate(self) -> float` | property | Error rate in the current window. |
-| `window_stats` | `def window_stats(self) -> dict[str, float]` | property | Summary of windowed metrics. |
-| `evaluate` | `def evaluate(self, metrics: dict[str, float] &#124; None = None) -> ScalingDecision` |  | Evaluate current metrics and decide on scaling. |
-| `apply` | `def apply(self, decision: ScalingDecision) -> None` |  | Apply a scaling decision (update internal state). |
-| `generate_hpa_manifest` | `def generate_hpa_manifest(self, deployment_name: str, namespace: str = 'default') -> dict[str, Any]` |  | Generate a Kubernetes HorizontalPodAutoscaler manifest. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `record_request` | `def record_request(self, latency_ms: float=0.0, error: bool=False, tokens: int=0)` | Record a single request into the sliding windows. |
+| `record_gpu_utilization` | `def record_gpu_utilization(self, utilization: float)` | Record GPU utilization (0.0-1.0) into the sliding window. |
+| `window_rps` | `def window_rps(self)` | Current requests-per-second from the sliding window. |
+| `window_avg_latency` | `def window_avg_latency(self)` | Average latency across the current window. |
+| `window_error_rate` | `def window_error_rate(self)` | Error rate in the current window. |
+| `window_stats` | `def window_stats(self)` | Summary of windowed metrics. |
+| `evaluate` | `def evaluate(self, metrics: dict[str, float] \| None=None)` | Evaluate current metrics and decide on scaling. |
+| `apply` | `def apply(self, decision: ScalingDecision)` | Apply a scaling decision (update internal state). |
+| `generate_hpa_manifest` | `def generate_hpa_manifest(self, deployment_name: str, namespace: str='default')` | Generate a Kubernetes HorizontalPodAutoscaler manifest. |
 
-### Class: `NodeInfo`
+### `NodeInfo`
 
 - Source: `aquilia/mlops/scheduler/placement.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Information about a compute node.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `node_id` | `str` |  |
+| `node_id` | `str` | `` |
 | `device_type` | `str` | `'cpu'` |
 | `total_memory_mb` | `float` | `0.0` |
 | `available_memory_mb` | `float` | `0.0` |
@@ -3269,19 +3078,19 @@ Attributes and fields:
 | `gpu_name` | `str` | `''` |
 | `compute_capability` | `str` | `''` |
 
-### Class: `PlacementRequest`
+### `PlacementRequest`
 
 - Source: `aquilia/mlops/scheduler/placement.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Request for model placement.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `model_name` | `str` |  |
-| `model_size_mb` | `float` |  |
+| `model_name` | `str` | `` |
+| `model_size_mb` | `float` | `` |
 | `preferred_device` | `str` | `'any'` |
 | `gpu_required` | `bool` | `False` |
 | `gpu_memory_required_mb` | `float` | `0.0` |
@@ -3289,7 +3098,7 @@ Attributes and fields:
 | `quantized` | `bool` | `False` |
 | `min_compute_capability` | `str` | `''` |
 
-### Class: `PlacementScheduler`
+### `PlacementScheduler`
 
 - Source: `aquilia/mlops/scheduler/placement.py`
 - Bases: `object`
@@ -3297,15 +3106,15 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register_node` | `def register_node(self, node: NodeInfo) -> None` |  | Register a compute node. |
-| `unregister_node` | `def unregister_node(self, node_id: str) -> None` |  | Remove a node. |
-| `update_node` | `def update_node(self, node_id: str, **kwargs: Any) -> None` |  | Update node metrics. |
-| `place` | `def place(self, request: PlacementRequest) -> PlacementScore &#124; None` |  | Find the best node for a model placement request. |
-| `rebalance` | `def rebalance(self) -> list[dict[str, Any]]` |  | Suggest rebalancing moves to improve load distribution. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register_node` | `def register_node(self, node: NodeInfo)` | Register a compute node. |
+| `unregister_node` | `def unregister_node(self, node_id: str)` | Remove a node. |
+| `update_node` | `def update_node(self, node_id: str, **kwargs: Any)` | Update node metrics. |
+| `place` | `def place(self, request: PlacementRequest)` | Find the best node for a model placement request. |
+| `rebalance` | `def rebalance(self)` | Suggest rebalancing moves to improve load distribution. |
 
-### Class: `BlobEncryptor`
+### `BlobEncryptor`
 
 - Source: `aquilia/mlops/security/encryption.py`
 - Bases: `object`
@@ -3313,48 +3122,48 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `encrypt` | `def encrypt(self, data: bytes) -> bytes` |  | Method. |
-| `decrypt` | `def decrypt(self, token: bytes) -> bytes` |  | Method. |
-| `key` | `def key(self) -> bytes` | property | Method. |
-| `from_key` | `def from_key(cls, key: bytes) -> BlobEncryptor` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `encrypt` | `def encrypt(self, data: bytes)` |  |
+| `decrypt` | `def decrypt(self, token: bytes)` |  |
+| `key` | `def key(self)` |  |
+| `from_key` | `def from_key(cls, key: bytes)` |  |
 
-### Class: `Permission`
+### `Permission`
 
 - Source: `aquilia/mlops/security/rbac.py`
 - Bases: `str, Enum`
 - Summary: Registry permissions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PACK_READ` |  | `'pack:read'` |
-| `PACK_WRITE` |  | `'pack:write'` |
-| `PACK_DELETE` |  | `'pack:delete'` |
-| `PACK_PROMOTE` |  | `'pack:promote'` |
-| `PACK_SIGN` |  | `'pack:sign'` |
-| `REGISTRY_ADMIN` |  | `'registry:admin'` |
-| `PLUGIN_INSTALL` |  | `'plugin:install'` |
-| `ROLLOUT_MANAGE` |  | `'rollout:manage'` |
+| `PACK_READ` | `` | `'pack:read'` |
+| `PACK_WRITE` | `` | `'pack:write'` |
+| `PACK_DELETE` | `` | `'pack:delete'` |
+| `PACK_PROMOTE` | `` | `'pack:promote'` |
+| `PACK_SIGN` | `` | `'pack:sign'` |
+| `REGISTRY_ADMIN` | `` | `'registry:admin'` |
+| `PLUGIN_INSTALL` | `` | `'plugin:install'` |
+| `ROLLOUT_MANAGE` | `` | `'rollout:manage'` |
 
-### Class: `Role`
+### `Role`
 
 - Source: `aquilia/mlops/security/rbac.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A named role with a set of permissions.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `permissions` | `set[Permission]` | `field(default_factory=set)` |
 | `description` | `str` | `''` |
 
-### Class: `RBACManager`
+### `RBACManager`
 
 - Source: `aquilia/mlops/security/rbac.py`
 - Bases: `object`
@@ -3362,15 +3171,15 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `assign_role` | `def assign_role(self, user_id: str, role_name: str) -> None` |  | Method. |
-| `revoke_role` | `def revoke_role(self, user_id: str, role_name: str) -> None` |  | Method. |
-| `check_permission` | `def check_permission(self, user_id: str, permission: Permission) -> bool` |  | Method. |
-| `get_user_permissions` | `def get_user_permissions(self, user_id: str) -> set[Permission]` |  | Method. |
-| `add_role` | `def add_role(self, role: Role) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `assign_role` | `def assign_role(self, user_id: str, role_name: str)` |  |
+| `revoke_role` | `def revoke_role(self, user_id: str, role_name: str)` |  |
+| `check_permission` | `def check_permission(self, user_id: str, permission: Permission)` |  |
+| `get_user_permissions` | `def get_user_permissions(self, user_id: str)` |  |
+| `add_role` | `def add_role(self, role: Role)` |  |
 
-### Class: `ArtifactSigner`
+### `ArtifactSigner`
 
 - Source: `aquilia/mlops/security/signing.py`
 - Bases: `object`
@@ -3378,12 +3187,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `sign` | `async def sign(self, archive_path: str) -> str` |  | Sign an archive and return signature path. |
-| `verify` | `async def verify(self, archive_path: str, sig_path: str) -> bool` |  | Verify an archive signature. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `sign` | `async def sign(self, archive_path: str)` | Sign an archive and return signature path. |
+| `verify` | `async def verify(self, archive_path: str, sig_path: str)` | Verify an archive signature. |
 
-### Class: `EncryptionManager`
+### `EncryptionManager`
 
 - Source: `aquilia/mlops/security/signing.py`
 - Bases: `object`
@@ -3391,13 +3200,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `encrypt` | `def encrypt(self, data: bytes) -> bytes` |  | Encrypt data. |
-| `decrypt` | `def decrypt(self, token: bytes) -> bytes` |  | Decrypt data. |
-| `key` | `def key(self) -> bytes` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `encrypt` | `def encrypt(self, data: bytes)` | Encrypt data. |
+| `decrypt` | `def decrypt(self, token: bytes)` | Decrypt data. |
+| `key` | `def key(self)` |  |
 
-### Class: `DynamicBatcher`
+### `DynamicBatcher`
 
 - Source: `aquilia/mlops/serving/batching.py`
 - Bases: `object`
@@ -3405,82 +3214,82 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `start` | `async def start(self) -> None` |  | Start the background batcher coroutine. |
-| `stop` | `async def stop(self) -> None` |  | Stop the batcher and drain remaining requests. |
-| `submit` | `async def submit(self, request: InferenceRequest) -> InferenceResult` |  | Submit a single request and wait for its result. |
-| `metrics` | `def metrics(self) -> dict[str, float]` |  | Return batcher metrics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `start` | `async def start(self)` | Start the background batcher coroutine. |
+| `stop` | `async def stop(self)` | Stop the batcher and drain remaining requests. |
+| `submit` | `async def submit(self, request: InferenceRequest)` | Submit a single request and wait for its result. |
+| `metrics` | `def metrics(self)` | Return batcher metrics. |
 
-### Class: `MLOpsController`
+### `MLOpsController`
 
 - Source: `aquilia/mlops/serving/controllers.py`
 - Bases: `Controller`
 - Summary: Controller for MLOps HTTP API.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `prefix` |  | `'/mlops'` |
+| `prefix` | `` | `'/mlops'` |
 | `tags` | `list[str]` | `['mlops']` |
-| `instantiation_mode` |  | `'singleton'` |
+| `instantiation_mode` | `` | `'singleton'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `health` | `async def health(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Platform health check -- ``GET /mlops/health``. |
-| `predict` | `async def predict(self, body: dict[str, Any], ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Single inference -- ``POST /mlops/predict``. |
-| `stream_predict` | `async def stream_predict(self, body: dict[str, Any], ctx: RequestCtx &#124; None = None)` | POST | Streaming inference -- ``POST /mlops/stream``. |
-| `chat` | `async def chat(self, body: dict[str, Any], ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Chat-style inference -- ``POST /mlops/chat``. |
-| `circuit_breaker_status` | `async def circuit_breaker_status(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Circuit breaker status -- ``GET /mlops/circuit-breaker``. |
-| `rate_limit_status` | `async def rate_limit_status(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Rate limiter status -- ``GET /mlops/rate-limit``. |
-| `memory_status` | `async def memory_status(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Memory tracker status -- ``GET /mlops/memory``. |
-| `model_capabilities` | `async def model_capabilities(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Model capabilities -- ``GET /mlops/capabilities``. |
-| `metrics` | `async def metrics(self, fmt: str = 'json', ctx: RequestCtx &#124; None = None) -> Any` | GET | Metrics export -- ``GET /mlops/metrics``. |
-| `list_models` | `async def list_models(self, limit: int = 100, offset: int = 0, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | List registered models -- ``GET /mlops/models``. |
-| `get_model` | `async def get_model(self, name: str, tag: str = 'latest', ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Get model details -- ``GET /mlops/models/{name}``. |
-| `load_model` | `async def load_model(self, name: str, body: dict[str, Any] = None, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Load a model into memory -- ``POST /mlops/models/{name}/load``. |
-| `unload_model` | `async def unload_model(self, name: str, body: dict[str, Any] = None, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Unload a model from memory -- ``POST /mlops/models/{name}/unload``. |
-| `reload_model` | `async def reload_model(self, name: str, body: dict[str, Any] = None, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Hot-reload a model to a new version -- ``POST /mlops/models/{name}/reload``. |
-| `model_health` | `async def model_health(self, name: str, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Health check for a specific model -- ``GET /mlops/models/{name}/health``. |
-| `model_metrics` | `async def model_metrics(self, name: str, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Metrics for a specific model -- ``GET /mlops/models/{name}/metrics``. |
-| `start_rollout` | `async def start_rollout(self, body: dict[str, Any], ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Start a rollout -- ``POST /mlops/models/{name}/rollout``. |
-| `list_rollouts` | `async def list_rollouts(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | List rollouts -- ``GET /mlops/rollouts``. |
-| `drift_status` | `async def drift_status(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Drift detection status -- ``GET /mlops/drift``. |
-| `list_plugins` | `async def list_plugins(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | List plugins -- ``GET /mlops/plugins``. |
-| `liveness` | `async def liveness(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | K8s liveness probe -- ``GET /mlops/healthz``. |
-| `readiness` | `async def readiness(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | K8s readiness probe -- ``GET /mlops/readyz``. |
-| `lineage` | `async def lineage(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Model lineage DAG -- ``GET /mlops/lineage``. |
-| `lineage_ancestors` | `async def lineage_ancestors(self, model_id: str, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Ancestors of a model -- ``GET /mlops/lineage/{model_id}/ancestors``. |
-| `lineage_descendants` | `async def lineage_descendants(self, model_id: str, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Descendants of a model -- ``GET /mlops/lineage/{model_id}/descendants``. |
-| `list_experiments` | `async def list_experiments(self, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | List experiments -- ``GET /mlops/experiments``. |
-| `create_experiment` | `async def create_experiment(self, body: dict[str, Any], ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Create experiment -- ``POST /mlops/experiments``. |
-| `conclude_experiment` | `async def conclude_experiment(self, experiment_id: str, winner: str = '', ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | POST | Conclude experiment -- ``POST /mlops/experiments/{id}/conclude``. |
-| `hot_models` | `async def hot_models(self, k: int = 10, ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Top-K hot models -- ``GET /mlops/hot-models``. |
-| `list_artifacts` | `async def list_artifacts(self, kind: str = '', store_dir: str = 'artifacts', ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | List artifacts -- ``GET /mlops/artifacts``. |
-| `inspect_artifact` | `async def inspect_artifact(self, name: str, version: str = '', store_dir: str = 'artifacts', ctx: RequestCtx &#124; None = None) -> dict[str, Any]` | GET | Inspect artifact -- ``GET /mlops/artifacts/{name}``. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `health` | `async def health(self, ctx: RequestCtx \| None=None)` | Platform health check -- ``GET /mlops/health``. |
+| `predict` | `async def predict(self, body: dict[str, Any], ctx: RequestCtx \| None=None)` | Single inference -- ``POST /mlops/predict``. |
+| `stream_predict` | `async def stream_predict(self, body: dict[str, Any], ctx: RequestCtx \| None=None)` | Streaming inference -- ``POST /mlops/stream``. |
+| `chat` | `async def chat(self, body: dict[str, Any], ctx: RequestCtx \| None=None)` | Chat-style inference -- ``POST /mlops/chat``. |
+| `circuit_breaker_status` | `async def circuit_breaker_status(self, ctx: RequestCtx \| None=None)` | Circuit breaker status -- ``GET /mlops/circuit-breaker``. |
+| `rate_limit_status` | `async def rate_limit_status(self, ctx: RequestCtx \| None=None)` | Rate limiter status -- ``GET /mlops/rate-limit``. |
+| `memory_status` | `async def memory_status(self, ctx: RequestCtx \| None=None)` | Memory tracker status -- ``GET /mlops/memory``. |
+| `model_capabilities` | `async def model_capabilities(self, ctx: RequestCtx \| None=None)` | Model capabilities -- ``GET /mlops/capabilities``. |
+| `metrics` | `async def metrics(self, fmt: str='json', ctx: RequestCtx \| None=None)` | Metrics export -- ``GET /mlops/metrics``. |
+| `list_models` | `async def list_models(self, limit: int=100, offset: int=0, ctx: RequestCtx \| None=None)` | List registered models -- ``GET /mlops/models``. |
+| `get_model` | `async def get_model(self, name: str, tag: str='latest', ctx: RequestCtx \| None=None)` | Get model details -- ``GET /mlops/models/{name}``. |
+| `load_model` | `async def load_model(self, name: str, body: dict[str, Any]=None, ctx: RequestCtx \| None=None)` | Load a model into memory -- ``POST /mlops/models/{name}/load``. |
+| `unload_model` | `async def unload_model(self, name: str, body: dict[str, Any]=None, ctx: RequestCtx \| None=None)` | Unload a model from memory -- ``POST /mlops/models/{name}/unload``. |
+| `reload_model` | `async def reload_model(self, name: str, body: dict[str, Any]=None, ctx: RequestCtx \| None=None)` | Hot-reload a model to a new version -- ``POST /mlops/models/{name}/reload``. |
+| `model_health` | `async def model_health(self, name: str, ctx: RequestCtx \| None=None)` | Health check for a specific model -- ``GET /mlops/models/{name}/health``. |
+| `model_metrics` | `async def model_metrics(self, name: str, ctx: RequestCtx \| None=None)` | Metrics for a specific model -- ``GET /mlops/models/{name}/metrics``. |
+| `start_rollout` | `async def start_rollout(self, body: dict[str, Any], ctx: RequestCtx \| None=None)` | Start a rollout -- ``POST /mlops/models/{name}/rollout``. |
+| `list_rollouts` | `async def list_rollouts(self, ctx: RequestCtx \| None=None)` | List rollouts -- ``GET /mlops/rollouts``. |
+| `drift_status` | `async def drift_status(self, ctx: RequestCtx \| None=None)` | Drift detection status -- ``GET /mlops/drift``. |
+| `list_plugins` | `async def list_plugins(self, ctx: RequestCtx \| None=None)` | List plugins -- ``GET /mlops/plugins``. |
+| `liveness` | `async def liveness(self, ctx: RequestCtx \| None=None)` | K8s liveness probe -- ``GET /mlops/healthz``. |
+| `readiness` | `async def readiness(self, ctx: RequestCtx \| None=None)` | K8s readiness probe -- ``GET /mlops/readyz``. |
+| `lineage` | `async def lineage(self, ctx: RequestCtx \| None=None)` | Model lineage DAG -- ``GET /mlops/lineage``. |
+| `lineage_ancestors` | `async def lineage_ancestors(self, model_id: str, ctx: RequestCtx \| None=None)` | Ancestors of a model -- ``GET /mlops/lineage/{model_id}/ancestors``. |
+| `lineage_descendants` | `async def lineage_descendants(self, model_id: str, ctx: RequestCtx \| None=None)` | Descendants of a model -- ``GET /mlops/lineage/{model_id}/descendants``. |
+| `list_experiments` | `async def list_experiments(self, ctx: RequestCtx \| None=None)` | List experiments -- ``GET /mlops/experiments``. |
+| `create_experiment` | `async def create_experiment(self, body: dict[str, Any], ctx: RequestCtx \| None=None)` | Create experiment -- ``POST /mlops/experiments``. |
+| `conclude_experiment` | `async def conclude_experiment(self, experiment_id: str, winner: str='', ctx: RequestCtx \| None=None)` | Conclude experiment -- ``POST /mlops/experiments/{id}/conclude``. |
+| `hot_models` | `async def hot_models(self, k: int=10, ctx: RequestCtx \| None=None)` | Top-K hot models -- ``GET /mlops/hot-models``. |
+| `list_artifacts` | `async def list_artifacts(self, kind: str='', store_dir: str='artifacts', ctx: RequestCtx \| None=None)` | List artifacts -- ``GET /mlops/artifacts``. |
+| `inspect_artifact` | `async def inspect_artifact(self, name: str, version: str='', store_dir: str='artifacts', ctx: RequestCtx \| None=None)` | Inspect artifact -- ``GET /mlops/artifacts/{name}``. |
 
-### Class: `RouteTarget`
+### `RouteTarget`
 
 - Source: `aquilia/mlops/serving/router.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A model version target with associated weight.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `version` | `str` |  |
-| `weight` | `float` |  |
-| `handler` | `Callable &#124; None` | `None` |
+| `version` | `str` | `` |
+| `weight` | `float` | `` |
+| `handler` | `Callable \| None` | `None` |
 | `request_count` | `int` | `0` |
 | `error_count` | `int` | `0` |
 | `total_latency_ms` | `float` | `0.0` |
 
-### Class: `TrafficRouter`
+### `TrafficRouter`
 
 - Source: `aquilia/mlops/serving/router.py`
 - Bases: `object`
@@ -3488,20 +3297,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_target` | `def add_target(self, version: str, weight: float, handler: Callable &#124; None = None) -> None` |  | Register a model version as a routing target. |
-| `remove_target` | `def remove_target(self, version: str) -> None` |  | Remove a routing target. |
-| `set_strategy` | `def set_strategy(self, strategy: RolloutStrategy) -> None` |  | Set the routing strategy. |
-| `set_canary_percentage` | `def set_canary_percentage(self, version: str, percentage: int) -> None` |  | Set canary percentage for a specific version. |
-| `route` | `def route(self, request_id: str = '') -> str` |  | Select a target version for the given request. |
-| `route_sticky` | `def route_sticky(self, key: str) -> str` |  | Sticky routing via consistent hashing. |
-| `record_result` | `def record_result(self, version: str, latency_ms: float, error: bool = False) -> None` |  | Record a result for metrics tracking. |
-| `hot_models` | `def hot_models(self, k: int = 10) -> list[tuple]` |  | Return the top-K most-requested model versions. |
-| `should_rollback` | `def should_rollback(self, config: RolloutConfig) -> bool` |  | Check if rollback should be triggered based on metrics. |
-| `get_metrics` | `def get_metrics(self) -> dict[str, dict[str, float]]` |  | Get per-version metrics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_target` | `def add_target(self, version: str, weight: float, handler: Callable \| None=None)` | Register a model version as a routing target. |
+| `remove_target` | `def remove_target(self, version: str)` | Remove a routing target. |
+| `set_strategy` | `def set_strategy(self, strategy: RolloutStrategy)` | Set the routing strategy. |
+| `set_canary_percentage` | `def set_canary_percentage(self, version: str, percentage: int)` | Set canary percentage for a specific version. |
+| `route` | `def route(self, request_id: str='')` | Select a target version for the given request. |
+| `route_sticky` | `def route_sticky(self, key: str)` | Sticky routing via consistent hashing. |
+| `record_result` | `def record_result(self, version: str, latency_ms: float, error: bool=False)` | Record a result for metrics tracking. |
+| `hot_models` | `def hot_models(self, k: int=10)` | Return the top-K most-requested model versions. |
+| `should_rollback` | `def should_rollback(self, config: RolloutConfig)` | Check if rollback should be triggered based on metrics. |
+| `get_metrics` | `def get_metrics(self)` | Get per-version metrics. |
 
-### Class: `WarmupStrategy`
+### `WarmupStrategy`
 
 - Source: `aquilia/mlops/serving/server.py`
 - Bases: `object`
@@ -3509,11 +3318,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate_payload` | `def generate_payload(self, manifest: ModelpackManifest) -> dict[str, Any]` |  | Build a synthetic input from the manifest's tensor specs. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate_payload` | `def generate_payload(self, manifest: ModelpackManifest)` | Build a synthetic input from the manifest's tensor specs. |
 
-### Class: `ModelServingServer`
+### `ModelServingServer`
 
 - Source: `aquilia/mlops/serving/server.py`
 - Bases: `object`
@@ -3521,75 +3330,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `start` | `async def start(self) -> None` |  | Prepare and load the model, warm up, start the batcher. |
-| `stop` | `async def stop(self, drain_timeout_s: float &#124; None = None) -> None` |  | Stop the server gracefully. |
-| `predict` | `async def predict(self, inputs: dict[str, Any], parameters: dict[str, Any] &#124; None = None, request_id: str &#124; None = None, priority: int = 0, max_tokens: int = 0, timeout_ms: float = 0.0) -> InferenceResult` |  | Submit a single prediction request. |
-| `stream_predict` | `async def stream_predict(self, inputs: dict[str, Any], parameters: dict[str, Any] &#124; None = None, request_id: str &#124; None = None, max_tokens: int = 0) -> AsyncIterator[StreamChunk]` |  | Submit a streaming prediction request (LLM token-by-token output). |
-| `liveness` | `async def liveness(self) -> dict[str, Any]` |  | K8s liveness probe -- ``GET /healthz``. |
-| `readiness` | `async def readiness(self) -> dict[str, Any]` |  | K8s readiness probe -- ``GET /readyz``. |
-| `health` | `async def health(self) -> dict[str, Any]` |  | Full health check endpoint data (backward compat). |
-| `metrics` | `async def metrics(self) -> dict[str, float]` |  | Prometheus-compatible metrics. |
-| `circuit_breaker` | `def circuit_breaker(self) -> CircuitBreaker` | property | Access the circuit breaker for external inspection. |
-| `rate_limiter` | `def rate_limiter(self) -> TokenBucketRateLimiter &#124; None` | property | Access the rate limiter for external inspection. |
-| `memory_tracker` | `def memory_tracker(self) -> MemoryTracker &#124; None` | property | Access the memory tracker for external inspection. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `serve` | `aquilia/mlops/api/functional.py` | `def serve(name: str, version: str = 'v1', device: str = 'auto', batch_size: int = 16, max_batch_latency_ms: float = 50.0, workers: int = 4, tags: list[str] &#124; None = None) -> Callable` | Decorator that wraps a function into a registered model. |
-| `set_global_registry` | `aquilia/mlops/api/model_class.py` | `def set_global_registry(registry: Any) -> None` | Set the global model registry (called by DI providers). |
-| `model` | `aquilia/mlops/api/model_class.py` | `def model(name: str, version: str = 'v1', device: str = 'auto', batch_size: int = 16, max_batch_latency_ms: float = 50.0, warmup_requests: int = 0, workers: int = 4, timeout_ms: float = 30000.0, tags: list[str] &#124; None = None, supports_streaming: bool = False) -> Callable[[type[T]], type[T]]` | Decorator that registers an ``AquiliaModel`` subclass with the model registry. |
-| `register_mlops_providers` | `aquilia/mlops/di/providers.py` | `def register_mlops_providers(container: Container, config: dict[str, Any] &#124; None = None) -> None` | Register all MLOps services as DI providers. |
-| `on_load` | `aquilia/mlops/engine/hooks.py` | `def on_load(fn: F) -> F` | Mark method as a post-load lifecycle hook. |
-| `on_unload` | `aquilia/mlops/engine/hooks.py` | `def on_unload(fn: F) -> F` | Mark method as a pre-unload lifecycle hook. |
-| `preprocess` | `aquilia/mlops/engine/hooks.py` | `def preprocess(fn: F) -> F` | Mark method as input preprocessor. |
-| `postprocess` | `aquilia/mlops/engine/hooks.py` | `def postprocess(fn: F) -> F` | Mark method as output postprocessor. |
-| `before_predict` | `aquilia/mlops/engine/hooks.py` | `def before_predict(fn: F) -> F` | Mark method as a before-prediction hook. |
-| `after_predict` | `aquilia/mlops/engine/hooks.py` | `def after_predict(fn: F) -> F` | Mark method as an after-prediction hook. |
-| `on_error` | `aquilia/mlops/engine/hooks.py` | `def on_error(fn: F) -> F` | Mark method as an inference error handler. |
-| `collect_hooks` | `aquilia/mlops/engine/hooks.py` | `def collect_hooks(instance: Any) -> HookRegistry` | Scan an object instance for decorated hook methods. |
-| `mlops_on_startup` | `aquilia/mlops/engine/lifecycle.py` | `async def mlops_on_startup(config: dict[str, Any] &#124; None = None, di_container: Any = None) -> None` | MLOps startup hook. |
-| `mlops_on_shutdown` | `aquilia/mlops/engine/lifecycle.py` | `async def mlops_on_shutdown(config: dict[str, Any] &#124; None = None, di_container: Any = None) -> None` | MLOps shutdown hook. |
-| `create_explainer` | `aquilia/mlops/explain/hooks.py` | `def create_explainer(method: ExplainMethod, predict_fn: Callable, data: Any, feature_names: Sequence[str] &#124; None = None, **kwargs: Any) -> SHAPExplainer &#124; LIMEExplainer` | Factory that returns the right explainer for the requested method. |
-| `parse_mlops_config` | `aquilia/mlops/manifest/config.py` | `def parse_mlops_config(config: dict[str, Any]) -> MLOpsManifestConfig` | Parse an ``[mlops]`` config dict into ``MLOpsManifestConfig``. |
-| `validate_manifest_config` | `aquilia/mlops/manifest/schema.py` | `def validate_manifest_config(config: MLOpsManifestConfig) -> list[str]` | Validate a parsed manifest config. |
-| `validate_and_raise` | `aquilia/mlops/manifest/schema.py` | `def validate_and_raise(config: MLOpsManifestConfig) -> None` | Validate and raise ``ManifestValidationError`` if invalid. |
-| `profile_model` | `aquilia/mlops/optimizer/export.py` | `async def profile_model(model_path: str, target_device: str = 'cpu') -> dict[str, Any]` | Estimate latency and memory for a model on a target device. |
-| `validate_manifest` | `aquilia/mlops/pack/manifest_schema.py` | `def validate_manifest(data: dict) -> list[str]` | Validate manifest dict against schema. |
-| `sign_archive` | `aquilia/mlops/pack/signer.py` | `async def sign_archive(archive_path: str, signer: HMACSigner &#124; RSASigner, output_sig_path: str &#124; None = None) -> str` | Sign a modelpack archive and write signature file. |
-| `verify_archive` | `aquilia/mlops/pack/signer.py` | `async def verify_archive(archive_path: str, sig_path: str, signer: HMACSigner &#124; RSASigner) -> bool` | Verify a modelpack archive against its signature file. |
-| `generate_ci_workflow` | `aquilia/mlops/release/ci.py` | `def generate_ci_workflow(output_dir: str = '.github/workflows') -> str` | Generate GitHub Actions workflow file. |
-| `generate_dockerfile` | `aquilia/mlops/release/ci.py` | `def generate_dockerfile(output_dir: str = '.') -> str` | Generate Dockerfile for model serving. |
-| `select_runtime` | `aquilia/mlops/runtime/base.py` | `def select_runtime(manifest: ModelpackManifest, preferred: str &#124; None = None, gpu_available: bool = False) -> BaseRuntime` | Select the best runtime for the given manifest. |
-| `register_mlops_middleware` | `aquilia/mlops/serving/middleware.py` | `def register_mlops_middleware(stack: MiddlewareStack, metrics_collector: Any = None, rate_limiter: Any = None, circuit_breaker: Any = None, fault_engine: Any = None, path_prefix: str = '/mlops') -> None` | Register all MLOps middleware with proper scope and priority |
-| `mlops_metrics_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_metrics_middleware(metrics_collector: Any, path_prefix: str = '/mlops') -> Callable` | Create an inference metrics middleware. |
-| `mlops_request_id_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_request_id_middleware() -> Callable` | Middleware that injects a unique request ID into the context. |
-| `mlops_rate_limit_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_rate_limit_middleware(rate_limiter: Any, path_prefix: str = '/mlops', status_code: int = 429, fault_engine: Any = None) -> Callable` | Rate-limiting middleware using a token-bucket rate limiter. |
-| `mlops_circuit_breaker_middleware` | `aquilia/mlops/serving/middleware.py` | `def mlops_circuit_breaker_middleware(circuit_breaker: Any, path_prefix: str = '/mlops/predict', status_code: int = 503, fault_engine: Any = None) -> Callable` | Circuit-breaker middleware for inference endpoints. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `T` | `aquilia/mlops/_structures.py` | `TypeVar('T')` |
-| `KT` | `aquilia/mlops/_structures.py` | `TypeVar('KT', bound=Hashable)` |
-| `VT` | `aquilia/mlops/_structures.py` | `TypeVar('VT')` |
-| `T` | `aquilia/mlops/api/model_class.py` | `TypeVar('T', bound='AquiliaModel')` |
-| `F` | `aquilia/mlops/engine/hooks.py` | `TypeVar('F', bound=Callable[..., Any])` |
-| `_HOOK_ATTR` | `aquilia/mlops/engine/hooks.py` | `'__mlops_hook__'` |
-| `_BUILTIN_PATTERNS` | `aquilia/mlops/explain/privacy.py` | `dict[PIIKind, re.Pattern]` |
-| `MANIFEST_SCHEMA` | `aquilia/mlops/pack/manifest_schema.py` | `dict` |
-| `ENTRYPOINT_GROUP` | `aquilia/mlops/plugins/host.py` | `'aquilia_mlops_plugin'` |
-| `DEFAULT_INDEX_URL` | `aquilia/mlops/plugins/marketplace.py` | `'https://plugins.aquilia.dev/v1/index.json'` |
-| `GITHUB_ACTIONS_WORKFLOW` | `aquilia/mlops/release/ci.py` | `'# Aquilia MLOps CI/CD Pipeline\n# Auto-generated by: aq ci generate\n\nname: Aquilia Model CI/CD\n\non:\n  push:\n    branches: [main, master]\n    paths:\n   ` |
-| `DOCKERFILE_TEMPLATE` | `aquilia/mlops/release/ci.py` | `'# Aquilia Model Serving Container\n# Auto-generated by: aq ci generate\n\nFROM python:3.11-slim AS base\n\nWORKDIR /app\n\n# Install system deps\nRUN apt-get u` |
-| `_TRANSITIONS` | `aquilia/mlops/runtime/base.py` | `dict[ModelState, set]` |
-| `T` | `aquilia/mlops/runtime/executor.py` | `TypeVar('T')` |
-| `VIEWER` | `aquilia/mlops/security/rbac.py` | `Role(name='viewer', permissions={Permission.PACK_READ}, description='Read-only access to modelpacks')` |
-| `DEVELOPER` | `aquilia/mlops/security/rbac.py` | `Role(name='developer', permissions={Permission.PACK_READ, Permission.PACK_WRITE, Permission.PACK_SIGN}, description='Read/write access to modelpacks')` |
-| `DEPLOYER` | `aquilia/mlops/security/rbac.py` | `Role(name='deployer', permissions={Permission.PACK_READ, Permission.PACK_PROMOTE, Permission.ROLLOUT_MANAGE}, description='Deploy and manage rollouts')` |
-| `ADMIN` | `aquilia/mlops/security/rbac.py` | `Role(name='admin', permissions=set(Permission), description='Full registry administration')` |
-| `BUILTIN_ROLES` | `aquilia/mlops/security/rbac.py` | `{r.name: r for r in [VIEWER, DEVELOPER, DEPLOYER, ADMIN]}` |
+| `start` | `async def start(self)` | Prepare and load the model, warm up, start the batcher. |
+| `stop` | `async def stop(self, drain_timeout_s: float \| None=None)` | Stop the server gracefully. |
+| `predict` | `async def predict(self, inputs: dict[str, Any], parameters: dict[str, Any] \| None=None, request_id: str \| None=None, priority: int=0, max_tokens: int=0, timeout_ms: float=0.0)` | Submit a single prediction request. |
+| `stream_predict` | `async def stream_predict(self, inputs: dict[str, Any], parameters: dict[str, Any] \| None=None, request_id: str \| None=None, max_tokens: int=0)` | Submit a streaming prediction request (LLM token-by-token output). |
+| `liveness` | `async def liveness(self)` | K8s liveness probe -- ``GET /healthz``. |
+| `readiness` | `async def readiness(self)` | K8s readiness probe -- ``GET /readyz``. |
+| `health` | `async def health(self)` | Full health check endpoint data (backward compat). |
+| `metrics` | `async def metrics(self)` | Prometheus-compatible metrics. |
+| `circuit_breaker` | `def circuit_breaker(self)` | Access the circuit breaker for external inspection. |
+| `rate_limiter` | `def rate_limiter(self)` | Access the rate limiter for external inspection. |
+| `memory_tracker` | `def memory_tracker(self)` | Access the memory tracker for external inspection. |

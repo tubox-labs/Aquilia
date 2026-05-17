@@ -1,10 +1,36 @@
-# HTTP Client API Reference
+# Http API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/http/__init__.py` | 380 | 0 | 0 | AquilaHTTP — Async HTTP Client for Aquilia. |
+| `aquilia/http/_transport.py` | 805 | 6 | 1 | HTTP Transport Layer |
+| `aquilia/http/auth.py` | 533 | 8 | 0 | AquilaHTTP — Authentication Interceptors. |
+| `aquilia/http/client.py` | 556 | 1 | 6 | AquilaHTTP — Async HTTP Client. |
+| `aquilia/http/config.py` | 434 | 8 | 0 | AquilaHTTP — Configuration. |
+| `aquilia/http/cookies.py` | 480 | 3 | 0 | AquilaHTTP — Cookie Jar. |
+| `aquilia/http/faults.py` | 769 | 25 | 0 | AquilaHTTP — Fault Classes. |
+| `aquilia/http/integration.py` | 340 | 2 | 2 | AquilaHTTP — Framework Integration. |
+| `aquilia/http/interceptors.py` | 516 | 11 | 0 | AquilaHTTP — Interceptors. |
+| `aquilia/http/middleware.py` | 485 | 11 | 1 | AquilaHTTP — Middleware. |
+| `aquilia/http/multipart.py` | 484 | 3 | 0 | AquilaHTTP — Multipart Form Data. |
+| `aquilia/http/pool.py` | 445 | 4 | 0 | AquilaHTTP — Connection Pool. |
+| `aquilia/http/request.py` | 552 | 3 | 7 | AquilaHTTP — HTTP Client Request. |
+| `aquilia/http/response.py` | 502 | 1 | 1 | AquilaHTTP — HTTP Client Response. |
+| `aquilia/http/retry.py` | 390 | 8 | 1 | AquilaHTTP — Retry Strategies. |
+| `aquilia/http/session.py` | 490 | 1 | 0 | AquilaHTTP — HTTP Session. |
+| `aquilia/http/streaming.py` | 388 | 5 | 4 | AquilaHTTP — Streaming Support. |
+
+## Public Exports
+
+`APIKeyAuth`, `AWSSignatureV4Auth`, `AcceptInterceptor`, `AsyncHTTPClient`, `AuthInterceptor`, `BaseURLMiddleware`, `BasicAuth`, `BearerAuth`, `BufferedStream`, `CacheInterceptor`, `CacheMiddleware`, `CertificateVerifyFault`, `ChunkedDecoder`, `ChunkedEncoder`, `ClientErrorFault`, `CompositeRetryStrategy`, `CompressionAlgorithm`, `CompressionMiddleware`, `ConfigurationFault`, `ConnectTimeoutFault`, `ConnectionClosedFault`, `ConnectionFault`, `ConnectionPool`, `ConnectionPoolExhaustedFault`, `ConnectionPoolManager`, `ConnectionStats`, `ConstantBackoff`, `Cookie`, `CookieInterceptor`, `CookieJar`, `CookieMiddleware`, `DecodingFault`, `DigestAuth`, `ErrorHandlingMiddleware`, `ExponentialBackoff`, `FormField`, `FormFile`, `HTTPClientBuilder`, `HTTPClientConfig`, `HTTPClientFault`, `HTTPClientMiddleware`, `HTTPClientProvider`, `HTTPClientRequest`, `HTTPClientResponse`, `HTTPInterceptor`, `HTTPMethod`, `HTTPSession`, `HTTPStatusFault`, `HTTPTransport`, `HTTPVersion`, `HTTP_CLIENT_DOMAIN`, `HTTP_STATUS_REASONS`, `HeaderInterceptor`, `HeadersMiddleware`, `InterceptorChain`, `InvalidHeaderFault`, `InvalidResponseFault`, `InvalidURLFault`, `LoggingInterceptor`, `LoggingMiddleware`, `MetricsInterceptor`, `MiddlewareStack`, `MockTransport`, `MultipartFormData`, `NativeTransport`, `NoRetry`, `OAuth2Auth`, `OAuth2Token`, `PoolConfig`, `PooledConnection`, `ProxyConfig`, `ProxyFault`, `ReadTimeoutFault`, `RedirectInterceptor`, `RequestBuildFault`, `RequestBuilder`, `RequestMetrics`, `RequestTimeoutFault`, `ResponseFault`, `RetryAfterStrategy`, `RetryConfig`, `RetryExecutor`, `RetryExhaustedFault`, `RetryMiddleware`, `RetryState`, `RetryStrategy`, `ServerErrorFault`, `StreamProgress`, `StreamingBody`, `TLSConfig`, `TLSFault`, `TimeoutConfig`, `TimeoutFault`, `TimeoutInterceptor`, `TimeoutMiddleware`, `TooManyRedirectsFault`, `TransportFault`, `UserAgentInterceptor`, `WriteTimeoutFault`, `collect_stream`, `create_client_from_config`, `create_middleware_stack`, `create_response`, `create_retry_strategy`, `create_transport`, `delete`, `delete_request`, `get`, `get_request`, `head_request`, `http_client`, `options_request`, `patch`, `patch_request`, `post`, `post_request`, `put`, `put_request`, `request`, `stream_bytes`, `stream_file`, `stream_with_limit`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `RawResponse` | `aquilia/http/_transport.py` | object | Raw response before processing. |
 | `ConnectionInfo` | `aquilia/http/_transport.py` | object | Tracks a pooled connection. |
@@ -109,35 +135,35 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `create_transport` | `aquilia/http/_transport.py` | `def create_transport(config: HTTPClientConfig &#124; None = None) -> HTTPTransport` | Create native HTTP transport. |
-| `request` | `aquilia/http/client.py` | `async def request(method: str &#124; HTTPMethod, url: str, **kwargs: Any) -> HTTPClientResponse` | Make a one-off HTTP request. |
-| `get` | `aquilia/http/client.py` | `async def get(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a GET request. |
-| `post` | `aquilia/http/client.py` | `async def post(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a POST request. |
-| `put` | `aquilia/http/client.py` | `async def put(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a PUT request. |
-| `patch` | `aquilia/http/client.py` | `async def patch(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a PATCH request. |
-| `delete` | `aquilia/http/client.py` | `async def delete(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a DELETE request. |
-| `http_client` | `aquilia/http/integration.py` | `def http_client() -> HTTPClientBuilder` | Create HTTP client integration builder. |
-| `create_client_from_config` | `aquilia/http/integration.py` | `def create_client_from_config(config: dict[str, Any]) -> AsyncHTTPClient` | Create HTTP client from configuration dictionary. |
-| `create_middleware_stack` | `aquilia/http/middleware.py` | `def create_middleware_stack(*, base_url: str &#124; None = None, timeout: float &#124; None = None, headers: dict[str, str] &#124; None = None, enable_logging: bool = False, enable_retry: bool = False, enable_cache: bool = False, enable_cookies: bool = False, raise_for_status: bool = False) -> list[HTTPClientMiddleware]` | Create a standard middleware stack. |
-| `get` | `aquilia/http/request.py` | `def get(url: str, **kwargs: Any) -> RequestBuilder` | Create a GET request builder. |
-| `post` | `aquilia/http/request.py` | `def post(url: str, **kwargs: Any) -> RequestBuilder` | Create a POST request builder. |
-| `put` | `aquilia/http/request.py` | `def put(url: str, **kwargs: Any) -> RequestBuilder` | Create a PUT request builder. |
-| `patch` | `aquilia/http/request.py` | `def patch(url: str, **kwargs: Any) -> RequestBuilder` | Create a PATCH request builder. |
-| `delete` | `aquilia/http/request.py` | `def delete(url: str, **kwargs: Any) -> RequestBuilder` | Create a DELETE request builder. |
-| `head` | `aquilia/http/request.py` | `def head(url: str, **kwargs: Any) -> RequestBuilder` | Create a HEAD request builder. |
-| `options` | `aquilia/http/request.py` | `def options(url: str, **kwargs: Any) -> RequestBuilder` | Create an OPTIONS request builder. |
-| `create_response` | `aquilia/http/response.py` | `def create_response(status_code: int, headers: dict[str, str] &#124; list[tuple[str, str]] &#124; None = None, *, body: bytes &#124; None = None, stream: AsyncIterator[bytes] &#124; None = None, url: str = '', http_version: str = '1.1', elapsed: float = 0.0, request_url: str = '', history: list[HTTPClientResponse] &#124; None = None, extensions: dict[str, Any] &#124; None = None) -> HTTPClientResponse` | Factory function to create HTTPClientResponse. |
-| `create_retry_strategy` | `aquilia/http/retry.py` | `def create_retry_strategy(config: RetryConfig &#124; None = None) -> RetryStrategy` | Create a retry strategy from configuration. |
-| `stream_file` | `aquilia/http/streaming.py` | `async def stream_file(path: Path &#124; str, *, chunk_size: int = 65536) -> AsyncIterator[bytes]` | Stream a file asynchronously. |
-| `stream_bytes` | `aquilia/http/streaming.py` | `async def stream_bytes(data: bytes, chunk_size: int = 65536) -> AsyncIterator[bytes]` | Stream bytes in chunks. |
-| `collect_stream` | `aquilia/http/streaming.py` | `async def collect_stream(stream: AsyncIterator[bytes]) -> bytes` | Collect all bytes from an async iterator. |
-| `stream_with_limit` | `aquilia/http/streaming.py` | `async def stream_with_limit(stream: AsyncIterator[bytes], max_bytes: int) -> AsyncIterator[bytes]` | Stream with a byte limit. |
+| `create_transport` | `aquilia/http/_transport.py` | `def create_transport(config: HTTPClientConfig \| None=None)` | Create native HTTP transport. |
+| `request` | `aquilia/http/client.py` | `async def request(method: str \| HTTPMethod, url: str, **kwargs: Any)` | Make a one-off HTTP request. |
+| `get` | `aquilia/http/client.py` | `async def get(url: str, **kwargs: Any)` | Make a GET request. |
+| `post` | `aquilia/http/client.py` | `async def post(url: str, **kwargs: Any)` | Make a POST request. |
+| `put` | `aquilia/http/client.py` | `async def put(url: str, **kwargs: Any)` | Make a PUT request. |
+| `patch` | `aquilia/http/client.py` | `async def patch(url: str, **kwargs: Any)` | Make a PATCH request. |
+| `delete` | `aquilia/http/client.py` | `async def delete(url: str, **kwargs: Any)` | Make a DELETE request. |
+| `http_client` | `aquilia/http/integration.py` | `def http_client()` | Create HTTP client integration builder. |
+| `create_client_from_config` | `aquilia/http/integration.py` | `def create_client_from_config(config: dict[str, Any])` | Create HTTP client from configuration dictionary. |
+| `create_middleware_stack` | `aquilia/http/middleware.py` | `def create_middleware_stack(*, base_url: str \| None=None, timeout: float \| None=None, headers: dict[str, str] \| None=None, enable_logging: bool=False, enable_retry: bool=False, enable_cache: bool=False, enable_cookies: bool=False, raise_for_status: bool=False)` | Create a standard middleware stack. |
+| `get` | `aquilia/http/request.py` | `def get(url: str, **kwargs: Any)` | Create a GET request builder. |
+| `post` | `aquilia/http/request.py` | `def post(url: str, **kwargs: Any)` | Create a POST request builder. |
+| `put` | `aquilia/http/request.py` | `def put(url: str, **kwargs: Any)` | Create a PUT request builder. |
+| `patch` | `aquilia/http/request.py` | `def patch(url: str, **kwargs: Any)` | Create a PATCH request builder. |
+| `delete` | `aquilia/http/request.py` | `def delete(url: str, **kwargs: Any)` | Create a DELETE request builder. |
+| `head` | `aquilia/http/request.py` | `def head(url: str, **kwargs: Any)` | Create a HEAD request builder. |
+| `options` | `aquilia/http/request.py` | `def options(url: str, **kwargs: Any)` | Create an OPTIONS request builder. |
+| `create_response` | `aquilia/http/response.py` | `def create_response(status_code: int, headers: dict[str, str] \| list[tuple[str, str]] \| None=None, *, body: bytes \| None=None, stream: AsyncIterator[bytes] \| None=None, url: str='', http_version: str='1.1', elapsed: float=0.0, request_url: str='', history: list[HTTPClientResponse] \| None=None, extensions: dict[str, Any] \| None=None)` | Factory function to create HTTPClientResponse. |
+| `create_retry_strategy` | `aquilia/http/retry.py` | `def create_retry_strategy(config: RetryConfig \| None=None)` | Create a retry strategy from configuration. |
+| `stream_file` | `aquilia/http/streaming.py` | `async def stream_file(path: Path \| str, *, chunk_size: int=65536)` | Stream a file asynchronously. |
+| `stream_bytes` | `aquilia/http/streaming.py` | `async def stream_bytes(data: bytes, chunk_size: int=65536)` | Stream bytes in chunks. |
+| `collect_stream` | `aquilia/http/streaming.py` | `async def collect_stream(stream: AsyncIterator[bytes])` | Collect all bytes from an async iterator. |
+| `stream_with_limit` | `aquilia/http/streaming.py` | `async def stream_with_limit(stream: AsyncIterator[bytes], max_bytes: int)` | Stream with a byte limit. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `CRLF` | `aquilia/http/_transport.py` | `b'\r\n'` |
 | `HTTP_VERSION` | `aquilia/http/_transport.py` | `b'HTTP/1.1'` |
@@ -148,57 +174,57 @@ This page is extracted from the current Python source. It includes public classe
 | `CHUNK_SIZE` | `aquilia/http/_transport.py` | `65536` |
 | `HTTP_CLIENT_DOMAIN` | `aquilia/http/faults.py` | `FaultDomain.custom('http_client', 'HTTP client faults')` |
 | `SINGLE_VALUE_HEADERS` | `aquilia/http/request.py` | `frozenset({'content-type', 'content-length', 'host', 'authorization', 'user-agent', 'accept', 'connection', 'cache-control'})` |
-| `HTTP_STATUS_REASONS` | `aquilia/http/response.py` | `{100: 'Continue', 101: 'Switching Protocols', 102: 'Processing', 103: 'Early Hints', 200: 'OK', 201: 'Created', 202: 'Accepted', 203: 'Non-Authoritative Informa` |
+| `HTTP_STATUS_REASONS` | `aquilia/http/response.py` | `{100: 'Continue', 101: 'Switching Protocols', 102: 'Processing', 103: 'Early Hints', 200: 'OK', 201: 'Created', 202: 'Accepted', 203: 'Non-Authoritative Information', 204: 'No Content', 205: 'Reset Content', 206: 'Partial Content', 207: 'Multi-Status', 208: 'Already Reported', 226: 'IM Used', 300: 'Multiple Choices', 301: 'Moved Permanently', 302: 'Found', 303: 'See Other', 304: 'Not Modified', 305: 'Use Proxy', 307: 'Temporary Redirect', 308: 'Permanent Redirect', 400: 'Bad Request', 401: 'Unauthorized', 402: 'Payment Required', 403: 'Forbidden', 404: 'Not Found', 405: 'Method Not Allowed', 406: 'Not Acceptable', 407: 'Proxy Authentication Required', 408: 'Request Timeout', 409: 'Conflict', 410: 'Gone', 411: 'Length Required', 412: 'Precondition Failed', 413: 'Payload Too Large', 414: 'URI Too Long', 415: 'Unsupported Media Type', 416: 'Range Not Satisfiable', 417: 'Expectation Failed', 418: "I'm a teapot", 421: 'Misdirected Request', 422: 'Unprocessable Entity', 423: 'Locked', 424: 'Failed Dependency', 425: 'Too Early', 426: 'Upgrade Required', 428: 'Precondition Required', 429: 'Too Many Requests', 431: 'Request Header Fields Too Large', 451: 'Unavailable For Legal Reasons', 500: 'Internal Server Error', 501: 'Not Implemented', 502: 'Bad Gateway', 503: 'Service Unavailable', 504: 'Gateway Timeout', 505: 'HTTP Version Not Supported', 506: 'Variant Also Negotiates', 507: 'Insufficient Storage', 508: 'Loop Detected', 510: 'Not Extended', 511: 'Network Authentication Required'}` |
 | `T` | `aquilia/http/retry.py` | `TypeVar('T')` |
 
 ## Detailed Classes And Methods
 
-### Class: `RawResponse`
+### `RawResponse`
 
 - Source: `aquilia/http/_transport.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Raw response before processing.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `http_version` | `str` |  |
-| `status_code` | `int` |  |
-| `reason` | `str` |  |
-| `headers` | `dict[str, str]` |  |
+| `http_version` | `str` | `` |
+| `status_code` | `int` | `` |
+| `reason` | `str` | `` |
+| `headers` | `dict[str, str]` | `` |
 | `body` | `bytes` | `b''` |
-| `stream` | `AsyncIterator[bytes] &#124; None` | `None` |
+| `stream` | `AsyncIterator[bytes] \| None` | `None` |
 
-### Class: `ConnectionInfo`
+### `ConnectionInfo`
 
 - Source: `aquilia/http/_transport.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Tracks a pooled connection.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `host` | `str` |  |
-| `port` | `int` |  |
-| `ssl` | `bool` |  |
-| `reader` | `asyncio.StreamReader` |  |
-| `writer` | `asyncio.StreamWriter` |  |
+| `host` | `str` | `` |
+| `port` | `int` | `` |
+| `ssl` | `bool` | `` |
+| `reader` | `asyncio.StreamReader` | `` |
+| `writer` | `asyncio.StreamWriter` | `` |
 | `created_at` | `float` | `field(default_factory=time.monotonic)` |
 | `last_used` | `float` | `field(default_factory=time.monotonic)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `age` | `def age(self) -> float` | property | Method. |
-| `is_alive` | `def is_alive(self) -> bool` |  | Method. |
-| `close` | `async def close(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `age` | `def age(self)` |  |
+| `is_alive` | `def is_alive(self)` |  |
+| `close` | `async def close(self)` |  |
 
-### Class: `ConnectionPool`
+### `ConnectionPool`
 
 - Source: `aquilia/http/_transport.py`
 - Bases: `object`
@@ -206,14 +232,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_connection` | `async def get_connection(self, host: str, port: int, use_ssl: bool) -> ConnectionInfo &#124; None` |  | Grab a live connection if one exists. |
-| `put_connection` | `async def put_connection(self, conn: ConnectionInfo) -> bool` |  | Return connection to pool if we have room. |
-| `close_all` | `async def close_all(self) -> None` |  | Method. |
-| `cleanup_expired` | `async def cleanup_expired(self) -> int` |  | Prune dead/expired connections. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_connection` | `async def get_connection(self, host: str, port: int, use_ssl: bool)` | Grab a live connection if one exists. |
+| `put_connection` | `async def put_connection(self, conn: ConnectionInfo)` | Return connection to pool if we have room. |
+| `close_all` | `async def close_all(self)` |  |
+| `cleanup_expired` | `async def cleanup_expired(self)` | Prune dead/expired connections. |
 
-### Class: `HTTPTransport`
+### `HTTPTransport`
 
 - Source: `aquilia/http/_transport.py`
 - Bases: `ABC`
@@ -221,12 +247,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `send` | `async def send(self, request: HTTPClientRequest) -> HTTPClientResponse` | abstractmethod | Method. |
-| `close` | `async def close(self) -> None` | abstractmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `send` | `async def send(self, request: HTTPClientRequest)` |  |
+| `close` | `async def close(self)` |  |
 
-### Class: `NativeTransport`
+### `NativeTransport`
 
 - Source: `aquilia/http/_transport.py`
 - Bases: `HTTPTransport`
@@ -234,12 +260,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `send` | `async def send(self, request: HTTPClientRequest) -> HTTPClientResponse` |  | Method. |
-| `close` | `async def close(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `send` | `async def send(self, request: HTTPClientRequest)` |  |
+| `close` | `async def close(self)` |  |
 
-### Class: `MockTransport`
+### `MockTransport`
 
 - Source: `aquilia/http/_transport.py`
 - Bases: `HTTPTransport`
@@ -247,16 +273,16 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_response` | `def add_response(self, method: str, url: str, response: HTTPClientResponse) -> None` |  | Method. |
-| `add_json_response` | `def add_json_response(self, method: str, url: str, data: dict[str, Any], status_code: int = 200) -> None` |  | Method. |
-| `requests` | `def requests(self) -> list[HTTPClientRequest]` | property | Method. |
-| `clear` | `def clear(self) -> None` |  | Method. |
-| `send` | `async def send(self, request: HTTPClientRequest) -> HTTPClientResponse` |  | Method. |
-| `close` | `async def close(self) -> None` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_response` | `def add_response(self, method: str, url: str, response: HTTPClientResponse)` |  |
+| `add_json_response` | `def add_json_response(self, method: str, url: str, data: dict[str, Any], status_code: int=200)` |  |
+| `requests` | `def requests(self)` |  |
+| `clear` | `def clear(self)` |  |
+| `send` | `async def send(self, request: HTTPClientRequest)` |  |
+| `close` | `async def close(self)` |  |
 
-### Class: `AuthInterceptor`
+### `AuthInterceptor`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `HTTPInterceptor, ABC`
@@ -264,12 +290,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str] &#124; None` | abstractmethod | Generate authentication header. |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Apply authentication header to request. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` | Generate authentication header. |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` | Apply authentication header to request. |
 
-### Class: `BasicAuth`
+### `BasicAuth`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `AuthInterceptor`
@@ -277,11 +303,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` |  |
 
-### Class: `BearerAuth`
+### `BearerAuth`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `AuthInterceptor`
@@ -289,11 +315,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` |  |
 
-### Class: `APIKeyAuth`
+### `APIKeyAuth`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `AuthInterceptor`
@@ -301,12 +327,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str] &#124; None` |  | Method. |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` |  |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `DigestAuth`
+### `DigestAuth`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `AuthInterceptor`
@@ -314,36 +340,36 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str] &#124; None` |  | Method. |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` |  |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `OAuth2Token`
+### `OAuth2Token`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: OAuth 2.0 token.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `access_token` | `str` |  |
+| `access_token` | `str` | `` |
 | `token_type` | `str` | `'Bearer'` |
-| `expires_in` | `int &#124; None` | `None` |
-| `refresh_token` | `str &#124; None` | `None` |
-| `scope` | `str &#124; None` | `None` |
+| `expires_in` | `int \| None` | `None` |
+| `refresh_token` | `str \| None` | `None` |
+| `scope` | `str \| None` | `None` |
 | `created_at` | `float` | `0.0` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_expired` | `def is_expired(self) -> bool` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_expired` | `def is_expired(self)` |  |
 
-### Class: `OAuth2Auth`
+### `OAuth2Auth`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `AuthInterceptor`
@@ -351,14 +377,14 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `token` | `def token(self) -> OAuth2Token` | property | Method. |
-| `set_token` | `def set_token(self, token: OAuth2Token) -> None` |  | Method. |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str]` |  | Method. |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `token` | `def token(self)` |  |
+| `set_token` | `def set_token(self, token: OAuth2Token)` |  |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` |  |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `AWSSignatureV4Auth`
+### `AWSSignatureV4Auth`
 
 - Source: `aquilia/http/auth.py`
 - Bases: `AuthInterceptor`
@@ -366,12 +392,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest) -> tuple[str, str] &#124; None` |  | Method. |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_auth_header` | `def get_auth_header(self, request: HTTPClientRequest)` |  |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `AsyncHTTPClient`
+### `AsyncHTTPClient`
 
 - Source: `aquilia/http/client.py`
 - Bases: `object`
@@ -379,89 +405,89 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `config` | `def config(self) -> HTTPClientConfig` | property | Get client configuration. |
-| `cookies` | `def cookies(self) -> CookieJar` | property | Get cookie jar. |
-| `base_url` | `def base_url(self) -> str &#124; None` | property | Get base URL. |
-| `request` | `def request(self, method: str &#124; HTTPMethod, url: str, **kwargs: Any) -> RequestBuilder` |  | Create a request builder. |
-| `send` | `async def send(self, request: HTTPClientRequest) -> HTTPClientResponse` |  | Send a pre-built request. |
-| `get` | `async def get(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a GET request. |
-| `post` | `async def post(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, files: MultipartFormData &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a POST request. |
-| `put` | `async def put(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a PUT request. |
-| `patch` | `async def patch(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a PATCH request. |
-| `delete` | `async def delete(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a DELETE request. |
-| `head` | `async def head(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a HEAD request. |
-| `options` | `async def options(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send an OPTIONS request. |
-| `stream` | `async def stream(self, method: str &#124; HTTPMethod, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, chunk_size: int = 65536, **kwargs: Any) -> AsyncIterator[bytes]` |  | Stream a response body. |
-| `close` | `async def close(self) -> None` |  | Close the client and release resources. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `config` | `def config(self)` | Get client configuration. |
+| `cookies` | `def cookies(self)` | Get cookie jar. |
+| `base_url` | `def base_url(self)` | Get base URL. |
+| `request` | `def request(self, method: str \| HTTPMethod, url: str, **kwargs: Any)` | Create a request builder. |
+| `send` | `async def send(self, request: HTTPClientRequest)` | Send a pre-built request. |
+| `get` | `async def get(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a GET request. |
+| `post` | `async def post(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, files: MultipartFormData \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a POST request. |
+| `put` | `async def put(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a PUT request. |
+| `patch` | `async def patch(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a PATCH request. |
+| `delete` | `async def delete(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a DELETE request. |
+| `head` | `async def head(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a HEAD request. |
+| `options` | `async def options(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send an OPTIONS request. |
+| `stream` | `async def stream(self, method: str \| HTTPMethod, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, chunk_size: int=65536, **kwargs: Any)` | Stream a response body. |
+| `close` | `async def close(self)` | Close the client and release resources. |
 
-### Class: `HTTPVersion`
+### `HTTPVersion`
 
 - Source: `aquilia/http/config.py`
 - Bases: `str, Enum`
 - Summary: Supported HTTP versions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `HTTP_1_0` |  | `'1.0'` |
-| `HTTP_1_1` |  | `'1.1'` |
-| `HTTP_2` |  | `'2'` |
-| `AUTO` |  | `'auto'` |
+| `HTTP_1_0` | `` | `'1.0'` |
+| `HTTP_1_1` | `` | `'1.1'` |
+| `HTTP_2` | `` | `'2'` |
+| `AUTO` | `` | `'auto'` |
 
-### Class: `CompressionAlgorithm`
+### `CompressionAlgorithm`
 
 - Source: `aquilia/http/config.py`
 - Bases: `str, Enum`
 - Summary: Supported compression algorithms for Accept-Encoding.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `GZIP` |  | `'gzip'` |
-| `DEFLATE` |  | `'deflate'` |
-| `BR` |  | `'br'` |
-| `ZSTD` |  | `'zstd'` |
-| `IDENTITY` |  | `'identity'` |
+| `GZIP` | `` | `'gzip'` |
+| `DEFLATE` | `` | `'deflate'` |
+| `BR` | `` | `'br'` |
+| `ZSTD` | `` | `'zstd'` |
+| `IDENTITY` | `` | `'identity'` |
 
-### Class: `TimeoutConfig`
+### `TimeoutConfig`
 
 - Source: `aquilia/http/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: HTTP request timeout configuration.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `total` | `float &#124; None` | `30.0` |
-| `connect` | `float &#124; None` | `10.0` |
-| `read` | `float &#124; None` | `None` |
-| `write` | `float &#124; None` | `None` |
-| `pool` | `float &#124; None` | `5.0` |
+| `total` | `float \| None` | `30.0` |
+| `connect` | `float \| None` | `10.0` |
+| `read` | `float \| None` | `None` |
+| `write` | `float \| None` | `None` |
+| `pool` | `float \| None` | `5.0` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `no_timeout` | `def no_timeout(cls) -> TimeoutConfig` | classmethod | Create a configuration with no timeouts (infinite wait). |
-| `fast` | `def fast(cls) -> TimeoutConfig` | classmethod | Create a fast timeout configuration for quick requests. |
-| `slow` | `def slow(cls) -> TimeoutConfig` | classmethod | Create a slow timeout configuration for long-running requests. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `no_timeout` | `def no_timeout(cls)` | Create a configuration with no timeouts (infinite wait). |
+| `fast` | `def fast(cls)` | Create a fast timeout configuration for quick requests. |
+| `slow` | `def slow(cls)` | Create a slow timeout configuration for long-running requests. |
 
-### Class: `PoolConfig`
+### `PoolConfig`
 
 - Source: `aquilia/http/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Connection pool configuration.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `max_connections` | `int` | `100` |
 | `max_connections_per_host` | `int` | `10` |
@@ -469,16 +495,16 @@ Attributes and fields:
 | `keepalive_expiry` | `float` | `60.0` |
 | `enable_http2` | `bool` | `False` |
 
-### Class: `RetryConfig`
+### `RetryConfig`
 
 - Source: `aquilia/http/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Retry configuration.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `max_attempts` | `int` | `3` |
 | `backoff_base` | `float` | `1.0` |
@@ -490,66 +516,66 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `no_retry` | `def no_retry(cls) -> RetryConfig` | classmethod | Create a configuration with no retries. |
-| `aggressive` | `def aggressive(cls) -> RetryConfig` | classmethod | Create an aggressive retry configuration. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `no_retry` | `def no_retry(cls)` | Create a configuration with no retries. |
+| `aggressive` | `def aggressive(cls)` | Create an aggressive retry configuration. |
 
-### Class: `ProxyConfig`
+### `ProxyConfig`
 
 - Source: `aquilia/http/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Proxy configuration.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `http_proxy` | `str &#124; None` | `None` |
-| `https_proxy` | `str &#124; None` | `None` |
-| `no_proxy` | `str &#124; None` | `None` |
+| `http_proxy` | `str \| None` | `None` |
+| `https_proxy` | `str \| None` | `None` |
+| `no_proxy` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_env` | `def from_env(cls) -> ProxyConfig` | classmethod | Create proxy config from environment variables. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_env` | `def from_env(cls)` | Create proxy config from environment variables. |
 
-### Class: `TLSConfig`
+### `TLSConfig`
 
 - Source: `aquilia/http/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: TLS/SSL configuration.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `verify` | `bool` | `True` |
-| `cert_file` | `str &#124; None` | `None` |
-| `key_file` | `str &#124; None` | `None` |
-| `ca_bundle` | `str &#124; None` | `None` |
-| `ssl_context` | `SSLContext &#124; None` | `None` |
-| `minimum_version` | `str &#124; None` | `None` |
+| `cert_file` | `str \| None` | `None` |
+| `key_file` | `str \| None` | `None` |
+| `ca_bundle` | `str \| None` | `None` |
+| `ssl_context` | `SSLContext \| None` | `None` |
+| `minimum_version` | `str \| None` | `None` |
 
-### Class: `HTTPClientConfig`
+### `HTTPClientConfig`
 
 - Source: `aquilia/http/config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Complete HTTP client configuration.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `base_url` | `str &#124; None` | `None` |
+| `base_url` | `str \| None` | `None` |
 | `timeout` | `TimeoutConfig` | `field(default_factory=TimeoutConfig)` |
 | `pool` | `PoolConfig` | `field(default_factory=PoolConfig)` |
 | `retry` | `RetryConfig` | `field(default_factory=RetryConfig)` |
-| `proxy` | `ProxyConfig &#124; None` | `None` |
+| `proxy` | `ProxyConfig \| None` | `None` |
 | `tls` | `TLSConfig` | `field(default_factory=TLSConfig)` |
 | `http_version` | `HTTPVersion` | `HTTPVersion.AUTO` |
 | `follow_redirects` | `bool` | `True` |
@@ -563,50 +589,50 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `with_base_url` | `def with_base_url(self, url: str) -> HTTPClientConfig` |  | Return a copy with a different base URL. |
-| `with_timeout` | `def with_timeout(self, **kwargs: Any) -> HTTPClientConfig` |  | Return a copy with modified timeout settings. |
-| `merge_headers` | `def merge_headers(self, headers: dict[str, str] &#124; None) -> dict[str, str]` |  | Merge default headers with request-specific headers. |
-| `merge_params` | `def merge_params(self, params: dict[str, str] &#124; None) -> dict[str, str]` |  | Merge default params with request-specific params. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert to dictionary for serialization. |
-| `from_dict` | `def from_dict(cls, data: dict[str, Any]) -> HTTPClientConfig` | classmethod | Create from dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `with_base_url` | `def with_base_url(self, url: str)` | Return a copy with a different base URL. |
+| `with_timeout` | `def with_timeout(self, **kwargs: Any)` | Return a copy with modified timeout settings. |
+| `merge_headers` | `def merge_headers(self, headers: dict[str, str] \| None)` | Merge default headers with request-specific headers. |
+| `merge_params` | `def merge_params(self, params: dict[str, str] \| None)` | Merge default params with request-specific params. |
+| `to_dict` | `def to_dict(self)` | Convert to dictionary for serialization. |
+| `from_dict` | `def from_dict(cls, data: dict[str, Any])` | Create from dictionary. |
 
-### Class: `Cookie`
+### `Cookie`
 
 - Source: `aquilia/http/cookies.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: HTTP Cookie representation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `value` | `str` |  |
+| `name` | `str` | `` |
+| `value` | `str` | `` |
 | `domain` | `str` | `''` |
 | `path` | `str` | `'/'` |
-| `expires` | `float &#124; None` | `None` |
-| `max_age` | `int &#124; None` | `None` |
+| `expires` | `float \| None` | `None` |
+| `max_age` | `int \| None` | `None` |
 | `secure` | `bool` | `False` |
 | `http_only` | `bool` | `False` |
 | `same_site` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `is_expired` | `def is_expired(self) -> bool` | property | Check if cookie has expired. |
-| `is_session` | `def is_session(self) -> bool` | property | Check if this is a session cookie (no expiry). |
-| `matches_domain` | `def matches_domain(self, request_domain: str) -> bool` |  | Check if cookie matches the request domain. |
-| `matches_path` | `def matches_path(self, request_path: str) -> bool` |  | Check if cookie matches the request path. |
-| `matches` | `def matches(self, url: str) -> bool` |  | Check if cookie matches the URL. |
-| `to_header_value` | `def to_header_value(self) -> str` |  | Format as cookie header value (name=value). |
-| `to_set_cookie` | `def to_set_cookie(self) -> str` |  | Format as Set-Cookie header value. |
-| `from_set_cookie` | `def from_set_cookie(cls, header: str, request_url: str = '') -> Cookie` | classmethod | Parse a Set-Cookie header. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `is_expired` | `def is_expired(self)` | Check if cookie has expired. |
+| `is_session` | `def is_session(self)` | Check if this is a session cookie (no expiry). |
+| `matches_domain` | `def matches_domain(self, request_domain: str)` | Check if cookie matches the request domain. |
+| `matches_path` | `def matches_path(self, request_path: str)` | Check if cookie matches the request path. |
+| `matches` | `def matches(self, url: str)` | Check if cookie matches the URL. |
+| `to_header_value` | `def to_header_value(self)` | Format as cookie header value (name=value). |
+| `to_set_cookie` | `def to_set_cookie(self)` | Format as Set-Cookie header value. |
+| `from_set_cookie` | `def from_set_cookie(cls, header: str, request_url: str='')` | Parse a Set-Cookie header. |
 
-### Class: `CookieJar`
+### `CookieJar`
 
 - Source: `aquilia/http/cookies.py`
 - Bases: `object`
@@ -614,20 +640,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `set` | `def set(self, cookie: Cookie) -> None` |  | Add or update a cookie. |
-| `set_from_response` | `def set_from_response(self, headers: dict[str, str] &#124; list[tuple[str, str]], request_url: str) -> list[Cookie]` |  | Extract and store cookies from response headers. |
-| `get` | `def get(self, name: str, domain: str = '', path: str = '/') -> Cookie &#124; None` |  | Get a specific cookie. |
-| `get_for_url` | `def get_for_url(self, url: str) -> list[Cookie]` |  | Get all cookies that match a URL. |
-| `get_header` | `def get_header(self, url: str) -> str &#124; None` |  | Get Cookie header value for a URL. |
-| `delete` | `def delete(self, name: str, domain: str = '', path: str = '/') -> bool` |  | Delete a cookie. |
-| `clear` | `def clear(self, domain: str = '') -> int` |  | Clear cookies. |
-| `cleanup_expired` | `def cleanup_expired(self) -> int` |  | Remove expired cookies. |
-| `all` | `def all(self) -> list[Cookie]` |  | Get all non-expired cookies. |
-| `to_dict` | `def to_dict(self) -> dict[str, str]` |  | Export cookies as simple dict. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `set` | `def set(self, cookie: Cookie)` | Add or update a cookie. |
+| `set_from_response` | `def set_from_response(self, headers: dict[str, str] \| list[tuple[str, str]], request_url: str)` | Extract and store cookies from response headers. |
+| `get` | `def get(self, name: str, domain: str='', path: str='/')` | Get a specific cookie. |
+| `get_for_url` | `def get_for_url(self, url: str)` | Get all cookies that match a URL. |
+| `get_header` | `def get_header(self, url: str)` | Get Cookie header value for a URL. |
+| `delete` | `def delete(self, name: str, domain: str='', path: str='/')` | Delete a cookie. |
+| `clear` | `def clear(self, domain: str='')` | Clear cookies. |
+| `cleanup_expired` | `def cleanup_expired(self)` | Remove expired cookies. |
+| `all` | `def all(self)` | Get all non-expired cookies. |
+| `to_dict` | `def to_dict(self)` | Export cookies as simple dict. |
 
-### Class: `CookieInterceptor`
+### `CookieInterceptor`
 
 - Source: `aquilia/http/cookies.py`
 - Bases: `object`
@@ -635,162 +661,162 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `jar` | `def jar(self) -> CookieJar` | property | Method. |
-| `intercept` | `async def intercept(self, request: Any, next_handler: Any) -> Any` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `jar` | `def jar(self)` |  |
+| `intercept` | `async def intercept(self, request: Any, next_handler: Any)` |  |
 
-### Class: `HTTPClientFault`
+### `HTTPClientFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `Fault`
 - Summary: Base fault for the HTTP client subsystem.
 
-### Class: `ConnectionFault`
+### `ConnectionFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Failed to establish connection to remote host.
 
-### Class: `ConnectionPoolExhaustedFault`
+### `ConnectionPoolExhaustedFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Connection pool exhausted.
 
-### Class: `ConnectionClosedFault`
+### `ConnectionClosedFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Connection was unexpectedly closed.
 
-### Class: `TimeoutFault`
+### `TimeoutFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Request timed out.
 
-### Class: `ConnectTimeoutFault`
+### `ConnectTimeoutFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `TimeoutFault`
 - Summary: Connection timeout.
 
-### Class: `ReadTimeoutFault`
+### `ReadTimeoutFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `TimeoutFault`
 - Summary: Read timeout.
 
-### Class: `WriteTimeoutFault`
+### `WriteTimeoutFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `TimeoutFault`
 - Summary: Write timeout.
 
-### Class: `RequestTimeoutFault`
+### `RequestTimeoutFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `TimeoutFault`
 - Summary: Total request timeout.
 
-### Class: `TLSFault`
+### `TLSFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: TLS/SSL error.
 
-### Class: `CertificateVerifyFault`
+### `CertificateVerifyFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `TLSFault`
 - Summary: Certificate verification failed.
 
-### Class: `ResponseFault`
+### `ResponseFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Response processing error.
 
-### Class: `InvalidResponseFault`
+### `InvalidResponseFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `ResponseFault`
 - Summary: Invalid response received.
 
-### Class: `DecodingFault`
+### `DecodingFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `ResponseFault`
 - Summary: Response body decoding error.
 
-### Class: `HTTPStatusFault`
+### `HTTPStatusFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `ResponseFault`
 - Summary: HTTP error status received.
 
-### Class: `ClientErrorFault`
+### `ClientErrorFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPStatusFault`
 - Summary: HTTP 4xx client error.
 
-### Class: `ServerErrorFault`
+### `ServerErrorFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPStatusFault`
 - Summary: HTTP 5xx server error.
 
-### Class: `TooManyRedirectsFault`
+### `TooManyRedirectsFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Too many redirects.
 
-### Class: `RequestBuildFault`
+### `RequestBuildFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Request construction error.
 
-### Class: `InvalidURLFault`
+### `InvalidURLFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `RequestBuildFault`
 - Summary: Invalid URL.
 
-### Class: `InvalidHeaderFault`
+### `InvalidHeaderFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `RequestBuildFault`
 - Summary: Invalid header.
 
-### Class: `TransportFault`
+### `TransportFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: Low-level transport error.
 
-### Class: `ProxyFault`
+### `ProxyFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `TransportFault`
 - Summary: Proxy connection error.
 
-### Class: `RetryExhaustedFault`
+### `RetryExhaustedFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: All retry attempts exhausted.
 
-### Class: `ConfigurationFault`
+### `ConfigurationFault`
 
 - Source: `aquilia/http/faults.py`
 - Bases: `HTTPClientFault`
 - Summary: HTTP client configuration error.
 
-### Class: `HTTPClientProvider`
+### `HTTPClientProvider`
 
 - Source: `aquilia/http/integration.py`
 - Bases: `object`
@@ -798,13 +824,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `provides` | `def provides(self) -> type` | property | Type this provider provides. |
-| `scope` | `def scope(self) -> str` | property | DI scope. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Shutdown the provider. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `provides` | `def provides(self)` | Type this provider provides. |
+| `scope` | `def scope(self)` | DI scope. |
+| `shutdown` | `async def shutdown(self)` | Shutdown the provider. |
 
-### Class: `HTTPClientBuilder`
+### `HTTPClientBuilder`
 
 - Source: `aquilia/http/integration.py`
 - Bases: `object`
@@ -812,25 +838,25 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `base_url` | `def base_url(self, url: str) -> HTTPClientBuilder` |  | Set base URL. |
-| `timeout` | `def timeout(self, total: float &#124; None = 30.0, connect: float &#124; None = 10.0, read: float &#124; None = None, write: float &#124; None = None) -> HTTPClientBuilder` |  | Set timeout configuration. |
-| `pool` | `def pool(self, max_connections: int = 100, max_connections_per_host: int = 10, keepalive_expiry: float = 60.0) -> HTTPClientBuilder` |  | Set connection pool configuration. |
-| `retry` | `def retry(self, max_attempts: int = 3, backoff_base: float = 1.0, backoff_multiplier: float = 2.0, backoff_max: float = 60.0) -> HTTPClientBuilder` |  | Set retry configuration. |
-| `proxy` | `def proxy(self, http_proxy: str &#124; None = None, https_proxy: str &#124; None = None, no_proxy: str &#124; None = None) -> HTTPClientBuilder` |  | Set proxy configuration. |
-| `tls` | `def tls(self, verify: bool = True, cert_file: str &#124; None = None, key_file: str &#124; None = None, ca_bundle: str &#124; None = None) -> HTTPClientBuilder` |  | Set TLS configuration. |
-| `header` | `def header(self, name: str, value: str) -> HTTPClientBuilder` |  | Add a default header. |
-| `headers` | `def headers(self, headers: dict[str, str]) -> HTTPClientBuilder` |  | Set default headers. |
-| `follow_redirects` | `def follow_redirects(self, follow: bool = True) -> HTTPClientBuilder` |  | Set redirect following behavior. |
-| `max_redirects` | `def max_redirects(self, max_redirects: int) -> HTTPClientBuilder` |  | Set maximum redirects. |
-| `raise_for_status` | `def raise_for_status(self, raise_errors: bool = True) -> HTTPClientBuilder` |  | Set raise_for_status behavior. |
-| `user_agent` | `def user_agent(self, user_agent: str) -> HTTPClientBuilder` |  | Set User-Agent header. |
-| `build` | `def build(self) -> HTTPClientConfig` |  | Build the configuration. |
-| `build_provider` | `def build_provider(self, scope: str = 'singleton') -> HTTPClientProvider` |  | Build a DI provider. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert to dictionary for serialization. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `base_url` | `def base_url(self, url: str)` | Set base URL. |
+| `timeout` | `def timeout(self, total: float \| None=30.0, connect: float \| None=10.0, read: float \| None=None, write: float \| None=None)` | Set timeout configuration. |
+| `pool` | `def pool(self, max_connections: int=100, max_connections_per_host: int=10, keepalive_expiry: float=60.0)` | Set connection pool configuration. |
+| `retry` | `def retry(self, max_attempts: int=3, backoff_base: float=1.0, backoff_multiplier: float=2.0, backoff_max: float=60.0)` | Set retry configuration. |
+| `proxy` | `def proxy(self, http_proxy: str \| None=None, https_proxy: str \| None=None, no_proxy: str \| None=None)` | Set proxy configuration. |
+| `tls` | `def tls(self, verify: bool=True, cert_file: str \| None=None, key_file: str \| None=None, ca_bundle: str \| None=None)` | Set TLS configuration. |
+| `header` | `def header(self, name: str, value: str)` | Add a default header. |
+| `headers` | `def headers(self, headers: dict[str, str])` | Set default headers. |
+| `follow_redirects` | `def follow_redirects(self, follow: bool=True)` | Set redirect following behavior. |
+| `max_redirects` | `def max_redirects(self, max_redirects: int)` | Set maximum redirects. |
+| `raise_for_status` | `def raise_for_status(self, raise_errors: bool=True)` | Set raise_for_status behavior. |
+| `user_agent` | `def user_agent(self, user_agent: str)` | Set User-Agent header. |
+| `build` | `def build(self)` | Build the configuration. |
+| `build_provider` | `def build_provider(self, scope: str='singleton')` | Build a DI provider. |
+| `to_dict` | `def to_dict(self)` | Convert to dictionary for serialization. |
 
-### Class: `HTTPInterceptor`
+### `HTTPInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `ABC`
@@ -838,11 +864,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` | abstractmethod | Intercept and optionally modify request/response. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` | Intercept and optionally modify request/response. |
 
-### Class: `InterceptorChain`
+### `InterceptorChain`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `object`
@@ -850,13 +876,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, interceptor: HTTPInterceptor) -> InterceptorChain` |  | Add an interceptor to the chain. |
-| `set_handler` | `def set_handler(self, handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> InterceptorChain` |  | Set the final handler. |
-| `execute` | `async def execute(self, request: HTTPClientRequest) -> HTTPClientResponse` |  | Execute the interceptor chain. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, interceptor: HTTPInterceptor)` | Add an interceptor to the chain. |
+| `set_handler` | `def set_handler(self, handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` | Set the final handler. |
+| `execute` | `async def execute(self, request: HTTPClientRequest)` | Execute the interceptor chain. |
 
-### Class: `LoggingInterceptor`
+### `LoggingInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -864,11 +890,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `HeaderInterceptor`
+### `HeaderInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -876,11 +902,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `UserAgentInterceptor`
+### `UserAgentInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -888,11 +914,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `AcceptInterceptor`
+### `AcceptInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -900,30 +926,30 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `RequestMetrics`
+### `RequestMetrics`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Metrics collected for a request.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `method` | `str` |  |
-| `url` | `str` |  |
-| `status_code` | `int` |  |
-| `elapsed` | `float` |  |
-| `request_size` | `int` |  |
-| `response_size` | `int &#124; None` |  |
-| `error` | `str &#124; None` | `None` |
+| `method` | `str` | `` |
+| `url` | `str` | `` |
+| `status_code` | `int` | `` |
+| `elapsed` | `float` | `` |
+| `request_size` | `int` | `` |
+| `response_size` | `int \| None` | `` |
+| `error` | `str \| None` | `None` |
 
-### Class: `MetricsInterceptor`
+### `MetricsInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -931,11 +957,11 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `TimeoutInterceptor`
+### `TimeoutInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -943,11 +969,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `RedirectInterceptor`
+### `RedirectInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -955,11 +981,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `CacheInterceptor`
+### `CacheInterceptor`
 
 - Source: `aquilia/http/interceptors.py`
 - Bases: `HTTPInterceptor`
@@ -967,17 +993,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]]) -> HTTPClientResponse` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `intercept` | `async def intercept(self, request: HTTPClientRequest, next_handler: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]])` |  |
 
-### Class: `HTTPClientMiddleware`
+### `HTTPClientMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `ABC`
 - Summary: Base class for HTTP client middleware.
 
-### Class: `MiddlewareStack`
+### `MiddlewareStack`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `object`
@@ -985,63 +1011,63 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add` | `def add(self, middleware: HTTPClientMiddleware) -> MiddlewareStack` |  | Add middleware to the stack. |
-| `add_many` | `def add_many(self, middleware: list[HTTPClientMiddleware]) -> MiddlewareStack` |  | Add multiple middleware to the stack. |
-| `set_handler` | `def set_handler(self, handler: MiddlewareHandler) -> MiddlewareStack` |  | Set the final request handler. |
-| `build` | `def build(self) -> MiddlewareHandler` |  | Build the middleware chain. |
-| `execute` | `async def execute(self, request: HTTPClientRequest) -> HTTPClientResponse` |  | Execute the middleware chain. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add` | `def add(self, middleware: HTTPClientMiddleware)` | Add middleware to the stack. |
+| `add_many` | `def add_many(self, middleware: list[HTTPClientMiddleware])` | Add multiple middleware to the stack. |
+| `set_handler` | `def set_handler(self, handler: MiddlewareHandler)` | Set the final request handler. |
+| `build` | `def build(self)` | Build the middleware chain. |
+| `execute` | `async def execute(self, request: HTTPClientRequest)` | Execute the middleware chain. |
 
-### Class: `LoggingMiddleware`
+### `LoggingMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Logs requests and responses.
 
-### Class: `HeadersMiddleware`
+### `HeadersMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Adds default headers to all requests.
 
-### Class: `TimeoutMiddleware`
+### `TimeoutMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Enforces timeout on requests.
 
-### Class: `ErrorHandlingMiddleware`
+### `ErrorHandlingMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Handles errors and converts them to faults.
 
-### Class: `RetryMiddleware`
+### `RetryMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Retries failed requests.
 
-### Class: `CompressionMiddleware`
+### `CompressionMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Handles request/response compression.
 
-### Class: `CacheMiddleware`
+### `CacheMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Caches GET responses.
 
-### Class: `BaseURLMiddleware`
+### `BaseURLMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
 - Summary: Prepends base URL to relative URLs.
 
-### Class: `CookieMiddleware`
+### `CookieMiddleware`
 
 - Source: `aquilia/http/middleware.py`
 - Bases: `HTTPClientMiddleware`
@@ -1049,44 +1075,44 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `jar` | `def jar(self) -> Any` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `jar` | `def jar(self)` |  |
 
-### Class: `FormField`
+### `FormField`
 
 - Source: `aquilia/http/multipart.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A form field in multipart data.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `value` | `str &#124; bytes` |  |
-| `content_type` | `str &#124; None` | `None` |
-| `filename` | `str &#124; None` | `None` |
+| `name` | `str` | `` |
+| `value` | `str \| bytes` | `` |
+| `content_type` | `str \| None` | `None` |
+| `filename` | `str \| None` | `None` |
 
-### Class: `FormFile`
+### `FormFile`
 
 - Source: `aquilia/http/multipart.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A file field in multipart data.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `filename` | `str` |  |
-| `content` | `bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; Path` |  |
-| `content_type` | `str &#124; None` | `None` |
-| `content_length` | `int &#124; None` | `None` |
+| `name` | `str` | `` |
+| `filename` | `str` | `` |
+| `content` | `bytes \| BinaryIO \| AsyncIterator[bytes] \| Path` | `` |
+| `content_type` | `str \| None` | `None` |
+| `content_length` | `int \| None` | `None` |
 
-### Class: `MultipartFormData`
+### `MultipartFormData`
 
 - Source: `aquilia/http/multipart.py`
 - Bases: `object`
@@ -1094,29 +1120,29 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `boundary` | `def boundary(self) -> str` | property | Get the multipart boundary. |
-| `content_type` | `def content_type(self) -> str` | property | Get the Content-Type header value. |
-| `field` | `def field(self, name: str, value: str &#124; bytes, content_type: str &#124; None = None) -> MultipartFormData` |  | Add a form field. |
-| `file` | `def file(self, name: str, filename: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes], content_type: str &#124; None = None) -> MultipartFormData` |  | Add a file field. |
-| `file_from_path` | `def file_from_path(self, name: str, path: Path &#124; str, content_type: str &#124; None = None, filename: str &#124; None = None) -> MultipartFormData` |  | Add a file field from a path. |
-| `file_from_bytes` | `def file_from_bytes(self, name: str, filename: str, data: bytes, content_type: str &#124; None = None) -> MultipartFormData` |  | Add a file field from bytes. |
-| `encode` | `async def encode(self) -> bytes` |  | Encode all fields and files to multipart body. |
-| `encode_sync` | `def encode_sync(self) -> bytes` |  | Synchronously encode fields and files. |
-| `stream` | `async def stream(self, chunk_size: int = 65536) -> AsyncIterator[bytes]` |  | Stream the multipart body in chunks. |
-| `content_length` | `def content_length(self) -> int &#124; None` |  | Calculate total content length if possible. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `boundary` | `def boundary(self)` | Get the multipart boundary. |
+| `content_type` | `def content_type(self)` | Get the Content-Type header value. |
+| `field` | `def field(self, name: str, value: str \| bytes, content_type: str \| None=None)` | Add a form field. |
+| `file` | `def file(self, name: str, filename: str, content: bytes \| BinaryIO \| AsyncIterator[bytes], content_type: str \| None=None)` | Add a file field. |
+| `file_from_path` | `def file_from_path(self, name: str, path: Path \| str, content_type: str \| None=None, filename: str \| None=None)` | Add a file field from a path. |
+| `file_from_bytes` | `def file_from_bytes(self, name: str, filename: str, data: bytes, content_type: str \| None=None)` | Add a file field from bytes. |
+| `encode` | `async def encode(self)` | Encode all fields and files to multipart body. |
+| `encode_sync` | `def encode_sync(self)` | Synchronously encode fields and files. |
+| `stream` | `async def stream(self, chunk_size: int=65536)` | Stream the multipart body in chunks. |
+| `content_length` | `def content_length(self)` | Calculate total content length if possible. |
 
-### Class: `ConnectionStats`
+### `ConnectionStats`
 
 - Source: `aquilia/http/pool.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Connection pool statistics.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `total_created` | `int` | `0` |
 | `total_closed` | `int` | `0` |
@@ -1128,25 +1154,25 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, int]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `PooledConnection`
+### `PooledConnection`
 
 - Source: `aquilia/http/pool.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Wrapper for a pooled connection.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `host` | `str` |  |
-| `port` | `int` |  |
-| `scheme` | `str` |  |
-| `connection` | `Any` |  |
+| `host` | `str` | `` |
+| `port` | `int` | `` |
+| `scheme` | `str` | `` |
+| `connection` | `Any` | `` |
 | `created_at` | `float` | `field(default_factory=time.monotonic)` |
 | `last_used_at` | `float` | `field(default_factory=time.monotonic)` |
 | `requests_count` | `int` | `0` |
@@ -1155,16 +1181,16 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `age` | `def age(self) -> float` | property | Seconds since connection was created. |
-| `idle_time` | `def idle_time(self) -> float` | property | Seconds since connection was last used. |
-| `key` | `def key(self) -> str` | property | Connection pool key. |
-| `mark_used` | `def mark_used(self) -> None` |  | Mark connection as in use. |
-| `mark_available` | `def mark_available(self) -> None` |  | Mark connection as available for reuse. |
-| `is_expired` | `def is_expired(self, max_age: float) -> bool` |  | Check if connection has exceeded keepalive timeout. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `age` | `def age(self)` | Seconds since connection was created. |
+| `idle_time` | `def idle_time(self)` | Seconds since connection was last used. |
+| `key` | `def key(self)` | Connection pool key. |
+| `mark_used` | `def mark_used(self)` | Mark connection as in use. |
+| `mark_available` | `def mark_available(self)` | Mark connection as available for reuse. |
+| `is_expired` | `def is_expired(self, max_age: float)` | Check if connection has exceeded keepalive timeout. |
 
-### Class: `ConnectionPool`
+### `ConnectionPool`
 
 - Source: `aquilia/http/pool.py`
 - Bases: `object`
@@ -1172,19 +1198,19 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `stats` | `def stats(self) -> ConnectionStats` | property | Get pool statistics. |
-| `config` | `def config(self) -> PoolConfig` | property | Get pool configuration. |
-| `acquire` | `async def acquire(self, url: str, *, timeout: float &#124; None = None) -> PooledConnection &#124; None` |  | Acquire a connection from the pool. |
-| `add` | `async def add(self, url: str, connection: Any, *, is_http2: bool = False) -> PooledConnection` |  | Add a new connection to the pool. |
-| `release` | `async def release(self, conn: PooledConnection, *, reusable: bool = True) -> None` |  | Release a connection back to the pool. |
-| `remove` | `async def remove(self, conn: PooledConnection) -> None` |  | Remove and close a connection. |
-| `cleanup` | `async def cleanup(self) -> int` |  | Clean up expired connections. |
-| `start_cleanup_task` | `def start_cleanup_task(self) -> None` |  | Start background cleanup task. |
-| `close` | `async def close(self) -> None` |  | Close all connections and shutdown pool. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `stats` | `def stats(self)` | Get pool statistics. |
+| `config` | `def config(self)` | Get pool configuration. |
+| `acquire` | `async def acquire(self, url: str, *, timeout: float \| None=None)` | Acquire a connection from the pool. |
+| `add` | `async def add(self, url: str, connection: Any, *, is_http2: bool=False)` | Add a new connection to the pool. |
+| `release` | `async def release(self, conn: PooledConnection, *, reusable: bool=True)` | Release a connection back to the pool. |
+| `remove` | `async def remove(self, conn: PooledConnection)` | Remove and close a connection. |
+| `cleanup` | `async def cleanup(self)` | Clean up expired connections. |
+| `start_cleanup_task` | `def start_cleanup_task(self)` | Start background cleanup task. |
+| `close` | `async def close(self)` | Close all connections and shutdown pool. |
 
-### Class: `ConnectionPoolManager`
+### `ConnectionPoolManager`
 
 - Source: `aquilia/http/pool.py`
 - Bases: `object`
@@ -1192,67 +1218,67 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_pool` | `async def get_pool(self, name: str = 'default', config: PoolConfig &#124; None = None) -> ConnectionPool` |  | Get or create a named pool. |
-| `close_all` | `async def close_all(self) -> None` |  | Close all managed pools. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_pool` | `async def get_pool(self, name: str='default', config: PoolConfig \| None=None)` | Get or create a named pool. |
+| `close_all` | `async def close_all(self)` | Close all managed pools. |
 
-### Class: `HTTPMethod`
+### `HTTPMethod`
 
 - Source: `aquilia/http/request.py`
 - Bases: `str, Enum`
 - Summary: HTTP methods.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `GET` |  | `'GET'` |
-| `POST` |  | `'POST'` |
-| `PUT` |  | `'PUT'` |
-| `PATCH` |  | `'PATCH'` |
-| `DELETE` |  | `'DELETE'` |
-| `HEAD` |  | `'HEAD'` |
-| `OPTIONS` |  | `'OPTIONS'` |
-| `TRACE` |  | `'TRACE'` |
-| `CONNECT` |  | `'CONNECT'` |
+| `GET` | `` | `'GET'` |
+| `POST` | `` | `'POST'` |
+| `PUT` | `` | `'PUT'` |
+| `PATCH` | `` | `'PATCH'` |
+| `DELETE` | `` | `'DELETE'` |
+| `HEAD` | `` | `'HEAD'` |
+| `OPTIONS` | `` | `'OPTIONS'` |
+| `TRACE` | `` | `'TRACE'` |
+| `CONNECT` | `` | `'CONNECT'` |
 
-### Class: `HTTPClientRequest`
+### `HTTPClientRequest`
 
 - Source: `aquilia/http/request.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: HTTP request representation.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `method` | `HTTPMethod` |  |
-| `url` | `str` |  |
+| `method` | `HTTPMethod` | `` |
+| `url` | `str` | `` |
 | `headers` | `dict[str, str]` | `field(default_factory=dict)` |
-| `body` | `bytes &#124; AsyncIterator[bytes] &#124; None` | `None` |
-| `timeout` | `TimeoutConfig &#124; None` | `None` |
-| `follow_redirects` | `bool &#124; None` | `None` |
-| `auth` | `tuple[str, str] &#124; None` | `None` |
+| `body` | `bytes \| AsyncIterator[bytes] \| None` | `None` |
+| `timeout` | `TimeoutConfig \| None` | `None` |
+| `follow_redirects` | `bool \| None` | `None` |
+| `auth` | `tuple[str, str] \| None` | `None` |
 | `extensions` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `host` | `def host(self) -> str` | property | Extract host from URL. |
-| `path` | `def path(self) -> str` | property | Extract path from URL. |
-| `scheme` | `def scheme(self) -> str` | property | Extract scheme from URL. |
-| `query_string` | `def query_string(self) -> str` | property | Extract query string from URL. |
-| `content_type` | `def content_type(self) -> str &#124; None` | property | Get Content-Type header. |
-| `content_length` | `def content_length(self) -> int &#124; None` | property | Get Content-Length header as int. |
-| `has_body` | `def has_body(self) -> bool` |  | Check if request has a body. |
-| `is_streaming` | `def is_streaming(self) -> bool` |  | Check if body is a stream. |
-| `copy` | `def copy(self, **changes: Any) -> HTTPClientRequest` |  | Create a copy with optional changes. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dictionary (for logging/debugging). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `host` | `def host(self)` | Extract host from URL. |
+| `path` | `def path(self)` | Extract path from URL. |
+| `scheme` | `def scheme(self)` | Extract scheme from URL. |
+| `query_string` | `def query_string(self)` | Extract query string from URL. |
+| `content_type` | `def content_type(self)` | Get Content-Type header. |
+| `content_length` | `def content_length(self)` | Get Content-Length header as int. |
+| `has_body` | `def has_body(self)` | Check if request has a body. |
+| `is_streaming` | `def is_streaming(self)` | Check if body is a stream. |
+| `copy` | `def copy(self, **changes: Any)` | Create a copy with optional changes. |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary (for logging/debugging). |
 
-### Class: `RequestBuilder`
+### `RequestBuilder`
 
 - Source: `aquilia/http/request.py`
 - Bases: `object`
@@ -1260,39 +1286,39 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `header` | `def header(self, name: str, value: str) -> RequestBuilder` |  | Add a header. |
-| `headers` | `def headers(self, headers: HeadersType) -> RequestBuilder` |  | Add multiple headers. |
-| `param` | `def param(self, name: str, value: str &#124; int &#124; float &#124; bool &#124; None) -> RequestBuilder` |  | Add a query parameter. |
-| `params` | `def params(self, params: ParamsType) -> RequestBuilder` |  | Add multiple query parameters. |
-| `body` | `def body(self, content: bytes &#124; AsyncIterator[bytes]) -> RequestBuilder` |  | Set raw body content. |
-| `json` | `def json(self, data: JsonType) -> RequestBuilder` |  | Set JSON body (automatically sets Content-Type). |
-| `form` | `def form(self, data: Mapping[str, Any] &#124; str) -> RequestBuilder` |  | Set form-urlencoded body (automatically sets Content-Type). |
-| `multipart` | `def multipart(self, fields: dict[str, str &#124; tuple[str, bytes &#124; BinaryIO, str &#124; None]] &#124; None = None, files: list[tuple[str, tuple[str, bytes &#124; BinaryIO, str &#124; None]]] &#124; None = None) -> RequestBuilder` |  | Set multipart form data with optional files. |
-| `cookie` | `def cookie(self, name: str, value: str) -> RequestBuilder` |  | Add a cookie. |
-| `cookies` | `def cookies(self, cookies: CookiesType) -> RequestBuilder` |  | Add multiple cookies. |
-| `auth_basic` | `def auth_basic(self, username: str, password: str) -> RequestBuilder` |  | Set Basic authentication. |
-| `auth_bearer` | `def auth_bearer(self, token: str) -> RequestBuilder` |  | Set Bearer token authentication. |
-| `timeout` | `def timeout(self, total: float &#124; None = None, connect: float &#124; None = None, read: float &#124; None = None, write: float &#124; None = None, pool: float &#124; None = None) -> RequestBuilder` |  | Set request-specific timeouts. |
-| `follow_redirects` | `def follow_redirects(self, follow: bool = True) -> RequestBuilder` |  | Set redirect following behavior. |
-| `extension` | `def extension(self, key: str, value: Any) -> RequestBuilder` |  | Add an extension for interceptors. |
-| `build` | `def build(self) -> HTTPClientRequest` |  | Build the final HTTPClientRequest. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `header` | `def header(self, name: str, value: str)` | Add a header. |
+| `headers` | `def headers(self, headers: HeadersType)` | Add multiple headers. |
+| `param` | `def param(self, name: str, value: str \| int \| float \| bool \| None)` | Add a query parameter. |
+| `params` | `def params(self, params: ParamsType)` | Add multiple query parameters. |
+| `body` | `def body(self, content: bytes \| AsyncIterator[bytes])` | Set raw body content. |
+| `json` | `def json(self, data: JsonType)` | Set JSON body (automatically sets Content-Type). |
+| `form` | `def form(self, data: Mapping[str, Any] \| str)` | Set form-urlencoded body (automatically sets Content-Type). |
+| `multipart` | `def multipart(self, fields: dict[str, str \| tuple[str, bytes \| BinaryIO, str \| None]] \| None=None, files: list[tuple[str, tuple[str, bytes \| BinaryIO, str \| None]]] \| None=None)` | Set multipart form data with optional files. |
+| `cookie` | `def cookie(self, name: str, value: str)` | Add a cookie. |
+| `cookies` | `def cookies(self, cookies: CookiesType)` | Add multiple cookies. |
+| `auth_basic` | `def auth_basic(self, username: str, password: str)` | Set Basic authentication. |
+| `auth_bearer` | `def auth_bearer(self, token: str)` | Set Bearer token authentication. |
+| `timeout` | `def timeout(self, total: float \| None=None, connect: float \| None=None, read: float \| None=None, write: float \| None=None, pool: float \| None=None)` | Set request-specific timeouts. |
+| `follow_redirects` | `def follow_redirects(self, follow: bool=True)` | Set redirect following behavior. |
+| `extension` | `def extension(self, key: str, value: Any)` | Add an extension for interceptors. |
+| `build` | `def build(self)` | Build the final HTTPClientRequest. |
 
-### Class: `HTTPClientResponse`
+### `HTTPClientResponse`
 
 - Source: `aquilia/http/response.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: HTTP response wrapper.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `status_code` | `int` |  |
-| `headers` | `dict[str, str]` |  |
-| `url` | `str` |  |
+| `status_code` | `int` | `` |
+| `headers` | `dict[str, str]` | `` |
+| `url` | `str` | `` |
 | `http_version` | `str` | `'1.1'` |
 | `elapsed` | `float` | `0.0` |
 | `request_url` | `str` | `''` |
@@ -1301,59 +1327,59 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `reason` | `def reason(self) -> str` | property | HTTP status reason phrase. |
-| `is_informational` | `def is_informational(self) -> bool` | property | Check if status is 1xx. |
-| `is_success` | `def is_success(self) -> bool` | property | Check if status is 2xx. |
-| `is_redirect` | `def is_redirect(self) -> bool` | property | Check if status is 3xx redirect. |
-| `is_client_error` | `def is_client_error(self) -> bool` | property | Check if status is 4xx. |
-| `is_server_error` | `def is_server_error(self) -> bool` | property | Check if status is 5xx. |
-| `is_error` | `def is_error(self) -> bool` | property | Check if status is 4xx or 5xx. |
-| `ok` | `def ok(self) -> bool` | property | Check if status indicates success (2xx). |
-| `content_type` | `def content_type(self) -> str` | property | Get Content-Type header. |
-| `content_length` | `def content_length(self) -> int &#124; None` | property | Get Content-Length header as int. |
-| `encoding` | `def encoding(self) -> str` | property | Detect encoding from Content-Type header. |
-| `etag` | `def etag(self) -> str &#124; None` | property | Get ETag header. |
-| `last_modified` | `def last_modified(self) -> datetime &#124; None` | property | Parse Last-Modified header. |
-| `location` | `def location(self) -> str &#124; None` | property | Get Location header (for redirects). |
-| `cookies` | `def cookies(self) -> dict[str, str]` | property | Parse Set-Cookie headers into dict. |
-| `get_header` | `def get_header(self, name: str, default: str &#124; None = None) -> str &#124; None` |  | Get header by name (case-insensitive). |
-| `get_headers` | `def get_headers(self, name: str) -> list[str]` |  | Get all values for a header (for multi-value headers). |
-| `read` | `async def read(self) -> bytes` |  | Read entire response body as bytes. |
-| `text` | `async def text(self, encoding: str &#124; None = None) -> str` |  | Read response body as text. |
-| `json` | `async def json(self) -> Any` |  | Parse response body as JSON. |
-| `iter_bytes` | `async def iter_bytes(self, chunk_size: int = 65536) -> AsyncIterator[bytes]` |  | Stream response body in chunks. |
-| `iter_text` | `async def iter_text(self, chunk_size: int = 65536, encoding: str &#124; None = None) -> AsyncIterator[str]` |  | Stream response body as text chunks. |
-| `iter_lines` | `async def iter_lines(self, encoding: str &#124; None = None, delimiter: str = '\n') -> AsyncIterator[str]` |  | Stream response body line by line. |
-| `raise_for_status` | `def raise_for_status(self) -> None` |  | Raise HTTPStatusFault if status is 4xx or 5xx. |
-| `close` | `async def close(self) -> None` |  | Close the response and release resources. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to dictionary (for logging/debugging). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `reason` | `def reason(self)` | HTTP status reason phrase. |
+| `is_informational` | `def is_informational(self)` | Check if status is 1xx. |
+| `is_success` | `def is_success(self)` | Check if status is 2xx. |
+| `is_redirect` | `def is_redirect(self)` | Check if status is 3xx redirect. |
+| `is_client_error` | `def is_client_error(self)` | Check if status is 4xx. |
+| `is_server_error` | `def is_server_error(self)` | Check if status is 5xx. |
+| `is_error` | `def is_error(self)` | Check if status is 4xx or 5xx. |
+| `ok` | `def ok(self)` | Check if status indicates success (2xx). |
+| `content_type` | `def content_type(self)` | Get Content-Type header. |
+| `content_length` | `def content_length(self)` | Get Content-Length header as int. |
+| `encoding` | `def encoding(self)` | Detect encoding from Content-Type header. |
+| `etag` | `def etag(self)` | Get ETag header. |
+| `last_modified` | `def last_modified(self)` | Parse Last-Modified header. |
+| `location` | `def location(self)` | Get Location header (for redirects). |
+| `cookies` | `def cookies(self)` | Parse Set-Cookie headers into dict. |
+| `get_header` | `def get_header(self, name: str, default: str \| None=None)` | Get header by name (case-insensitive). |
+| `get_headers` | `def get_headers(self, name: str)` | Get all values for a header (for multi-value headers). |
+| `read` | `async def read(self)` | Read entire response body as bytes. |
+| `text` | `async def text(self, encoding: str \| None=None)` | Read response body as text. |
+| `json` | `async def json(self)` | Parse response body as JSON. |
+| `iter_bytes` | `async def iter_bytes(self, chunk_size: int=65536)` | Stream response body in chunks. |
+| `iter_text` | `async def iter_text(self, chunk_size: int=65536, encoding: str \| None=None)` | Stream response body as text chunks. |
+| `iter_lines` | `async def iter_lines(self, encoding: str \| None=None, delimiter: str='\n')` | Stream response body line by line. |
+| `raise_for_status` | `def raise_for_status(self)` | Raise HTTPStatusFault if status is 4xx or 5xx. |
+| `close` | `async def close(self)` | Close the response and release resources. |
+| `to_dict` | `def to_dict(self)` | Serialize to dictionary (for logging/debugging). |
 
-### Class: `RetryState`
+### `RetryState`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: State tracking for retry attempts.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `attempt` | `int` | `0` |
-| `last_error` | `Exception &#124; None` | `None` |
-| `last_response` | `HTTPClientResponse &#124; None` | `None` |
+| `last_error` | `Exception \| None` | `None` |
+| `last_response` | `HTTPClientResponse \| None` | `None` |
 | `total_delay` | `float` | `0.0` |
 | `start_time` | `float` | `0.0` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `elapsed` | `def elapsed(self) -> float` | property | Total elapsed time since first attempt. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `elapsed` | `def elapsed(self)` | Total elapsed time since first attempt. |
 
-### Class: `RetryStrategy`
+### `RetryStrategy`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `ABC`
@@ -1361,12 +1387,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse &#124; None, error: Exception &#124; None) -> bool` | abstractmethod | Determine if request should be retried. |
-| `get_delay` | `def get_delay(self, state: RetryState) -> float` | abstractmethod | Calculate delay before next retry. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse \| None, error: Exception \| None)` | Determine if request should be retried. |
+| `get_delay` | `def get_delay(self, state: RetryState)` | Calculate delay before next retry. |
 
-### Class: `ExponentialBackoff`
+### `ExponentialBackoff`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `RetryStrategy`
@@ -1374,13 +1400,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `config` | `def config(self) -> RetryConfig` | property | Method. |
-| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse &#124; None, error: Exception &#124; None) -> bool` |  | Check if retry should be attempted. |
-| `get_delay` | `def get_delay(self, state: RetryState) -> float` |  | Calculate exponential backoff delay. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `config` | `def config(self)` |  |
+| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse \| None, error: Exception \| None)` | Check if retry should be attempted. |
+| `get_delay` | `def get_delay(self, state: RetryState)` | Calculate exponential backoff delay. |
 
-### Class: `ConstantBackoff`
+### `ConstantBackoff`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `RetryStrategy`
@@ -1388,12 +1414,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse &#124; None, error: Exception &#124; None) -> bool` |  | Method. |
-| `get_delay` | `def get_delay(self, state: RetryState) -> float` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse \| None, error: Exception \| None)` |  |
+| `get_delay` | `def get_delay(self, state: RetryState)` |  |
 
-### Class: `NoRetry`
+### `NoRetry`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `RetryStrategy`
@@ -1401,12 +1427,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse &#124; None, error: Exception &#124; None) -> bool` |  | Method. |
-| `get_delay` | `def get_delay(self, state: RetryState) -> float` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse \| None, error: Exception \| None)` |  |
+| `get_delay` | `def get_delay(self, state: RetryState)` |  |
 
-### Class: `RetryAfterStrategy`
+### `RetryAfterStrategy`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `RetryStrategy`
@@ -1414,12 +1440,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse &#124; None, error: Exception &#124; None) -> bool` |  | Method. |
-| `get_delay` | `def get_delay(self, state: RetryState) -> float` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse \| None, error: Exception \| None)` |  |
+| `get_delay` | `def get_delay(self, state: RetryState)` |  |
 
-### Class: `CompositeRetryStrategy`
+### `CompositeRetryStrategy`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `RetryStrategy`
@@ -1427,12 +1453,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse &#124; None, error: Exception &#124; None) -> bool` |  | Method. |
-| `get_delay` | `def get_delay(self, state: RetryState) -> float` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `should_retry` | `def should_retry(self, state: RetryState, request: HTTPClientRequest, response: HTTPClientResponse \| None, error: Exception \| None)` |  |
+| `get_delay` | `def get_delay(self, state: RetryState)` |  |
 
-### Class: `RetryExecutor`
+### `RetryExecutor`
 
 - Source: `aquilia/http/retry.py`
 - Bases: `object`
@@ -1440,11 +1466,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `execute` | `async def execute(self, operation: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]], request: HTTPClientRequest) -> HTTPClientResponse` |  | Execute operation with retries. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `execute` | `async def execute(self, operation: Callable[[HTTPClientRequest], Awaitable[HTTPClientResponse]], request: HTTPClientRequest)` | Execute operation with retries. |
 
-### Class: `HTTPSession`
+### `HTTPSession`
 
 - Source: `aquilia/http/session.py`
 - Bases: `object`
@@ -1452,46 +1478,46 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `config` | `def config(self) -> HTTPClientConfig` | property | Get session configuration. |
-| `cookies` | `def cookies(self) -> CookieJar` | property | Get session cookie jar. |
-| `base_url` | `def base_url(self) -> str &#124; None` | property | Get base URL. |
-| `send` | `async def send(self, request: HTTPClientRequest) -> HTTPClientResponse` |  | Send an HTTP request. |
-| `request` | `def request(self, method: str &#124; HTTPMethod, url: str, **kwargs: Any) -> RequestBuilder` |  | Create a request builder. |
-| `get` | `async def get(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a GET request. |
-| `post` | `async def post(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a POST request. |
-| `put` | `async def put(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a PUT request. |
-| `patch` | `async def patch(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, json: Any = None, data: dict[str, Any] &#124; str &#124; bytes &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a PATCH request. |
-| `delete` | `async def delete(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a DELETE request. |
-| `head` | `async def head(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send a HEAD request. |
-| `options` | `async def options(self, url: str, *, params: dict[str, Any] &#124; None = None, headers: dict[str, str] &#124; None = None, timeout: float &#124; TimeoutConfig &#124; None = None, **kwargs: Any) -> HTTPClientResponse` |  | Send an OPTIONS request. |
-| `close` | `async def close(self) -> None` |  | Close the session. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `config` | `def config(self)` | Get session configuration. |
+| `cookies` | `def cookies(self)` | Get session cookie jar. |
+| `base_url` | `def base_url(self)` | Get base URL. |
+| `send` | `async def send(self, request: HTTPClientRequest)` | Send an HTTP request. |
+| `request` | `def request(self, method: str \| HTTPMethod, url: str, **kwargs: Any)` | Create a request builder. |
+| `get` | `async def get(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a GET request. |
+| `post` | `async def post(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a POST request. |
+| `put` | `async def put(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a PUT request. |
+| `patch` | `async def patch(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, json: Any=None, data: dict[str, Any] \| str \| bytes \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a PATCH request. |
+| `delete` | `async def delete(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a DELETE request. |
+| `head` | `async def head(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send a HEAD request. |
+| `options` | `async def options(self, url: str, *, params: dict[str, Any] \| None=None, headers: dict[str, str] \| None=None, timeout: float \| TimeoutConfig \| None=None, **kwargs: Any)` | Send an OPTIONS request. |
+| `close` | `async def close(self)` | Close the session. |
 
-### Class: `StreamProgress`
+### `StreamProgress`
 
 - Source: `aquilia/http/streaming.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Progress information for streaming operations.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `bytes_transferred` | `int` |  |
-| `total_bytes` | `int &#124; None` |  |
-| `elapsed` | `float` |  |
+| `bytes_transferred` | `int` | `` |
+| `total_bytes` | `int \| None` | `` |
+| `elapsed` | `float` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `percentage` | `def percentage(self) -> float &#124; None` | property | Calculate progress percentage (0-100). |
-| `bytes_per_second` | `def bytes_per_second(self) -> float` | property | Calculate transfer rate. |
-| `eta_seconds` | `def eta_seconds(self) -> float &#124; None` | property | Estimate remaining time in seconds. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `percentage` | `def percentage(self)` | Calculate progress percentage (0-100). |
+| `bytes_per_second` | `def bytes_per_second(self)` | Calculate transfer rate. |
+| `eta_seconds` | `def eta_seconds(self)` | Estimate remaining time in seconds. |
 
-### Class: `StreamingBody`
+### `StreamingBody`
 
 - Source: `aquilia/http/streaming.py`
 - Bases: `object`
@@ -1499,11 +1525,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `content_length` | `def content_length(self) -> int &#124; None` | property | Get content length if known. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `content_length` | `def content_length(self)` | Get content length if known. |
 
-### Class: `BufferedStream`
+### `BufferedStream`
 
 - Source: `aquilia/http/streaming.py`
 - Bases: `object`
@@ -1511,64 +1537,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `readline` | `async def readline(self) -> str` |  | Read a single line. |
-| `readlines` | `async def readlines(self) -> list[str]` |  | Read all lines. |
-| `read` | `async def read(self, n: int = -1) -> bytes` |  | Read up to n bytes (or all if n=-1). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `readline` | `async def readline(self)` | Read a single line. |
+| `readlines` | `async def readlines(self)` | Read all lines. |
+| `read` | `async def read(self, n: int=-1)` | Read up to n bytes (or all if n=-1). |
 
-### Class: `ChunkedEncoder`
+### `ChunkedEncoder`
 
 - Source: `aquilia/http/streaming.py`
 - Bases: `object`
 - Summary: HTTP chunked transfer encoding encoder.
 
-### Class: `ChunkedDecoder`
+### `ChunkedDecoder`
 
 - Source: `aquilia/http/streaming.py`
 - Bases: `object`
 - Summary: HTTP chunked transfer encoding decoder.
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `create_transport` | `aquilia/http/_transport.py` | `def create_transport(config: HTTPClientConfig &#124; None = None) -> HTTPTransport` | Create native HTTP transport. |
-| `request` | `aquilia/http/client.py` | `async def request(method: str &#124; HTTPMethod, url: str, **kwargs: Any) -> HTTPClientResponse` | Make a one-off HTTP request. |
-| `get` | `aquilia/http/client.py` | `async def get(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a GET request. |
-| `post` | `aquilia/http/client.py` | `async def post(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a POST request. |
-| `put` | `aquilia/http/client.py` | `async def put(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a PUT request. |
-| `patch` | `aquilia/http/client.py` | `async def patch(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a PATCH request. |
-| `delete` | `aquilia/http/client.py` | `async def delete(url: str, **kwargs: Any) -> HTTPClientResponse` | Make a DELETE request. |
-| `http_client` | `aquilia/http/integration.py` | `def http_client() -> HTTPClientBuilder` | Create HTTP client integration builder. |
-| `create_client_from_config` | `aquilia/http/integration.py` | `def create_client_from_config(config: dict[str, Any]) -> AsyncHTTPClient` | Create HTTP client from configuration dictionary. |
-| `create_middleware_stack` | `aquilia/http/middleware.py` | `def create_middleware_stack(*, base_url: str &#124; None = None, timeout: float &#124; None = None, headers: dict[str, str] &#124; None = None, enable_logging: bool = False, enable_retry: bool = False, enable_cache: bool = False, enable_cookies: bool = False, raise_for_status: bool = False) -> list[HTTPClientMiddleware]` | Create a standard middleware stack. |
-| `get` | `aquilia/http/request.py` | `def get(url: str, **kwargs: Any) -> RequestBuilder` | Create a GET request builder. |
-| `post` | `aquilia/http/request.py` | `def post(url: str, **kwargs: Any) -> RequestBuilder` | Create a POST request builder. |
-| `put` | `aquilia/http/request.py` | `def put(url: str, **kwargs: Any) -> RequestBuilder` | Create a PUT request builder. |
-| `patch` | `aquilia/http/request.py` | `def patch(url: str, **kwargs: Any) -> RequestBuilder` | Create a PATCH request builder. |
-| `delete` | `aquilia/http/request.py` | `def delete(url: str, **kwargs: Any) -> RequestBuilder` | Create a DELETE request builder. |
-| `head` | `aquilia/http/request.py` | `def head(url: str, **kwargs: Any) -> RequestBuilder` | Create a HEAD request builder. |
-| `options` | `aquilia/http/request.py` | `def options(url: str, **kwargs: Any) -> RequestBuilder` | Create an OPTIONS request builder. |
-| `create_response` | `aquilia/http/response.py` | `def create_response(status_code: int, headers: dict[str, str] &#124; list[tuple[str, str]] &#124; None = None, *, body: bytes &#124; None = None, stream: AsyncIterator[bytes] &#124; None = None, url: str = '', http_version: str = '1.1', elapsed: float = 0.0, request_url: str = '', history: list[HTTPClientResponse] &#124; None = None, extensions: dict[str, Any] &#124; None = None) -> HTTPClientResponse` | Factory function to create HTTPClientResponse. |
-| `create_retry_strategy` | `aquilia/http/retry.py` | `def create_retry_strategy(config: RetryConfig &#124; None = None) -> RetryStrategy` | Create a retry strategy from configuration. |
-| `stream_file` | `aquilia/http/streaming.py` | `async def stream_file(path: Path &#124; str, *, chunk_size: int = 65536) -> AsyncIterator[bytes]` | Stream a file asynchronously. |
-| `stream_bytes` | `aquilia/http/streaming.py` | `async def stream_bytes(data: bytes, chunk_size: int = 65536) -> AsyncIterator[bytes]` | Stream bytes in chunks. |
-| `collect_stream` | `aquilia/http/streaming.py` | `async def collect_stream(stream: AsyncIterator[bytes]) -> bytes` | Collect all bytes from an async iterator. |
-| `stream_with_limit` | `aquilia/http/streaming.py` | `async def stream_with_limit(stream: AsyncIterator[bytes], max_bytes: int) -> AsyncIterator[bytes]` | Stream with a byte limit. |
-
-## Constants
-
-| Name | Source | Value or type |
-| --- | --- | --- |
-| `CRLF` | `aquilia/http/_transport.py` | `b'\r\n'` |
-| `HTTP_VERSION` | `aquilia/http/_transport.py` | `b'HTTP/1.1'` |
-| `DEFAULT_PORT_HTTP` | `aquilia/http/_transport.py` | `80` |
-| `DEFAULT_PORT_HTTPS` | `aquilia/http/_transport.py` | `443` |
-| `MAX_LINE_LENGTH` | `aquilia/http/_transport.py` | `65536` |
-| `MAX_HEADERS` | `aquilia/http/_transport.py` | `100` |
-| `CHUNK_SIZE` | `aquilia/http/_transport.py` | `65536` |
-| `HTTP_CLIENT_DOMAIN` | `aquilia/http/faults.py` | `FaultDomain.custom('http_client', 'HTTP client faults')` |
-| `SINGLE_VALUE_HEADERS` | `aquilia/http/request.py` | `frozenset({'content-type', 'content-length', 'host', 'authorization', 'user-agent', 'accept', 'connection', 'cache-control'})` |
-| `HTTP_STATUS_REASONS` | `aquilia/http/response.py` | `{100: 'Continue', 101: 'Switching Protocols', 102: 'Processing', 103: 'Early Hints', 200: 'OK', 201: 'Created', 202: 'Accepted', 203: 'Non-Authoritative Informa` |
-| `T` | `aquilia/http/retry.py` | `TypeVar('T')` |

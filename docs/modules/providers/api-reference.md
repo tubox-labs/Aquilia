@@ -1,10 +1,30 @@
 # Providers API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/providers/__init__.py` | 21 | 0 | 0 | Aquilia Cloud Providers — Pluggable PaaS/IaaS Deployment Backends. |
+| `aquilia/providers/render/__init__.py` | 153 | 0 | 0 | Aquilia Render Provider — Comprehensive PaaS Deployment v2. |
+| `aquilia/providers/render/client.py` | 1406 | 1 | 0 | Render REST API Client — Comprehensive v2. |
+| `aquilia/providers/render/deployer.py` | 661 | 2 | 0 | Render Deployment Orchestrator — Enhanced v2. |
+| `aquilia/providers/render/store.py` | 752 | 1 | 0 | Render Credential Store — Military-Grade Encrypted Token Persistence. |
+| `aquilia/providers/render/types.py` | 993 | 53 | 0 | Render API Type Definitions — Comprehensive v2. |
+| `aquilia/providers/render_backup_phase10/__init__.py` | 53 | 0 | 0 | Aquilia Render Provider — One-command PaaS deployment. |
+| `aquilia/providers/render_backup_phase10/client.py` | 571 | 1 | 0 | Render REST API Client. |
+| `aquilia/providers/render_backup_phase10/deployer.py` | 544 | 2 | 0 | Render Deployment Orchestrator. |
+| `aquilia/providers/render_backup_phase10/store.py` | 344 | 1 | 0 | Render Credential Store — Crous-Encrypted Token Persistence. |
+| `aquilia/providers/render_backup_phase10/types.py` | 384 | 11 | 0 | Render API Type Definitions. |
+
+## Public Exports
+
+`DeployResult`, `ProviderAPIFault`, `ProviderAuthFault`, `ProviderRateLimitFault`, `RenderAuditLogEntry`, `RenderAutoscaling`, `RenderBlueprint`, `RenderBlueprintSync`, `RenderBlueprintSyncStatus`, `RenderClient`, `RenderCredentialStore`, `RenderCustomDomain`, `RenderDeploy`, `RenderDeployConfig`, `RenderDeployStatus`, `RenderDeployer`, `RenderDisk`, `RenderDiskSnapshot`, `RenderDomainVerificationStatus`, `RenderEnvGroup`, `RenderEnvVar`, `RenderEnvironment`, `RenderEvent`, `RenderHeaderRule`, `RenderInstance`, `RenderInstanceStatus`, `RenderJob`, `RenderJobStatus`, `RenderKeyValueConnectionInfo`, `RenderKeyValueInstance`, `RenderKeyValuePlan`, `RenderLogDirection`, `RenderLogEntry`, `RenderLogLevel`, `RenderLogStream`, `RenderLogType`, `RenderMaintenance`, `RenderMaintenanceStatus`, `RenderMetricPoint`, `RenderMetricsFilter`, `RenderNotificationSettings`, `RenderNotificationType`, `RenderOwner`, `RenderPlan`, `RenderPostgresConnectionInfo`, `RenderPostgresInstance`, `RenderPostgresPlan`, `RenderPostgresUser`, `RenderProject`, `RenderRedirectRule`, `RenderRegion`, `RenderRegistryCredential`, `RenderRouteType`, `RenderSecretFile`, `RenderService`, `RenderServiceStatus`, `RenderServiceType`, `RenderWebhook`, `RenderWebhookEventType`, `RenderWorkspaceMember`, `render`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `RenderClient` | `aquilia/providers/render/client.py` | object | Synchronous REST client for the Render API (v1). |
 | `DeployResult` | `aquilia/providers/render/deployer.py` | object | Result of a Render deployment operation. |
@@ -28,7 +48,7 @@ This page is extracted from the current Python source. It includes public classe
 | `RenderKeyValuePlan` | `aquilia/providers/render/types.py` | str, Enum | Render Key-Value (Redis) store plans. |
 | `RenderBlueprintSyncStatus` | `aquilia/providers/render/types.py` | str, Enum | Blueprint sync / IaC sync status. |
 | `RenderInstanceStatus` | `aquilia/providers/render/types.py` | str, Enum | Runtime instance statuses. |
-| `RenderEnvVar` | `aquilia/providers/render/types.py` | object | Environment variable - plain value or generated secret. |
+| `RenderEnvVar` | `aquilia/providers/render/types.py` | object | Environment variable — plain value or generated secret. |
 | `RenderDisk` | `aquilia/providers/render/types.py` | object | Persistent disk attached to a Render service. |
 | `RenderDiskSnapshot` | `aquilia/providers/render/types.py` | object | A snapshot of a persistent disk. |
 | `RenderAutoscaling` | `aquilia/providers/render/types.py` | object | Autoscaling configuration for a Render service. |
@@ -71,7 +91,7 @@ This page is extracted from the current Python source. It includes public classe
 | `RenderPlan` | `aquilia/providers/render_backup_phase10/types.py` | str, Enum | Render compute plans. |
 | `RenderDeployStatus` | `aquilia/providers/render_backup_phase10/types.py` | str, Enum | Deploy lifecycle states returned by the Render API. |
 | `RenderRegion` | `aquilia/providers/render_backup_phase10/types.py` | str, Enum | Common Render deployment regions. |
-| `RenderEnvVar` | `aquilia/providers/render_backup_phase10/types.py` | object | Environment variable - plain value or generated secret. |
+| `RenderEnvVar` | `aquilia/providers/render_backup_phase10/types.py` | object | Environment variable — plain value or generated secret. |
 | `RenderDisk` | `aquilia/providers/render_backup_phase10/types.py` | object | Persistent disk attached to a Render service. |
 | `RenderAutoscaling` | `aquilia/providers/render_backup_phase10/types.py` | object | Autoscaling configuration for a Render service. |
 | `RenderDeploy` | `aquilia/providers/render_backup_phase10/types.py` | object | A single deploy for a Render service. |
@@ -79,15 +99,9 @@ This page is extracted from the current Python source. It includes public classe
 | `RenderOwner` | `aquilia/providers/render_backup_phase10/types.py` | object | A Render workspace/owner (user or team). |
 | `RenderDeployConfig` | `aquilia/providers/render_backup_phase10/types.py` | object | Complete deployment configuration for ``aq deploy render``. |
 
-## Public Function Summary
+## Constants And Module Flags
 
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| None detected |  |  |  |
-
-## Constants
-
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `_BASE_URL` | `aquilia/providers/render/client.py` | `'https://api.render.com/v1'` |
 | `_USER_AGENT` | `aquilia/providers/render/client.py` | `'Aquilia-CLI/2.0'` |
@@ -125,7 +139,7 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `RenderClient`
+### `RenderClient`
 
 - Source: `aquilia/providers/render/client.py`
 - Bases: `object`
@@ -133,115 +147,115 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `list_services` | `def list_services(self, *, name: str &#124; None = None, type: str &#124; None = None, region: str &#124; None = None, suspended: str &#124; None = None, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderService]` |  | List all services, optionally filtered. |
-| `get_service` | `def get_service(self, service_id: str) -> RenderService` |  | Get a specific service by ID. |
-| `get_service_by_name` | `def get_service_by_name(self, name: str, owner_id: str &#124; None = None) -> RenderService &#124; None` |  | Find a service by name. |
-| `create_service` | `def create_service(self, payload: dict[str, Any]) -> RenderService` |  | Create a new service. |
-| `update_service` | `def update_service(self, service_id: str, payload: dict[str, Any]) -> RenderService` |  | Update an existing service (PATCH). |
-| `delete_service` | `def delete_service(self, service_id: str) -> None` |  | Delete a service. |
-| `suspend_service` | `def suspend_service(self, service_id: str) -> None` |  | Suspend a running service. |
-| `resume_service` | `def resume_service(self, service_id: str) -> None` |  | Resume a suspended service. |
-| `restart_service` | `def restart_service(self, service_id: str) -> None` |  | Restart a running service (zero-downtime). |
-| `purge_cache` | `def purge_cache(self, service_id: str) -> None` |  | Clear the build cache for a service. |
-| `create_preview` | `def create_preview(self, service_id: str, *, image_url: str &#124; None = None, name: str &#124; None = None) -> RenderService` |  | Create a preview instance of a service. |
-| `list_deploys` | `def list_deploys(self, service_id: str, *, cursor: str &#124; None = None, limit: int = 10) -> list[RenderDeploy]` |  | List deploys for a service. |
-| `get_deploy` | `def get_deploy(self, service_id: str, deploy_id: str) -> RenderDeploy` |  | Get a specific deploy. |
-| `trigger_deploy` | `def trigger_deploy(self, service_id: str) -> RenderDeploy` |  | Trigger a new deploy. |
-| `cancel_deploy` | `def cancel_deploy(self, service_id: str, deploy_id: str) -> RenderDeploy` |  | Cancel a running deploy. |
-| `rollback_deploy` | `def rollback_deploy(self, service_id: str, deploy_id: str) -> RenderDeploy` |  | Rollback to a previous deploy. |
-| `list_env_vars` | `def list_env_vars(self, service_id: str) -> list[dict[str, Any]]` |  | List all environment variables for a service. |
-| `update_env_vars` | `def update_env_vars(self, service_id: str, env_vars: list[dict[str, Any]]) -> list[dict[str, Any]]` |  | Bulk update environment variables for a service. |
-| `get_env_var` | `def get_env_var(self, service_id: str, key: str) -> dict[str, Any] &#124; None` |  | Get a specific environment variable. |
-| `delete_env_var` | `def delete_env_var(self, service_id: str, key: str) -> None` |  | Delete a specific environment variable. |
-| `list_custom_domains` | `def list_custom_domains(self, service_id: str) -> list[dict[str, Any]]` |  | List custom domains for a service. |
-| `add_custom_domain` | `def add_custom_domain(self, service_id: str, domain_name: str) -> dict[str, Any]` |  | Add a custom domain to a service. |
-| `delete_custom_domain` | `def delete_custom_domain(self, service_id: str, domain_name: str) -> None` |  | Remove a custom domain. |
-| `verify_dns` | `def verify_dns(self, service_id: str, domain_name: str) -> dict[str, Any]` |  | Verify DNS configuration for a custom domain. |
-| `list_secret_files` | `def list_secret_files(self, service_id: str) -> list[RenderSecretFile]` |  | List secret files for a service. |
-| `update_secret_files` | `def update_secret_files(self, service_id: str, files: list[dict[str, str]]) -> list[RenderSecretFile]` |  | Bulk update secret files (PUT replaces all). |
-| `delete_secret_file` | `def delete_secret_file(self, service_id: str, name: str) -> None` |  | Delete a specific secret file. |
-| `list_headers` | `def list_headers(self, service_id: str) -> list[RenderHeaderRule]` |  | List HTTP header rules for a service. |
-| `add_header` | `def add_header(self, service_id: str, header: dict[str, str]) -> RenderHeaderRule` |  | Add an HTTP header rule. |
-| `delete_header` | `def delete_header(self, service_id: str, header_id: str) -> None` |  | Delete an HTTP header rule. |
-| `list_redirect_rules` | `def list_redirect_rules(self, service_id: str) -> list[RenderRedirectRule]` |  | List redirect/rewrite rules. |
-| `add_redirect_rule` | `def add_redirect_rule(self, service_id: str, rule: dict[str, Any]) -> RenderRedirectRule` |  | Add a redirect/rewrite rule. |
-| `delete_redirect_rule` | `def delete_redirect_rule(self, service_id: str, rule_id: str) -> None` |  | Delete a redirect/rewrite rule. |
-| `list_instances` | `def list_instances(self, service_id: str) -> list[RenderInstance]` |  | List running instances of a service. |
-| `list_events` | `def list_events(self, service_id: str, *, cursor: str &#124; None = None, limit: int = 20) -> list[RenderEvent]` |  | List events for a service. |
-| `list_jobs` | `def list_jobs(self, service_id: str, *, cursor: str &#124; None = None, limit: int = 20) -> list[RenderJob]` |  | List job executions for a cron service. |
-| `trigger_job` | `def trigger_job(self, service_id: str) -> RenderJob` |  | Manually trigger a cron job execution. |
-| `cancel_job` | `def cancel_job(self, service_id: str, job_id: str) -> RenderJob` |  | Cancel a running job. |
-| `set_autoscaling` | `def set_autoscaling(self, service_id: str, config: dict[str, Any]) -> dict[str, Any]` |  | Configure autoscaling for a service. |
-| `remove_autoscaling` | `def remove_autoscaling(self, service_id: str) -> None` |  | Remove autoscaling from a service. |
-| `scale_service` | `def scale_service(self, service_id: str, num_instances: int) -> None` |  | Manually scale a service to a specific instance count. |
-| `list_disks` | `def list_disks(self, service_id: str) -> list[dict[str, Any]]` |  | List persistent disks for a service. |
-| `create_disk` | `def create_disk(self, service_id: str, payload: dict[str, Any]) -> dict[str, Any]` |  | Create a persistent disk. |
-| `delete_disk` | `def delete_disk(self, disk_id: str) -> None` |  | Delete a persistent disk. |
-| `list_disk_snapshots` | `def list_disk_snapshots(self, disk_id: str) -> list[RenderDiskSnapshot]` |  | List snapshots for a persistent disk. |
-| `restore_disk_snapshot` | `def restore_disk_snapshot(self, disk_id: str, snapshot_id: str) -> dict[str, Any]` |  | Restore a persistent disk from a snapshot. |
-| `get_logs` | `def get_logs(self, *, owner_id: str &#124; None = None, service_id: str &#124; None = None, direction: str = 'backward', limit: int = 100, start_time: str &#124; None = None, end_time: str &#124; None = None, level: str &#124; None = None, log_type: str &#124; None = None, text: str &#124; None = None, instance_id: str &#124; None = None) -> list[RenderLogEntry]` |  | Retrieve logs from the Render logging API. |
-| `get_metrics` | `def get_metrics(self, service_id: str, *, metric: str = 'cpu', period: str = '1h', start_time: str &#124; None = None, end_time: str &#124; None = None, instance_id: str &#124; None = None) -> list[RenderMetricPoint]` |  | Retrieve service metrics (CPU, memory, HTTP, bandwidth, disk). |
-| `get_metrics_filtered` | `def get_metrics_filtered(self, flt: RenderMetricsFilter) -> list[RenderMetricPoint]` |  | Retrieve metrics using a RenderMetricsFilter object. |
-| `list_postgres` | `def list_postgres(self, *, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderPostgresInstance]` |  | List Postgres database instances. |
-| `create_postgres` | `def create_postgres(self, payload: dict[str, Any]) -> RenderPostgresInstance` |  | Create a new Postgres database. |
-| `get_postgres` | `def get_postgres(self, postgres_id: str) -> RenderPostgresInstance` |  | Get a specific Postgres instance. |
-| `delete_postgres` | `def delete_postgres(self, postgres_id: str) -> None` |  | Delete a Postgres database. |
-| `get_postgres_connection_info` | `def get_postgres_connection_info(self, postgres_id: str) -> RenderPostgresConnectionInfo` |  | Get connection info for a Postgres database. |
-| `list_postgres_users` | `def list_postgres_users(self, postgres_id: str) -> list[RenderPostgresUser]` |  | List users in a Postgres database. |
-| `create_postgres_user` | `def create_postgres_user(self, postgres_id: str, name: str) -> RenderPostgresUser` |  | Create a new Postgres user. |
-| `delete_postgres_user` | `def delete_postgres_user(self, postgres_id: str, user_name: str) -> None` |  | Delete a Postgres user. |
-| `list_key_value` | `def list_key_value(self, *, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderKeyValueInstance]` |  | List Key-Value (Redis) store instances. |
-| `create_key_value` | `def create_key_value(self, payload: dict[str, Any]) -> RenderKeyValueInstance` |  | Create a new Key-Value store. |
-| `get_key_value` | `def get_key_value(self, kv_id: str) -> RenderKeyValueInstance` |  | Get a specific Key-Value instance. |
-| `delete_key_value` | `def delete_key_value(self, kv_id: str) -> None` |  | Delete a Key-Value store. |
-| `get_key_value_connection_info` | `def get_key_value_connection_info(self, kv_id: str) -> RenderKeyValueConnectionInfo` |  | Get connection info for a Key-Value store. |
-| `list_projects` | `def list_projects(self, *, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderProject]` |  | List projects. |
-| `create_project` | `def create_project(self, payload: dict[str, Any]) -> RenderProject` |  | Create a new project. |
-| `get_project` | `def get_project(self, project_id: str) -> RenderProject` |  | Get a specific project. |
-| `delete_project` | `def delete_project(self, project_id: str) -> None` |  | Delete a project. |
-| `list_environments` | `def list_environments(self, project_id: str) -> list[RenderEnvironment]` |  | List environments for a project. |
-| `create_environment` | `def create_environment(self, project_id: str, payload: dict[str, Any]) -> RenderEnvironment` |  | Create a new environment in a project. |
-| `delete_environment` | `def delete_environment(self, project_id: str, environment_id: str) -> None` |  | Delete an environment. |
-| `list_env_groups` | `def list_env_groups(self, *, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderEnvGroup]` |  | List environment groups. |
-| `create_env_group` | `def create_env_group(self, payload: dict[str, Any]) -> RenderEnvGroup` |  | Create a new environment group. |
-| `get_env_group` | `def get_env_group(self, env_group_id: str) -> RenderEnvGroup` |  | Get a specific environment group. |
-| `update_env_group` | `def update_env_group(self, env_group_id: str, payload: dict[str, Any]) -> RenderEnvGroup` |  | Update an environment group. |
-| `delete_env_group` | `def delete_env_group(self, env_group_id: str) -> None` |  | Delete an environment group. |
-| `link_service_to_env_group` | `def link_service_to_env_group(self, env_group_id: str, service_id: str) -> None` |  | Link a service to an environment group. |
-| `unlink_service_from_env_group` | `def unlink_service_from_env_group(self, env_group_id: str, service_id: str) -> None` |  | Unlink a service from an environment group. |
-| `list_registry_credentials` | `def list_registry_credentials(self, *, owner_id: str &#124; None = None) -> list[RenderRegistryCredential]` |  | List private registry credentials. |
-| `create_registry_credential` | `def create_registry_credential(self, payload: dict[str, Any]) -> RenderRegistryCredential` |  | Create a private registry credential. |
-| `delete_registry_credential` | `def delete_registry_credential(self, credential_id: str) -> None` |  | Delete a registry credential. |
-| `list_blueprints` | `def list_blueprints(self, *, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderBlueprint]` |  | List blueprints. |
-| `get_blueprint` | `def get_blueprint(self, blueprint_id: str) -> RenderBlueprint` |  | Get a specific blueprint. |
-| `sync_blueprint` | `def sync_blueprint(self, blueprint_id: str) -> RenderBlueprintSync` |  | Trigger a blueprint sync. |
-| `list_webhooks` | `def list_webhooks(self, *, owner_id: str &#124; None = None) -> list[RenderWebhook]` |  | List webhooks. |
-| `create_webhook` | `def create_webhook(self, payload: dict[str, Any]) -> RenderWebhook` |  | Create a webhook subscription. |
-| `get_webhook` | `def get_webhook(self, webhook_id: str) -> RenderWebhook` |  | Get a specific webhook. |
-| `update_webhook` | `def update_webhook(self, webhook_id: str, payload: dict[str, Any]) -> RenderWebhook` |  | Update a webhook. |
-| `delete_webhook` | `def delete_webhook(self, webhook_id: str) -> None` |  | Delete a webhook. |
-| `list_maintenance_windows` | `def list_maintenance_windows(self, service_id: str) -> list[RenderMaintenance]` |  | List maintenance windows for a service. |
-| `trigger_maintenance` | `def trigger_maintenance(self, service_id: str) -> RenderMaintenance` |  | Trigger maintenance for a service. |
-| `get_notification_settings` | `def get_notification_settings(self, service_id: str) -> RenderNotificationSettings` |  | Get notification settings for a service. |
-| `update_notification_settings` | `def update_notification_settings(self, service_id: str, payload: dict[str, str]) -> RenderNotificationSettings` |  | Update notification settings for a service. |
-| `list_log_streams` | `def list_log_streams(self, *, owner_id: str &#124; None = None) -> list[RenderLogStream]` |  | List log stream sinks. |
-| `create_log_stream` | `def create_log_stream(self, payload: dict[str, Any]) -> RenderLogStream` |  | Create a log stream sink. |
-| `delete_log_stream` | `def delete_log_stream(self, log_stream_id: str) -> None` |  | Delete a log stream sink. |
-| `get_user` | `def get_user(self) -> dict[str, Any]` |  | Get the authenticated user's details. |
-| `list_owners` | `def list_owners(self) -> list[RenderOwner]` |  | List owners (workspaces) for the authenticated user. |
-| `list_workspace_members` | `def list_workspace_members(self, owner_id: str) -> list[RenderWorkspaceMember]` |  | List members of a workspace/team. |
-| `validate_token` | `def validate_token(self) -> bool` |  | Validate the API token by fetching owner info. |
-| `list_audit_logs` | `def list_audit_logs(self, owner_id: str, *, cursor: str &#124; None = None, limit: int = 50) -> list[RenderAuditLogEntry]` |  | List audit log entries for a workspace. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `list_services` | `def list_services(self, *, name: str \| None=None, type: str \| None=None, region: str \| None=None, suspended: str \| None=None, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List all services, optionally filtered. |
+| `get_service` | `def get_service(self, service_id: str)` | Get a specific service by ID. |
+| `get_service_by_name` | `def get_service_by_name(self, name: str, owner_id: str \| None=None)` | Find a service by name. |
+| `create_service` | `def create_service(self, payload: dict[str, Any])` | Create a new service. |
+| `update_service` | `def update_service(self, service_id: str, payload: dict[str, Any])` | Update an existing service (PATCH). |
+| `delete_service` | `def delete_service(self, service_id: str)` | Delete a service. |
+| `suspend_service` | `def suspend_service(self, service_id: str)` | Suspend a running service. |
+| `resume_service` | `def resume_service(self, service_id: str)` | Resume a suspended service. |
+| `restart_service` | `def restart_service(self, service_id: str)` | Restart a running service (zero-downtime). |
+| `purge_cache` | `def purge_cache(self, service_id: str)` | Clear the build cache for a service. |
+| `create_preview` | `def create_preview(self, service_id: str, *, image_url: str \| None=None, name: str \| None=None)` | Create a preview instance of a service. |
+| `list_deploys` | `def list_deploys(self, service_id: str, *, cursor: str \| None=None, limit: int=10)` | List deploys for a service. |
+| `get_deploy` | `def get_deploy(self, service_id: str, deploy_id: str)` | Get a specific deploy. |
+| `trigger_deploy` | `def trigger_deploy(self, service_id: str)` | Trigger a new deploy. |
+| `cancel_deploy` | `def cancel_deploy(self, service_id: str, deploy_id: str)` | Cancel a running deploy. |
+| `rollback_deploy` | `def rollback_deploy(self, service_id: str, deploy_id: str)` | Rollback to a previous deploy. |
+| `list_env_vars` | `def list_env_vars(self, service_id: str)` | List all environment variables for a service. |
+| `update_env_vars` | `def update_env_vars(self, service_id: str, env_vars: list[dict[str, Any]])` | Bulk update environment variables for a service. |
+| `get_env_var` | `def get_env_var(self, service_id: str, key: str)` | Get a specific environment variable. |
+| `delete_env_var` | `def delete_env_var(self, service_id: str, key: str)` | Delete a specific environment variable. |
+| `list_custom_domains` | `def list_custom_domains(self, service_id: str)` | List custom domains for a service. |
+| `add_custom_domain` | `def add_custom_domain(self, service_id: str, domain_name: str)` | Add a custom domain to a service. |
+| `delete_custom_domain` | `def delete_custom_domain(self, service_id: str, domain_name: str)` | Remove a custom domain. |
+| `verify_dns` | `def verify_dns(self, service_id: str, domain_name: str)` | Verify DNS configuration for a custom domain. |
+| `list_secret_files` | `def list_secret_files(self, service_id: str)` | List secret files for a service. |
+| `update_secret_files` | `def update_secret_files(self, service_id: str, files: list[dict[str, str]])` | Bulk update secret files (PUT replaces all). |
+| `delete_secret_file` | `def delete_secret_file(self, service_id: str, name: str)` | Delete a specific secret file. |
+| `list_headers` | `def list_headers(self, service_id: str)` | List HTTP header rules for a service. |
+| `add_header` | `def add_header(self, service_id: str, header: dict[str, str])` | Add an HTTP header rule. |
+| `delete_header` | `def delete_header(self, service_id: str, header_id: str)` | Delete an HTTP header rule. |
+| `list_redirect_rules` | `def list_redirect_rules(self, service_id: str)` | List redirect/rewrite rules. |
+| `add_redirect_rule` | `def add_redirect_rule(self, service_id: str, rule: dict[str, Any])` | Add a redirect/rewrite rule. |
+| `delete_redirect_rule` | `def delete_redirect_rule(self, service_id: str, rule_id: str)` | Delete a redirect/rewrite rule. |
+| `list_instances` | `def list_instances(self, service_id: str)` | List running instances of a service. |
+| `list_events` | `def list_events(self, service_id: str, *, cursor: str \| None=None, limit: int=20)` | List events for a service. |
+| `list_jobs` | `def list_jobs(self, service_id: str, *, cursor: str \| None=None, limit: int=20)` | List job executions for a cron service. |
+| `trigger_job` | `def trigger_job(self, service_id: str)` | Manually trigger a cron job execution. |
+| `cancel_job` | `def cancel_job(self, service_id: str, job_id: str)` | Cancel a running job. |
+| `set_autoscaling` | `def set_autoscaling(self, service_id: str, config: dict[str, Any])` | Configure autoscaling for a service. |
+| `remove_autoscaling` | `def remove_autoscaling(self, service_id: str)` | Remove autoscaling from a service. |
+| `scale_service` | `def scale_service(self, service_id: str, num_instances: int)` | Manually scale a service to a specific instance count. |
+| `list_disks` | `def list_disks(self, service_id: str)` | List persistent disks for a service. |
+| `create_disk` | `def create_disk(self, service_id: str, payload: dict[str, Any])` | Create a persistent disk. |
+| `delete_disk` | `def delete_disk(self, disk_id: str)` | Delete a persistent disk. |
+| `list_disk_snapshots` | `def list_disk_snapshots(self, disk_id: str)` | List snapshots for a persistent disk. |
+| `restore_disk_snapshot` | `def restore_disk_snapshot(self, disk_id: str, snapshot_id: str)` | Restore a persistent disk from a snapshot. |
+| `get_logs` | `def get_logs(self, *, owner_id: str \| None=None, service_id: str \| None=None, direction: str='backward', limit: int=100, start_time: str \| None=None, end_time: str \| None=None, level: str \| None=None, log_type: str \| None=None, text: str \| None=None, instance_id: str \| None=None)` | Retrieve logs from the Render logging API. |
+| `get_metrics` | `def get_metrics(self, service_id: str, *, metric: str='cpu', period: str='1h', start_time: str \| None=None, end_time: str \| None=None, instance_id: str \| None=None)` | Retrieve service metrics (CPU, memory, HTTP, bandwidth, disk). |
+| `get_metrics_filtered` | `def get_metrics_filtered(self, flt: RenderMetricsFilter)` | Retrieve metrics using a RenderMetricsFilter object. |
+| `list_postgres` | `def list_postgres(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List Postgres database instances. |
+| `create_postgres` | `def create_postgres(self, payload: dict[str, Any])` | Create a new Postgres database. |
+| `get_postgres` | `def get_postgres(self, postgres_id: str)` | Get a specific Postgres instance. |
+| `delete_postgres` | `def delete_postgres(self, postgres_id: str)` | Delete a Postgres database. |
+| `get_postgres_connection_info` | `def get_postgres_connection_info(self, postgres_id: str)` | Get connection info for a Postgres database. |
+| `list_postgres_users` | `def list_postgres_users(self, postgres_id: str)` | List users in a Postgres database. |
+| `create_postgres_user` | `def create_postgres_user(self, postgres_id: str, name: str)` | Create a new Postgres user. |
+| `delete_postgres_user` | `def delete_postgres_user(self, postgres_id: str, user_name: str)` | Delete a Postgres user. |
+| `list_key_value` | `def list_key_value(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List Key-Value (Redis) store instances. |
+| `create_key_value` | `def create_key_value(self, payload: dict[str, Any])` | Create a new Key-Value store. |
+| `get_key_value` | `def get_key_value(self, kv_id: str)` | Get a specific Key-Value instance. |
+| `delete_key_value` | `def delete_key_value(self, kv_id: str)` | Delete a Key-Value store. |
+| `get_key_value_connection_info` | `def get_key_value_connection_info(self, kv_id: str)` | Get connection info for a Key-Value store. |
+| `list_projects` | `def list_projects(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List projects. |
+| `create_project` | `def create_project(self, payload: dict[str, Any])` | Create a new project. |
+| `get_project` | `def get_project(self, project_id: str)` | Get a specific project. |
+| `delete_project` | `def delete_project(self, project_id: str)` | Delete a project. |
+| `list_environments` | `def list_environments(self, project_id: str)` | List environments for a project. |
+| `create_environment` | `def create_environment(self, project_id: str, payload: dict[str, Any])` | Create a new environment in a project. |
+| `delete_environment` | `def delete_environment(self, project_id: str, environment_id: str)` | Delete an environment. |
+| `list_env_groups` | `def list_env_groups(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List environment groups. |
+| `create_env_group` | `def create_env_group(self, payload: dict[str, Any])` | Create a new environment group. |
+| `get_env_group` | `def get_env_group(self, env_group_id: str)` | Get a specific environment group. |
+| `update_env_group` | `def update_env_group(self, env_group_id: str, payload: dict[str, Any])` | Update an environment group. |
+| `delete_env_group` | `def delete_env_group(self, env_group_id: str)` | Delete an environment group. |
+| `link_service_to_env_group` | `def link_service_to_env_group(self, env_group_id: str, service_id: str)` | Link a service to an environment group. |
+| `unlink_service_from_env_group` | `def unlink_service_from_env_group(self, env_group_id: str, service_id: str)` | Unlink a service from an environment group. |
+| `list_registry_credentials` | `def list_registry_credentials(self, *, owner_id: str \| None=None)` | List private registry credentials. |
+| `create_registry_credential` | `def create_registry_credential(self, payload: dict[str, Any])` | Create a private registry credential. |
+| `delete_registry_credential` | `def delete_registry_credential(self, credential_id: str)` | Delete a registry credential. |
+| `list_blueprints` | `def list_blueprints(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List blueprints. |
+| `get_blueprint` | `def get_blueprint(self, blueprint_id: str)` | Get a specific blueprint. |
+| `sync_blueprint` | `def sync_blueprint(self, blueprint_id: str)` | Trigger a blueprint sync. |
+| `list_webhooks` | `def list_webhooks(self, *, owner_id: str \| None=None)` | List webhooks. |
+| `create_webhook` | `def create_webhook(self, payload: dict[str, Any])` | Create a webhook subscription. |
+| `get_webhook` | `def get_webhook(self, webhook_id: str)` | Get a specific webhook. |
+| `update_webhook` | `def update_webhook(self, webhook_id: str, payload: dict[str, Any])` | Update a webhook. |
+| `delete_webhook` | `def delete_webhook(self, webhook_id: str)` | Delete a webhook. |
+| `list_maintenance_windows` | `def list_maintenance_windows(self, service_id: str)` | List maintenance windows for a service. |
+| `trigger_maintenance` | `def trigger_maintenance(self, service_id: str)` | Trigger maintenance for a service. |
+| `get_notification_settings` | `def get_notification_settings(self, service_id: str)` | Get notification settings for a service. |
+| `update_notification_settings` | `def update_notification_settings(self, service_id: str, payload: dict[str, str])` | Update notification settings for a service. |
+| `list_log_streams` | `def list_log_streams(self, *, owner_id: str \| None=None)` | List log stream sinks. |
+| `create_log_stream` | `def create_log_stream(self, payload: dict[str, Any])` | Create a log stream sink. |
+| `delete_log_stream` | `def delete_log_stream(self, log_stream_id: str)` | Delete a log stream sink. |
+| `get_user` | `def get_user(self)` | Get the authenticated user's details. |
+| `list_owners` | `def list_owners(self)` | List owners (workspaces) for the authenticated user. |
+| `list_workspace_members` | `def list_workspace_members(self, owner_id: str)` | List members of a workspace/team. |
+| `validate_token` | `def validate_token(self)` | Validate the API token by fetching owner info. |
+| `list_audit_logs` | `def list_audit_logs(self, owner_id: str, *, cursor: str \| None=None, limit: int=50)` | List audit log entries for a workspace. |
 
-### Class: `DeployResult`
+### `DeployResult`
 
 - Source: `aquilia/providers/render/deployer.py`
 - Bases: `object`
 - Summary: Result of a Render deployment operation.
 
-### Class: `RenderDeployer`
+### `RenderDeployer`
 
 - Source: `aquilia/providers/render/deployer.py`
 - Bases: `object`
@@ -249,20 +263,20 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `deploy` | `def deploy(self) -> DeployResult` |  | Execute the complete deployment pipeline. |
-| `rollback` | `def rollback(self, deploy_id: str &#124; None = None) -> DeployResult` |  | Rollback to a previous deployment. |
-| `cancel` | `def cancel(self, service_id: str &#124; None = None, deploy_id: str &#124; None = None) -> bool` |  | Cancel a running deployment. |
-| `create_preview` | `def create_preview(self, *, name: str &#124; None = None) -> DeployResult` |  | Create a preview environment of the service. |
-| `restart` | `def restart(self) -> bool` |  | Restart the service (zero-downtime). |
-| `purge_cache` | `def purge_cache(self) -> bool` |  | Clear the build cache for the service. |
-| `get_deploy_logs` | `def get_deploy_logs(self, *, limit: int = 100, level: str &#124; None = None) -> list[RenderLogEntry]` |  | Get recent logs for the service. |
-| `get_service_metrics` | `def get_service_metrics(self, *, metric: str = 'cpu', period: str = '1h') -> list[RenderMetricPoint]` |  | Get metrics for the service. |
-| `destroy` | `def destroy(self) -> bool` |  | Destroy the service. |
-| `status` | `def status(self) -> dict[str, Any]` |  | Get current deployment status with extended info. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `deploy` | `def deploy(self)` | Execute the complete deployment pipeline. |
+| `rollback` | `def rollback(self, deploy_id: str \| None=None)` | Rollback to a previous deployment. |
+| `cancel` | `def cancel(self, service_id: str \| None=None, deploy_id: str \| None=None)` | Cancel a running deployment. |
+| `create_preview` | `def create_preview(self, *, name: str \| None=None)` | Create a preview environment of the service. |
+| `restart` | `def restart(self)` | Restart the service (zero-downtime). |
+| `purge_cache` | `def purge_cache(self)` | Clear the build cache for the service. |
+| `get_deploy_logs` | `def get_deploy_logs(self, *, limit: int=100, level: str \| None=None)` | Get recent logs for the service. |
+| `get_service_metrics` | `def get_service_metrics(self, *, metric: str='cpu', period: str='1h')` | Get metrics for the service. |
+| `destroy` | `def destroy(self)` | Destroy the service. |
+| `status` | `def status(self)` | Get current deployment status with extended info. |
 
-### Class: `RenderCredentialStore`
+### `RenderCredentialStore`
 
 - Source: `aquilia/providers/render/store.py`
 - Bases: `object`
@@ -270,590 +284,590 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `credentials_path` | `def credentials_path(self) -> Path` | property | Method. |
-| `config_path` | `def config_path(self) -> Path` | property | Method. |
-| `is_configured` | `def is_configured(self) -> bool` |  | Method. |
-| `save` | `def save(self, token: str, *, owner_name: str &#124; None = None, default_region: str = 'oregon', metadata: dict[str, Any] &#124; None = None) -> None` |  | Encrypt and store the API token with military-grade security. |
-| `load` | `def load(self) -> str &#124; None` |  | Load and decrypt the stored API token. |
-| `load_config` | `def load_config(self) -> dict[str, Any]` |  | Load non-sensitive provider configuration. |
-| `get_default_region` | `def get_default_region(self) -> str` |  | Method. |
-| `get_owner_name` | `def get_owner_name(self) -> str &#124; None` |  | Method. |
-| `get_token_age` | `def get_token_age(self) -> float &#124; None` |  | Get the age of the stored token in seconds. |
-| `is_expired` | `def is_expired(self) -> bool` |  | Check if the stored token has expired. |
-| `clear` | `def clear(self) -> None` |  | Securely delete stored credentials. |
-| `rotate` | `def rotate(self, new_token: str &#124; None = None) -> None` |  | Rotate credentials - re-encrypt with new key material. |
-| `get_audit_log` | `def get_audit_log(self, limit: int = 50) -> list[dict[str, Any]]` |  | Read the most recent audit log entries. |
-| `status` | `def status(self) -> dict[str, Any]` |  | Return credential store status (for CLI display). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `credentials_path` | `def credentials_path(self)` |  |
+| `config_path` | `def config_path(self)` |  |
+| `is_configured` | `def is_configured(self)` |  |
+| `save` | `def save(self, token: str, *, owner_name: str \| None=None, default_region: str='oregon', metadata: dict[str, Any] \| None=None)` | Encrypt and store the API token with military-grade security. |
+| `load` | `def load(self)` | Load and decrypt the stored API token. |
+| `load_config` | `def load_config(self)` | Load non-sensitive provider configuration. |
+| `get_default_region` | `def get_default_region(self)` |  |
+| `get_owner_name` | `def get_owner_name(self)` |  |
+| `get_token_age` | `def get_token_age(self)` | Get the age of the stored token in seconds. |
+| `is_expired` | `def is_expired(self)` | Check if the stored token has expired. |
+| `clear` | `def clear(self)` | Securely delete stored credentials. |
+| `rotate` | `def rotate(self, new_token: str \| None=None)` | Rotate credentials — re-encrypt with new key material. |
+| `get_audit_log` | `def get_audit_log(self, limit: int=50)` | Read the most recent audit log entries. |
+| `status` | `def status(self)` | Return credential store status (for CLI display). |
 
-### Class: `RenderServiceType`
+### `RenderServiceType`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Render service type.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `WEB_SERVICE` |  | `'web_service'` |
-| `PRIVATE_SERVICE` |  | `'private_service'` |
-| `BACKGROUND_WORKER` |  | `'background_worker'` |
-| `CRON_JOB` |  | `'cron_job'` |
-| `STATIC_SITE` |  | `'static_site'` |
+| `WEB_SERVICE` | `` | `'web_service'` |
+| `PRIVATE_SERVICE` | `` | `'private_service'` |
+| `BACKGROUND_WORKER` | `` | `'background_worker'` |
+| `CRON_JOB` | `` | `'cron_job'` |
+| `STATIC_SITE` | `` | `'static_site'` |
 
-### Class: `RenderPlan`
+### `RenderPlan`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Render compute plans.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `FREE` |  | `'free'` |
-| `STARTER` |  | `'starter'` |
-| `STANDARD` |  | `'standard'` |
-| `PRO` |  | `'pro'` |
-| `PRO_PLUS` |  | `'pro_plus'` |
-| `PRO_MAX` |  | `'pro_max'` |
-| `PRO_ULTRA` |  | `'pro_ultra'` |
+| `FREE` | `` | `'free'` |
+| `STARTER` | `` | `'starter'` |
+| `STANDARD` | `` | `'standard'` |
+| `PRO` | `` | `'pro'` |
+| `PRO_PLUS` | `` | `'pro_plus'` |
+| `PRO_MAX` | `` | `'pro_max'` |
+| `PRO_ULTRA` | `` | `'pro_ultra'` |
 
-### Class: `RenderDeployStatus`
+### `RenderDeployStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Deploy lifecycle states returned by the Render API.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CREATED` |  | `'created'` |
-| `BUILD_IN_PROGRESS` |  | `'build_in_progress'` |
-| `UPDATE_IN_PROGRESS` |  | `'update_in_progress'` |
-| `LIVE` |  | `'live'` |
-| `DEACTIVATED` |  | `'deactivated'` |
-| `BUILD_FAILED` |  | `'build_failed'` |
-| `UPDATE_FAILED` |  | `'update_failed'` |
-| `CANCELED` |  | `'canceled'` |
-| `PRE_DEPLOY_IN_PROGRESS` |  | `'pre_deploy_in_progress'` |
-| `PRE_DEPLOY_FAILED` |  | `'pre_deploy_failed'` |
+| `CREATED` | `` | `'created'` |
+| `BUILD_IN_PROGRESS` | `` | `'build_in_progress'` |
+| `UPDATE_IN_PROGRESS` | `` | `'update_in_progress'` |
+| `LIVE` | `` | `'live'` |
+| `DEACTIVATED` | `` | `'deactivated'` |
+| `BUILD_FAILED` | `` | `'build_failed'` |
+| `UPDATE_FAILED` | `` | `'update_failed'` |
+| `CANCELED` | `` | `'canceled'` |
+| `PRE_DEPLOY_IN_PROGRESS` | `` | `'pre_deploy_in_progress'` |
+| `PRE_DEPLOY_FAILED` | `` | `'pre_deploy_failed'` |
 
-### Class: `RenderRegion`
+### `RenderRegion`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Common Render deployment regions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `OREGON` |  | `'oregon'` |
-| `FRANKFURT` |  | `'frankfurt'` |
-| `OHIO` |  | `'ohio'` |
-| `VIRGINIA` |  | `'virginia'` |
-| `SINGAPORE` |  | `'singapore'` |
+| `OREGON` | `` | `'oregon'` |
+| `FRANKFURT` | `` | `'frankfurt'` |
+| `OHIO` | `` | `'ohio'` |
+| `VIRGINIA` | `` | `'virginia'` |
+| `SINGAPORE` | `` | `'singapore'` |
 
-### Class: `RenderServiceStatus`
+### `RenderServiceStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Service runtime statuses.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CREATING` |  | `'creating'` |
-| `DEPLOYING` |  | `'deploying'` |
-| `LIVE` |  | `'live'` |
-| `SUSPENDED` |  | `'suspended'` |
-| `DEACTIVATED` |  | `'deactivated'` |
+| `CREATING` | `` | `'creating'` |
+| `DEPLOYING` | `` | `'deploying'` |
+| `LIVE` | `` | `'live'` |
+| `SUSPENDED` | `` | `'suspended'` |
+| `DEACTIVATED` | `` | `'deactivated'` |
 
-### Class: `RenderJobStatus`
+### `RenderJobStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Cron / one-off job execution states.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CREATED` |  | `'created'` |
-| `PENDING` |  | `'pending'` |
-| `IN_PROGRESS` |  | `'in_progress'` |
-| `SUCCEEDED` |  | `'succeeded'` |
-| `FAILED` |  | `'failed'` |
-| `CANCELED` |  | `'canceled'` |
+| `CREATED` | `` | `'created'` |
+| `PENDING` | `` | `'pending'` |
+| `IN_PROGRESS` | `` | `'in_progress'` |
+| `SUCCEEDED` | `` | `'succeeded'` |
+| `FAILED` | `` | `'failed'` |
+| `CANCELED` | `` | `'canceled'` |
 
-### Class: `RenderDomainVerificationStatus`
+### `RenderDomainVerificationStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Custom domain DNS verification statuses.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `VERIFIED` |  | `'verified'` |
-| `UNVERIFIED` |  | `'unverified'` |
-| `PENDING` |  | `'pending'` |
+| `VERIFIED` | `` | `'verified'` |
+| `UNVERIFIED` | `` | `'unverified'` |
+| `PENDING` | `` | `'pending'` |
 
-### Class: `RenderLogLevel`
+### `RenderLogLevel`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Log severity levels for the Render logging API.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `DEBUG` |  | `'debug'` |
-| `INFO` |  | `'info'` |
-| `WARN` |  | `'warn'` |
-| `ERROR` |  | `'error'` |
-| `FATAL` |  | `'fatal'` |
+| `DEBUG` | `` | `'debug'` |
+| `INFO` | `` | `'info'` |
+| `WARN` | `` | `'warn'` |
+| `ERROR` | `` | `'error'` |
+| `FATAL` | `` | `'fatal'` |
 
-### Class: `RenderLogDirection`
+### `RenderLogDirection`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Direction for paginating logs.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `FORWARD` |  | `'forward'` |
-| `BACKWARD` |  | `'backward'` |
+| `FORWARD` | `` | `'forward'` |
+| `BACKWARD` | `` | `'backward'` |
 
-### Class: `RenderLogType`
+### `RenderLogType`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Render log types.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `APP` |  | `'app'` |
-| `BUILD` |  | `'build'` |
-| `DEPLOY` |  | `'deploy'` |
-| `REQUEST` |  | `'request'` |
+| `APP` | `` | `'app'` |
+| `BUILD` | `` | `'build'` |
+| `DEPLOY` | `` | `'deploy'` |
+| `REQUEST` | `` | `'request'` |
 
-### Class: `RenderRouteType`
+### `RenderRouteType`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Redirect/rewrite route types for static sites.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `REDIRECT` |  | `'redirect'` |
-| `REWRITE` |  | `'rewrite'` |
+| `REDIRECT` | `` | `'redirect'` |
+| `REWRITE` | `` | `'rewrite'` |
 
-### Class: `RenderMaintenanceStatus`
+### `RenderMaintenanceStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Maintenance window states.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SCHEDULED` |  | `'scheduled'` |
-| `IN_PROGRESS` |  | `'in_progress'` |
-| `COMPLETED` |  | `'completed'` |
-| `SKIPPED` |  | `'skipped'` |
+| `SCHEDULED` | `` | `'scheduled'` |
+| `IN_PROGRESS` | `` | `'in_progress'` |
+| `COMPLETED` | `` | `'completed'` |
+| `SKIPPED` | `` | `'skipped'` |
 
-### Class: `RenderWebhookEventType`
+### `RenderWebhookEventType`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Event types for webhook subscriptions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `DEPLOY_STARTED` |  | `'deploy_started'` |
-| `DEPLOY_ENDED` |  | `'deploy_ended'` |
-| `SERVICE_CREATED` |  | `'service_created'` |
-| `SERVICE_DELETED` |  | `'service_deleted'` |
-| `SERVICE_SUSPENDED` |  | `'service_suspended'` |
-| `SERVICE_RESUMED` |  | `'service_resumed'` |
-| `SERVER_FAILED` |  | `'server_failed'` |
+| `DEPLOY_STARTED` | `` | `'deploy_started'` |
+| `DEPLOY_ENDED` | `` | `'deploy_ended'` |
+| `SERVICE_CREATED` | `` | `'service_created'` |
+| `SERVICE_DELETED` | `` | `'service_deleted'` |
+| `SERVICE_SUSPENDED` | `` | `'service_suspended'` |
+| `SERVICE_RESUMED` | `` | `'service_resumed'` |
+| `SERVER_FAILED` | `` | `'server_failed'` |
 
-### Class: `RenderNotificationType`
+### `RenderNotificationType`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Notification delivery channels.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `EMAIL` |  | `'email'` |
-| `SLACK` |  | `'slack'` |
-| `WEBHOOK` |  | `'webhook'` |
+| `EMAIL` | `` | `'email'` |
+| `SLACK` | `` | `'slack'` |
+| `WEBHOOK` | `` | `'webhook'` |
 
-### Class: `RenderPostgresPlan`
+### `RenderPostgresPlan`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Render Postgres plans.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `FREE` |  | `'free'` |
-| `STARTER` |  | `'starter'` |
-| `STANDARD` |  | `'standard'` |
-| `PRO` |  | `'pro'` |
-| `PRO_PLUS` |  | `'pro_plus'` |
-| `ACCELERATED` |  | `'accelerated'` |
-| `CUSTOM` |  | `'custom'` |
+| `FREE` | `` | `'free'` |
+| `STARTER` | `` | `'starter'` |
+| `STANDARD` | `` | `'standard'` |
+| `PRO` | `` | `'pro'` |
+| `PRO_PLUS` | `` | `'pro_plus'` |
+| `ACCELERATED` | `` | `'accelerated'` |
+| `CUSTOM` | `` | `'custom'` |
 
-### Class: `RenderKeyValuePlan`
+### `RenderKeyValuePlan`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Render Key-Value (Redis) store plans.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `FREE` |  | `'free'` |
-| `STARTER` |  | `'starter'` |
-| `STANDARD` |  | `'standard'` |
-| `PRO` |  | `'pro'` |
+| `FREE` | `` | `'free'` |
+| `STARTER` | `` | `'starter'` |
+| `STANDARD` | `` | `'standard'` |
+| `PRO` | `` | `'pro'` |
 
-### Class: `RenderBlueprintSyncStatus`
+### `RenderBlueprintSyncStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Blueprint sync / IaC sync status.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `SYNCED` |  | `'synced'` |
-| `SYNCING` |  | `'syncing'` |
-| `FAILED` |  | `'failed'` |
-| `NOT_SYNCED` |  | `'not_synced'` |
+| `SYNCED` | `` | `'synced'` |
+| `SYNCING` | `` | `'syncing'` |
+| `FAILED` | `` | `'failed'` |
+| `NOT_SYNCED` | `` | `'not_synced'` |
 
-### Class: `RenderInstanceStatus`
+### `RenderInstanceStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
 - Summary: Runtime instance statuses.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `RUNNING` |  | `'running'` |
-| `STARTING` |  | `'starting'` |
-| `STOPPED` |  | `'stopped'` |
-| `CRASHED` |  | `'crashed'` |
-| `DRAINING` |  | `'draining'` |
+| `RUNNING` | `` | `'running'` |
+| `STARTING` | `` | `'starting'` |
+| `STOPPED` | `` | `'stopped'` |
+| `CRASHED` | `` | `'crashed'` |
+| `DRAINING` | `` | `'draining'` |
 
-### Class: `RenderEnvVar`
+### `RenderEnvVar`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
+- Summary: Environment variable — plain value or generated secret.
 - Decorators: `dataclass`
-- Summary: Environment variable - plain value or generated secret.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `key` | `str` |  |
-| `value` | `str &#124; None` | `None` |
-| `generate_value` | `str &#124; None` | `None` |
+| `key` | `str` | `` |
+| `value` | `str \| None` | `None` |
+| `generate_value` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderDisk`
+### `RenderDisk`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Persistent disk attached to a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `'data'` |
 | `mount_path` | `str` | `'/data'` |
 | `size_gb` | `int` | `1` |
-| `service_id` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-
-### Class: `RenderDiskSnapshot`
-
-- Source: `aquilia/providers/render/types.py`
-- Bases: `object`
-- Decorators: `dataclass`
-- Summary: A snapshot of a persistent disk.
-
-Attributes and fields:
-
-| Name | Type | Default |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `disk_id` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderAutoscaling`
+### `RenderDiskSnapshot`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
+- Summary: A snapshot of a persistent disk.
 - Decorators: `dataclass`
+
+Fields and class attributes:
+
+| Name | Type | Default / Value |
+| --- | --- | --- |
+| `id` | `str \| None` | `None` |
+| `disk_id` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+
+### `RenderAutoscaling`
+
+- Source: `aquilia/providers/render/types.py`
+- Bases: `object`
 - Summary: Autoscaling configuration for a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `False` |
 | `min` | `int` | `1` |
 | `max` | `int` | `3` |
-| `criteria` | `dict[str, Any] &#124; None` | `None` |
+| `criteria` | `dict[str, Any] \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `disabled` | `def disabled(cls) -> RenderAutoscaling` | classmethod | Method. |
-| `auto` | `def auto(cls, min_instances: int = 1, max_instances: int = 3, cpu_percent: int = 80, memory_percent: int &#124; None = None) -> RenderAutoscaling` | classmethod | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `disabled` | `def disabled(cls)` |  |
+| `auto` | `def auto(cls, min_instances: int=1, max_instances: int=3, cpu_percent: int=80, memory_percent: int \| None=None)` |  |
 
-### Class: `RenderDeploy`
+### `RenderDeploy`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single deploy for a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `commit` | `dict[str, Any] &#124; None` | `None` |
-| `image` | `dict[str, Any] &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
-| `finished_at` | `str &#124; None` | `None` |
-| `trigger` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `commit` | `dict[str, Any] \| None` | `None` |
+| `image` | `dict[str, Any] \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
+| `finished_at` | `str \| None` | `None` |
+| `trigger` | `str \| None` | `None` |
 
-### Class: `RenderService`
+### `RenderService`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render service (top-level resource).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `owner_id` | `str &#124; None` | `None` |
-| `slug` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
+| `slug` | `str \| None` | `None` |
 | `type` | `RenderServiceType` | `RenderServiceType.WEB_SERVICE` |
-| `plan` | `str &#124; None` | `None` |
-| `region` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `suspended` | `str &#124; None` | `None` |
-| `auto_deploy` | `str &#124; None` | `None` |
-| `service_details` | `dict[str, Any] &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
-| `dashboard_url` | `str &#124; None` | `None` |
-| `image_path` | `str &#124; None` | `None` |
-| `build_filter` | `dict[str, Any] &#124; None` | `None` |
-| `root_dir` | `str &#124; None` | `None` |
-| `notify_on_fail` | `str &#124; None` | `None` |
+| `plan` | `str \| None` | `None` |
+| `region` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `suspended` | `str \| None` | `None` |
+| `auto_deploy` | `str \| None` | `None` |
+| `service_details` | `dict[str, Any] \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
+| `dashboard_url` | `str \| None` | `None` |
+| `image_path` | `str \| None` | `None` |
+| `build_filter` | `dict[str, Any] \| None` | `None` |
+| `root_dir` | `str \| None` | `None` |
+| `notify_on_fail` | `str \| None` | `None` |
 
-### Class: `RenderOwner`
+### `RenderOwner`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render workspace/owner (user or team).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `email` | `str &#124; None` | `None` |
-| `type` | `str &#124; None` | `None` |
+| `email` | `str \| None` | `None` |
+| `type` | `str \| None` | `None` |
 
-### Class: `RenderSecretFile`
+### `RenderSecretFile`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Secret file mounted into a service container.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `content` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderCustomDomain`
+### `RenderCustomDomain`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Custom domain attached to a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `domain_type` | `str &#124; None` | `None` |
-| `verification_status` | `str &#124; None` | `None` |
-| `redirect_for_name` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `server` | `dict[str, Any] &#124; None` | `None` |
+| `domain_type` | `str \| None` | `None` |
+| `verification_status` | `str \| None` | `None` |
+| `redirect_for_name` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `server` | `dict[str, Any] \| None` | `None` |
 
-### Class: `RenderInstance`
+### `RenderInstance`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A running instance of a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
-| `region` | `str &#124; None` | `None` |
-| `image_hash` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
+| `region` | `str \| None` | `None` |
+| `image_hash` | `str \| None` | `None` |
 
-### Class: `RenderEvent`
+### `RenderEvent`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: An event from the Render event stream.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `type` | `str &#124; None` | `None` |
-| `timestamp` | `str &#124; None` | `None` |
-| `details` | `dict[str, Any] &#124; None` | `None` |
-| `status_code` | `int &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `type` | `str \| None` | `None` |
+| `timestamp` | `str \| None` | `None` |
+| `details` | `dict[str, Any] \| None` | `None` |
+| `status_code` | `int \| None` | `None` |
 
-### Class: `RenderJob`
+### `RenderJob`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A cron or one-off job execution.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `plan_id` | `str &#124; None` | `None` |
-| `started_at` | `str &#124; None` | `None` |
-| `finished_at` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `plan_id` | `str \| None` | `None` |
+| `started_at` | `str \| None` | `None` |
+| `finished_at` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
 
-### Class: `RenderHeaderRule`
+### `RenderHeaderRule`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: HTTP header rule for a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `path` | `str` | `'/*'` |
 | `name` | `str` | `''` |
 | `value` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderRedirectRule`
+### `RenderRedirectRule`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Redirect / rewrite rule for static sites.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `source` | `str` | `''` |
 | `destination` | `str` | `''` |
 | `type` | `str` | `'redirect'` |
@@ -861,412 +875,412 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderLogEntry`
+### `RenderLogEntry`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single log line from the Render logging API.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `timestamp` | `str &#124; None` | `None` |
+| `timestamp` | `str \| None` | `None` |
 | `message` | `str` | `''` |
-| `level` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `instance_id` | `str &#124; None` | `None` |
-| `deploy_id` | `str &#124; None` | `None` |
-| `type` | `str &#124; None` | `None` |
+| `level` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `instance_id` | `str \| None` | `None` |
+| `deploy_id` | `str \| None` | `None` |
+| `type` | `str \| None` | `None` |
 
-### Class: `RenderMetricPoint`
+### `RenderMetricPoint`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single metric data point.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `timestamp` | `str &#124; None` | `None` |
+| `timestamp` | `str \| None` | `None` |
 | `value` | `float` | `0.0` |
-| `unit` | `str &#124; None` | `None` |
-| `label` | `str &#124; None` | `None` |
+| `unit` | `str \| None` | `None` |
+| `label` | `str \| None` | `None` |
 
-### Class: `RenderWebhook`
+### `RenderWebhook`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render webhook subscription.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `url` | `str` | `''` |
-| `secret` | `str &#124; None` | `None` |
+| `secret` | `str \| None` | `None` |
 | `events` | `list[str]` | `field(default_factory=list)` |
 | `enabled` | `bool` | `True` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderProject`
+### `RenderProject`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render project for organizing services.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `owner_id` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
 | `environment_ids` | `list[str]` | `field(default_factory=list)` |
 
-### Class: `RenderEnvironment`
+### `RenderEnvironment`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render environment within a project.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `project_id` | `str &#124; None` | `None` |
-| `protected_status` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
+| `project_id` | `str \| None` | `None` |
+| `protected_status` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
 
-### Class: `RenderEnvGroup`
+### `RenderEnvGroup`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A shared environment group for linked services.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `owner_id` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
 | `env_vars` | `list[RenderEnvVar]` | `field(default_factory=list)` |
 | `secret_files` | `list[RenderSecretFile]` | `field(default_factory=list)` |
 | `service_links` | `list[str]` | `field(default_factory=list)` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderRegistryCredential`
+### `RenderRegistryCredential`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Private container registry credential.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
 | `registry` | `str` | `''` |
 | `username` | `str` | `''` |
-| `created_at` | `str &#124; None` | `None` |
+| `created_at` | `str \| None` | `None` |
 
-### Class: `RenderMaintenance`
+### `RenderMaintenance`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Maintenance window for a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `scheduled_at` | `str &#124; None` | `None` |
-| `started_at` | `str &#124; None` | `None` |
-| `completed_at` | `str &#124; None` | `None` |
-| `description` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `scheduled_at` | `str \| None` | `None` |
+| `started_at` | `str \| None` | `None` |
+| `completed_at` | `str \| None` | `None` |
+| `description` | `str \| None` | `None` |
 
-### Class: `RenderNotificationSettings`
+### `RenderNotificationSettings`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Notification settings for a service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `notify_on_fail` | `str &#124; None` | `None` |
-| `preview_notify_on_fail` | `str &#124; None` | `None` |
+| `notify_on_fail` | `str \| None` | `None` |
+| `preview_notify_on_fail` | `str \| None` | `None` |
 
-### Class: `RenderAuditLogEntry`
+### `RenderAuditLogEntry`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: An entry from the workspace audit log.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `action` | `str &#124; None` | `None` |
-| `actor` | `dict[str, Any] &#124; None` | `None` |
-| `resource` | `dict[str, Any] &#124; None` | `None` |
-| `timestamp` | `str &#124; None` | `None` |
-| `details` | `dict[str, Any] &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `action` | `str \| None` | `None` |
+| `actor` | `dict[str, Any] \| None` | `None` |
+| `resource` | `dict[str, Any] \| None` | `None` |
+| `timestamp` | `str \| None` | `None` |
+| `details` | `dict[str, Any] \| None` | `None` |
 
-### Class: `RenderPostgresInstance`
+### `RenderPostgresInstance`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render Postgres database instance.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `owner_id` | `str &#124; None` | `None` |
-| `plan` | `str &#124; None` | `None` |
-| `region` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `version` | `str &#124; None` | `None` |
-| `disk_size_gb` | `int &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
-| `dashboard_url` | `str &#124; None` | `None` |
-| `primary_postgres_id` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
+| `plan` | `str \| None` | `None` |
+| `region` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `version` | `str \| None` | `None` |
+| `disk_size_gb` | `int \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
+| `dashboard_url` | `str \| None` | `None` |
+| `primary_postgres_id` | `str \| None` | `None` |
 | `high_availability_enabled` | `bool` | `False` |
 | `read_replicas` | `list[str]` | `field(default_factory=list)` |
 
-### Class: `RenderPostgresConnectionInfo`
+### `RenderPostgresConnectionInfo`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Connection info for a Render Postgres database.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `internal_connection_string` | `str &#124; None` | `None` |
-| `external_connection_string` | `str &#124; None` | `None` |
-| `psql_command` | `str &#124; None` | `None` |
-| `host` | `str &#124; None` | `None` |
-| `port` | `int &#124; None` | `None` |
-| `database` | `str &#124; None` | `None` |
-| `user` | `str &#124; None` | `None` |
-| `password` | `str &#124; None` | `None` |
+| `internal_connection_string` | `str \| None` | `None` |
+| `external_connection_string` | `str \| None` | `None` |
+| `psql_command` | `str \| None` | `None` |
+| `host` | `str \| None` | `None` |
+| `port` | `int \| None` | `None` |
+| `database` | `str \| None` | `None` |
+| `user` | `str \| None` | `None` |
+| `password` | `str \| None` | `None` |
 
-### Class: `RenderPostgresUser`
+### `RenderPostgresUser`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A user in a Render Postgres database.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `name` | `str` | `''` |
-| `password` | `str &#124; None` | `None` |
+| `password` | `str \| None` | `None` |
 | `grants` | `list[str]` | `field(default_factory=list)` |
 
-### Class: `RenderKeyValueInstance`
+### `RenderKeyValueInstance`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render Key-Value (Redis) store instance.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `owner_id` | `str &#124; None` | `None` |
-| `plan` | `str &#124; None` | `None` |
-| `region` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `max_memory_policy` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
+| `plan` | `str \| None` | `None` |
+| `region` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `max_memory_policy` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
 
-### Class: `RenderKeyValueConnectionInfo`
+### `RenderKeyValueConnectionInfo`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Connection info for a Render Key-Value store.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `internal_connection_string` | `str &#124; None` | `None` |
-| `external_connection_string` | `str &#124; None` | `None` |
-| `host` | `str &#124; None` | `None` |
-| `port` | `int &#124; None` | `None` |
-| `password` | `str &#124; None` | `None` |
+| `internal_connection_string` | `str \| None` | `None` |
+| `external_connection_string` | `str \| None` | `None` |
+| `host` | `str \| None` | `None` |
+| `port` | `int \| None` | `None` |
+| `password` | `str \| None` | `None` |
 
-### Class: `RenderBlueprint`
+### `RenderBlueprint`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render Blueprint (Infrastructure as Code).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `status` | `str &#124; None` | `None` |
+| `status` | `str \| None` | `None` |
 | `auto_sync` | `bool` | `False` |
-| `repo` | `str &#124; None` | `None` |
-| `branch` | `str &#124; None` | `None` |
-| `owner_id` | `str &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
-| `last_sync` | `dict[str, Any] &#124; None` | `None` |
+| `repo` | `str \| None` | `None` |
+| `branch` | `str \| None` | `None` |
+| `owner_id` | `str \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
+| `last_sync` | `dict[str, Any] \| None` | `None` |
 
-### Class: `RenderBlueprintSync`
+### `RenderBlueprintSync`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A blueprint sync run.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `blueprint_id` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `started_at` | `str &#124; None` | `None` |
-| `completed_at` | `str &#124; None` | `None` |
-| `error` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `blueprint_id` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `started_at` | `str \| None` | `None` |
+| `completed_at` | `str \| None` | `None` |
+| `error` | `str \| None` | `None` |
 
-### Class: `RenderWorkspaceMember`
+### `RenderWorkspaceMember`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A member of a Render workspace/team.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `email` | `str &#124; None` | `None` |
-| `name` | `str &#124; None` | `None` |
-| `role` | `str &#124; None` | `None` |
-| `joined_at` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `email` | `str \| None` | `None` |
+| `name` | `str \| None` | `None` |
+| `role` | `str \| None` | `None` |
+| `joined_at` | `str \| None` | `None` |
 
-### Class: `RenderLogStream`
+### `RenderLogStream`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A log stream/sink for forwarding logs.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
 | `endpoint` | `str` | `''` |
-| `token` | `str &#124; None` | `None` |
+| `token` | `str \| None` | `None` |
 | `enabled` | `bool` | `True` |
-| `created_at` | `str &#124; None` | `None` |
+| `created_at` | `str \| None` | `None` |
 
-### Class: `RenderMetricsFilter`
+### `RenderMetricsFilter`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Filter/query parameters for the metrics API.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `resource_id` | `str &#124; None` | `None` |
+| `resource_id` | `str \| None` | `None` |
 | `metric` | `str` | `'cpu'` |
 | `period` | `str` | `'1h'` |
-| `start_time` | `str &#124; None` | `None` |
-| `end_time` | `str &#124; None` | `None` |
-| `instance_id` | `str &#124; None` | `None` |
+| `start_time` | `str \| None` | `None` |
+| `end_time` | `str \| None` | `None` |
+| `instance_id` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_params` | `def to_params(self) -> dict[str, str]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_params` | `def to_params(self)` |  |
 
-### Class: `RenderDeployConfig`
+### `RenderDeployConfig`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Complete deployment configuration for ``aq deploy render``.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `service_name` | `str` | `''` |
 | `service_type` | `RenderServiceType` | `RenderServiceType.WEB_SERVICE` |
-| `owner_id` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
 | `image` | `str` | `''` |
 | `plan` | `RenderPlan` | `RenderPlan.STARTER` |
 | `region` | `str` | `'oregon'` |
@@ -1275,30 +1289,30 @@ Attributes and fields:
 | `port` | `int` | `8000` |
 | `health_check_path` | `str` | `'/_health'` |
 | `env_vars` | `list[RenderEnvVar]` | `field(default_factory=list)` |
-| `disk` | `RenderDisk &#124; None` | `None` |
-| `docker_command` | `str &#124; None` | `None` |
+| `disk` | `RenderDisk \| None` | `None` |
+| `docker_command` | `str \| None` | `None` |
 | `auto_deploy` | `str` | `'no'` |
 | `secret_files` | `list[RenderSecretFile]` | `field(default_factory=list)` |
 | `headers` | `list[RenderHeaderRule]` | `field(default_factory=list)` |
 | `redirect_rules` | `list[RenderRedirectRule]` | `field(default_factory=list)` |
-| `registry_credential_id` | `str &#124; None` | `None` |
-| `notify_on_fail` | `str &#124; None` | `None` |
-| `pre_deploy_command` | `str &#124; None` | `None` |
-| `build_command` | `str &#124; None` | `None` |
-| `root_dir` | `str &#124; None` | `None` |
+| `registry_credential_id` | `str \| None` | `None` |
+| `notify_on_fail` | `str \| None` | `None` |
+| `pre_deploy_command` | `str \| None` | `None` |
+| `build_command` | `str \| None` | `None` |
+| `root_dir` | `str \| None` | `None` |
 | `env_group_ids` | `list[str]` | `field(default_factory=list)` |
-| `project_id` | `str &#124; None` | `None` |
-| `environment_id` | `str &#124; None` | `None` |
+| `project_id` | `str \| None` | `None` |
+| `environment_id` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_service_payload` | `def to_service_payload(self) -> dict[str, Any]` |  | Serialize to Render ``POST /v1/services`` API payload. |
-| `to_update_payload` | `def to_update_payload(self) -> dict[str, Any]` |  | Serialize to Render ``PATCH /v1/services/{id}`` API payload. |
-| `from_workspace_context` | `def from_workspace_context(cls, wctx: dict[str, Any], *, image: str, region: str &#124; None = None, plan: RenderPlan &#124; None = None, num_instances: int = 1, autoscaling: RenderAutoscaling &#124; None = None) -> RenderDeployConfig` | classmethod | Build config from Aquilia workspace introspection context. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_service_payload` | `def to_service_payload(self)` | Serialize to Render ``POST /v1/services`` API payload. |
+| `to_update_payload` | `def to_update_payload(self)` | Serialize to Render ``PATCH /v1/services/{id}`` API payload. |
+| `from_workspace_context` | `def from_workspace_context(cls, wctx: dict[str, Any], *, image: str, region: str \| None=None, plan: RenderPlan \| None=None, num_instances: int=1, autoscaling: RenderAutoscaling \| None=None)` | Build config from Aquilia workspace introspection context. |
 
-### Class: `RenderClient`
+### `RenderClient`
 
 - Source: `aquilia/providers/render_backup_phase10/client.py`
 - Bases: `object`
@@ -1306,40 +1320,40 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `list_services` | `def list_services(self, *, name: str &#124; None = None, type: str &#124; None = None, region: str &#124; None = None, suspended: str &#124; None = None, owner_id: str &#124; None = None, cursor: str &#124; None = None, limit: int = 20) -> list[RenderService]` |  | List all services, optionally filtered. |
-| `get_service` | `def get_service(self, service_id: str) -> RenderService` |  | Get a specific service by ID. |
-| `get_service_by_name` | `def get_service_by_name(self, name: str, owner_id: str &#124; None = None) -> RenderService &#124; None` |  | Find a service by name. Returns None if not found. |
-| `create_service` | `def create_service(self, payload: dict[str, Any]) -> RenderService` |  | Create a new service. |
-| `update_service` | `def update_service(self, service_id: str, payload: dict[str, Any]) -> RenderService` |  | Update an existing service (PATCH). |
-| `delete_service` | `def delete_service(self, service_id: str) -> None` |  | Delete a service. |
-| `suspend_service` | `def suspend_service(self, service_id: str) -> None` |  | Suspend a running service. |
-| `resume_service` | `def resume_service(self, service_id: str) -> None` |  | Resume a suspended service. |
-| `list_deploys` | `def list_deploys(self, service_id: str, *, cursor: str &#124; None = None, limit: int = 10) -> list[RenderDeploy]` |  | List deploys for a service. |
-| `get_deploy` | `def get_deploy(self, service_id: str, deploy_id: str) -> RenderDeploy` |  | Get a specific deploy. |
-| `trigger_deploy` | `def trigger_deploy(self, service_id: str) -> RenderDeploy` |  | Trigger a new deploy for the service. |
-| `list_env_vars` | `def list_env_vars(self, service_id: str) -> list[dict[str, Any]]` |  | List all environment variables for a service. |
-| `update_env_vars` | `def update_env_vars(self, service_id: str, env_vars: list[dict[str, Any]]) -> list[dict[str, Any]]` |  | Bulk update environment variables for a service. |
-| `get_env_var` | `def get_env_var(self, service_id: str, key: str) -> dict[str, Any] &#124; None` |  | Get a specific environment variable. |
-| `delete_env_var` | `def delete_env_var(self, service_id: str, key: str) -> None` |  | Delete a specific environment variable. |
-| `list_custom_domains` | `def list_custom_domains(self, service_id: str) -> list[dict[str, Any]]` |  | List custom domains for a service. |
-| `add_custom_domain` | `def add_custom_domain(self, service_id: str, domain_name: str) -> dict[str, Any]` |  | Add a custom domain to a service. |
-| `delete_custom_domain` | `def delete_custom_domain(self, service_id: str, domain_name: str) -> None` |  | Remove a custom domain from a service. |
-| `set_autoscaling` | `def set_autoscaling(self, service_id: str, config: dict[str, Any]) -> dict[str, Any]` |  | Configure autoscaling for a service. |
-| `remove_autoscaling` | `def remove_autoscaling(self, service_id: str) -> None` |  | Remove autoscaling from a service. |
-| `scale_service` | `def scale_service(self, service_id: str, num_instances: int) -> None` |  | Manually scale a service to a specific instance count. |
-| `get_user` | `def get_user(self) -> dict[str, Any]` |  | Get the authenticated user's details. |
-| `list_owners` | `def list_owners(self) -> list[RenderOwner]` |  | List owners (workspaces) for the authenticated user. |
-| `validate_token` | `def validate_token(self) -> bool` |  | Validate the API token by fetching owner info. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `list_services` | `def list_services(self, *, name: str \| None=None, type: str \| None=None, region: str \| None=None, suspended: str \| None=None, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List all services, optionally filtered. |
+| `get_service` | `def get_service(self, service_id: str)` | Get a specific service by ID. |
+| `get_service_by_name` | `def get_service_by_name(self, name: str, owner_id: str \| None=None)` | Find a service by name. Returns None if not found. |
+| `create_service` | `def create_service(self, payload: dict[str, Any])` | Create a new service. |
+| `update_service` | `def update_service(self, service_id: str, payload: dict[str, Any])` | Update an existing service (PATCH). |
+| `delete_service` | `def delete_service(self, service_id: str)` | Delete a service. |
+| `suspend_service` | `def suspend_service(self, service_id: str)` | Suspend a running service. |
+| `resume_service` | `def resume_service(self, service_id: str)` | Resume a suspended service. |
+| `list_deploys` | `def list_deploys(self, service_id: str, *, cursor: str \| None=None, limit: int=10)` | List deploys for a service. |
+| `get_deploy` | `def get_deploy(self, service_id: str, deploy_id: str)` | Get a specific deploy. |
+| `trigger_deploy` | `def trigger_deploy(self, service_id: str)` | Trigger a new deploy for the service. |
+| `list_env_vars` | `def list_env_vars(self, service_id: str)` | List all environment variables for a service. |
+| `update_env_vars` | `def update_env_vars(self, service_id: str, env_vars: list[dict[str, Any]])` | Bulk update environment variables for a service. |
+| `get_env_var` | `def get_env_var(self, service_id: str, key: str)` | Get a specific environment variable. |
+| `delete_env_var` | `def delete_env_var(self, service_id: str, key: str)` | Delete a specific environment variable. |
+| `list_custom_domains` | `def list_custom_domains(self, service_id: str)` | List custom domains for a service. |
+| `add_custom_domain` | `def add_custom_domain(self, service_id: str, domain_name: str)` | Add a custom domain to a service. |
+| `delete_custom_domain` | `def delete_custom_domain(self, service_id: str, domain_name: str)` | Remove a custom domain from a service. |
+| `set_autoscaling` | `def set_autoscaling(self, service_id: str, config: dict[str, Any])` | Configure autoscaling for a service. |
+| `remove_autoscaling` | `def remove_autoscaling(self, service_id: str)` | Remove autoscaling from a service. |
+| `scale_service` | `def scale_service(self, service_id: str, num_instances: int)` | Manually scale a service to a specific instance count. |
+| `get_user` | `def get_user(self)` | Get the authenticated user's details. |
+| `list_owners` | `def list_owners(self)` | List owners (workspaces) for the authenticated user. |
+| `validate_token` | `def validate_token(self)` | Validate the API token by fetching owner info. |
 
-### Class: `DeployResult`
+### `DeployResult`
 
 - Source: `aquilia/providers/render_backup_phase10/deployer.py`
 - Bases: `object`
 - Summary: Result of a Render deployment operation.
 
-### Class: `RenderDeployer`
+### `RenderDeployer`
 
 - Source: `aquilia/providers/render_backup_phase10/deployer.py`
 - Bases: `object`
@@ -1347,13 +1361,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `deploy` | `def deploy(self) -> DeployResult` |  | Execute the complete deployment pipeline. |
-| `destroy` | `def destroy(self) -> bool` |  | Destroy the service. |
-| `status` | `def status(self) -> dict[str, Any]` |  | Get current deployment status. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `deploy` | `def deploy(self)` | Execute the complete deployment pipeline. |
+| `destroy` | `def destroy(self)` | Destroy the service. |
+| `status` | `def status(self)` | Get current deployment status. |
 
-### Class: `RenderCredentialStore`
+### `RenderCredentialStore`
 
 - Source: `aquilia/providers/render_backup_phase10/store.py`
 - Bases: `object`
@@ -1361,121 +1375,121 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `credentials_path` | `def credentials_path(self) -> Path` | property | Path to the encrypted credentials file. |
-| `config_path` | `def config_path(self) -> Path` | property | Path to the non-sensitive config file. |
-| `is_configured` | `def is_configured(self) -> bool` |  | Return True if credentials are stored. |
-| `save` | `def save(self, token: str, *, owner_name: str &#124; None = None, default_region: str = 'oregon', metadata: dict[str, Any] &#124; None = None) -> None` |  | Encrypt and store the API token. |
-| `load` | `def load(self) -> str &#124; None` |  | Load and decrypt the stored API token. |
-| `load_config` | `def load_config(self) -> dict[str, Any]` |  | Load non-sensitive provider configuration. |
-| `get_default_region` | `def get_default_region(self) -> str` |  | Get the default deployment region. |
-| `get_owner_name` | `def get_owner_name(self) -> str &#124; None` |  | Get the stored workspace/owner name. |
-| `clear` | `def clear(self) -> None` |  | Securely delete stored credentials. |
-| `status` | `def status(self) -> dict[str, Any]` |  | Return credential store status (for CLI display). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `credentials_path` | `def credentials_path(self)` | Path to the encrypted credentials file. |
+| `config_path` | `def config_path(self)` | Path to the non-sensitive config file. |
+| `is_configured` | `def is_configured(self)` | Return True if credentials are stored. |
+| `save` | `def save(self, token: str, *, owner_name: str \| None=None, default_region: str='oregon', metadata: dict[str, Any] \| None=None)` | Encrypt and store the API token. |
+| `load` | `def load(self)` | Load and decrypt the stored API token. |
+| `load_config` | `def load_config(self)` | Load non-sensitive provider configuration. |
+| `get_default_region` | `def get_default_region(self)` | Get the default deployment region. |
+| `get_owner_name` | `def get_owner_name(self)` | Get the stored workspace/owner name. |
+| `clear` | `def clear(self)` | Securely delete stored credentials. |
+| `status` | `def status(self)` | Return credential store status (for CLI display). |
 
-### Class: `RenderServiceType`
+### `RenderServiceType`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `str, Enum`
 - Summary: Render service type.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `WEB_SERVICE` |  | `'web_service'` |
-| `PRIVATE_SERVICE` |  | `'private_service'` |
-| `BACKGROUND_WORKER` |  | `'background_worker'` |
-| `CRON_JOB` |  | `'cron_job'` |
-| `STATIC_SITE` |  | `'static_site'` |
+| `WEB_SERVICE` | `` | `'web_service'` |
+| `PRIVATE_SERVICE` | `` | `'private_service'` |
+| `BACKGROUND_WORKER` | `` | `'background_worker'` |
+| `CRON_JOB` | `` | `'cron_job'` |
+| `STATIC_SITE` | `` | `'static_site'` |
 
-### Class: `RenderPlan`
+### `RenderPlan`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `str, Enum`
 - Summary: Render compute plans.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `FREE` |  | `'free'` |
-| `STARTER` |  | `'starter'` |
-| `STANDARD` |  | `'standard'` |
-| `PRO` |  | `'pro'` |
-| `PRO_PLUS` |  | `'pro_plus'` |
-| `PRO_MAX` |  | `'pro_max'` |
-| `PRO_ULTRA` |  | `'pro_ultra'` |
+| `FREE` | `` | `'free'` |
+| `STARTER` | `` | `'starter'` |
+| `STANDARD` | `` | `'standard'` |
+| `PRO` | `` | `'pro'` |
+| `PRO_PLUS` | `` | `'pro_plus'` |
+| `PRO_MAX` | `` | `'pro_max'` |
+| `PRO_ULTRA` | `` | `'pro_ultra'` |
 
-### Class: `RenderDeployStatus`
+### `RenderDeployStatus`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `str, Enum`
 - Summary: Deploy lifecycle states returned by the Render API.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `CREATED` |  | `'created'` |
-| `BUILD_IN_PROGRESS` |  | `'build_in_progress'` |
-| `UPDATE_IN_PROGRESS` |  | `'update_in_progress'` |
-| `LIVE` |  | `'live'` |
-| `DEACTIVATED` |  | `'deactivated'` |
-| `BUILD_FAILED` |  | `'build_failed'` |
-| `UPDATE_FAILED` |  | `'update_failed'` |
-| `CANCELED` |  | `'canceled'` |
-| `PRE_DEPLOY_IN_PROGRESS` |  | `'pre_deploy_in_progress'` |
-| `PRE_DEPLOY_FAILED` |  | `'pre_deploy_failed'` |
+| `CREATED` | `` | `'created'` |
+| `BUILD_IN_PROGRESS` | `` | `'build_in_progress'` |
+| `UPDATE_IN_PROGRESS` | `` | `'update_in_progress'` |
+| `LIVE` | `` | `'live'` |
+| `DEACTIVATED` | `` | `'deactivated'` |
+| `BUILD_FAILED` | `` | `'build_failed'` |
+| `UPDATE_FAILED` | `` | `'update_failed'` |
+| `CANCELED` | `` | `'canceled'` |
+| `PRE_DEPLOY_IN_PROGRESS` | `` | `'pre_deploy_in_progress'` |
+| `PRE_DEPLOY_FAILED` | `` | `'pre_deploy_failed'` |
 
-### Class: `RenderRegion`
+### `RenderRegion`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `str, Enum`
 - Summary: Common Render deployment regions.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `OREGON` |  | `'oregon'` |
-| `FRANKFURT` |  | `'frankfurt'` |
-| `OHIO` |  | `'ohio'` |
-| `VIRGINIA` |  | `'virginia'` |
-| `SINGAPORE` |  | `'singapore'` |
+| `OREGON` | `` | `'oregon'` |
+| `FRANKFURT` | `` | `'frankfurt'` |
+| `OHIO` | `` | `'ohio'` |
+| `VIRGINIA` | `` | `'virginia'` |
+| `SINGAPORE` | `` | `'singapore'` |
 
-### Class: `RenderEnvVar`
+### `RenderEnvVar`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
+- Summary: Environment variable — plain value or generated secret.
 - Decorators: `dataclass`
-- Summary: Environment variable - plain value or generated secret.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `key` | `str` |  |
-| `value` | `str &#124; None` | `None` |
-| `generate_value` | `str &#124; None` | `None` |
+| `key` | `str` | `` |
+| `value` | `str \| None` | `None` |
+| `generate_value` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderDisk`
+### `RenderDisk`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Persistent disk attached to a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `name` | `str` | `'data'` |
 | `mount_path` | `str` | `'/data'` |
@@ -1483,109 +1497,109 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderAutoscaling`
+### `RenderAutoscaling`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Autoscaling configuration for a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `False` |
 | `min` | `int` | `1` |
 | `max` | `int` | `3` |
-| `criteria` | `dict[str, Any] &#124; None` | `None` |
+| `criteria` | `dict[str, Any] \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `disabled` | `def disabled(cls) -> RenderAutoscaling` | classmethod | No autoscaling (fixed instance count). |
-| `auto` | `def auto(cls, min_instances: int = 1, max_instances: int = 3, cpu_percent: int = 80, memory_percent: int &#124; None = None) -> RenderAutoscaling` | classmethod | CPU/memory-based autoscaling. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `disabled` | `def disabled(cls)` | No autoscaling (fixed instance count). |
+| `auto` | `def auto(cls, min_instances: int=1, max_instances: int=3, cpu_percent: int=80, memory_percent: int \| None=None)` | CPU/memory-based autoscaling. |
 
-### Class: `RenderDeploy`
+### `RenderDeploy`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single deploy for a Render service.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
-| `service_id` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `commit` | `dict[str, Any] &#124; None` | `None` |
-| `image` | `dict[str, Any] &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
-| `finished_at` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
+| `service_id` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `commit` | `dict[str, Any] \| None` | `None` |
+| `image` | `dict[str, Any] \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
+| `finished_at` | `str \| None` | `None` |
 
-### Class: `RenderService`
+### `RenderService`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render service (top-level resource, no App grouping).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `owner_id` | `str &#124; None` | `None` |
-| `slug` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
+| `slug` | `str \| None` | `None` |
 | `type` | `RenderServiceType` | `RenderServiceType.WEB_SERVICE` |
-| `plan` | `str &#124; None` | `None` |
-| `region` | `str &#124; None` | `None` |
-| `status` | `str &#124; None` | `None` |
-| `suspended` | `str &#124; None` | `None` |
-| `auto_deploy` | `str &#124; None` | `None` |
-| `service_details` | `dict[str, Any] &#124; None` | `None` |
-| `created_at` | `str &#124; None` | `None` |
-| `updated_at` | `str &#124; None` | `None` |
+| `plan` | `str \| None` | `None` |
+| `region` | `str \| None` | `None` |
+| `status` | `str \| None` | `None` |
+| `suspended` | `str \| None` | `None` |
+| `auto_deploy` | `str \| None` | `None` |
+| `service_details` | `dict[str, Any] \| None` | `None` |
+| `created_at` | `str \| None` | `None` |
+| `updated_at` | `str \| None` | `None` |
 
-### Class: `RenderOwner`
+### `RenderOwner`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A Render workspace/owner (user or team).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `id` | `str &#124; None` | `None` |
+| `id` | `str \| None` | `None` |
 | `name` | `str` | `''` |
-| `email` | `str &#124; None` | `None` |
-| `type` | `str &#124; None` | `None` |
+| `email` | `str \| None` | `None` |
+| `type` | `str \| None` | `None` |
 
-### Class: `RenderDeployConfig`
+### `RenderDeployConfig`
 
 - Source: `aquilia/providers/render_backup_phase10/types.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Complete deployment configuration for ``aq deploy render``.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `service_name` | `str` | `''` |
 | `service_type` | `RenderServiceType` | `RenderServiceType.WEB_SERVICE` |
-| `owner_id` | `str &#124; None` | `None` |
+| `owner_id` | `str \| None` | `None` |
 | `image` | `str` | `''` |
 | `plan` | `RenderPlan` | `RenderPlan.STARTER` |
 | `region` | `str` | `'oregon'` |
@@ -1594,53 +1608,14 @@ Attributes and fields:
 | `port` | `int` | `8000` |
 | `health_check_path` | `str` | `'/_health'` |
 | `env_vars` | `list[RenderEnvVar]` | `field(default_factory=list)` |
-| `disk` | `RenderDisk &#124; None` | `None` |
-| `docker_command` | `str &#124; None` | `None` |
+| `disk` | `RenderDisk \| None` | `None` |
+| `docker_command` | `str \| None` | `None` |
 | `auto_deploy` | `str` | `'no'` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_service_payload` | `def to_service_payload(self) -> dict[str, Any]` |  | Serialize to Render ``POST /v1/services`` API payload. |
-| `to_update_payload` | `def to_update_payload(self) -> dict[str, Any]` |  | Serialize to Render ``PATCH /v1/services/{id}`` API payload. |
-| `from_workspace_context` | `def from_workspace_context(cls, wctx: dict[str, Any], *, image: str, region: str &#124; None = None, plan: RenderPlan &#124; None = None, num_instances: int = 1, autoscaling: RenderAutoscaling &#124; None = None) -> RenderDeployConfig` | classmethod | Build config from Aquilia workspace introspection context. |
-
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `_BASE_URL` | `aquilia/providers/render/client.py` | `'https://api.render.com/v1'` |
-| `_USER_AGENT` | `aquilia/providers/render/client.py` | `'Aquilia-CLI/2.0'` |
-| `_DEFAULT_TIMEOUT` | `aquilia/providers/render/client.py` | `30` |
-| `_MAX_RETRIES` | `aquilia/providers/render/client.py` | `3` |
-| `_RETRY_BACKOFF` | `aquilia/providers/render/client.py` | `1.5` |
-| `_SSL_CTX` | `aquilia/providers/render/client.py` | `ssl.SSLContext` |
-| `_CROUS_MAGIC` | `aquilia/providers/render/store.py` | `b'AQCR'` |
-| `_CROUS_VERSION` | `aquilia/providers/render/store.py` | `2` |
-| `_CROUS_VERSION_LEGACY` | `aquilia/providers/render/store.py` | `1` |
-| `_SALT_SIZE` | `aquilia/providers/render/store.py` | `32` |
-| `_NONCE_SIZE` | `aquilia/providers/render/store.py` | `12` |
-| `_KEY_ITERATIONS` | `aquilia/providers/render/store.py` | `600000` |
-| `_HMAC_ALGO` | `aquilia/providers/render/store.py` | `'sha512'` |
-| `_TAG_SIZE` | `aquilia/providers/render/store.py` | `16` |
-| `_CANARY_PLAINTEXT` | `aquilia/providers/render/store.py` | `b'AQUILIA_CANARY_OK'` |
-| `_CANARY_SIZE` | `aquilia/providers/render/store.py` | `32` |
-| `_DEFAULT_TTL` | `aquilia/providers/render/store.py` | `0` |
-| `_MAX_TOKEN_SIZE` | `aquilia/providers/render/store.py` | `8192` |
-| `_CIPHER_AES_GCM` | `aquilia/providers/render/store.py` | `1` |
-| `_CIPHER_XOR_HMAC` | `aquilia/providers/render/store.py` | `3` |
-| `_AUDIT_MAX_BYTES` | `aquilia/providers/render/store.py` | `1048576` |
-| `_BASE_URL` | `aquilia/providers/render_backup_phase10/client.py` | `'https://api.render.com/v1'` |
-| `_USER_AGENT` | `aquilia/providers/render_backup_phase10/client.py` | `'Aquilia-CLI/1.0'` |
-| `_DEFAULT_TIMEOUT` | `aquilia/providers/render_backup_phase10/client.py` | `30` |
-| `_MAX_RETRIES` | `aquilia/providers/render_backup_phase10/client.py` | `3` |
-| `_RETRY_BACKOFF` | `aquilia/providers/render_backup_phase10/client.py` | `1.5` |
-| `_SSL_CTX` | `aquilia/providers/render_backup_phase10/client.py` | `ssl.SSLContext` |
-| `_CROUS_MAGIC` | `aquilia/providers/render_backup_phase10/store.py` | `b'AQCR'` |
-| `_CROUS_VERSION` | `aquilia/providers/render_backup_phase10/store.py` | `1` |
-| `_SALT_SIZE` | `aquilia/providers/render_backup_phase10/store.py` | `32` |
-| `_KEY_ITERATIONS` | `aquilia/providers/render_backup_phase10/store.py` | `200000` |
-| `_HMAC_ALGO` | `aquilia/providers/render_backup_phase10/store.py` | `'sha256'` |
-| `_DEFAULT_STORE_DIR` | `aquilia/providers/render_backup_phase10/store.py` | `Path.home() / '.aquilia' / 'providers' / 'render'` |
+| `to_service_payload` | `def to_service_payload(self)` | Serialize to Render ``POST /v1/services`` API payload. |
+| `to_update_payload` | `def to_update_payload(self)` | Serialize to Render ``PATCH /v1/services/{id}`` API payload. |
+| `from_workspace_context` | `def from_workspace_context(cls, wctx: dict[str, Any], *, image: str, region: str \| None=None, plan: RenderPlan \| None=None, num_instances: int=1, autoscaling: RenderAutoscaling \| None=None)` | Build config from Aquilia workspace introspection context. |

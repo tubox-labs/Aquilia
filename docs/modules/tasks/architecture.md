@@ -1,60 +1,70 @@
 # Tasks Architecture
 
-## Runtime Role
+Async background job manager, task decorator registry, jobs, schedules, memory backend, worker loops, retries, and faults.
 
-The async background task system with task descriptors, job states, priority queues, retries, schedules, task manager, worker loops, cleanup, and queue stats.
+## Source Boundaries
 
-The implementation is split across 7 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/tasks/__init__.py` | 82 | 0 | 0 | AquilaTasks — Industry-Grade Async Background Task Manager. |
+| `aquilia/tasks/decorators.py` | 218 | 0 | 4 | AquilaTasks — Task Decorator. |
+| `aquilia/tasks/engine.py` | 841 | 3 | 0 | AquilaTasks — Task Engine & Backends. |
+| `aquilia/tasks/faults.py` | 130 | 5 | 0 | AquilaTasks — Fault Classes. |
+| `aquilia/tasks/job.py` | 179 | 4 | 0 | AquilaTasks — Job Model. |
+| `aquilia/tasks/schedule.py` | 254 | 2 | 2 | AquilaTasks — Schedule Definitions. |
+| `aquilia/tasks/worker.py` | 98 | 1 | 0 | AquilaTasks — Worker. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/tasks/__init__.py`: AquilaTasks - Industry-Grade Async Background Task Manager.
-- `aquilia/tasks/decorators.py`: AquilaTasks - Task Decorator.
-- `aquilia/tasks/engine.py`: AquilaTasks - Task Engine & Backends.
-- `aquilia/tasks/faults.py`: AquilaTasks - Fault Classes.
-- `aquilia/tasks/job.py`: AquilaTasks - Job Model.
-- `aquilia/tasks/schedule.py`: AquilaTasks - Schedule Definitions.
-- `aquilia/tasks/worker.py`: AquilaTasks - Worker.
+`tasks` has 7 Python files, 15 public classes, 6 public module-level functions, and 2 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.faults` | 4 |
+| `.job` | 3 |
+| `.decorators` | 2 |
+| `.engine` | 2 |
+| `.schedule` | 1 |
+| `.worker` | 1 |
+| `aquilia.faults.core` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `__future__` | 6 |
-| `faults` | 4 |
 | `typing` | 4 |
 | `datetime` | 3 |
-| `job` | 3 |
 | `asyncio` | 2 |
 | `collections` | 2 |
 | `contextlib` | 2 |
 | `dataclasses` | 2 |
-| `decorators` | 2 |
-| `engine` | 2 |
 | `logging` | 2 |
 | `abc` | 1 |
-| `aquilia` | 1 |
 | `enum` | 1 |
 | `functools` | 1 |
 | `hashlib` | 1 |
 | `heapq` | 1 |
-| `schedule` | 1 |
 | `time` | 1 |
 | `traceback` | 1 |
 | `uuid` | 1 |
-| `worker` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `TaskBackend` | `aquilia/tasks/engine.py` | Abstract backend for job storage and retrieval. |
+| `MemoryBackend` | `aquilia/tasks/engine.py` | In-process priority queue backend. |
+| `TaskManager` | `aquilia/tasks/engine.py` | Central task coordinator. |
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+Fault/error classes defined here:
+
+`TaskFault`, `TaskScheduleFault`, `TaskNotBoundFault`, `TaskEnqueueFault`, `TaskResolutionFault`

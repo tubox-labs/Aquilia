@@ -1,10 +1,15 @@
-# Extended Middleware Documentation
+# Middleware_Ext Documentation
 
-This directory is the professional documentation set for `middleware_ext`. It is implementation-driven and aligned with the current source files under `aquilia/middleware_ext`.
+Extended production middleware for security, CORS/CSP/CSRF/HSTS, static files, rate limits, sessions, request scopes, effects, and logging.
 
-## What This Covers
+## Coverage Snapshot
 
-Production middleware implementations for security, CORS, CSP, CSRF, HSTS, HTTPS redirects, proxy headers, sessions, static files, request scopes, logging, rate limiting, and effects.
+- Source files: 8
+- Source lines: 3274
+- Public classes: 22
+- Public module functions: 7
+- Constants/module flags: 7
+- Public exports in `__all__`: 29
 
 ## Source Files Read
 
@@ -19,32 +24,11 @@ Production middleware implementations for security, CORS, CSP, CSRF, HSTS, HTTPS
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 8
-- Public classes: 22
-- Configuration or dataclass-like types: 1
-- Public functions: 7
-- Constants detected: 2
-
-## Fast Start
-
-```python
-from aquilia.middleware_ext import EffectMiddleware, FlowContextMiddleware, CombinedLogFormatter, DevLogFormatter, StructuredLogFormatter, EnhancedLoggingMiddleware
-
-# The imported symbols above are public exports from this module.
-# See api-reference.md for constructor signatures, methods, and data fields.
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

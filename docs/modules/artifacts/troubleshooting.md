@@ -1,36 +1,48 @@
 # Artifacts Troubleshooting
 
-## First Checks
+Typed artifact envelopes, artifact kinds, integrity metadata, readers, builders, and memory/filesystem stores.
 
-1. Confirm the module is registered in `workspace.py` when it is application-facing.
-2. Confirm the component is declared in `modules/<name>/manifest.py` when it is a controller, service, model, task, middleware, or socket controller.
-3. Confirm configuration dataclasses or integration objects serialize with the values you expect by inspecting `workspace.to_dict()`.
-4. Confirm imports point at real `module.path:ClassName` strings.
-5. Run focused tests for the subsystem and read the fault metadata when one is raised.
+## Fast Diagnosis Flow
 
-## Common Symptoms
+1. Confirm the command is run from a directory containing `workspace.py` unless it is help/version/init/doctor.
+2. Run `aq doctor` for workspace, environment, registry, integration, and deployment checks.
+3. Run `aq validate` to catch manifest errors.
+4. Run `aq inspect config` to inspect resolved settings.
+5. Run `aq inspect modules` and `aq inspect routes` when discovery or routing is suspect.
+6. Check `api-reference.md` for exact public API signatures.
 
-| Symptom | Likely Cause | What To Check |
+## Module-Relevant Commands
+
+- `aq artifact list`
+- `aq artifact inspect`
+- `aq artifact verify`
+- `aq artifact verify-all`
+- `aq artifact gc`
+- `aq artifact export`
+- `aq artifact diff`
+- `aq artifact history`
+- `aq artifact import`
+- `aq artifact count`
+- `aq artifact stats`
+
+## Symptoms And Actions
+
+| Symptom | Likely Source | Action |
 | --- | --- | --- |
-| Component is not found | Manifest path is wrong or module was not discovered | `AppManifest` component lists and workspace module name |
-| Runtime starts but route or handler is missing | Controller decorator metadata did not compile or route prefix differs | Controller `prefix`, route decorators, `Module.route_prefix()` |
-| Config appears ignored | Value is in manifest when runtime expects workspace integration, or the integration key differs | `configuration.md` and `workspace.to_dict()` |
-| State disappears between requests | In-memory backend or request-scoped object was used for durable state | Backend choice and DI scope |
-| Fault response is too generic | Raw exception escaped or fault handler mapping is missing | Fault type, fault engine debug mode, middleware order |
+| Import error during startup | Bad manifest class path or optional provider dependency | Check `modules/<name>/manifest.py`, install the relevant extra, and rerun `aq validate`. |
+| Route not found | Controller omitted from manifest, wrong route prefix, or startup conflict | Run `aq inspect routes`; inspect controller decorators and `Module.route_prefix()`. |
+| Dependency not found | Service not registered or constructor annotation cannot be resolved | Check `AppManifest.services`, DI provider registrations, and `aq inspect di`. |
+| Config value missing | Dotenv/env overlay not loaded or wrong nested key | Check `ConfigLoader` precedence and `AQ_` double-underscore key names. |
+| Production security failure | Insecure secret or required key not configured | Set `AQ_SECRET_KEY`, `SECRET_KEY`, or Python-native secret config. |
+| Optional subsystem unavailable | Provider/backend dependency or startup connection failed | Check startup logs; optional subsystems often log non-fatal failures. |
 
-## Diagnostic Snippets
+## Source Files To Inspect
 
-```python
-# Inspect effective workspace config
-import workspace
-print(workspace.workspace.to_dict())
-```
-
-```python
-# Check public API availability
-import aquilia.artifacts
-```
-
-## Escalation Path
-
-If a behavior is unclear, inspect the source file listed beside the class or function in `api-reference.md`, then search `tests/` for the class name. The repository tests are the best source for edge-case behavior.
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/artifacts/__init__.py` | 91 | 0 | 0 | Aquilia Artifacts -- Unified artifact system for the framework. |
+| `aquilia/artifacts/builder.py` | 240 | 1 | 0 | Artifact Builder -- fluent API for constructing artifacts. |
+| `aquilia/artifacts/core.py` | 416 | 5 | 1 | Artifact Core -- the foundational types for Aquilia's artifact system. |
+| `aquilia/artifacts/kinds.py` | 413 | 9 | 0 | Typed Artifact Kinds -- convenience subclasses with kind-specific helpers. |
+| `aquilia/artifacts/reader.py` | 250 | 1 | 0 | Artifact Reader -- load, inspect, verify, and query artifacts. |
+| `aquilia/artifacts/store.py` | 449 | 3 | 1 | Artifact Store -- pluggable storage backends for artifacts. |

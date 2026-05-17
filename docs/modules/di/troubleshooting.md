@@ -1,36 +1,42 @@
-# Dependency Injection Troubleshooting
+# Di Troubleshooting
 
-## First Checks
+Scoped dependency injection container, providers, request DAG, decorators, lifecycle disposal, diagnostics, scopes, and testing utilities.
 
-1. Confirm the module is registered in `workspace.py` when it is application-facing.
-2. Confirm the component is declared in `modules/<name>/manifest.py` when it is a controller, service, model, task, middleware, or socket controller.
-3. Confirm configuration dataclasses or integration objects serialize with the values you expect by inspecting `workspace.to_dict()`.
-4. Confirm imports point at real `module.path:ClassName` strings.
-5. Run focused tests for the subsystem and read the fault metadata when one is raised.
+## Fast Diagnosis Flow
 
-## Common Symptoms
+1. Confirm the command is run from a directory containing `workspace.py` unless it is help/version/init/doctor.
+2. Run `aq doctor` for workspace, environment, registry, integration, and deployment checks.
+3. Run `aq validate` to catch manifest errors.
+4. Run `aq inspect config` to inspect resolved settings.
+5. Run `aq inspect modules` and `aq inspect routes` when discovery or routing is suspect.
+6. Check `api-reference.md` for exact public API signatures.
 
-| Symptom | Likely Cause | What To Check |
+## Symptoms And Actions
+
+| Symptom | Likely Source | Action |
 | --- | --- | --- |
-| Component is not found | Manifest path is wrong or module was not discovered | `AppManifest` component lists and workspace module name |
-| Runtime starts but route or handler is missing | Controller decorator metadata did not compile or route prefix differs | Controller `prefix`, route decorators, `Module.route_prefix()` |
-| Config appears ignored | Value is in manifest when runtime expects workspace integration, or the integration key differs | `configuration.md` and `workspace.to_dict()` |
-| State disappears between requests | In-memory backend or request-scoped object was used for durable state | Backend choice and DI scope |
-| Fault response is too generic | Raw exception escaped or fault handler mapping is missing | Fault type, fault engine debug mode, middleware order |
+| Import error during startup | Bad manifest class path or optional provider dependency | Check `modules/<name>/manifest.py`, install the relevant extra, and rerun `aq validate`. |
+| Route not found | Controller omitted from manifest, wrong route prefix, or startup conflict | Run `aq inspect routes`; inspect controller decorators and `Module.route_prefix()`. |
+| Dependency not found | Service not registered or constructor annotation cannot be resolved | Check `AppManifest.services`, DI provider registrations, and `aq inspect di`. |
+| Config value missing | Dotenv/env overlay not loaded or wrong nested key | Check `ConfigLoader` precedence and `AQ_` double-underscore key names. |
+| Production security failure | Insecure secret or required key not configured | Set `AQ_SECRET_KEY`, `SECRET_KEY`, or Python-native secret config. |
+| Optional subsystem unavailable | Provider/backend dependency or startup connection failed | Check startup logs; optional subsystems often log non-fatal failures. |
 
-## Diagnostic Snippets
+## Source Files To Inspect
 
-```python
-# Inspect effective workspace config
-import workspace
-print(workspace.workspace.to_dict())
-```
-
-```python
-# Check public API availability
-import aquilia.di
-```
-
-## Escalation Path
-
-If a behavior is unclear, inspect the source file listed beside the class or function in `api-reference.md`, then search `tests/` for the class name. The repository tests are the best source for edge-case behavior.
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/di/__init__.py` | 132 | 0 | 0 | Aquilia Dependency Injection System |
+| `aquilia/di/cli.py` | 479 | 0 | 7 | CLI commands for DI system. |
+| `aquilia/di/compat.py` | 105 | 1 | 3 | Compatibility layer with legacy Aquilia DI system. |
+| `aquilia/di/core.py` | 1034 | 5 | 0 | Core DI types and protocols. |
+| `aquilia/di/decorators.py` | 242 | 1 | 5 | Decorators and injection helpers for ergonomic DI usage. |
+| `aquilia/di/dep.py` | 398 | 4 | 0 | Dep -- Composable dependency descriptor for annotation-driven DI. |
+| `aquilia/di/diagnostics.py` | 122 | 5 | 0 | DI Diagnostics - Observability and event tracking for DI containers. |
+| `aquilia/di/errors.py` | 239 | 9 | 0 | DI-specific error types with rich diagnostics. |
+| `aquilia/di/graph.py` | 261 | 1 | 0 | Graph analysis and cycle detection for DI system. |
+| `aquilia/di/lifecycle.py` | 241 | 4 | 0 | Lifecycle management for providers and containers. |
+| `aquilia/di/providers.py` | 822 | 8 | 0 | Provider implementations for different instantiation strategies. |
+| `aquilia/di/request_dag.py` | 431 | 1 | 0 | RequestDAG -- Per-request dependency graph resolver. |
+| `aquilia/di/scopes.py` | 99 | 3 | 0 | Scope definitions and validation. |
+| `aquilia/di/testing.py` | 195 | 2 | 1 | Testing utilities for DI system. |

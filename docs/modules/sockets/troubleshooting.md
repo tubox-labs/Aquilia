@@ -1,36 +1,50 @@
-# WebSockets Troubleshooting
+# Sockets Troubleshooting
 
-## First Checks
+WebSocket decorators, controllers, runtime, connection state, guards, middleware, message envelopes, compile metadata, and in-memory/Redis adapters.
 
-1. Confirm the module is registered in `workspace.py` when it is application-facing.
-2. Confirm the component is declared in `modules/<name>/manifest.py` when it is a controller, service, model, task, middleware, or socket controller.
-3. Confirm configuration dataclasses or integration objects serialize with the values you expect by inspecting `workspace.to_dict()`.
-4. Confirm imports point at real `module.path:ClassName` strings.
-5. Run focused tests for the subsystem and read the fault metadata when one is raised.
+## Fast Diagnosis Flow
 
-## Common Symptoms
+1. Confirm the command is run from a directory containing `workspace.py` unless it is help/version/init/doctor.
+2. Run `aq doctor` for workspace, environment, registry, integration, and deployment checks.
+3. Run `aq validate` to catch manifest errors.
+4. Run `aq inspect config` to inspect resolved settings.
+5. Run `aq inspect modules` and `aq inspect routes` when discovery or routing is suspect.
+6. Check `api-reference.md` for exact public API signatures.
 
-| Symptom | Likely Cause | What To Check |
+## Module-Relevant Commands
+
+- `aq ws inspect`
+- `aq ws broadcast`
+- `aq ws gen-client`
+- `aq ws purge-room`
+- `aq ws kick`
+
+## Symptoms And Actions
+
+| Symptom | Likely Source | Action |
 | --- | --- | --- |
-| Component is not found | Manifest path is wrong or module was not discovered | `AppManifest` component lists and workspace module name |
-| Runtime starts but route or handler is missing | Controller decorator metadata did not compile or route prefix differs | Controller `prefix`, route decorators, `Module.route_prefix()` |
-| Config appears ignored | Value is in manifest when runtime expects workspace integration, or the integration key differs | `configuration.md` and `workspace.to_dict()` |
-| State disappears between requests | In-memory backend or request-scoped object was used for durable state | Backend choice and DI scope |
-| Fault response is too generic | Raw exception escaped or fault handler mapping is missing | Fault type, fault engine debug mode, middleware order |
+| Import error during startup | Bad manifest class path or optional provider dependency | Check `modules/<name>/manifest.py`, install the relevant extra, and rerun `aq validate`. |
+| Route not found | Controller omitted from manifest, wrong route prefix, or startup conflict | Run `aq inspect routes`; inspect controller decorators and `Module.route_prefix()`. |
+| Dependency not found | Service not registered or constructor annotation cannot be resolved | Check `AppManifest.services`, DI provider registrations, and `aq inspect di`. |
+| Config value missing | Dotenv/env overlay not loaded or wrong nested key | Check `ConfigLoader` precedence and `AQ_` double-underscore key names. |
+| Production security failure | Insecure secret or required key not configured | Set `AQ_SECRET_KEY`, `SECRET_KEY`, or Python-native secret config. |
+| Optional subsystem unavailable | Provider/backend dependency or startup connection failed | Check startup logs; optional subsystems often log non-fatal failures. |
 
-## Diagnostic Snippets
+## Source Files To Inspect
 
-```python
-# Inspect effective workspace config
-import workspace
-print(workspace.workspace.to_dict())
-```
-
-```python
-# Check public API availability
-import aquilia.sockets
-```
-
-## Escalation Path
-
-If a behavior is unclear, inspect the source file listed beside the class or function in `api-reference.md`, then search `tests/` for the class name. The repository tests are the best source for edge-case behavior.
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sockets/__init__.py` | 131 | 0 | 0 | AquilaSockets - WebSocket subsystem for Aquilia |
+| `aquilia/sockets/adapters/__init__.py` | 14 | 0 | 0 | Adapters Package - WebSocket scaling adapters |
+| `aquilia/sockets/adapters/base.py` | 203 | 2 | 0 | Adapter Base - Protocol for WebSocket scaling adapters |
+| `aquilia/sockets/adapters/inmemory.py` | 227 | 1 | 0 | In-Memory Adapter - Single-process WebSocket adapter |
+| `aquilia/sockets/adapters/redis.py` | 338 | 1 | 0 | Redis Adapter - Production-ready WebSocket adapter using Redis |
+| `aquilia/sockets/compile.py` | 280 | 3 | 1 | WebSocket Compiler - Compile-time metadata extraction |
+| `aquilia/sockets/connection.py` | 344 | 3 | 0 | Connection - WebSocket connection abstraction with DI scope |
+| `aquilia/sockets/controller.py` | 211 | 1 | 0 | Socket Controller - Base class for WebSocket controllers |
+| `aquilia/sockets/decorators.py` | 303 | 8 | 0 | Socket Controller Decorators - Declarative WebSocket controller syntax |
+| `aquilia/sockets/envelope.py` | 274 | 8 | 0 | Message Envelope - Typed message protocol for WebSocket communication |
+| `aquilia/sockets/faults.py` | 200 | 1 | 17 | WebSocket Faults - Structured error handling for WebSocket operations |
+| `aquilia/sockets/guards.py` | 272 | 5 | 0 | WebSocket Guards - Security and validation guards |
+| `aquilia/sockets/middleware.py` | 234 | 5 | 0 | WebSocket Middleware - Per-message processing pipeline |
+| `aquilia/sockets/runtime.py` | 656 | 3 | 0 | WebSocket Runtime - ASGI integration and connection management |

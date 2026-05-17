@@ -1,10 +1,31 @@
 # Faults API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/faults/__init__.py` | 292 | 0 | 0 | AquilaFaults - Production-grade fault handling system. |
+| `aquilia/faults/core.py` | 490 | 8 | 0 | AquilaFaults - Core types and fault taxonomy. |
+| `aquilia/faults/default_handlers.py` | 535 | 8 | 0 | AquilaFaults - Default Handlers. |
+| `aquilia/faults/domains.py` | 1540 | 92 | 1 | AquilaFaults - Domain-specific fault types. |
+| `aquilia/faults/engine.py` | 499 | 2 | 2 | AquilaFaults - Fault Engine. |
+| `aquilia/faults/handlers.py` | 193 | 3 | 0 | AquilaFaults - Fault handlers. |
+| `aquilia/faults/integrations/__init__.py` | 130 | 0 | 2 | AquilaFaults - Subsystem Integrations. |
+| `aquilia/faults/integrations/di.py` | 185 | 3 | 2 | AquilaFaults - DI Integration. |
+| `aquilia/faults/integrations/flow.py` | 355 | 3 | 7 | AquilaFaults - Flow Engine Integration. |
+| `aquilia/faults/integrations/models.py` | 223 | 1 | 4 | AquilaFaults - Model/Database Integration. |
+| `aquilia/faults/integrations/registry.py` | 148 | 4 | 2 | AquilaFaults - Registry Integration. |
+| `aquilia/faults/integrations/routing.py` | 211 | 3 | 3 | AquilaFaults - Routing Integration. |
+
+## Public Exports
+
+`AMDLParseFault`, `AppContextInvalidFault`, `AsyncResolutionFault`, `AuthenticationFault`, `AuthorizationFault`, `BadGatewayFault`, `BadRequestFault`, `BadSignatureFault`, `CORSViolationFault`, `CSPViolationFault`, `CSRFViolationFault`, `CacheFault`, `CircularDependencyFault`, `ConfigFault`, `ConfigInvalidFault`, `ConfigMissingFault`, `ConflictFault`, `DIFault`, `DIResolutionFault`, `DatabaseConnectionFault`, `DatabaseFault`, `DependencyCycleFault`, `DependencyResolutionFault`, `DeployAppFault`, `DeployConfigFault`, `DeployFault`, `DeployHealthFault`, `DeployImageFault`, `DeployServiceFault`, `EffectFault`, `Escalate`, `ExceptionAdapter`, `FatalHandler`, `Fault`, `FaultContext`, `FaultDomain`, `FaultEngine`, `FaultHandler`, `FaultResult`, `FieldValidationFault`, `FilesystemFault`, `FlowCancelledFault`, `FlowFault`, `ForbiddenFault`, `GatewayTimeoutFault`, `GoneFault`, `HTTPFault`, `HTTPResponse`, `HandlerFault`, `IOFault`, `InternalServerErrorFault`, `LockedFault`, `LoggingHandler`, `ManifestInvalidFault`, `ManifestLoadFault`, `MethodNotAllowedFault`, `MiddlewareFault`, `MigrationConflictFault`, `MigrationFault`, `ModelFault`, `ModelFaultHandler`, `ModelNotFoundFault`, `ModelRegistrationFault`, `NetworkFault`, `NotAcceptableFault`, `NotFoundFault`, `NotImplementedFault`, `PatternInvalidFault`, `PayloadTooLargeFault`, `PaymentRequiredFault`, `PreconditionRequiredFault`, `ProtectedDeleteFault`, `ProviderAPIFault`, `ProviderAuthFault`, `ProviderConnectionFault`, `ProviderCredentialFault`, `ProviderFault`, `ProviderNotFoundFault`, `ProviderRateLimitFault`, `ProviderRegistrationFault`, `ProviderTokenFault`, `QueryFault`, `RateLimitExceededFault`, `RecoveryStrategy`, `RegistryFault`, `RequestHeaderFieldsTooLargeFault`, `RequestTimeoutFault`, `Resolved`, `ResourceExhaustedFault`, `ResponseMapper`, `RestrictedDeleteFault`, `RetryHandler`, `RouteAmbiguousFault`, `RouteCompilationFault`, `RouteConflictFault`, `RouteNotFoundFault`, `RouteParameterFault`, `RoutingFault`, `SchemaFault`, `ScopeViolationFault`, `SecurityFault`, `SecurityFaultHandler`, `ServiceUnavailableFault`, `Severity`, `SignatureExpiredFault`, `SignatureMalformedFault`, `SigningFault`, `SystemFault`, `TooEarlyFault`, `TooManyRequestsFault`, `Transformed`, `URITooLongFault`, `UnauthorizedFault`, `UnavailableForLegalReasonsFault`, `UnprocessableEntityFault`, `UnrecoverableFault`, `UnsupportedAlgorithmFault`, `UnsupportedMediaTypeFault`, `create_di_fault_handler`, `create_model_fault_handler`, `create_registry_fault_handler`, `create_routing_fault_handler`, `get_default_engine`, `http_reason`, `patch_all_model_subsystems`, `patch_database_engine`, `patch_di_container`, `patch_model_registry`, `patch_runtime_registry`, `process_fault`, `safe_route_lookup`, `validate_route_pattern`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `Severity` | `aquilia/faults/core.py` | str, Enum | Fault severity levels. |
 | `FaultDomain` | `aquilia/faults/core.py` | object | Fault domains (taxonomy). |
@@ -56,10 +77,10 @@ This page is extracted from the current Python source. It includes public classe
 | `RateLimitExceededFault` | `aquilia/faults/domains.py` | SecurityFault | Rate limit exceeded for client. |
 | `CSPViolationFault` | `aquilia/faults/domains.py` | SecurityFault | Content Security Policy violation reported. |
 | `SigningFault` | `aquilia/faults/domains.py` | SecurityFault | Base class for all signing/verification faults. |
-| `BadSignatureFault` | `aquilia/faults/domains.py` | SigningFault | Signature verification failed - potential tampering. |
+| `BadSignatureFault` | `aquilia/faults/domains.py` | SigningFault | Signature verification failed — potential tampering. |
 | `SignatureExpiredFault` | `aquilia/faults/domains.py` | BadSignatureFault | The signature is valid but the embedded timestamp has exceeded max_age. |
-| `SignatureMalformedFault` | `aquilia/faults/domains.py` | SigningFault | The signed value could not be parsed at all (wrong number of parts, |
-| `UnsupportedAlgorithmFault` | `aquilia/faults/domains.py` | SigningFault | The requested algorithm is not available (e.g. asymmetric algorithm |
+| `SignatureMalformedFault` | `aquilia/faults/domains.py` | SigningFault | The signed value could not be parsed at all (wrong number of parts, non-base64 characters, corrupted JSON, etc.). |
+| `UnsupportedAlgorithmFault` | `aquilia/faults/domains.py` | SigningFault | The requested algorithm is not available (e.g. asymmetric algorithm requested but the ``cryptography`` package is not installed). |
 | `SystemFault` | `aquilia/faults/domains.py` | Fault | Base class for fatal system faults. |
 | `UnrecoverableFault` | `aquilia/faults/domains.py` | SystemFault | Unrecoverable system fault. |
 | `ResourceExhaustedFault` | `aquilia/faults/domains.py` | SystemFault | System resources exhausted. |
@@ -136,61 +157,61 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `http_reason` | `aquilia/faults/domains.py` | `def http_reason(status: int) -> str` | Return the canonical RFC 9110 reason phrase for *status*. |
-| `get_default_engine` | `aquilia/faults/engine.py` | `def get_default_engine() -> FaultEngine` | Get or create default global fault engine. |
-| `process_fault` | `aquilia/faults/engine.py` | `async def process_fault(exception: Exception &#124; Fault, *, engine: FaultEngine &#124; None = None) -> FaultResult` | Process fault using engine. |
+| `http_reason` | `aquilia/faults/domains.py` | `def http_reason(status: int)` | Return the canonical RFC 9110 reason phrase for *status*. |
+| `get_default_engine` | `aquilia/faults/engine.py` | `def get_default_engine()` | Get or create default global fault engine. |
+| `process_fault` | `aquilia/faults/engine.py` | `async def process_fault(exception: Exception \| Fault, *, engine: FaultEngine \| None=None)` | Process fault using engine. |
 | `patch_all_subsystems` | `aquilia/faults/integrations/__init__.py` | `def patch_all_subsystems()` | Patch all Aquilia subsystems to use AquilaFaults. |
 | `create_all_integration_handlers` | `aquilia/faults/integrations/__init__.py` | `def create_all_integration_handlers()` | Create fault handlers for all subsystem integrations. |
 | `patch_di_container` | `aquilia/faults/integrations/di.py` | `def patch_di_container()` | Patch DI Container to emit structured faults. |
 | `create_di_fault_handler` | `aquilia/faults/integrations/di.py` | `def create_di_fault_handler()` | Create fault handler for DI operations. |
-| `fault_handling_middleware` | `aquilia/faults/integrations/flow.py` | `async def fault_handling_middleware(request, next_handler: Callable[[Any], Awaitable[Any]], engine: FaultEngine &#124; None = None)` | Core fault handling middleware. |
-| `timeout_middleware` | `aquilia/faults/integrations/flow.py` | `async def timeout_middleware(request, next_handler: Callable[[Any], Awaitable[Any]], timeout_seconds: float = 30.0)` | Timeout middleware with fault emission. |
+| `fault_handling_middleware` | `aquilia/faults/integrations/flow.py` | `async def fault_handling_middleware(request, next_handler: Callable[[Any], Awaitable[Any]], engine: FaultEngine \| None=None)` | Core fault handling middleware. |
+| `timeout_middleware` | `aquilia/faults/integrations/flow.py` | `async def timeout_middleware(request, next_handler: Callable[[Any], Awaitable[Any]], timeout_seconds: float=30.0)` | Timeout middleware with fault emission. |
 | `fault_aware_handler` | `aquilia/faults/integrations/flow.py` | `def fault_aware_handler(handler: Callable)` | Decorator to make handler fault-aware. |
 | `create_flow_fault_handler` | `aquilia/faults/integrations/flow.py` | `def create_flow_fault_handler()` | Create fault handler for flow operations. |
-| `with_cancellation_handling` | `aquilia/faults/integrations/flow.py` | `async def with_cancellation_handling(coro: Awaitable[Any]) -> Any` | Wrap coroutine with cancellation fault handling. |
-| `is_fault_retryable` | `aquilia/faults/integrations/flow.py` | `def is_fault_retryable(fault: Fault) -> bool` | Check if fault is retryable. |
-| `should_abort_pipeline` | `aquilia/faults/integrations/flow.py` | `def should_abort_pipeline(fault: Fault) -> bool` | Check if fault should abort the pipeline. |
-| `create_model_fault_handler` | `aquilia/faults/integrations/models.py` | `def create_model_fault_handler(max_retries: int = 3, log_queries: bool = True) -> ModelFaultHandler` | Create a fault handler for the MODEL domain. |
-| `patch_model_registry` | `aquilia/faults/integrations/models.py` | `def patch_model_registry() -> None` | Patch model registries to raise structured faults instead of bare exceptions. |
-| `patch_database_engine` | `aquilia/faults/integrations/models.py` | `def patch_database_engine() -> None` | Patch AquiliaDatabase to raise structured faults on connection errors. |
-| `patch_all_model_subsystems` | `aquilia/faults/integrations/models.py` | `def patch_all_model_subsystems() -> None` | Patch all model-related subsystems with fault integration. |
+| `with_cancellation_handling` | `aquilia/faults/integrations/flow.py` | `async def with_cancellation_handling(coro: Awaitable[Any])` | Wrap coroutine with cancellation fault handling. |
+| `is_fault_retryable` | `aquilia/faults/integrations/flow.py` | `def is_fault_retryable(fault: Fault)` | Check if fault is retryable. |
+| `should_abort_pipeline` | `aquilia/faults/integrations/flow.py` | `def should_abort_pipeline(fault: Fault)` | Check if fault should abort the pipeline. |
+| `create_model_fault_handler` | `aquilia/faults/integrations/models.py` | `def create_model_fault_handler(max_retries: int=3, log_queries: bool=True)` | Create a fault handler for the MODEL domain. |
+| `patch_model_registry` | `aquilia/faults/integrations/models.py` | `def patch_model_registry()` | Patch model registries to raise structured faults instead of bare exceptions. |
+| `patch_database_engine` | `aquilia/faults/integrations/models.py` | `def patch_database_engine()` | Patch AquiliaDatabase to raise structured faults on connection errors. |
+| `patch_all_model_subsystems` | `aquilia/faults/integrations/models.py` | `def patch_all_model_subsystems()` | Patch all model-related subsystems with fault integration. |
 | `patch_runtime_registry` | `aquilia/faults/integrations/registry.py` | `def patch_runtime_registry()` | Patch RuntimeRegistry to emit structured faults. |
 | `create_registry_fault_handler` | `aquilia/faults/integrations/registry.py` | `def create_registry_fault_handler()` | Create fault handler for registry operations. |
 | `create_routing_fault_handler` | `aquilia/faults/integrations/routing.py` | `def create_routing_fault_handler()` | Create fault handler for routing operations. |
-| `safe_route_lookup` | `aquilia/faults/integrations/routing.py` | `def safe_route_lookup(router, path: str, method: str = 'GET')` | Safely lookup route, returning fault instead of throwing. |
-| `validate_route_pattern` | `aquilia/faults/integrations/routing.py` | `def validate_route_pattern(pattern: str) -> PatternInvalidFault &#124; None` | Validate route pattern syntax. |
+| `safe_route_lookup` | `aquilia/faults/integrations/routing.py` | `def safe_route_lookup(router, path: str, method: str='GET')` | Safely lookup route, returning fault instead of throwing. |
+| `validate_route_pattern` | `aquilia/faults/integrations/routing.py` | `def validate_route_pattern(pattern: str)` | Validate route pattern syntax. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
-| `DOMAIN_DEFAULTS` | `aquilia/faults/core.py` | `{FaultDomain.CONFIG: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.REGISTRY: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.DI: {` |
+| `DOMAIN_DEFAULTS` | `aquilia/faults/core.py` | `{FaultDomain.CONFIG: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.REGISTRY: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.DI: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.ROUTING: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.FLOW: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.EFFECT: {'severity': Severity.ERROR, 'retryable': True}, FaultDomain.IO: {'severity': Severity.WARN, 'retryable': True}, FaultDomain.SECURITY: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.SYSTEM: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.MODEL: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.CACHE: {'severity': Severity.ERROR, 'retryable': True}, FaultDomain.STORAGE: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.TASKS: {'severity': Severity.ERROR, 'retryable': True}, FaultDomain.TEMPLATE: {'severity': Severity.ERROR, 'retryable': False}, FaultDomain.HTTP: {'severity': Severity.WARN, 'retryable': False}, FaultDomain.PROVIDER: {'severity': Severity.ERROR, 'retryable': True}, FaultDomain.DEPLOY: {'severity': Severity.ERROR, 'retryable': False}}` |
 | `_HTTP_REASONS` | `aquilia/faults/domains.py` | `dict[int, str]` |
 
 ## Detailed Classes And Methods
 
-### Class: `Severity`
+### `Severity`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `str, Enum`
 - Summary: Fault severity levels.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `INFO` |  | `'info'` |
-| `WARN` |  | `'warn'` |
-| `ERROR` |  | `'error'` |
-| `FATAL` |  | `'fatal'` |
-| `LOW` |  | `INFO` |
-| `MEDIUM` |  | `WARN` |
-| `HIGH` |  | `ERROR` |
-| `CRITICAL` |  | `FATAL` |
+| `INFO` | `` | `'info'` |
+| `WARN` | `` | `'warn'` |
+| `ERROR` | `` | `'error'` |
+| `FATAL` | `` | `'fatal'` |
+| `LOW` | `` | `INFO` |
+| `MEDIUM` | `` | `WARN` |
+| `HIGH` | `` | `ERROR` |
+| `CRITICAL` | `` | `FATAL` |
 
-### Class: `FaultDomain`
+### `FaultDomain`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `object`
@@ -198,27 +219,27 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `custom` | `def custom(cls, name: str, description: str = '') -> FaultDomain` | classmethod | Create a custom module-specific fault domain. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `custom` | `def custom(cls, name: str, description: str='')` | Create a custom module-specific fault domain. |
 
-### Class: `RecoveryStrategy`
+### `RecoveryStrategy`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `str, Enum`
 - Summary: Fault recovery strategies.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `PROPAGATE` |  | `'propagate'` |
-| `RETRY` |  | `'retry'` |
-| `FALLBACK` |  | `'fallback'` |
-| `MASK` |  | `'mask'` |
-| `CIRCUIT_BREAK` |  | `'break'` |
+| `PROPAGATE` | `` | `'propagate'` |
+| `RETRY` | `` | `'retry'` |
+| `FALLBACK` | `` | `'fallback'` |
+| `MASK` | `` | `'mask'` |
+| `CIRCUIT_BREAK` | `` | `'break'` |
 
-### Class: `Fault`
+### `Fault`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `Exception`
@@ -226,90 +247,90 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize fault to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize fault to dictionary. |
 
-### Class: `FaultContext`
+### `FaultContext`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Runtime context wrapper for faults.
+- Decorators: `dataclass(slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `fault` | `Fault` |  |
-| `trace_id` | `str` |  |
+| `fault` | `Fault` | `` |
+| `trace_id` | `str` | `` |
 | `timestamp` | `datetime` | `field(default_factory=lambda: datetime.now(timezone.utc))` |
-| `app` | `str &#124; None` | `None` |
-| `route` | `str &#124; None` | `None` |
-| `request_id` | `str &#124; None` | `None` |
-| `cause` | `Exception &#124; None` | `None` |
+| `app` | `str \| None` | `None` |
+| `route` | `str \| None` | `None` |
+| `request_id` | `str \| None` | `None` |
+| `cause` | `Exception \| None` | `None` |
 | `stack` | `list[Any]` | `field(default_factory=list)` |
 | `metadata` | `dict[str, Any]` | `field(default_factory=dict)` |
-| `parent` | `FaultContext &#124; None` | `None` |
+| `parent` | `FaultContext \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `capture` | `def capture(cls, fault: Fault, *, app: str &#124; None = None, route: str &#124; None = None, request_id: str &#124; None = None, cause: Exception &#124; None = None, parent: FaultContext &#124; None = None) -> FaultContext` | classmethod | Capture fault with runtime context. |
-| `fingerprint` | `def fingerprint(self) -> str` |  | Generate stable fingerprint for this fault occurrence. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize context to dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `capture` | `def capture(cls, fault: Fault, *, app: str \| None=None, route: str \| None=None, request_id: str \| None=None, cause: Exception \| None=None, parent: FaultContext \| None=None)` | Capture fault with runtime context. |
+| `fingerprint` | `def fingerprint(self)` | Generate stable fingerprint for this fault occurrence. |
+| `to_dict` | `def to_dict(self)` | Serialize context to dictionary. |
 
-### Class: `Resolved`
+### `Resolved`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Fault was resolved and should not propagate further.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `response` | `Any` |  |
+| `response` | `Any` | `` |
 
-### Class: `Transformed`
+### `Transformed`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Fault was transformed into another fault.
+- Decorators: `dataclass(frozen=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `fault` | `Fault` |  |
+| `fault` | `Fault` | `` |
 | `preserve_context` | `bool` | `True` |
 
-### Class: `Escalate`
+### `Escalate`
 
 - Source: `aquilia/faults/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Fault should escalate to next handler in chain.
+- Decorators: `dataclass(frozen=True)`
 
-### Class: `ExceptionMapping`
+### `ExceptionMapping`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Maps exception type to Fault factory.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `exception_type` | `type[Exception]` |  |
-| `fault_factory` | `Callable[[Exception], Any]` |  |
+| `exception_type` | `type[Exception]` | `` |
+| `fault_factory` | `Callable[[Exception], Any]` | `` |
 | `retryable` | `bool` | `False` |
 
-### Class: `ExceptionAdapter`
+### `ExceptionAdapter`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `FaultHandler`
@@ -317,12 +338,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Only handle if cause is unmapped exception. |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Convert exception to appropriate Fault. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Only handle if cause is unmapped exception. |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Convert exception to appropriate Fault. |
 
-### Class: `RetryHandler`
+### `RetryHandler`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `FaultHandler`
@@ -330,12 +351,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Only handle retryable faults. |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Retry fault with exponential backoff. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Only handle retryable faults. |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Retry fault with exponential backoff. |
 
-### Class: `SecurityFaultHandler`
+### `SecurityFaultHandler`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `FaultHandler`
@@ -343,27 +364,27 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Only handle security faults. |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Mask sensitive information. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Only handle security faults. |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Mask sensitive information. |
 
-### Class: `HTTPResponse`
+### `HTTPResponse`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: HTTP response representation.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `status_code` | `int` |  |
-| `body` | `dict[str, Any]` |  |
-| `headers` | `dict[str, str]` |  |
+| `status_code` | `int` | `` |
+| `body` | `dict[str, Any]` | `` |
+| `headers` | `dict[str, str]` | `` |
 
-### Class: `ResponseMapper`
+### `ResponseMapper`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `FaultHandler`
@@ -371,12 +392,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Handle all faults. |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Map fault to HTTP response. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Handle all faults. |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Map fault to HTTP response. |
 
-### Class: `FatalHandler`
+### `FatalHandler`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `FaultHandler`
@@ -384,12 +405,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Only handle FATAL severity. |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Log and invoke callback. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Only handle FATAL severity. |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Log and invoke callback. |
 
-### Class: `LoggingHandler`
+### `LoggingHandler`
 
 - Source: `aquilia/faults/default_handlers.py`
 - Bases: `FaultHandler`
@@ -397,564 +418,564 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Handle all faults. |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Log fault and escalate. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Handle all faults. |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Log fault and escalate. |
 
-### Class: `ConfigFault`
+### `ConfigFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for configuration faults.
 
-### Class: `ConfigMissingFault`
+### `ConfigMissingFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ConfigFault`
 - Summary: Required configuration is missing.
 
-### Class: `ConfigInvalidFault`
+### `ConfigInvalidFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ConfigFault`
 - Summary: Configuration value is invalid.
 
-### Class: `DotenvParseFault`
+### `DotenvParseFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ConfigFault`
 - Summary: Dotenv file contains syntax errors.
 
-### Class: `DotenvNotFoundFault`
+### `DotenvNotFoundFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ConfigFault`
 - Summary: Dotenv file not found when explicitly requested.
 
-### Class: `RegistryFault`
+### `RegistryFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for Aquilary registry faults.
 
-### Class: `DependencyCycleFault`
+### `DependencyCycleFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `RegistryFault`
 - Summary: Circular dependency detected in app graph.
 
-### Class: `ManifestInvalidFault`
+### `ManifestInvalidFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `RegistryFault`
 - Summary: Manifest validation failed.
 
-### Class: `DIFault`
+### `DIFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for dependency injection faults.
 
-### Class: `ProviderNotFoundFault`
+### `ProviderNotFoundFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DIFault`
 - Summary: DI provider not found.
 
-### Class: `ScopeViolationFault`
+### `ScopeViolationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DIFault`
 - Summary: DI scope violation.
 
-### Class: `DIResolutionFault`
+### `DIResolutionFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DIFault`
 - Summary: DI resolution failed.
 
-### Class: `RoutingFault`
+### `RoutingFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for routing faults.
 
-### Class: `RouteNotFoundFault`
+### `RouteNotFoundFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `RoutingFault`
 - Summary: Route not found.
 
-### Class: `RouteAmbiguousFault`
+### `RouteAmbiguousFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `RoutingFault`
 - Summary: Multiple routes match the pattern.
 
-### Class: `PatternInvalidFault`
+### `PatternInvalidFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `RoutingFault`
 - Summary: Route pattern is invalid.
 
-### Class: `FlowFault`
+### `FlowFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for flow execution faults.
 
-### Class: `HandlerFault`
+### `HandlerFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `FlowFault`
 - Summary: Handler execution failed.
 
-### Class: `MiddlewareFault`
+### `MiddlewareFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `FlowFault`
 - Summary: Middleware execution failed.
 
-### Class: `FlowCancelledFault`
+### `FlowCancelledFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `FlowFault`
 - Summary: Flow was cancelled (timeout or client disconnect).
 
-### Class: `EffectFault`
+### `EffectFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for effect (side-effect) faults.
 
-### Class: `DatabaseFault`
+### `DatabaseFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `EffectFault`
 - Summary: Database operation failed.
 
-### Class: `CacheFault`
+### `CacheFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `EffectFault`
 - Summary: Cache operation failed.
 
-### Class: `IOFault`
+### `IOFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for I/O faults.
 
-### Class: `NetworkFault`
+### `NetworkFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `IOFault`
 - Summary: Network operation failed.
 
-### Class: `FilesystemFault`
+### `FilesystemFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `IOFault`
 - Summary: Filesystem operation failed.
 
-### Class: `SecurityFault`
+### `SecurityFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for security faults.
 
-### Class: `AuthenticationFault`
+### `AuthenticationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: Authentication failed.
 
-### Class: `AuthorizationFault`
+### `AuthorizationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: Authorization failed.
 
-### Class: `CSRFViolationFault`
+### `CSRFViolationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: CSRF token validation failed.
 
-### Class: `CORSViolationFault`
+### `CORSViolationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: CORS origin not allowed.
 
-### Class: `RateLimitExceededFault`
+### `RateLimitExceededFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: Rate limit exceeded for client.
 
-### Class: `CSPViolationFault`
+### `CSPViolationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: Content Security Policy violation reported.
 
-### Class: `SigningFault`
+### `SigningFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SecurityFault`
 - Summary: Base class for all signing/verification faults.
 
-### Class: `BadSignatureFault`
+### `BadSignatureFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SigningFault`
-- Summary: Signature verification failed - potential tampering.
+- Summary: Signature verification failed — potential tampering.
 
-### Class: `SignatureExpiredFault`
+### `SignatureExpiredFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `BadSignatureFault`
 - Summary: The signature is valid but the embedded timestamp has exceeded max_age.
 
-### Class: `SignatureMalformedFault`
+### `SignatureMalformedFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SigningFault`
-- Summary: The signed value could not be parsed at all (wrong number of parts,
+- Summary: The signed value could not be parsed at all (wrong number of parts, non-base64 characters, corrupted JSON, etc.).
 
-### Class: `UnsupportedAlgorithmFault`
+### `UnsupportedAlgorithmFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SigningFault`
-- Summary: The requested algorithm is not available (e.g. asymmetric algorithm
+- Summary: The requested algorithm is not available (e.g. asymmetric algorithm requested but the ``cryptography`` package is not installed).
 
-### Class: `SystemFault`
+### `SystemFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for fatal system faults.
 
-### Class: `UnrecoverableFault`
+### `UnrecoverableFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SystemFault`
 - Summary: Unrecoverable system fault.
 
-### Class: `ResourceExhaustedFault`
+### `ResourceExhaustedFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `SystemFault`
 - Summary: System resources exhausted.
 
-### Class: `ModelFault`
+### `ModelFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for model and database faults.
 
-### Class: `AMDLParseFault`
+### `AMDLParseFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: AMDL file parsing failed.
 
-### Class: `ModelNotFoundFault`
+### `ModelNotFoundFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Model not found in registry.
 
-### Class: `ModelRegistrationFault`
+### `ModelRegistrationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Model registration failed.
 
-### Class: `MigrationFault`
+### `MigrationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Database migration failed.
 
-### Class: `MigrationConflictFault`
+### `MigrationConflictFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Migration conflict detected (e.g. divergent migration branches).
 
-### Class: `QueryFault`
+### `QueryFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Query execution failed.
 
-### Class: `DatabaseConnectionFault`
+### `DatabaseConnectionFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Database connection failed.
 
-### Class: `SchemaFault`
+### `SchemaFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Schema creation or validation failed.
 
-### Class: `FieldValidationFault`
+### `FieldValidationFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Field validation failed.
 
-### Class: `ProtectedDeleteFault`
+### `ProtectedDeleteFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Cannot delete a protected object due to PROTECT on_delete.
 
-### Class: `RestrictedDeleteFault`
+### `RestrictedDeleteFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ModelFault`
 - Summary: Cannot delete a restricted object due to RESTRICT on_delete.
 
-### Class: `HTTPFault`
+### `HTTPFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for HTTP protocol error faults.
 
-### Class: `BadRequestFault`
+### `BadRequestFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 400 Bad Request.
 
-### Class: `UnauthorizedFault`
+### `UnauthorizedFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 401 Unauthorized.
 
-### Class: `PaymentRequiredFault`
+### `PaymentRequiredFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 402 Payment Required.
 
-### Class: `ForbiddenFault`
+### `ForbiddenFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 403 Forbidden.
 
-### Class: `NotFoundFault`
+### `NotFoundFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 404 Not Found.
 
-### Class: `MethodNotAllowedFault`
+### `MethodNotAllowedFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 405 Method Not Allowed.
 
-### Class: `NotAcceptableFault`
+### `NotAcceptableFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 406 Not Acceptable.
 
-### Class: `RequestTimeoutFault`
+### `RequestTimeoutFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 408 Request Timeout.
 
-### Class: `ConflictFault`
+### `ConflictFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 409 Conflict.
 
-### Class: `GoneFault`
+### `GoneFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 410 Gone.
 
-### Class: `PayloadTooLargeFault`
+### `PayloadTooLargeFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 413 Content Too Large.
 
-### Class: `URITooLongFault`
+### `URITooLongFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 414 URI Too Long.
 
-### Class: `UnsupportedMediaTypeFault`
+### `UnsupportedMediaTypeFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 415 Unsupported Media Type.
 
-### Class: `UnprocessableEntityFault`
+### `UnprocessableEntityFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 422 Unprocessable Content.
 
-### Class: `LockedFault`
+### `LockedFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 423 Locked.
 
-### Class: `TooEarlyFault`
+### `TooEarlyFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 425 Too Early.
 
-### Class: `PreconditionRequiredFault`
+### `PreconditionRequiredFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 428 Precondition Required.
 
-### Class: `TooManyRequestsFault`
+### `TooManyRequestsFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 429 Too Many Requests.
 
-### Class: `RequestHeaderFieldsTooLargeFault`
+### `RequestHeaderFieldsTooLargeFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 431 Request Header Fields Too Large.
 
-### Class: `UnavailableForLegalReasonsFault`
+### `UnavailableForLegalReasonsFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 451 Unavailable For Legal Reasons.
 
-### Class: `InternalServerErrorFault`
+### `InternalServerErrorFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 500 Internal Server Error.
 
-### Class: `NotImplementedFault`
+### `NotImplementedFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 501 Not Implemented.
 
-### Class: `BadGatewayFault`
+### `BadGatewayFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 502 Bad Gateway.
 
-### Class: `ServiceUnavailableFault`
+### `ServiceUnavailableFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 503 Service Unavailable.
 
-### Class: `GatewayTimeoutFault`
+### `GatewayTimeoutFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `HTTPFault`
 - Summary: 504 Gateway Timeout.
 
-### Class: `ProviderFault`
+### `ProviderFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for cloud provider integration faults.
 
-### Class: `ProviderAPIFault`
+### `ProviderAPIFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ProviderFault`
 - Summary: Cloud provider API returned an error response.
 
-### Class: `ProviderAuthFault`
+### `ProviderAuthFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ProviderFault`
 - Summary: Cloud provider authentication failure (401/403).
 
-### Class: `ProviderRateLimitFault`
+### `ProviderRateLimitFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ProviderFault`
 - Summary: Cloud provider rate limit exceeded (429).
 
-### Class: `ProviderTokenFault`
+### `ProviderTokenFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ProviderFault`
 - Summary: Provider API token is missing, invalid, or expired.
 
-### Class: `ProviderCredentialFault`
+### `ProviderCredentialFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ProviderFault`
 - Summary: Credential storage or retrieval failure.
 
-### Class: `ProviderConnectionFault`
+### `ProviderConnectionFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `ProviderFault`
 - Summary: Network connection to provider API failed.
 
-### Class: `DeployFault`
+### `DeployFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `Fault`
 - Summary: Base class for deployment orchestration faults.
 
-### Class: `DeployConfigFault`
+### `DeployConfigFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DeployFault`
 - Summary: Deployment configuration is invalid or incomplete.
 
-### Class: `DeployImageFault`
+### `DeployImageFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DeployFault`
 - Summary: Docker image build or push failure.
 
-### Class: `DeployHealthFault`
+### `DeployHealthFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DeployFault`
 - Summary: Deployed service did not become healthy.
 
-### Class: `DeployAppFault`
+### `DeployAppFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DeployFault`
 - Summary: Failed to create or resolve the provider app.
 
-### Class: `DeployServiceFault`
+### `DeployServiceFault`
 
 - Source: `aquilia/faults/domains.py`
 - Bases: `DeployFault`
 - Summary: Failed to create or update the provider service.
 
-### Class: `FaultEngine`
+### `FaultEngine`
 
 - Source: `aquilia/faults/engine.py`
 - Bases: `object`
@@ -962,28 +983,28 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register_global` | `def register_global(self, handler: FaultHandler)` |  | Register global fault handler. |
-| `register_app` | `def register_app(self, app: str, handler: FaultHandler)` |  | Register app-scoped fault handler. |
-| `register_controller` | `def register_controller(self, controller: str, handler: FaultHandler)` |  | Register controller-scoped fault handler. |
-| `register_route` | `def register_route(self, route: str, handler: FaultHandler)` |  | Register route-scoped fault handler. |
-| `on_fault` | `def on_fault(self, listener: Callable[[FaultContext], None])` |  | Register fault event listener. |
-| `process` | `async def process(self, exception: Exception &#124; Fault, *, app: str &#124; None = None, route: str &#124; None = None, request_id: str &#124; None = None) -> FaultResult` |  | Process exception or fault. |
-| `process_async_exception` | `async def process_async_exception(self, exception: Exception) -> FaultResult` |  | Process async exception with automatic context capture. |
-| `set_context` | `def set_context(*, app: str &#124; None = None, route: str &#124; None = None, request_id: str &#124; None = None)` | staticmethod | Set fault context for current async task. |
-| `clear_context` | `def clear_context()` | staticmethod | Clear fault context for current async task. |
-| `get_history` | `def get_history(self) -> list[FaultContext]` |  | Get fault history (debug mode only). |
-| `clear_history` | `def clear_history(self)` |  | Clear fault history. |
-| `get_stats` | `def get_stats(self) -> dict[str, Any]` |  | Get fault engine statistics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register_global` | `def register_global(self, handler: FaultHandler)` | Register global fault handler. |
+| `register_app` | `def register_app(self, app: str, handler: FaultHandler)` | Register app-scoped fault handler. |
+| `register_controller` | `def register_controller(self, controller: str, handler: FaultHandler)` | Register controller-scoped fault handler. |
+| `register_route` | `def register_route(self, route: str, handler: FaultHandler)` | Register route-scoped fault handler. |
+| `on_fault` | `def on_fault(self, listener: Callable[[FaultContext], None])` | Register fault event listener. |
+| `process` | `async def process(self, exception: Exception \| Fault, *, app: str \| None=None, route: str \| None=None, request_id: str \| None=None)` | Process exception or fault. |
+| `process_async_exception` | `async def process_async_exception(self, exception: Exception)` | Process async exception with automatic context capture. |
+| `set_context` | `def set_context(*, app: str \| None=None, route: str \| None=None, request_id: str \| None=None)` | Set fault context for current async task. |
+| `clear_context` | `def clear_context()` | Clear fault context for current async task. |
+| `get_history` | `def get_history(self)` | Get fault history (debug mode only). |
+| `clear_history` | `def clear_history(self)` | Clear fault history. |
+| `get_stats` | `def get_stats(self)` | Get fault engine statistics. |
 
-### Class: `FaultMiddleware`
+### `FaultMiddleware`
 
 - Source: `aquilia/faults/engine.py`
 - Bases: `object`
 - Summary: Middleware that bridges the FaultEngine with the request/response lifecycle.
 
-### Class: `FaultHandler`
+### `FaultHandler`
 
 - Source: `aquilia/faults/handlers.py`
 - Bases: `ABC`
@@ -991,12 +1012,12 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` | abstractmethod | Handle fault context. |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Check if this handler can handle the fault. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Handle fault context. |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Check if this handler can handle the fault. |
 
-### Class: `CompositeHandler`
+### `CompositeHandler`
 
 - Source: `aquilia/faults/handlers.py`
 - Bases: `FaultHandler`
@@ -1004,11 +1025,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `handle` | `async def handle(self, ctx: FaultContext) -> FaultResult` |  | Try each handler in order. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `handle` | `async def handle(self, ctx: FaultContext)` | Try each handler in order. |
 
-### Class: `ScopedHandlerRegistry`
+### `ScopedHandlerRegistry`
 
 - Source: `aquilia/faults/handlers.py`
 - Bases: `object`
@@ -1016,51 +1037,51 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register_global` | `def register_global(self, handler: FaultHandler)` |  | Register global handler. |
-| `register_app` | `def register_app(self, app: str, handler: FaultHandler)` |  | Register app-scoped handler. |
-| `register_controller` | `def register_controller(self, controller: str, handler: FaultHandler)` |  | Register controller-scoped handler. |
-| `register_route` | `def register_route(self, route: str, handler: FaultHandler)` |  | Register route-scoped handler. |
-| `get_handlers` | `def get_handlers(self, *, app: str &#124; None = None, controller: str &#124; None = None, route: str &#124; None = None) -> list[FaultHandler]` |  | Get applicable handlers for context. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register_global` | `def register_global(self, handler: FaultHandler)` | Register global handler. |
+| `register_app` | `def register_app(self, app: str, handler: FaultHandler)` | Register app-scoped handler. |
+| `register_controller` | `def register_controller(self, controller: str, handler: FaultHandler)` | Register controller-scoped handler. |
+| `register_route` | `def register_route(self, route: str, handler: FaultHandler)` | Register route-scoped handler. |
+| `get_handlers` | `def get_handlers(self, *, app: str \| None=None, controller: str \| None=None, route: str \| None=None)` | Get applicable handlers for context. |
 
-### Class: `CircularDependencyFault`
+### `CircularDependencyFault`
 
 - Source: `aquilia/faults/integrations/di.py`
 - Bases: `DIFault`
 - Summary: Circular dependency detected.
 
-### Class: `ProviderRegistrationFault`
+### `ProviderRegistrationFault`
 
 - Source: `aquilia/faults/integrations/di.py`
 - Bases: `DIFault`
 - Summary: Provider registration failed.
 
-### Class: `AsyncResolutionFault`
+### `AsyncResolutionFault`
 
 - Source: `aquilia/faults/integrations/di.py`
 - Bases: `DIFault`
 - Summary: Async resolution in sync context.
 
-### Class: `PipelineAbortedFault`
+### `PipelineAbortedFault`
 
 - Source: `aquilia/faults/integrations/flow.py`
 - Bases: `FlowFault`
 - Summary: Request pipeline aborted by middleware.
 
-### Class: `HandlerTimeoutFault`
+### `HandlerTimeoutFault`
 
 - Source: `aquilia/faults/integrations/flow.py`
 - Bases: `FlowFault`
 - Summary: Handler execution timed out.
 
-### Class: `MiddlewareChainFault`
+### `MiddlewareChainFault`
 
 - Source: `aquilia/faults/integrations/flow.py`
 - Bases: `FlowFault`
 - Summary: Middleware chain execution failed.
 
-### Class: `ModelFaultHandler`
+### `ModelFaultHandler`
 
 - Source: `aquilia/faults/integrations/models.py`
 - Bases: `FaultHandler`
@@ -1068,84 +1089,49 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `can_handle` | `def can_handle(self, ctx: FaultContext) -> bool` |  | Check if this handler can handle the fault. |
-| `handle` | `def handle(self, ctx: FaultContext) -> FaultResult` |  | Handle a model domain fault. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `can_handle` | `def can_handle(self, ctx: FaultContext)` | Check if this handler can handle the fault. |
+| `handle` | `def handle(self, ctx: FaultContext)` | Handle a model domain fault. |
 
-### Class: `ManifestLoadFault`
+### `ManifestLoadFault`
 
 - Source: `aquilia/faults/integrations/registry.py`
 - Bases: `RegistryFault`
 - Summary: Manifest loading failed.
 
-### Class: `AppContextInvalidFault`
+### `AppContextInvalidFault`
 
 - Source: `aquilia/faults/integrations/registry.py`
 - Bases: `RegistryFault`
 - Summary: App context validation failed.
 
-### Class: `RouteCompilationFault`
+### `RouteCompilationFault`
 
 - Source: `aquilia/faults/integrations/registry.py`
 - Bases: `RegistryFault`
 - Summary: Route compilation failed.
 
-### Class: `DependencyResolutionFault`
+### `DependencyResolutionFault`
 
 - Source: `aquilia/faults/integrations/registry.py`
 - Bases: `RegistryFault`
 - Summary: Dependency resolution failed.
 
-### Class: `RouteConflictFault`
+### `RouteConflictFault`
 
 - Source: `aquilia/faults/integrations/routing.py`
 - Bases: `RoutingFault`
 - Summary: Multiple routes match the same pattern.
 
-### Class: `MethodNotAllowedFault`
+### `MethodNotAllowedFault`
 
 - Source: `aquilia/faults/integrations/routing.py`
 - Bases: `RoutingFault`
 - Summary: HTTP method not allowed for route.
 
-### Class: `RouteParameterFault`
+### `RouteParameterFault`
 
 - Source: `aquilia/faults/integrations/routing.py`
 - Bases: `RoutingFault`
 - Summary: Route parameter validation failed.
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `http_reason` | `aquilia/faults/domains.py` | `def http_reason(status: int) -> str` | Return the canonical RFC 9110 reason phrase for *status*. |
-| `get_default_engine` | `aquilia/faults/engine.py` | `def get_default_engine() -> FaultEngine` | Get or create default global fault engine. |
-| `process_fault` | `aquilia/faults/engine.py` | `async def process_fault(exception: Exception &#124; Fault, *, engine: FaultEngine &#124; None = None) -> FaultResult` | Process fault using engine. |
-| `patch_all_subsystems` | `aquilia/faults/integrations/__init__.py` | `def patch_all_subsystems()` | Patch all Aquilia subsystems to use AquilaFaults. |
-| `create_all_integration_handlers` | `aquilia/faults/integrations/__init__.py` | `def create_all_integration_handlers()` | Create fault handlers for all subsystem integrations. |
-| `patch_di_container` | `aquilia/faults/integrations/di.py` | `def patch_di_container()` | Patch DI Container to emit structured faults. |
-| `create_di_fault_handler` | `aquilia/faults/integrations/di.py` | `def create_di_fault_handler()` | Create fault handler for DI operations. |
-| `fault_handling_middleware` | `aquilia/faults/integrations/flow.py` | `async def fault_handling_middleware(request, next_handler: Callable[[Any], Awaitable[Any]], engine: FaultEngine &#124; None = None)` | Core fault handling middleware. |
-| `timeout_middleware` | `aquilia/faults/integrations/flow.py` | `async def timeout_middleware(request, next_handler: Callable[[Any], Awaitable[Any]], timeout_seconds: float = 30.0)` | Timeout middleware with fault emission. |
-| `fault_aware_handler` | `aquilia/faults/integrations/flow.py` | `def fault_aware_handler(handler: Callable)` | Decorator to make handler fault-aware. |
-| `create_flow_fault_handler` | `aquilia/faults/integrations/flow.py` | `def create_flow_fault_handler()` | Create fault handler for flow operations. |
-| `with_cancellation_handling` | `aquilia/faults/integrations/flow.py` | `async def with_cancellation_handling(coro: Awaitable[Any]) -> Any` | Wrap coroutine with cancellation fault handling. |
-| `is_fault_retryable` | `aquilia/faults/integrations/flow.py` | `def is_fault_retryable(fault: Fault) -> bool` | Check if fault is retryable. |
-| `should_abort_pipeline` | `aquilia/faults/integrations/flow.py` | `def should_abort_pipeline(fault: Fault) -> bool` | Check if fault should abort the pipeline. |
-| `create_model_fault_handler` | `aquilia/faults/integrations/models.py` | `def create_model_fault_handler(max_retries: int = 3, log_queries: bool = True) -> ModelFaultHandler` | Create a fault handler for the MODEL domain. |
-| `patch_model_registry` | `aquilia/faults/integrations/models.py` | `def patch_model_registry() -> None` | Patch model registries to raise structured faults instead of bare exceptions. |
-| `patch_database_engine` | `aquilia/faults/integrations/models.py` | `def patch_database_engine() -> None` | Patch AquiliaDatabase to raise structured faults on connection errors. |
-| `patch_all_model_subsystems` | `aquilia/faults/integrations/models.py` | `def patch_all_model_subsystems() -> None` | Patch all model-related subsystems with fault integration. |
-| `patch_runtime_registry` | `aquilia/faults/integrations/registry.py` | `def patch_runtime_registry()` | Patch RuntimeRegistry to emit structured faults. |
-| `create_registry_fault_handler` | `aquilia/faults/integrations/registry.py` | `def create_registry_fault_handler()` | Create fault handler for registry operations. |
-| `create_routing_fault_handler` | `aquilia/faults/integrations/routing.py` | `def create_routing_fault_handler()` | Create fault handler for routing operations. |
-| `safe_route_lookup` | `aquilia/faults/integrations/routing.py` | `def safe_route_lookup(router, path: str, method: str = 'GET')` | Safely lookup route, returning fault instead of throwing. |
-| `validate_route_pattern` | `aquilia/faults/integrations/routing.py` | `def validate_route_pattern(pattern: str) -> PatternInvalidFault &#124; None` | Validate route pattern syntax. |
-
-## Constants
-
-| Name | Source | Value or type |
-| --- | --- | --- |
-| `DOMAIN_DEFAULTS` | `aquilia/faults/core.py` | `{FaultDomain.CONFIG: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.REGISTRY: {'severity': Severity.FATAL, 'retryable': False}, FaultDomain.DI: {` |
-| `_HTTP_REASONS` | `aquilia/faults/domains.py` | `dict[int, str]` |

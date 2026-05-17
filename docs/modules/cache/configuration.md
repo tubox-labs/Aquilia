@@ -1,36 +1,61 @@
 # Cache Configuration
 
-## Configuration Entry Points
+Async cache abstraction with memory, Redis, composite, null backends, serializers, decorators, DI providers, and HTTP caching middleware.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/cache/__init__.py` | 119 | 0 | 0 | AquilaCache -- Production-grade, async-first caching system for Aquilia. |
+| `aquilia/cache/backends/__init__.py` | 15 | 0 | 0 | AquilaCache Backends -- Storage implementations. |
+| `aquilia/cache/backends/composite.py` | 281 | 1 | 0 | AquilaCache -- Composite (L1/L2) backend. |
+| `aquilia/cache/backends/memory.py` | 514 | 1 | 0 | AquilaCache -- High-performance in-memory backend. |
+| `aquilia/cache/backends/null.py` | 67 | 1 | 0 | AquilaCache -- Null (no-op) backend. |
+| `aquilia/cache/backends/redis.py` | 462 | 1 | 0 | AquilaCache -- Redis backend for distributed caching. |
+| `aquilia/cache/core.py` | 534 | 7 | 0 | AquilaCache -- Core types, protocols, and data structures. |
+| `aquilia/cache/decorators.py` | 272 | 0 | 5 | AquilaCache -- Decorators for declarative caching. |
+| `aquilia/cache/di_providers.py` | 201 | 0 | 4 | AquilaCache -- DI provider registration. |
+| `aquilia/cache/faults.py` | 143 | 9 | 0 | AquilaCache -- Fault domain integration. |
+| `aquilia/cache/key_builder.py` | 110 | 2 | 0 | AquilaCache -- Cache key builder implementations. |
+| `aquilia/cache/middleware.py` | 275 | 1 | 0 | AquilaCache -- HTTP response caching middleware. |
+| `aquilia/cache/serializers.py` | 191 | 3 | 1 | AquilaCache -- Pluggable serializers for cache value encoding. |
+| `aquilia/cache/service.py` | 629 | 1 | 0 | AquilaCache -- CacheService: High-level API for cache operations. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `EvictionPolicy` | `aquilia/cache/core.py` | See class attributes and constructor methods. | Cache eviction strategies. |
-| `CacheEntry` | `aquilia/cache/core.py` | key: str, value: Any, created_at: float, expires_at: float &#124; None, last_accessed: float, access_count: int, size_bytes: int, tags: tuple[str, ...], namespace: str, version: int | Single cache entry with metadata. |
-| `CacheStats` | `aquilia/cache/core.py` | hits: int, misses: int, sets: int, deletes: int, evictions: int, errors: int, stampede_joins: int, size: int, max_size: int, memory_bytes: int, backend: str, uptime_seconds: float | Aggregate cache statistics for observability. |
-| `CacheConfig` | `aquilia/cache/core.py` | enabled: bool, backend: str, default_ttl: int, max_size: int, eviction_policy: str, namespace: str, key_prefix: str, serializer: str, ttl_jitter: bool, ttl_jitter_percent: float, stampede_prevention: bool, stampede_timeout: float, ... | Cache subsystem configuration. |
+| `EvictionPolicy` | `aquilia/cache/core.py` |  | Cache eviction strategies. |
+| `CacheConfig` | `aquilia/cache/core.py` | `apply_jitter`, `to_dict` | Cache subsystem configuration. |
+| `CacheKeyBuilder` | `aquilia/cache/core.py` | `build` | Protocol for building cache keys. |
+| `CacheConfigFault` | `aquilia/cache/faults.py` |  | Cache configuration error. |
+| `DefaultKeyBuilder` | `aquilia/cache/key_builder.py` | `build`, `from_args` | Default key builder using colon-separated segments. |
+| `HashKeyBuilder` | `aquilia/cache/key_builder.py` | `build`, `from_args` | Hash-based key builder for long or complex keys. |
+| `CacheMiddleware` | `aquilia/cache/middleware.py` |  | HTTP response caching middleware. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- `CacheConfig`
-- `CacheIntegration`
-- `CacheMiddleware`
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

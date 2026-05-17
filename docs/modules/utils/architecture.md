@@ -1,43 +1,47 @@
-# Utilities Architecture
+# Utils Architecture
 
-## Runtime Role
+Small shared helpers for URL joining, data objects, and package scanning.
 
-Small utilities for package scanning, URL path normalization, joining, and data helper objects.
+## Source Boundaries
 
-The implementation is split across 4 Python files. The module boundary is visible in the file inventory below and the API reference is generated from the same source files.
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/utils/__init__.py` | 16 | 0 | 0 | Aquilia Utils Package |
+| `aquilia/utils/data.py` | 42 | 1 | 0 | Data Utilities - Provides flexible data structures for the framework. |
+| `aquilia/utils/scanner.py` | 218 | 1 | 0 | Package Scanner Utility. |
+| `aquilia/utils/urls.py` | 50 | 0 | 2 | URL Utilities for Aquilia. |
 
-## Primary Source Files
+## Internal Shape
 
-- `aquilia/utils/__init__.py`: Aquilia Utils Package
-- `aquilia/utils/data.py`: Data Utilities - Provides flexible data structures for the framework.
-- `aquilia/utils/scanner.py`: Package Scanner Utility.
-- `aquilia/utils/urls.py`: URL Utilities for Aquilia.
+`utils` has 4 Python files, 2 public classes, 2 public module-level functions, and 1 constants or module flags detected by AST.
 
-## Internal Dependency Shape
+## Runtime Responsibilities
 
-The table below is derived from import statements in the module. It shows which top-level packages this module depends on most often.
+- No mounted `aq` command group maps directly to this module; it is used through Python APIs, manifests, workspace integrations, or server startup wiring.
 
-| Imported package | Import count |
-| --- | --- |
+## Internal Imports
+
+| Import | Count |
+| --- | ---: |
+| `.scanner` | 1 |
+| `.urls` | 1 |
+
+## External And Stdlib Imports
+
+| Import root | Count |
+| --- | ---: |
 | `typing` | 2 |
 | `collections` | 1 |
 | `importlib` | 1 |
 | `inspect` | 1 |
 | `logging` | 1 |
 | `pkgutil` | 1 |
-| `scanner` | 1 |
 | `types` | 1 |
-| `urls` | 1 |
 
-## Data And Control Flow
+## Lifecycle And Extension Points
 
-1. Configuration or direct construction creates the public service objects, controllers, providers, or helpers for this module.
-2. Runtime code imports the registered classes from manifests, workspace integrations, middleware stacks, or direct application code.
-3. Public methods perform validation and convert invalid states into typed Aquilia faults where the implementation defines fault classes.
-4. Integration points return Python data structures, `Response` objects, provider results, jobs, sessions, connections, or model instances depending on the subsystem.
+No dedicated extension classes were detected by naming convention; inspect `api-reference.md` for all public classes and functions.
 
-## Boundary Rules
+## Error Handling
 
-- Keep application-specific business decisions outside framework classes unless the class is explicitly a service or controller owned by your app.
-- Prefer the public exports and typed configuration dataclasses shown in `api-reference.md`.
-- When a module supplies both a low-level primitive and a high-level service, use the service in application code and keep primitives for tests, providers, or advanced integrations.
+This module does not define public `Fault` or `Error` classes in its own files. Errors are usually raised through shared `aquilia.faults` domains or consuming subsystems.

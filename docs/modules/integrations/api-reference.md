@@ -1,10 +1,40 @@
 # Integrations API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/integrations/__init__.py` | 191 | 0 | 0 | Aquilia Integrations — Typed, validated configuration objects. |
+| `aquilia/integrations/_protocol.py` | 25 | 1 | 0 | IntegrationConfig protocol — the contract every integration type satisfies. |
+| `aquilia/integrations/admin.py` | 924 | 8 | 0 | Admin integration — typed admin dashboard configuration. |
+| `aquilia/integrations/auth.py` | 54 | 1 | 0 | AuthIntegration — typed auth configuration. |
+| `aquilia/integrations/cache.py` | 65 | 1 | 0 | CacheIntegration — typed cache configuration. |
+| `aquilia/integrations/database.py` | 75 | 1 | 0 | DatabaseIntegration — typed database configuration. |
+| `aquilia/integrations/i18n.py` | 56 | 1 | 0 | I18nIntegration — typed internationalization configuration. |
+| `aquilia/integrations/logging_cfg.py` | 52 | 1 | 0 | LoggingIntegration — typed request/response logging configuration. |
+| `aquilia/integrations/mail.py` | 519 | 7 | 0 | Mail integration — typed, flat-namespace mail configuration. |
+| `aquilia/integrations/mlops.py` | 99 | 1 | 0 | MLOpsIntegration — typed MLOps platform configuration. |
+| `aquilia/integrations/mw.py` | 100 | 2 | 0 | Middleware chain integration — typed middleware configuration. |
+| `aquilia/integrations/openapi.py` | 77 | 1 | 0 | OpenAPIIntegration — typed OpenAPI documentation configuration. |
+| `aquilia/integrations/render.py` | 50 | 1 | 0 | RenderIntegration — typed Render PaaS deployment configuration. |
+| `aquilia/integrations/security.py` | 180 | 4 | 0 | Security integrations — CORS, CSP, Rate-Limit, CSRF. |
+| `aquilia/integrations/sessions.py` | 60 | 1 | 0 | SessionIntegration — typed session configuration. |
+| `aquilia/integrations/simple.py` | 112 | 6 | 0 | Simple integrations — small typed configs for DI, routing, faults, etc. |
+| `aquilia/integrations/static.py` | 48 | 1 | 0 | StaticFilesIntegration — typed static file serving configuration. |
+| `aquilia/integrations/storage.py` | 49 | 1 | 0 | StorageIntegration — typed file storage configuration. |
+| `aquilia/integrations/tasks.py` | 55 | 1 | 0 | TasksIntegration — typed background task configuration. |
+| `aquilia/integrations/templates.py` | 102 | 1 | 0 | TemplatesIntegration — typed template configuration. |
+| `aquilia/integrations/versioning_cfg.py` | 85 | 1 | 0 | VersioningIntegration — typed API versioning configuration. |
+
+## Public Exports
+
+`AdminAudit`, `AdminContainers`, `AdminIntegration`, `AdminModules`, `AdminMonitoring`, `AdminPods`, `AdminSecurity`, `AdminSidebar`, `AuthIntegration`, `CacheIntegration`, `ConsoleProvider`, `CorsIntegration`, `CspIntegration`, `CsrfIntegration`, `DatabaseIntegration`, `DiIntegration`, `FaultHandlingIntegration`, `FileProvider`, `I18nIntegration`, `IntegrationConfig`, `LoggingIntegration`, `MLOpsIntegration`, `MailAuth`, `MailIntegration`, `MiddlewareChain`, `MiddlewareEntry`, `OpenAPIIntegration`, `PatternsIntegration`, `RateLimitIntegration`, `RegistryIntegration`, `RenderIntegration`, `RoutingIntegration`, `SendGridProvider`, `SerializersIntegration`, `SesProvider`, `SessionIntegration`, `SmtpProvider`, `StaticFilesIntegration`, `StorageIntegration`, `TasksIntegration`, `TemplatesIntegration`, `VersioningIntegration`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `IntegrationConfig` | `aquilia/integrations/_protocol.py` | Protocol | Protocol that all typed integration configs implement. |
 | `AdminModules` | `aquilia/integrations/admin.py` | object | Controls which admin pages are visible. |
@@ -49,45 +79,39 @@ This page is extracted from the current Python source. It includes public classe
 | `TemplatesIntegration` | `aquilia/integrations/templates.py` | object | Typed template engine configuration. |
 | `VersioningIntegration` | `aquilia/integrations/versioning_cfg.py` | object | Typed API versioning configuration. |
 
-## Public Function Summary
+## Constants And Module Flags
 
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| None detected |  |  |  |
-
-## Constants
-
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `_ALL_METRICS` | `aquilia/integrations/admin.py` | `['cpu', 'memory', 'disk', 'network', 'process', 'python', 'system', 'health_checks']` |
 | `_ALL_CONTAINER_ACTIONS` | `aquilia/integrations/admin.py` | `['start', 'stop', 'restart', 'pause', 'unpause', 'kill', 'rm', 'logs', 'inspect', 'exec', 'export']` |
-| `_ALL_K8S_RESOURCES` | `aquilia/integrations/admin.py` | `['pods', 'deployments', 'services', 'ingresses', 'configmaps', 'secrets', 'namespaces', 'events', 'daemonsets', 'statefulsets', 'jobs', 'cronjobs', 'persistentv` |
+| `_ALL_K8S_RESOURCES` | `aquilia/integrations/admin.py` | `['pods', 'deployments', 'services', 'ingresses', 'configmaps', 'secrets', 'namespaces', 'events', 'daemonsets', 'statefulsets', 'jobs', 'cronjobs', 'persistentvolumeclaims', 'nodes']` |
 
 ## Detailed Classes And Methods
 
-### Class: `IntegrationConfig`
+### `IntegrationConfig`
 
 - Source: `aquilia/integrations/_protocol.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol that all typed integration configs implement.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize to the flat dict consumed by ``ConfigLoader``. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize to the flat dict consumed by ``ConfigLoader``. |
 
-### Class: `AdminModules`
+### `AdminModules`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Controls which admin pages are visible.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `dashboard` | `bool` | `True` |
 | `orm` | `bool` | `True` |
@@ -114,70 +138,70 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `default` | `def default(cls) -> AdminModules` | classmethod | Create with default visibility. |
-| `all_enabled` | `def all_enabled(cls) -> AdminModules` | classmethod | Every module enabled. |
-| `all_disabled` | `def all_disabled(cls) -> AdminModules` | classmethod | Every module disabled. |
-| `with_` | `def with_(self, **overrides: bool) -> AdminModules` |  | Return a copy with specific modules overridden. |
-| `enable_dashboard` | `def enable_dashboard(self) -> AdminModules` |  | Method. |
-| `disable_dashboard` | `def disable_dashboard(self) -> AdminModules` |  | Method. |
-| `enable_orm` | `def enable_orm(self) -> AdminModules` |  | Method. |
-| `disable_orm` | `def disable_orm(self) -> AdminModules` |  | Method. |
-| `enable_migrations` | `def enable_migrations(self) -> AdminModules` |  | Method. |
-| `disable_migrations` | `def disable_migrations(self) -> AdminModules` |  | Method. |
-| `enable_config` | `def enable_config(self) -> AdminModules` |  | Method. |
-| `disable_config` | `def disable_config(self) -> AdminModules` |  | Method. |
-| `enable_workspace` | `def enable_workspace(self) -> AdminModules` |  | Method. |
-| `disable_workspace` | `def disable_workspace(self) -> AdminModules` |  | Method. |
-| `enable_permissions` | `def enable_permissions(self) -> AdminModules` |  | Method. |
-| `disable_permissions` | `def disable_permissions(self) -> AdminModules` |  | Method. |
-| `enable_monitoring` | `def enable_monitoring(self) -> AdminModules` |  | Method. |
-| `disable_monitoring` | `def disable_monitoring(self) -> AdminModules` |  | Method. |
-| `enable_admin_users` | `def enable_admin_users(self) -> AdminModules` |  | Method. |
-| `disable_admin_users` | `def disable_admin_users(self) -> AdminModules` |  | Method. |
-| `enable_profile` | `def enable_profile(self) -> AdminModules` |  | Method. |
-| `disable_profile` | `def disable_profile(self) -> AdminModules` |  | Method. |
-| `enable_containers` | `def enable_containers(self) -> AdminModules` |  | Method. |
-| `disable_containers` | `def disable_containers(self) -> AdminModules` |  | Method. |
-| `enable_pods` | `def enable_pods(self) -> AdminModules` |  | Method. |
-| `disable_pods` | `def disable_pods(self) -> AdminModules` |  | Method. |
-| `enable_audit` | `def enable_audit(self) -> AdminModules` |  | Method. |
-| `disable_audit` | `def disable_audit(self) -> AdminModules` |  | Method. |
-| `enable_query_inspector` | `def enable_query_inspector(self) -> AdminModules` |  | Method. |
-| `disable_query_inspector` | `def disable_query_inspector(self) -> AdminModules` |  | Method. |
-| `enable_tasks` | `def enable_tasks(self) -> AdminModules` |  | Method. |
-| `disable_tasks` | `def disable_tasks(self) -> AdminModules` |  | Method. |
-| `enable_errors` | `def enable_errors(self) -> AdminModules` |  | Method. |
-| `disable_errors` | `def disable_errors(self) -> AdminModules` |  | Method. |
-| `enable_testing` | `def enable_testing(self) -> AdminModules` |  | Method. |
-| `disable_testing` | `def disable_testing(self) -> AdminModules` |  | Method. |
-| `enable_mlops` | `def enable_mlops(self) -> AdminModules` |  | Method. |
-| `disable_mlops` | `def disable_mlops(self) -> AdminModules` |  | Method. |
-| `enable_storage` | `def enable_storage(self) -> AdminModules` |  | Method. |
-| `disable_storage` | `def disable_storage(self) -> AdminModules` |  | Method. |
-| `enable_mailer` | `def enable_mailer(self) -> AdminModules` |  | Method. |
-| `disable_mailer` | `def disable_mailer(self) -> AdminModules` |  | Method. |
-| `enable_provider` | `def enable_provider(self) -> AdminModules` |  | Method. |
-| `disable_provider` | `def disable_provider(self) -> AdminModules` |  | Method. |
-| `enable_api_keys` | `def enable_api_keys(self) -> AdminModules` |  | Method. |
-| `disable_api_keys` | `def disable_api_keys(self) -> AdminModules` |  | Method. |
-| `enable_preferences` | `def enable_preferences(self) -> AdminModules` |  | Method. |
-| `disable_preferences` | `def disable_preferences(self) -> AdminModules` |  | Method. |
-| `enable_all` | `def enable_all(self) -> AdminModules` |  | Method. |
-| `disable_all` | `def disable_all(self) -> AdminModules` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, bool]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `default` | `def default(cls)` | Create with default visibility. |
+| `all_enabled` | `def all_enabled(cls)` | Every module enabled. |
+| `all_disabled` | `def all_disabled(cls)` | Every module disabled. |
+| `with_` | `def with_(self, **overrides: bool)` | Return a copy with specific modules overridden. |
+| `enable_dashboard` | `def enable_dashboard(self)` |  |
+| `disable_dashboard` | `def disable_dashboard(self)` |  |
+| `enable_orm` | `def enable_orm(self)` |  |
+| `disable_orm` | `def disable_orm(self)` |  |
+| `enable_migrations` | `def enable_migrations(self)` |  |
+| `disable_migrations` | `def disable_migrations(self)` |  |
+| `enable_config` | `def enable_config(self)` |  |
+| `disable_config` | `def disable_config(self)` |  |
+| `enable_workspace` | `def enable_workspace(self)` |  |
+| `disable_workspace` | `def disable_workspace(self)` |  |
+| `enable_permissions` | `def enable_permissions(self)` |  |
+| `disable_permissions` | `def disable_permissions(self)` |  |
+| `enable_monitoring` | `def enable_monitoring(self)` |  |
+| `disable_monitoring` | `def disable_monitoring(self)` |  |
+| `enable_admin_users` | `def enable_admin_users(self)` |  |
+| `disable_admin_users` | `def disable_admin_users(self)` |  |
+| `enable_profile` | `def enable_profile(self)` |  |
+| `disable_profile` | `def disable_profile(self)` |  |
+| `enable_containers` | `def enable_containers(self)` |  |
+| `disable_containers` | `def disable_containers(self)` |  |
+| `enable_pods` | `def enable_pods(self)` |  |
+| `disable_pods` | `def disable_pods(self)` |  |
+| `enable_audit` | `def enable_audit(self)` |  |
+| `disable_audit` | `def disable_audit(self)` |  |
+| `enable_query_inspector` | `def enable_query_inspector(self)` |  |
+| `disable_query_inspector` | `def disable_query_inspector(self)` |  |
+| `enable_tasks` | `def enable_tasks(self)` |  |
+| `disable_tasks` | `def disable_tasks(self)` |  |
+| `enable_errors` | `def enable_errors(self)` |  |
+| `disable_errors` | `def disable_errors(self)` |  |
+| `enable_testing` | `def enable_testing(self)` |  |
+| `disable_testing` | `def disable_testing(self)` |  |
+| `enable_mlops` | `def enable_mlops(self)` |  |
+| `disable_mlops` | `def disable_mlops(self)` |  |
+| `enable_storage` | `def enable_storage(self)` |  |
+| `disable_storage` | `def disable_storage(self)` |  |
+| `enable_mailer` | `def enable_mailer(self)` |  |
+| `disable_mailer` | `def disable_mailer(self)` |  |
+| `enable_provider` | `def enable_provider(self)` |  |
+| `disable_provider` | `def disable_provider(self)` |  |
+| `enable_api_keys` | `def enable_api_keys(self)` |  |
+| `disable_api_keys` | `def disable_api_keys(self)` |  |
+| `enable_preferences` | `def enable_preferences(self)` |  |
+| `disable_preferences` | `def disable_preferences(self)` |  |
+| `enable_all` | `def enable_all(self)` |  |
+| `disable_all` | `def disable_all(self)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminAudit`
+### `AdminAudit`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Audit log configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `False` |
 | `max_entries` | `int` | `10000` |
@@ -188,31 +212,31 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `enable` | `def enable(self) -> AdminAudit` |  | Method. |
-| `disable` | `def disable(self) -> AdminAudit` |  | Method. |
-| `max_entries_set` | `def max_entries_set(self, n: int) -> AdminAudit` |  | Method. |
-| `set_max_entries` | `def set_max_entries(self, n: int) -> AdminAudit` |  | Set the maximum number of audit entries (FIFO eviction). |
-| `log_logins_set` | `def log_logins_set(self, enabled: bool = True) -> AdminAudit` |  | Method. |
-| `no_log_logins` | `def no_log_logins(self) -> AdminAudit` |  | Method. |
-| `log_views_set` | `def log_views_set(self, enabled: bool = True) -> AdminAudit` |  | Method. |
-| `no_log_views` | `def no_log_views(self) -> AdminAudit` |  | Method. |
-| `log_searches_set` | `def log_searches_set(self, enabled: bool = True) -> AdminAudit` |  | Method. |
-| `no_log_searches` | `def no_log_searches(self) -> AdminAudit` |  | Method. |
-| `exclude_actions` | `def exclude_actions(self, *actions: str) -> AdminAudit` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `enable` | `def enable(self)` |  |
+| `disable` | `def disable(self)` |  |
+| `max_entries_set` | `def max_entries_set(self, n: int)` |  |
+| `set_max_entries` | `def set_max_entries(self, n: int)` | Set the maximum number of audit entries (FIFO eviction). |
+| `log_logins_set` | `def log_logins_set(self, enabled: bool=True)` |  |
+| `no_log_logins` | `def no_log_logins(self)` |  |
+| `log_views_set` | `def log_views_set(self, enabled: bool=True)` |  |
+| `no_log_views` | `def no_log_views(self)` |  |
+| `log_searches_set` | `def log_searches_set(self, enabled: bool=True)` |  |
+| `no_log_searches` | `def no_log_searches(self)` |  |
+| `exclude_actions` | `def exclude_actions(self, *actions: str)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminMonitoring`
+### `AdminMonitoring`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Monitoring dashboard configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `False` |
 | `metrics` | `list[str]` | `field(default_factory=lambda: list(_ALL_METRICS))` |
@@ -220,25 +244,25 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `enable` | `def enable(self) -> AdminMonitoring` |  | Method. |
-| `disable` | `def disable(self) -> AdminMonitoring` |  | Method. |
-| `metrics_set` | `def metrics_set(self, *names: str) -> AdminMonitoring` |  | Method. |
-| `all_metrics` | `def all_metrics(self) -> AdminMonitoring` |  | Method. |
-| `refresh_interval_set` | `def refresh_interval_set(self, seconds: int) -> AdminMonitoring` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `enable` | `def enable(self)` |  |
+| `disable` | `def disable(self)` |  |
+| `metrics_set` | `def metrics_set(self, *names: str)` |  |
+| `all_metrics` | `def all_metrics(self)` |  |
+| `refresh_interval_set` | `def refresh_interval_set(self, seconds: int)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminSidebar`
+### `AdminSidebar`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Admin sidebar section visibility.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `overview` | `bool` | `True` |
 | `data` | `bool` | `True` |
@@ -250,45 +274,45 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `show_overview` | `def show_overview(self) -> AdminSidebar` |  | Method. |
-| `hide_overview` | `def hide_overview(self) -> AdminSidebar` |  | Method. |
-| `show_data` | `def show_data(self) -> AdminSidebar` |  | Method. |
-| `hide_data` | `def hide_data(self) -> AdminSidebar` |  | Method. |
-| `show_system` | `def show_system(self) -> AdminSidebar` |  | Method. |
-| `hide_system` | `def hide_system(self) -> AdminSidebar` |  | Method. |
-| `show_infrastructure` | `def show_infrastructure(self) -> AdminSidebar` |  | Method. |
-| `hide_infrastructure` | `def hide_infrastructure(self) -> AdminSidebar` |  | Method. |
-| `show_security` | `def show_security(self) -> AdminSidebar` |  | Method. |
-| `hide_security` | `def hide_security(self) -> AdminSidebar` |  | Method. |
-| `show_models` | `def show_models(self) -> AdminSidebar` |  | Method. |
-| `hide_models` | `def hide_models(self) -> AdminSidebar` |  | Method. |
-| `show_devtools` | `def show_devtools(self) -> AdminSidebar` |  | Method. |
-| `hide_devtools` | `def hide_devtools(self) -> AdminSidebar` |  | Method. |
-| `show_all` | `def show_all(self) -> AdminSidebar` |  | Method. |
-| `hide_all` | `def hide_all(self) -> AdminSidebar` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, bool]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `show_overview` | `def show_overview(self)` |  |
+| `hide_overview` | `def hide_overview(self)` |  |
+| `show_data` | `def show_data(self)` |  |
+| `hide_data` | `def hide_data(self)` |  |
+| `show_system` | `def show_system(self)` |  |
+| `hide_system` | `def hide_system(self)` |  |
+| `show_infrastructure` | `def show_infrastructure(self)` |  |
+| `hide_infrastructure` | `def hide_infrastructure(self)` |  |
+| `show_security` | `def show_security(self)` |  |
+| `hide_security` | `def hide_security(self)` |  |
+| `show_models` | `def show_models(self)` |  |
+| `hide_models` | `def hide_models(self)` |  |
+| `show_devtools` | `def show_devtools(self)` |  |
+| `hide_devtools` | `def hide_devtools(self)` |  |
+| `show_all` | `def show_all(self)` |  |
+| `hide_all` | `def hide_all(self)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminContainers`
+### `AdminContainers`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Docker containers admin page configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `docker_host` | `str &#124; None` | `None` |
+| `docker_host` | `str \| None` | `None` |
 | `allowed_actions` | `list[str]` | `field(default_factory=lambda: list(_ALL_CONTAINER_ACTIONS))` |
 | `denied_actions` | `list[str]` | `field(default_factory=list)` |
 | `log_tail` | `int` | `200` |
 | `log_since` | `str` | `''` |
 | `refresh_interval` | `int` | `15` |
 | `compose_files` | `list[str]` | `field(default_factory=list)` |
-| `compose_project_dir` | `str &#124; None` | `None` |
+| `compose_project_dir` | `str \| None` | `None` |
 | `show_system_containers` | `bool` | `False` |
 | `enable_exec` | `bool` | `True` |
 | `enable_prune` | `bool` | `True` |
@@ -300,24 +324,24 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `docker_socket` | `def docker_socket(self, path: str) -> AdminContainers` |  | Method. |
-| `read_only` | `def read_only(self) -> AdminContainers` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `docker_socket` | `def docker_socket(self, path: str)` |  |
+| `read_only` | `def read_only(self)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminPods`
+### `AdminPods`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Kubernetes pods admin page configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `kubeconfig` | `str &#124; None` | `None` |
+| `kubeconfig` | `str \| None` | `None` |
 | `namespace` | `str` | `'default'` |
 | `contexts` | `list[str]` | `field(default_factory=list)` |
 | `resources` | `list[str]` | `field(default_factory=lambda: list(_ALL_K8S_RESOURCES))` |
@@ -334,22 +358,22 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `all_namespaces` | `def all_namespaces(self) -> AdminPods` |  | Method. |
-| `read_only` | `def read_only(self) -> AdminPods` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `all_namespaces` | `def all_namespaces(self)` |  |
+| `read_only` | `def read_only(self)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminSecurity`
+### `AdminSecurity`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Admin dashboard security configuration (CSRF, rate-limit, passwords, headers).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `csrf_enabled` | `bool` | `True` |
 | `csrf_max_age` | `int` | `7200` |
@@ -360,7 +384,7 @@ Attributes and fields:
 | `sensitive_op_limit` | `int` | `30` |
 | `sensitive_op_window` | `int` | `300` |
 | `progressive_lockout` | `bool` | `True` |
-| `lockout_tiers` | `list[list[int]] &#124; None` | `None` |
+| `lockout_tiers` | `list[list[int]] \| None` | `None` |
 | `password_min_length` | `int` | `10` |
 | `password_max_length` | `int` | `128` |
 | `password_require_upper` | `bool` | `True` |
@@ -368,70 +392,70 @@ Attributes and fields:
 | `password_require_digit` | `bool` | `True` |
 | `password_require_special` | `bool` | `True` |
 | `security_headers_enabled` | `bool` | `True` |
-| `csp_template` | `str &#124; None` | `None` |
+| `csp_template` | `str \| None` | `None` |
 | `frame_options` | `str` | `'DENY'` |
-| `permissions_policy` | `str &#124; None` | `None` |
+| `permissions_policy` | `str \| None` | `None` |
 | `session_fixation_protection` | `bool` | `True` |
 | `event_tracker_max_events` | `int` | `1000` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `csrf_enabled_set` | `def csrf_enabled_set(self, enabled: bool = True) -> AdminSecurity` |  | Method. |
-| `no_csrf` | `def no_csrf(self) -> AdminSecurity` |  | Method. |
-| `no_rate_limit` | `def no_rate_limit(self) -> AdminSecurity` |  | Method. |
-| `relaxed_password_policy` | `def relaxed_password_policy(self) -> AdminSecurity` |  | Method. |
-| `strict_password_policy` | `def strict_password_policy(self) -> AdminSecurity` |  | Method. |
-| `no_security_headers` | `def no_security_headers(self) -> AdminSecurity` |  | Method. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `csrf_enabled_set` | `def csrf_enabled_set(self, enabled: bool=True)` |  |
+| `no_csrf` | `def no_csrf(self)` |  |
+| `no_rate_limit` | `def no_rate_limit(self)` |  |
+| `relaxed_password_policy` | `def relaxed_password_policy(self)` |  |
+| `strict_password_policy` | `def strict_password_policy(self)` |  |
+| `no_security_headers` | `def no_security_headers(self)` |  |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AdminIntegration`
+### `AdminIntegration`
 
 - Source: `aquilia/integrations/admin.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed admin dashboard integration config.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `url_prefix` | `str` | `'/admin'` |
 | `site_title` | `str` | `'Aquilia Admin'` |
 | `site_header` | `str` | `'Aquilia Administration'` |
 | `auto_discover` | `bool` | `True` |
-| `login_url` | `str &#124; None` | `None` |
+| `login_url` | `str \| None` | `None` |
 | `list_per_page` | `int` | `25` |
 | `theme` | `str` | `'auto'` |
-| `modules` | `AdminModules &#124; None` | `None` |
-| `audit` | `AdminAudit &#124; None` | `None` |
-| `monitoring` | `AdminMonitoring &#124; None` | `None` |
-| `sidebar` | `AdminSidebar &#124; None` | `None` |
-| `containers` | `AdminContainers &#124; None` | `None` |
-| `pods` | `AdminPods &#124; None` | `None` |
-| `security` | `AdminSecurity &#124; None` | `None` |
+| `modules` | `AdminModules \| None` | `None` |
+| `audit` | `AdminAudit \| None` | `None` |
+| `monitoring` | `AdminMonitoring \| None` | `None` |
+| `sidebar` | `AdminSidebar \| None` | `None` |
+| `containers` | `AdminContainers \| None` | `None` |
+| `pods` | `AdminPods \| None` | `None` |
+| `security` | `AdminSecurity \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `AuthIntegration`
+### `AuthIntegration`
 
 - Source: `aquilia/integrations/auth.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed authentication integration config.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `store_type` | `str` | `'memory'` |
-| `secret_key` | `str &#124; None` | `None` |
+| `secret_key` | `str \| None` | `None` |
 | `algorithm` | `str` | `'HS256'` |
 | `issuer` | `str` | `'aquilia'` |
 | `audience` | `str` | `'aquilia-app'` |
@@ -441,20 +465,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `CacheIntegration`
+### `CacheIntegration`
 
 - Source: `aquilia/integrations/cache.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed cache subsystem configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'memory'` |
 | `default_ttl` | `int` | `300` |
@@ -474,23 +498,23 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `DatabaseIntegration`
+### `DatabaseIntegration`
 
 - Source: `aquilia/integrations/database.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed database integration config.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `url` | `str &#124; None` | `None` |
-| `config` | `Any &#124; None` | `field(default=None, repr=False)` |
+| `url` | `str \| None` | `None` |
+| `config` | `Any \| None` | `field(default=None, repr=False)` |
 | `auto_connect` | `bool` | `True` |
 | `auto_create` | `bool` | `True` |
 | `auto_migrate` | `bool` | `False` |
@@ -502,20 +526,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `I18nIntegration`
+### `I18nIntegration`
 
 - Source: `aquilia/integrations/i18n.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed i18n (internationalization) configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `default_locale` | `str` | `'en'` |
 | `available_locales` | `list[str]` | `field(default_factory=lambda: ['en'])` |
@@ -533,20 +557,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `LoggingIntegration`
+### `LoggingIntegration`
 
 - Source: `aquilia/integrations/logging_cfg.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed request logging configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `format` | `str` | `'%(method)s %(path)s %(status)s %(duration_ms).1fms'` |
 | `level` | `str` | `'INFO'` |
@@ -562,64 +586,64 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `MailAuth`
+### `MailAuth`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Mail authentication credentials.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `method` | `str` | `'none'` |
-| `username` | `str &#124; None` | `None` |
-| `password` | `str &#124; None` | `None` |
-| `password_env` | `str &#124; None` | `None` |
-| `domain` | `str &#124; None` | `None` |
-| `api_key` | `str &#124; None` | `None` |
-| `api_key_env` | `str &#124; None` | `None` |
-| `aws_access_key_id` | `str &#124; None` | `None` |
-| `aws_access_key_id_env` | `str &#124; None` | `None` |
-| `aws_secret_access_key` | `str &#124; None` | `None` |
-| `aws_secret_access_key_env` | `str &#124; None` | `None` |
-| `aws_region` | `str &#124; None` | `None` |
-| `aws_session_token` | `str &#124; None` | `None` |
-| `access_token` | `str &#124; None` | `None` |
-| `refresh_token` | `str &#124; None` | `None` |
-| `token_url` | `str &#124; None` | `None` |
-| `client_id` | `str &#124; None` | `None` |
-| `client_secret` | `str &#124; None` | `None` |
-| `client_secret_env` | `str &#124; None` | `None` |
-| `scope` | `str &#124; None` | `None` |
+| `username` | `str \| None` | `None` |
+| `password` | `str \| None` | `None` |
+| `password_env` | `str \| None` | `None` |
+| `domain` | `str \| None` | `None` |
+| `api_key` | `str \| None` | `None` |
+| `api_key_env` | `str \| None` | `None` |
+| `aws_access_key_id` | `str \| None` | `None` |
+| `aws_access_key_id_env` | `str \| None` | `None` |
+| `aws_secret_access_key` | `str \| None` | `None` |
+| `aws_secret_access_key_env` | `str \| None` | `None` |
+| `aws_region` | `str \| None` | `None` |
+| `aws_session_token` | `str \| None` | `None` |
+| `access_token` | `str \| None` | `None` |
+| `refresh_token` | `str \| None` | `None` |
+| `token_url` | `str \| None` | `None` |
+| `client_id` | `str \| None` | `None` |
+| `client_secret` | `str \| None` | `None` |
+| `client_secret_env` | `str \| None` | `None` |
+| `scope` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `plain` | `def plain(cls, username: str, password: str &#124; None = None, *, password_env: str &#124; None = None) -> MailAuth` | classmethod | SMTP AUTH PLAIN / LOGIN. |
-| `api_key` | `def api_key(cls, key: str &#124; None = None, *, env: str &#124; None = None) -> MailAuth` | classmethod | API-key auth for SendGrid, Mailgun, Postmark, etc. |
-| `aws_ses` | `def aws_ses(cls, access_key_id: str &#124; None = None, secret_access_key: str &#124; None = None, region: str = 'us-east-1', session_token: str &#124; None = None, *, access_key_id_env: str &#124; None = None, secret_access_key_env: str &#124; None = None) -> MailAuth` | classmethod | AWS SES credentials. |
-| `oauth2` | `def oauth2(cls, client_id: str, client_secret: str &#124; None = None, *, client_secret_env: str &#124; None = None, token_url: str, scope: str &#124; None = None, access_token: str &#124; None = None, refresh_token: str &#124; None = None) -> MailAuth` | classmethod | OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.). |
-| `ntlm` | `def ntlm(cls, username: str, password: str &#124; None = None, domain: str &#124; None = None, *, password_env: str &#124; None = None) -> MailAuth` | classmethod | Windows NTLM authentication. |
-| `anonymous` | `def anonymous(cls) -> MailAuth` | classmethod | No authentication - open relay. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `plain` | `def plain(cls, username: str, password: str \| None=None, *, password_env: str \| None=None)` | SMTP AUTH PLAIN / LOGIN. |
+| `api_key` | `def api_key(cls, key: str \| None=None, *, env: str \| None=None)` | API-key auth for SendGrid, Mailgun, Postmark, etc. |
+| `aws_ses` | `def aws_ses(cls, access_key_id: str \| None=None, secret_access_key: str \| None=None, region: str='us-east-1', session_token: str \| None=None, *, access_key_id_env: str \| None=None, secret_access_key_env: str \| None=None)` | AWS SES credentials. |
+| `oauth2` | `def oauth2(cls, client_id: str, client_secret: str \| None=None, *, client_secret_env: str \| None=None, token_url: str, scope: str \| None=None, access_token: str \| None=None, refresh_token: str \| None=None)` | OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.). |
+| `ntlm` | `def ntlm(cls, username: str, password: str \| None=None, domain: str \| None=None, *, password_env: str \| None=None)` | Windows NTLM authentication. |
+| `anonymous` | `def anonymous(cls)` | No authentication — open relay. |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SmtpProvider`
+### `SmtpProvider`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `_ProviderBase`
-- Decorators: `dataclass`
 - Summary: SMTP / STARTTLS mail provider.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `host` | `str` | `'localhost'` |
 | `port` | `int` | `587` |
@@ -629,92 +653,92 @@ Attributes and fields:
 | `pool_size` | `int` | `3` |
 | `pool_recycle` | `float` | `300.0` |
 | `validate_certs` | `bool` | `True` |
-| `client_cert` | `str &#124; None` | `None` |
-| `client_key` | `str &#124; None` | `None` |
-| `source_address` | `str &#124; None` | `None` |
-| `local_hostname` | `str &#124; None` | `None` |
+| `client_cert` | `str \| None` | `None` |
+| `client_key` | `str \| None` | `None` |
+| `source_address` | `str \| None` | `None` |
+| `local_hostname` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SesProvider`
+### `SesProvider`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `_ProviderBase`
-- Decorators: `dataclass`
 - Summary: AWS Simple Email Service provider.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `region` | `str` | `'us-east-1'` |
-| `configuration_set` | `str &#124; None` | `None` |
-| `source_arn` | `str &#124; None` | `None` |
-| `return_path` | `str &#124; None` | `None` |
+| `configuration_set` | `str \| None` | `None` |
+| `source_arn` | `str \| None` | `None` |
+| `return_path` | `str \| None` | `None` |
 | `tags` | `dict[str, str]` | `field(default_factory=dict)` |
 | `use_raw` | `bool` | `True` |
-| `endpoint_url` | `str &#124; None` | `None` |
+| `endpoint_url` | `str \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SendGridProvider`
+### `SendGridProvider`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `_ProviderBase`
-- Decorators: `dataclass`
 - Summary: SendGrid Web API v3 provider.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `sandbox_mode` | `bool` | `False` |
 | `click_tracking` | `bool` | `True` |
 | `open_tracking` | `bool` | `True` |
 | `categories` | `list[str]` | `field(default_factory=list)` |
-| `asm_group_id` | `int &#124; None` | `None` |
-| `ip_pool_name` | `str &#124; None` | `None` |
-| `template_id` | `str &#124; None` | `None` |
+| `asm_group_id` | `int \| None` | `None` |
+| `ip_pool_name` | `str \| None` | `None` |
+| `template_id` | `str \| None` | `None` |
 | `api_base_url` | `str` | `'https://api.sendgrid.com'` |
 | `timeout` | `float` | `30.0` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `ConsoleProvider`
+### `ConsoleProvider`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `_ProviderBase`
-- Decorators: `dataclass`
 - Summary: Console / stdout provider (development only).
+- Decorators: `dataclass`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `FileProvider`
+### `FileProvider`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `_ProviderBase`
-- Decorators: `dataclass`
 - Summary: File / .eml provider (testing & audit).
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `output_dir` | `str` | `'/tmp/aquilia_mail'` |
 | `max_files` | `int` | `10000` |
@@ -724,26 +748,26 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `MailIntegration`
+### `MailIntegration`
 
 - Source: `aquilia/integrations/mail.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed mail subsystem configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `default_from` | `str` | `'noreply@localhost'` |
-| `default_reply_to` | `str &#124; None` | `None` |
+| `default_reply_to` | `str \| None` | `None` |
 | `subject_prefix` | `str` | `''` |
 | `providers` | `list[Any]` | `field(default_factory=list)` |
-| `auth` | `MailAuth &#124; None` | `None` |
+| `auth` | `MailAuth \| None` | `None` |
 | `console_backend` | `bool` | `False` |
 | `preview_mode` | `bool` | `False` |
 | `template_dirs` | `list[str]` | `field(default_factory=lambda: ['mail_templates'])` |
@@ -752,7 +776,7 @@ Attributes and fields:
 | `rate_limit_global` | `int` | `1000` |
 | `rate_limit_per_domain` | `int` | `100` |
 | `dkim_enabled` | `bool` | `False` |
-| `dkim_domain` | `str &#124; None` | `None` |
+| `dkim_domain` | `str \| None` | `None` |
 | `dkim_selector` | `str` | `'aquilia'` |
 | `require_tls` | `bool` | `True` |
 | `pii_redaction` | `bool` | `False` |
@@ -762,20 +786,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `MLOpsIntegration`
+### `MLOpsIntegration`
 
 - Source: `aquilia/integrations/mlops.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed MLOps platform configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `registry_db` | `str` | `'registry.db'` |
@@ -789,12 +813,12 @@ Attributes and fields:
 | `batching_strategy` | `str` | `'hybrid'` |
 | `sample_rate` | `float` | `0.01` |
 | `log_dir` | `str` | `'prediction_logs'` |
-| `hmac_secret` | `str &#124; None` | `None` |
-| `signing_private_key` | `str &#124; None` | `None` |
-| `signing_public_key` | `str &#124; None` | `None` |
-| `encryption_key` | `Any &#124; None` | `None` |
+| `hmac_secret` | `str \| None` | `None` |
+| `signing_private_key` | `str \| None` | `None` |
+| `signing_public_key` | `str \| None` | `None` |
+| `encryption_key` | `Any \| None` | `None` |
 | `plugin_auto_discover` | `bool` | `True` |
-| `scaling_policy` | `dict[str, Any] &#124; None` | `None` |
+| `scaling_policy` | `dict[str, Any] \| None` | `None` |
 | `rollout_default_strategy` | `str` | `'canary'` |
 | `auto_rollback` | `bool` | `True` |
 | `metrics_model_name` | `str` | `''` |
@@ -807,34 +831,34 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `MiddlewareEntry`
+### `MiddlewareEntry`
 
 - Source: `aquilia/integrations/mw.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: A single middleware entry in the chain.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `path` | `str` |  |
+| `path` | `str` | `` |
 | `priority` | `int` | `50` |
 | `scope` | `str` | `'global'` |
-| `name` | `str &#124; None` | `None` |
+| `name` | `str \| None` | `None` |
 | `kwargs` | `dict[str, Any]` | `field(default_factory=dict)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `MiddlewareChain`
+### `MiddlewareChain`
 
 - Source: `aquilia/integrations/mw.py`
 - Bases: `list`
@@ -842,25 +866,25 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `use` | `def use(self, path: str, *, priority: int = 50, scope: str = 'global', name: str &#124; None = None, **kwargs: Any) -> MiddlewareChain` |  | Method. |
-| `to_list` | `def to_list(self) -> list[dict[str, Any]]` |  | Method. |
-| `chain` | `def chain(cls) -> MiddlewareChain` | classmethod | Create an empty chain. |
-| `defaults` | `def defaults(cls) -> MiddlewareChain` | classmethod | Standard development middleware chain. |
-| `production` | `def production(cls) -> MiddlewareChain` | classmethod | Production-grade middleware chain. |
-| `minimal` | `def minimal(cls) -> MiddlewareChain` | classmethod | Minimal middleware chain. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `use` | `def use(self, path: str, *, priority: int=50, scope: str='global', name: str \| None=None, **kwargs: Any)` |  |
+| `to_list` | `def to_list(self)` |  |
+| `chain` | `def chain(cls)` | Create an empty chain. |
+| `defaults` | `def defaults(cls)` | Standard development middleware chain. |
+| `production` | `def production(cls)` | Production-grade middleware chain. |
+| `minimal` | `def minimal(cls)` | Minimal middleware chain. |
 
-### Class: `OpenAPIIntegration`
+### `OpenAPIIntegration`
 
 - Source: `aquilia/integrations/openapi.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed OpenAPI spec / Swagger UI configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `title` | `str` | `'Aquilia API'` |
 | `version` | `str` | `'1.0.0'` |
@@ -888,46 +912,46 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RenderIntegration`
+### `RenderIntegration`
 
 - Source: `aquilia/integrations/render.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed Render deployment configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `service_name` | `str &#124; None` | `None` |
+| `service_name` | `str \| None` | `None` |
 | `region` | `str` | `'oregon'` |
 | `plan` | `str` | `'starter'` |
 | `num_instances` | `int` | `1` |
-| `image` | `str &#124; None` | `None` |
+| `image` | `str \| None` | `None` |
 | `health_path` | `str` | `'/_health'` |
 | `auto_deploy` | `str` | `'no'` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `CorsIntegration`
+### `CorsIntegration`
 
 - Source: `aquilia/integrations/security.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed CORS middleware configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `allow_origins` | `list[str]` | `field(default_factory=lambda: ['*'])` |
 | `allow_methods` | `list[str]` | `field(default_factory=lambda: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'])` |
@@ -935,27 +959,27 @@ Attributes and fields:
 | `expose_headers` | `list[str]` | `field(default_factory=list)` |
 | `allow_credentials` | `bool` | `False` |
 | `max_age` | `int` | `600` |
-| `allow_origin_regex` | `str &#124; None` | `None` |
+| `allow_origin_regex` | `str \| None` | `None` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `CspIntegration`
+### `CspIntegration`
 
 - Source: `aquilia/integrations/security.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed Content-Security-Policy configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `policy` | `dict[str, list[str]] &#124; None` | `None` |
+| `policy` | `dict[str, list[str]] \| None` | `None` |
 | `report_only` | `bool` | `False` |
 | `nonce` | `bool` | `True` |
 | `preset` | `str` | `'strict'` |
@@ -963,45 +987,45 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RateLimitIntegration`
+### `RateLimitIntegration`
 
 - Source: `aquilia/integrations/security.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed rate limiting configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `limit` | `int` | `100` |
 | `window` | `int` | `60` |
 | `algorithm` | `str` | `'sliding_window'` |
 | `per_user` | `bool` | `False` |
-| `burst` | `int &#124; None` | `None` |
+| `burst` | `int \| None` | `None` |
 | `exempt_paths` | `list[str]` | `field(default_factory=lambda: ['/health', '/healthz', '/ready'])` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `CsrfIntegration`
+### `CsrfIntegration`
 
 - Source: `aquilia/integrations/security.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed CSRF protection configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `secret_key` | `str` | `''` |
 | `token_length` | `int` | `32` |
@@ -1009,7 +1033,7 @@ Attributes and fields:
 | `field_name` | `str` | `'_csrf_token'` |
 | `cookie_name` | `str` | `'_csrf_cookie'` |
 | `cookie_path` | `str` | `'/'` |
-| `cookie_domain` | `str &#124; None` | `None` |
+| `cookie_domain` | `str \| None` | `None` |
 | `cookie_secure` | `bool` | `True` |
 | `cookie_samesite` | `str` | `'Lax'` |
 | `cookie_httponly` | `bool` | `False` |
@@ -1024,140 +1048,140 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SessionIntegration`
+### `SessionIntegration`
 
 - Source: `aquilia/integrations/sessions.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed session integration config.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
-| `policy` | `Any &#124; None` | `None` |
-| `store` | `Any &#124; None` | `None` |
-| `transport` | `Any &#124; None` | `None` |
+| `policy` | `Any \| None` | `None` |
+| `store` | `Any \| None` | `None` |
+| `transport` | `Any \| None` | `None` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `DiIntegration`
+### `DiIntegration`
 
 - Source: `aquilia/integrations/simple.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Dependency injection configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `auto_wire` | `bool` | `True` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RoutingIntegration`
+### `RoutingIntegration`
 
 - Source: `aquilia/integrations/simple.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Routing configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `strict_matching` | `bool` | `True` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `FaultHandlingIntegration`
+### `FaultHandlingIntegration`
 
 - Source: `aquilia/integrations/simple.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Fault handling configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `default_strategy` | `str` | `'propagate'` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `PatternsIntegration`
+### `PatternsIntegration`
 
 - Source: `aquilia/integrations/simple.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Patterns configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `RegistryIntegration`
+### `RegistryIntegration`
 
 - Source: `aquilia/integrations/simple.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Registry configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `SerializersIntegration`
+### `SerializersIntegration`
 
 - Source: `aquilia/integrations/simple.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Global serializer settings.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `auto_discover` | `bool` | `True` |
 | `strict_validation` | `bool` | `True` |
@@ -1170,20 +1194,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `StaticFilesIntegration`
+### `StaticFilesIntegration`
 
 - Source: `aquilia/integrations/static.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed static file serving configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `directories` | `dict[str, str]` | `field(default_factory=lambda: {'/static': 'static'})` |
 | `cache_max_age` | `int` | `86400` |
@@ -1197,41 +1221,41 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `StorageIntegration`
+### `StorageIntegration`
 
 - Source: `aquilia/integrations/storage.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed file storage configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `default` | `str` | `'default'` |
-| `backends` | `dict[str, Any] &#124; None` | `None` |
+| `backends` | `dict[str, Any] \| None` | `None` |
 | `enabled` | `bool` | `True` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `TasksIntegration`
+### `TasksIntegration`
 
 - Source: `aquilia/integrations/tasks.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed background tasks configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'memory'` |
 | `num_workers` | `int` | `4` |
@@ -1250,20 +1274,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `TemplatesIntegration`
+### `TemplatesIntegration`
 
 - Source: `aquilia/integrations/templates.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed template engine configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `enabled` | `bool` | `True` |
 | `search_paths` | `list[str]` | `field(default_factory=lambda: ['templates'])` |
@@ -1274,27 +1298,27 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-| `builder` | `def builder(cls) -> _Builder` | classmethod | Start a fluent builder. |
-| `source` | `def source(cls, *paths: str) -> _Builder` | classmethod | Start builder with source paths. |
-| `defaults` | `def defaults(cls) -> _Builder` | classmethod | Start with default configuration. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
+| `builder` | `def builder(cls)` | Start a fluent builder. |
+| `source` | `def source(cls, *paths: str)` | Start builder with source paths. |
+| `defaults` | `def defaults(cls)` | Start with default configuration. |
 
-### Class: `VersioningIntegration`
+### `VersioningIntegration`
 
 - Source: `aquilia/integrations/versioning_cfg.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Typed API versioning configuration.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `strategy` | `str` | `'header'` |
 | `versions` | `list[str]` | `field(default_factory=list)` |
-| `default_version` | `str &#124; None` | `None` |
+| `default_version` | `str \| None` | `None` |
 | `require_version` | `bool` | `False` |
 | `header_name` | `str` | `'X-API-Version'` |
 | `query_param` | `str` | `'api_version'` |
@@ -1306,8 +1330,8 @@ Attributes and fields:
 | `channel_header` | `str` | `'X-API-Channel'` |
 | `channel_query_param` | `str` | `'api_channel'` |
 | `negotiation_mode` | `str` | `'exact'` |
-| `sunset_policy` | `Any &#124; None` | `None` |
-| `sunset_schedules` | `dict[str, dict[str, Any]] &#124; None` | `None` |
+| `sunset_policy` | `Any \| None` | `None` |
+| `sunset_schedules` | `dict[str, dict[str, Any]] \| None` | `None` |
 | `include_version_header` | `bool` | `True` |
 | `response_header_name` | `str` | `'X-API-Version'` |
 | `include_supported_versions_header` | `bool` | `True` |
@@ -1316,15 +1340,6 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
-
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `_ALL_METRICS` | `aquilia/integrations/admin.py` | `['cpu', 'memory', 'disk', 'network', 'process', 'python', 'system', 'health_checks']` |
-| `_ALL_CONTAINER_ACTIONS` | `aquilia/integrations/admin.py` | `['start', 'stop', 'restart', 'pause', 'unpause', 'kill', 'rm', 'logs', 'inspect', 'exec', 'export']` |
-| `_ALL_K8S_RESOURCES` | `aquilia/integrations/admin.py` | `['pods', 'deployments', 'services', 'ingresses', 'configmaps', 'secrets', 'namespaces', 'events', 'daemonsets', 'statefulsets', 'jobs', 'cronjobs', 'persistentv` |
+| `to_dict` | `def to_dict(self)` |  |

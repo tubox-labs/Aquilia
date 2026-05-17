@@ -1,30 +1,25 @@
-# Extended Middleware Edge Cases And Limitations
+# Middleware_Ext Edge Cases And Limitations
 
-## Fault And Error Types
+Extended production middleware for security, CORS/CSP/CSRF/HSTS, static files, rate limits, sessions, request scopes, effects, and logging.
 
-The following error-oriented classes are present in the implementation and should guide defensive usage.
+## Source-Backed Limits
 
-| Type | Source | Meaning |
-| --- | --- | --- |
-| `CSRFError` | `aquilia/middleware_ext/security.py` | CSRF validation fault -- raised when CSRF protection detects a violation. |
+- No module-specific edge branch was detected beyond optional imports, validation, and dependency availability.
 
-## Common Edge Cases
+## Fault And Error Classes Detected
 
-- Optional dependencies may change behavior. Check imports and constructor docs before enabling production features.
-- In-memory stores, queues, caches, adapters, and registries are usually process-local. Use durable backends when state must survive restarts or scale across workers.
-- Request-scoped data must not be cached globally. Use request state, DI request scopes, or explicit parameters.
-- Decorators in Aquilia generally attach metadata at import time. Runtime behavior happens later during compilation, routing, middleware execution, or service startup.
-- Many subsystems intentionally convert invalid states into typed faults. Catch the specific fault type when application code can recover.
+`CSRFError`
 
-## Source-Level Limits To Review
+## Operational Boundaries
 
-Review these files before changing behavior:
+- Optional external libraries are only required when the corresponding provider/backend/runtime is configured.
+- Deprecated APIs generally warn when retained for migration rather than disappearing silently.
+- Server startup intentionally degrades non-critical optional subsystems where source catches and logs exceptions.
+- Use `api-reference.md` to check exact constructor defaults and method signatures before depending on behavior.
 
-- `aquilia/middleware_ext/__init__.py`: Extended middleware components for Aquilia framework.
-- `aquilia/middleware_ext/effect_middleware.py`: Effect Middleware -- Per-request effect lifecycle management.
-- `aquilia/middleware_ext/logging.py`: Enhanced Logging Middleware - Structured access logging.
-- `aquilia/middleware_ext/rate_limit.py`: Rate Limiting Middleware - Production-grade request rate limiting.
-- `aquilia/middleware_ext/request_scope.py`: Request Scope Middleware - Creates request-scoped DI container per request.
-- `aquilia/middleware_ext/security.py`: Security Middleware Suite - Production-grade HTTP security middleware.
-- `aquilia/middleware_ext/session_middleware.py`: Session Middleware - Integrates SessionEngine with request lifecycle.
-- `aquilia/middleware_ext/static.py`: Static File Middleware - Production-grade static asset serving.
+## Verification
+
+- `aq doctor` for workspace/integration issues.
+- `aq validate` for manifest issues.
+- `aq inspect config` for merged configuration.
+- `GET /_health` for live subsystem status once the app is running.

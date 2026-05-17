@@ -1,49 +1,78 @@
-# HTTP Client Configuration
+# Http Configuration
 
-## Configuration Entry Points
+Native async HTTP client, request/response builders, sessions, retry policies, auth interceptors, cookies, middleware, streaming, and transport.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/http/__init__.py` | 380 | 0 | 0 | AquilaHTTP — Async HTTP Client for Aquilia. |
+| `aquilia/http/_transport.py` | 805 | 6 | 1 | HTTP Transport Layer |
+| `aquilia/http/auth.py` | 533 | 8 | 0 | AquilaHTTP — Authentication Interceptors. |
+| `aquilia/http/client.py` | 556 | 1 | 6 | AquilaHTTP — Async HTTP Client. |
+| `aquilia/http/config.py` | 434 | 8 | 0 | AquilaHTTP — Configuration. |
+| `aquilia/http/cookies.py` | 480 | 3 | 0 | AquilaHTTP — Cookie Jar. |
+| `aquilia/http/faults.py` | 769 | 25 | 0 | AquilaHTTP — Fault Classes. |
+| `aquilia/http/integration.py` | 340 | 2 | 2 | AquilaHTTP — Framework Integration. |
+| `aquilia/http/interceptors.py` | 516 | 11 | 0 | AquilaHTTP — Interceptors. |
+| `aquilia/http/middleware.py` | 485 | 11 | 1 | AquilaHTTP — Middleware. |
+| `aquilia/http/multipart.py` | 484 | 3 | 0 | AquilaHTTP — Multipart Form Data. |
+| `aquilia/http/pool.py` | 445 | 4 | 0 | AquilaHTTP — Connection Pool. |
+| `aquilia/http/request.py` | 552 | 3 | 7 | AquilaHTTP — HTTP Client Request. |
+| `aquilia/http/response.py` | 502 | 1 | 1 | AquilaHTTP — HTTP Client Response. |
+| `aquilia/http/retry.py` | 390 | 8 | 1 | AquilaHTTP — Retry Strategies. |
+| `aquilia/http/session.py` | 490 | 1 | 0 | AquilaHTTP — HTTP Session. |
+| `aquilia/http/streaming.py` | 388 | 5 | 4 | AquilaHTTP — Streaming Support. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `RawResponse` | `aquilia/http/_transport.py` | http_version: str, status_code: int, reason: str, headers: dict[str, str], body: bytes, stream: AsyncIterator[bytes] &#124; None | Raw response before processing. |
-| `ConnectionInfo` | `aquilia/http/_transport.py` | host: str, port: int, ssl: bool, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, created_at: float, last_used: float | Tracks a pooled connection. |
-| `OAuth2Token` | `aquilia/http/auth.py` | access_token: str, token_type: str, expires_in: int &#124; None, refresh_token: str &#124; None, scope: str &#124; None, created_at: float | OAuth 2.0 token. |
-| `TimeoutConfig` | `aquilia/http/config.py` | total: float &#124; None, connect: float &#124; None, read: float &#124; None, write: float &#124; None, pool: float &#124; None | HTTP request timeout configuration. |
-| `PoolConfig` | `aquilia/http/config.py` | max_connections: int, max_connections_per_host: int, max_keepalive_connections: int, keepalive_expiry: float, enable_http2: bool | Connection pool configuration. |
-| `RetryConfig` | `aquilia/http/config.py` | max_attempts: int, backoff_base: float, backoff_multiplier: float, backoff_max: float, backoff_jitter: float, retry_on_status: frozenset[int], retry_on_methods: frozenset[str] | Retry configuration. |
-| `ProxyConfig` | `aquilia/http/config.py` | http_proxy: str &#124; None, https_proxy: str &#124; None, no_proxy: str &#124; None | Proxy configuration. |
-| `TLSConfig` | `aquilia/http/config.py` | verify: bool, cert_file: str &#124; None, key_file: str &#124; None, ca_bundle: str &#124; None, ssl_context: SSLContext &#124; None, minimum_version: str &#124; None | TLS/SSL configuration. |
-| `HTTPClientConfig` | `aquilia/http/config.py` | base_url: str &#124; None, timeout: TimeoutConfig, pool: PoolConfig, retry: RetryConfig, proxy: ProxyConfig &#124; None, tls: TLSConfig, http_version: HTTPVersion, follow_redirects: bool, max_redirects: int, default_headers: dict[str, str], default_params: dict[str, str], compression: tuple[CompressionAlgorithm, ...], ... | Complete HTTP client configuration. |
-| `Cookie` | `aquilia/http/cookies.py` | name: str, value: str, domain: str, path: str, expires: float &#124; None, max_age: int &#124; None, secure: bool, http_only: bool, same_site: str | HTTP Cookie representation. |
-| `RequestMetrics` | `aquilia/http/interceptors.py` | method: str, url: str, status_code: int, elapsed: float, request_size: int, response_size: int &#124; None, error: str &#124; None | Metrics collected for a request. |
-| `FormField` | `aquilia/http/multipart.py` | name: str, value: str &#124; bytes, content_type: str &#124; None, filename: str &#124; None | A form field in multipart data. |
-| `FormFile` | `aquilia/http/multipart.py` | name: str, filename: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; Path, content_type: str &#124; None, content_length: int &#124; None | A file field in multipart data. |
-| `ConnectionStats` | `aquilia/http/pool.py` | total_created: int, total_closed: int, total_reused: int, active_connections: int, idle_connections: int, failed_acquisitions: int, pool_exhausted_count: int | Connection pool statistics. |
-| `PooledConnection` | `aquilia/http/pool.py` | host: str, port: int, scheme: str, connection: Any, created_at: float, last_used_at: float, requests_count: int, is_available: bool, is_http2: bool | Wrapper for a pooled connection. |
-| `HTTPClientRequest` | `aquilia/http/request.py` | method: HTTPMethod, url: str, headers: dict[str, str], body: bytes &#124; AsyncIterator[bytes] &#124; None, timeout: TimeoutConfig &#124; None, follow_redirects: bool &#124; None, auth: tuple[str, str] &#124; None, extensions: dict[str, Any] | HTTP request representation. |
-| `HTTPClientResponse` | `aquilia/http/response.py` | status_code: int, headers: dict[str, str], url: str, http_version: str, elapsed: float, request_url: str, history: list[HTTPClientResponse], extensions: dict[str, Any] | HTTP response wrapper. |
-| `RetryState` | `aquilia/http/retry.py` | attempt: int, last_error: Exception &#124; None, last_response: HTTPClientResponse &#124; None, total_delay: float, start_time: float | State tracking for retry attempts. |
-| `StreamProgress` | `aquilia/http/streaming.py` | bytes_transferred: int, total_bytes: int &#124; None, elapsed: float | Progress information for streaming operations. |
+| `TimeoutConfig` | `aquilia/http/config.py` | `no_timeout`, `fast`, `slow` | HTTP request timeout configuration. |
+| `PoolConfig` | `aquilia/http/config.py` |  | Connection pool configuration. |
+| `RetryConfig` | `aquilia/http/config.py` | `no_retry`, `aggressive` | Retry configuration. |
+| `ProxyConfig` | `aquilia/http/config.py` | `from_env` | Proxy configuration. |
+| `TLSConfig` | `aquilia/http/config.py` |  | TLS/SSL configuration. |
+| `HTTPClientConfig` | `aquilia/http/config.py` | `with_base_url`, `with_timeout`, `merge_headers`, `merge_params`, `to_dict`, `from_dict` | Complete HTTP client configuration. |
+| `ConfigurationFault` | `aquilia/http/faults.py` |  | HTTP client configuration error. |
+| `HTTPClientProvider` | `aquilia/http/integration.py` | `provides`, `scope`, `shutdown` | DI provider for AsyncHTTPClient. |
+| `HTTPClientBuilder` | `aquilia/http/integration.py` | `base_url`, `timeout`, `pool`, `retry`, `proxy`, `tls`, `header`, `headers`, `follow_redirects`, `max_redirects`, `raise_for_status`, `user_agent`, `build`, `build_provider`, `to_dict` | Fluent builder for HTTP client configuration. |
+| `HTTPClientMiddleware` | `aquilia/http/middleware.py` |  | Base class for HTTP client middleware. |
+| `MiddlewareStack` | `aquilia/http/middleware.py` | `add`, `add_many`, `set_handler`, `build`, `execute` | Stack of middleware that processes requests. |
+| `LoggingMiddleware` | `aquilia/http/middleware.py` |  | Logs requests and responses. |
+| `HeadersMiddleware` | `aquilia/http/middleware.py` |  | Adds default headers to all requests. |
+| `TimeoutMiddleware` | `aquilia/http/middleware.py` |  | Enforces timeout on requests. |
+| `ErrorHandlingMiddleware` | `aquilia/http/middleware.py` |  | Handles errors and converts them to faults. |
+| `RetryMiddleware` | `aquilia/http/middleware.py` |  | Retries failed requests. |
+| `CompressionMiddleware` | `aquilia/http/middleware.py` |  | Handles request/response compression. |
+| `CacheMiddleware` | `aquilia/http/middleware.py` |  | Caches GET responses. |
+| `BaseURLMiddleware` | `aquilia/http/middleware.py` |  | Prepends base URL to relative URLs. |
+| `CookieMiddleware` | `aquilia/http/middleware.py` | `jar` | Manages cookies automatically. |
+| `RequestBuilder` | `aquilia/http/request.py` | `header`, `headers`, `param`, `params`, `body`, `json`, `form`, `multipart`, `cookie`, `cookies`, `auth_basic`, `auth_bearer`, `timeout`, `follow_redirects`, `extension`, `build` | Fluent builder for HTTP requests. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- No dedicated workspace integration was detected from module naming. Configure this module through direct constructors, manifests, or the subsystem that owns it.
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

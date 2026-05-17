@@ -1,43 +1,43 @@
 # Subsystems API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/subsystems/__init__.py` | 34 | 0 | 0 | Subsystem Initializers -- Protocol and base classes for server decomposition. |
+| `aquilia/subsystems/base.py` | 216 | 3 | 0 | Subsystem Initializer -- Protocol and base implementation. |
+| `aquilia/subsystems/effects.py` | 313 | 1 | 0 | Effect Subsystem -- Subsystem initializer for the effect system. |
+
+## Public Exports
+
+`BaseSubsystem`, `BootContext`, `EffectSubsystem`, `StorageSubsystem`, `SubsystemInitializer`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `BootContext` | `aquilia/subsystems/base.py` | object | Shared context passed to all subsystem initializers during boot. |
 | `SubsystemInitializer` | `aquilia/subsystems/base.py` | Protocol | Protocol for subsystem lifecycle management. |
 | `BaseSubsystem` | `aquilia/subsystems/base.py` | ABC | Base class for subsystem initializers with common lifecycle patterns. |
 | `EffectSubsystem` | `aquilia/subsystems/effects.py` | BaseSubsystem | Subsystem initializer for the Aquilia effect system. |
 
-## Public Function Summary
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| None detected |  |  |  |
-
-## Constants
-
-| Name | Source | Value or type |
-| --- | --- | --- |
-| None detected |  |  |
-
 ## Detailed Classes And Methods
 
-### Class: `BootContext`
+### `BootContext`
 
 - Source: `aquilia/subsystems/base.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Shared context passed to all subsystem initializers during boot.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `config` | `dict[str, Any]` |  |
-| `manifests` | `list[AppManifest]` |  |
+| `config` | `dict[str, Any]` | `` |
+| `manifests` | `list[AppManifest]` | `` |
 | `registry` | `Any` | `None` |
 | `middleware_stack` | `Any` | `None` |
 | `health` | `HealthRegistry` | `field(default_factory=HealthRegistry)` |
@@ -45,30 +45,30 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `get_config` | `def get_config(self, key: str, default: Any = None) -> Any` |  | Get a configuration value by dotted key path. |
-| `get_manifest` | `def get_manifest(self, module_name: str) -> AppManifest &#124; None` |  | Get a manifest by module name. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `get_config` | `def get_config(self, key: str, default: Any=None)` | Get a configuration value by dotted key path. |
+| `get_manifest` | `def get_manifest(self, module_name: str)` | Get a manifest by module name. |
 
-### Class: `SubsystemInitializer`
+### `SubsystemInitializer`
 
 - Source: `aquilia/subsystems/base.py`
 - Bases: `Protocol`
-- Decorators: `runtime_checkable`
 - Summary: Protocol for subsystem lifecycle management.
+- Decorators: `runtime_checkable`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Unique subsystem name. |
-| `priority` | `def priority(self) -> int` | property | Boot priority (lower = earlier). Range: 0-1000. |
-| `required` | `def required(self) -> bool` | property | If True, initialization failure stops the entire server startup. |
-| `initialize` | `async def initialize(self, ctx: BootContext) -> HealthStatus` |  | Initialize the subsystem. |
-| `health_check` | `async def health_check(self) -> HealthStatus` |  | Report current health status. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Graceful shutdown with resource cleanup. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` | Unique subsystem name. |
+| `priority` | `def priority(self)` | Boot priority (lower = earlier). Range: 0-1000. |
+| `required` | `def required(self)` | If True, initialization failure stops the entire server startup. |
+| `initialize` | `async def initialize(self, ctx: BootContext)` | Initialize the subsystem. |
+| `health_check` | `async def health_check(self)` | Report current health status. |
+| `shutdown` | `async def shutdown(self)` | Graceful shutdown with resource cleanup. |
 
-### Class: `BaseSubsystem`
+### `BaseSubsystem`
 
 - Source: `aquilia/subsystems/base.py`
 - Bases: `ABC`
@@ -76,17 +76,17 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `name` | `def name(self) -> str` | property | Method. |
-| `priority` | `def priority(self) -> int` | property | Method. |
-| `required` | `def required(self) -> bool` | property | Method. |
-| `timeout` | `def timeout(self) -> float` | property | Method. |
-| `initialize` | `async def initialize(self, ctx: BootContext) -> HealthStatus` |  | Initialize with timing and error handling. |
-| `health_check` | `async def health_check(self) -> HealthStatus` |  | Default health check -- reports based on init status. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Shutdown with logging. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `name` | `def name(self)` |  |
+| `priority` | `def priority(self)` |  |
+| `required` | `def required(self)` |  |
+| `timeout` | `def timeout(self)` |  |
+| `initialize` | `async def initialize(self, ctx: BootContext)` | Initialize with timing and error handling. |
+| `health_check` | `async def health_check(self)` | Default health check -- reports based on init status. |
+| `shutdown` | `async def shutdown(self)` | Shutdown with logging. |
 
-### Class: `EffectSubsystem`
+### `EffectSubsystem`
 
 - Source: `aquilia/subsystems/effects.py`
 - Bases: `BaseSubsystem`
@@ -94,7 +94,7 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `health_check` | `async def health_check(self)` |  | Report effect system health. |
-| `registry` | `def registry(self) -> EffectRegistry &#124; None` | property | Access the EffectRegistry. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `health_check` | `async def health_check(self)` | Report effect system health. |
+| `registry` | `def registry(self)` | Access the EffectRegistry. |

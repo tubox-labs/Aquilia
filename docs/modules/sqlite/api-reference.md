@@ -1,10 +1,33 @@
-# SQLite API Reference
+# Sqlite API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/sqlite/__init__.py` | 123 | 0 | 0 | ``aquilia.sqlite`` — Native async SQLite module for the Aquilia framework. |
+| `aquilia/sqlite/_backup.py` | 58 | 0 | 1 | Backup — Online SQLite backup API. |
+| `aquilia/sqlite/_compat.py` | 140 | 1 | 1 | Compatibility Shim — aiosqlite-compatible API for gradual migration. |
+| `aquilia/sqlite/_config.py` | 206 | 1 | 0 | SQLite Configuration — Extended pool and PRAGMA config for native SQLite. |
+| `aquilia/sqlite/_connection.py` | 538 | 1 | 0 | Async Connection — Thread-dispatched wrapper around ``sqlite3.Connection``. |
+| `aquilia/sqlite/_cursor.py` | 97 | 1 | 0 | Async Cursor — Streaming row iteration over query results. |
+| `aquilia/sqlite/_errors.py` | 233 | 8 | 2 | SQLite Errors — Exception hierarchy and fault mapping. |
+| `aquilia/sqlite/_metrics.py` | 130 | 1 | 0 | SQLite Metrics — Observable counters for the native SQLite module. |
+| `aquilia/sqlite/_pool.py` | 508 | 1 | 1 | Connection Pool — Async pool with N readers + 1 writer. |
+| `aquilia/sqlite/_pragma.py` | 95 | 0 | 2 | PRAGMA Builder — Build and apply SQLite PRAGMA statements from config. |
+| `aquilia/sqlite/_rows.py` | 134 | 1 | 1 | SQLite Row — Dict-like row with attribute access. |
+| `aquilia/sqlite/_service.py` | 110 | 1 | 0 | SQLite Service — DI-integrated pool lifecycle management. |
+| `aquilia/sqlite/_statement_cache.py` | 138 | 2 | 0 | Statement Cache — Per-connection LRU cache for prepared statements. |
+| `aquilia/sqlite/_transaction.py` | 162 | 2 | 0 | Transaction & Savepoint — Async context managers for transaction control. |
+
+## Public Exports
+
+`AsyncConnection`, `AsyncCursor`, `CacheStats`, `CompatConnection`, `ConnectionPool`, `JOURNAL_MODES`, `PoolExhaustedError`, `Row`, `SYNC_MODES`, `SavepointContext`, `SqliteConnectionError`, `SqliteError`, `SqliteIntegrityError`, `SqliteMetrics`, `SqlitePoolConfig`, `SqliteQueryError`, `SqliteSchemaError`, `SqliteSecurityError`, `SqliteService`, `SqliteTimeoutError`, `StatementCache`, `TEMP_STORE_MODES`, `TransactionContext`, `apply_pragmas`, `backup_database`, `build_pragmas`, `connect`, `create_pool`, `map_sqlite_error`, `row_factory`, `to_aquilia_fault`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `CompatConnection` | `aquilia/sqlite/_compat.py` | object | aiosqlite-compatible connection object. |
 | `SqlitePoolConfig` | `aquilia/sqlite/_config.py` | object | Comprehensive SQLite configuration for the native pool. |
@@ -29,20 +52,20 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `backup_database` | `aquilia/sqlite/_backup.py` | `async def backup_database(source_path: str, target_path: str, *, pages: int = -1, progress: Any = None, executor: ThreadPoolExecutor &#124; None = None) -> None` | Perform an online backup of a SQLite database. |
-| `connect` | `aquilia/sqlite/_compat.py` | `async def connect(database: str = ':memory:', **kwargs: Any) -> CompatConnection` | aiosqlite-compatible ``connect()`` function. |
-| `map_sqlite_error` | `aquilia/sqlite/_errors.py` | `def map_sqlite_error(exc: Exception, *, operation: str = '', sql: str = '', url: str = '') -> SqliteError` | Convert a ``sqlite3`` exception to an ``aquilia.sqlite`` exception. |
-| `to_aquilia_fault` | `aquilia/sqlite/_errors.py` | `def to_aquilia_fault(exc: SqliteError, *, url: str = '', model: str = '<sqlite>', operation: str = '') -> Fault` | Convert an ``aquilia.sqlite`` exception into an Aquilia fault object. |
-| `create_pool` | `aquilia/sqlite/_pool.py` | `async def create_pool(url_or_config: str &#124; SqlitePoolConfig &#124; None = None, *, min_size: int &#124; None = None, max_size: int &#124; None = None, **kwargs: Any) -> ConnectionPool` | Create and open a connection pool. |
-| `build_pragmas` | `aquilia/sqlite/_pragma.py` | `def build_pragmas(config: SqlitePoolConfig, *, readonly: bool = False) -> list[str]` | Build a list of PRAGMA SQL strings for a connection. |
-| `apply_pragmas` | `aquilia/sqlite/_pragma.py` | `def apply_pragmas(conn: sqlite3.Connection, pragmas: Sequence[str]) -> None` | Execute a sequence of PRAGMA statements on a raw ``sqlite3.Connection``. |
-| `row_factory` | `aquilia/sqlite/_rows.py` | `def row_factory(cursor: Any, row_tuple: tuple[Any, ...]) -> Row` | ``sqlite3`` row factory function. |
+| `backup_database` | `aquilia/sqlite/_backup.py` | `async def backup_database(source_path: str, target_path: str, *, pages: int=-1, progress: Any=None, executor: ThreadPoolExecutor \| None=None)` | Perform an online backup of a SQLite database. |
+| `connect` | `aquilia/sqlite/_compat.py` | `async def connect(database: str=':memory:', **kwargs: Any)` | aiosqlite-compatible ``connect()`` function. |
+| `map_sqlite_error` | `aquilia/sqlite/_errors.py` | `def map_sqlite_error(exc: Exception, *, operation: str='', sql: str='', url: str='')` | Convert a ``sqlite3`` exception to an ``aquilia.sqlite`` exception. |
+| `to_aquilia_fault` | `aquilia/sqlite/_errors.py` | `def to_aquilia_fault(exc: SqliteError, *, url: str='', model: str='<sqlite>', operation: str='')` | Convert an ``aquilia.sqlite`` exception into an Aquilia fault object. |
+| `create_pool` | `aquilia/sqlite/_pool.py` | `async def create_pool(url_or_config: str \| SqlitePoolConfig \| None=None, *, min_size: int \| None=None, max_size: int \| None=None, **kwargs: Any)` | Create and open a connection pool. |
+| `build_pragmas` | `aquilia/sqlite/_pragma.py` | `def build_pragmas(config: SqlitePoolConfig, *, readonly: bool=False)` | Build a list of PRAGMA SQL strings for a connection. |
+| `apply_pragmas` | `aquilia/sqlite/_pragma.py` | `def apply_pragmas(conn: sqlite3.Connection, pragmas: Sequence[str])` | Execute a sequence of PRAGMA statements on a raw ``sqlite3.Connection``. |
+| `row_factory` | `aquilia/sqlite/_rows.py` | `def row_factory(cursor: Any, row_tuple: tuple[Any, ...])` | ``sqlite3`` row factory function. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `JOURNAL_MODES` | `aquilia/sqlite/_config.py` | `frozenset({'DELETE', 'TRUNCATE', 'PERSIST', 'MEMORY', 'WAL', 'OFF'})` |
 | `SYNC_MODES` | `aquilia/sqlite/_config.py` | `frozenset({'OFF', 'NORMAL', 'FULL', 'EXTRA'})` |
@@ -53,7 +76,7 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `CompatConnection`
+### `CompatConnection`
 
 - Source: `aquilia/sqlite/_compat.py`
 - Bases: `object`
@@ -61,25 +84,25 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `execute` | `async def execute(self, sql: str, parameters: Sequence[Any] = ()) -> Any` |  | Execute a SQL statement (returns cursor-like). |
-| `executemany` | `async def executemany(self, sql: str, parameters: Sequence[Sequence[Any]]) -> Any` |  | Execute with multiple parameter sets. |
-| `executescript` | `async def executescript(self, script: str) -> None` |  | Execute a multi-statement script. |
-| `commit` | `async def commit(self) -> None` |  | Commit (no-op: auto-commit is the default). |
-| `rollback` | `async def rollback(self) -> None` |  | Rollback. |
-| `close` | `async def close(self) -> None` |  | Close the pool. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `execute` | `async def execute(self, sql: str, parameters: Sequence[Any]=())` | Execute a SQL statement (returns cursor-like). |
+| `executemany` | `async def executemany(self, sql: str, parameters: Sequence[Sequence[Any]])` | Execute with multiple parameter sets. |
+| `executescript` | `async def executescript(self, script: str)` | Execute a multi-statement script. |
+| `commit` | `async def commit(self)` | Commit (no-op: auto-commit is the default). |
+| `rollback` | `async def rollback(self)` | Rollback. |
+| `close` | `async def close(self)` | Close the pool. |
 
-### Class: `SqlitePoolConfig`
+### `SqlitePoolConfig`
 
 - Source: `aquilia/sqlite/_config.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Comprehensive SQLite configuration for the native pool.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `path` | `str` | `'db.sqlite3'` |
 | `journal_mode` | `str` | `'WAL'` |
@@ -99,21 +122,21 @@ Attributes and fields:
 | `echo` | `bool` | `False` |
 | `auto_commit` | `bool` | `True` |
 | `enforce_path_security` | `bool` | `True` |
-| `sandbox_root` | `str &#124; None` | `None` |
+| `sandbox_root` | `str \| None` | `None` |
 | `options` | `dict[str, Any]` | `field(default_factory=dict)` |
 | `connect_retries` | `int` | `3` |
 | `connect_retry_delay` | `float` | `0.5` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_sqlite_config` | `def from_sqlite_config(cls, cfg: SqliteConfig, **overrides: Any) -> SqlitePoolConfig` | classmethod | Create a ``SqlitePoolConfig`` from an existing ``SqliteConfig``. |
-| `from_url` | `def from_url(cls, url: str, **overrides: Any) -> SqlitePoolConfig` | classmethod | Create from a ``sqlite:///`` URL string. |
-| `to_url` | `def to_url(self) -> str` |  | Generate a ``sqlite:///`` URL from this config. |
-| `is_memory` | `def is_memory(self) -> bool` | property | True if this is an in-memory database. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_sqlite_config` | `def from_sqlite_config(cls, cfg: SqliteConfig, **overrides: Any)` | Create a ``SqlitePoolConfig`` from an existing ``SqliteConfig``. |
+| `from_url` | `def from_url(cls, url: str, **overrides: Any)` | Create from a ``sqlite:///`` URL string. |
+| `to_url` | `def to_url(self)` | Generate a ``sqlite:///`` URL from this config. |
+| `is_memory` | `def is_memory(self)` | True if this is an in-memory database. |
 
-### Class: `AsyncConnection`
+### `AsyncConnection`
 
 - Source: `aquilia/sqlite/_connection.py`
 - Bases: `object`
@@ -121,39 +144,39 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `execute` | `async def execute(self, sql: str, params: Sequence[Any] &#124; None = None) -> AsyncCursor` |  | Execute a single SQL statement. |
-| `execute_many` | `async def execute_many(self, sql: str, params_seq: Sequence[Sequence[Any]]) -> int` |  | Execute a statement with multiple parameter sets. |
-| `execute_script` | `async def execute_script(self, script: str) -> None` |  | Execute a multi-statement SQL script. |
-| `fetch_all` | `async def fetch_all(self, sql: str, params: Sequence[Any] &#124; None = None) -> list[Row]` |  | Execute and return all rows. |
-| `fetch_one` | `async def fetch_one(self, sql: str, params: Sequence[Any] &#124; None = None) -> Row &#124; None` |  | Execute and return the first row, or None. |
-| `fetch_val` | `async def fetch_val(self, sql: str, params: Sequence[Any] &#124; None = None, *, column: int = 0) -> Any` |  | Execute and return a single scalar value. |
-| `begin` | `async def begin(self, *, mode: str = 'DEFERRED') -> None` |  | Start a transaction. |
-| `commit` | `async def commit(self) -> None` |  | Commit the current transaction. |
-| `rollback` | `async def rollback(self) -> None` |  | Rollback the current transaction. |
-| `savepoint` | `async def savepoint(self, name: str) -> None` |  | Create a savepoint. |
-| `release_savepoint` | `async def release_savepoint(self, name: str) -> None` |  | Release (commit) a savepoint. |
-| `rollback_to_savepoint` | `async def rollback_to_savepoint(self, name: str) -> None` |  | Rollback to a savepoint. |
-| `transaction` | `def transaction(self, *, mode: str = 'DEFERRED') -> TransactionContext` |  | Return a transaction context manager. |
-| `savepoint_ctx` | `def savepoint_ctx(self, name: str) -> SavepointContext` |  | Return a savepoint context manager. |
-| `table_exists` | `async def table_exists(self, name: str) -> bool` |  | Check if a table exists. |
-| `get_tables` | `async def get_tables(self) -> list[str]` |  | List all user table names. |
-| `get_columns` | `async def get_columns(self, table_name: str) -> list[dict[str, Any]]` |  | Get column info for a table (PRAGMA table_info). |
-| `get_indexes` | `async def get_indexes(self, table_name: str) -> list[dict[str, Any]]` |  | Get index info for a table. |
-| `get_foreign_keys` | `async def get_foreign_keys(self, table_name: str) -> list[dict[str, Any]]` |  | Get foreign key info for a table. |
-| `backup` | `async def backup(self, target: str &#124; AsyncConnection, *, pages: int = -1) -> None` |  | Online backup to another database. |
-| `clear_cache` | `def clear_cache(self) -> None` |  | Clear the statement cache. |
-| `cache_stats` | `def cache_stats(self) -> CacheStats` | property | Statement cache statistics. |
-| `close` | `async def close(self) -> None` |  | Close the underlying sqlite3 connection. |
-| `readonly` | `def readonly(self) -> bool` | property | Whether this is a read-only connection. |
-| `in_transaction` | `def in_transaction(self) -> bool` | property | Whether a transaction is active. |
-| `closed` | `def closed(self) -> bool` | property | Whether the connection has been closed. |
-| `conn_id` | `def conn_id(self) -> int` | property | Unique connection identifier. |
-| `age` | `def age(self) -> float` | property | Seconds since this connection was created. |
-| `path` | `def path(self) -> str` | property | Database file path. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `execute` | `async def execute(self, sql: str, params: Sequence[Any] \| None=None)` | Execute a single SQL statement. |
+| `execute_many` | `async def execute_many(self, sql: str, params_seq: Sequence[Sequence[Any]])` | Execute a statement with multiple parameter sets. |
+| `execute_script` | `async def execute_script(self, script: str)` | Execute a multi-statement SQL script. |
+| `fetch_all` | `async def fetch_all(self, sql: str, params: Sequence[Any] \| None=None)` | Execute and return all rows. |
+| `fetch_one` | `async def fetch_one(self, sql: str, params: Sequence[Any] \| None=None)` | Execute and return the first row, or None. |
+| `fetch_val` | `async def fetch_val(self, sql: str, params: Sequence[Any] \| None=None, *, column: int=0)` | Execute and return a single scalar value. |
+| `begin` | `async def begin(self, *, mode: str='DEFERRED')` | Start a transaction. |
+| `commit` | `async def commit(self)` | Commit the current transaction. |
+| `rollback` | `async def rollback(self)` | Rollback the current transaction. |
+| `savepoint` | `async def savepoint(self, name: str)` | Create a savepoint. |
+| `release_savepoint` | `async def release_savepoint(self, name: str)` | Release (commit) a savepoint. |
+| `rollback_to_savepoint` | `async def rollback_to_savepoint(self, name: str)` | Rollback to a savepoint. |
+| `transaction` | `def transaction(self, *, mode: str='DEFERRED')` | Return a transaction context manager. |
+| `savepoint_ctx` | `def savepoint_ctx(self, name: str)` | Return a savepoint context manager. |
+| `table_exists` | `async def table_exists(self, name: str)` | Check if a table exists. |
+| `get_tables` | `async def get_tables(self)` | List all user table names. |
+| `get_columns` | `async def get_columns(self, table_name: str)` | Get column info for a table (PRAGMA table_info). |
+| `get_indexes` | `async def get_indexes(self, table_name: str)` | Get index info for a table. |
+| `get_foreign_keys` | `async def get_foreign_keys(self, table_name: str)` | Get foreign key info for a table. |
+| `backup` | `async def backup(self, target: str \| AsyncConnection, *, pages: int=-1)` | Online backup to another database. |
+| `clear_cache` | `def clear_cache(self)` | Clear the statement cache. |
+| `cache_stats` | `def cache_stats(self)` | Statement cache statistics. |
+| `close` | `async def close(self)` | Close the underlying sqlite3 connection. |
+| `readonly` | `def readonly(self)` | Whether this is a read-only connection. |
+| `in_transaction` | `def in_transaction(self)` | Whether a transaction is active. |
+| `closed` | `def closed(self)` | Whether the connection has been closed. |
+| `conn_id` | `def conn_id(self)` | Unique connection identifier. |
+| `age` | `def age(self)` | Seconds since this connection was created. |
+| `path` | `def path(self)` | Database file path. |
 
-### Class: `AsyncCursor`
+### `AsyncCursor`
 
 - Source: `aquilia/sqlite/_cursor.py`
 - Bases: `object`
@@ -161,74 +184,74 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `fetch_one` | `async def fetch_one(self) -> Row &#124; None` |  | Fetch the next row, or None if exhausted. |
-| `fetch_many` | `async def fetch_many(self, size: int = 100) -> list[Row]` |  | Fetch up to *size* rows. |
-| `fetch_all` | `async def fetch_all(self) -> list[Row]` |  | Fetch all remaining rows. |
-| `close` | `async def close(self) -> None` |  | Close the cursor. |
-| `description` | `def description(self) -> tuple[Any, ...] &#124; None` | property | Column descriptions from the last query. |
-| `rowcount` | `def rowcount(self) -> int` | property | Number of rows affected by the last operation. |
-| `lastrowid` | `def lastrowid(self) -> int &#124; None` | property | Row ID of the last inserted row. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `fetch_one` | `async def fetch_one(self)` | Fetch the next row, or None if exhausted. |
+| `fetch_many` | `async def fetch_many(self, size: int=100)` | Fetch up to *size* rows. |
+| `fetch_all` | `async def fetch_all(self)` | Fetch all remaining rows. |
+| `close` | `async def close(self)` | Close the cursor. |
+| `description` | `def description(self)` | Column descriptions from the last query. |
+| `rowcount` | `def rowcount(self)` | Number of rows affected by the last operation. |
+| `lastrowid` | `def lastrowid(self)` | Row ID of the last inserted row. |
 
-### Class: `SqliteError`
+### `SqliteError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `Exception`
 - Summary: Base exception for all aquilia.sqlite errors.
 
-### Class: `SqliteConnectionError`
+### `SqliteConnectionError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteError`
 - Summary: Connection open / close failed.
 
-### Class: `PoolExhaustedError`
+### `PoolExhaustedError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteError`
 - Summary: All connections in the pool are busy and the wait timed out.
 
-### Class: `SqliteQueryError`
+### `SqliteQueryError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteError`
 - Summary: Query execution failed.
 
-### Class: `SqliteIntegrityError`
+### `SqliteIntegrityError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteQueryError`
 - Summary: Integrity constraint violated (UNIQUE, FK, CHECK, NOT NULL).
 
-### Class: `SqliteSchemaError`
+### `SqliteSchemaError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteError`
 - Summary: Schema-level error (missing table, missing column).
 
-### Class: `SqliteTimeoutError`
+### `SqliteTimeoutError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteError`
 - Summary: Query or connection timed out.
 
-### Class: `SqliteSecurityError`
+### `SqliteSecurityError`
 
 - Source: `aquilia/sqlite/_errors.py`
 - Bases: `SqliteError`
 - Summary: Security violation (path traversal, sandbox escape).
 
-### Class: `SqliteMetrics`
+### `SqliteMetrics`
 
 - Source: `aquilia/sqlite/_metrics.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Aggregated metrics for the SQLite connection pool.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `pool_size` | `int` | `0` |
 | `pool_idle` | `int` | `0` |
@@ -246,16 +269,16 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `record_query` | `def record_query(self, elapsed_ns: int, row_count: int = 0) -> None` |  | Record a successful query execution. |
-| `record_query_error` | `def record_query_error(self) -> None` |  | Record a failed query. |
-| `record_transaction` | `def record_transaction(self, elapsed_ns: int, *, committed: bool) -> None` |  | Record a completed transaction. |
-| `record_cache_access` | `def record_cache_access(self, *, hit: bool) -> None` |  | Record a statement cache access. |
-| `snapshot` | `def snapshot(self) -> dict[str, int &#124; float]` |  | Return a JSON-friendly snapshot of all metrics. |
-| `reset` | `def reset(self) -> None` |  | Reset all counters to zero (useful in tests). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `record_query` | `def record_query(self, elapsed_ns: int, row_count: int=0)` | Record a successful query execution. |
+| `record_query_error` | `def record_query_error(self)` | Record a failed query. |
+| `record_transaction` | `def record_transaction(self, elapsed_ns: int, *, committed: bool)` | Record a completed transaction. |
+| `record_cache_access` | `def record_cache_access(self, *, hit: bool)` | Record a statement cache access. |
+| `snapshot` | `def snapshot(self)` | Return a JSON-friendly snapshot of all metrics. |
+| `reset` | `def reset(self)` | Reset all counters to zero (useful in tests). |
 
-### Class: `ConnectionPool`
+### `ConnectionPool`
 
 - Source: `aquilia/sqlite/_pool.py`
 - Bases: `object`
@@ -263,26 +286,26 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `open` | `async def open(self) -> None` |  | Open the pool: create the executor, writer, and initial readers. |
-| `close` | `async def close(self) -> None` |  | Close all connections and shut down the executor. |
-| `acquire` | `def acquire(self, *, readonly: bool = False) -> _AcquireContext` |  | Acquire a connection from the pool. |
-| `execute` | `async def execute(self, sql: str, params: Sequence[Any] &#124; None = None) -> Any` |  | Execute a write statement (acquires writer automatically). |
-| `execute_many` | `async def execute_many(self, sql: str, params_seq: Sequence[Sequence[Any]]) -> int` |  | Execute with multiple param sets (acquires writer). |
-| `fetch_all` | `async def fetch_all(self, sql: str, params: Sequence[Any] &#124; None = None) -> list[Row]` |  | Fetch all rows (acquires reader). |
-| `fetch_one` | `async def fetch_one(self, sql: str, params: Sequence[Any] &#124; None = None) -> Row &#124; None` |  | Fetch one row (acquires reader). |
-| `fetch_val` | `async def fetch_val(self, sql: str, params: Sequence[Any] &#124; None = None, *, column: int = 0) -> Any` |  | Fetch a scalar value (acquires reader). |
-| `transaction` | `def transaction(self, *, mode: str = 'DEFERRED') -> TransactionContext` |  | Create a transaction context manager using the writer connection. |
-| `checkpoint` | `async def checkpoint(self, *, mode: str = 'PASSIVE') -> None` |  | Force a WAL checkpoint. |
-| `vacuum` | `async def vacuum(self) -> None` |  | Run VACUUM on the database (requires exclusive access). |
-| `size` | `def size(self) -> int` | property | Current total connections (readers + writer). |
-| `idle` | `def idle(self) -> int` | property | Current idle reader connections. |
-| `metrics` | `def metrics(self) -> SqliteMetrics` | property | Pool metrics. |
-| `is_open` | `def is_open(self) -> bool` | property | Whether the pool is open. |
-| `config` | `def config(self) -> SqlitePoolConfig` | property | Pool configuration. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `open` | `async def open(self)` | Open the pool: create the executor, writer, and initial readers. |
+| `close` | `async def close(self)` | Close all connections and shut down the executor. |
+| `acquire` | `def acquire(self, *, readonly: bool=False)` | Acquire a connection from the pool. |
+| `execute` | `async def execute(self, sql: str, params: Sequence[Any] \| None=None)` | Execute a write statement (acquires writer automatically). |
+| `execute_many` | `async def execute_many(self, sql: str, params_seq: Sequence[Sequence[Any]])` | Execute with multiple param sets (acquires writer). |
+| `fetch_all` | `async def fetch_all(self, sql: str, params: Sequence[Any] \| None=None)` | Fetch all rows (acquires reader). |
+| `fetch_one` | `async def fetch_one(self, sql: str, params: Sequence[Any] \| None=None)` | Fetch one row (acquires reader). |
+| `fetch_val` | `async def fetch_val(self, sql: str, params: Sequence[Any] \| None=None, *, column: int=0)` | Fetch a scalar value (acquires reader). |
+| `transaction` | `def transaction(self, *, mode: str='DEFERRED')` | Create a transaction context manager using the writer connection. |
+| `checkpoint` | `async def checkpoint(self, *, mode: str='PASSIVE')` | Force a WAL checkpoint. |
+| `vacuum` | `async def vacuum(self)` | Run VACUUM on the database (requires exclusive access). |
+| `size` | `def size(self)` | Current total connections (readers + writer). |
+| `idle` | `def idle(self)` | Current idle reader connections. |
+| `metrics` | `def metrics(self)` | Pool metrics. |
+| `is_open` | `def is_open(self)` | Whether the pool is open. |
+| `config` | `def config(self)` | Pool configuration. |
 
-### Class: `Row`
+### `Row`
 
 - Source: `aquilia/sqlite/_rows.py`
 - Bases: `object`
@@ -290,41 +313,41 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `keys` | `def keys(self) -> tuple[str, ...]` |  | Return column names. |
-| `values` | `def values(self) -> tuple[Any, ...]` |  | Return column values. |
-| `items` | `def items(self) -> tuple[tuple[str, Any], ...]` |  | Return (key, value) pairs. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Convert to a plain dictionary. |
-| `get` | `def get(self, key: str, default: Any = None) -> Any` |  | Get a value by column name with a default. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `keys` | `def keys(self)` | Return column names. |
+| `values` | `def values(self)` | Return column values. |
+| `items` | `def items(self)` | Return (key, value) pairs. |
+| `to_dict` | `def to_dict(self)` | Convert to a plain dictionary. |
+| `get` | `def get(self, key: str, default: Any=None)` | Get a value by column name with a default. |
 
-### Class: `SqliteService`
+### `SqliteService`
 
 - Source: `aquilia/sqlite/_service.py`
 - Bases: `object`
-- Decorators: `service`
 - Summary: DI-managed SQLite connection pool.
+- Decorators: `service(scope='app', name='SqliteService')`
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `startup` | `async def startup(self) -> None` |  | Open the connection pool. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Close the connection pool. |
-| `pool` | `def pool(self) -> ConnectionPool` | property | The underlying connection pool. |
-| `metrics` | `def metrics(self) -> SqliteMetrics` | property | Pool metrics. |
-| `is_running` | `def is_running(self) -> bool` | property | Whether the service is running. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `startup` | `async def startup(self)` | Open the connection pool. |
+| `shutdown` | `async def shutdown(self)` | Close the connection pool. |
+| `pool` | `def pool(self)` | The underlying connection pool. |
+| `metrics` | `def metrics(self)` | Pool metrics. |
+| `is_running` | `def is_running(self)` | Whether the service is running. |
 
-### Class: `CacheStats`
+### `CacheStats`
 
 - Source: `aquilia/sqlite/_statement_cache.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Observable statistics for a statement cache.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `hits` | `int` | `0` |
 | `misses` | `int` | `0` |
@@ -334,12 +357,12 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `hit_rate` | `def hit_rate(self) -> float` | property | Fraction of hits out of total accesses (0.0 - 1.0). |
-| `snapshot` | `def snapshot(self) -> dict[str, Any]` |  | Return a JSON-friendly snapshot. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `hit_rate` | `def hit_rate(self)` | Fraction of hits out of total accesses (0.0 – 1.0). |
+| `snapshot` | `def snapshot(self)` | Return a JSON-friendly snapshot. |
 
-### Class: `StatementCache`
+### `StatementCache`
 
 - Source: `aquilia/sqlite/_statement_cache.py`
 - Bases: `object`
@@ -347,13 +370,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `stats` | `def stats(self) -> CacheStats` | property | Current cache statistics. |
-| `touch` | `def touch(self, sql: str) -> bool` |  | Record an SQL statement access. |
-| `clear` | `def clear(self) -> None` |  | Clear all cached statement entries. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `stats` | `def stats(self)` | Current cache statistics. |
+| `touch` | `def touch(self, sql: str)` | Record an SQL statement access. |
+| `clear` | `def clear(self)` | Clear all cached statement entries. |
 
-### Class: `TransactionContext`
+### `TransactionContext`
 
 - Source: `aquilia/sqlite/_transaction.py`
 - Bases: `object`
@@ -361,11 +384,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `savepoint` | `def savepoint(self, name: str) -> SavepointContext` |  | Create a nested savepoint within this transaction. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `savepoint` | `def savepoint(self, name: str)` | Create a nested savepoint within this transaction. |
 
-### Class: `SavepointContext`
+### `SavepointContext`
 
 - Source: `aquilia/sqlite/_transaction.py`
 - Bases: `object`
@@ -373,31 +396,7 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `rollback` | `async def rollback(self) -> None` |  | Manually rollback to this savepoint. |
-| `release` | `async def release(self) -> None` |  | Manually release (commit) this savepoint. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `backup_database` | `aquilia/sqlite/_backup.py` | `async def backup_database(source_path: str, target_path: str, *, pages: int = -1, progress: Any = None, executor: ThreadPoolExecutor &#124; None = None) -> None` | Perform an online backup of a SQLite database. |
-| `connect` | `aquilia/sqlite/_compat.py` | `async def connect(database: str = ':memory:', **kwargs: Any) -> CompatConnection` | aiosqlite-compatible ``connect()`` function. |
-| `map_sqlite_error` | `aquilia/sqlite/_errors.py` | `def map_sqlite_error(exc: Exception, *, operation: str = '', sql: str = '', url: str = '') -> SqliteError` | Convert a ``sqlite3`` exception to an ``aquilia.sqlite`` exception. |
-| `to_aquilia_fault` | `aquilia/sqlite/_errors.py` | `def to_aquilia_fault(exc: SqliteError, *, url: str = '', model: str = '<sqlite>', operation: str = '') -> Fault` | Convert an ``aquilia.sqlite`` exception into an Aquilia fault object. |
-| `create_pool` | `aquilia/sqlite/_pool.py` | `async def create_pool(url_or_config: str &#124; SqlitePoolConfig &#124; None = None, *, min_size: int &#124; None = None, max_size: int &#124; None = None, **kwargs: Any) -> ConnectionPool` | Create and open a connection pool. |
-| `build_pragmas` | `aquilia/sqlite/_pragma.py` | `def build_pragmas(config: SqlitePoolConfig, *, readonly: bool = False) -> list[str]` | Build a list of PRAGMA SQL strings for a connection. |
-| `apply_pragmas` | `aquilia/sqlite/_pragma.py` | `def apply_pragmas(conn: sqlite3.Connection, pragmas: Sequence[str]) -> None` | Execute a sequence of PRAGMA statements on a raw ``sqlite3.Connection``. |
-| `row_factory` | `aquilia/sqlite/_rows.py` | `def row_factory(cursor: Any, row_tuple: tuple[Any, ...]) -> Row` | ``sqlite3`` row factory function. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `JOURNAL_MODES` | `aquilia/sqlite/_config.py` | `frozenset({'DELETE', 'TRUNCATE', 'PERSIST', 'MEMORY', 'WAL', 'OFF'})` |
-| `SYNC_MODES` | `aquilia/sqlite/_config.py` | `frozenset({'OFF', 'NORMAL', 'FULL', 'EXTRA'})` |
-| `TEMP_STORE_MODES` | `aquilia/sqlite/_config.py` | `frozenset({'DEFAULT', 'FILE', 'MEMORY'})` |
-| `_SP_NAME_RE` | `aquilia/sqlite/_connection.py` | `re.compile('^[a-zA-Z_][a-zA-Z0-9_]*$')` |
-| `_SCHEMA_PATTERNS` | `aquilia/sqlite/_errors.py` | `('no such table', 'no such column', 'table already exists', 'no such index', 'duplicate column name')` |
-| `_CONNECTION_PATTERNS` | `aquilia/sqlite/_errors.py` | `('database is locked', 'unable to open', 'disk I/O error', 'database disk image is malformed', 'attempt to write a readonly database')` |
+| `rollback` | `async def rollback(self)` | Manually rollback to this savepoint. |
+| `release` | `async def release(self)` | Manually release (commit) this savepoint. |

@@ -1,10 +1,15 @@
-# Authentication And Authorization Documentation
+# Auth Documentation
 
-This directory is the professional documentation set for `auth`. It is implementation-driven and aligned with the current source files under `aquilia/auth`.
+Authentication, authorization, identity stores, token management, guards, clearance rules, MFA, OAuth, and session integration.
 
-## What This Covers
+## Coverage Snapshot
 
-The identity, credential, token, authorization, guard, audit, OAuth, MFA, CSRF, and clearance subsystem.
+- Source files: 24
+- Source lines: 12774
+- Public classes: 164
+- Public module functions: 61
+- Constants/module flags: 19
+- Public exports in `__all__`: 192
 
 ## Source Files Read
 
@@ -35,44 +40,11 @@ The identity, credential, token, authorization, guard, audit, OAuth, MFA, CSRF, 
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 24
-- Public classes: 164
-- Configuration or dataclass-like types: 28
-- Public functions: 61
-- Constants detected: 8
-
-## Fast Start
-
-```python
-from aquilia.auth.core import Identity, IdentityType, PasswordCredential
-from aquilia.auth.hashing import PasswordHasher
-from aquilia.auth.manager import AuthManager
-from aquilia.auth.stores import MemoryCredentialStore, MemoryIdentityStore, MemoryTokenStore
-from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenManager
-
-identity_store = MemoryIdentityStore()
-credential_store = MemoryCredentialStore()
-token_store = MemoryTokenStore()
-key = KeyDescriptor.generate(kid="dev", algorithm="HS256", secret="replace-me")
-manager = AuthManager(
-    token_manager=TokenManager(KeyRing(keys=[key]), token_store),
-    identity_store=identity_store,
-    credential_store=credential_store,
-    password_hasher=PasswordHasher(),
-)
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

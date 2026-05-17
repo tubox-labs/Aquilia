@@ -1,10 +1,15 @@
-# Dependency Injection Documentation
+# Di Documentation
 
-This directory is the professional documentation set for `di`. It is implementation-driven and aligned with the current source files under `aquilia/di`.
+Scoped dependency injection container, providers, request DAG, decorators, lifecycle disposal, diagnostics, scopes, and testing utilities.
 
-## What This Covers
+## Coverage Snapshot
 
-The scoped dependency injection container, provider model, lifecycle disposal, dependency graph, request DAG, and testing overrides.
+- Source files: 14
+- Source lines: 4800
+- Public classes: 44
+- Public module functions: 16
+- Constants/module flags: 8
+- Public exports in `__all__`: 40
 
 ## Source Files Read
 
@@ -25,33 +30,11 @@ The scoped dependency injection container, provider model, lifecycle disposal, d
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 14
-- Public classes: 44
-- Configuration or dataclass-like types: 8
-- Public functions: 16
-- Constants detected: 7
-
-## Fast Start
-
-```python
-from aquilia.di import Container, ValueProvider
-
-container = Container(scope="app")
-container.register(ValueProvider(token="settings", value={"debug": True}, scope="app"))
-settings = await container.resolve_async("settings")
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

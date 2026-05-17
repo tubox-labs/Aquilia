@@ -1,10 +1,33 @@
 # Storage API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/storage/__init__.py` | 155 | 0 | 0 | Aquilia Storage -- Production-grade, async-first file storage abstraction. |
+| `aquilia/storage/backends/__init__.py` | 25 | 0 | 0 | Storage Backends -- concrete StorageBackend implementations. |
+| `aquilia/storage/backends/azure.py` | 324 | 1 | 0 | Azure Blob Storage Backend. |
+| `aquilia/storage/backends/composite.py` | 167 | 1 | 0 | Composite / Multi-Backend Storage. |
+| `aquilia/storage/backends/gcs.py` | 279 | 1 | 0 | Google Cloud Storage Backend. |
+| `aquilia/storage/backends/local.py` | 211 | 1 | 0 | Local Filesystem Storage Backend. |
+| `aquilia/storage/backends/memory.py` | 158 | 1 | 0 | In-Memory Storage Backend. |
+| `aquilia/storage/backends/s3.py` | 300 | 1 | 0 | Amazon S3 / S3-Compatible Storage Backend. |
+| `aquilia/storage/backends/sftp.py` | 277 | 1 | 0 | SFTP / SSH Storage Backend. |
+| `aquilia/storage/base.py` | 585 | 10 | 0 | Storage Base -- Abstract backend contract and core types. |
+| `aquilia/storage/configs.py` | 209 | 8 | 1 | Storage Configs -- Typed configuration dataclasses for each backend. |
+| `aquilia/storage/effects.py` | 81 | 1 | 0 | Storage Effect Provider -- Bridges storage into the Aquilia Effect system. |
+| `aquilia/storage/registry.py` | 224 | 1 | 1 | Storage Registry -- Named backend registry. |
+| `aquilia/storage/subsystem.py` | 171 | 1 | 0 | Storage Subsystem -- Aquilia boot lifecycle integration for storage. |
+
+## Public Exports
+
+`AzureBlobConfig`, `AzureBlobStorage`, `BackendUnavailableError`, `CompositeConfig`, `CompositeStorage`, `GCSConfig`, `GCSStorage`, `LocalConfig`, `LocalStorage`, `MemoryConfig`, `MemoryStorage`, `S3Config`, `S3Storage`, `SFTPConfig`, `SFTPStorage`, `STORAGE_DOMAIN`, `StorageBackend`, `StorageConfig`, `StorageConfigFault`, `StorageEffectProvider`, `StorageError`, `StorageFile`, `StorageFileNotFoundError`, `StorageFullError`, `StorageIOFault`, `StorageMetadata`, `StoragePermissionError`, `StorageRegistry`, `StorageSubsystem`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `AzureBlobStorage` | `aquilia/storage/backends/azure.py` | StorageBackend | Azure Blob Storage backend. |
 | `CompositeStorage` | `aquilia/storage/backends/composite.py` | StorageBackend | Composite storage that routes files to sub-backends by rules. |
@@ -31,20 +54,20 @@ This page is extracted from the current Python source. It includes public classe
 | `AzureBlobConfig` | `aquilia/storage/configs.py` | StorageConfig | Configuration for Azure Blob Storage. |
 | `SFTPConfig` | `aquilia/storage/configs.py` | StorageConfig | Configuration for SFTP/SSH storage. |
 | `CompositeConfig` | `aquilia/storage/configs.py` | StorageConfig | Configuration for the composite (multi-backend) storage. |
-| `StorageEffectProvider` | `aquilia/storage/effects.py` | EffectProvider | Effect provider that yields ``StorageBackend`` instances |
+| `StorageEffectProvider` | `aquilia/storage/effects.py` | EffectProvider | Effect provider that yields ``StorageBackend`` instances from the ``StorageRegistry``. |
 | `StorageRegistry` | `aquilia/storage/registry.py` | object | Named registry of storage backends. |
 | `StorageSubsystem` | `aquilia/storage/subsystem.py` | BaseSubsystem | Subsystem initializer for the Aquilia storage system. |
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `config_from_dict` | `aquilia/storage/configs.py` | `def config_from_dict(data: dict[str, Any]) -> StorageConfig` | Instantiate a typed StorageConfig from a raw dict. |
-| `create_backend` | `aquilia/storage/registry.py` | `def create_backend(config: StorageConfig) -> StorageBackend` | Instantiate a ``StorageBackend`` from a ``StorageConfig``. |
+| `config_from_dict` | `aquilia/storage/configs.py` | `def config_from_dict(data: dict[str, Any])` | Instantiate a typed StorageConfig from a raw dict. |
+| `create_backend` | `aquilia/storage/registry.py` | `def create_backend(config: StorageConfig)` | Instantiate a ``StorageBackend`` from a ``StorageConfig``. |
 
-## Constants
+## Constants And Module Flags
 
-| Name | Source | Value or type |
+| Name | Source | Value or Type |
 | --- | --- | --- |
 | `STORAGE_DOMAIN` | `aquilia/storage/base.py` | `FaultDomain.custom('storage', 'File storage faults')` |
 | `_BACKEND_CONFIGS` | `aquilia/storage/configs.py` | `{'local': LocalConfig, 'memory': MemoryConfig, 's3': S3Config, 'gcs': GCSConfig, 'azure': AzureBlobConfig, 'sftp': SFTPConfig, 'composite': CompositeConfig}` |
@@ -52,7 +75,7 @@ This page is extracted from the current Python source. It includes public classe
 
 ## Detailed Classes And Methods
 
-### Class: `AzureBlobStorage`
+### `AzureBlobStorage`
 
 - Source: `aquilia/storage/backends/azure.py`
 - Bases: `StorageBackend`
@@ -60,22 +83,22 @@ This page is extracted from the current Python source. It includes public classe
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
 
-### Class: `CompositeStorage`
+### `CompositeStorage`
 
 - Source: `aquilia/storage/backends/composite.py`
 - Bases: `StorageBackend`
@@ -83,22 +106,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
 
-### Class: `GCSStorage`
+### `GCSStorage`
 
 - Source: `aquilia/storage/backends/gcs.py`
 - Bases: `StorageBackend`
@@ -106,22 +129,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
 
-### Class: `LocalStorage`
+### `LocalStorage`
 
 - Source: `aquilia/storage/backends/local.py`
 - Bases: `StorageBackend`
@@ -129,22 +152,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
-| `copy` | `async def copy(self, src: str, dst: str) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
+| `copy` | `async def copy(self, src: str, dst: str)` |  |
 
-### Class: `MemoryStorage`
+### `MemoryStorage`
 
 - Source: `aquilia/storage/backends/memory.py`
 - Bases: `StorageBackend`
@@ -152,22 +175,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
 
-### Class: `S3Storage`
+### `S3Storage`
 
 - Source: `aquilia/storage/backends/s3.py`
 - Bases: `StorageBackend`
@@ -175,22 +198,22 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
 
-### Class: `SFTPStorage`
+### `SFTPStorage`
 
 - Source: `aquilia/storage/backends/sftp.py`
 - Bases: `StorageBackend`
@@ -198,90 +221,90 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property | Method. |
-| `initialize` | `async def initialize(self) -> None` |  | Method. |
-| `shutdown` | `async def shutdown(self) -> None` |  | Method. |
-| `ping` | `async def ping(self) -> bool` |  | Method. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` |  | Method. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` |  | Method. |
-| `delete` | `async def delete(self, name: str) -> None` |  | Method. |
-| `exists` | `async def exists(self, name: str) -> bool` |  | Method. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` |  | Method. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` |  | Method. |
-| `size` | `async def size(self, name: str) -> int` |  | Method. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` |  |
+| `initialize` | `async def initialize(self)` |  |
+| `shutdown` | `async def shutdown(self)` |  |
+| `ping` | `async def ping(self)` |  |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` |  |
+| `open` | `async def open(self, name: str, mode: str='rb')` |  |
+| `delete` | `async def delete(self, name: str)` |  |
+| `exists` | `async def exists(self, name: str)` |  |
+| `stat` | `async def stat(self, name: str)` |  |
+| `listdir` | `async def listdir(self, path: str='')` |  |
+| `size` | `async def size(self, name: str)` |  |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` |  |
 
-### Class: `StorageError`
+### `StorageError`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `Fault`
 - Summary: Base fault for all storage operations.
 
-### Class: `FileNotFoundError`
+### `FileNotFoundError`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `StorageError`
 - Summary: Raised when a file does not exist in the storage backend.
 
-### Class: `PermissionError`
+### `PermissionError`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `StorageError`
 - Summary: Raised when the caller lacks permission for the operation.
 
-### Class: `StorageFullError`
+### `StorageFullError`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `StorageError`
 - Summary: Raised when the storage quota is exceeded.
 
-### Class: `BackendUnavailableError`
+### `BackendUnavailableError`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `StorageError`
 - Summary: Raised when the storage backend is unreachable or not configured.
 
-### Class: `StorageIOFault`
+### `StorageIOFault`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `StorageError`
 - Summary: Raised on I/O operation errors (closed file, wrong mode).
 
-### Class: `StorageConfigFault`
+### `StorageConfigFault`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `StorageError`
 - Summary: Raised on storage configuration / registry errors.
 
-### Class: `StorageMetadata`
+### `StorageMetadata`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Immutable metadata for a stored file.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `size` | `int` | `0` |
 | `content_type` | `str` | `'application/octet-stream'` |
 | `etag` | `str` | `''` |
-| `last_modified` | `datetime &#124; None` | `None` |
-| `created_at` | `datetime &#124; None` | `None` |
+| `last_modified` | `datetime \| None` | `None` |
+| `created_at` | `datetime \| None` | `None` |
 | `metadata` | `dict[str, str]` | `field(default_factory=dict)` |
 | `storage_class` | `str` | `''` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `StorageFile`
+### `StorageFile`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `object`
@@ -289,18 +312,18 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `read` | `async def read(self, size: int = -1) -> bytes` |  | Read bytes from the file. |
-| `write` | `async def write(self, data: bytes) -> int` |  | Write bytes (for writable files). |
-| `seek` | `async def seek(self, pos: int) -> None` |  | Seek to byte position (clamped to valid range). |
-| `tell` | `async def tell(self) -> int` |  | Return current byte position. |
-| `content` | `def content(self) -> bytes &#124; None` | property | Return raw content bytes (or None if not materialised). |
-| `close` | `async def close(self) -> None` |  | Release resources. |
-| `closed` | `def closed(self) -> bool` | property | Method. |
-| `size` | `def size(self) -> int` | property | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `read` | `async def read(self, size: int=-1)` | Read bytes from the file. |
+| `write` | `async def write(self, data: bytes)` | Write bytes (for writable files). |
+| `seek` | `async def seek(self, pos: int)` | Seek to byte position (clamped to valid range). |
+| `tell` | `async def tell(self)` | Return current byte position. |
+| `content` | `def content(self)` | Return raw content bytes (or None if not materialised). |
+| `close` | `async def close(self)` | Release resources. |
+| `closed` | `def closed(self)` |  |
+| `size` | `def size(self)` |  |
 
-### Class: `StorageBackend`
+### `StorageBackend`
 
 - Source: `aquilia/storage/base.py`
 - Bases: `ABC`
@@ -308,36 +331,36 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `backend_name` | `def backend_name(self) -> str` | property, abstractmethod | Human-readable backend identifier (e.g. 'local', 's3'). |
-| `initialize` | `async def initialize(self) -> None` |  | Async initialization (create dirs, connect to remote, etc.). |
-| `shutdown` | `async def shutdown(self) -> None` |  | Graceful shutdown (close connections, flush buffers). |
-| `ping` | `async def ping(self) -> bool` |  | Health check - return True if the backend is reachable. |
-| `save` | `async def save(self, name: str, content: bytes &#124; BinaryIO &#124; AsyncIterator[bytes] &#124; StorageFile, *, content_type: str &#124; None = None, metadata: dict[str, str] &#124; None = None, overwrite: bool = False) -> str` | abstractmethod | Save content under ``name``. |
-| `open` | `async def open(self, name: str, mode: str = 'rb') -> StorageFile` | abstractmethod | Open a file for reading. |
-| `delete` | `async def delete(self, name: str) -> None` | abstractmethod | Delete a file.  Idempotent - does NOT raise if missing. |
-| `exists` | `async def exists(self, name: str) -> bool` | abstractmethod | Check if a file exists. |
-| `stat` | `async def stat(self, name: str) -> StorageMetadata` | abstractmethod | Return metadata for a file. |
-| `listdir` | `async def listdir(self, path: str = '') -> tuple[list[str], list[str]]` | abstractmethod | List contents of a directory/prefix. |
-| `size` | `async def size(self, name: str) -> int` | abstractmethod | Return file size in bytes. |
-| `url` | `async def url(self, name: str, expire: int &#124; None = None) -> str` | abstractmethod | Return a URL for accessing the file. |
-| `copy` | `async def copy(self, src: str, dst: str) -> str` |  | Copy a file within the same backend. |
-| `move` | `async def move(self, src: str, dst: str) -> str` |  | Move a file within the same backend. |
-| `generate_filename` | `def generate_filename(self, filename: str) -> str` |  | Generate a safe, unique filename. |
-| `get_valid_name` | `def get_valid_name(name: str) -> str` | staticmethod | Return a filesystem-safe filename. |
-| `guess_content_type` | `def guess_content_type(name: str) -> str` | staticmethod | Guess MIME type from filename. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `backend_name` | `def backend_name(self)` | Human-readable backend identifier (e.g. 'local', 's3'). |
+| `initialize` | `async def initialize(self)` | Async initialization (create dirs, connect to remote, etc.). Called by StorageSubsystem during server startup. |
+| `shutdown` | `async def shutdown(self)` | Graceful shutdown (close connections, flush buffers). Called by StorageSubsystem during server shutdown. |
+| `ping` | `async def ping(self)` | Health check — return True if the backend is reachable. Used by HealthRegistry for storage health monitoring. |
+| `save` | `async def save(self, name: str, content: bytes \| BinaryIO \| AsyncIterator[bytes] \| StorageFile, *, content_type: str \| None=None, metadata: dict[str, str] \| None=None, overwrite: bool=False)` | Save content under ``name``. |
+| `open` | `async def open(self, name: str, mode: str='rb')` | Open a file for reading. |
+| `delete` | `async def delete(self, name: str)` | Delete a file.  Idempotent — does NOT raise if missing. |
+| `exists` | `async def exists(self, name: str)` | Check if a file exists. |
+| `stat` | `async def stat(self, name: str)` | Return metadata for a file. |
+| `listdir` | `async def listdir(self, path: str='')` | List contents of a directory/prefix. |
+| `size` | `async def size(self, name: str)` | Return file size in bytes. |
+| `url` | `async def url(self, name: str, expire: int \| None=None)` | Return a URL for accessing the file. |
+| `copy` | `async def copy(self, src: str, dst: str)` | Copy a file within the same backend. |
+| `move` | `async def move(self, src: str, dst: str)` | Move a file within the same backend. |
+| `generate_filename` | `def generate_filename(self, filename: str)` | Generate a safe, unique filename. |
+| `get_valid_name` | `def get_valid_name(name: str)` | Return a filesystem-safe filename. |
+| `guess_content_type` | `def guess_content_type(name: str)` | Guess MIME type from filename. |
 
-### Class: `StorageConfig`
+### `StorageConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Base storage configuration.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `alias` | `str` | `'default'` |
 | `backend` | `str` | `''` |
@@ -345,20 +368,20 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Method. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` |  |
 
-### Class: `LocalConfig`
+### `LocalConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for the local filesystem storage backend.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'local'` |
 | `root` | `str` | `'./storage'` |
@@ -367,147 +390,147 @@ Attributes and fields:
 | `dir_permissions` | `int` | `493` |
 | `create_dirs` | `bool` | `True` |
 
-### Class: `MemoryConfig`
+### `MemoryConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for the in-memory storage backend (testing).
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'memory'` |
 | `max_size` | `int` | `0` |
 
-### Class: `S3Config`
+### `S3Config`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for Amazon S3 or S3-compatible storage.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'s3'` |
 | `bucket` | `str` | `''` |
 | `region` | `str` | `'us-east-1'` |
-| `access_key` | `str &#124; None` | `None` |
-| `secret_key` | `str &#124; None` | `None` |
-| `session_token` | `str &#124; None` | `None` |
-| `endpoint_url` | `str &#124; None` | `None` |
+| `access_key` | `str \| None` | `None` |
+| `secret_key` | `str \| None` | `None` |
+| `session_token` | `str \| None` | `None` |
+| `endpoint_url` | `str \| None` | `None` |
 | `prefix` | `str` | `''` |
 | `signature_version` | `str` | `'s3v4'` |
 | `use_ssl` | `bool` | `True` |
 | `addressing_style` | `str` | `'auto'` |
-| `default_acl` | `str &#124; None` | `None` |
+| `default_acl` | `str \| None` | `None` |
 | `storage_class` | `str` | `'STANDARD'` |
 | `presigned_expiry` | `int` | `3600` |
 | `transfer_config` | `dict[str, Any]` | `field(default_factory=dict)` |
 
-### Class: `GCSConfig`
+### `GCSConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for Google Cloud Storage.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'gcs'` |
 | `bucket` | `str` | `''` |
-| `project` | `str &#124; None` | `None` |
-| `credentials_path` | `str &#124; None` | `None` |
-| `credentials_json` | `str &#124; None` | `None` |
+| `project` | `str \| None` | `None` |
+| `credentials_path` | `str \| None` | `None` |
+| `credentials_json` | `str \| None` | `None` |
 | `prefix` | `str` | `''` |
-| `default_acl` | `str &#124; None` | `None` |
+| `default_acl` | `str \| None` | `None` |
 | `location` | `str` | `''` |
 | `presigned_expiry` | `int` | `3600` |
 
-### Class: `AzureBlobConfig`
+### `AzureBlobConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for Azure Blob Storage.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'azure'` |
 | `container` | `str` | `''` |
-| `connection_string` | `str &#124; None` | `None` |
-| `account_name` | `str &#124; None` | `None` |
-| `account_key` | `str &#124; None` | `None` |
-| `sas_token` | `str &#124; None` | `None` |
+| `connection_string` | `str \| None` | `None` |
+| `account_name` | `str \| None` | `None` |
+| `account_key` | `str \| None` | `None` |
+| `sas_token` | `str \| None` | `None` |
 | `prefix` | `str` | `''` |
-| `custom_domain` | `str &#124; None` | `None` |
+| `custom_domain` | `str \| None` | `None` |
 | `presigned_expiry` | `int` | `3600` |
 | `overwrite` | `bool` | `False` |
 
-### Class: `SFTPConfig`
+### `SFTPConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for SFTP/SSH storage.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'sftp'` |
 | `host` | `str` | `'localhost'` |
 | `port` | `int` | `22` |
 | `username` | `str` | `''` |
-| `password` | `str &#124; None` | `None` |
-| `key_path` | `str &#124; None` | `None` |
-| `key_passphrase` | `str &#124; None` | `None` |
+| `password` | `str \| None` | `None` |
+| `key_path` | `str \| None` | `None` |
+| `key_passphrase` | `str \| None` | `None` |
 | `root` | `str` | `'/'` |
-| `known_hosts` | `str &#124; None` | `None` |
+| `known_hosts` | `str \| None` | `None` |
 | `base_url` | `str` | `''` |
 | `timeout` | `int` | `30` |
 
-### Class: `CompositeConfig`
+### `CompositeConfig`
 
 - Source: `aquilia/storage/configs.py`
 - Bases: `StorageConfig`
-- Decorators: `dataclass`
 - Summary: Configuration for the composite (multi-backend) storage.
+- Decorators: `dataclass(frozen=True, slots=True)`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `backend` | `str` | `'composite'` |
 | `backends` | `dict[str, dict[str, Any]]` | `field(default_factory=dict)` |
 | `rules` | `dict[str, str]` | `field(default_factory=dict)` |
 | `fallback` | `str` | `'default'` |
 
-### Class: `StorageEffectProvider`
+### `StorageEffectProvider`
 
 - Source: `aquilia/storage/effects.py`
 - Bases: `EffectProvider`
-- Summary: Effect provider that yields ``StorageBackend`` instances
+- Summary: Effect provider that yields ``StorageBackend`` instances from the ``StorageRegistry``.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `kind` | `def kind(self) -> EffectKind` | property | Method. |
-| `set_registry` | `def set_registry(self, registry: Any) -> None` |  | Inject registry after construction (for deferred wiring). |
-| `initialize` | `async def initialize(self) -> None` |  | No-op -- backends are initialised by StorageSubsystem. |
-| `acquire` | `async def acquire(self, mode: str &#124; None = None) -> Any` |  | Acquire a storage backend. |
-| `release` | `async def release(self, resource: Any, success: bool = True) -> None` |  | No-op -- storage backends are stateless per request. |
-| `finalize` | `async def finalize(self) -> None` |  | No-op -- shutdown handled by StorageSubsystem. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `kind` | `def kind(self)` |  |
+| `set_registry` | `def set_registry(self, registry: Any)` | Inject registry after construction (for deferred wiring). |
+| `initialize` | `async def initialize(self)` | No-op -- backends are initialised by StorageSubsystem. |
+| `acquire` | `async def acquire(self, mode: str \| None=None)` | Acquire a storage backend. |
+| `release` | `async def release(self, resource: Any, success: bool=True)` | No-op -- storage backends are stateless per request. |
+| `finalize` | `async def finalize(self)` | No-op -- shutdown handled by StorageSubsystem. |
 
-### Class: `StorageRegistry`
+### `StorageRegistry`
 
 - Source: `aquilia/storage/registry.py`
 - Bases: `object`
@@ -515,21 +538,21 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `register` | `def register(self, alias: str, backend: StorageBackend) -> None` |  | Register a backend under an alias. |
-| `unregister` | `def unregister(self, alias: str) -> StorageBackend &#124; None` |  | Remove and return a backend by alias. |
-| `set_default` | `def set_default(self, alias: str) -> None` |  | Set which alias is the default backend. |
-| `default` | `def default(self) -> StorageBackend` | property | Return the default backend. |
-| `get` | `def get(self, alias: str) -> StorageBackend &#124; None` |  | Return a backend by alias, or None. |
-| `aliases` | `def aliases(self) -> list[str]` |  | Return all registered aliases. |
-| `items` | `def items(self) -> list[tuple[str, StorageBackend]]` |  | Method. |
-| `initialize_all` | `async def initialize_all(self) -> None` |  | Initialize every registered backend. |
-| `shutdown_all` | `async def shutdown_all(self) -> None` |  | Shutdown every registered backend. |
-| `health_check` | `async def health_check(self) -> dict[str, bool]` |  | Ping every backend and return alias -> healthy map. |
-| `from_config` | `def from_config(cls, configs: list[dict[str, Any]]) -> StorageRegistry` | classmethod | Build a registry from a list of config dicts. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `register` | `def register(self, alias: str, backend: StorageBackend)` | Register a backend under an alias. |
+| `unregister` | `def unregister(self, alias: str)` | Remove and return a backend by alias. |
+| `set_default` | `def set_default(self, alias: str)` | Set which alias is the default backend. |
+| `default` | `def default(self)` | Return the default backend. |
+| `get` | `def get(self, alias: str)` | Return a backend by alias, or None. |
+| `aliases` | `def aliases(self)` | Return all registered aliases. |
+| `items` | `def items(self)` |  |
+| `initialize_all` | `async def initialize_all(self)` | Initialize every registered backend. |
+| `shutdown_all` | `async def shutdown_all(self)` | Shutdown every registered backend. |
+| `health_check` | `async def health_check(self)` | Ping every backend and return alias → healthy map. |
+| `from_config` | `def from_config(cls, configs: list[dict[str, Any]])` | Build a registry from a list of config dicts. |
 
-### Class: `StorageSubsystem`
+### `StorageSubsystem`
 
 - Source: `aquilia/storage/subsystem.py`
 - Bases: `BaseSubsystem`
@@ -537,21 +560,6 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `health_check` | `async def health_check(self) -> HealthStatus` |  | Check health of all storage backends. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `config_from_dict` | `aquilia/storage/configs.py` | `def config_from_dict(data: dict[str, Any]) -> StorageConfig` | Instantiate a typed StorageConfig from a raw dict. |
-| `create_backend` | `aquilia/storage/registry.py` | `def create_backend(config: StorageConfig) -> StorageBackend` | Instantiate a ``StorageBackend`` from a ``StorageConfig``. |
-
-## Constants
-
-| Name | Source | Value or type |
+| Method | Signature | Summary |
 | --- | --- | --- |
-| `STORAGE_DOMAIN` | `aquilia/storage/base.py` | `FaultDomain.custom('storage', 'File storage faults')` |
-| `_BACKEND_CONFIGS` | `aquilia/storage/configs.py` | `{'local': LocalConfig, 'memory': MemoryConfig, 's3': S3Config, 'gcs': GCSConfig, 'azure': AzureBlobConfig, 'sftp': SFTPConfig, 'composite': CompositeConfig}` |
-| `_BUILTIN_BACKENDS` | `aquilia/storage/registry.py` | `dict[str, str]` |
+| `health_check` | `async def health_check(self)` | Check health of all storage backends. |

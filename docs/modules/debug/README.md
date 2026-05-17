@@ -1,10 +1,15 @@
-# Debug Pages Documentation
+# Debug Documentation
 
-This directory is the professional documentation set for `debug`. It is implementation-driven and aligned with the current source files under `aquilia/debug`.
+Development-mode welcome, HTTP error, version error, and exception pages.
 
-## What This Covers
+## Coverage Snapshot
 
-Development-mode HTML pages for welcome, HTTP errors, version errors, and exception diagnostics.
+- Source files: 2
+- Source lines: 1300
+- Public classes: 1
+- Public module functions: 4
+- Constants/module flags: 6
+- Public exports in `__all__`: 5
 
 ## Source Files Read
 
@@ -13,32 +18,11 @@ Development-mode HTML pages for welcome, HTTP errors, version errors, and except
 
 ## Document Map
 
-- `architecture.md`: Runtime architecture and module boundaries
-- `configuration.md`: Configuration entry points, datatypes, and precedence
-- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
-- `integration-guide.md`: How to wire the module into a real Aquilia application
-- `cli-reference.md`: Command line surface and operational commands
-- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
-- `troubleshooting.md`: Common failures and diagnosis steps
-- `examples.md`: Code examples and usage patterns
-
-## Public Surface Snapshot
-
-- Python files: 2
-- Public classes: 1
-- Configuration or dataclass-like types: 0
-- Public functions: 4
-- Constants detected: 5
-
-## Fast Start
-
-```python
-from aquilia.debug import DebugPageRenderer, render_debug_exception_page, render_http_error_page, render_version_error_page, render_welcome_page
-
-# The imported symbols above are public exports from this module.
-# See api-reference.md for constructor signatures, methods, and data fields.
-```
-
-## Read Next
-
-Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
+- `architecture.md`: module boundaries, dependencies, lifecycle, and extension points.
+- `configuration.md`: configuration classes, builders, server wiring, and precedence.
+- `api-reference.md`: source-extracted classes, methods, functions, constants, exports, and signatures.
+- `integration-guide.md`: how to wire the module into an Aquilia app.
+- `cli-reference.md`: mounted `aq` commands for this module, if any.
+- `examples.md`: usage examples derived from source and checked example apps.
+- `edge-cases-and-limitations.md`: implementation limits and compatibility behavior.
+- `troubleshooting.md`: diagnostic commands and common failure patterns.

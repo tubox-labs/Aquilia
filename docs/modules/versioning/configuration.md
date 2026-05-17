@@ -1,37 +1,54 @@
 # Versioning Configuration
 
-## Configuration Entry Points
+API version parsing, resolvers, decorators, negotiation, graph, sunset policy/enforcement, middleware, and route registration integration.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/versioning/__init__.py` | 181 | 0 | 0 | Aquilia Versioning System — Epoch-Based API Versioning |
+| `aquilia/versioning/core.py` | 290 | 3 | 0 | Aquilia Versioning — Core Types |
+| `aquilia/versioning/decorators.py` | 138 | 0 | 3 | Aquilia Versioning — Route-Level Decorators |
+| `aquilia/versioning/errors.py` | 144 | 6 | 0 | Aquilia Versioning — Version Errors |
+| `aquilia/versioning/graph.py` | 261 | 2 | 0 | Aquilia Versioning — Version Graph |
+| `aquilia/versioning/middleware.py` | 223 | 1 | 0 | Aquilia Versioning — Version Middleware |
+| `aquilia/versioning/negotiation.py` | 193 | 2 | 0 | Aquilia Versioning — Version Negotiation |
+| `aquilia/versioning/parser.py` | 137 | 2 | 0 | Aquilia Versioning — Version Parser |
+| `aquilia/versioning/resolvers.py` | 486 | 8 | 0 | Aquilia Versioning — Version Resolvers |
+| `aquilia/versioning/strategy.py` | 500 | 2 | 0 | Aquilia Versioning — Version Strategy |
+| `aquilia/versioning/sunset.py` | 291 | 4 | 0 | Aquilia Versioning — Sunset Lifecycle |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `ApiVersion` | `aquilia/versioning/core.py` | major: int, minor: int, patch: int, label: str, status: VersionStatus, channel: VersionChannel &#124; None, metadata: dict[str, Any] | Immutable API version value object. |
-| `VersionNode` | `aquilia/versioning/graph.py` | version: ApiVersion, successor: ApiVersion &#124; None, predecessor: ApiVersion &#124; None, channels: set[VersionChannel], routes: set[str], controllers: set[str], deprecated_at: datetime &#124; None, sunset_at: datetime &#124; None, migration_url: str &#124; None | A node in the version graph. |
-| `VersionConfig` | `aquilia/versioning/strategy.py` | strategy: str, versions: list[str], default_version: str &#124; None, require_version: bool, header_name: str, query_param: str, url_prefix: str, url_segment_index: int, strip_version_from_path: bool, media_type_param: str, channels: dict[str, str], channel_header: str, ... | Complete versioning configuration. |
-| `SunsetPolicy` | `aquilia/versioning/sunset.py` | warn_header: bool, grace_period: timedelta, enforce_sunset: bool, enforce_retired: bool, sunset_message: str, migration_url_template: str &#124; None, gradual_rejection_percent: int | Global sunset policy configuration. |
-| `SunsetEntry` | `aquilia/versioning/sunset.py` | version: ApiVersion, deprecated_at: datetime &#124; None, sunset_at: datetime &#124; None, retired_at: datetime &#124; None, successor: ApiVersion &#124; None, migration_url: str &#124; None, notes: str | Per-version sunset schedule entry. |
+| `VersionMiddleware` | `aquilia/versioning/middleware.py` |  | Middleware that resolves API version for every request. |
+| `VersionConfig` | `aquilia/versioning/strategy.py` | `to_dict` | Complete versioning configuration. |
+| `SunsetPolicy` | `aquilia/versioning/sunset.py` | `to_dict` | Global sunset policy configuration. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- `VersioningIntegration`
-- `VersionConfig`
-- `SunsetPolicy`
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

@@ -1,16 +1,47 @@
 # Testing CLI Reference
 
-## Command Surface
+This page is derived from the mounted Click command tree. If a source file has CLI helper functions but they are not mounted under `aq`, this page states that explicitly.
 
-No dedicated command group was detected for this module. It is configured through workspace files, manifests, or direct Python APIs. Related commands may still exist in the main `aq` CLI for inspection, serving, validation, or project generation.
+## Relationship To The `aq` CLI
 
-## Related Files
+The following mounted commands map to this subsystem.
 
-- No module-local CLI files detected.
+| Command | Syntax | Purpose |
+| --- | --- | --- |
+| `aq test` | `aq test [PATHS] [-k VALUE] [-m VALUE] [--coverage] [--coverage-html] [--failfast]` | Run the test suite with Aquilia-aware defaults. |
 
-## Operational Pattern
+## Detailed Commands
 
-1. Use `aq init workspace` and `aq add module` to create the workspace and module shape.
-2. Configure this subsystem in `workspace.py` or `modules/<name>/manifest.py`.
-3. Use subsystem-specific commands only when this page lists an implementation file.
-4. Use `aq inspect`, `aq doctor`, `aq validate`, and tests to verify runtime wiring.
+### `aq test`
+
+Run the test suite with Aquilia-aware defaults.
+
+```bash
+aq test [PATHS] [-k VALUE] [-m VALUE] [--coverage] [--coverage-html] [--failfast]
+```
+
+| Kind | Name | Flags | Required | Default | Help |
+| --- | --- | --- | --- | --- | --- |
+| Argument | `paths` | `paths` | False | `not set` |  |
+| Option | `pattern` | `-k, --pattern` | False | `` | Only run tests matching pattern |
+| Option | `markers` | `-m, --markers` | False | `` | Only run tests matching markers |
+| Option | `coverage` | `--coverage` | False | `False` | Collect coverage |
+| Option | `coverage_html` | `--coverage-html` | False | `False` | Generate HTML coverage report |
+| Option | `failfast` | `--failfast, -x` | False | `False` | Stop on first failure |
+
+## General Commands Useful For This Module
+
+| Command | Why it matters |
+| --- | --- |
+| `aq validate` | Validates workspace manifests and catches invalid component paths. |
+| `aq doctor` | Runs environment, workspace, manifest, registry, integration, and deployment diagnostics. |
+| `aq inspect config` | Shows resolved config after workspace/env merging. |
+| `aq inspect modules` | Lists discovered modules. |
+| `aq inspect routes` | Shows compiled routes when the module contributes controllers. |
+| `aq run` | Starts the dev server and executes startup wiring. |
+
+## Error Behavior
+
+- Click handles missing required arguments and invalid options before command callbacks run.
+- Most operational commands require `workspace.py`; the root CLI guard allows help/version/init/doctor without it.
+- Commands that touch external providers, databases, or files can fail with subsystem-specific faults or provider errors.

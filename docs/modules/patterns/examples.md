@@ -1,53 +1,42 @@
 # Patterns Examples
 
-## Primary Usage
+URL pattern grammar, parser, compiler, matcher, type/validator/transform registries, specificity scoring, OpenAPI conversion, diagnostics, autofix, and LSP metadata.
+
+Examples here use public symbols and checked patterns from the repository. When a module has no safe standalone constructor example, the example focuses on importing and wiring the actual source-backed API.
+
+## Source-Backed Import Examples
 
 ```python
-from aquilia.patterns import __version__, AutoFixEngine, DiagnosticFix, ErrorRecovery, FixSuggestion, generate_fix_suggestions
-
-# The imported symbols above are public exports from this module.
-# See api-reference.md for constructor signatures, methods, and data fields.
+from aquilia.patterns.autofix import FixSuggestion
+from aquilia.patterns.autofix import DiagnosticFix
+from aquilia.patterns.autofix import generate_fix_suggestions
+from aquilia.patterns.cache import CacheStats
+from aquilia.patterns.cache import CacheEntry
+from aquilia.patterns.cache import get_global_cache
 ```
 
-## Manifest Registration Pattern
+## Workspace/Manifest Wiring Example
 
 ```python
-from aquilia import AppManifest
+from aquilia import AppManifest, Integration, Module, Workspace
+
+workspace = (
+    Workspace("example", version="1.0.0")
+    .runtime(mode="dev", port=8000)
+    .module(Module("example").route_prefix("/example"))
+    .integrate(Integration.di(auto_wire=True))
+)
 
 manifest = AppManifest(
     name="example",
     version="1.0.0",
     controllers=["modules.example.controllers:ExampleController"],
     services=["modules.example.services:ExampleService"],
-    base_path="modules.example",
 )
 ```
 
-## Workspace Pattern
+## Verification
 
-```python
-from aquilia import Module, Workspace
-
-workspace = (
-    Workspace("myapp")
-    .module(Module("example").route_prefix("/example"))
-)
-```
-
-## Public API Imports
-
-```python
-from aquilia.patterns import FixSuggestion, DiagnosticFix, AutoFixEngine, ErrorRecovery, CacheStats, CacheEntry
-```
-
-## Test Pattern
-
-```python
-import pytest
-
-@pytest.mark.asyncio
-async def test_subsystem_contract():
-    # Construct the service, provider, controller helper, or datatype directly.
-    # Use the exact constructor and methods from api-reference.md.
-    assert True
-```
+- Run `python -m aquilia.cli.__main__ --help` to confirm CLI availability.
+- Run `aq validate` in a workspace to validate manifest paths.
+- Run related tests under `tests/` or `examples/*/tests/` for executable behavior.

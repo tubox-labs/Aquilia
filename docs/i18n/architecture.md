@@ -1,121 +1,78 @@
-# I18n Architecture
+<!-- Legacy mirror. Canonical page: ../modules/i18n/architecture.md -->
 
-## Design Goals
+# I18N Architecture
 
-Aquilia i18n is built around these goals:
+Internationalization service, locale negotiation, catalogs, formatting, plural rules, lazy strings, middleware, CLI helpers, and template integration.
 
-- Async-safe request integration through middleware and request state
-- Explicit, typed configuration (`I18nConfig`)
-- Catalog backend flexibility (memory, file, CROUS)
-- Stable translation lookup semantics (`t`, `tn`, `tp`)
-- Zero required external runtime dependencies (optional extras for YAML/CROUS)
+## Source Boundaries
 
-## Boot and Wiring Flow
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/i18n/__init__.py` | 182 | 0 | 0 | AquilaI18n — Industry-grade Internationalization & Localization for Aquilia. |
+| `aquilia/i18n/catalog.py` | 810 | 6 | 1 | Translation Catalogs — Storage and retrieval of translation strings. |
+| `aquilia/i18n/di_integration.py` | 183 | 0 | 2 | I18n DI Integration — Register i18n providers in Aquilia's DI container. |
+| `aquilia/i18n/faults.py` | 187 | 5 | 0 | I18n Faults — Typed fault signals for the i18n subsystem. |
+| `aquilia/i18n/formatter.py` | 627 | 1 | 9 | Message Formatter — ICU MessageFormat-inspired interpolation & locale formatting. |
+| `aquilia/i18n/lazy.py` | 289 | 2 | 4 | Lazy Strings — Deferred translation resolution. |
+| `aquilia/i18n/locale.py` | 352 | 1 | 5 | Locale — BCP 47 locale tag parsing, normalization, and negotiation. |
+| `aquilia/i18n/middleware.py` | 423 | 8 | 1 | I18n Middleware — Request-scoped locale resolution & injection. |
+| `aquilia/i18n/plural.py` | 515 | 1 | 2 | Plural Rules — CLDR-based plural category selection for 200+ languages. |
+| `aquilia/i18n/service.py` | 425 | 3 | 1 | I18n Service — Central orchestrator for all translation operations. |
+| `aquilia/i18n/template_integration.py` | 197 | 1 | 1 | I18n Template Integration — Jinja2 globals, filters, and extensions. |
 
-When the server starts and i18n is enabled:
+## Internal Shape
 
-1. `ConfigLoader.get_i18n_config()` produces merged runtime config.
-2. `I18nConfig.from_dict()` converts dict config to typed config.
-3. `create_i18n_service()` builds `I18nService` and catalog backend.
-4. `register_i18n_providers()` injects app-scoped providers into DI containers.
-5. `build_resolver()` constructs ordered locale resolvers.
-6. `I18nMiddleware` is added to middleware stack (priority 24).
-7. `register_i18n_template_globals()` is applied if template engine exists.
+`i18n` has 11 Python files, 28 public classes, 26 public module-level functions, and 12 constants or module flags detected by AST.
 
-Primary orchestrator: `aquilia/server.py::_setup_i18n`.
+## Runtime Responsibilities
 
-## Core Components
+- This module has `aq` command coverage documented in `cli-reference.md`; 6 commands map to this subsystem.
 
-| Component | Location | Responsibility |
-|---|---|---|
-| Locale model and parsing | `aquilia/i18n/locale.py` | BCP 47 parsing, normalization, matching, negotiation |
-| Plural rules | `aquilia/i18n/plural.py` | CLDR-style category selection (`zero/one/two/few/many/other`) |
-| Catalog abstraction | `aquilia/i18n/catalog.py` | Key retrieval, plural retrieval, locale/key enumeration |
-| Message formatting | `aquilia/i18n/formatter.py` | ICU-like interpolation plus number/date/currency helpers |
-| Service orchestration | `aquilia/i18n/service.py` | Translation API, fallback chain, strategy handling |
-| Request integration | `aquilia/i18n/middleware.py` | Locale resolution and request state injection |
-| Template integration | `aquilia/i18n/template_integration.py` | Jinja globals and filters |
-| Template context helper | `aquilia/templates/context.py` | Optional `_`/`gettext` context injection fallback |
-| DI integration | `aquilia/i18n/di_integration.py` | App and request provider registration |
-| Fault types | `aquilia/i18n/faults.py` | i18n-domain fault hierarchy |
-| CLI tooling | `aquilia/cli/commands/i18n.py` | Catalog lifecycle and extraction operations |
+## Internal Imports
 
-## Translation Lookup Pipeline
+| Import | Count |
+| --- | ---: |
+| `.locale` | 3 |
+| `.plural` | 3 |
+| `.catalog` | 2 |
+| `.formatter` | 2 |
+| `.lazy` | 2 |
+| `.di_integration` | 1 |
+| `.faults` | 1 |
+| `.middleware` | 1 |
+| `.service` | 1 |
+| `.template_integration` | 1 |
+| `aquilia._version` | 1 |
+| `aquilia.faults.core` | 1 |
 
-### `I18nService.t(key, locale, default, **kwargs)`
+## External And Stdlib Imports
 
-Lookup order:
+| Import root | Count |
+| --- | ---: |
+| `__future__` | 10 |
+| `typing` | 8 |
+| `logging` | 5 |
+| `collections` | 4 |
+| `abc` | 2 |
+| `dataclasses` | 2 |
+| `datetime` | 2 |
+| `enum` | 2 |
+| `pathlib` | 2 |
+| `re` | 2 |
+| `contextvars` | 1 |
+| `decimal` | 1 |
+| `hashlib` | 1 |
+| `json` | 1 |
 
-1. Exact locale key lookup (`catalog.get(key, locale)`).
-2. Parsed locale fallback chain (`fr-CA -> fr`, etc.).
-3. Global fallback locale (`config.fallback_locale`) if different.
-4. Missing-key strategy handling.
+## Lifecycle And Extension Points
 
-Formatting:
+| Extension Type | Source | Role |
+| --- | --- | --- |
+| `I18nMiddleware` | `aquilia/i18n/middleware.py` | Aquilia middleware that resolves locale and injects i18n into requests. |
+| `I18nConfig` | `aquilia/i18n/service.py` | Configuration for the i18n service. |
 
-- If kwargs are present and text resolved, formatter interpolation runs.
-- Formatting is ICU-like but intentionally lightweight.
+## Error Handling
 
-### `I18nService.tn(key, count, locale, default, **kwargs)`
+Fault/error classes defined here:
 
-1. Determine plural category from language via `select_plural`.
-2. Attempt `catalog.get_plural(key, locale, category)`.
-3. Fallback to non-plural `t` lookup if plural branch missing.
-4. Inject `count` into kwargs and format resolved string.
-
-## Locale Resolution Pipeline
-
-Resolver chain is ordered by `resolver_order` and short-circuits on first match:
-
-- `QueryLocaleResolver`
-- `CookieLocaleResolver`
-- `HeaderLocaleResolver`
-- `PathLocaleResolver`
-- `SessionLocaleResolver`
-
-`ChainLocaleResolver.resolve()` catches resolver exceptions and continues.
-
-`I18nMiddleware` then:
-
-1. Starts with default locale.
-2. Applies resolver result if available and allowed by `service.is_available`.
-3. Parses locale object (`parse_locale`).
-4. Writes request state:
-   - `locale`
-   - `locale_obj`
-   - `i18n`
-5. Sets lazy-translation context for request duration using `contextvars`.
-
-## Catalog Assembly
-
-`I18nService._build_catalog()` chooses backend per `catalog_format`:
-
-- `crous` -> `CrousCatalog`
-- otherwise -> `FileCatalog`
-
-Multiple `catalog_dirs` are layered with `MergedCatalog` preserving order.
-
-Backend details:
-
-- `MemoryCatalog`: in-memory nested dict lookups with deep merge support.
-- `FileCatalog`: lazy loads JSON trees by default, with optional YAML support when configured; filenames become namespaces.
-- `CrousCatalog`: prefers `.crous`, supports JSON fallback and optional auto-compile.
-
-## Fault and Exception Behavior
-
-The subsystem includes typed i18n faults (`I18nFault` subclasses), but not every invalid-path branch raises them today.
-
-Key behavior:
-
-- Missing translation can raise `MissingTranslationFault` when strategy is `raise`.
-- Locale parsing currently raises `ConfigInvalidFault` from `aquilia.faults.domains`.
-- Some failure points are fail-soft and log warnings instead of raising.
-
-See `edge-cases-and-limitations.md` for exact caveats.
-
-## Boundaries and Integration Contracts
-
-- i18n does not authenticate or authorize users.
-- i18n may read session data only through `SessionLocaleResolver` if configured.
-- i18n does not own persistence for user locale preferences; it consumes request/session/cookie/query/header signals.
-- Template and controller layers should treat `I18nService` as the canonical translation API.
+`I18nFault`, `MissingTranslationFault`, `InvalidLocaleFault`, `CatalogLoadFault`, `PluralRuleFault`

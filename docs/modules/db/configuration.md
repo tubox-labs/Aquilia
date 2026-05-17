@@ -1,43 +1,54 @@
-# Database Configuration
+# Db Configuration
 
-## Configuration Entry Points
+Async database engine facade, typed database configs, adapters for SQLite/Postgres/MySQL/Oracle, and schema introspection helpers.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/db/__init__.py` | 68 | 0 | 0 | Aquilia Database -- async-first database layer. |
+| `aquilia/db/backends/__init__.py` | 27 | 0 | 0 | Aquilia DB Backends Package -- pluggable database adapters. |
+| `aquilia/db/backends/base.py` | 222 | 5 | 0 | Aquilia DB Backend -- Base Adapter Interface. |
+| `aquilia/db/backends/mysql.py` | 443 | 1 | 0 | Aquilia DB Backend -- MySQL/MariaDB adapter via aiomysql. |
+| `aquilia/db/backends/oracle.py` | 610 | 1 | 0 | Aquilia DB Backend -- Oracle adapter via python-oracledb. |
+| `aquilia/db/backends/postgres.py` | 424 | 1 | 0 | Aquilia DB Backend -- PostgreSQL adapter via asyncpg. |
+| `aquilia/db/backends/sqlite.py` | 332 | 1 | 0 | Aquilia DB Backend -- SQLite adapter via native aquilia.sqlite module. |
+| `aquilia/db/configs.py` | 519 | 5 | 0 | Aquilia Database Configuration Classes -- Developer-Friendly Typed Configs. |
+| `aquilia/db/engine.py` | 621 | 1 | 4 | Aquilia Database Engine -- async-first, multi-backend, production-ready. |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `AdapterCapabilities` | `aquilia/db/backends/base.py` | supports_returning: bool, supports_json_type: bool, supports_arrays: bool, supports_hstore: bool, supports_citext: bool, supports_upsert: bool, supports_savepoints: bool, supports_window_functions: bool, supports_cte: bool, param_style: str, null_ordering: bool, name: str | Describes what a specific backend supports. |
-| `ColumnInfo` | `aquilia/db/backends/base.py` | name: str, data_type: str, nullable: bool, default: str &#124; None, primary_key: bool, unique: bool, max_length: int &#124; None | Introspection result for a single column. |
-| `TableInfo` | `aquilia/db/backends/base.py` | name: str, columns: list[ColumnInfo], indexes: list[dict[str, Any]], foreign_keys: list[dict[str, Any]] | Introspection result for a table. |
-| `IntrospectionResult` | `aquilia/db/backends/base.py` | tables: list[TableInfo] | Full database introspection result. |
-| `DatabaseConfig` | `aquilia/db/configs.py` | engine: str, pool_size: int, pool_min_size: int, pool_max_size: int, echo: bool, auto_connect: bool, auto_create: bool, auto_migrate: bool, migrations_dir: str, connect_retries: int, connect_retry_delay: float, conn_max_age: int, ... | Base database configuration. |
-| `SqliteConfig` | `aquilia/db/configs.py` | engine: str, path: str, journal_mode: str, foreign_keys: bool, busy_timeout: int | SQLite database configuration. |
-| `PostgresConfig` | `aquilia/db/configs.py` | engine: str, host: str, port: int, name: str, database: str, user: str, password: str, schema: str, sslmode: str | PostgreSQL database configuration. |
-| `MysqlConfig` | `aquilia/db/configs.py` | engine: str, host: str, port: int, name: str, database: str, user: str, password: str, charset: str, collation: str | MySQL / MariaDB database configuration. |
-| `OracleConfig` | `aquilia/db/configs.py` | engine: str, host: str, port: int, service_name: str, database: str, user: str, password: str, sid: str, thick_mode: bool, encoding: str | Oracle database configuration. |
+| `DatabaseConfig` | `aquilia/db/configs.py` | `to_url`, `to_dict`, `get_engine_options`, `from_url` | Base database configuration. |
+| `SqliteConfig` | `aquilia/db/configs.py` | `to_url`, `from_url` | SQLite database configuration. |
+| `PostgresConfig` | `aquilia/db/configs.py` | `to_url`, `get_engine_options`, `from_url` | PostgreSQL database configuration. |
+| `MysqlConfig` | `aquilia/db/configs.py` | `to_url`, `get_engine_options`, `from_url` | MySQL / MariaDB database configuration. |
+| `OracleConfig` | `aquilia/db/configs.py` | `to_url`, `get_dsn`, `get_engine_options`, `from_url` | Oracle database configuration. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- `DatabaseIntegration`
-- `SqliteConfig`
-- `PostgresConfig`
-- `MysqlConfig`
-- `OracleConfig`
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.

@@ -1,10 +1,29 @@
-# Aquilary Registry API Reference
+# Aquilary API Reference
 
-This page is extracted from the current Python source. It includes public classes, methods, functions, constants, dataclass-like fields, decorators, and notable attributes.
+This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
+
+## Source Inventory
+
+| File | Lines | Classes | Functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/aquilary/__init__.py` | 78 | 0 | 0 | Aquilary - Manifest-driven App Registry for Aquilia |
+| `aquilia/aquilary/cli.py` | 501 | 0 | 7 | Aquilary CLI commands for manifest validation, inspection, and deployment. |
+| `aquilia/aquilary/core.py` | 1498 | 6 | 0 | Core Aquilary types and main registry class. |
+| `aquilia/aquilary/errors.py` | 448 | 11 | 0 | Aquilary registry error types with rich diagnostics. |
+| `aquilia/aquilary/fingerprint.py` | 424 | 1 | 0 | Fingerprint generator for reproducible deployments. |
+| `aquilia/aquilary/graph.py` | 334 | 2 | 0 | Dependency graph analysis with Tarjan's algorithm for cycle detection. |
+| `aquilia/aquilary/handler_wrapper.py` | 204 | 2 | 2 | Handler wrapper for dependency injection into controller methods. |
+| `aquilia/aquilary/loader.py` | 487 | 2 | 0 | Safe manifest loader with no import-time side effects. |
+| `aquilia/aquilary/route_compiler.py` | 249 | 4 | 0 | Route Compiler - Extracts routes from controllers and compiles route table. |
+| `aquilia/aquilary/validator.py` | 453 | 1 | 0 | Registry validator for manifests and configuration. |
+
+## Public Exports
+
+`AppContext`, `Aquilary`, `AquilaryRegistry`, `ConfigValidationError`, `CrossAppUsageError`, `DependencyCycleError`, `DependencyGraph`, `DuplicateAppError`, `ErrorSpan`, `FingerprintGenerator`, `FrozenManifestMismatchError`, `GraphNode`, `HotReloadError`, `ManifestLoader`, `ManifestSource`, `ManifestValidationError`, `RegistryError`, `RegistryFingerprint`, `RegistryMode`, `RegistryValidator`, `RouteConflictError`, `RuntimeRegistry`, `ValidationReport`
 
 ## Public Class Summary
 
-| Name | Source | Bases | Purpose |
+| Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
 | `RegistryMode` | `aquilia/aquilary/core.py` | str, Enum | Registry operational modes. |
 | `AppContext` | `aquilia/aquilary/core.py` | object | Runtime context for a loaded app. |
@@ -33,97 +52,91 @@ This page is extracted from the current Python source. It includes public classe
 | `RouteInfo` | `aquilia/aquilary/route_compiler.py` | object | Information about a single route. |
 | `RouteTable` | `aquilia/aquilary/route_compiler.py` | object | Compiled routing table. |
 | `RouteConflictError` | `aquilia/aquilary/route_compiler.py` | Exception | Raised when route patterns conflict. |
-| `RouteCompiler` | `aquilia/aquilary/route_compiler.py` | object | Compiles routes from controller classes. |
+| `RouteCompiler` | `aquilia/aquilary/route_compiler.py` | object | Compiles routes from controller classes. Extracts @flow decorators and builds routing table. |
 | `RegistryValidator` | `aquilia/aquilary/validator.py` | object | Validates registry manifests and configuration. |
 
 ## Public Function Summary
 
-| Name | Source | Signature | Purpose |
+| Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `load_config` | `aquilia/aquilary/cli.py` | `def load_config(config_path: str &#124; None) -> Any` | Load config from Python file. |
-| `cmd_validate` | `aquilia/aquilary/cli.py` | `def cmd_validate(args: argparse.Namespace) -> None` | Validate manifests. |
-| `cmd_inspect` | `aquilia/aquilary/cli.py` | `def cmd_inspect(args: argparse.Namespace) -> None` | Inspect registry and show diagnostics. |
-| `cmd_freeze` | `aquilia/aquilary/cli.py` | `def cmd_freeze(args: argparse.Namespace) -> None` | Freeze manifest for reproducible deploys. |
-| `cmd_graph` | `aquilia/aquilary/cli.py` | `def cmd_graph(args: argparse.Namespace) -> None` | Visualize dependency graph. |
-| `cmd_run` | `aquilia/aquilary/cli.py` | `def cmd_run(args: argparse.Namespace) -> None` | Run application with registry. |
+| `load_config` | `aquilia/aquilary/cli.py` | `def load_config(config_path: str \| None)` | Load config from Python file. |
+| `cmd_validate` | `aquilia/aquilary/cli.py` | `def cmd_validate(args: argparse.Namespace)` | Validate manifests. |
+| `cmd_inspect` | `aquilia/aquilary/cli.py` | `def cmd_inspect(args: argparse.Namespace)` | Inspect registry and show diagnostics. |
+| `cmd_freeze` | `aquilia/aquilary/cli.py` | `def cmd_freeze(args: argparse.Namespace)` | Freeze manifest for reproducible deploys. |
+| `cmd_graph` | `aquilia/aquilary/cli.py` | `def cmd_graph(args: argparse.Namespace)` | Visualize dependency graph. |
+| `cmd_run` | `aquilia/aquilary/cli.py` | `def cmd_run(args: argparse.Namespace)` | Run application with registry. |
 | `main` | `aquilia/aquilary/cli.py` | `def main()` | Main CLI entry point. |
-| `wrap_handler` | `aquilia/aquilary/handler_wrapper.py` | `def wrap_handler(handler: Callable, controller_class: type) -> HandlerWrapper` | Wrap a controller handler for dependency injection. |
-| `inject_dependencies` | `aquilia/aquilary/handler_wrapper.py` | `def inject_dependencies(handler: Callable) -> Callable` | Decorator to enable dependency injection for a handler. |
-
-## Constants
-
-| Name | Source | Value or type |
-| --- | --- | --- |
-| None detected |  |  |
+| `wrap_handler` | `aquilia/aquilary/handler_wrapper.py` | `def wrap_handler(handler: Callable, controller_class: type)` | Wrap a controller handler for dependency injection. |
+| `inject_dependencies` | `aquilia/aquilary/handler_wrapper.py` | `def inject_dependencies(handler: Callable)` | Decorator to enable dependency injection for a handler. |
 
 ## Detailed Classes And Methods
 
-### Class: `RegistryMode`
+### `RegistryMode`
 
 - Source: `aquilia/aquilary/core.py`
 - Bases: `str, Enum`
 - Summary: Registry operational modes.
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `DEV` |  | `'dev'` |
-| `PROD` |  | `'prod'` |
-| `TEST` |  | `'test'` |
+| `DEV` | `` | `'dev'` |
+| `PROD` | `` | `'prod'` |
+| `TEST` | `` | `'test'` |
 
-### Class: `AppContext`
+### `AppContext`
 
 - Source: `aquilia/aquilary/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Runtime context for a loaded app.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
-| `version` | `str` |  |
-| `manifest` | `Any` |  |
-| `config_namespace` | `dict[str, Any]` |  |
+| `name` | `str` | `` |
+| `version` | `str` | `` |
+| `manifest` | `Any` | `` |
+| `config_namespace` | `dict[str, Any]` | `` |
 | `route_prefix` | `str` | `'/'` |
 | `controllers` | `list[str]` | `field(default_factory=list)` |
 | `services` | `list[str]` | `field(default_factory=list)` |
 | `models` | `list[str]` | `field(default_factory=list)` |
 | `middlewares` | `list[tuple[str, dict]]` | `field(default_factory=list)` |
 | `depends_on` | `list[str]` | `field(default_factory=list)` |
-| `on_startup` | `Callable &#124; None` | `None` |
-| `on_shutdown` | `Callable &#124; None` | `None` |
-| `di_container` | `Any &#124; None` | `None` |
+| `on_startup` | `Callable \| None` | `None` |
+| `on_shutdown` | `Callable \| None` | `None` |
+| `di_container` | `Any \| None` | `None` |
 | `route_metadata` | `list[dict[str, Any]]` | `field(default_factory=list)` |
 | `load_order` | `int` | `0` |
 
-### Class: `RegistryFingerprint`
+### `RegistryFingerprint`
 
 - Source: `aquilia/aquilary/core.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Immutable registry fingerprint for deployment gating.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `hash` | `str` |  |
-| `timestamp` | `str` |  |
-| `mode` | `str` |  |
-| `app_count` | `int` |  |
-| `route_count` | `int` |  |
-| `manifest_sources` | `list[str]` |  |
+| `hash` | `str` | `` |
+| `timestamp` | `str` | `` |
+| `mode` | `str` | `` |
+| `app_count` | `int` | `` |
+| `route_count` | `int` | `` |
+| `manifest_sources` | `list[str]` | `` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize for JSON export. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `to_dict` | `def to_dict(self)` | Serialize for JSON export. |
 
-### Class: `AquilaryRegistry`
+### `AquilaryRegistry`
 
 - Source: `aquilia/aquilary/core.py`
 - Bases: `object`
@@ -131,13 +144,13 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `build_runtime` | `def build_runtime(self) -> 'RuntimeRegistry'` |  | Build runtime registry. |
-| `inspect` | `def inspect(self) -> dict[str, Any]` |  | Get diagnostics, routes, dependency graph, conflicts, fingerprint. |
-| `export_manifest` | `def export_manifest(self, path: str) -> None` |  | Write frozen manifest for reproducible deploys. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `build_runtime` | `def build_runtime(self)` | Build runtime registry. |
+| `inspect` | `def inspect(self)` | Get diagnostics, routes, dependency graph, conflicts, fingerprint. |
+| `export_manifest` | `def export_manifest(self, path: str)` | Write frozen manifest for reproducible deploys. |
 
-### Class: `Aquilary`
+### `Aquilary`
 
 - Source: `aquilia/aquilary/core.py`
 - Bases: `object`
@@ -145,11 +158,11 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_manifests` | `def from_manifests(cls, manifests: list[type &#124; str], config: Any, mode: Literal['dev', 'prod', 'test'] = 'prod', *, allow_fs_autodiscovery: bool = False, freeze_manifest_path: str &#124; None = None, workspace_modules: dict[str, dict[str, Any]] &#124; None = None) -> AquilaryRegistry` | classmethod | Build and validate registry metadata (static phase). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_manifests` | `def from_manifests(cls, manifests: list[type \| str], config: Any, mode: Literal['dev', 'prod', 'test']='prod', *, allow_fs_autodiscovery: bool=False, freeze_manifest_path: str \| None=None, workspace_modules: dict[str, dict[str, Any]] \| None=None)` | Build and validate registry metadata (static phase). |
 
-### Class: `RuntimeRegistry`
+### `RuntimeRegistry`
 
 - Source: `aquilia/aquilary/core.py`
 - Bases: `object`
@@ -157,35 +170,35 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `from_metadata` | `def from_metadata(cls, registry_meta: AquilaryRegistry, config: Any) -> 'RuntimeRegistry'` | classmethod | Create runtime registry from metadata. |
-| `perform_autodiscovery` | `def perform_autodiscovery(self) -> None` |  | Perform runtime auto-discovery of controllers and services. |
-| `compile_routes` | `def compile_routes(self) -> None` |  | Lazily import controllers and compile route trees. |
-| `validate_dependencies` | `def validate_dependencies(self) -> list[str]` |  | Validate cross-app dependencies and service availability. |
-| `validate_routes` | `def validate_routes(self) -> list[str]` |  | Validate route configuration for conflicts and errors. |
-| `validate_effects` | `def validate_effects(self) -> list[str]` |  | Validate effect registration. |
-| `validate_all` | `def validate_all(self) -> dict[str, list[str]]` |  | Run all validation checks. |
-| `compile` | `def compile(self)` |  | Compile runtime registry with full validation. |
-| `build_runtime_instance` | `def build_runtime_instance(self) -> Any` |  | Build complete runtime instance. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `from_metadata` | `def from_metadata(cls, registry_meta: AquilaryRegistry, config: Any)` | Create runtime registry from metadata. |
+| `perform_autodiscovery` | `def perform_autodiscovery(self)` | Perform runtime auto-discovery of controllers and services. |
+| `compile_routes` | `def compile_routes(self)` | Lazily import controllers and compile route trees. |
+| `validate_dependencies` | `def validate_dependencies(self)` | Validate cross-app dependencies and service availability. |
+| `validate_routes` | `def validate_routes(self)` | Validate route configuration for conflicts and errors. |
+| `validate_effects` | `def validate_effects(self)` | Validate effect registration. |
+| `validate_all` | `def validate_all(self)` | Run all validation checks. |
+| `compile` | `def compile(self)` | Compile runtime registry with full validation. |
+| `build_runtime_instance` | `def build_runtime_instance(self)` | Build complete runtime instance. |
 
-### Class: `ErrorSpan`
+### `ErrorSpan`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: File location for error context.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `file` | `str` |  |
-| `line` | `int &#124; None` | `None` |
-| `column` | `int &#124; None` | `None` |
-| `snippet` | `str &#124; None` | `None` |
+| `file` | `str` | `` |
+| `line` | `int \| None` | `None` |
+| `column` | `int \| None` | `None` |
+| `snippet` | `str \| None` | `None` |
 
-### Class: `RegistryError`
+### `RegistryError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `Exception`
@@ -193,84 +206,84 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `format_error` | `def format_error(self) -> str` |  | Format error with rich diagnostics. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `format_error` | `def format_error(self)` | Format error with rich diagnostics. |
 
-### Class: `DependencyCycleError`
+### `DependencyCycleError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Circular dependency detected in app dependency graph.
 
-### Class: `RouteConflictError`
+### `RouteConflictError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Multiple controllers claim the same route path.
 
-### Class: `ConfigValidationError`
+### `ConfigValidationError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Configuration validation failed.
 
-### Class: `CrossAppUsageError`
+### `CrossAppUsageError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: App uses service/controller from another app without declaring dependency.
 
-### Class: `ManifestValidationError`
+### `ManifestValidationError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Manifest structure is invalid.
 
-### Class: `DuplicateAppError`
+### `DuplicateAppError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Multiple manifests declare the same app name.
 
-### Class: `FrozenManifestMismatchError`
+### `FrozenManifestMismatchError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Current manifests don't match frozen fingerprint.
 
-### Class: `HotReloadError`
+### `HotReloadError`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `RegistryError`
 - Summary: Hot-reload operation failed.
 
-### Class: `ValidationReport`
+### `ValidationReport`
 
 - Source: `aquilia/aquilary/errors.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Aggregated validation report.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
 | `errors` | `list[RegistryError]` | `field(default_factory=list)` |
 | `warnings` | `list[str]` | `field(default_factory=list)` |
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_error` | `def add_error(self, error: RegistryError) -> None` |  | Add error to report. |
-| `add_warning` | `def add_warning(self, warning: str) -> None` |  | Add warning to report. |
-| `has_errors` | `def has_errors(self) -> bool` |  | Check if report has errors. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Serialize report. |
-| `to_exception` | `def to_exception(self) -> RegistryError` |  | Convert report to exception. |
-| `format_report` | `def format_report(self) -> str` |  | Format report for display. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_error` | `def add_error(self, error: RegistryError)` | Add error to report. |
+| `add_warning` | `def add_warning(self, warning: str)` | Add warning to report. |
+| `has_errors` | `def has_errors(self)` | Check if report has errors. |
+| `to_dict` | `def to_dict(self)` | Serialize report. |
+| `to_exception` | `def to_exception(self)` | Convert report to exception. |
+| `format_report` | `def format_report(self)` | Format report for display. |
 
-### Class: `FingerprintGenerator`
+### `FingerprintGenerator`
 
 - Source: `aquilia/aquilary/fingerprint.py`
 - Bases: `object`
@@ -278,31 +291,31 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `generate` | `def generate(self, app_contexts: list[Any], config: Any, mode: Any) -> str` |  | Generate fingerprint from registry state. |
-| `generate_with_metadata` | `def generate_with_metadata(self, app_contexts: list[Any], config: Any, mode: Any) -> dict[str, Any]` |  | Generate fingerprint with metadata. |
-| `verify_fingerprint` | `def verify_fingerprint(self, expected: str, app_contexts: list[Any], config: Any, mode: Any) -> bool` |  | Verify current state matches expected fingerprint. |
-| `diff_fingerprints` | `def diff_fingerprints(self, expected_contexts: list[Any], actual_contexts: list[Any], config: Any, mode: Any) -> dict[str, Any]` |  | Compute diff between expected and actual registry state. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `generate` | `def generate(self, app_contexts: list[Any], config: Any, mode: Any)` | Generate fingerprint from registry state. |
+| `generate_with_metadata` | `def generate_with_metadata(self, app_contexts: list[Any], config: Any, mode: Any)` | Generate fingerprint with metadata. |
+| `verify_fingerprint` | `def verify_fingerprint(self, expected: str, app_contexts: list[Any], config: Any, mode: Any)` | Verify current state matches expected fingerprint. |
+| `diff_fingerprints` | `def diff_fingerprints(self, expected_contexts: list[Any], actual_contexts: list[Any], config: Any, mode: Any)` | Compute diff between expected and actual registry state. |
 
-### Class: `GraphNode`
+### `GraphNode`
 
 - Source: `aquilia/aquilary/graph.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Dependency graph node.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `name` | `str` |  |
+| `name` | `str` | `` |
 | `dependencies` | `list[str]` | `field(default_factory=list)` |
-| `index` | `int &#124; None` | `None` |
-| `lowlink` | `int &#124; None` | `None` |
+| `index` | `int \| None` | `None` |
+| `lowlink` | `int \| None` | `None` |
 | `on_stack` | `bool` | `False` |
 
-### Class: `DependencyGraph`
+### `DependencyGraph`
 
 - Source: `aquilia/aquilary/graph.py`
 - Bases: `object`
@@ -310,50 +323,50 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `add_node` | `def add_node(self, name: str, dependencies: list[str]) -> None` |  | Add node to graph. |
-| `topological_sort` | `def topological_sort(self) -> list[str]` |  | Compute topological sort of graph (dependency order). |
-| `find_cycle` | `def find_cycle(self) -> list[str] &#124; None` |  | Find cycle in graph using Tarjan's algorithm. |
-| `get_dependencies` | `def get_dependencies(self, node_name: str) -> list[str]` |  | Get direct dependencies of node. |
-| `get_transitive_dependencies` | `def get_transitive_dependencies(self, node_name: str) -> set[str]` |  | Get transitive closure of dependencies. |
-| `get_dependents` | `def get_dependents(self, node_name: str) -> list[str]` |  | Get nodes that depend on given node (reverse dependencies). |
-| `to_dict` | `def to_dict(self) -> dict[str, list[str]]` |  | Export graph as adjacency dict. |
-| `to_dot` | `def to_dot(self) -> str` |  | Export graph as DOT format for visualization. |
-| `get_load_order` | `def get_load_order(self) -> list[str]` |  | Get load order (topological sort). |
-| `validate` | `def validate(self) -> tuple[bool, list[str] &#124; None]` |  | Validate graph for cycles. |
-| `get_roots` | `def get_roots(self) -> list[str]` |  | Get root nodes (no dependencies). |
-| `get_leaves` | `def get_leaves(self) -> list[str]` |  | Get leaf nodes (no dependents). |
-| `get_layers` | `def get_layers(self) -> list[list[str]]` |  | Get dependency layers (parallel execution groups). |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `add_node` | `def add_node(self, name: str, dependencies: list[str])` | Add node to graph. |
+| `topological_sort` | `def topological_sort(self)` | Compute topological sort of graph (dependency order). |
+| `find_cycle` | `def find_cycle(self)` | Find cycle in graph using Tarjan's algorithm. |
+| `get_dependencies` | `def get_dependencies(self, node_name: str)` | Get direct dependencies of node. |
+| `get_transitive_dependencies` | `def get_transitive_dependencies(self, node_name: str)` | Get transitive closure of dependencies. |
+| `get_dependents` | `def get_dependents(self, node_name: str)` | Get nodes that depend on given node (reverse dependencies). |
+| `to_dict` | `def to_dict(self)` | Export graph as adjacency dict. |
+| `to_dot` | `def to_dot(self)` | Export graph as DOT format for visualization. |
+| `get_load_order` | `def get_load_order(self)` | Get load order (topological sort). |
+| `validate` | `def validate(self)` | Validate graph for cycles. |
+| `get_roots` | `def get_roots(self)` | Get root nodes (no dependencies). |
+| `get_leaves` | `def get_leaves(self)` | Get leaf nodes (no dependents). |
+| `get_layers` | `def get_layers(self)` | Get dependency layers (parallel execution groups). |
 
-### Class: `DIInjectionError`
+### `DIInjectionError`
 
 - Source: `aquilia/aquilary/handler_wrapper.py`
 - Bases: `Exception`
 - Summary: Raised when dependency injection fails.
 
-### Class: `HandlerWrapper`
+### `HandlerWrapper`
 
 - Source: `aquilia/aquilary/handler_wrapper.py`
 - Bases: `object`
 - Summary: Wraps controller handlers to inject dependencies from DI container.
 
-### Class: `ManifestSource`
+### `ManifestSource`
 
 - Source: `aquilia/aquilary/loader.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Manifest source descriptor.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `type` | `str` |  |
-| `value` | `Any` |  |
-| `origin` | `str` |  |
+| `type` | `str` | `` |
+| `value` | `Any` | `` |
+| `origin` | `str` | `` |
 
-### Class: `ManifestLoader`
+### `ManifestLoader`
 
 - Source: `aquilia/aquilary/loader.py`
 - Bases: `object`
@@ -361,68 +374,68 @@ Attributes and fields:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `load_manifests` | `def load_manifests(self, sources: list[type &#124; str], *, allow_fs_autodiscovery: bool = False) -> list[Any]` |  | Load manifests from sources. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `load_manifests` | `def load_manifests(self, sources: list[type \| str], *, allow_fs_autodiscovery: bool=False)` | Load manifests from sources. |
 
-### Class: `RouteInfo`
+### `RouteInfo`
 
 - Source: `aquilia/aquilary/route_compiler.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Information about a single route.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `pattern` | `str` |  |
-| `method` | `str` |  |
-| `handler` | `Any` |  |
-| `controller_class` | `type` |  |
-| `flow` | `Any` |  |
-| `metadata` | `dict[str, Any]` |  |
+| `pattern` | `str` | `` |
+| `method` | `str` | `` |
+| `handler` | `Any` | `` |
+| `controller_class` | `type` | `` |
+| `flow` | `Any` | `` |
+| `metadata` | `dict[str, Any]` | `` |
 
-### Class: `RouteTable`
+### `RouteTable`
 
 - Source: `aquilia/aquilary/route_compiler.py`
 - Bases: `object`
-- Decorators: `dataclass`
 - Summary: Compiled routing table.
+- Decorators: `dataclass`
 
-Attributes and fields:
+Fields and class attributes:
 
-| Name | Type | Default |
+| Name | Type | Default / Value |
 | --- | --- | --- |
-| `routes` | `list[RouteInfo]` |  |
-| `patterns` | `dict[str, RouteInfo]` |  |
-| `conflicts` | `list[tuple[RouteInfo, RouteInfo]]` |  |
+| `routes` | `list[RouteInfo]` | `` |
+| `patterns` | `dict[str, RouteInfo]` | `` |
+| `conflicts` | `list[tuple[RouteInfo, RouteInfo]]` | `` |
 
-### Class: `RouteConflictError`
+### `RouteConflictError`
 
 - Source: `aquilia/aquilary/route_compiler.py`
 - Bases: `Exception`
 - Summary: Raised when route patterns conflict.
 
-### Class: `RouteCompiler`
+### `RouteCompiler`
 
 - Source: `aquilia/aquilary/route_compiler.py`
 - Bases: `object`
-- Summary: Compiles routes from controller classes.
+- Summary: Compiles routes from controller classes. Extracts @flow decorators and builds routing table.
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `compile_controller` | `def compile_controller(self, controller_path: str, config: Any = None) -> list[RouteInfo]` |  | Compile routes from a controller module or class. |
-| `compile_from_manifests` | `def compile_from_manifests(self, manifests: list[dict[str, Any]], config: Any = None) -> RouteTable` |  | Compile routes from app manifests. |
-| `validate_routes` | `def validate_routes(self) -> list[str]` |  | Validate compiled routes. |
-| `get_route_count` | `def get_route_count(self) -> int` |  | Get total number of routes. |
-| `get_routes_by_method` | `def get_routes_by_method(self, method: str) -> list[RouteInfo]` |  | Get all routes for a specific HTTP method. |
-| `get_routes_by_pattern` | `def get_routes_by_pattern(self, pattern: str) -> list[RouteInfo]` |  | Get all routes matching a pattern. |
-| `to_dict` | `def to_dict(self) -> dict[str, Any]` |  | Export route table as dictionary. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `compile_controller` | `def compile_controller(self, controller_path: str, config: Any=None)` | Compile routes from a controller module or class. |
+| `compile_from_manifests` | `def compile_from_manifests(self, manifests: list[dict[str, Any]], config: Any=None)` | Compile routes from app manifests. |
+| `validate_routes` | `def validate_routes(self)` | Validate compiled routes. |
+| `get_route_count` | `def get_route_count(self)` | Get total number of routes. |
+| `get_routes_by_method` | `def get_routes_by_method(self, method: str)` | Get all routes for a specific HTTP method. |
+| `get_routes_by_pattern` | `def get_routes_by_pattern(self, pattern: str)` | Get all routes matching a pattern. |
+| `to_dict` | `def to_dict(self)` | Export route table as dictionary. |
 
-### Class: `RegistryValidator`
+### `RegistryValidator`
 
 - Source: `aquilia/aquilary/validator.py`
 - Bases: `object`
@@ -430,21 +443,7 @@ Methods:
 
 Methods:
 
-| Name | Signature | Decorators | Purpose |
-| --- | --- | --- | --- |
-| `validate_manifests` | `def validate_manifests(self, manifests: list[Any], config: Any) -> ValidationReport` |  | Validate all manifests. |
-| `validate_hot_reload` | `def validate_hot_reload(self, old_manifests: list[Any], new_manifests: list[Any]) -> ValidationReport` |  | Validate hot-reload is safe. |
-
-## Functions
-
-| Name | Source | Signature | Purpose |
-| --- | --- | --- | --- |
-| `load_config` | `aquilia/aquilary/cli.py` | `def load_config(config_path: str &#124; None) -> Any` | Load config from Python file. |
-| `cmd_validate` | `aquilia/aquilary/cli.py` | `def cmd_validate(args: argparse.Namespace) -> None` | Validate manifests. |
-| `cmd_inspect` | `aquilia/aquilary/cli.py` | `def cmd_inspect(args: argparse.Namespace) -> None` | Inspect registry and show diagnostics. |
-| `cmd_freeze` | `aquilia/aquilary/cli.py` | `def cmd_freeze(args: argparse.Namespace) -> None` | Freeze manifest for reproducible deploys. |
-| `cmd_graph` | `aquilia/aquilary/cli.py` | `def cmd_graph(args: argparse.Namespace) -> None` | Visualize dependency graph. |
-| `cmd_run` | `aquilia/aquilary/cli.py` | `def cmd_run(args: argparse.Namespace) -> None` | Run application with registry. |
-| `main` | `aquilia/aquilary/cli.py` | `def main()` | Main CLI entry point. |
-| `wrap_handler` | `aquilia/aquilary/handler_wrapper.py` | `def wrap_handler(handler: Callable, controller_class: type) -> HandlerWrapper` | Wrap a controller handler for dependency injection. |
-| `inject_dependencies` | `aquilia/aquilary/handler_wrapper.py` | `def inject_dependencies(handler: Callable) -> Callable` | Decorator to enable dependency injection for a handler. |
+| Method | Signature | Summary |
+| --- | --- | --- |
+| `validate_manifests` | `def validate_manifests(self, manifests: list[Any], config: Any)` | Validate all manifests. |
+| `validate_hot_reload` | `def validate_hot_reload(self, old_manifests: list[Any], new_manifests: list[Any])` | Validate hot-reload is safe. |

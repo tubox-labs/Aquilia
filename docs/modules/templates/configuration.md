@@ -1,37 +1,63 @@
 # Templates Configuration
 
-## Configuration Entry Points
+Jinja2 template engine, loaders, manager, middleware, bytecode cache, sandbox, DI providers, manifest/session/auth/i18n integration, and template CLI helpers.
 
-The implementation exposes the following configuration-like classes, policies, integrations, or dataclasses.
+This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
-| Type | Source | Fields | Purpose |
+## Configuration Model
+
+This module exposes config-oriented public classes. Use the table below to locate exact constructors and `to_dict()` behavior in `api-reference.md`.
+
+## Source Inventory
+
+| File | Lines | Public classes | Public functions | Purpose |
+| --- | ---: | ---: | ---: | --- |
+| `aquilia/templates/__init__.py` | 115 | 0 | 0 | AquilaTemplates - First-class Jinja2-based template rendering for Aquilia. |
+| `aquilia/templates/auth_integration.py` | 433 | 3 | 3 | AquilaTemplates - Auth Integration |
+| `aquilia/templates/bytecode_cache.py` | 401 | 4 | 0 | Bytecode Cache - Template compilation caching system. |
+| `aquilia/templates/cli.py` | 355 | 0 | 9 | Template CLI - Command-line interface for template management. |
+| `aquilia/templates/context.py` | 232 | 1 | 7 | Template Context - Context building and injection helpers. |
+| `aquilia/templates/di_providers.py` | 363 | 5 | 4 | AquilaTemplates - DI Providers |
+| `aquilia/templates/engine.py` | 407 | 1 | 0 | Template Engine - Core async-capable Jinja2 template rendering engine. |
+| `aquilia/templates/extensions.py` | 112 | 1 | 0 | Jinja2 template extensions used by Aquilia templates. |
+| `aquilia/templates/faults.py` | 112 | 4 | 0 | AquilaTemplates — Fault Classes. |
+| `aquilia/templates/loader.py` | 212 | 2 | 0 | Template Loader - Namespace-aware filesystem and package template loaders. |
+| `aquilia/templates/manager.py` | 409 | 3 | 0 | Template Manager - Compilation, linting, and manifest integration. |
+| `aquilia/templates/manifest_integration.py` | 345 | 2 | 7 | AquilaTemplates - Manifest Integration |
+| `aquilia/templates/middleware.py` | 132 | 1 | 0 | Template Middleware - Automatic context injection for templates. |
+| `aquilia/templates/security.py` | 425 | 2 | 2 | Template Security - Sandboxing and security policies. |
+| `aquilia/templates/sessions_integration.py` | 356 | 3 | 3 | AquilaTemplates - Session Integration |
+
+## Detected Config-Oriented Classes
+
+| Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `TemplateContext` | `aquilia/templates/context.py` | user_context: dict[str, Any], request: Optional['Request'], session: Optional['Session'], identity: Optional['Identity'], extras: dict[str, Any] | Template rendering context. |
-| `TemplateLintIssue` | `aquilia/templates/manager.py` | template_name: str, severity: str, message: str, code: str, line: int &#124; None, column: int &#124; None, context: str &#124; None | Template lint issue. |
-| `TemplateMetadata` | `aquilia/templates/manager.py` | name: str, path: str, module: str &#124; None, hash: str, size: int, mtime: float, compiled_at: str &#124; None | Template metadata for compilation. |
-| `TemplateManifestConfig` | `aquilia/templates/manifest_integration.py` | See class attributes and constructor methods. | Configuration for templates from manifest file. |
-| `SandboxPolicy` | `aquilia/templates/security.py` | allow_unsafe_filters: bool, allow_unsafe_tests: bool, allow_unsafe_globals: bool, allowed_filters: set[str], allowed_tests: set[str], allowed_globals: set[str], autoescape: bool, autoescape_extensions: list[str], max_recursion_depth: int | Template sandbox security policy. |
+| `TemplateLoaderProvider` | `aquilia/templates/di_providers.py` | `provide` | Provider for TemplateLoader with auto-discovered paths. |
+| `BytecodeCacheProvider` | `aquilia/templates/di_providers.py` | `provide` | Provider for bytecode cache with strategy selection. |
+| `TemplateSandboxProvider` | `aquilia/templates/di_providers.py` | `provide` | Provider for template sandbox with security policies. |
+| `TemplateEngineProvider` | `aquilia/templates/di_providers.py` | `provide` | Provider for TemplateEngine with full DI integration. |
+| `TemplateManagerProvider` | `aquilia/templates/di_providers.py` | `provide` | Provider for TemplateManager (compile/lint/inspect tools). |
+| `TemplateManifestConfig` | `aquilia/templates/manifest_integration.py` | `from_file` | Configuration for templates from manifest file. |
+| `TemplateMiddleware` | `aquilia/templates/middleware.py` |  | Template context injection middleware. |
+| `SandboxPolicy` | `aquilia/templates/security.py` | `strict`, `permissive`, `is_filter_allowed`, `is_test_allowed`, `is_global_allowed` | Template sandbox security policy. |
 
-## Common Entry Points
+## Runtime Wiring Paths
 
-- `TemplatesIntegration`
-- `TemplateConfig`
-- `SandboxPolicy`
+- `workspace.py` defines workspace-level structure with `Workspace`, `Module`, and `Integration` builders.
+- `modules/<name>/manifest.py` defines module internals with `AppManifest`.
+- `ConfigLoader.get(...)` resolves dotted configuration paths at runtime.
+- `AquiliaServer` consumes resolved config during middleware and subsystem setup.
+- Subsystems with optional providers only require optional dependencies when their backend/provider is configured.
 
-## Precedence Model
+## Verification Checklist
 
-Aquilia generally resolves configuration in this order:
+1. Run `aq validate` to verify manifests.
+2. Run `aq inspect config` to inspect resolved configuration.
+3. Run `aq doctor` for workspace and integration diagnostics.
+4. For server-only wiring, start via `aq run` and check startup logs plus `GET /_health`.
 
-1. Explicit constructor arguments or typed integration dataclass values.
-2. `Workspace` builder methods and `Workspace.integrate(...)` output.
-3. `ConfigLoader` defaults and environment overlays.
-4. Runtime defaults inside the subsystem service or provider constructor.
+## Related Pages
 
-When this module is registered through an `AppManifest`, keep component declarations inside `modules/<name>/manifest.py` and keep cross-cutting integration settings in `workspace.py`.
-
-## Datatype Guidance
-
-- Prefer typed dataclasses, policy objects, and config objects listed above when they exist.
-- Keep secret values in environment-backed config, not literal strings in committed workspace files.
-- Keep runtime-only state in services, stores, providers, or request state rather than static configuration.
-- Use `to_dict()` on integration dataclasses when you need to inspect exactly what enters `ConfigLoader`.
+- `api-reference.md` for exact class fields, methods, constants, and signatures.
+- `integration-guide.md` for the workspace/manifest wiring pattern.
+- `edge-cases-and-limitations.md` for fallback and compatibility behavior.
