@@ -1,5 +1,32 @@
 # MCP Integration Guide
 
+## Local Server Command
+
+Use this command in local agents:
+
+```json
+{
+  "command": "python",
+  "args": ["-m", "aquilia.aquilia_mcp", "--stdio", "--workspace", "/path/to/Aquilia"]
+}
+```
+
+`aq mcp install` writes this command for Claude, Codex, and Gemini CLI configs. The installer is idempotent and supports `--dry-run` and `--verify`.
+
+## Agent Use
+
+Ask agents to call MCP tools before generating Aquilia code. The most useful first calls are:
+
+- `explain_bootstrap` for runtime and request lifecycle.
+- `find_api` for source symbols and docs.
+- `validate_manifest_plan` before writing workspace or manifest code.
+- `deprecation_guard` when adapting older snippets.
+- `find_examples` to locate runnable reference applications.
+
+## Compatibility
+
+`aquilia.mcp` remains importable for older local configs, but new configs should use `aquilia.aquilia_mcp`.
+
 ## Claude Desktop
 
 ```bash
