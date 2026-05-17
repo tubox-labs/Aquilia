@@ -1,5 +1,5 @@
 """
-AquilAuth - Crous Artifacts
+AquilAuth - Surp Artifacts
 
 Signed configuration artifacts for keys, policies, and audit logs.
 """
@@ -22,8 +22,8 @@ from .tokens import KeyDescriptor
 
 
 @dataclass
-class CrousArtifact:
-    """Base crous artifact."""
+class SurpArtifact:
+    """Base surp artifact."""
 
     artifact_type: str
     artifact_id: str
@@ -50,7 +50,7 @@ class CrousArtifact:
 
 
 @dataclass
-class KeyArtifact(CrousArtifact):
+class KeyArtifact(SurpArtifact):
     """Cryptographic key artifact."""
 
     key_descriptor: KeyDescriptor
@@ -78,7 +78,7 @@ class KeyArtifact(CrousArtifact):
 
 
 @dataclass
-class PolicyArtifact(CrousArtifact):
+class PolicyArtifact(SurpArtifact):
     """Authorization policy artifact."""
 
     policy_id: str
@@ -110,7 +110,7 @@ class PolicyArtifact(CrousArtifact):
 
 
 @dataclass
-class AuditEventArtifact(CrousArtifact):
+class AuditEventArtifact(SurpArtifact):
     """Audit event artifact."""
 
     event_type: str
@@ -153,7 +153,7 @@ class AuditEventArtifact(CrousArtifact):
 
 
 class ArtifactSigner:
-    """Signs and verifies crous artifacts."""
+    """Signs and verifies surp artifacts."""
 
     def __init__(self, signing_key: KeyDescriptor):
         """
@@ -164,7 +164,7 @@ class ArtifactSigner:
         """
         self.signing_key = signing_key
 
-    def sign_artifact(self, artifact: CrousArtifact) -> str:
+    def sign_artifact(self, artifact: SurpArtifact) -> str:
         """
         Sign artifact.
 
@@ -197,14 +197,14 @@ class ArtifactSigner:
             )
         else:
             raise ConfigInvalidFault(
-                key="crous.signing_key",
+                key="surp.signing_key",
                 reason=f"Unsupported key type: {type(private_key)}",
             )
 
         # Encode signature
         return base64.b64encode(signature).decode()
 
-    def verify_artifact(self, artifact: CrousArtifact, signature: str) -> bool:
+    def verify_artifact(self, artifact: SurpArtifact, signature: str) -> bool:
         """
         Verify artifact signature.
 
@@ -241,7 +241,7 @@ class ArtifactSigner:
                 )
             else:
                 raise ConfigInvalidFault(
-                    key="crous.verification_key",
+                    key="surp.verification_key",
                     reason=f"Unsupported key type: {type(public_key)}",
                 )
 
@@ -262,17 +262,17 @@ class MemoryArtifactStore:
     """In-memory artifact store for development/testing."""
 
     def __init__(self):
-        self._artifacts: dict[str, CrousArtifact] = {}
+        self._artifacts: dict[str, SurpArtifact] = {}
 
-    async def save_artifact(self, artifact: CrousArtifact) -> None:
+    async def save_artifact(self, artifact: SurpArtifact) -> None:
         """Save artifact."""
         self._artifacts[artifact.artifact_id] = artifact
 
-    async def get_artifact(self, artifact_id: str) -> CrousArtifact | None:
+    async def get_artifact(self, artifact_id: str) -> SurpArtifact | None:
         """Get artifact by ID."""
         return self._artifacts.get(artifact_id)
 
-    async def list_artifacts(self, artifact_type: str | None = None) -> list[CrousArtifact]:
+    async def list_artifacts(self, artifact_type: str | None = None) -> list[SurpArtifact]:
         """List artifacts by type."""
         artifacts = list(self._artifacts.values())
 
@@ -288,7 +288,7 @@ class MemoryArtifactStore:
 
 
 class AuditLogger:
-    """Audit event logger with crous artifact integration."""
+    """Audit event logger with surp artifact integration."""
 
     def __init__(
         self,

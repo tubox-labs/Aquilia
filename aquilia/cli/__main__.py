@@ -1685,7 +1685,13 @@ def i18n():
 @i18n.command("init")
 @click.option("--locales", "-l", type=str, default="en", help="Comma-separated locale list (e.g. en,fr,de)")
 @click.option("--directory", "-d", type=str, default="locales", help="Base directory for locale files")
-@click.option("--format", "-f", type=click.Choice(["json", "yaml"]), default="json", help="Translation file format")
+@click.option(
+    "--format",
+    "-f",
+    type=click.Choice(["json", "yaml", "surp"]),
+    default="json",
+    help="Translation file format",
+)
 @click.pass_context
 def i18n_init(ctx, locales: str, directory: str, format: str):
     """
@@ -1697,6 +1703,7 @@ def i18n_init(ctx, locales: str, directory: str, format: str):
       aq i18n init
       aq i18n init --locales en,fr,de,ja
       aq i18n init --directory translations --format yaml
+      aq i18n init --format surp
     """
     from .commands.i18n import cmd_i18n_init
 
@@ -1803,9 +1810,9 @@ def i18n_coverage(ctx):
 @click.pass_context
 def i18n_compile(ctx, directory: str, output: str | None):
     """
-    Compile JSON locale files to CROUS format.
+    Compile JSON locale files to SURP format.
 
-    Produces `.crous` catalogs for faster startup and lookup.
+    Produces `.surp` catalogs for faster startup and lookup.
 
     Examples:
       aq i18n compile
@@ -1843,16 +1850,16 @@ def db():
 @click.option(
     "--format",
     "fmt",
-    type=click.Choice(["python", "crous"]),
-    default="crous",
-    help="Migration file format -- crous (binary, default) or python",
+    type=click.Choice(["python", "surp"]),
+    default="surp",
+    help="Migration file format -- surp (binary, default) or python",
 )
 @click.pass_context
 def db_makemigrations(ctx, app: str | None, migrations_dir: str, dsl: bool, fmt: str):
     """
     Generate migration files from Python Model definitions.
 
-    Uses CROUS binary format by default for compact, efficient migration
+    Uses SURP binary format by default for compact, efficient migration
     storage.  Pass ``--format=python`` for human-readable DSL files.
 
     Examples:

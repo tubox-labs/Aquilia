@@ -5,7 +5,7 @@ Provides everything needed to deploy an Aquilia workspace to Render:
 
 - ``RenderClient`` — typed REST client for the Render API (v1)
 - ``RenderDeployer`` — orchestrator (Docker build → push → deploy)
-- ``RenderCredentialStore`` — Crous-encrypted credential storage
+- ``RenderCredentialStore`` — Surp-encrypted credential storage
 - ``RenderDeployConfig`` — typed deployment configuration
 - CLI commands via ``aq deploy render`` and ``aq provider login render``
 

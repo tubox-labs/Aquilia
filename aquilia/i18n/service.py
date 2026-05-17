@@ -42,7 +42,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .catalog import CrousCatalog, FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
+from .catalog import SurpCatalog, FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
 from .formatter import MessageFormatter
 from .locale import Locale, negotiate_locale, normalize_locale, parse_locale
 from .plural import select_plural
@@ -78,7 +78,7 @@ class I18nConfig:
 
     # Catalog settings
     catalog_dirs: list[str] = field(default_factory=lambda: ["locales"])
-    catalog_format: str = "crous"  # "crous" (default, fast binary), "json", or "yaml"
+    catalog_format: str = "surp"  # "surp" (default, fast binary), "json", or "yaml"
 
     # Behaviour
     missing_key_strategy: str = "log_and_key"
@@ -371,15 +371,15 @@ class I18nService:
     def _build_catalog(self) -> TranslationCatalog:
         """Build a catalog from the config's catalog_dirs."""
         catalogs: list[TranslationCatalog] = []
-        use_crous = self.config.catalog_format == "crous"
+        use_surp = self.config.catalog_format == "surp"
 
         for catalog_dir in self.config.catalog_dirs:
             path = Path(catalog_dir)
             if path.exists() and path.is_dir():
-                if use_crous:
-                    # Use CrousCatalog — automatically falls back to JSON
-                    # if crous library is not installed
-                    catalogs.append(CrousCatalog([path]))
+                if use_surp:
+                    # Use SurpCatalog — automatically falls back to JSON
+                    # if surp library is not installed
+                    catalogs.append(SurpCatalog([path]))
                 else:
                     catalogs.append(FileCatalog([path]))
             else:

@@ -211,14 +211,12 @@ class DiscoveryAnalytics:
             return "complex"
 
     def _cache_analysis(self, analysis: dict) -> None:
-        """Cache analysis results as Crous binary."""
+        """Cache analysis results as Surp binary."""
         try:
-            try:
-                import _crous_native as crous_backend
-            except ImportError:
-                import crous as crous_backend
-            cache_file = self.cache_dir / "analysis.crous"
-            cache_file.write_bytes(crous_backend.encode(analysis))
+            import surp as surp_backend
+
+            cache_file = self.cache_dir / "analysis.surp"
+            cache_file.write_bytes(surp_backend.encode(analysis))
         except ImportError:
             cache_file = self.cache_dir / "analysis.json"
             with open(cache_file, "w", encoding="utf-8") as f:
@@ -226,11 +224,11 @@ class DiscoveryAnalytics:
 
     def get_cached_analysis(self, max_age_seconds: int = 3600) -> dict | None:
         """Get cached analysis if fresh."""
-        # Try Crous first, then JSON fallback
-        crous_file = self.cache_dir / "analysis.crous"
+        # Try Surp first, then JSON fallback
+        surp_file = self.cache_dir / "analysis.surp"
         json_file = self.cache_dir / "analysis.json"
 
-        cache_file = crous_file if crous_file.exists() else (json_file if json_file.exists() else None)
+        cache_file = surp_file if surp_file.exists() else (json_file if json_file.exists() else None)
         if not cache_file:
             return None
 
@@ -239,12 +237,10 @@ class DiscoveryAnalytics:
             return None
 
         try:
-            if cache_file.suffix == ".crous":
-                try:
-                    import _crous_native as crous_backend
-                except ImportError:
-                    import crous as crous_backend
-                return crous_backend.decode(cache_file.read_bytes())
+            if cache_file.suffix == ".surp":
+                import surp as surp_backend
+
+                return surp_backend.decode(cache_file.read_bytes())
             else:
                 with open(cache_file, encoding="utf-8") as f:
                     return json.load(f)

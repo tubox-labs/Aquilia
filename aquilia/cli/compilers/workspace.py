@@ -163,7 +163,7 @@ class WorkspaceCompiler:
             .build()
         )
 
-        output_path = self.output_dir / "aquilia.crous"
+        output_path = self.output_dir / "aquilia.surp"
         self._write_artifact(output_path, artifact.to_dict())
         # Also save as .aq.json via the store
         self._store.save(artifact)
@@ -208,7 +208,7 @@ class WorkspaceCompiler:
             modules=modules,
         )
 
-        output_path = self.output_dir / "registry.crous"
+        output_path = self.output_dir / "registry.surp"
         self._write_artifact(output_path, artifact.to_dict())
         self._store.save(artifact)
         return output_path
@@ -257,7 +257,7 @@ class WorkspaceCompiler:
             description=getattr(module_manifest, "description", ""),
         )
 
-        output_path = self.output_dir / f"{module_name}.crous"
+        output_path = self.output_dir / f"{module_name}.surp"
         self._write_artifact(output_path, artifact.to_dict())
         self._store.save(artifact)
 
@@ -298,7 +298,7 @@ class WorkspaceCompiler:
             routes=routes,
         )
 
-        output_path = self.output_dir / "routes.crous"
+        output_path = self.output_dir / "routes.surp"
         self._write_artifact(output_path, artifact.to_dict())
         self._store.save(artifact)
         return output_path
@@ -346,24 +346,22 @@ class WorkspaceCompiler:
             providers=providers,
         )
 
-        output_path = self.output_dir / "di.crous"
+        output_path = self.output_dir / "di.surp"
         self._write_artifact(output_path, artifact.to_dict())
         self._store.save(artifact)
         return output_path
 
     def _write_artifact(self, path: Path, data: dict) -> None:
-        """Write artifact to Crous binary format."""
+        """Write artifact to Surp binary format."""
         path.parent.mkdir(parents=True, exist_ok=True)
 
         try:
-            try:
-                import _crous_native as crous_backend
-            except ImportError:
-                import crous as crous_backend
-            crous_bytes = crous_backend.encode(data)
+            import surp as surp_backend
+
+            surp_bytes = surp_backend.encode(data)
             with open(path, "wb") as f:
-                f.write(crous_bytes)
+                f.write(surp_bytes)
         except Exception:
-            # Fallback to JSON if Crous encoding fails
+            # Fallback to JSON if Surp encoding fails
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)

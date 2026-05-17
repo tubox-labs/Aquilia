@@ -47,13 +47,13 @@ Example::
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .catalog import (
-    CrousCatalog,
+    SurpCatalog,
     FileCatalog,
     MemoryCatalog,
     MergedCatalog,
     NamespacedCatalog,
     TranslationCatalog,
-    has_crous,
+    has_surp,
 )
 from .di_integration import (
     register_i18n_providers,
@@ -130,10 +130,10 @@ __all__ = [
     "TranslationCatalog",
     "MemoryCatalog",
     "FileCatalog",
-    "CrousCatalog",
+    "SurpCatalog",
     "NamespacedCatalog",
     "MergedCatalog",
-    "has_crous",
+    "has_surp",
     # Plural rules
     "PluralCategory",
     "PluralRule",

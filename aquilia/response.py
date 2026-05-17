@@ -65,26 +65,25 @@ except ImportError:
 # Native async file I/O
 from .filesystem import stream_read as _fs_stream_read
 
-# Import Crous binary serializer
+# Import Surp binary serializer
 try:
-    import crous as _crous_mod
+    import surp as _surp_mod
 
-    _HAS_CROUS = True
+    _HAS_SURP = True
 except ImportError:
-    _crous_mod = None  # type: ignore[assignment]
-    _HAS_CROUS = False
+    _surp_mod = None  # type: ignore[assignment]
+    _HAS_SURP = False
 
 # Import Aquilia components
 from .faults import Fault, FaultDomain, Severity
 
-# CROUS media type constants
-CROUS_MEDIA_TYPE = "application/x-crous"
-CROUS_MAGIC = b"CROUSv1"
+# SURP media type constants
+SURP_MEDIA_TYPE = "application/x-surp"
 
 
-def has_crous() -> bool:
-    """Return ``True`` if the ``crous`` library is importable."""
-    return _HAS_CROUS
+def has_surp() -> bool:
+    """Return ``True`` if the ``surp`` library is importable."""
+    return _HAS_SURP
 
 
 logger = logging.getLogger("aquilia.response")
@@ -100,6 +99,19 @@ def _json_default_serializer(o):
     if hasattr(o, "isoformat"):
         return o.isoformat()
     return str(o)
+
+
+def _surp_compatible(obj: Any) -> Any:
+    """Normalize common Python containers to Surp-supported shapes."""
+    if isinstance(obj, dict):
+        return {str(key): _surp_compatible(value) for key, value in obj.items()}
+    if isinstance(obj, Mapping):
+        return {str(key): _surp_compatible(value) for key, value in obj.items()}
+    if isinstance(obj, tuple):
+        return [_surp_compatible(value) for value in obj]
+    if isinstance(obj, list):
+        return [_surp_compatible(value) for value in obj]
+    return obj
 
 
 # ============================================================================
@@ -420,9 +432,6 @@ class Response:
     def _detect_media_type(self, content: Any) -> str:
         """Auto-detect media type from content."""
         if isinstance(content, bytes):
-            # Detect CROUS binary by magic header
-            if len(content) >= 7 and content[:7] == CROUS_MAGIC:
-                return CROUS_MEDIA_TYPE
             return "application/octet-stream"
         elif isinstance(content, (dict, list)):
             return "application/json; charset=utf-8"
@@ -591,7 +600,7 @@ class Response:
         )
 
     @classmethod
-    def crous(
+    def surp(
         cls,
         obj: Any,
         status: int = 200,
@@ -602,13 +611,12 @@ class Response:
         **kwargs,
     ) -> Response:
         """
-        Create a CROUS binary response.
+        Create a SURP binary response.
 
-        Serialises ``obj`` into Crous wire format (``CROUSv1`` header,
-        XXH64-checksummed blocks) and returns a ``Response`` with
-        ``Content-Type: application/x-crous``.
+        Serialises ``obj`` into Surp wire format and returns a ``Response`` with
+        ``Content-Type: application/x-surp``.
 
-        Falls back to JSON automatically when the ``crous`` library
+        Falls back to JSON automatically when the ``surp`` library
         is not installed.
 
         Args:
@@ -622,64 +630,41 @@ class Response:
             **kwargs: Forwarded to ``Response.__init__``.
 
         Returns:
-            Response with CROUS binary body.
+            Response with SURP binary body.
 
         Example::
 
             @GET("/users")
             async def list_users(self, ctx):
-                return Response.crous({"users": users})
+                return Response.surp({"users": users})
         """
-        if not _HAS_CROUS:
+        if not _HAS_SURP:
             # Graceful degradation — fall back to JSON
             return cls.json(obj, status=status, headers=headers, **kwargs)
 
         try:
-            # Use Encoder for fine-grained control when compression
-            # or dedup is requested.
-            if compression or dedup:
-                from crous.encoder import Encoder
-
-                enc = Encoder()
-                if dedup:
-                    enc.enable_dedup()
-                if compression:
-                    from crous.wire import CompressionType
-
-                    comp_map = {
-                        "zstd": CompressionType.ZSTD,
-                        "snappy": CompressionType.SNAPPY,
-                        "none": CompressionType.NONE,
-                    }
-                    # Also support LZ4 if available in the
-                    # installed version of the crous library.
-                    if hasattr(CompressionType, "LZ4"):
-                        comp_map["lz4"] = CompressionType.LZ4
-
-                    comp = comp_map.get(compression.lower())
-                    if comp is not None:
-                        enc.set_compression(comp)
-
-                from crous.value import Value
-
-                enc.encode_value(Value.from_python(obj))
-                content = enc.finish()
-            else:
-                content = _crous_mod.encode(obj)
+            if compression is not None and compression.lower() not in {"none", "lz4", "zstd", "snappy"}:
+                compression = None
+            content = _surp_mod.dumps(
+                _surp_compatible(obj),
+                compression=compression,
+                dedup=dedup,
+                sort_keys=False,
+            )
         except Exception as exc:
-            logger.warning("CROUS encode failed (%s); falling back to JSON", exc)
+            logger.warning("SURP encode failed (%s); falling back to JSON", exc)
             return cls.json(obj, status=status, headers=headers, **kwargs)
 
         merged_headers: dict[str, str] = dict(headers or {})
         merged_headers.setdefault("content-length", str(len(content)))
         # Signal the wire format version for proxies / CDNs
-        merged_headers.setdefault("x-crous-version", "1")
+        merged_headers.setdefault("x-surp-version", "1")
 
         return cls(
             content=content,
             status=status,
             headers=merged_headers,
-            media_type=CROUS_MEDIA_TYPE,
+            media_type=SURP_MEDIA_TYPE,
             **kwargs,
         )
 
@@ -696,12 +681,12 @@ class Response:
         """Create a response with automatic content negotiation.
 
         Inspects the ``Accept`` header on *request* and returns
-        either a CROUS or JSON response.
+        either a SURP or JSON response.
 
         Resolution order:
-        1. If the handler is decorated with ``@requires_crous`` and
-           the client accepts CROUS → CROUS.
-        2. If ``request.prefers_crous()`` → CROUS.
+        1. If the handler is decorated with ``@requires_surp`` and
+           the client accepts SURP → SURP.
+        2. If ``request.prefers_surp()`` → SURP.
         3. Otherwise → JSON.
 
         Args:
@@ -720,23 +705,23 @@ class Response:
             async def list_users(self, ctx):
                 return Response.negotiated(users, ctx.request)
         """
-        use_crous = False
+        use_surp = False
 
-        if _HAS_CROUS:
+        if _HAS_SURP:
             # Check handler-level preference (stored in state by router)
             handler = None
             if hasattr(request, "state") and isinstance(request.state, dict):
                 handler = request.state.get("matched_handler")
-            if handler and getattr(handler, "__crous_response__", False):
-                if hasattr(request, "accepts_crous") and request.accepts_crous():
-                    use_crous = True
+            if handler and getattr(handler, "__surp_response__", False):
+                if hasattr(request, "accepts_surp") and request.accepts_surp():
+                    use_surp = True
 
             # Check client preference
-            if not use_crous and hasattr(request, "prefers_crous"):
-                use_crous = request.prefers_crous()
+            if not use_surp and hasattr(request, "prefers_surp"):
+                use_surp = request.prefers_surp()
 
-        if use_crous:
-            return cls.crous(obj, status=status, headers=headers, **kwargs)
+        if use_surp:
+            return cls.surp(obj, status=status, headers=headers, **kwargs)
         return cls.json(obj, status=status, headers=headers, **kwargs)
 
     @classmethod
@@ -1975,30 +1960,30 @@ def not_modified_response(etag: str | None = None) -> Response:
 
 
 # ============================================================================
-# CROUS Decorator
+# SURP Decorator
 # ============================================================================
 
 
-def requires_crous(func: Callable) -> Callable:
-    """Mark a handler as preferring CROUS binary responses.
+def requires_surp(func: Callable) -> Callable:
+    """Mark a handler as preferring SURP binary responses.
 
     When combined with :meth:`Response.negotiated`, responses will be
-    encoded as CROUS when the client includes a CROUS media type in
+    encoded as SURP when the client includes a SURP media type in
     its ``Accept`` header.
 
-    The decorator simply sets ``func.__crous_response__ = True`` — it
-    does **not** alter control flow or enforce CROUS.  If the client
-    does not accept CROUS (or the library is unavailable), JSON is
+    The decorator simply sets ``func.__surp_response__ = True`` — it
+    does **not** alter control flow or enforce SURP.  If the client
+    does not accept SURP (or the library is unavailable), JSON is
     returned transparently.
 
     Example::
 
-        @requires_crous
+        @requires_surp
         @GET("/metrics")
         async def metrics(self, ctx):
             return Response.negotiated(data, ctx.request)
     """
-    func.__crous_response__ = True  # type: ignore[attr-defined]
+    func.__surp_response__ = True  # type: ignore[attr-defined]
     return func
 
 
@@ -2029,9 +2014,8 @@ __all__ = [
     "generate_etag_from_file",
     "check_not_modified",
     "not_modified_response",
-    # CROUS support
-    "CROUS_MEDIA_TYPE",
-    "CROUS_MAGIC",
-    "has_crous",
-    "requires_crous",
+    # SURP support
+    "SURP_MEDIA_TYPE",
+    "has_surp",
+    "requires_surp",
 ]

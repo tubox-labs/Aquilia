@@ -9,7 +9,7 @@ Storage layout::
     <workspace>/.aquilia/
         providers/
             render/
-                credentials.crous   ← AES-256-GCM encrypted + HMAC signed
+                credentials.surp   ← AES-256-GCM encrypted + HMAC signed
                 config.json         ← non-sensitive settings (region, owner)
                 audit.log           ← credential access audit trail
 
@@ -20,7 +20,7 @@ Security Model (Defense-in-Depth)
 2. **Encryption**: AES-256-GCM (authenticated encryption) providing
    confidentiality + integrity + authenticity in a single primitive.
    Falls back to a HMAC-SHA512-XOR stream cipher as last resort.
-3. **Integrity**: Separate HMAC-SHA512 over the entire Crous blob
+3. **Integrity**: Separate HMAC-SHA512 over the entire credential blob
    using an independent signing key (encrypt-then-MAC).
 4. **Anti-Replay**: Unique 96-bit nonce per encryption + monotonic
    timestamp validation.
@@ -37,8 +37,8 @@ Security Model (Defense-in-Depth)
 12. **Canary Validation**: Encrypted known plaintext verified on load
     to detect key derivation failures (wrong machine, corruption).
 
-Crous v2 Binary Format
------------------------
+Credential Blob v2 Format
+-------------------------
 ::
 
     4 bytes   magic ("AQCR")
@@ -83,9 +83,9 @@ __all__ = ["RenderCredentialStore"]
 _logger = logging.getLogger("aquilia.providers.render.store")
 
 # ── Constants ────────────────────────────────────────────────────────────
-_CROUS_MAGIC = b"AQCR"
-_CROUS_VERSION = 2
-_CROUS_VERSION_LEGACY = 1
+_SURP_MAGIC = b"AQCR"
+_SURP_VERSION = 2
+_SURP_VERSION_LEGACY = 1
 _SALT_SIZE = 32
 _NONCE_SIZE = 12
 _KEY_ITERATIONS = 600_000
@@ -336,7 +336,7 @@ class RenderCredentialStore:
 
     def __init__(self, store_dir: Path | None = None, *, ttl: int = _DEFAULT_TTL):
         self._dir = store_dir or _resolve_workspace_store_dir()
-        self._creds_file = self._dir / "credentials.crous"
+        self._creds_file = self._dir / "credentials.surp"
         self._config_file = self._dir / "config.json"
         self._ttl = ttl
         self._audit = _AuditLogger(self._dir / "audit.log")
@@ -391,8 +391,8 @@ class RenderCredentialStore:
 
         timestamp = time.time()
         payload = bytearray()
-        payload.extend(_CROUS_MAGIC)
-        payload.append(_CROUS_VERSION)
+        payload.extend(_SURP_MAGIC)
+        payload.append(_SURP_VERSION)
         payload.append(cipher_suite)
         payload.extend(struct.pack(">d", timestamp))
         payload.extend(struct.pack(">I", self._ttl))
@@ -417,7 +417,7 @@ class RenderCredentialStore:
             "owner_name": owner_name,
             "default_region": default_region,
             "stored_at": timestamp,
-            "crous_version": _CROUS_VERSION,
+            "surp_version": _SURP_VERSION,
             "cipher_suite": cipher_suite,
             "ttl": self._ttl,
         }
@@ -436,7 +436,7 @@ class RenderCredentialStore:
     def load(self) -> str | None:
         """Load and decrypt the stored API token.
 
-        Automatically detects Crous v1 (legacy) and v2 formats.
+        Automatically detects legacy and current credential blob formats.
         """
         if not self._creds_file.exists():
             return None
@@ -452,7 +452,7 @@ class RenderCredentialStore:
                 path=str(self._creds_file),
             ) from e
 
-        if len(blob) < 5 or blob[:4] != _CROUS_MAGIC:
+        if len(blob) < 5 or blob[:4] != _SURP_MAGIC:
             self._audit.log("load_error", details="bad_magic")
             raise ProviderCredentialFault(
                 "Invalid credentials file (bad magic bytes)",
@@ -460,11 +460,11 @@ class RenderCredentialStore:
             )
 
         version = blob[4]
-        if version == _CROUS_VERSION_LEGACY:
+        if version == _SURP_VERSION_LEGACY:
             result = self._load_v1(blob)
             self._audit.log("load_complete", details="v1_legacy")
             return result
-        if version == _CROUS_VERSION:
+        if version == _SURP_VERSION:
             result = self._load_v2(blob)
             self._audit.log("load_complete", details="v2")
             return result
@@ -476,7 +476,7 @@ class RenderCredentialStore:
         )
 
     def _load_v2(self, blob: bytes) -> str:
-        """Load Crous v2 format (AES-256-GCM + HMAC-SHA512)."""
+        """Load credential blob v2 format (AES-256-GCM + HMAC-SHA512)."""
         if len(blob) < 178:
             raise ProviderCredentialFault(
                 "Credentials file is too small — possibly corrupted",
@@ -575,7 +575,7 @@ class RenderCredentialStore:
         return token
 
     def _load_v1(self, blob: bytes) -> str:
-        """Load legacy Crous v1 format. Auto-migrates to v2."""
+        """Load legacy credential blob v1 format. Auto-migrates to v2."""
         if len(blob) < 81:
             raise ProviderCredentialFault(
                 "Credentials file is too small — possibly corrupted",
@@ -742,7 +742,7 @@ class RenderCredentialStore:
             "owner_name": config.get("owner_name"),
             "default_region": config.get("default_region", "oregon"),
             "stored_at": config.get("stored_at"),
-            "crous_version": config.get("crous_version", 1),
+            "surp_version": config.get("surp_version", 1),
             "cipher_suite": config.get("cipher_suite"),
             "ttl": config.get("ttl", 0),
             "expired": self.is_expired(),

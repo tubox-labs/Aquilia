@@ -352,7 +352,7 @@ class TemplateConfig:
     enabled: bool = True
     search_paths: list[str] = field(default_factory=list)
     precompile: bool = False
-    cache: str = "memory"  # "memory", "crous", "none"
+    cache: str = "memory"  # "memory", "surp", "none"
     sandbox: bool = True
     context_processors: list[str] = field(default_factory=list)
 

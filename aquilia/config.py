@@ -629,7 +629,7 @@ class ConfigLoader:
             "enabled": False,
             "search_paths": [],
             "precompile": False,
-            "cache": "memory",  # "memory", "crous", "none"
+            "cache": "memory",  # "memory", "surp", "none"
             "sandbox": True,
             "sandbox_policy": "strict",
         }
@@ -762,7 +762,7 @@ class ConfigLoader:
             "available_locales": ["en"],
             "fallback_locale": "en",
             "catalog_dirs": ["locales"],
-            "catalog_format": "crous",
+            "catalog_format": "surp",
             "missing_key_strategy": "log_and_key",
             "auto_reload": False,
             "auto_detect": True,

@@ -8,7 +8,7 @@ Manages cloud provider authentication and configuration:
     aq provider status render      Show credential/connection status
     aq provider render env set     Manage Render env vars
 
-Credentials are stored using the Crous binary format with HMAC-SHA256
+Credentials are stored using the Surp binary format with HMAC-SHA256
 integrity protection and machine-derived encryption keys.  Tokens are
 never stored in plain text or logged.
 """
@@ -94,7 +94,7 @@ def render_group():
 def provider_login(provider_name: str, token: str | None, region: str):
     """Login to a cloud provider.
 
-    Securely stores your API token using Crous-encrypted storage.
+    Securely stores your API token using Surp-encrypted storage.
     The token is encrypted with a machine-derived key and signed
     with HMAC-SHA256 for tamper detection.
 

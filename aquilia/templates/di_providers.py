@@ -23,7 +23,7 @@ from aquilia.di.decorators import factory, service
 
 from .bytecode_cache import (
     BytecodeCache,
-    CrousBytecodeCache,
+    SurpBytecodeCache,
     InMemoryBytecodeCache,
 )
 from .engine import TemplateEngine
@@ -99,7 +99,7 @@ class BytecodeCacheProvider:
     def provide(self) -> BytecodeCache:
         """
         Provide bytecode cache based on config:
-        - templates.cache: "memory", "crous", "redis", "none"
+        - templates.cache: "memory", "surp", "redis", "none"
         """
         if not self.config:
             return InMemoryBytecodeCache(max_size=100)
@@ -110,9 +110,9 @@ class BytecodeCacheProvider:
             max_size = self.config.get("templates.cache_size", 100)
             return InMemoryBytecodeCache(max_size=max_size)
 
-        elif cache_type == "crous":
-            # Crous bytecode cache for persistent compilation
-            return CrousBytecodeCache()
+        elif cache_type == "surp":
+            # Surp bytecode cache for persistent compilation
+            return SurpBytecodeCache()
 
         elif cache_type == "none":
             # No caching (development mode)
@@ -323,7 +323,7 @@ def create_production_engine(
 ) -> TemplateEngine:
     """
     Factory for production template engine:
-    - Crous bytecode cache (persistent)
+    - Surp bytecode cache (persistent)
     - Strict sandbox
     - Optimized for performance
     """

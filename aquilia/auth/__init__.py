@@ -8,7 +8,7 @@ Production-grade, Aquilia-native auth system with:
 - Deep integration with Sessions, DI, Flow, Faults
 
 Design Philosophy:
-1. Manifest-first: Auth config declared in manifests, compiled to crous
+1. Manifest-first: Auth config declared in manifests, compiled to surp
 2. Least privilege: Default-deny for all protected resources
 3. Typed & explicit: No ambient authority, everything injected
 4. Composable guards: Auth/authz are Flow pipeline nodes

@@ -2,7 +2,7 @@
 Controller Metadata Extraction
 
 Static analysis of Controller classes to extract routing metadata.
-Used by `aq compile` to generate patterns.crous without runtime imports.
+Used by `aq compile` to generate patterns.surp without runtime imports.
 """
 
 import inspect

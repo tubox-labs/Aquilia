@@ -23,14 +23,15 @@ def cmd_ws_inspect(args: dict):
     Usage: aq ws inspect [--artifacts-dir artifacts]
     """
     artifacts_dir = Path(args.get("artifacts_dir", "artifacts"))
-    ws_crous = artifacts_dir / "ws.crous"
+    ws_surp = artifacts_dir / "ws.surp"
 
-    if not ws_crous.exists():
-        print(f"Error: {ws_crous} not found. Run 'aq compile' first.")
+    if not ws_surp.exists():
+        print(f"Error: {ws_surp} not found. Run 'aq compile' first.")
         sys.exit(1)
 
-    with open(ws_crous, encoding="utf-8") as f:
-        data = json.load(f)
+    import surp
+
+    data = surp.decode_from_file(str(ws_surp))
 
     print(f"WebSocket Namespaces ({len(data['controllers'])} controllers)\n")
 
@@ -267,14 +268,15 @@ def cmd_ws_gen_client(args: dict):
         print("Error: --out is required")
         sys.exit(1)
 
-    ws_crous = artifacts_dir / "ws.crous"
+    ws_surp = artifacts_dir / "ws.surp"
 
-    if not ws_crous.exists():
-        print(f"Error: {ws_crous} not found. Run 'aq compile' first.")
+    if not ws_surp.exists():
+        print(f"Error: {ws_surp} not found. Run 'aq compile' first.")
         sys.exit(1)
 
-    with open(ws_crous, encoding="utf-8") as f:
-        data = json.load(f)
+    import surp
+
+    data = surp.decode_from_file(str(ws_surp))
 
     # Generate TypeScript client
     output = Path(output_path)
