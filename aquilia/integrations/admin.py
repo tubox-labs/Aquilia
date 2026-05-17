@@ -11,14 +11,13 @@ Before (old)::
         Integration.AdminModules()
         .enable_orm()
         .enable_monitoring()
-        .disable_build()
     )
 
 After (new)::
 
-    modules = AdminModules(orm=True, monitoring=True, build=False)
+    modules = AdminModules(orm=True, monitoring=True)
     # or fluent:
-    modules = AdminModules.default().with_(monitoring=True, build=False)
+    modules = AdminModules.default().with_(monitoring=True)
 """
 
 from __future__ import annotations
@@ -43,12 +42,11 @@ class AdminModules:
 
     Example::
 
-        AdminModules(monitoring=True, audit=True, build=False)
+        AdminModules(monitoring=True, audit=True)
     """
 
     dashboard: bool = True
     orm: bool = True
-    build: bool = True
     migrations: bool = True
     config: bool = True
     workspace: bool = True
@@ -105,14 +103,6 @@ class AdminModules:
 
     def disable_orm(self) -> AdminModules:
         self.orm = False
-        return self
-
-    def enable_build(self) -> AdminModules:
-        self.build = True
-        return self
-
-    def disable_build(self) -> AdminModules:
-        self.build = False
         return self
 
     def enable_migrations(self) -> AdminModules:

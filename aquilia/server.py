@@ -2251,8 +2251,6 @@ class AquiliaServer:
             # Conditionally register module routes
             if _mod("orm"):
                 admin_routes.append(("GET", f"{url_prefix}/orm/", "orm_view", ctrl.orm_view))
-            if _mod("build"):
-                admin_routes.append(("GET", f"{url_prefix}/build/", "build_view", ctrl.build_view))
             if _mod("migrations"):
                 admin_routes.append(("GET", f"{url_prefix}/migrations/", "migrations_view", ctrl.migrations_view))
             if _mod("config"):

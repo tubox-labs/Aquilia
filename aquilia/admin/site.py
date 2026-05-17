@@ -63,7 +63,6 @@ class AdminConfig:
         default_factory=lambda: {
             "dashboard": True,
             "orm": True,
-            "build": True,
             "migrations": True,
             "config": True,
             "workspace": True,
@@ -345,7 +344,7 @@ class AdminConfig:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> AdminConfig:
         """Build an AdminConfig from the raw Integration.admin() config dict."""
-        modules_raw = raw.get("modules", {})
+        modules_raw = {k: v for k, v in raw.get("modules", {}).items() if k != "build"}
         audit_raw = raw.get("audit_config", {})
         monitoring_raw = raw.get("monitoring_config", {})
         containers_raw = raw.get("containers_config", {})
@@ -357,7 +356,6 @@ class AdminConfig:
         default_modules = {
             "dashboard": True,
             "orm": True,
-            "build": True,
             "migrations": True,
             "config": True,
             "workspace": True,
@@ -3898,211 +3896,6 @@ class AdminSite:
         }
 
         return stats
-
-    # ── Build info ───────────────────────────────────────────────────
-
-    def get_build_info(self) -> dict[str, Any]:
-        """
-        Gather build information from Crous artifacts in the build directory.
-
-        Scans the workspace build/ directory for .crous files and
-        bundle.manifest.crous, returning artifact metadata.
-        """
-
-        result: dict[str, Any] = {
-            "info": {},
-            "artifacts": [],
-            "pipeline_phases": [],
-            "build_log": "",
-        }
-
-        # Find workspace root -- look for build/ directory
-        build_dir = self._find_workspace_path("build")
-        if build_dir is None or not build_dir.is_dir():
-            return result
-
-        # Read bundle manifest if it exists
-        manifest_path = build_dir / "bundle.manifest.crous"
-        if manifest_path.exists():
-            try:
-                try:
-                    import _crous_native as _cb
-                except ImportError:
-                    import crous as _cb
-                manifest = _cb.decode(manifest_path.read_bytes())
-                result["info"] = {
-                    "workspace_name": manifest.get("workspace_name", ""),
-                    "workspace_version": manifest.get("workspace_version", ""),
-                    "mode": manifest.get("mode", ""),
-                    "fingerprint": manifest.get("fingerprint", ""),
-                    "total_artifacts": manifest.get("artifact_count", 0),
-                    "elapsed_ms": manifest.get("elapsed_ms", 0),
-                }
-            except Exception:
-                pass
-
-        # Scan for .crous files (ignore .aq.json -- Crous only)
-        for fpath in sorted(build_dir.iterdir()):
-            if fpath.suffix == ".crous" and fpath.is_file():
-                try:
-                    stat = fpath.stat()
-                    size_kb = stat.st_size / 1024
-                    size_str = f"{size_kb:.1f} KB" if size_kb < 1024 else f"{size_kb / 1024:.2f} MB"
-
-                    # Compute SHA-256 digest
-                    import hashlib
-
-                    digest = hashlib.sha256(fpath.read_bytes()).hexdigest()
-
-                    # Determine kind from filename
-                    name = fpath.stem
-                    kind = (
-                        "bundle"
-                        if "bundle" in name
-                        else (
-                            "routes"
-                            if "route" in name
-                            else ("di_graph" if "di" in name else ("workspace" if "workspace" in name else "module"))
-                        )
-                    )
-
-                    result["artifacts"].append(
-                        {
-                            "name": fpath.name,
-                            "kind": kind,
-                            "size": size_str,
-                            "digest": digest,
-                            "path": str(fpath),
-                        }
-                    )
-                except Exception:
-                    result["artifacts"].append(
-                        {
-                            "name": fpath.name,
-                            "kind": "unknown",
-                            "size": "?",
-                            "digest": "",
-                        }
-                    )
-
-        result["info"]["total_artifacts"] = len(result["artifacts"])
-
-        # Build pipeline phases (static structure)
-        result["pipeline_phases"] = [
-            {
-                "name": "Discovery",
-                "status": "success" if result["artifacts"] else "pending",
-                "detail": "Scan workspace for modules, controllers, models",
-            },
-            {
-                "name": "Validation",
-                "status": "success" if result["artifacts"] else "pending",
-                "detail": "Validate manifest and module configuration",
-            },
-            {
-                "name": "Static Check",
-                "status": "success" if result["artifacts"] else "pending",
-                "detail": "Pre-flight validation of all components",
-            },
-            {
-                "name": "Compilation",
-                "status": "success" if result["artifacts"] else "pending",
-                "detail": "Compile modules to intermediate artifacts",
-            },
-            {
-                "name": "Bundling",
-                "status": "success" if result["artifacts"] else "pending",
-                "detail": "Serialize to Crous binary format with dedup",
-            },
-            {
-                "name": "Fingerprint",
-                "status": "success" if result["info"].get("fingerprint") else "pending",
-                "detail": "Compute content-addressed build fingerprint",
-            },
-        ]
-
-        # Read build log if available
-        build_log_path = build_dir / "build_output.txt"
-        if build_log_path.exists():
-            with contextlib.suppress(Exception):
-                result["build_log"] = build_log_path.read_text(encoding="utf-8")
-
-        # Read artifact contents for the file viewer
-        for artifact in result["artifacts"]:
-            artifact["content"] = ""
-            artifact["content_type"] = "binary"
-            fpath_str = artifact.get("path", "")
-            if not fpath_str:
-                continue
-            try:
-                from pathlib import Path as _P
-
-                fpath = _P(fpath_str)
-                raw = fpath.read_bytes()
-
-                # Try Crous decode first
-                try:
-                    from aquilia.build.bundler import _CrousBackend
-
-                    backend = _CrousBackend()
-                    decoded = backend.decode(raw)
-                    import json as _json
-
-                    artifact["content"] = _json.dumps(decoded, indent=2, default=str)
-                    artifact["content_type"] = "json"
-                    artifact["content_highlighted"] = self._highlight_json(artifact["content"])
-                except Exception:
-                    # Fallback: try UTF-8 text
-                    try:
-                        text = raw.decode("utf-8")
-                        artifact["content"] = text
-                        artifact["content_type"] = "text"
-                        # Try to detect if it's JSON
-                        text_stripped = text.strip()
-                        if text_stripped and text_stripped[0] in ("{", "["):
-                            try:
-                                import json as _json2
-
-                                _json2.loads(text_stripped)
-                                artifact["content_type"] = "json"
-                                artifact["content_highlighted"] = self._highlight_json(text)
-                            except (ValueError, TypeError):
-                                artifact["content_highlighted"] = self._highlight_crous(text)
-                        else:
-                            artifact["content_highlighted"] = self._highlight_crous(text)
-                    except UnicodeDecodeError:
-                        # Show hex dump for binary
-                        hex_lines = []
-                        for offset in range(0, min(len(raw), 2048), 16):
-                            chunk = raw[offset : offset + 16]
-                            hex_part = " ".join(f"{b:02x}" for b in chunk)
-                            ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
-                            hex_lines.append(f"{offset:08x}  {hex_part:<48s}  |{ascii_part}|")
-                        if len(raw) > 2048:
-                            hex_lines.append(f"... ({len(raw)} bytes total, showing first 2048)")
-                        artifact["content"] = "\n".join(hex_lines)
-                        artifact["content_type"] = "hex"
-            except Exception:
-                artifact["content"] = "(unable to read file)"
-                artifact["content_type"] = "error"
-
-        # Also scan for other build files (non-.crous)
-        result["build_files"] = []
-        for fpath in sorted(build_dir.iterdir()):
-            if fpath.is_file() and fpath.suffix != ".crous":
-                try:
-                    content = fpath.read_text(encoding="utf-8")
-                    result["build_files"].append(
-                        {
-                            "name": fpath.name,
-                            "content": content,
-                            "size": f"{fpath.stat().st_size / 1024:.1f} KB",
-                        }
-                    )
-                except Exception:
-                    pass
-
-        return result
 
     # ── Migrations data ──────────────────────────────────────────────
 

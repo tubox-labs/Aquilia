@@ -100,9 +100,8 @@ class AdminPermission(str, Enum):
     TESTING_VIEW = "admin.testing.view"
     TESTING_MANAGE = "admin.testing.manage"
 
-    # ORM / Build / Migrations / Config / Workspace
+    # ORM / Migrations / Config / Workspace
     ORM_VIEW = "admin.orm.view"
-    BUILD_VIEW = "admin.build.view"
     MIGRATIONS_VIEW = "admin.migrations.view"
     CONFIG_VIEW = "admin.config.view"
     WORKSPACE_VIEW = "admin.workspace.view"
@@ -149,7 +148,6 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.ERRORS_VIEW,
         AdminPermission.TESTING_VIEW,
         AdminPermission.ORM_VIEW,
-        AdminPermission.BUILD_VIEW,
         AdminPermission.MIGRATIONS_VIEW,
         AdminPermission.CONFIG_VIEW,
         AdminPermission.WORKSPACE_VIEW,
@@ -182,7 +180,6 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.TESTING_VIEW,
         AdminPermission.TESTING_MANAGE,
         AdminPermission.ORM_VIEW,
-        AdminPermission.BUILD_VIEW,
         AdminPermission.MIGRATIONS_VIEW,
         AdminPermission.CONFIG_VIEW,
         AdminPermission.WORKSPACE_VIEW,

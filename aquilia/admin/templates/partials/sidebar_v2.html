@@ -59,9 +59,6 @@
         <a class="sidebar-link{{ ' active' if active_page == 'workspace' else '' }}" href="{{ url_prefix|default('/admin') }}/workspace/" data-sidebar-label="workspace">
             <i class="icon-layout-template"></i> <span>Workspace</span>
         </a>
-        <a class="sidebar-link{{ ' active' if active_page == 'build' else '' }}" href="{{ url_prefix|default('/admin') }}/build/" data-sidebar-label="build">
-            <i class="icon-package"></i> <span>Build</span>
-        </a>
         <a class="sidebar-link{{ ' active' if active_page == 'config' else '' }}" href="{{ url_prefix|default('/admin') }}/config/" data-sidebar-label="configuration config settings">
             <i class="icon-settings"></i> <span>Configuration</span>
         </a>
@@ -177,4 +174,3 @@
         </div>
     </div>
 </aside>
-
