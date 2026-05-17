@@ -31,6 +31,8 @@ class SourceFile:
     symbols: list[str] = field(default_factory=list)
     anchors: list[SourceAnchor] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
+    imports: list[str] = field(default_factory=list)
+    sections: list[dict[str, Any]] = field(default_factory=list)
     content_hash: str = ""
     size: int = 0
     text: str = ""
@@ -74,6 +76,7 @@ class KnowledgeIndex:
     cli_commands: list[dict[str, Any]] = field(default_factory=list)
     deprecations: list[dict[str, Any]] = field(default_factory=list)
     examples: list[dict[str, Any]] = field(default_factory=list)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -87,6 +90,7 @@ class KnowledgeIndex:
             "cli_commands": self.cli_commands,
             "deprecations": self.deprecations,
             "examples": self.examples,
+            "metadata": self.metadata,
         }
 
     @classmethod
@@ -96,6 +100,8 @@ class KnowledgeIndex:
             anchors = [SourceAnchor(**anchor) for anchor in item.get("anchors", [])]
             source_data = dict(item)
             source_data["anchors"] = anchors
+            source_data.setdefault("imports", [])
+            source_data.setdefault("sections", [])
             sources.append(SourceFile(**source_data))
         return cls(
             root=data["root"],
@@ -107,4 +113,5 @@ class KnowledgeIndex:
             cli_commands=list(data.get("cli_commands", [])),
             deprecations=list(data.get("deprecations", [])),
             examples=list(data.get("examples", [])),
+            metadata=dict(data.get("metadata", {})),
         )

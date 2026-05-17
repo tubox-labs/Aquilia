@@ -25,6 +25,12 @@ _RULES = [
     ("route_prefix=", "Move route prefixes to workspace.py with Module.route_prefix(...)."),
     ("DatabaseConfig(", "Use Workspace.database(...) or Integration.database(...)."),
     ("database=DatabaseConfig", "Use Workspace.database(...) or Integration.database(...)."),
+    ("depends_on=", "Prefer AppManifest(imports=[...]) and Module.imports(...) for new cross-module dependencies."),
+    ("config/env.py", "Inline AquilaConfig classes in workspace.py with Workspace.env_config(...)."),
+    ("yaml", "YAML config is removed; use Python-native AquilaConfig, Env, Secret, and Workspace builders."),
+    ("aquilia.models.parser", "AMDL parser/runtime APIs are deprecated; use Python-native Model classes."),
+    ("aquilia.models.runtime", "AMDL runtime APIs are deprecated; use Python-native Model classes."),
+    ("__filename__", "AquilaConfig.__filename__/__filenames__ are deprecated; use the dotenv policy object."),
 ]
 
 

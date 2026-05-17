@@ -1,10 +1,20 @@
-"""Extract CLI command metadata from actual Click command declarations."""
+"""Extract CLI command metadata from the actual Click command tree."""
 
 from __future__ import annotations
 
 import ast
 from pathlib import Path
 from typing import Any
+
+
+def _json_safe(value: Any) -> Any:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    return str(value)
 
 
 def _decorator_name(decorator: ast.AST) -> tuple[str | None, str | None]:
@@ -23,7 +33,51 @@ def _decorator_name(decorator: ast.AST) -> tuple[str | None, str | None]:
     return None, None
 
 
-def load_cli_commands(root: Path) -> list[dict[str, Any]]:
+def _load_click_tree() -> list[dict[str, Any]]:
+    try:
+        import click
+
+        from aquilia.cli.__main__ import cli
+    except Exception:
+        return []
+
+    commands: list[dict[str, Any]] = []
+
+    def walk(command: click.Command, path: list[str]) -> None:
+        if path:
+            params = []
+            for param in command.params:
+                params.append(
+                    {
+                        "name": param.name,
+                        "opts": list(getattr(param, "opts", []) or []),
+                        "secondary_opts": list(getattr(param, "secondary_opts", []) or []),
+                        "required": bool(getattr(param, "required", False)),
+                        "default": _json_safe(getattr(param, "default", None)),
+                        "kind": type(param).__name__,
+                    }
+                )
+            commands.append(
+                {
+                    "name": path[-1],
+                    "function": getattr(command.callback, "__name__", "") if command.callback else "",
+                    "parent": " ".join(path[:-1]) or "aq",
+                    "command": " ".join(path),
+                    "path": "aquilia/cli/__main__.py",
+                    "line": getattr(command.callback, "__code__", None).co_firstlineno if command.callback else 1,
+                    "doc": command.help or command.short_help or "",
+                    "params": params,
+                }
+            )
+        if isinstance(command, click.Group):
+            for name in sorted(command.commands):
+                walk(command.commands[name], [*path, name])
+
+    walk(cli, ["aq"])
+    return commands
+
+
+def _load_ast_fallback(root: Path) -> list[dict[str, Any]]:
     main = root / "aquilia" / "cli" / "__main__.py"
     if not main.exists():
         return []
@@ -56,3 +110,11 @@ def load_cli_commands(root: Path) -> list[dict[str, Any]]:
                 }
             )
     return sorted(commands, key=lambda item: (item["command"], item["line"]))
+
+
+def load_cli_commands(root: Path) -> list[dict[str, Any]]:
+    package_root = Path(__file__).resolve().parents[3]
+    commands = _load_click_tree() if root.resolve() == package_root else []
+    if commands:
+        return sorted(commands, key=lambda item: (item["command"], item["line"]))
+    return _load_ast_fallback(root)

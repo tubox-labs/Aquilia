@@ -6,11 +6,12 @@ from typing import Any
 
 from .config import MCPConfig
 from .context.indexer import build_index
+from .faults import MCPProtocolFault, MCPToolFault
 from .models import KnowledgeIndex
 from .prompts.catalog import build_prompt_registry
 from .protocol import MCP_PROTOCOL_VERSION
 from .registry import MCPRegistry
-from .security import resolve_under_root
+from .security import resolve_readable_file
 from .tools.catalog import build_tool_registry
 from .transport.stdio import StdioTransport
 from .version import __version__
@@ -42,6 +43,8 @@ class AquiliaMCPServer:
         return {"tools": self.registry.list_tools()}
 
     def call_tool(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(arguments, dict):
+            raise MCPToolFault("Tool arguments must be a JSON object", metadata={"tool": name})
         result = self.registry.call_tool(name, arguments)
         return {
             "content": [{"type": "text", "text": _compact_text(result)}],
@@ -62,7 +65,7 @@ class AquiliaMCPServer:
         return {"resources": resources}
 
     def read_resource(self, uri: str) -> dict[str, Any]:
-        path = resolve_under_root(self.config.root, uri)
+        path = resolve_readable_file(self.config.root, uri)
         data = path.read_bytes()[: self.config.max_read_bytes]
         text = data.decode("utf-8", errors="replace")
         rel = path.relative_to(self.config.root).as_posix()
@@ -80,6 +83,8 @@ class AquiliaMCPServer:
         return {"prompts": self.registry.list_prompts()}
 
     def get_prompt(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(arguments, dict):
+            raise MCPToolFault("Prompt arguments must be a JSON object", metadata={"prompt": name})
         return self.registry.get_prompt(name, arguments)
 
     def cancel(self, request_id: str | int | None) -> None:
@@ -94,19 +99,27 @@ class AquiliaMCPServer:
         if method == "tools/list":
             return self.list_tools()
         if method == "tools/call":
-            return self.call_tool(str(params.get("name", "")), params.get("arguments") or {})
+            name = params.get("name")
+            if not isinstance(name, str) or not name:
+                raise MCPProtocolFault("tools/call requires a non-empty string 'name'", code="MCP_INVALID_PARAMS")
+            return self.call_tool(name, params.get("arguments") or {})
         if method == "resources/list":
             return self.list_resources()
         if method == "resources/read":
-            return self.read_resource(str(params.get("uri", "")))
+            uri = params.get("uri")
+            if not isinstance(uri, str) or not uri:
+                raise MCPProtocolFault("resources/read requires a non-empty string 'uri'", code="MCP_INVALID_PARAMS")
+            return self.read_resource(uri)
         if method == "prompts/list":
             return self.list_prompts()
         if method == "prompts/get":
-            return self.get_prompt(str(params.get("name", "")), params.get("arguments") or {})
+            name = params.get("name")
+            if not isinstance(name, str) or not name:
+                raise MCPProtocolFault("prompts/get requires a non-empty string 'name'", code="MCP_INVALID_PARAMS")
+            return self.get_prompt(name, params.get("arguments") or {})
         if method in {"notifications/initialized", "$/cancelRequest", "notifications/cancelled"}:
             self.cancel((params.get("requestId") or params.get("id")) if isinstance(params, dict) else None)
             return None
-        from .faults import MCPProtocolFault
 
         raise MCPProtocolFault(f"Unknown MCP method: {method}", code="MCP_METHOD_NOT_FOUND")
 

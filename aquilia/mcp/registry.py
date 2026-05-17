@@ -46,16 +46,20 @@ class PromptSpec:
 
 
 class MCPRegistry:
-    """Simple deterministic registry for MCP tools and prompts."""
+    """Deterministic registry for MCP tools and prompts."""
 
     def __init__(self) -> None:
         self.tools: dict[str, ToolSpec] = {}
         self.prompts: dict[str, PromptSpec] = {}
 
     def register_tool(self, spec: ToolSpec) -> None:
+        if spec.name in self.tools:
+            raise MCPToolFault(f"Duplicate tool registration: {spec.name}")
         self.tools[spec.name] = spec
 
     def register_prompt(self, spec: PromptSpec) -> None:
+        if spec.name in self.prompts:
+            raise MCPToolFault(f"Duplicate prompt registration: {spec.name}")
         self.prompts[spec.name] = spec
 
     def list_tools(self) -> list[dict[str, Any]]:
@@ -90,7 +94,8 @@ def _validate_schema(arguments: dict[str, Any], schema: dict[str, Any]) -> None:
         if required not in arguments:
             raise MCPToolFault(f"Missing required argument: {required}")
     for key, value in arguments.items():
-        expected = properties.get(key, {}).get("type")
+        prop = properties.get(key, {})
+        expected = prop.get("type")
         if expected == "string" and not isinstance(value, str):
             raise MCPToolFault(f"Argument '{key}' must be a string")
         if expected == "integer" and not isinstance(value, int):
@@ -99,3 +104,13 @@ def _validate_schema(arguments: dict[str, Any], schema: dict[str, Any]) -> None:
             raise MCPToolFault(f"Argument '{key}' must be an array")
         if expected == "boolean" and not isinstance(value, bool):
             raise MCPToolFault(f"Argument '{key}' must be a boolean")
+        if expected == "integer":
+            minimum = prop.get("minimum")
+            maximum = prop.get("maximum")
+            if minimum is not None and value < minimum:
+                raise MCPToolFault(f"Argument '{key}' must be >= {minimum}")
+            if maximum is not None and value > maximum:
+                raise MCPToolFault(f"Argument '{key}' must be <= {maximum}")
+        enum = prop.get("enum")
+        if enum is not None and value not in enum:
+            raise MCPToolFault(f"Argument '{key}' must be one of: {', '.join(map(str, enum))}")

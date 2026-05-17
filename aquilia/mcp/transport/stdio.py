@@ -8,8 +8,6 @@ import sys
 from typing import Any, TextIO
 
 from ..protocol import (
-    INTERNAL_ERROR,
-    METHOD_NOT_FOUND,
     PARSE_ERROR,
     error_response,
     fault_to_error,
@@ -60,6 +58,8 @@ class StdioTransport:
                     signal.signal(signal.SIGINT, old_handler)
 
     def handle_line(self, line: str) -> dict[str, Any] | None:
+        if not line.strip():
+            return None
         if len(line.encode("utf-8", errors="replace")) > self.max_request_bytes:
             return error_response(None, PARSE_ERROR, "JSON-RPC frame exceeds configured maximum size")
         try:
@@ -70,13 +70,11 @@ class StdioTransport:
         try:
             request = parse_request(payload)
             result = self.server.handle(request.method, request.params)
-            if result is None or request.id is None:
+            if result is None or request.notification:
                 return None
             return success_response(request.id, result)
         except Exception as exc:
             code, message, data = fault_to_error(exc)
-            if code == INTERNAL_ERROR and type(exc).__name__ == "MCPProtocolFault":
-                code = METHOD_NOT_FOUND
             return error_response(request_id, code, message, data=data)
 
     def _write(self, response: dict[str, Any]) -> None:

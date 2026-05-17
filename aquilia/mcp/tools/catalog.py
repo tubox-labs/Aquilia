@@ -35,8 +35,17 @@ def build_tool_registry(index: KnowledgeIndex) -> MCPRegistry:
             _schema(
                 {
                     "query": {"type": "string", "description": "API, symbol, subsystem, or concept to find."},
-                    "limit": {"type": "integer", "description": "Maximum number of results, default 8."},
-                    "kind": {"type": "string", "description": "Optional source kind: python or markdown."},
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 25,
+                        "description": "Maximum number of results, default 8.",
+                    },
+                    "kind": {
+                        "type": "string",
+                        "enum": ["python", "markdown"],
+                        "description": "Optional source kind.",
+                    },
                 },
                 ["query"],
             ),
@@ -124,7 +133,7 @@ def build_tool_registry(index: KnowledgeIndex) -> MCPRegistry:
         ToolSpec(
             "list_cli_commands",
             "List aq CLI commands discovered from the actual Click command tree.",
-            _schema({"query": {"type": "string"}, "limit": {"type": "integer"}}),
+            _schema({"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 200}}),
             lambda args: list_cli_commands(index, args),
         )
     )
@@ -132,7 +141,7 @@ def build_tool_registry(index: KnowledgeIndex) -> MCPRegistry:
         ToolSpec(
             "find_examples",
             "Find runnable Aquilia examples mapped to framework features.",
-            _schema({"query": {"type": "string"}, "limit": {"type": "integer"}}),
+            _schema({"query": {"type": "string"}, "limit": {"type": "integer", "minimum": 1, "maximum": 50}}),
             lambda args: find_examples(index, args),
         )
     )
