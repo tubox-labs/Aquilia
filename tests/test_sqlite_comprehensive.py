@@ -1380,6 +1380,24 @@ class TestMemorySharedCache:
             await pool.close()
 
     @pytest.mark.asyncio
+    async def test_memory_pools_are_isolated(self):
+        """Separate :memory: pools should not share table state."""
+        pool_a = await create_pool(SqlitePoolConfig(path=":memory:", pool_size=2, pool_min_size=1))
+        pool_b = await create_pool(SqlitePoolConfig(path=":memory:", pool_size=2, pool_min_size=1))
+        try:
+            await pool_a.execute("CREATE TABLE isolated (id INTEGER PRIMARY KEY, name TEXT)")
+            await pool_a.execute("INSERT INTO isolated (name) VALUES (?)", ["Alice"])
+
+            await pool_b.execute("CREATE TABLE isolated (id INTEGER PRIMARY KEY, name TEXT)")
+            await pool_b.execute("INSERT INTO isolated (name) VALUES (?)", ["Bob"])
+
+            assert await pool_a.fetch_val("SELECT name FROM isolated") == "Alice"
+            assert await pool_b.fetch_val("SELECT name FROM isolated") == "Bob"
+        finally:
+            await pool_a.close()
+            await pool_b.close()
+
+    @pytest.mark.asyncio
     async def test_memory_pool_introspection(self, memory_pool: ConnectionPool):
         """Introspection works on shared :memory: database."""
         await memory_pool.execute("CREATE TABLE introspect (id INTEGER PRIMARY KEY, val TEXT)")
