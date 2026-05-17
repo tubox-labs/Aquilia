@@ -41,7 +41,6 @@ from .templates import (
     render_admin_users_page,
     render_api_keys_page,
     render_audit_page,
-    render_build_page,
     render_config_page,
     render_containers_page,
     render_dashboard,
@@ -358,12 +357,6 @@ class AdminController(Controller):
                 "enable_orm=True",
                 "orm",
                 "Explore registered models, schema, relations, and indexes.",
-            ),
-            "Build": (
-                "Integration.AdminModules().enable_build()",
-                "enable_build=True",
-                "build",
-                "Build artifacts, pipeline status, and Crous output.",
             ),
             "Migrations": (
                 "Integration.AdminModules().enable_migrations()",
@@ -2106,53 +2099,6 @@ class AdminController(Controller):
             identity_avatar=_get_identity_avatar(identity),
             model_schema=model_schema,
             orm_metadata=orm_metadata,
-        )
-        return _html_response(html)
-
-    # ── Build Page ───────────────────────────────────────────────────
-
-    @GET("/build/")
-    async def build_view(self, request, ctx: RequestCtx) -> Response:
-        """Build page -- Crous artifacts and pipeline status."""
-        self._ensure_csrf(ctx)
-        identity, denied = _require_identity(ctx)
-        if denied:
-            return denied
-
-        if not self.site.admin_config.is_module_enabled("build"):
-            return self._module_disabled_response("Build", identity)
-
-        if not has_admin_permission(identity, AdminPermission.BUILD_VIEW):
-            return self._permission_denied_response("Build", identity, AdminPermission.BUILD_VIEW)
-
-        self._ensure_initialized()
-
-        build_data = self.site.get_build_info()
-        app_list = self.site.get_app_list(identity)
-
-        try:
-            meta = _extract_request_meta(request)
-            self.site.audit_log.log(
-                user_id=getattr(identity, "id", ""),
-                username=_get_identity_name(identity),
-                role=str(get_admin_role(identity) or "unknown"),
-                action=AdminAction.PAGE_VIEW,
-                model_name="Build",
-                ip_address=meta.get("ip_address"),
-                user_agent=meta.get("user_agent"),
-            )
-        except Exception:
-            pass
-
-        html = render_build_page(
-            build_info=build_data.get("info", {}),
-            artifacts=build_data.get("artifacts", []),
-            pipeline_phases=build_data.get("pipeline_phases", []),
-            build_log=build_data.get("build_log", ""),
-            build_files=build_data.get("build_files", []),
-            app_list=app_list,
-            identity_name=_get_identity_name(identity),
-            identity_avatar=_get_identity_avatar(identity),
         )
         return _html_response(html)
 

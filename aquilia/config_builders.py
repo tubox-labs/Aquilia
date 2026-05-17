@@ -1714,7 +1714,6 @@ class Integration:
     #             Integration.AdminModules()
     #             .enable_dashboard()
     #             .enable_orm()
-    #             .disable_build()
     #             .disable_migrations()
     #         ),
     #         audit=(
@@ -1751,14 +1750,12 @@ class Integration:
                 Integration.AdminModules()
                 .enable_orm()
                 .enable_monitoring()   # Opt-in
-                .disable_build()
             )
         """
 
         __slots__ = (
             "_dashboard",
             "_orm",
-            "_build",
             "_migrations",
             "_config",
             "_workspace",
@@ -1784,7 +1781,6 @@ class Integration:
         def __init__(self) -> None:
             self._dashboard: bool = True
             self._orm: bool = True
-            self._build: bool = True
             self._migrations: bool = True
             self._config: bool = True
             self._workspace: bool = True
@@ -1826,17 +1822,6 @@ class Integration:
         def disable_orm(self) -> "Integration.AdminModules":
             """Hide the ORM Models page."""
             self._orm = False
-            return self
-
-        # ── Build ──
-        def enable_build(self) -> "Integration.AdminModules":
-            """Show the Build page."""
-            self._build = True
-            return self
-
-        def disable_build(self) -> "Integration.AdminModules":
-            """Hide the Build page."""
-            self._build = False
             return self
 
         # ── Migrations ──
@@ -2077,7 +2062,6 @@ class Integration:
             return {
                 "dashboard": self._dashboard,
                 "orm": self._orm,
-                "build": self._build,
                 "migrations": self._migrations,
                 "config": self._config,
                 "workspace": self._workspace,
@@ -2339,7 +2323,7 @@ class Integration:
             return self
 
         def show_system(self) -> "Integration.AdminSidebar":
-            """Show the System section (Monitoring, Workspace, Build, Config)."""
+            """Show the System section (Monitoring, Workspace, Config)."""
             self._system = True
             return self
 
@@ -3185,7 +3169,6 @@ class Integration:
         audit_max_entries: int = 10_000,
         enable_dashboard: bool | None = None,
         enable_orm: bool | None = None,
-        enable_build: bool | None = None,
         enable_migrations: bool | None = None,
         enable_config: bool | None = None,
         enable_workspace: bool | None = None,
@@ -3243,7 +3226,6 @@ class Integration:
                     Integration.AdminModules()
                     .enable_orm()
                     .enable_monitoring()     # opt-in
-                    .disable_build()
                 ),
                 audit=(
                     Integration.AdminAudit()
@@ -3288,7 +3270,6 @@ class Integration:
             mod_dict = {
                 "dashboard": enable_dashboard if enable_dashboard is not None else True,
                 "orm": enable_orm if enable_orm is not None else True,
-                "build": enable_build if enable_build is not None else True,
                 "migrations": enable_migrations if enable_migrations is not None else True,
                 "config": enable_config if enable_config is not None else True,
                 "workspace": enable_workspace if enable_workspace is not None else True,

@@ -25,10 +25,9 @@ import pytest
 
 from aquilia.admin.controller import AdminController
 from aquilia.admin.templates import (
-    render_list_view,
-    render_form_view,
     render_dashboard,
-    render_build_page,
+    render_form_view,
+    render_list_view,
 )
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -799,7 +798,6 @@ class TestAdminRouteCount:
             "delete_record",
             "audit_view",
             "orm_view",
-            "build_view",
             "migrations_view",
             "config_view",
             "permissions_view",
@@ -2173,7 +2171,7 @@ class TestRouteRegistration:
         from aquilia.server import AquiliaServer
 
         src = inspect.getsource(AquiliaServer._wire_admin_integration)
-        for page in ("orm", "build", "migrations", "config", "permissions"):
+        for page in ("orm", "migrations", "config", "permissions"):
             assert f"/{page}/" in src, f"Route /{page}/ missing from _wire_admin_integration"
 
     def test_static_routes_before_dynamic(self):
@@ -2190,11 +2188,11 @@ class TestRouteRegistration:
         from aquilia.server import AquiliaServer
 
         src = inspect.getsource(AquiliaServer._wire_admin_integration)
-        for name in ("orm_view", "build_view", "migrations_view", "config_view", "permissions_view"):
+        for name in ("orm_view", "migrations_view", "config_view", "permissions_view"):
             assert name in src, f"Handler '{name}' missing"
 
-    def test_all_five_new_routes_count(self):
-        """Five new static routes + audit + 6 CRUD/auth = 16 total entries."""
+    def test_new_routes_count(self):
+        """Static routes + audit + CRUD/auth routes are registered."""
         import inspect
         from aquilia.server import AquiliaServer
 
@@ -2212,7 +2210,7 @@ class TestRouteRegistration:
 
 
 class TestNewTemplatesRendering:
-    """All 5 new page templates produce valid HTML."""
+    """New page templates produce valid HTML."""
 
     def test_render_orm_page(self):
         from aquilia.admin.templates import render_orm_page
@@ -2224,32 +2222,6 @@ class TestNewTemplatesRendering:
         from aquilia.admin.templates import render_orm_page
 
         html = render_orm_page(app_list=[], model_counts={}, identity_name="Admin")
-        assert "<!DOCTYPE html>" in html
-
-    def test_render_build_page(self):
-        from aquilia.admin.templates import render_build_page
-
-        html = render_build_page(
-            build_info={"fingerprint": "abc"},
-            artifacts=[],
-            pipeline_phases=[],
-            build_log="",
-            app_list=[],
-            identity_name="Admin",
-        )
-        assert "<!DOCTYPE html>" in html
-
-    def test_render_build_page_with_artifacts(self):
-        from aquilia.admin.templates import render_build_page
-
-        html = render_build_page(
-            build_info={},
-            artifacts=[{"name": "x.crous", "kind": "bundle", "size": "1 KB", "digest": "abc"}],
-            pipeline_phases=[{"name": "Discovery", "status": "success", "detail": "ok"}],
-            build_log="done",
-            app_list=[],
-            identity_name="Admin",
-        )
         assert "<!DOCTYPE html>" in html
 
     def test_render_migrations_page(self):
@@ -2553,7 +2525,6 @@ class TestNewControllerHandlers:
             modules={
                 "dashboard": True,
                 "orm": True,
-                "build": True,
                 "migrations": True,
                 "config": True,
                 "workspace": True,
@@ -2595,18 +2566,6 @@ class TestNewControllerHandlers:
         resp = await self.ctrl.orm_view(self._req(), self._ctx(identity=_sa_identity()))
         assert resp.status == 200
         assert b"<!DOCTYPE html>" in resp._content
-
-    # Build
-    @pytest.mark.asyncio
-    async def test_build_unauth(self):
-        resp = await self.ctrl.build_view(self._req(), self._ctx())
-        assert resp.status == 302
-
-    @pytest.mark.asyncio
-    async def test_build_auth(self):
-        self.site._initialized = True
-        resp = await self.ctrl.build_view(self._req(), self._ctx(identity=_sa_identity()))
-        assert resp.status == 200
 
     # Migrations
     @pytest.mark.asyncio
@@ -2825,11 +2784,6 @@ class TestDataMethodsShape:
         self.site.register(_ProductModel)
         self.site._initialized = True
 
-    def test_build_info_keys(self):
-        r = self.site.get_build_info()
-        for k in ("info", "artifacts", "pipeline_phases", "build_log"):
-            assert k in r
-
     def test_migrations_is_list(self):
         assert isinstance(self.site.get_migrations_data(), list)
 
@@ -2874,7 +2828,7 @@ class TestTemplatePartialsV3:
         content = (Path(__file__).parent.parent / "aquilia/admin/templates/partials/sidebar_v2.html").read_text(
             encoding="utf-8"
         )
-        for page in ("orm", "build", "migrations", "config", "permissions", "audit", "monitoring"):
+        for page in ("orm", "migrations", "config", "permissions", "audit", "monitoring"):
             assert page in content.lower(), f"/{page}/ link missing from sidebar"
 
     def test_css_exists(self):
@@ -2923,7 +2877,6 @@ class TestNewTemplatesOnDisk:
         "name",
         [
             "orm.html",
-            "build.html",
             "migrations.html",
             "config.html",
             "permissions.html",
@@ -2938,7 +2891,6 @@ class TestNewTemplatesOnDisk:
         "name",
         [
             "orm.html",
-            "build.html",
             "migrations.html",
             "config.html",
             "permissions.html",
@@ -2957,18 +2909,10 @@ class TestNewTemplatesOnDisk:
 
 
 class TestJsonRemovalV3:
-    def test_bundler_no_aq_json(self):
-        import inspect
-        from aquilia.build.bundler import CrousBundler
+    def test_admin_build_page_removed(self):
+        from pathlib import Path
 
-        assert ".aq.json" not in inspect.getsource(CrousBundler)
-
-    def test_build_info_scans_crous(self):
-        import inspect
-        from aquilia.admin.site import AdminSite
-
-        src = inspect.getsource(AdminSite.get_build_info)
-        assert ".crous" in src
+        assert not (Path(__file__).parent.parent / "aquilia/admin/templates" / ("build" + ".html")).exists()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -3798,18 +3742,6 @@ class TestTemplateFeatures:
         assert "uptime-display" not in html
         assert "updateUptime" not in html
 
-    def test_build_template_has_click_to_view(self):
-        html = render_build_page(
-            build_info={"workspace_name": "test", "total_artifacts": 1},
-            artifacts=[{"name": "test.crous", "digest": "abc123", "content": "data", "kind": "model"}],
-            pipeline_phases=[],
-            build_log="",
-            build_files=[],
-            app_list=[],
-            identity_name="admin",
-        )
-        assert "viewArtifact" in html
-
     def test_css_pitch_black(self):
         html = render_dashboard(
             app_list=[],
@@ -4254,26 +4186,6 @@ class TestSyntaxHighlighting:
 
         result = AdminSite._highlight_crous("[Server]\nport = 8080")
         assert 'class="code-line-num"' in result
-
-    def test_build_template_renders_highlighted_json(self):
-        """Build page renders JSON artifacts with syntax highlighting spans."""
-        html = render_build_page(
-            build_info={"workspace_name": "test", "total_artifacts": 1},
-            artifacts=[
-                {
-                    "name": "test.json",
-                    "digest": "abc",
-                    "content": '{"key": "value"}',
-                    "kind": "model",
-                    "content_highlighted": '<span class="prop">"key"</span>: <span class="str">"value"</span>',
-                }
-            ],
-            pipeline_phases=[],
-            build_log="",
-            build_files=[],
-        )
-        assert 'class="prop"' in html or 'class="str"' in html
-
 
 class TestDashboardThemeToggle:
     """Dashboard theme toggle uses requestAnimationFrame instead of display:none."""
@@ -6190,7 +6102,6 @@ class TestAdminConfigDataclass:
         for mod in (
             "dashboard",
             "orm",
-            "build",
             "migrations",
             "config",
             "workspace",
@@ -6357,7 +6268,7 @@ class TestAdminConfigDataclass:
 
         cfg = AdminConfig.from_dict(
             {
-                "modules": {"orm": False, "build": False},
+                "modules": {"orm": False},
                 "audit_config": {
                     "enabled": True,
                     "log_logins": False,
@@ -6371,7 +6282,6 @@ class TestAdminConfigDataclass:
             }
         )
         assert cfg.is_module_enabled("orm") is False
-        assert cfg.is_module_enabled("build") is False
         assert cfg.is_module_enabled("dashboard") is True
         assert cfg.audit_log_logins is False
         assert "VIEW" in cfg.audit_excluded_actions
@@ -6446,7 +6356,6 @@ class TestAdminModulesBuilder:
         assert d["dashboard"] is True
         assert d["orm"] is True
         assert d["monitoring"] is True
-        assert d["build"] is False
         assert d["audit"] is False
 
     def test_repr(self):
@@ -6801,11 +6710,11 @@ class TestDisabledPageRendering:
         from aquilia.admin.templates import render_disabled_page
 
         html = render_disabled_page(
-            module_name="Build",
-            builder_hint="Integration.AdminModules().enable_build()",
-            flat_hint="enable_build=True",
-            icon_key="build",
-            description="Build artifacts.",
+            module_name="Monitoring",
+            builder_hint="Integration.AdminMonitoring().enable()",
+            flat_hint="enable_monitoring=True",
+            icon_key="monitoring",
+            description="System metrics.",
             app_list=[],
             identity_name="admin",
         )
@@ -6874,13 +6783,6 @@ class TestIntegrationAdminConfigBuilder:
         assert cfg["modules"]["dashboard"] is True
         assert cfg["modules"]["orm"] is True
 
-    def test_disable_build(self):
-        from aquilia.config_builders import Integration
-
-        cfg = Integration.admin(enable_build=False)
-        assert cfg["modules"]["build"] is False
-        assert cfg["modules"]["orm"] is True
-
     def test_audit_config(self):
         from aquilia.config_builders import Integration
 
@@ -6933,7 +6835,6 @@ class TestIntegrationAdminConfigBuilder:
         cfg = Integration.admin(
             enable_dashboard=False,
             enable_orm=False,
-            enable_build=False,
             enable_migrations=False,
             enable_config=False,
             enable_workspace=False,
@@ -7182,7 +7083,7 @@ class TestAdminControllerModuleGuards:
     def test_controller_has_admin_config(self):
         ctrl = self._make_controller({"orm": False})
         assert ctrl.site.admin_config.is_module_enabled("orm") is False
-        assert ctrl.site.admin_config.is_module_enabled("build") is True
+        assert ctrl.site.admin_config.is_module_enabled("dashboard") is True
 
 
 class TestSidebarTemplateConditional:
@@ -7226,7 +7127,6 @@ class TestSidebarTemplateConditional:
         html = self._render_sidebar()
         assert "ORM Models" in html
         assert "Monitoring" in html
-        assert "Build" in html
         assert "Audit Log" in html
         assert "Admin Users" in html
 
@@ -7234,7 +7134,7 @@ class TestSidebarTemplateConditional:
         """Disabling a module in config no longer hides it from the sidebar."""
         html = self._render_sidebar(
             {
-                "modules": {"orm": False, "monitoring": False, "audit": False, "build": False, "admin_users": False},
+                "modules": {"orm": False, "monitoring": False, "audit": False, "admin_users": False},
                 "sidebar_sections": {},
             }
         )
@@ -7243,7 +7143,6 @@ class TestSidebarTemplateConditional:
         assert "Monitoring" in html
         assert "Audit Log" in html
         assert "Admin Users" in html
-        assert "Build" in html
 
     def test_data_section_hidden_when_sidebar_section_disabled(self):
         html = self._render_sidebar(
@@ -7344,12 +7243,10 @@ class TestAdminConfigServerWiring:
         from aquilia.admin.site import AdminConfig
 
         raw = Integration.admin(
-            enable_build=False,
             audit_log_views=False,
             monitoring_metrics=["cpu", "memory"],
         )
         cfg = AdminConfig.from_dict(raw)
-        assert cfg.is_module_enabled("build") is False
         assert cfg.audit_log_views is False
         assert cfg.monitoring_metrics == frozenset({"cpu", "memory"})
 

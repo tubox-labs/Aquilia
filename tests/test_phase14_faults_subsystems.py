@@ -1366,7 +1366,7 @@ class TestEndToEnd:
         # Startup
         await subs.lifecycle.on_startup()
 
-        # Build pipeline
+        # Guard and hook pipeline
         pipeline = subs.build_pipeline(
             model_name="User",
             action="view",

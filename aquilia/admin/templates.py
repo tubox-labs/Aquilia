@@ -557,41 +557,6 @@ def render_orm_page(
 <body><div style="padding:24px"><h1>ORM Models</h1><p>{total_models} models registered</p></div></body></html>"""
 
 
-def render_build_page(
-    build_info: dict[str, Any],
-    artifacts: list[dict[str, Any]],
-    pipeline_phases: list[dict[str, Any]],
-    build_log: str = "",
-    build_files: list[dict[str, Any]] | None = None,
-    app_list: list[dict[str, Any]] | None = None,
-    identity_name: str = "Admin",
-    identity_avatar: str = "",
-    *,
-    site_title: str = "Aquilia Admin",
-    url_prefix: str = "/admin",
-) -> str:
-    """Render the build page with Crous artifacts and pipeline status."""
-    if _HAS_JINJA2:
-        return _render_template(
-            "build.html",
-            build_info=build_info,
-            artifacts=artifacts,
-            pipeline_phases=pipeline_phases,
-            build_log=build_log,
-            build_files=build_files or [],
-            app_list=app_list or [],
-            active_page="build",
-            identity_name=identity_name,
-            identity_avatar=identity_avatar,
-            site_title=site_title,
-            url_prefix=url_prefix,
-            page_title="Build",
-        )
-    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
-<meta charset="UTF-8"><title>Build -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
-<body><div style="padding:24px"><h1>Build</h1><p>{len(artifacts)} artifacts</p></div></body></html>"""
-
-
 def render_migrations_page(
     migrations: list[dict[str, Any]],
     app_list: list[dict[str, Any]] | None = None,
@@ -1259,7 +1224,6 @@ def render_disabled_page(
         "monitoring": "icon-activity",
         "audit": "icon-scroll-text",
         "orm": "icon-database",
-        "build": "icon-package",
         "migrations": "icon-git-branch",
         "config": "icon-settings",
         "workspace": "icon-layout-template",

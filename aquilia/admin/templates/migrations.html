@@ -37,7 +37,7 @@
             <span class="migration-revision">{{ mig.revision|default('') }}</span>
             <span style="font-size:0.82rem;font-weight:500;color:var(--text-primary);">{{ mig.filename }}</span>
             {% if mig.operations_count is defined %}
-            <span class="build-artifact-kind" style="margin-left:auto;">{{ mig.operations_count }} ops</span>
+            <span class="artifact-kind" style="margin-left:auto;">{{ mig.operations_count }} ops</span>
             {% endif %}
         </div>
         {% if mig.models %}
