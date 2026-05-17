@@ -1,50 +1,44 @@
-# debug Module
+# Debug Pages Documentation
 
-## Purpose
+This directory is the professional documentation set for `debug`. It is implementation-driven and aligned with the current source files under `aquilia/debug`.
 
-Development error and welcome pages. Use this module for HTML diagnostics in development, including exception, HTTP error, versioning, and welcome pages.
+## What This Covers
 
-## Source Coverage
+Development-mode HTML pages for welcome, HTTP errors, version errors, and exception diagnostics.
+
+## Source Files Read
+
+- `aquilia/debug/__init__.py`: Aquilia Debug - Beautiful development-mode error and welcome pages.
+- `aquilia/debug/pages.py`: Aquilia Debug Pages -- Tubox Themed (Premium).
+
+## Document Map
+
+- `architecture.md`: Runtime architecture and module boundaries
+- `configuration.md`: Configuration entry points, datatypes, and precedence
+- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
+- `integration-guide.md`: How to wire the module into a real Aquilia application
+- `cli-reference.md`: Command line surface and operational commands
+- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
+- `troubleshooting.md`: Common failures and diagnosis steps
+- `examples.md`: Code examples and usage patterns
+
+## Public Surface Snapshot
 
 - Python files: 2
 - Public classes: 1
-- Dataclasses: 0
-- Enums: 0
+- Configuration or dataclass-like types: 0
 - Public functions: 4
+- Constants detected: 5
 
-## How It Fits In Aquilia
+## Fast Start
 
-1. Import the package from `aquilia.debug` or its concrete submodules.
-2. Configure it through workspace integrations, manifests, or direct service construction depending on the subsystem.
-3. Keep business logic outside transport and framework glue so the subsystem stays testable.
+```python
+from aquilia.debug import DebugPageRenderer, render_debug_exception_page, render_http_error_page, render_version_error_page, render_welcome_page
 
-## Practical Guidance
+# The imported symbols above are public exports from this module.
+# See api-reference.md for constructor signatures, methods, and data fields.
+```
 
-- Prefer typed configuration objects and framework helpers over ad hoc dictionaries when they exist.
-- Use the tests in `tests/` as behavioral examples when changing this subsystem.
+## Read Next
 
-## Public Classes
-
-| Name | Source | Role |
-| --- | --- | --- |
-| `DebugPageRenderer` | `aquilia/debug/pages.py` | Public class. |
-
-## Public Functions
-
-| Name | Source | Role |
-| --- | --- | --- |
-| `render_debug_exception_page` | `aquilia/debug/pages.py` | Public function. |
-| `render_http_error_page` | `aquilia/debug/pages.py` | Public function. |
-| `render_version_error_page` | `aquilia/debug/pages.py` | Render a themed HTML page for API versioning errors. |
-| `render_welcome_page` | `aquilia/debug/pages.py` | Public function. |
-
-## Implementation Map
-
-| File | What To Look For |
-| --- | --- |
-| `aquilia/debug/__init__.py` | Aquilia Debug - Beautiful development-mode error and welcome pages. |
-| `aquilia/debug/pages.py` | Aquilia Debug Pages -- Tubox Themed (Premium). |
-
-## Testing Pointers
-
-Search `tests/` for `debug` to find behavior-level examples. The test suite is especially useful for edge cases because many modules expose lightweight public APIs but enforce important security and lifecycle behavior internally.
+Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.

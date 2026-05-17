@@ -1,13 +1,15 @@
 # Aquilia Documentation
 
-This documentation is written from the current `aquilia/` source tree. It mirrors the framework modules instead of describing an idealized API. Each module directory explains the purpose of the package, the runtime flow, important public types, operational notes, and the implementation files that make up that area.
+This documentation is written from the current `aquilia/` source tree. It mirrors the framework modules instead of describing an idealized API. Each module directory now follows the same documentation pattern used by `docs/i18n`: README, architecture, configuration, API reference, integration guide, CLI reference, examples, edge cases, and troubleshooting.
 
 ## How To Read This Documentation
 
 1. Start with `architecture.md` to understand how workspace configuration, manifests, runtime bootstrapping, controllers, middleware, and responses fit together.
 2. Use `module-index.md` when you need a fast map of the entire package surface.
 3. Open `modules/<name>/README.md` for package-level detail.
-4. Use `../examples/` for complete starter blueprints that combine the documented APIs into working project layouts.
+4. Use `modules/<name>/api-reference.md` for datatypes, functions, methods, constants, class fields, and method signatures extracted from the code.
+5. Use `modules/<name>/examples.md` for copyable usage patterns and starter snippets.
+6. Use `../examples/` for complete starter blueprints that combine the documented APIs into working project layouts.
 
 ## Framework Map
 

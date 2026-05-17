@@ -1,116 +1,66 @@
-# sockets Module
+# WebSockets Documentation
 
-## Purpose
+This directory is the professional documentation set for `sockets`. It is implementation-driven and aligned with the current source files under `aquilia/sockets`.
 
-WebSocket controllers, runtime, guards, and adapters. Use this module for socket namespaces, connection lifecycle, event handlers, acknowledgements, rooms, JSON envelopes, middleware, guards, in-memory fanout, and Redis fanout.
+## What This Covers
 
-## Source Coverage
+The WebSocket subsystem with socket controllers, connection model, event envelopes, guards, middleware, compiler, runtime dispatcher, rooms, acknowledgements, streams, and adapters.
+
+## Source Files Read
+
+- `aquilia/sockets/__init__.py`: AquilaSockets - WebSocket subsystem for Aquilia
+- `aquilia/sockets/adapters/__init__.py`: Adapters Package - WebSocket scaling adapters
+- `aquilia/sockets/adapters/base.py`: Adapter Base - Protocol for WebSocket scaling adapters
+- `aquilia/sockets/adapters/inmemory.py`: In-Memory Adapter - Single-process WebSocket adapter
+- `aquilia/sockets/adapters/redis.py`: Redis Adapter - Production-ready WebSocket adapter using Redis
+- `aquilia/sockets/compile.py`: WebSocket Compiler - Compile-time metadata extraction
+- `aquilia/sockets/connection.py`: Connection - WebSocket connection abstraction with DI scope
+- `aquilia/sockets/controller.py`: Socket Controller - Base class for WebSocket controllers
+- `aquilia/sockets/decorators.py`: Socket Controller Decorators - Declarative WebSocket controller syntax
+- `aquilia/sockets/envelope.py`: Message Envelope - Typed message protocol for WebSocket communication
+- `aquilia/sockets/faults.py`: WebSocket Faults - Structured error handling for WebSocket operations
+- `aquilia/sockets/guards.py`: WebSocket Guards - Security and validation guards
+- `aquilia/sockets/middleware.py`: WebSocket Middleware - Per-message processing pipeline
+- `aquilia/sockets/runtime.py`: WebSocket Runtime - ASGI integration and connection management
+
+## Document Map
+
+- `architecture.md`: Runtime architecture and module boundaries
+- `configuration.md`: Configuration entry points, datatypes, and precedence
+- `api-reference.md`: Classes, methods, functions, constants, and data fields extracted from source
+- `integration-guide.md`: How to wire the module into a real Aquilia application
+- `cli-reference.md`: Command line surface and operational commands
+- `edge-cases-and-limitations.md`: Known edge cases and implementation limits
+- `troubleshooting.md`: Common failures and diagnosis steps
+- `examples.md`: Code examples and usage patterns
+
+## Public Surface Snapshot
 
 - Python files: 14
 - Public classes: 41
-- Dataclasses: 8
-- Enums: 2
+- Configuration or dataclass-like types: 8
 - Public functions: 18
+- Constants detected: 1
 
-## How It Fits In Aquilia
+## Fast Start
 
-1. Decorate a SocketController class with Socket(path).
-2. Use OnConnect, OnDisconnect, Event, AckEvent, Subscribe, and Unsubscribe for lifecycle and message handling.
-3. Register socket controllers in AppManifest.socket_controllers so AquilaSockets can compile routes.
+```python
+from aquilia.sockets import Connection, Event, OnConnect, Socket, SocketController
 
-## Practical Guidance
+@Socket("/ws/chat/:room", allowed_origins=["*"], message_rate_limit=20)
+class ChatSocket(SocketController):
+    @OnConnect()
+    async def connected(self, conn: Connection):
+        room = conn.scope.path_params.get("room", "lobby")
+        await conn.join(room)
+        await conn.send_event("welcome", {"room": room})
 
-- WebSocket controllers need an adapter set by runtime for room fanout. Direct controller unit tests can use fake connections.
-- Validate event payloads with Schema where message shape matters.
+    @Event("message.send", ack=True)
+    async def message(self, conn: Connection, payload: dict):
+        await self.publish_room(payload["room"], "message.received", payload)
+        return {"published": True}
+```
 
-## Public Classes
+## Read Next
 
-| Name | Source | Role |
-| --- | --- | --- |
-| `EventMetadata` | `aquilia/sockets/compile.py` | Compiled event handler metadata. |
-| `SocketControllerMetadata` | `aquilia/sockets/compile.py` | Compiled controller metadata. |
-| `SocketCompiler` | `aquilia/sockets/compile.py` | Compiler for WebSocket controllers. |
-| `ConnectionState` | `aquilia/sockets/connection.py` | Connection lifecycle state. |
-| `ConnectionScope` | `aquilia/sockets/connection.py` | Scope metadata for connection. |
-| `Connection` | `aquilia/sockets/connection.py` | WebSocket connection with DI scope. |
-| `SocketController` | `aquilia/sockets/controller.py` | Base class for WebSocket controllers. |
-| `Socket` | `aquilia/sockets/decorators.py` | WebSocket controller decorator. |
-| `OnConnect` | `aquilia/sockets/decorators.py` | Handshake handler decorator. |
-| `OnDisconnect` | `aquilia/sockets/decorators.py` | Disconnect handler decorator. |
-| `Event` | `aquilia/sockets/decorators.py` | Message event handler decorator. |
-| `AckEvent` | `aquilia/sockets/decorators.py` | Acknowledgement-enabled event handler. |
-| `Subscribe` | `aquilia/sockets/decorators.py` | Room subscription handler. |
-| `Unsubscribe` | `aquilia/sockets/decorators.py` | Room unsubscription handler. |
-| `Guard` | `aquilia/sockets/decorators.py` | Guard decorator for WebSocket handlers. |
-| `MessageType` | `aquilia/sockets/envelope.py` | Message type discriminator. |
-| `MessageEnvelope` | `aquilia/sockets/envelope.py` | Standard message envelope for WebSocket communication. |
-| `AckEnvelope` | `aquilia/sockets/envelope.py` | Acknowledgement message. |
-| `StreamChunk` | `aquilia/sockets/envelope.py` | Typed stream chunk payload for websocket event streaming. |
-| `Schema` | `aquilia/sockets/envelope.py` | Simple schema validator for message payloads. |
-| `MessageCodec` | `aquilia/sockets/envelope.py` | Protocol for message encoding/decoding. |
-| `JSONCodec` | `aquilia/sockets/envelope.py` | JSON message codec. |
-| `MsgPackCodec` | `aquilia/sockets/envelope.py` | MessagePack codec for efficient binary encoding. |
-| `SocketFault` | `aquilia/sockets/faults.py` | Base fault for WebSocket operations. |
-| `SocketGuard` | `aquilia/sockets/guards.py` | Base class for WebSocket guards. |
-| `HandshakeAuthGuard` | `aquilia/sockets/guards.py` | Handshake authentication guard. |
-| `OriginGuard` | `aquilia/sockets/guards.py` | Origin validation guard. |
-| `MessageAuthGuard` | `aquilia/sockets/guards.py` | Per-message authentication guard. |
-| `RateLimitGuard` | `aquilia/sockets/guards.py` | Rate limiting guard. |
-| `MessageValidationMiddleware` | `aquilia/sockets/middleware.py` | Message validation middleware. |
-| `RateLimitMiddleware` | `aquilia/sockets/middleware.py` | Rate limiting middleware. |
-| `LoggingMiddleware` | `aquilia/sockets/middleware.py` | Logging middleware. |
-| `MetricsMiddleware` | `aquilia/sockets/middleware.py` | Metrics collection middleware. |
-| `MiddlewareChain` | `aquilia/sockets/middleware.py` | Middleware chain builder. |
-| `RouteMetadata` | `aquilia/sockets/runtime.py` | Socket route metadata extracted from controller. |
-| `SocketRouter` | `aquilia/sockets/runtime.py` | Router for WebSocket namespaces. |
-| `AquilaSockets` | `aquilia/sockets/runtime.py` | Main WebSocket runtime. |
-| `RoomInfo` | `aquilia/sockets/adapters/base.py` | Room metadata. |
-| `Adapter` | `aquilia/sockets/adapters/base.py` | Adapter protocol for WebSocket scaling. |
-| `InMemoryAdapter` | `aquilia/sockets/adapters/inmemory.py` | In-memory adapter for single-process deployments. |
-| `RedisAdapter` | `aquilia/sockets/adapters/redis.py` | Redis-backed adapter for multi-worker deployments. |
-
-## Public Functions
-
-| Name | Source | Role |
-| --- | --- | --- |
-| `compile_socket_controllers` | `aquilia/sockets/compile.py` | Compile socket controllers to artifacts. |
-| `WS_HANDSHAKE_FAILED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_AUTH_REQUIRED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_FORBIDDEN` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_ORIGIN_NOT_ALLOWED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_MESSAGE_INVALID` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_PAYLOAD_TOO_LARGE` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_UNSUPPORTED_EVENT` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_CONNECTION_CLOSED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_CONNECTION_TIMEOUT` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_RATE_LIMIT_EXCEEDED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_QUOTA_EXCEEDED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_ROOM_NOT_FOUND` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_ROOM_FULL` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_ALREADY_SUBSCRIBED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_NOT_SUBSCRIBED` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_ADAPTER_UNAVAILABLE` | `aquilia/sockets/faults.py` | Public function. |
-| `WS_PUBLISH_FAILED` | `aquilia/sockets/faults.py` | Public function. |
-
-## Implementation Map
-
-| File | What To Look For |
-| --- | --- |
-| `aquilia/sockets/__init__.py` | AquilaSockets - WebSocket subsystem for Aquilia |
-| `aquilia/sockets/adapters/__init__.py` | Adapters Package - WebSocket scaling adapters |
-| `aquilia/sockets/adapters/base.py` | Adapter Base - Protocol for WebSocket scaling adapters |
-| `aquilia/sockets/adapters/inmemory.py` | In-Memory Adapter - Single-process WebSocket adapter |
-| `aquilia/sockets/adapters/redis.py` | Redis Adapter - Production-ready WebSocket adapter using Redis |
-| `aquilia/sockets/compile.py` | WebSocket Compiler - Compile-time metadata extraction |
-| `aquilia/sockets/connection.py` | Connection - WebSocket connection abstraction with DI scope |
-| `aquilia/sockets/controller.py` | Socket Controller - Base class for WebSocket controllers |
-| `aquilia/sockets/decorators.py` | Socket Controller Decorators - Declarative WebSocket controller syntax |
-| `aquilia/sockets/envelope.py` | Message Envelope - Typed message protocol for WebSocket communication |
-| `aquilia/sockets/faults.py` | WebSocket Faults - Structured error handling for WebSocket operations |
-| `aquilia/sockets/guards.py` | WebSocket Guards - Security and validation guards |
-| `aquilia/sockets/middleware.py` | WebSocket Middleware - Per-message processing pipeline |
-| `aquilia/sockets/runtime.py` | WebSocket Runtime - ASGI integration and connection management |
-
-## Testing Pointers
-
-Search `tests/` for `sockets` to find behavior-level examples. The test suite is especially useful for edge cases because many modules expose lightweight public APIs but enforce important security and lifecycle behavior internally.
+Start with `architecture.md` if you are learning how the subsystem fits into runtime boot. Use `api-reference.md` when you need exact methods, datatypes, and class fields. Use `examples.md` for copyable patterns that match the current code.
