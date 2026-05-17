@@ -73,11 +73,6 @@ myapp/
 myapp/*
 
 .ruff_cache/
-skills-lock.json
-.claude/
-.agents/
-.agent/
-skills/
 
 pr.md
 

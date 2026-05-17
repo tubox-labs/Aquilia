@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Di Service Builder"
+  short_description: "Aquilia framework workflow: aquilia-di-service-builder"
+  default_prompt: "Use aquilia-di-service-builder to work on this Aquilia framework task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Artifacts Release Builder"
+  short_description: "Aquilia framework workflow: aquilia-artifacts-release-builder"
+  default_prompt: "Use aquilia-artifacts-release-builder to work on this Aquilia framework task."

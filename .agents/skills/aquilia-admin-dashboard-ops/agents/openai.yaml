@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Admin Dashboard Ops"
+  short_description: "Aquilia framework workflow: aquilia-admin-dashboard-ops"
+  default_prompt: "Use aquilia-admin-dashboard-ops to work on this Aquilia framework task."

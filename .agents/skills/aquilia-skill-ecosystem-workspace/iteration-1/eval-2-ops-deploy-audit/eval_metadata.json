@@ -1,0 +1,16 @@
+{
+  "eval_id": 2,
+  "eval_name": "ops-deploy-audit",
+  "prompt": "Audit an Aquilia app before production deployment to Render, including security hardening, artifacts, deploy generation, admin, cache/storage, and runtime lifecycle checks.",
+  "assertions": [
+    {
+      "text": "Names the relevant Aquilia skills and source-backed workflow boundaries."
+    },
+    {
+      "text": "Avoids deprecated Aquilia APIs called out in the skill constraints."
+    },
+    {
+      "text": "Includes concrete verification commands or file anchors."
+    }
+  ]
+}

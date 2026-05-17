@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Config Integration Manager"
+  short_description: "Aquilia framework workflow: aquilia-config-integration-manager"
+  default_prompt: "Use aquilia-config-integration-manager to work on this Aquilia framework task."

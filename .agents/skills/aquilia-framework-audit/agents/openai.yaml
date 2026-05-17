@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Framework Audit"
+  short_description: "Aquilia framework workflow: aquilia-framework-audit"
+  default_prompt: "Use aquilia-framework-audit to work on this Aquilia framework task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Blueprint Validation"
+  short_description: "Aquilia framework workflow: aquilia-blueprint-validation"
+  default_prompt: "Use aquilia-blueprint-validation to work on this Aquilia framework task."

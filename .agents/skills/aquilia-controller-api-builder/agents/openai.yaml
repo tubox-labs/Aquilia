@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Controller Api Builder"
+  short_description: "Aquilia framework workflow: aquilia-controller-api-builder"
+  default_prompt: "Use aquilia-controller-api-builder to work on this Aquilia framework task."

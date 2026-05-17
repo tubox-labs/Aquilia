@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Cli Workflow Operator"
+  short_description: "Aquilia framework workflow: aquilia-cli-workflow-operator"
+  default_prompt: "Use aquilia-cli-workflow-operator to work on this Aquilia framework task."

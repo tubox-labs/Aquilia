@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Mlops Model Lifecycle"
+  short_description: "Aquilia framework workflow: aquilia-mlops-model-lifecycle"
+  default_prompt: "Use aquilia-mlops-model-lifecycle to work on this Aquilia framework task."

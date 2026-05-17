@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Template Mail I18N"
+  short_description: "Aquilia framework workflow: aquilia-template-mail-i18n"
+  default_prompt: "Use aquilia-template-mail-i18n to work on this Aquilia framework task."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Discovery Manifest Sync"
+  short_description: "Aquilia framework workflow: aquilia-discovery-manifest-sync"
+  default_prompt: "Use aquilia-discovery-manifest-sync to work on this Aquilia framework task."

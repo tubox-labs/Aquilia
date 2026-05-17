@@ -1,0 +1,16 @@
+{
+  "eval_id": 0,
+  "eval_name": "bootstrap-module-api",
+  "prompt": "In an Aquilia workspace, create a new orders module with workspace Module pointer, AppManifest, service injection, and CRUD controller routes. Explain which files to edit and which CLI commands can verify it.",
+  "assertions": [
+    {
+      "text": "Names the relevant Aquilia skills and source-backed workflow boundaries."
+    },
+    {
+      "text": "Avoids deprecated Aquilia APIs called out in the skill constraints."
+    },
+    {
+      "text": "Includes concrete verification commands or file anchors."
+    }
+  ]
+}

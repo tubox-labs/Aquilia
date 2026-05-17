@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Task Worker Scheduler"
+  short_description: "Aquilia framework workflow: aquilia-task-worker-scheduler"
+  default_prompt: "Use aquilia-task-worker-scheduler to work on this Aquilia framework task."

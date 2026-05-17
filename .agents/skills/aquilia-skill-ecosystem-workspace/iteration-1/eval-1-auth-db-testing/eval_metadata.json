@@ -1,0 +1,16 @@
+{
+  "eval_id": 1,
+  "eval_name": "auth-db-testing",
+  "prompt": "Add authenticated project CRUD backed by SQLite models, sessions, and tests using Aquilia testing utilities. Include migration and validation workflow.",
+  "assertions": [
+    {
+      "text": "Names the relevant Aquilia skills and source-backed workflow boundaries."
+    },
+    {
+      "text": "Avoids deprecated Aquilia APIs called out in the skill constraints."
+    },
+    {
+      "text": "Includes concrete verification commands or file anchors."
+    }
+  ]
+}
