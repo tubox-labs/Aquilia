@@ -68,3 +68,38 @@ The current examples do not sufficiently cover:
 4. Add a `reference_suite` with executable scripts and tests for subsystem-level APIs that are not naturally covered by app starters.
 5. Add focused CLI workflow documentation using actual command names, flags, and behavior from `aquilia/cli/__main__.py` and command modules.
 6. Validate with `python -m pytest examples -q` and targeted reference-suite execution.
+
+## Second Expansion Audit
+
+The second audit re-read the runtime, workspace builders, manifest schema, CLI entrypoint, typed integrations, and the subsystem implementations that still needed app-shaped coverage. The examples added in this expansion must follow these verified implementation facts:
+
+- `AquiliaRuntime` is phase-gated and only exposes `.app` after `configure().discover().bootstrap()` or `from_workspace()`.
+- `workspace.py` is orchestration only: runtime options, module pointers, typed integrations, session/security/storage/tasks/database/i18n/telemetry configuration, and startup/shutdown hook paths.
+- `modules/<name>/manifest.py` is the module source of truth for `AppManifest` controllers, services, middleware, socket controllers, models, background tasks, templates, imports, and exports.
+- `Integration` and `aquilia.integrations.*` are both valid configuration surfaces; examples should prefer typed integrations where they add clarity and use legacy `Integration.*` only when it mirrors current starters.
+- Built-in local execution should use memory, file, sqlite, mock, console, or dry-run backends so examples are runnable without external credentials.
+- CLI coverage remains documentation-oriented because many CLI commands intentionally mutate workspaces, invoke servers, or require provider credentials. App examples should include exact `aq` commands but tests should validate service behavior directly.
+
+### Remaining App-Level Coverage Gaps
+
+| Gap | Verified APIs | Planned Example |
+| --- | --- | --- |
+| Admin model registration, admin permissions, audit-style operations | `ModelAdmin`, `@register`, `AdminRole`, `AdminPermission`, admin integration config | `admin_dashboard_app` |
+| Cache-aside HTTP gateway with mock transport and stampede-safe service boundary | `CacheService`, `MemoryBackend`, `CacheConfig`, `AsyncHTTPClient`, `MockTransport` | `cache_http_edge_app` |
+| Multi-backend file handling without cloud credentials | `StorageRegistry`, `MemoryStorage`, `MemoryConfig`, storage integration config | `storage_filehub_app` |
+| Notification pipeline using real mail message/provider primitives | `EmailMessage`, `MailService`, `MailConfig`, file/console provider config | `mail_notifications_app` |
+| Runtime i18n service with pluralization and formatting | `I18nService`, `I18nConfig`, `MemoryCatalog`, locale utilities | `i18n_content_app` |
+| Versioned public API behavior and route metadata | `@version`, `@version_neutral`, `ApiVersion`, `VersionConfig`, `VersionStrategy` | `versioned_public_api_app` |
+| Native sqlite pool lifecycle and transactions | `SqliteService`, `SqlitePoolConfig`, `ConnectionPool` | `sqlite_inventory_app` |
+| Template rendering and portal composition | `TemplateEngine`, `TemplateLoader`, sandbox/caching config | `templates_portal_app` |
+| Security middleware configuration and policy modeling | `CORSMiddleware`, `RateLimitRule`, `RateLimitMiddleware`, security integrations | `middleware_security_app` |
+| Release artifact creation, signing, integrity, and store workflows | `ArtifactBuilder`, `MemoryArtifactStore`, signing helpers | `artifacts_release_app` |
+| MLOps model registration and progressive rollout concepts | `AquiliaModel`, `ModelRegistry`, `RolloutEngine`, plugin host | `mlops_model_registry_app` |
+| Provider/deploy dry-run planning without external API calls | `RenderIntegration`, `RenderDeployConfig`, `DeployResult`, Render type objects | `provider_render_deploy_app` |
+
+### Expansion Constraints
+
+- Each added app must be importable as `examples.<app>`.
+- Each app must include `workspace.py`, `runtime.py`, at least one `AppManifest`, service/controller boundaries, tests, and a README with purpose, architecture, setup, execution, expected output, pitfalls, extension ideas, and related APIs.
+- Tests should run from the repository root with `python -m pytest examples -q`.
+- External systems are represented by real Aquilia local backends or explicit dry-run planning services, not pseudo APIs.
