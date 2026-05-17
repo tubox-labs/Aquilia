@@ -1,4 +1,10 @@
-"""Minimal MCP-compatible JSON-RPC protocol helpers."""
+"""MCP-compatible JSON-RPC protocol helpers.
+
+The MCP server intentionally keeps protocol handling small and explicit
+instead of depending on a client SDK.  The helpers in this module validate
+JSON-RPC envelopes, preserve request/response correlation, and map Aquilia
+faults to stable JSON-RPC error responses.
+"""
 
 from __future__ import annotations
 
@@ -24,6 +30,7 @@ class JSONRPCRequest:
     id: str | int | None
     method: str
     params: dict[str, Any]
+    notification: bool = False
 
 
 def parse_request(payload: Any) -> JSONRPCRequest:
@@ -31,13 +38,23 @@ def parse_request(payload: Any) -> JSONRPCRequest:
         raise MCPProtocolFault("JSON-RPC payload must be an object", code="MCP_INVALID_REQUEST")
     if payload.get("jsonrpc") != JSONRPC_VERSION:
         raise MCPProtocolFault("JSON-RPC version must be '2.0'", code="MCP_INVALID_REQUEST")
+    if "result" in payload or "error" in payload:
+        raise MCPProtocolFault("JSON-RPC responses are not accepted on the server input stream")
     method = payload.get("method")
     if not isinstance(method, str) or not method:
         raise MCPProtocolFault("JSON-RPC method must be a non-empty string", code="MCP_INVALID_REQUEST")
     params = payload.get("params") or {}
     if not isinstance(params, dict):
         raise MCPProtocolFault("JSON-RPC params must be an object", code="MCP_INVALID_PARAMS")
-    return JSONRPCRequest(id=payload.get("id"), method=method, params=params)
+    request_id = payload.get("id")
+    if request_id is not None and not isinstance(request_id, (str, int)):
+        raise MCPProtocolFault("JSON-RPC id must be a string, integer, or null", code="MCP_INVALID_REQUEST")
+    return JSONRPCRequest(
+        id=request_id,
+        method=method,
+        params=params,
+        notification="id" not in payload,
+    )
 
 
 def success_response(request_id: str | int | None, result: dict[str, Any]) -> dict[str, Any]:
@@ -59,7 +76,12 @@ def error_response(
 
 def fault_to_error(fault: Exception) -> tuple[int, str, dict[str, Any]]:
     if isinstance(fault, MCPProtocolFault):
-        code = INVALID_PARAMS if "PARAM" in fault.code else INVALID_REQUEST
+        if fault.code == "MCP_METHOD_NOT_FOUND":
+            code = METHOD_NOT_FOUND
+        elif "PARAM" in fault.code:
+            code = INVALID_PARAMS
+        else:
+            code = INVALID_REQUEST
     elif isinstance(fault, Fault):
         code = INVALID_PARAMS
     else:

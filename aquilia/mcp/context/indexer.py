@@ -27,12 +27,28 @@ def _content_fingerprint(root: Path, file_hashes: list[tuple[str, str]]) -> str:
     return digest.hexdigest()[:24]
 
 
+def tree_fingerprint(root: Path) -> str:
+    """Fingerprint the indexed source tree without parsing every file."""
+    root = root.expanduser().resolve()
+    digest = hashlib.sha256()
+    digest.update(str(aquilia_version).encode())
+    for path in iter_source_files(root):
+        rel = path.relative_to(root).as_posix()
+        stat = path.stat()
+        digest.update(rel.encode())
+        digest.update(str(stat.st_size).encode())
+        digest.update(str(stat.st_mtime_ns).encode())
+    return digest.hexdigest()[:24]
+
+
 def build_index(root: Path) -> KnowledgeIndex:
     root = root.expanduser().resolve()
-    sources = [parse_source_file(root, path) for path in iter_source_files(root)]
+    indexed_paths = iter_source_files(root)
+    sources = [parse_source_file(root, path) for path in indexed_paths]
     file_hashes = [(source.path, source.content_hash) for source in sources]
     fingerprint = _content_fingerprint(root, file_hashes)
     facts, deprecations = derive_facts(sources)
+    tree_fp = tree_fingerprint(root)
     return KnowledgeIndex(
         root=str(root),
         aquilia_version=str(aquilia_version),
@@ -43,6 +59,17 @@ def build_index(root: Path) -> KnowledgeIndex:
         cli_commands=load_cli_commands(root),
         deprecations=deprecations,
         examples=example_mappings(sources),
+        metadata={
+            "schema_version": 1,
+            "tree_fingerprint": tree_fp,
+            "source_count": len(sources),
+            "indexed_globs": [
+                "aquilia/**/*.py",
+                "docs/**/*.md",
+                "examples/**/*",
+                "tests/**/test_*.py",
+            ],
+        },
     )
 
 
@@ -64,11 +91,10 @@ def load_or_build_index(root: Path, path: Path | None, *, force: bool = False) -
     root = root.expanduser().resolve()
     if path is not None and path.exists() and not force:
         existing = load_index(path)
-        current = build_index(root)
-        if existing.fingerprint == current.fingerprint:
+        if existing.metadata.get("tree_fingerprint") == tree_fingerprint(root):
             return existing
-        if path is not None:
-            save_index(current, path)
+        current = build_index(root)
+        save_index(current, path)
         return current
     index = build_index(root)
     if path is not None:

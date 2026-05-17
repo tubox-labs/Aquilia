@@ -23,12 +23,31 @@ def _first_doc_line(node: ast.AST) -> str:
 def _python_source(path: Path, rel: str, text: str) -> SourceFile:
     anchors: list[SourceAnchor] = []
     symbols: list[str] = []
+    imports: list[str] = []
+    sections: list[dict[str, object]] = []
     try:
         tree = ast.parse(text)
     except SyntaxError:
         tree = None
 
     if tree is not None:
+        for node in tree.body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                if isinstance(node, ast.Import):
+                    imports.extend(alias.name for alias in node.names)
+                elif node.module:
+                    imports.append("." * node.level + node.module)
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                end = getattr(node, "end_lineno", getattr(node, "lineno", 1))
+                sections.append(
+                    {
+                        "name": node.name,
+                        "kind": "class" if isinstance(node, ast.ClassDef) else "function",
+                        "line": getattr(node, "lineno", 1),
+                        "end_line": end,
+                        "summary": _first_doc_line(node),
+                    }
+                )
         for node in ast.walk(tree):
             if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                 kind = "class" if isinstance(node, ast.ClassDef) else "function"
@@ -60,7 +79,7 @@ def _python_source(path: Path, rel: str, text: str) -> SourceFile:
                 doc_summary = stripped[:220]
                 break
 
-    keywords = sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", rel + " " + " ".join(symbols))))[:80]
+    keywords = sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", rel + " " + " ".join(symbols) + " " + " ".join(imports))))[:80]
     return SourceFile(
         path=rel,
         kind="python",
@@ -69,14 +88,17 @@ def _python_source(path: Path, rel: str, text: str) -> SourceFile:
         symbols=symbols[:200],
         anchors=anchors[:200],
         keywords=keywords,
+        imports=sorted(set(imports))[:100],
+        sections=sections[:120],
         content_hash=_hash_text(text),
         size=len(text.encode("utf-8", errors="replace")),
-        text=redact_secrets(text[:12_000]),
+        text=redact_secrets(text[:60_000]),
     )
 
 
 def _markdown_source(path: Path, rel: str, text: str) -> SourceFile:
     anchors: list[SourceAnchor] = []
+    sections: list[dict[str, object]] = []
     title = path.stem
     for lineno, line in enumerate(text.splitlines(), start=1):
         if line.startswith("#"):
@@ -85,6 +107,7 @@ def _markdown_source(path: Path, rel: str, text: str) -> SourceFile:
                 if not anchors:
                     title = heading
                 anchors.append(SourceAnchor(path=rel, line=lineno, kind="heading", name=heading, summary=heading))
+                sections.append({"name": heading, "kind": "heading", "line": lineno, "summary": heading})
     summary = ""
     for line in text.splitlines():
         stripped = line.strip()
@@ -99,9 +122,10 @@ def _markdown_source(path: Path, rel: str, text: str) -> SourceFile:
         summary=summary,
         anchors=anchors[:200],
         keywords=keywords,
+        sections=sections[:120],
         content_hash=_hash_text(text),
         size=len(text.encode("utf-8", errors="replace")),
-        text=redact_secrets(text[:12_000]),
+        text=redact_secrets(text[:60_000]),
     )
 
 

@@ -15,7 +15,8 @@ def _tokens(value: str) -> list[str]:
 
 
 def search_index(index: KnowledgeIndex, query: str, *, limit: int = 10, kind: str | None = None) -> list[SearchResult]:
-    q = " ".join(_tokens(query))
+    normalized_query = " ".join(_tokens(query))
+    q = normalized_query
     cache_key = (index.fingerprint, f"{kind or '*'}:{q}", limit)
     cached = _CACHE.get(cache_key)
     if cached is not None:
@@ -35,6 +36,13 @@ def search_index(index: KnowledgeIndex, query: str, *, limit: int = 10, kind: st
             "text": source.text.lower(),
         }
         score = 0.0
+        phrase = normalized_query
+        if phrase and phrase in haystacks["path"]:
+            score += 12
+        if phrase and phrase in haystacks["symbols"]:
+            score += 8
+        if phrase and phrase in haystacks["text"]:
+            score += 4
         for term in terms:
             if term in haystacks["path"]:
                 score += 8

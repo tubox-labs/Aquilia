@@ -43,9 +43,10 @@ class JSONConfigInstaller:
         self.root = root.expanduser().resolve()
 
     def server_command(self) -> dict[str, Any]:
+        package = __name__.split(".installers", 1)[0]
         return {
             "command": "python",
-            "args": ["-m", "aquilia.mcp", "--stdio", "--workspace", str(self.root)],
+            "args": ["-m", package, "--stdio", "--workspace", str(self.root)],
         }
 
     def load(self) -> dict[str, Any]:

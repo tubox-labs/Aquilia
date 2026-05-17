@@ -19,6 +19,12 @@ _RECOMMENDATIONS = {
     "admin": ["Integration.admin(...)", "AdminModules(...)"],
     "mlops": ["Integration.mlops(...)", "Workspace.mlops(...)"],
     "versioning": ["Integration.versioning(...)", "version-aware controller decorators"],
+    "http": ["Use aquilia.http.AsyncHTTPClient and MockTransport in tests; configure cache/retry through service code."],
+    "provider": ["RenderIntegration(...) for Render deployments; keep provider credentials in provider credential stores/env."],
+    "render": ["RenderIntegration(...)", "aq deploy-gen render for deployment planning"],
+    "openapi": ["OpenAPIIntegration(...) or Integration.openapi(...)", "Controller metadata and decorators drive schema generation"],
+    "security": ["Workspace.security(...)", "CorsIntegration/CspIntegration/RateLimitIntegration or Integration.cors/csp/rate_limit"],
+    "filesystem": ["aquilia.filesystem service/helpers", "StorageIntegration for app-level file storage"],
 }
 
 
