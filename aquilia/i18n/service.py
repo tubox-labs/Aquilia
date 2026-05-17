@@ -42,7 +42,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from .catalog import SurpCatalog, FileCatalog, MemoryCatalog, MergedCatalog, TranslationCatalog
+from .catalog import FileCatalog, MemoryCatalog, MergedCatalog, SurpCatalog, TranslationCatalog
 from .formatter import MessageFormatter
 from .locale import Locale, negotiate_locale, normalize_locale, parse_locale
 from .plural import select_plural

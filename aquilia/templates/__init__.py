@@ -35,8 +35,8 @@ from .auth_integration import (
 )
 from .bytecode_cache import (
     BytecodeCache,
-    SurpBytecodeCache,
     InMemoryBytecodeCache,
+    SurpBytecodeCache,
 )
 from .context import TemplateContext, create_template_context
 from .di_providers import (
