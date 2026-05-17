@@ -23,8 +23,8 @@ from aquilia.di.decorators import factory, service
 
 from .bytecode_cache import (
     BytecodeCache,
-    SurpBytecodeCache,
     InMemoryBytecodeCache,
+    SurpBytecodeCache,
 )
 from .engine import TemplateEngine
 from .loader import TemplateLoader

@@ -47,11 +47,11 @@ Example::
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .catalog import (
-    SurpCatalog,
     FileCatalog,
     MemoryCatalog,
     MergedCatalog,
     NamespacedCatalog,
+    SurpCatalog,
     TranslationCatalog,
     has_surp,
 )

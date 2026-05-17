@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-from .bytecode_cache import SurpBytecodeCache, InMemoryBytecodeCache
+from .bytecode_cache import InMemoryBytecodeCache, SurpBytecodeCache
 from .engine import TemplateEngine
 from .loader import TemplateLoader
 from .manager import TemplateManager
