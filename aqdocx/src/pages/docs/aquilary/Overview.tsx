@@ -23,7 +23,7 @@ export function AquilaryOverview() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The Aquilary is Aquilia's manifest-driven artifact and module registry. It tracks modules, controllers, providers, routes, and configuration as a deterministic dependency graph with content-addressable fingerprinting — ensuring reproducible builds and safe hot-reloads.
+          The Aquilary is Aquilia's manifest-driven artifact and module registry. It tracks modules, controllers, providers, routes, and configuration as a deterministic dependency graph with content-addressable fingerprinting for reproducible runtime state and safe hot-reloads.
         </p>
       </div>
 
@@ -36,7 +36,7 @@ export function AquilaryOverview() {
             { name: 'RuntimeRegistry', desc: 'Runtime counterpart — holds live references to compiled controllers, DI containers, and route tables.' },
             { name: 'Manifest', desc: 'Static declaration of a module\'s controllers, providers, integrations, and dependencies.' },
             { name: 'Fingerprint', desc: 'SHA-256 hash of the compiled state — used for change detection, cache invalidation, and deployment verification.' },
-            { name: 'ArtifactStore', desc: 'Persistent storage for compiled artifacts (.crous files). Used by the CLI for compile-once-run-many deployments.' },
+            { name: 'ArtifactStore', desc: 'Persistent storage for generated artifacts (.crous files). Used by the CLI for inspection and release tooling.' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>

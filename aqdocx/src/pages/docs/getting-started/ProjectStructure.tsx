@@ -93,7 +93,7 @@ export function ProjectStructurePage() {
 │
 ├── Dockerfile                # Auto-generated if --no-docker not set
 ├── docker-compose.yml        # Auto-generated if --no-docker not set
-├── requirements.txt          # Frozen dependencies (aq freeze)
+├── requirements.txt          # Python dependencies
 └── pyproject.toml            # Project metadata`}
           language="text"
         />
@@ -114,7 +114,7 @@ export function ProjectStructurePage() {
             </h3>
             <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               The root configuration file. Aquilia's ConfigLoader looks for this file first (Python-first config).
-              It must export an <code>app</code> variable containing the Workspace build result.
+              It must export an <code>app</code> variable containing the Workspace configuration object.
             </p>
             <CodeBlock
               code={`from aquilia import Workspace, Module, Integration
@@ -282,7 +282,7 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
-                ['manifest.json', 'Full compiled manifest — all apps, controllers, services, and configuration'],
+                ['manifest.json', 'Runtime manifest snapshot — all apps, controllers, services, and configuration'],
                 ['route_map.json', 'Every registered route with HTTP method, pattern, controller, and handler'],
                 ['di_graph.json', 'Complete DI dependency graph with providers, scopes, and resolution chains'],
                 ['schema_ledger.json', 'Model schema snapshots for migration diffing and validation'],
@@ -330,8 +330,8 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
                 ['aq add module <name>', 'modules/<name>/ with __init__.py, controllers.py, services.py, models.py'],
                 ['aq generate controller <Name>', 'controllers/<name>.py with boilerplate Controller class'],
                 ['aq generate service <Name>', 'services/<name>.py with @service-decorated class'],
-                ['aq compile', '.aquilia/ trace artifacts (manifest, route_map, di_graph, etc.)'],
-                ['aq freeze', 'requirements.txt with pinned dependency versions'],
+                ['aq compile', 'artifacts/ with explicit Crous metadata files'],
+                ['aq freeze', 'frozen.crous artifact integrity snapshot'],
                 ['aq migrate makemigrations', 'migrations/ directory with numbered migration files'],
                 ['aq deploy all', 'Dockerfile and docker-compose.yml for containerized deployment'],
               ].map(([cmd, gen], i) => (

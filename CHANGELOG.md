@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] — 2026-05-17
+
+### Removed
+- Removed the React-style `aquilia/build` package and the `aq build` command.
+- Removed automatic build-gating from `aq run`, `aq serve`, and `aq deploy`; runtime and deploy generation now use native workspace loading and live introspection.
+- Removed the Admin Build page, `/admin/build/` route, sidebar/search links, and `AdminModules.build` configuration surface.
+
+### Changed
+- `aq compile` now writes explicit artifacts through `WorkspaceCompiler` without depending on a build pipeline.
+- `aq freeze` now creates an integrity snapshot for generated artifacts under `artifacts/`.
+- Deployment Makefile generation now calls `python -m aquilia.cli compile`.
+
+### Fixed
+- Isolated independent SQLite `:memory:` pools while preserving shared state across connections within the same pool.
+
+### Documentation
+- Updated CLI, deployment, admin, release, and getting-started docs to reflect the native Python runtime structure.
+
 ## [1.0.1] — 2026-03-08
 
 ### Added — Comprehensive Framework Audit (Phases 1–15)

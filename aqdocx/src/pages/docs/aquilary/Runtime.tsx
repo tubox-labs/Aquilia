@@ -72,8 +72,8 @@ print(ctx.config)         # Module-specific config`}</CodeBlock>
 
 registry = AquilaryRegistry(mode=RegistryMode.DEVELOPMENT)
 
-# In production, freeze the manifest for immutability
-# aq freeze → generates frozen manifest
+# For releases, snapshot generated artifacts when needed
+# aq freeze → generates artifacts/frozen.crous
 registry = AquilaryRegistry(mode=RegistryMode.PRODUCTION)`}</CodeBlock>
       </section>
 

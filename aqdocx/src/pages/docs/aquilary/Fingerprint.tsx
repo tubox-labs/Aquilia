@@ -73,17 +73,15 @@ if current_fingerprint.hash != deployed_fingerprint.hash:
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Freeze & Verify</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Use <code className="text-aquilia-400">aq freeze</code> to lock the manifest, then verify at startup in production mode.
+          Use <code className="text-aquilia-400">aq freeze</code> to create an artifact integrity snapshot for release verification.
         </p>
-        <CodeBlock language="bash" filename="terminal">{`# Freeze the current manifest
+        <CodeBlock language="bash" filename="terminal">{`# Snapshot generated artifacts
 aq freeze
 
-# This generates .aquilia/frozen_manifest.json
-# containing the full registry fingerprint
+# This generates artifacts/frozen.crous
+# containing artifact digests and the snapshot fingerprint
 
-# At startup in PRODUCTION mode, Aquilia verifies
-# the live registry matches the frozen manifest.
-# Any mismatch raises FrozenManifestMismatchError.`}</CodeBlock>
+# Verify the snapshot with artifact tooling before release.`}</CodeBlock>
       </section>
     
       <NextSteps />

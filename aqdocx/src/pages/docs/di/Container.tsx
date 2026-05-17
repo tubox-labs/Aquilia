@@ -245,14 +245,14 @@ await request_container.shutdown()
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registry</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-green-500">Registry</code> is the build-time component that processes manifests and produces a validated Container. It performs static analysis before any runtime code executes.
+          The <code className="text-green-500">Registry</code> is the assembly component that processes manifests and produces a validated Container. It performs static analysis before any runtime code executes.
         </p>
 
         <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>from_manifests(manifests, config, *, enforce_cross_app=True)</h3>
         <p className={`mb-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           The four-phase pipeline:
         </p>
-        <CodeBlock language="python" filename="Registry Build Pipeline">{`from aquilia.di import Registry
+        <CodeBlock language="python" filename="Registry Assembly Pipeline">{`from aquilia.di import Registry
 
 registry = Registry.from_manifests(
     manifests=[users_manifest, orders_manifest, payments_manifest],

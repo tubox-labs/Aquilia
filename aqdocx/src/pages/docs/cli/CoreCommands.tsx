@@ -260,13 +260,13 @@ aq test --coverage-html`}
                 </Table>
             </section>
 
-            {/* Build / Production */}
+            {/* Artifacts / Production */}
             <section id="production" className={sectionClass}>
-                <h2 className={h2Class}><Server className="w-6 h-6 text-indigo-500" /> Production Build</h2>
+                <h2 className={h2Class}><Server className="w-6 h-6 text-indigo-500" /> Production Runtime</h2>
 
                 <h3 className={h3Class}>Compile</h3>
                 <p className={pClass}>
-                    Compiles workspace configuration and manifests into optimized artifacts for production.
+                    Compiles workspace configuration and manifests into explicit artifacts for inspection and tooling.
                 </p>
                 <CodeBlock language="bash" filename="terminal">
                     aq compile [OPTIONS]
@@ -278,7 +278,7 @@ aq test --coverage-html`}
 
                 <h3 className={h3Class}>Freeze</h3>
                 <p className={pClass}>
-                    Compiles the workspace and then creates a SHA-256 fingerprinted <code className={`text-xs font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded text-aquilia-600 dark:text-aquilia-400`}>frozen.json</code> bundle — an immutable, verifiable snapshot of the compiled application.
+                    Creates a SHA-256 fingerprinted artifact snapshot for integrity checks.
                 </p>
                 <CodeBlock language="bash" filename="terminal">
                     aq freeze [OPTIONS]

@@ -45,6 +45,41 @@ const typeIcons: Record<string, React.ReactNode> = {
 
 const changelogs: ChangelogEntry[] = [
   {
+    version: '1.0.4',
+    date: 'May 17, 2026',
+    tag: 'patch',
+    summary: 'Removed the React-style build system and simplified Aquilia around native Python runtime and deployment flows.',
+    sections: [
+      {
+        title: 'Runtime',
+        icon: <Zap className="w-4 h-4" />,
+        type: 'changed',
+        items: [
+          'Removed aq build and the aquilia/build package',
+          'aq run and aq serve start from the native workspace loader without pre-build gates',
+          'aq deploy now uses live workspace introspection',
+        ]
+      },
+      {
+        title: 'Admin',
+        icon: <Shield className="w-4 h-4" />,
+        type: 'changed',
+        items: [
+          'Removed the Admin Build page, route, sidebar link, permission, and module toggle',
+        ]
+      },
+      {
+        title: 'Artifacts',
+        icon: <Package className="w-4 h-4" />,
+        type: 'changed',
+        items: [
+          'aq compile writes explicit artifacts through WorkspaceCompiler',
+          'aq freeze creates an artifact integrity snapshot under artifacts/',
+        ]
+      },
+    ],
+  },
+  {
     version: '1.0.0',
     date: 'February 28, 2026',
     tag: 'major',
@@ -56,7 +91,7 @@ const changelogs: ChangelogEntry[] = [
         type: 'added',
         items: [
           'AquiliaServer — high-performance ASGI server with lifecycle hooks, graceful shutdown, and health checks',
-          'Manifest-first architecture with two-phase bootstrap → compile → serve pipeline',
+          'Manifest-first architecture with native runtime startup',
           'Request and Response objects with full ASGI support, streaming, and content negotiation',
           'MultiDict, Headers, URL, ParsedContentType, and Range data structures',
           'UploadFile and FormData handling with pluggable upload stores (LocalUploadStore)',
@@ -300,7 +335,7 @@ const changelogs: ChangelogEntry[] = [
         icon: <Wrench className="w-4 h-4" />,
         type: 'added',
         items: [
-          'AquiliaTrace system with .aquilia/ directory for build introspection',
+          'AquiliaTrace system with .aquilia/ directory for runtime introspection',
           'TraceManifest, TraceRouteMap, TraceDIGraph for compiled state snapshots',
           'TraceSchemaLedger and TraceLifecycleJournal for schema and lifecycle auditing',
           'TraceConfigSnapshot and TraceDiagnostics for configuration debugging',
