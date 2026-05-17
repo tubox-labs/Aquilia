@@ -1,6 +1,6 @@
 import pytest
 
-from modules.chat.services import ChatPresenceService
+from examples.websocket_app.modules.chat.services import ChatPresenceService
 
 
 @pytest.mark.asyncio

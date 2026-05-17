@@ -1,6 +1,6 @@
 import pytest
 
-from modules.projects.services import ProjectsService
+from examples.crud_app.modules.projects.services import ProjectsService
 
 
 @pytest.mark.asyncio
