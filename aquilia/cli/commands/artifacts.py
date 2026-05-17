@@ -39,7 +39,7 @@ def artifact_list(store_dir: str, kind: str, tag: str, json_output: bool):
     Examples:
       aq artifact list
       aq artifact list --kind model
-      aq artifact list --dir ./build/artifacts --tag env=production
+      aq artifact list --dir ./artifacts --tag env=production
     """
     from aquilia.artifacts import FilesystemArtifactStore
 
@@ -366,7 +366,7 @@ def artifact_import(bundle_path: str, store_dir: str):
 
     Examples:
       aq artifact import release.aq.json
-      aq artifact import ./backup/bundle.aq.json --dir ./build/artifacts
+      aq artifact import ./backup/bundle.aq.json --dir ./artifacts
     """
     from aquilia.artifacts import FilesystemArtifactStore
 

@@ -5,8 +5,7 @@ Nginx, CI/CD, and monitoring file generators.
 Deeply integrated with the Aquilia ecosystem:
 - Discovery: scans workspace for modules, controllers, services
 - Config: reads workspace.py, config/*.yaml, pyproject.toml
-- Artifacts: leverages artifact system for build fingerprints
-- Build: uses Crous binary format for compiled artifacts
+- Artifacts: leverages the native artifact system for generated metadata
 - Faults: generates health-check endpoints compatible with fault domains
 - MLOps: generates separate model-serving containers & k8s manifests
 - Sessions: configures Redis/store backends in compose
@@ -3028,8 +3027,8 @@ class MakefileGenerator:
             \tpython -m aquilia.cli validate --strict
 
             compile:  ## Compile manifests to artifacts
-            \t@echo "Building artifacts..."
-            \tpython -m aquilia.cli build --mode production
+            \t@echo "Compiling artifacts..."
+            \tpython -m aquilia.cli compile
 
             doctor:  ## Diagnose workspace issues
             \t@echo "🩺 Running diagnostics..."

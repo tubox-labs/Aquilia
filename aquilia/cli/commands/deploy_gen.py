@@ -1,20 +1,10 @@
 """
 Deploy CLI commands -- ``aq deploy`` group.
 
-**Build-first deployment**: Like React/Vite/Next.js, Aquilia requires a
-production build (``aq build --mode=prod``) before deploying.  The deploy
-system reads the compiled build manifest (``build/manifest.json``) to
-generate deployment files — this ensures deploy artifacts are consistent
-with what was built.
-
-If no production build is found when you run ``aq deploy``, the wizard
-offers to build automatically.  If the build is stale (source files changed
-since the last build), it warns and offers to rebuild.
-
 Production-ready deployment file generators **and executor** for Aquilia
 workspaces.  Each sub-command generates a specific deployment artefact:
 
-    aq deploy                -- Interactive wizard (build gate + generate + execute)
+    aq deploy                -- Interactive wizard (generate + execute)
     aq deploy dockerfile     -- Dockerfile (production / dev / mlops)
     aq deploy compose        -- docker-compose.yml
     aq deploy kubernetes     -- Full Kubernetes manifest suite
@@ -28,17 +18,15 @@ workspaces.  Each sub-command generates a specific deployment artefact:
 
 Running ``aq deploy`` with **no** sub-command launches an interactive
 wizard (like ``aq init``) that lets you pick which artefacts to generate,
-configure options, and optionally **execute** the deployment (docker build,
+configure options, and optionally **execute** the deployment (docker image build,
 docker compose up, kubectl apply, monitoring stack, etc.).
 
-All generators consume the build manifest (preferred) or introspect the
-workspace directly (with ``--skip-build-check``) to detect enabled
-components and tailor the output accordingly.
+All generators introspect the live workspace to detect enabled components
+and tailor the output accordingly.
 
 Flags:
     --force              Overwrite existing files (default: skip existing)
     --dry-run            Preview what would be generated without writing
-    --skip-build-check   Bypass the build requirement (use live introspection)
 """
 
 from __future__ import annotations
@@ -74,7 +62,6 @@ from ..utils.colors import (
     info,
     kv,
     next_steps,
-    panel,
     phase_header,
     rule,
     section,
@@ -92,210 +79,12 @@ from ..utils.prompts import (
     select,
 )
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Build-first deploy gate
-# ═══════════════════════════════════════════════════════════════════════════
-#
-# Just like React/Vite/Next.js require `npm run build` before deploying,
-# Aquilia requires `aq build --mode=prod` before `aq deploy`.  The deploy
-# system reads the compiled build manifest to generate deployment files —
-# this ensures the deploy artifacts are consistent with what was built.
-#
-# Flow:
-#   1. Check if build/manifest.json + build/bundle.crous exist
-#   2. If missing → prompt user to build (or auto-build with -y)
-#   3. If stale (source files newer than build) → warn and offer rebuild
-#   4. Load BuildManifest → to_deploy_context()
-#   5. Generators receive exact, verified workspace metadata
-# ═══════════════════════════════════════════════════════════════════════════
 
-
-def _has_production_build(workspace_root: Path) -> bool:
-    """Return True if a valid production build exists."""
-    build_dir = workspace_root / "build"
-    return (build_dir / "manifest.json").exists() and (build_dir / "bundle.crous").exists()
-
-
-def _is_build_stale(workspace_root: Path) -> bool:
-    """Return True if source files are newer than the last build.
-
-    Compares the mtime of ``build/manifest.json`` against all
-    ``workspace.py``, ``modules/*/manifest.py``, and ``modules/**/*.py``
-    files.  If any source file is newer, the build is stale.
-    """
-    manifest_path = workspace_root / "build" / "manifest.json"
-    if not manifest_path.exists():
-        return True
-
-    build_mtime = manifest_path.stat().st_mtime
-
-    # Check workspace.py
-    ws_file = workspace_root / "workspace.py"
-    if ws_file.exists() and ws_file.stat().st_mtime > build_mtime:
-        return True
-
-    # Check all module source files
-    modules_dir = workspace_root / "modules"
-    if modules_dir.exists():
-        for py_file in modules_dir.rglob("*.py"):
-            if py_file.stat().st_mtime > build_mtime:
-                return True
-
-    # Check config files
-    config_dir = workspace_root / "config"
-    if config_dir.exists():
-        for cfg_file in config_dir.rglob("*"):
-            if cfg_file.is_file() and cfg_file.stat().st_mtime > build_mtime:
-                return True
-
-    return False
-
-
-def _auto_build(workspace_root: Path) -> bool:
-    """Run ``aq build --mode=prod`` and return True on success."""
-    from aquilia.build import AquiliaBuildPipeline
-
-    click.echo()
-    banner("Build", subtitle="Building for production before deploy")
-    click.echo()
-
-    result = AquiliaBuildPipeline.build(
-        workspace_root=str(workspace_root),
-        mode="prod",
-        verbose=False,
-    )
-
-    if result.success:
-        success(f"  {_CHECK} Production build complete")
-        if result.fingerprint:
-            kv("  Fingerprint", result.fingerprint[:16] + "...")
-        click.echo()
-        return True
-    else:
-        error(f"  {_CROSS} Build failed with {len(result.errors)} error(s):")
-        for err in result.errors[:10]:
-            error(f"    {err}")
-        if len(result.errors) > 10:
-            dim(f"    ... and {len(result.errors) - 10} more")
-        click.echo()
-        return False
-
-
-def _ensure_production_build(
-    workspace_root: Path,
-    *,
-    interactive: bool = True,
-    skip_build_check: bool = False,
-) -> bool:
-    """Ensure a production build exists before deploying.
-
-    Like ``npm run build`` in React/Vite/Next.js, Aquilia requires
-    a production build before deployment files can be generated.
-    This function checks for build artifacts and offers to build
-    automatically if they're missing or stale.
-
-    Args:
-        workspace_root: Path to the Aquilia workspace root.
-        interactive: If True, prompt the user. If False (``-y``), auto-build.
-        skip_build_check: If True, bypass the build check entirely.
-
-    Returns:
-        True if a valid build exists (or was just created).
-        False if the user declined to build or the build failed.
-    """
-    if skip_build_check:
-        return True
-
-    has_build = _has_production_build(workspace_root)
-    is_stale = has_build and _is_build_stale(workspace_root)
-
-    if has_build and not is_stale:
-        # Build exists and is fresh — proceed
-        return True
-
-    # ── No build or stale build ──────────────────────────────────
-    click.echo()
-    if not has_build:
-        panel(
-            "No production build found",
-            body=(
-                "Aquilia requires a production build before deploying.\n"
-                "Run `aq build --mode=prod` to compile your workspace,\n"
-                "or let the deploy wizard build it for you now.\n\n"
-                "  build/manifest.json  → workspace metadata for generators\n"
-                "  build/bundle.crous   → compiled binary artifacts"
-            ),
-        )
-    else:
-        panel(
-            "Stale production build detected",
-            body=(
-                "Source files have been modified since the last build.\n"
-                "Deployment files may not reflect the latest changes.\n\n"
-                "Rebuild to ensure deploy artifacts match your code."
-            ),
-        )
-
-    if interactive:
-        label = "Build now?" if not has_build else "Rebuild now?"
-        should_build = confirm(label, default=True)
-        if not should_build:
-            if not has_build:
-                error(f"  {_CROSS} Cannot deploy without a production build.")
-                info("  Run: aq build --mode=prod")
-                return False
-            else:
-                warning("  Continuing with stale build -- deploy files may be outdated.")
-                return True
-    else:
-        # Non-interactive: auto-build
-        info("  Auto-building for production...")
-
-    # Execute the build
-    if not _auto_build(workspace_root):
-        error(f"  {_CROSS} Build failed. Fix errors above, then retry: aq deploy")
-        return False
-
-    return True
-
-
-def _get_ctx(workspace_root: Path, *, skip_build_check: bool = False) -> dict:
-    """Introspect the workspace and return a context dict.
-
-    **Build-first**: Prefers ``build/manifest.json`` (the build → deploy
-    contract).  Falls back to ``WorkspaceIntrospector`` only when
-    ``--skip-build-check`` is set or no workspace.py exists.
-    """
-    build_dir = workspace_root / "build"
-    try:
-        from aquilia.build.pipeline import BuildManifest
-
-        manifest = BuildManifest.load(build_dir)
-        return manifest.to_deploy_context(workspace_root)
-    except (FileNotFoundError, ValueError, Exception):
-        pass
-
+def _get_ctx(workspace_root: Path) -> dict:
+    """Introspect the live workspace and return a deployment context."""
     from ..generators.deployment import WorkspaceIntrospector
 
     return WorkspaceIntrospector(workspace_root).introspect()
-
-
-def _subcommand_build_gate(ctx: click.Context, workspace_root: Path) -> None:
-    """Build gate for individual subcommands (not the interactive wizard).
-
-    Checks if a production build exists; if not, prompts or auto-builds
-    before the subcommand introspects the workspace.  This is the same
-    gate used by the interactive wizard, applied to each subcommand.
-    """
-    skip = ctx.obj.get("skip_build_check", False)
-    interactive = sys.stdin.isatty()
-
-    if not _ensure_production_build(
-        workspace_root,
-        interactive=interactive,
-        skip_build_check=skip,
-    ):
-        sys.exit(1)
 
 
 def _write_file(
@@ -512,18 +301,13 @@ def _exec_monitoring_up(workspace_root: Path, *, dry_run: bool = False) -> bool:
 @click.option("--force", "-f", is_flag=True, help="Overwrite existing files")
 @click.option("--dry-run", is_flag=True, help="Preview without writing files")
 @click.option("--yes", "-y", is_flag=True, help="Skip interactive prompts, use defaults")
-@click.option("--skip-build-check", is_flag=True, help="Skip production build check (use live introspection)")
 @click.pass_context
-def deploy_gen_group(ctx, force: bool, dry_run: bool, yes: bool, skip_build_check: bool):
+def deploy_gen_group(ctx, force: bool, dry_run: bool, yes: bool):
     """Generate & execute production deployment files.
-
-    Requires a production build (``aq build --mode=prod``) before
-    deploying.  If no build is found, offers to build automatically —
-    just like React/Vite/Next.js require ``npm run build`` before deploy.
 
     Interactive wizard:
       aq deploy              # Full interactive setup + execute
-      aq deploy -y           # Non-interactive, auto-build + deploy
+      aq deploy -y           # Non-interactive generate + deploy
       aq deploy --dry-run    # Preview what would happen
 
     Sub-commands:
@@ -534,20 +318,17 @@ def deploy_gen_group(ctx, force: bool, dry_run: bool, yes: bool, skip_build_chec
       aq deploy all --force
       aq deploy all --dry-run
 
-    Flags:
-      --skip-build-check     Use live workspace introspection (skip build gate)
     """
     ctx.ensure_object(dict)
     ctx.obj["force"] = force
     ctx.obj["dry_run"] = dry_run
-    ctx.obj["skip_build_check"] = skip_build_check
 
     # If a sub-command was given, delegate to it
     if ctx.invoked_subcommand is not None:
         return
 
     # ── Interactive deploy wizard ────────────────────────────────────
-    _interactive_deploy(ctx, force=force, dry_run=dry_run, yes=yes, skip_build_check=skip_build_check)
+    _interactive_deploy(ctx, force=force, dry_run=dry_run, yes=yes)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -561,13 +342,11 @@ def _interactive_deploy(
     force: bool,
     dry_run: bool,
     yes: bool,
-    skip_build_check: bool = False,
 ) -> None:
     """Full interactive deployment wizard.
 
     Steps:
-      0. Ensure production build (build-first gate)
-      1. Introspect workspace (from build manifest)
+      1. Introspect workspace
       2. Select artefacts to generate
       3. Configure options (CI provider, monitoring, dev mode, …)
       4. Review & confirm
@@ -591,18 +370,9 @@ def _interactive_deploy(
     interactive = not yes and sys.stdin.isatty()
     written = 0
 
-    # ── 0. Build gate ────────────────────────────────────────────────
-    # Like React/Vite/Next.js: you must build before you deploy.
-    if not _ensure_production_build(
-        workspace_root,
-        interactive=interactive,
-        skip_build_check=skip_build_check,
-    ):
-        sys.exit(1)
-
-    # ── 1. Introspect workspace (from build manifest) ────────────────
+    # ── 1. Introspect workspace ──────────────────────────────────────
     try:
-        wctx = _get_ctx(workspace_root, skip_build_check=skip_build_check)
+        wctx = _get_ctx(workspace_root)
     except Exception as e:
         error(f"  {_CROSS} Workspace introspection failed: {e}")
         sys.exit(1)
@@ -620,18 +390,13 @@ def _interactive_deploy(
         click.echo()
 
         # Show detected workspace info
-        from_build = wctx.get("_from_build_manifest", False)
         phase_header(1, "Workspace detected", icon=_PKG)
 
         detail_card(
             "Workspace",
             [
                 ("Name", name),
-                ("Source", "build manifest" if from_build else "live introspection"),
-                (
-                    "Build",
-                    (wctx["build_fingerprint"][:16] + "...") if from_build and wctx.get("build_fingerprint") else "—",
-                ),
+                ("Source", "live introspection"),
                 ("Modules", str(wctx.get("module_count", 0))),
                 ("DB driver", wctx.get("db_driver", "none")),
                 ("Python", wctx.get("python_version", "3.12")),
@@ -1125,8 +890,6 @@ def deploy_dockerfile(ctx, dev_mode: bool, mlops_mode: bool, output: str, force:
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
 
-    _subcommand_build_gate(ctx, workspace_root)
-
     try:
         wctx = _get_ctx(workspace_root)
         gen = DockerfileGenerator(wctx)
@@ -1233,8 +996,6 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
 
-    _subcommand_build_gate(ctx, workspace_root)
-
     try:
         wctx = _get_ctx(workspace_root)
         gen = ComposeGenerator(wctx)
@@ -1307,8 +1068,6 @@ def deploy_kubernetes(ctx, output: str, mlops: bool, force: bool, dry_run: bool)
     verbose = ctx.obj.get("verbose", False)
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
-
-    _subcommand_build_gate(ctx, workspace_root)
 
     try:
         wctx = _get_ctx(workspace_root)
@@ -1391,8 +1150,6 @@ def deploy_nginx(ctx, output: str, force: bool, dry_run: bool):
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
 
-    _subcommand_build_gate(ctx, workspace_root)
-
     try:
         wctx = _get_ctx(workspace_root)
         gen = NginxGenerator(wctx)
@@ -1469,8 +1226,6 @@ def deploy_ci(ctx, provider: str, output: str | None, force: bool, dry_run: bool
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
 
-    _subcommand_build_gate(ctx, workspace_root)
-
     try:
         wctx = _get_ctx(workspace_root)
         gen = CIGenerator(wctx)
@@ -1544,8 +1299,6 @@ def deploy_monitoring(ctx, output: str, force: bool, dry_run: bool):
     verbose = ctx.obj.get("verbose", False)
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
-
-    _subcommand_build_gate(ctx, workspace_root)
 
     try:
         wctx = _get_ctx(workspace_root)
@@ -1625,8 +1378,6 @@ def deploy_env(ctx, output: str, force: bool, dry_run: bool):
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
 
-    _subcommand_build_gate(ctx, workspace_root)
-
     try:
         wctx = _get_ctx(workspace_root)
         gen = EnvGenerator(wctx)
@@ -1700,8 +1451,6 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
     written = 0  # track files written
-
-    _subcommand_build_gate(ctx, workspace_root)
 
     try:
         wctx = _get_ctx(workspace_root)
@@ -2004,8 +1753,6 @@ def deploy_makefile(ctx, output: str, force: bool, dry_run: bool):
     force = force or ctx.obj.get("force", False)
     dry_run = dry_run or ctx.obj.get("dry_run", False)
 
-    _subcommand_build_gate(ctx, workspace_root)
-
     try:
         wctx = _get_ctx(workspace_root)
         action = "DRY RUN" if dry_run else "Generating"
@@ -2103,7 +1850,6 @@ def deploy_render(
     workspace_root = Path.cwd()
     dry_run = dry_run or ctx.obj.get("dry_run", False)
     force = force or ctx.obj.get("force", False)
-    skip_build = ctx.obj.get("skip_build_check", False)
 
     # ── Auth gate ────────────────────────────────────────────────────
     store = RenderCredentialStore()
@@ -2120,18 +1866,9 @@ def deploy_render(
 
     client = RenderClient(token=token)
 
-    # ── Build gate ───────────────────────────────────────────────────
-    interactive = sys.stdin.isatty()
-    if not _ensure_production_build(
-        workspace_root,
-        interactive=interactive,
-        skip_build_check=skip_build,
-    ):
-        sys.exit(1)
-
     # ── Introspect workspace ─────────────────────────────────────────
     try:
-        wctx = _get_ctx(workspace_root, skip_build_check=skip_build)
+        wctx = _get_ctx(workspace_root)
     except Exception as e:
         error(f"  {_CROSS} Workspace introspection failed: {e}")
         sys.exit(1)
@@ -2154,6 +1891,7 @@ def deploy_render(
 
     # Resolve image name
     if not image:
+        interactive = sys.stdin.isatty()
         if interactive:
             image = ask(
                 "Docker image",

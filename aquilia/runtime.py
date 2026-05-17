@@ -429,7 +429,7 @@ class AquiliaRuntime:
                         exc,
                     )
 
-            # 5. Dynamic discovery — pick up modules added after last build
+            # 5. Dynamic discovery — pick up modules added after startup
             known = set(self._module_names)
             if self.config.modules_dir.is_dir():
                 for pkg in sorted(self.config.modules_dir.iterdir()):

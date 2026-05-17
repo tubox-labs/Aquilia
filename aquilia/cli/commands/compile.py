@@ -1,10 +1,8 @@
 """Manifest compilation command.
 
-Uses the Aquilia Build Pipeline to:
-1. Discover and validate workspace modules
-2. Run static checks (syntax, imports, routes)
-3. Compile manifests to Crous binary artifacts
-4. Bundle everything into a single verified output
+Compiles workspace and module manifests into the native artifact store.
+This is an explicit inspection/development tool; runtime loads the
+workspace directly.
 """
 
 from pathlib import Path
@@ -18,14 +16,14 @@ def compile_workspace(
     check_only: bool = False,
 ) -> list[str]:
     """
-    Compile manifests to artifacts using the build pipeline.
+    Compile manifests to artifacts using the workspace compiler.
 
     Args:
         output_dir: Output directory for artifacts
         watch: Watch for changes and recompile
         verbose: Enable verbose output
-        mode: Build mode ("dev" or "prod")
-        check_only: Only run checks, don't emit artifacts
+        mode: Reserved for CLI compatibility.
+        check_only: Validate workspace presence without emitting artifacts.
 
     Returns:
         List of generated artifact paths
@@ -38,28 +36,17 @@ def compile_workspace(
 
         raise ConfigMissingFault(key="workspace.py")
 
-    output = Path(output_dir) if output_dir else workspace_root / "build"
+    output = Path(output_dir) if output_dir else workspace_root / "artifacts"
     output.mkdir(parents=True, exist_ok=True)
 
-    from aquilia.build import AquiliaBuildPipeline
-
-    result = AquiliaBuildPipeline.build(
-        workspace_root=str(workspace_root),
-        mode=mode,
-        verbose=verbose,
-        output_dir=str(output),
-        check_only=check_only,
-    )
-
-    if not result.success:
-        print("\n  Compilation FAILED\n")
-        for err in result.errors:
-            print(f"  {err}")
+    if check_only:
         return []
 
-    if verbose:
-        print(f"  {result.summary()}")
+    from aquilia.cli.compilers.workspace import WorkspaceCompiler
 
-    # Return paths of generated artifacts
-    crous_files = sorted(output.glob("*.crous"))
-    return [str(f.relative_to(workspace_root)) for f in crous_files]
+    compiler = WorkspaceCompiler(workspace_root=workspace_root, output_dir=output, verbose=verbose)
+    artifact_paths = compiler.compile()
+    if verbose:
+        print(f"  Compiled {len(artifact_paths)} artifact(s)")
+
+    return [str(f.relative_to(workspace_root)) for f in artifact_paths]

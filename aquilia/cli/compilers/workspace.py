@@ -355,11 +355,12 @@ class WorkspaceCompiler:
         """Write artifact to Crous binary format."""
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Write Crous binary (.crous)
         try:
-            from aquilia.build.bundler import CrousBundler
-
-            crous_bytes = CrousBundler.encode_single(data)
+            try:
+                import _crous_native as crous_backend
+            except ImportError:
+                import crous as crous_backend
+            crous_bytes = crous_backend.encode(data)
             with open(path, "wb") as f:
                 f.write(crous_bytes)
         except Exception:
