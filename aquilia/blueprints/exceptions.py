@@ -53,6 +53,8 @@ class BlueprintFault(Fault):
         }
         if self.field_errors:
             body["errors"] = self.field_errors
+        if self.code == "BP200" and hasattr(self, "metadata") and self.metadata and "details" in self.metadata:
+            body["details"] = self.metadata["details"]
         return body
 
 

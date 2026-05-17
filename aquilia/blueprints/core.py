@@ -764,7 +764,11 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             try:
                 cast_value = facet.cast(raw)
             except CastFault as exc:
-                self._errors.setdefault(fname, []).append(str(exc))
+                if exc.field_errors and exc.field in exc.field_errors and isinstance(exc.field_errors[exc.field], list) and exc.field_errors[exc.field]:
+                    # Appends the underlying message (or dictionary for nested dicts) without the "Cast failed for..." wrapper
+                    self._errors.setdefault(fname, []).append(exc.field_errors[exc.field][0])
+                else:
+                    self._errors.setdefault(fname, []).append(str(exc))
                 continue
             except (ValueError, TypeError) as exc:
                 self._errors.setdefault(fname, []).append(str(exc))
@@ -801,7 +805,10 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                     else:
                         method(validated)
                 except CastFault as exc:
-                    self._errors.setdefault(exc.field, []).append(str(exc))
+                    if exc.field_errors and exc.field in exc.field_errors and isinstance(exc.field_errors[exc.field], list) and exc.field_errors[exc.field]:
+                        self._errors.setdefault(exc.field, []).append(exc.field_errors[exc.field][0])
+                    else:
+                        self._errors.setdefault(exc.field, []).append(str(exc))
                 except (ValueError, TypeError) as exc:
                     self._errors.setdefault("__all__", []).append(str(exc))
 
@@ -957,7 +964,12 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 if data["end_date"] < data["start_date"]:
                     self.reject("end_date", "Must be after start date")
         """
-        raise CastFault(field, message)
+        # We manually build CastFault so we can extract exactly the message text
+        # in the calling try/except blocks (avoiding standard `str(exc)` logic
+        # which prepends `Cast failed for ...`).
+        fault = CastFault(field, message)
+        fault.field_errors[field] = [message]
+        raise fault
 
     @property
     def validated_data(self) -> dict[str, Any] | list[dict[str, Any]] | None:

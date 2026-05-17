@@ -311,10 +311,13 @@ class NestedBlueprintFacet(Facet):
             bp = self._blueprint_cls(data=value)
             if not bp.is_sealed():
                 # Collect nested errors with field prefix
-                raise CastFault(
+                # Instead of stringifying the dict, attach it to field_errors so it renders clearly.
+                fault = CastFault(
                     self.name or "<unbound>",
-                    f"Nested validation failed: {bp.errors}",
+                    "Nested validation failed",
                 )
+                fault.field_errors[self.name or "<unbound>"] = [bp.errors]
+                raise fault
             return bp.validated_data
         raise CastFault(
             self.name or "<unbound>",
@@ -340,10 +343,12 @@ class NestedBlueprintFacet(Facet):
             else:
                 errors[f"{self.name or '<unbound>'}[{i}]"] = [f"Expected object, got {type(item).__name__}"]
         if errors:
-            raise CastFault(
+            fault = CastFault(
                 self.name or "<unbound>",
-                f"List validation failed: {errors}",
+                "Nested validation failed",
             )
+            fault.field_errors[self.name or "<unbound>"] = [errors]
+            raise fault
         return results
 
     def seal(self, value: Any) -> Any:
