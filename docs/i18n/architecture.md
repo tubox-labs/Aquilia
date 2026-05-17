@@ -86,7 +86,7 @@ Resolver chain is ordered by `resolver_order` and short-circuits on first match:
    - `i18n`
 5. Sets lazy-translation context for request duration using `contextvars`.
 
-## Catalog Build Pipeline
+## Catalog Assembly
 
 `I18nService._build_catalog()` chooses backend per `catalog_format`:
 

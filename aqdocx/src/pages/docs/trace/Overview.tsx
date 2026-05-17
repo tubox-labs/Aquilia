@@ -23,7 +23,7 @@ export function TraceOverview() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-aquilia-500">.aquilia/</code> directory is a project-level trace directory that captures build manifests, DI graphs, route maps, schema ledgers, lifecycle journals, and diagnostics — written on every server startup and updated on shutdown.
+          The <code className="text-aquilia-500">.aquilia/</code> directory is a project-level trace directory that captures runtime manifests, DI graphs, route maps, schema ledgers, lifecycle journals, and diagnostics — written on server startup and updated on shutdown.
         </p>
       </div>
 
@@ -52,7 +52,7 @@ export function TraceOverview() {
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Directory Structure</h2>
         <CodeBlock language="structure" filename=".aquilia/">{`.aquilia/
-├── manifest.json          # Build manifest & fingerprint
+├── manifest.json          # Runtime manifest & fingerprint
 ├── routes.json            # Compiled route table
 ├── di_graph.json          # DI provider dependency tree
 ├── schema_ledger.json     # Model schema snapshots

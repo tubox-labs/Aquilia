@@ -99,7 +99,7 @@ export function CLIWebSocketCommands() {
 aq ws inspect
 
 # Use custom artifacts directory
-aq ws inspect --artifacts-dir build/artifacts`}</CodeBlock>
+aq ws inspect --artifacts-dir artifacts`}</CodeBlock>
 
         <h3 className={h3Class}>Output Details</h3>
         <p className={pClass}>
@@ -177,7 +177,7 @@ aq ws broadcast --namespace /chat --room room1 --event message.receive --payload
 aq ws gen-client --out clients/chat.ts
 
 # From custom artifacts directory
-aq ws gen-client --out src/ws-client.ts --artifacts-dir build/artifacts`}</CodeBlock>
+aq ws gen-client --out src/ws-client.ts --artifacts-dir artifacts`}</CodeBlock>
 
         <h3 className={h3Class}>Generated Client Structure</h3>
         <p className={pClass}>

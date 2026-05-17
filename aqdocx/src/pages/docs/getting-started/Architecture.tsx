@@ -36,9 +36,9 @@ export function ArchitecturePage() {
         </h2>
 
         <p className={`mb-8 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Aquilia follows a <strong>manifest → compile → serve</strong> architecture. Unlike
+          Aquilia follows a <strong>manifest → native runtime</strong> architecture. Unlike
           frameworks that discover components at import time, Aquilia separates declaration
-          from execution through a two-phase pipeline:
+          from request execution through explicit runtime wiring:
         </p>
 
         <ArchitectureDiagram isDark={isDark} />
@@ -66,7 +66,7 @@ aquilary = Aquilary.from_manifests(
     mode=RegistryMode.PROD,   # DEV, PROD, or TEST
 )
 
-# 3. RuntimeRegistry.from_metadata() compiles Aquilary into runtime artifacts
+# 3. RuntimeRegistry.from_metadata() prepares runtime metadata
 #    - Creates DI Container per app (scope: "app")
 #    - Registers ClassProvider for each service
 #    - Compiles ControllerCompiler routes for each controller

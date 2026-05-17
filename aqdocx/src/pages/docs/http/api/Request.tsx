@@ -151,7 +151,7 @@ class HTTPClientRequest:
     def follow_redirects(self, follow: bool = True) -> RequestBuilder
     def extension(self, key: str, value: Any) -> RequestBuilder
 
-    # Internal build pipeline
+    # Internal request assembly
     def _build_url(self) -> str
     def _build_body(self) -> tuple[bytes | AsyncIterator[bytes] | None, dict[str, str]]
     def _build_cookies(self) -> str | None

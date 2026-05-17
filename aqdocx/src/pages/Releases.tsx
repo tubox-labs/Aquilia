@@ -36,16 +36,39 @@ interface ReleaseEntry {
 
 const releases: ReleaseEntry[] = [
   {
+    version: '1.0.4',
+    codename: 'Native Runtime',
+    date: 'May 17, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Removes the React-style Aquilia workspace build system and restores native Python runtime and deploy flows.',
+    highlights: [
+      'Removed aquilia/build and aq build',
+      'Removed build gates from run, serve, and deploy',
+      'Removed the Admin Build page and module toggle',
+      'Kept explicit artifact compilation through aq compile',
+      'Updated freeze to snapshot generated artifacts',
+    ],
+    assets: [
+      { name: 'aquilia-1.0.4.tar.gz', size: 'TBD', type: 'Source' },
+      { name: 'aquilia-1.0.4-py3-none-any.whl', size: 'TBD', type: 'Wheel' },
+    ],
+    installCmd: 'pip install aquilia==1.0.4',
+    commitCount: 'TBD',
+    contributors: 1,
+  },
+  {
     version: '1.0.0',
     codename: 'Genesis',
     date: 'February 28, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12'],
     license: 'MIT',
     summary: 'The first production-ready release of Aquilia — a modern, async-native Python web framework featuring manifest-first architecture, a complete ORM, dependency injection, pluggable authentication, MLOps integration, and a full developer toolchain.',
     highlights: [
       'Async-native ASGI server with lifecycle hooks and graceful shutdown',
-      'Manifest-first bootstrap → compile → serve architecture',
+      'Manifest-first native runtime architecture',
       'Class-based controllers with full HTTP method decorators',
       'Pure-Python async ORM with 30+ field types and migrations',
       'Hierarchical dependency injection with 6 lifetime scopes',
@@ -56,7 +79,7 @@ const releases: ReleaseEntry[] = [
       'Integrated MLOps toolkit for model training and deployment',
       'Comprehensive CLI with 40+ commands for development workflow',
       'Full test framework with async HTTP client and pytest integration',
-      'Trace & artifact system for build introspection and supply-chain tracking',
+      'Artifact system for inspection and supply-chain tracking',
     ],
     assets: [
       { name: 'aquilia-1.0.0.tar.gz', size: '2.1 MB', type: 'Source' },

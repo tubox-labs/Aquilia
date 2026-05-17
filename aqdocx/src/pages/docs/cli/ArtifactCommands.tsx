@@ -113,7 +113,7 @@ aq artifact list --tag env=production
 aq artifact list -j
 
 # Custom store directory
-aq artifact list --dir ./build/artifacts`}</CodeBlock>
+aq artifact list --dir ./artifacts`}</CodeBlock>
       </section>
 
       {/* artifact inspect */}
@@ -246,7 +246,7 @@ aq artifact export`}</CodeBlock>
 aq artifact diff my-config 1.0.0 1.1.0
 
 # Diff from custom store directory
-aq artifact diff my-model 2.0.0 2.1.0 --dir ./build/artifacts`}</CodeBlock>
+aq artifact diff my-model 2.0.0 2.1.0 --dir ./artifacts`}</CodeBlock>
       </section>
 
       {/* artifact history */}
@@ -266,7 +266,7 @@ aq artifact diff my-model 2.0.0 2.1.0 --dir ./build/artifacts`}</CodeBlock>
 aq artifact history my-model
 
 # Custom directory
-aq artifact history my-config --dir ./build/artifacts`}</CodeBlock>
+aq artifact history my-config --dir ./artifacts`}</CodeBlock>
       </section>
 
       {/* artifact import */}
@@ -286,7 +286,7 @@ aq artifact history my-config --dir ./build/artifacts`}</CodeBlock>
 aq artifact import release.aq.json
 
 # Import into custom directory
-aq artifact import bundle.aq.json --dir ./build/artifacts`}</CodeBlock>
+aq artifact import bundle.aq.json --dir ./artifacts`}</CodeBlock>
       </section>
 
       {/* artifact count */}

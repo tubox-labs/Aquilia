@@ -219,7 +219,7 @@ export function LandingPage() {
                 </span>
               </h3>
               <p className={`mt-4 text-lg max-w-2xl mx-auto ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Unlike discovery-heavy frameworks, Aquilia uses a two-phase <strong>manifest → compile</strong> pipeline, optimizing your application for maximum performance before the first request arrives.
+                Unlike discovery-heavy frameworks, Aquilia uses explicit manifests and a native runtime startup path, keeping application serving direct while preserving structured metadata for tooling.
               </p>
             </div>
 
@@ -285,7 +285,7 @@ export function LandingPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
               {[
-                { icon: <Layers className="w-8 h-8" />, title: 'Controller Architecture', desc: 'Class-based controllers with DI injection, pipelines, and OpenAPI generation. Manifest-first, compile-time optimized.' },
+                { icon: <Layers className="w-8 h-8" />, title: 'Controller Architecture', desc: 'Class-based controllers with DI injection, pipelines, and OpenAPI generation. Manifest-first and runtime-native.' },
                 { icon: <Box className="w-8 h-8" />, title: 'Dependency Injection', desc: 'Hierarchical scoped DI with singleton, app, request, transient, pooled, and ephemeral lifetimes.' },
                 { icon: <Database className="w-8 h-8" />, title: 'Full ORM', desc: 'Production-grade async ORM with models, migrations, relationships, signals, and multi-backend support (SQLite, PostgreSQL, MySQL).' },
                 { icon: <Shield className="w-8 h-8" />, title: 'Auth & Security', desc: 'OAuth2/OIDC, MFA, API keys, RBAC/ABAC authorization, cryptographic sessions, and security middleware.' },
