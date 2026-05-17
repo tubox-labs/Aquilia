@@ -18,7 +18,7 @@ Authentication, authorization, identity stores, token management, guards, cleara
 - `aquilia/auth/authz.py`: AquilAuth - Authorization Engine
 - `aquilia/auth/clearance.py`: Aquilia Clearance System -- Unique declarative access control.
 - `aquilia/auth/core.py`: AquilAuth - Core Types
-- `aquilia/auth/crous.py`: AquilAuth - Crous Artifacts
+- `aquilia/auth/surp.py`: AquilAuth - Surp Artifacts
 - `aquilia/auth/decorators.py`: AquilAuth - Authentication Decorators and Guards.
 - `aquilia/auth/faults.py`: AquilAuth - Authentication/Authorization Faults
 - `aquilia/auth/guards.py`: AquilAuth - Guards and Flow Integration

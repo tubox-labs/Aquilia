@@ -22,7 +22,7 @@ This page is generated from the current Python source using the AST. It lists pu
 
 ## Public Exports
 
-`CLDR_PLURAL_RULES`, `CatalogLoadFault`, `ChainLocaleResolver`, `CookieLocaleResolver`, `CrousCatalog`, `FileCatalog`, `HeaderLocaleResolver`, `I18nConfig`, `I18nFault`, `I18nMiddleware`, `I18nService`, `I18nTemplateExtension`, `InvalidLocaleFault`, `LazyString`, `Locale`, `LocaleResolver`, `MemoryCatalog`, `MergedCatalog`, `MessageFormatter`, `MissingTranslationFault`, `NamespacedCatalog`, `PathLocaleResolver`, `PluralCategory`, `PluralRule`, `PluralRuleFault`, `QueryLocaleResolver`, `SessionLocaleResolver`, `TranslationCatalog`, `create_i18n_service`, `format_currency`, `format_date`, `format_datetime`, `format_decimal`, `format_message`, `format_number`, `format_ordinal`, `format_percent`, `format_time`, `get_plural_rule`, `has_crous`, `lazy_t`, `lazy_tn`, `match_locale`, `negotiate_locale`, `normalize_locale`, `parse_accept_language`, `parse_locale`, `register_i18n_providers`, `register_i18n_template_globals`, `select_plural`
+`CLDR_PLURAL_RULES`, `CatalogLoadFault`, `ChainLocaleResolver`, `CookieLocaleResolver`, `SurpCatalog`, `FileCatalog`, `HeaderLocaleResolver`, `I18nConfig`, `I18nFault`, `I18nMiddleware`, `I18nService`, `I18nTemplateExtension`, `InvalidLocaleFault`, `LazyString`, `Locale`, `LocaleResolver`, `MemoryCatalog`, `MergedCatalog`, `MessageFormatter`, `MissingTranslationFault`, `NamespacedCatalog`, `PathLocaleResolver`, `PluralCategory`, `PluralRule`, `PluralRuleFault`, `QueryLocaleResolver`, `SessionLocaleResolver`, `TranslationCatalog`, `create_i18n_service`, `format_currency`, `format_date`, `format_datetime`, `format_decimal`, `format_message`, `format_number`, `format_ordinal`, `format_percent`, `format_time`, `get_plural_rule`, `has_surp`, `lazy_t`, `lazy_tn`, `match_locale`, `negotiate_locale`, `normalize_locale`, `parse_accept_language`, `parse_locale`, `register_i18n_providers`, `register_i18n_template_globals`, `select_plural`
 
 ## Public Class Summary
 
@@ -31,7 +31,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `TranslationCatalog` | `aquilia/i18n/catalog.py` | ABC | Abstract base for translation catalogs. |
 | `MemoryCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | In-memory translation catalog backed by nested dicts. |
 | `FileCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | File-based translation catalog loading from ``locales/`` directory. |
-| `CrousCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | CROUS artifact-backed translation catalog. |
+| `SurpCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | SURP artifact-backed translation catalog. |
 | `NamespacedCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | Wraps a catalog with a fixed namespace prefix. |
 | `MergedCatalog` | `aquilia/i18n/catalog.py` | TranslationCatalog | Layered catalog that queries multiple catalogs with fallback. |
 | `I18nFault` | `aquilia/i18n/faults.py` | Fault | Base fault for all i18n-related errors. |
@@ -61,7 +61,7 @@ This page is generated from the current Python source using the AST. It lists pu
 
 | Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `has_crous` | `aquilia/i18n/catalog.py` | `def has_crous()` | Check if the CROUS binary format library is available. |
+| `has_surp` | `aquilia/i18n/catalog.py` | `def has_surp()` | Check if the SURP binary format library is available. |
 | `register_i18n_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_providers(container: Any, service: I18nService, config: I18nConfig \| None=None)` | Register i18n providers in a DI container. |
 | `register_i18n_request_providers` | `aquilia/i18n/di_integration.py` | `def register_i18n_request_providers(container: Any, locale: str, service: I18nService)` | Register request-scoped i18n providers. |
 | `format_message` | `aquilia/i18n/formatter.py` | `def format_message(pattern: str, locale: str='en', **kwargs: Any)` | Convenience function for one-shot message formatting. |
@@ -92,7 +92,7 @@ This page is generated from the current Python source using the AST. It lists pu
 
 | Name | Source | Value or Type |
 | --- | --- | --- |
-| `_HAS_CROUS` | `aquilia/i18n/catalog.py` | `False` |
+| `_HAS_SURP` | `aquilia/i18n/catalog.py` | `False` |
 | `_NUMBER_FORMATS` | `aquilia/i18n/formatter.py` | `dict[str, dict[str, str]]` |
 | `_CURRENCY_SYMBOLS` | `aquilia/i18n/formatter.py` | `dict[str, str]` |
 | `_ORDINAL_SUFFIXES_EN` | `aquilia/i18n/formatter.py` | `{1: 'st', 2: 'nd', 3: 'rd'}` |
@@ -157,19 +157,19 @@ Methods:
 | `locales` | `def locales(self)` |  |
 | `keys` | `def keys(self, locale: str)` |  |
 
-### `CrousCatalog`
+### `SurpCatalog`
 
 - Source: `aquilia/i18n/catalog.py`
 - Bases: `TranslationCatalog`
-- Summary: CROUS artifact-backed translation catalog.
+- Summary: SURP artifact-backed translation catalog.
 
 Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `load` | `def load(self)` | Load translations from CROUS and/or JSON files. |
+| `load` | `def load(self)` | Load translations from SURP and/or JSON files. |
 | `reload` | `def reload(self)` | Reload changed files (hot-reload support). |
-| `compile` | `def compile(self, directory: str \| Path \| None=None)` | Compile all JSON locale files to CROUS format. |
+| `compile` | `def compile(self, directory: str \| Path \| None=None)` | Compile all JSON locale files to SURP format. |
 | `get` | `def get(self, key: str, locale: str, *, default: str \| None=None)` |  |
 | `get_plural` | `def get_plural(self, key: str, locale: str, category: str, *, default: str \| None=None)` |  |
 | `has` | `def has(self, key: str, locale: str)` |  |
@@ -443,7 +443,7 @@ Fields and class attributes:
 | `available_locales` | `list[str]` | `field(default_factory=lambda: ['en'])` |
 | `fallback_locale` | `str` | `'en'` |
 | `catalog_dirs` | `list[str]` | `field(default_factory=lambda: ['locales'])` |
-| `catalog_format` | `str` | `'crous'` |
+| `catalog_format` | `str` | `'surp'` |
 | `missing_key_strategy` | `str` | `'log_and_key'` |
 | `auto_reload` | `bool` | `False` |
 | `auto_detect` | `bool` | `True` |

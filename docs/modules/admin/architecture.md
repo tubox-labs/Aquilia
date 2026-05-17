@@ -99,7 +99,7 @@ Built-in administration interface, audit log, permissions, dashboards, model CRU
 
 | Extension Type | Source | Role |
 | --- | --- | --- |
-| `CrousAuditStore` | `aquilia/admin/audit.py` | Thin persistence layer that stores/loads audit entries using the CROUS binary format.  Falls back to no-op if ``crous`` is not installed. |
+| `SurpAuditStore` | `aquilia/admin/audit.py` | Thin persistence layer that stores/loads audit entries using the SURP binary format.  Falls back to no-op if ``surp`` is not installed. |
 | `AdminController` | `aquilia/admin/controller.py` | Aquilia Admin Controller. |
 | `ExportRegistry` | `aquilia/admin/export.py` | Registry of available export formats. |
 | `AdminConfigurationFault` | `aquilia/admin/faults.py` | Admin system misconfiguration or missing dependency. |

@@ -330,8 +330,8 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
                 ['aq add module <name>', 'modules/<name>/ with __init__.py, controllers.py, services.py, models.py'],
                 ['aq generate controller <Name>', 'controllers/<name>.py with boilerplate Controller class'],
                 ['aq generate service <Name>', 'services/<name>.py with @service-decorated class'],
-                ['aq compile', 'artifacts/ with explicit Crous metadata files'],
-                ['aq freeze', 'frozen.crous artifact integrity snapshot'],
+                ['aq compile', 'artifacts/ with explicit Surp metadata files'],
+                ['aq freeze', 'frozen.surp artifact integrity snapshot'],
                 ['aq migrate makemigrations', 'migrations/ directory with numbered migration files'],
                 ['aq deploy all', 'Dockerfile and docker-compose.yml for containerized deployment'],
               ].map(([cmd, gen], i) => (

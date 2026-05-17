@@ -291,8 +291,8 @@ This page is generated from the current Python source using the AST. It lists pu
 | `generate_create_table_sql` | `aquilia/models/runtime.py` | `def generate_create_table_sql(model: ModelNode, dialect: str='sqlite')` | Generate CREATE TABLE SQL from a ModelNode. |
 | `generate_create_index_sql` | `aquilia/models/runtime.py` | `def generate_create_index_sql(model: ModelNode, dialect: str='sqlite')` | Generate CREATE INDEX statements for non-unique indexes. |
 | `create_snapshot` | `aquilia/models/schema_snapshot.py` | `def create_snapshot(model_classes: list)` | Create a schema snapshot from a list of Model subclasses. |
-| `save_snapshot` | `aquilia/models/schema_snapshot.py` | `def save_snapshot(snapshot: dict[str, Any], path: Path)` | Write snapshot to file in CROUS binary format. |
-| `load_snapshot` | `aquilia/models/schema_snapshot.py` | `def load_snapshot(path: Path)` | Load snapshot from file in CROUS binary format. |
+| `save_snapshot` | `aquilia/models/schema_snapshot.py` | `def save_snapshot(snapshot: dict[str, Any], path: Path)` | Write snapshot to file in SURP binary format. |
+| `load_snapshot` | `aquilia/models/schema_snapshot.py` | `def load_snapshot(path: Path)` | Load snapshot from file in SURP binary format. |
 | `compute_diff` | `aquilia/models/schema_snapshot.py` | `def compute_diff(old_snapshot: dict[str, Any], new_snapshot: dict[str, Any])` | Compute the diff between two schema snapshots. |
 | `diff_to_operations` | `aquilia/models/schema_snapshot.py` | `def diff_to_operations(diff: SchemaDiff, old_snapshot: dict[str, Any], new_snapshot: dict[str, Any])` | Convert a SchemaDiff into a list of DSL operations. |
 | `receiver` | `aquilia/models/signals.py` | `def receiver(signal: Signal, *, sender: type \| None=None)` | Shorthand decorator to connect a function to a signal. |

@@ -73,7 +73,7 @@ print(ctx.config)         # Module-specific config`}</CodeBlock>
 registry = AquilaryRegistry(mode=RegistryMode.DEVELOPMENT)
 
 # For releases, snapshot generated artifacts when needed
-# aq freeze → generates artifacts/frozen.crous
+# aq freeze → generates artifacts/frozen.surp
 registry = AquilaryRegistry(mode=RegistryMode.PRODUCTION)`}</CodeBlock>
       </section>
 

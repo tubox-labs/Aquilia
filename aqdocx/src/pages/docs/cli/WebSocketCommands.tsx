@@ -67,7 +67,7 @@ export function CLIWebSocketCommands() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { cmd: 'aq ws inspect', desc: 'Show compiled WebSocket namespaces and controllers from ws.crous artifacts' },
+            { cmd: 'aq ws inspect', desc: 'Show compiled WebSocket namespaces and controllers from ws.surp artifacts' },
             { cmd: 'aq ws broadcast', desc: 'Broadcast a message to a namespace or room via the adapter' },
             { cmd: 'aq ws gen-client', desc: 'Generate TypeScript client SDK from compiled WebSocket artifacts' },
             { cmd: 'aq ws purge-room', desc: 'Purge a room\'s state from the adapter (disconnect all members)' },
@@ -88,7 +88,7 @@ export function CLIWebSocketCommands() {
           aq ws inspect
         </h2>
         <p className={pClass}>
-          Reads the compiled <code className={codeClass}>ws.crous</code> artifact and displays all WebSocket namespaces, controllers, events, guards, and configuration. Requires running <code className={codeClass}>aq compile</code> first.
+          Reads the compiled <code className={codeClass}>ws.surp</code> artifact and displays all WebSocket namespaces, controllers, events, guards, and configuration. Requires running <code className={codeClass}>aq compile</code> first.
         </p>
 
         <Table>
@@ -164,7 +164,7 @@ aq ws broadcast --namespace /chat --room room1 --event message.receive --payload
           aq ws gen-client
         </h2>
         <p className={pClass}>
-          Generate a fully-typed TypeScript client SDK from the compiled <code className={codeClass}>ws.crous</code> artifact. The generated client includes typed event emitters, connection management, namespace classes, and reconnection logic.
+          Generate a fully-typed TypeScript client SDK from the compiled <code className={codeClass}>ws.surp</code> artifact. The generated client includes typed event emitters, connection management, namespace classes, and reconnection logic.
         </p>
 
         <Table>

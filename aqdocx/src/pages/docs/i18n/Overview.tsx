@@ -17,7 +17,7 @@ export function I18nOverview() {
     },
     {
       title: 'Catalog backends',
-      desc: 'MemoryCatalog, FileCatalog, and CrousCatalog with namespace and merged layering support.',
+      desc: 'MemoryCatalog, FileCatalog, and SurpCatalog with namespace and merged layering support.',
     },
     {
       title: 'Formatting and plurals',
@@ -61,7 +61,7 @@ export function I18nOverview() {
     {
       title: 'CLI Reference',
       path: '/docs/i18n/cli',
-      text: 'Detailed command behavior for initialization, extraction, coverage, and CROUS compilation.',
+      text: 'Detailed command behavior for initialization, extraction, coverage, and SURP compilation.',
     },
     {
       title: 'Edge Cases',
@@ -120,7 +120,7 @@ workspace = (
             available_locales=["en", "fr", "de", "ja"],
             fallback_locale="en",
             catalog_dirs=["locales"],
-            catalog_format="crous",
+            catalog_format="surp",
             resolver_order=["query", "cookie", "header"],
         )
     )

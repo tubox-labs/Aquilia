@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.5] — Unreleased
+
+### Changed
+- Replaced the Crous/Crousr binary serialization stack with Surp across runtime request and response helpers, compiled artifacts, Aquilary registry loading, admin audit persistence, i18n catalogs, model snapshots, WebSocket artifacts, template cache metadata, analytics cache, provider credential stores, and CLI workflows.
+- Renamed public binary payload helpers and decorators from Crous terminology to Surp terminology, including `Request.surp()`, `Response.surp()`, `requires_surp`, `SurpCatalog`, and related availability helpers.
+- Updated generated artifact extensions and documentation from `.crous` to `.surp` while preserving JSON fallback paths where the framework already supported them.
+- Updated package dependencies to install `surp` instead of `crousr` and `crous-native`.
+- Allowed `aq i18n init --format surp` to create Surp-backed starter catalogs.
+
+### Removed
+- Removed Crous-specific imports, native backend probing, API names, file extensions, and request/response tests.
+
+### Tests
+- Added Surp request/response coverage and updated admin, i18n, provider, regression, and security tests for the new Surp-backed behavior.
+- Verified the migration with bytecode compilation, focused Surp/i18n/provider tests, stale-reference scans, and a full test run with only the sandbox-local loopback test requiring an isolated permissioned rerun.
+
+### Tooling
+- Began tracking the repository-local `.agents/` skill definitions and stopped ignoring local agent skill metadata.
+
 ## [1.0.4] — 2026-05-17
 
 ### Removed

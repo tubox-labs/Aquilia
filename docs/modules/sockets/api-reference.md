@@ -238,7 +238,7 @@ Methods:
 | Method | Signature | Summary |
 | --- | --- | --- |
 | `compile_controller` | `def compile_controller(self, controller_class: type[SocketController])` | Compile controller to metadata. |
-| `generate_artifacts` | `def generate_artifacts(self, output_path: Path)` | Generate artifacts/ws.crous. |
+| `generate_artifacts` | `def generate_artifacts(self, output_path: Path)` | Generate artifacts/ws.surp. |
 | `validate` | `def validate(self)` | Validate compiled controllers. |
 
 ### `ConnectionState`

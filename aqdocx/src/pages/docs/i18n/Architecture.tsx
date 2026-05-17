@@ -12,7 +12,7 @@ export function I18nArchitecture() {
   const components: Array<[string, string, string]> = [
     ['Locale model', 'aquilia/i18n/locale.py', 'BCP 47 parsing, normalization, fallback chain, and negotiation.'],
     ['Plural rules', 'aquilia/i18n/plural.py', 'CLDR category selection for language-specific plural logic.'],
-    ['Catalogs', 'aquilia/i18n/catalog.py', 'Memory, file, CROUS, namespaced, and merged translation backends.'],
+    ['Catalogs', 'aquilia/i18n/catalog.py', 'Memory, file, SURP, namespaced, and merged translation backends.'],
     ['Formatter', 'aquilia/i18n/formatter.py', 'Message interpolation plus number/date/currency/percent helpers.'],
     ['Service', 'aquilia/i18n/service.py', 'Translation API, fallback chain, missing-key strategy, and catalog build.'],
     ['Middleware', 'aquilia/i18n/middleware.py', 'Resolver chain execution and request state injection.'],
@@ -136,8 +136,8 @@ finally:
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Catalog Build Strategy</h2>
-        <CodeBlock language="python" filename="aquilia/i18n/service.py::_build_catalog">{`if config.catalog_format == "crous":
-    backend = CrousCatalog([catalog_dir])
+        <CodeBlock language="python" filename="aquilia/i18n/service.py::_build_catalog">{`if config.catalog_format == "surp":
+    backend = SurpCatalog([catalog_dir])
 else:
     backend = FileCatalog([catalog_dir])
 
@@ -146,8 +146,8 @@ if multiple_dirs:
 `}</CodeBlock>
         <div className={box}>
           <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>CrousCatalog can read CROUS artifacts and JSON/YAML fallback sources.</li>
-            <li>Non-crous service boot path uses FileCatalog defaults, which are JSON-focused by default.</li>
+            <li>SurpCatalog can read SURP artifacts and JSON/YAML fallback sources.</li>
+            <li>Non-surp service boot path uses FileCatalog defaults, which are JSON-focused by default.</li>
             <li>When no catalog directory exists, service falls back to empty MemoryCatalog with warning log.</li>
           </ul>
         </div>

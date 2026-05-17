@@ -15,7 +15,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `aquilia/providers/render_backup_phase10/__init__.py` | 53 | 0 | 0 | Aquilia Render Provider — One-command PaaS deployment. |
 | `aquilia/providers/render_backup_phase10/client.py` | 571 | 1 | 0 | Render REST API Client. |
 | `aquilia/providers/render_backup_phase10/deployer.py` | 544 | 2 | 0 | Render Deployment Orchestrator. |
-| `aquilia/providers/render_backup_phase10/store.py` | 344 | 1 | 0 | Render Credential Store — Crous-Encrypted Token Persistence. |
+| `aquilia/providers/render_backup_phase10/store.py` | 344 | 1 | 0 | Render Credential Store — Surp-Encrypted Token Persistence. |
 | `aquilia/providers/render_backup_phase10/types.py` | 384 | 11 | 0 | Render API Type Definitions. |
 
 ## Public Exports
@@ -109,9 +109,9 @@ This page is generated from the current Python source using the AST. It lists pu
 | `_MAX_RETRIES` | `aquilia/providers/render/client.py` | `3` |
 | `_RETRY_BACKOFF` | `aquilia/providers/render/client.py` | `1.5` |
 | `_SSL_CTX` | `aquilia/providers/render/client.py` | `ssl.SSLContext` |
-| `_CROUS_MAGIC` | `aquilia/providers/render/store.py` | `b'AQCR'` |
-| `_CROUS_VERSION` | `aquilia/providers/render/store.py` | `2` |
-| `_CROUS_VERSION_LEGACY` | `aquilia/providers/render/store.py` | `1` |
+| `_SURP_MAGIC` | `aquilia/providers/render/store.py` | `b'AQCR'` |
+| `_SURP_VERSION` | `aquilia/providers/render/store.py` | `2` |
+| `_SURP_VERSION_LEGACY` | `aquilia/providers/render/store.py` | `1` |
 | `_SALT_SIZE` | `aquilia/providers/render/store.py` | `32` |
 | `_NONCE_SIZE` | `aquilia/providers/render/store.py` | `12` |
 | `_KEY_ITERATIONS` | `aquilia/providers/render/store.py` | `600000` |
@@ -130,8 +130,8 @@ This page is generated from the current Python source using the AST. It lists pu
 | `_MAX_RETRIES` | `aquilia/providers/render_backup_phase10/client.py` | `3` |
 | `_RETRY_BACKOFF` | `aquilia/providers/render_backup_phase10/client.py` | `1.5` |
 | `_SSL_CTX` | `aquilia/providers/render_backup_phase10/client.py` | `ssl.SSLContext` |
-| `_CROUS_MAGIC` | `aquilia/providers/render_backup_phase10/store.py` | `b'AQCR'` |
-| `_CROUS_VERSION` | `aquilia/providers/render_backup_phase10/store.py` | `1` |
+| `_SURP_MAGIC` | `aquilia/providers/render_backup_phase10/store.py` | `b'AQCR'` |
+| `_SURP_VERSION` | `aquilia/providers/render_backup_phase10/store.py` | `1` |
 | `_SALT_SIZE` | `aquilia/providers/render_backup_phase10/store.py` | `32` |
 | `_KEY_ITERATIONS` | `aquilia/providers/render_backup_phase10/store.py` | `200000` |
 | `_HMAC_ALGO` | `aquilia/providers/render_backup_phase10/store.py` | `'sha256'` |

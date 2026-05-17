@@ -34,7 +34,7 @@ export function TemplatesOverview() {
           {[
             { name: 'TemplateEngine', desc: 'Core rendering engine. Loads templates, manages environment, renders to strings or responses.' },
             { name: 'TemplateLoader / PackageLoader', desc: 'Discovers templates from directories or module packages. Supports multi-directory resolution.' },
-            { name: 'BytecodeCache', desc: 'Caches compiled template bytecode — InMemoryBytecodeCache or CrousBytecodeCache (artifact-backed).' },
+            { name: 'BytecodeCache', desc: 'Caches compiled template bytecode — InMemoryBytecodeCache or SurpBytecodeCache (artifact-backed).' },
             { name: 'TemplateManager', desc: 'Linting, validation, and administration of templates. Reports unused variables and syntax issues.' },
             { name: 'TemplateSandbox', desc: 'Sandboxed Jinja2 execution with SandboxPolicy for restricting what templates can access.' },
             { name: 'TemplateContext', desc: 'Auto-injected context variables: request, session, identity, flash messages, CSRF token.' },
@@ -58,7 +58,7 @@ workspace = Workspace(
             dirs=["templates"],          # Template directories
             auto_reload=True,            # Hot-reload in dev mode
             auto_escape=True,            # HTML auto-escaping
-            bytecode_cache="memory",     # "memory" | "crous" | None
+            bytecode_cache="memory",     # "memory" | "surp" | None
             sandboxed=True,              # Enable sandbox mode
             trim_blocks=True,
             lstrip_blocks=True,

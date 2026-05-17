@@ -17,7 +17,7 @@ This module exposes config-oriented public classes. Use the table below to locat
 | `aquilia/auth/authz.py` | 542 | 8 | 0 | AquilAuth - Authorization Engine |
 | `aquilia/auth/clearance.py` | 864 | 6 | 12 | Aquilia Clearance System -- Unique declarative access control. |
 | `aquilia/auth/core.py` | 652 | 14 | 0 | AquilAuth - Core Types |
-| `aquilia/auth/crous.py` | 395 | 7 | 0 | AquilAuth - Crous Artifacts |
+| `aquilia/auth/surp.py` | 395 | 7 | 0 | AquilAuth - Surp Artifacts |
 | `aquilia/auth/decorators.py` | 864 | 6 | 3 | AquilAuth - Authentication Decorators and Guards. |
 | `aquilia/auth/faults.py` | 493 | 37 | 2 | AquilAuth - Authentication/Authorization Faults |
 | `aquilia/auth/guards.py` | 522 | 6 | 3 | AquilAuth - Guards and Flow Integration |
@@ -42,7 +42,7 @@ This module exposes config-oriented public classes. Use the table below to locat
 | Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
 | `PolicyBuilder` | `aquilia/auth/authz.py` | `owner_only`, `admin_or_owner`, `time_based` | Helper for building common authorization policies. |
-| `PolicyArtifact` | `aquilia/auth/crous.py` | `to_dict` | Authorization policy artifact. |
+| `PolicyArtifact` | `aquilia/auth/surp.py` | `to_dict` | Authorization policy artifact. |
 | `HasherConfig` | `aquilia/auth/hashing.py` | `from_dict`, `to_dict` | Algorithm-agnostic configuration for :class:`PasswordHasher`. |
 | `PasswordPolicy` | `aquilia/auth/hashing.py` | `from_dict`, `to_dict`, `validate`, `validate_async` | Password policy validator. |
 | `PasswordHasherProvider` | `aquilia/auth/integration/di_providers.py` | `provide` | Provider for PasswordHasher. |

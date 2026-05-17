@@ -9,7 +9,7 @@ Examples here use public symbols and checked patterns from the repository. When 
 ```python
 from aquilia.i18n.catalog import TranslationCatalog
 from aquilia.i18n.catalog import MemoryCatalog
-from aquilia.i18n.catalog import has_crous
+from aquilia.i18n.catalog import has_surp
 from aquilia.i18n.di_integration import register_i18n_providers
 from aquilia.i18n.faults import I18nFault
 from aquilia.i18n.faults import MissingTranslationFault

@@ -32,7 +32,7 @@ aq db makemigrations [--app VALUE] [--migrations-dir VALUE] [--dsl VALUE] [--for
 | Option | `app` | `--app` | False | `` | Restrict to specific module/app |
 | Option | `migrations_dir` | `--migrations-dir` | False | `migrations` | Migrations directory |
 | Option | `dsl` | `--dsl, --no-dsl` | False | `True` | Use new DSL format (default: True) |
-| Option | `fmt` | `--format` | False | `crous` | Migration file format -- crous (binary, default) or python |
+| Option | `fmt` | `--format` | False | `surp` | Migration file format -- surp (binary, default) or python |
 
 ### `aq db migrate`
 

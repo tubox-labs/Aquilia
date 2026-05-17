@@ -34,7 +34,7 @@ export function CLIOverview() {
           {[
             { title: 'Manifest-first', desc: 'The CLI reads workspace.py — not scattered settings files' },
             { title: 'Composition over centralization', desc: 'Modules are self-contained, composable units' },
-            { title: 'Artifacts over runtime magic', desc: 'Compile once, deploy anywhere (.crous artifacts)' },
+            { title: 'Artifacts over runtime magic', desc: 'Compile once, deploy anywhere (.surp artifacts)' },
             { title: 'Explicit boundaries', desc: 'Module imports/exports are declared, not inferred' },
             { title: 'CLI as primary UX', desc: 'The CLI is the main interface for project management' },
             { title: 'Static-first validation', desc: 'Catch errors at compile time, not runtime' },
@@ -112,7 +112,7 @@ export function CLIOverview() {
               <div className="w-5 h-5 rounded bg-yellow-500/20 flex items-center justify-center text-yellow-500">Ar</div>
               <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>Artifacts</h3>
             </div>
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>List, inspect, verify, garbage collect, export, and diff .crous artifacts.</p>
+            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>List, inspect, verify, garbage collect, export, and diff .surp artifacts.</p>
           </Link>
 
           <Link to="/docs/cli/trace" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-indigo-500/50' : 'bg-white border-gray-200 hover:border-indigo-500/50'}`}>

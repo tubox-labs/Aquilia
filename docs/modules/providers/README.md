@@ -22,7 +22,7 @@ Cloud provider clients and deployment tooling, currently focused on the Render p
 - `aquilia/providers/render_backup_phase10/__init__.py`: Aquilia Render Provider — One-command PaaS deployment.
 - `aquilia/providers/render_backup_phase10/client.py`: Render REST API Client.
 - `aquilia/providers/render_backup_phase10/deployer.py`: Render Deployment Orchestrator.
-- `aquilia/providers/render_backup_phase10/store.py`: Render Credential Store — Crous-Encrypted Token Persistence.
+- `aquilia/providers/render_backup_phase10/store.py`: Render Credential Store — Surp-Encrypted Token Persistence.
 - `aquilia/providers/render_backup_phase10/types.py`: Render API Type Definitions.
 
 ## Document Map

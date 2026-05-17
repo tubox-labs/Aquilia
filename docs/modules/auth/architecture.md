@@ -11,7 +11,7 @@ Authentication, authorization, identity stores, token management, guards, cleara
 | `aquilia/auth/authz.py` | 542 | 8 | 0 | AquilAuth - Authorization Engine |
 | `aquilia/auth/clearance.py` | 864 | 6 | 12 | Aquilia Clearance System -- Unique declarative access control. |
 | `aquilia/auth/core.py` | 652 | 14 | 0 | AquilAuth - Core Types |
-| `aquilia/auth/crous.py` | 395 | 7 | 0 | AquilAuth - Crous Artifacts |
+| `aquilia/auth/surp.py` | 395 | 7 | 0 | AquilAuth - Surp Artifacts |
 | `aquilia/auth/decorators.py` | 864 | 6 | 3 | AquilAuth - Authentication Decorators and Guards. |
 | `aquilia/auth/faults.py` | 493 | 37 | 2 | AquilAuth - Authentication/Authorization Faults |
 | `aquilia/auth/guards.py` | 522 | 6 | 3 | AquilAuth - Guards and Flow Integration |
@@ -126,8 +126,8 @@ Authentication, authorization, identity stores, token management, guards, cleara
 | `IdentityStore` | `aquilia/auth/core.py` | Protocol for identity storage. |
 | `CredentialStore` | `aquilia/auth/core.py` | Protocol for credential storage. |
 | `OAuthClientStore` | `aquilia/auth/core.py` | Protocol for OAuth client storage. |
-| `PolicyArtifact` | `aquilia/auth/crous.py` | Authorization policy artifact. |
-| `MemoryArtifactStore` | `aquilia/auth/crous.py` | In-memory artifact store for development/testing. |
+| `PolicyArtifact` | `aquilia/auth/surp.py` | Authorization policy artifact. |
+| `MemoryArtifactStore` | `aquilia/auth/surp.py` | In-memory artifact store for development/testing. |
 | `AuthGuard` | `aquilia/auth/decorators.py` | Base class for authentication/authorization guards. |
 | `AdminGuard` | `aquilia/auth/decorators.py` | Guard that requires admin role. |
 | `VerifiedEmailGuard` | `aquilia/auth/decorators.py` | Guard that requires verified email. |
