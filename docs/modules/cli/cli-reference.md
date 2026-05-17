@@ -43,7 +43,7 @@ The following mounted commands map to this subsystem.
 | `aq i18n inspect` | `aq i18n inspect` | Display current i18n configuration as JSON. |
 | `aq i18n extract` | `aq i18n extract [--source-dirs VALUE] [--output VALUE] [--no-merge]` | Extract translation keys from source files. |
 | `aq i18n coverage` | `aq i18n coverage` | Show translation coverage per locale. |
-| `aq i18n compile` | `aq i18n compile [--directory VALUE] [--output VALUE]` | Compile JSON locale files to CROUS format. |
+| `aq i18n compile` | `aq i18n compile [--directory VALUE] [--output VALUE]` | Compile JSON locale files to SURP format. |
 | `aq db makemigrations` | `aq db makemigrations [--app VALUE] [--migrations-dir VALUE] [--dsl VALUE] [--format VALUE]` | Generate migration files from Python Model definitions. |
 | `aq db migrate` | `aq db migrate [--migrations-dir VALUE] [--database-url VALUE] [--database VALUE] [--target VALUE] [--fake] [--plan]` | Apply pending migrations to the database. |
 | `aq db dump` | `aq db dump [--emit VALUE] [--output-dir VALUE]` | Dump model schema -- annotated Python overview or raw SQL DDL. |
@@ -534,7 +534,7 @@ aq i18n coverage
 
 ### `aq i18n compile`
 
-Compile JSON locale files to CROUS format.
+Compile JSON locale files to SURP format.
 
 ```bash
 aq i18n compile [--directory VALUE] [--output VALUE]
@@ -558,7 +558,7 @@ aq db makemigrations [--app VALUE] [--migrations-dir VALUE] [--dsl VALUE] [--for
 | Option | `app` | `--app` | False | `` | Restrict to specific module/app |
 | Option | `migrations_dir` | `--migrations-dir` | False | `migrations` | Migrations directory |
 | Option | `dsl` | `--dsl, --no-dsl` | False | `True` | Use new DSL format (default: True) |
-| Option | `fmt` | `--format` | False | `crous` | Migration file format -- crous (binary, default) or python |
+| Option | `fmt` | `--format` | False | `surp` | Migration file format -- surp (binary, default) or python |
 
 ### `aq db migrate`
 

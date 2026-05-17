@@ -120,7 +120,7 @@ ctx = create_template_context(
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {[
             { name: 'InMemoryBytecodeCache', desc: 'Stores compiled templates in memory. Fast but lost on restart.' },
-            { name: 'CrousBytecodeCache', desc: 'Stores in .crous artifact directory. Persistent across restarts.' },
+            { name: 'SurpBytecodeCache', desc: 'Stores in .surp artifact directory. Persistent across restarts.' },
           ].map((c, i) => (
             <div key={i} className={box}>
               <h3 className={`font-mono font-bold text-xs mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{c.name}</h3>

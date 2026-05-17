@@ -15,7 +15,7 @@ export function I18nCLI() {
     ['aq i18n inspect', 'Print effective i18n config JSON.'],
     ['aq i18n extract', 'Extract translation keys from Python and template sources.'],
     ['aq i18n coverage', 'Compute locale coverage against default locale key set.'],
-    ['aq i18n compile', 'Compile JSON catalogs to CROUS artifacts for faster runtime loading.'],
+    ['aq i18n compile', 'Compile JSON catalogs to SURP artifacts for faster runtime loading.'],
   ]
 
   return (
@@ -33,7 +33,7 @@ export function I18nCLI() {
         </h1>
         <p className={`text-lg leading-relaxed ${subtle}`}>
           The aq i18n command group covers catalog initialization, validation, extraction, coverage measurement,
-          and CROUS compilation. Commands are registered in the CLI entrypoint and implemented in
+          and SURP compilation. Commands are registered in the CLI entrypoint and implemented in
           aquilia/cli/commands/i18n.py.
         </p>
       </div>
@@ -69,7 +69,7 @@ aq i18n init --locales en --directory translations --format yaml`}</CodeBlock>
         <div className={box}>
           <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
             <li>Bootstraps locale folders and starter files such as locales/en/messages.json.</li>
-            <li>Supports json, yaml, and crous command paths (with crous dependency checks).</li>
+            <li>Supports json, yaml, and surp command paths (with surp dependency checks).</li>
             <li>Skips files that already exist and only creates missing locale assets.</li>
           </ul>
         </div>
@@ -120,9 +120,9 @@ aq i18n compile --directory locales
 aq i18n compile --directory locales --output artifacts/locales`}</CodeBlock>
         <div className={box}>
           <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>Compiles JSON catalogs into CROUS files for faster startup and lookups.</li>
-            <li>Uses CrousCatalog compile path under the hood.</li>
-            <li>Requires crous package; command reports clear dependency error when absent.</li>
+            <li>Compiles JSON catalogs into SURP files for faster startup and lookups.</li>
+            <li>Uses SurpCatalog compile path under the hood.</li>
+            <li>Requires surp package; command reports clear dependency error when absent.</li>
           </ul>
         </div>
       </section>

@@ -24,7 +24,7 @@ This page is generated from the current Python source using the AST. It lists pu
 
 ## Public Exports
 
-`BytecodeCache`, `CrousBytecodeCache`, `FlashMessages`, `IdentityTemplateProxy`, `InMemoryBytecodeCache`, `ModuleTemplateRegistry`, `PackageLoader`, `SandboxPolicy`, `SessionTemplateProxy`, `StaticTagExtension`, `TEMPLATE_DOMAIN`, `TemplateAuthMixin`, `TemplateCacheIntegrityFault`, `TemplateContext`, `TemplateEngine`, `TemplateEngineUnavailableFault`, `TemplateFault`, `TemplateFlashMixin`, `TemplateLintIssue`, `TemplateLoader`, `TemplateManager`, `TemplateMiddleware`, `TemplateSandbox`, `TemplateSanitizationWarning`, `create_development_engine`, `create_manifest_aware_loader`, `create_production_engine`, `create_template_context`, `create_testing_engine`, `discover_template_directories`, `register_template_providers`
+`BytecodeCache`, `SurpBytecodeCache`, `FlashMessages`, `IdentityTemplateProxy`, `InMemoryBytecodeCache`, `ModuleTemplateRegistry`, `PackageLoader`, `SandboxPolicy`, `SessionTemplateProxy`, `StaticTagExtension`, `TEMPLATE_DOMAIN`, `TemplateAuthMixin`, `TemplateCacheIntegrityFault`, `TemplateContext`, `TemplateEngine`, `TemplateEngineUnavailableFault`, `TemplateFault`, `TemplateFlashMixin`, `TemplateLintIssue`, `TemplateLoader`, `TemplateManager`, `TemplateMiddleware`, `TemplateSandbox`, `TemplateSanitizationWarning`, `create_development_engine`, `create_manifest_aware_loader`, `create_production_engine`, `create_template_context`, `create_testing_engine`, `discover_template_directories`, `register_template_providers`
 
 ## Public Class Summary
 
@@ -35,7 +35,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `TemplateAuthMixin` | `aquilia/templates/auth_integration.py` | object | Mixin for controllers with auth-aware template rendering. |
 | `BytecodeCache` | `aquilia/templates/bytecode_cache.py` | Jinja2BytecodeCache | Abstract base for bytecode caching. |
 | `InMemoryBytecodeCache` | `aquilia/templates/bytecode_cache.py` | BytecodeCache | In-memory bytecode cache. |
-| `CrousBytecodeCache` | `aquilia/templates/bytecode_cache.py` | BytecodeCache | Crous artifact-backed bytecode cache. |
+| `SurpBytecodeCache` | `aquilia/templates/bytecode_cache.py` | BytecodeCache | Surp artifact-backed bytecode cache. |
 | `RedisBytecodeCache` | `aquilia/templates/bytecode_cache.py` | BytecodeCache | Redis-backed bytecode cache for high-throughput deployments. |
 | `TemplateContext` | `aquilia/templates/context.py` | object | Template rendering context. |
 | `TemplateLoaderProvider` | `aquilia/templates/di_providers.py` | object | Provider for TemplateLoader with auto-discovered paths. |
@@ -71,7 +71,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `enhance_engine_with_auth` | `aquilia/templates/auth_integration.py` | `def enhance_engine_with_auth(engine: 'TemplateEngine', auth_manager: Optional['AuthManager']=None, authz_engine: Optional['AuthzEngine']=None)` | Enhance template engine with auth integration. |
 | `inject_auth_context` | `aquilia/templates/auth_integration.py` | `def inject_auth_context(context: dict[str, Any], request_ctx: Optional['RequestCtx']=None, authz_engine: Optional['AuthzEngine']=None)` | Inject auth variables into template context. |
 | `create_template_engine_from_config` | `aquilia/templates/cli.py` | `def create_template_engine_from_config(template_dirs: list[str], cache_dir: str='artifacts', sandbox: bool=True, mode: str='prod')` | Create template engine from configuration. |
-| `cmd_compile` | `aquilia/templates/cli.py` | `async def cmd_compile(template_dirs: list[str] \| None=None, output: str='artifacts/templates.crous', mode: str='prod', verbose: bool=False)` | Compile all templates to crous artifact. |
+| `cmd_compile` | `aquilia/templates/cli.py` | `async def cmd_compile(template_dirs: list[str] \| None=None, output: str='artifacts/templates.surp', mode: str='prod', verbose: bool=False)` | Compile all templates to surp artifact. |
 | `cmd_lint` | `aquilia/templates/cli.py` | `async def cmd_lint(template_dirs: list[str] \| None=None, strict: bool=True, json_output: bool=False, verbose: bool=False)` | Lint all templates. |
 | `cmd_inspect` | `aquilia/templates/cli.py` | `async def cmd_inspect(template_name: str, template_dirs: list[str] \| None=None, verbose: bool=False)` | Inspect template metadata. |
 | `cmd_clear_cache` | `aquilia/templates/cli.py` | `async def cmd_clear_cache(template_name: str \| None=None, cache_dir: str='artifacts', all_caches: bool=False, verbose: bool=False)` | Clear template cache. |
@@ -88,13 +88,13 @@ This page is generated from the current Python source using the AST. It lists pu
 | `inject_i18n` | `aquilia/templates/context.py` | `def inject_i18n(context: dict[str, Any], gettext_func: Any=None)` | Inject internationalization helpers into context. |
 | `register_template_providers` | `aquilia/templates/di_providers.py` | `def register_template_providers(container, engine: TemplateEngine \| None=None)` | Register all template providers with DI container. |
 | `create_development_engine` | `aquilia/templates/di_providers.py` | `def create_development_engine(loader: TemplateLoader, config: Config \| None=None)` | Factory for development template engine: - No bytecode cache (always reload) - Permissive sandbox - Debug mode enabled |
-| `create_production_engine` | `aquilia/templates/di_providers.py` | `def create_production_engine(loader: TemplateLoader, bytecode_cache: BytecodeCache, config: Config \| None=None)` | Factory for production template engine: - Crous bytecode cache (persistent) - Strict sandbox - Optimized for performance |
+| `create_production_engine` | `aquilia/templates/di_providers.py` | `def create_production_engine(loader: TemplateLoader, bytecode_cache: BytecodeCache, config: Config \| None=None)` | Factory for production template engine: - Surp bytecode cache (persistent) - Strict sandbox - Optimized for performance |
 | `create_testing_engine` | `aquilia/templates/di_providers.py` | `def create_testing_engine(search_paths: list[Path] \| None=None)` | Factory for testing template engine: - In-memory cache - No sandbox (for testing flexibility) - Simple configuration |
 | `discover_template_directories` | `aquilia/templates/manifest_integration.py` | `def discover_template_directories(root_path: Path \| None=None, scan_manifests: bool=True)` | Discover template directories in project. |
 | `discover_from_manifests` | `aquilia/templates/manifest_integration.py` | `def discover_from_manifests(root_path: Path)` | Discover template directories from module.aq manifest files. |
 | `should_precompile_module` | `aquilia/templates/manifest_integration.py` | `def should_precompile_module(manifest_path: Path)` | Check if module templates should be precompiled. |
 | `get_cache_strategy` | `aquilia/templates/manifest_integration.py` | `def get_cache_strategy(manifest_path: Path)` | Get cache strategy from manifest. |
-| `generate_template_manifest` | `aquilia/templates/manifest_integration.py` | `def generate_template_manifest(template_dirs: list[Path], output_path: Path)` | Generate template manifest for crous artifacts. |
+| `generate_template_manifest` | `aquilia/templates/manifest_integration.py` | `def generate_template_manifest(template_dirs: list[Path], output_path: Path)` | Generate template manifest for surp artifacts. |
 | `create_manifest_aware_loader` | `aquilia/templates/manifest_integration.py` | `def create_manifest_aware_loader(root_path: Path \| None=None, scan_manifests: bool=True)` | Create TemplateLoader with manifest-based auto-discovery. |
 | `create_module_registry` | `aquilia/templates/manifest_integration.py` | `def create_module_registry(root_path: Path \| None=None)` | Create and populate module template registry. |
 | `create_safe_globals` | `aquilia/templates/security.py` | `def create_safe_globals()` | Create dictionary of safe global functions for templates. |
@@ -182,11 +182,11 @@ Methods:
 | `clear` | `def clear(self)` | Clear all cached bytecode. |
 | `invalidate` | `def invalidate(self, key: str)` | Invalidate specific template cache. |
 
-### `CrousBytecodeCache`
+### `SurpBytecodeCache`
 
 - Source: `aquilia/templates/bytecode_cache.py`
 - Bases: `BytecodeCache`
-- Summary: Crous artifact-backed bytecode cache.
+- Summary: Surp artifact-backed bytecode cache.
 
 Methods:
 
@@ -262,7 +262,7 @@ Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `provide` | `def provide(self)` | Provide bytecode cache based on config: - templates.cache: "memory", "crous", "redis", "none" |
+| `provide` | `def provide(self)` | Provide bytecode cache based on config: - templates.cache: "memory", "surp", "redis", "none" |
 
 ### `TemplateSandboxProvider`
 
@@ -440,7 +440,7 @@ Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `compile_all` | `async def compile_all(self, output_path: str \| None=None)` | Compile all templates to crous artifact. |
+| `compile_all` | `async def compile_all(self, output_path: str \| None=None)` | Compile all templates to surp artifact. |
 | `lint_all` | `async def lint_all(self, strict_undefined: bool=True)` | Lint all templates. |
 | `inspect` | `async def inspect(self, template_name: str)` | Inspect template metadata. |
 

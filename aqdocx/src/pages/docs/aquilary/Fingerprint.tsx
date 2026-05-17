@@ -78,7 +78,7 @@ if current_fingerprint.hash != deployed_fingerprint.hash:
         <CodeBlock language="bash" filename="terminal">{`# Snapshot generated artifacts
 aq freeze
 
-# This generates artifacts/frozen.crous
+# This generates artifacts/frozen.surp
 # containing artifact digests and the snapshot fingerprint
 
 # Verify the snapshot with artifact tooling before release.`}</CodeBlock>

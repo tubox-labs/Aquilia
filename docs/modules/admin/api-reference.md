@@ -38,7 +38,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | --- | --- | --- | --- |
 | `AdminAction` | `aquilia/admin/audit.py` | str, Enum | Admin action types for audit logging. |
 | `AdminAuditEntry` | `aquilia/admin/audit.py` | object | Immutable audit log entry. |
-| `CrousAuditStore` | `aquilia/admin/audit.py` | object | Thin persistence layer that stores/loads audit entries using the CROUS binary format.  Falls back to no-op if ``crous`` is not installed. |
+| `SurpAuditStore` | `aquilia/admin/audit.py` | object | Thin persistence layer that stores/loads audit entries using the SURP binary format.  Falls back to no-op if ``surp`` is not installed. |
 | `AdminAuditLog` | `aquilia/admin/audit.py` | object | Admin audit log -- records all admin operations. |
 | `ModelBackedAuditLog` | `aquilia/admin/audit.py` | object | Model-backed audit log -- persists entries to the AdminAuditEntry ORM table. |
 | `AdminController` | `aquilia/admin/controller.py` | Controller | Aquilia Admin Controller. |
@@ -300,20 +300,20 @@ Methods:
 | `to_dict` | `def to_dict(self)` | Serialize to dictionary. |
 | `from_dict` | `def from_dict(data: dict[str, Any])` | Reconstruct an entry from a serialized dictionary. |
 
-### `CrousAuditStore`
+### `SurpAuditStore`
 
 - Source: `aquilia/admin/audit.py`
 - Bases: `object`
-- Summary: Thin persistence layer that stores/loads audit entries using the CROUS binary format.  Falls back to no-op if ``crous`` is not installed.
+- Summary: Thin persistence layer that stores/loads audit entries using the SURP binary format.  Falls back to no-op if ``surp`` is not installed.
 
 Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `persist` | `def persist(self, entry: AdminAuditEntry)` | Append a single audit entry to the .crous file. |
-| `load_all` | `def load_all(self)` | Load all persisted entries from the .crous file. |
+| `persist` | `def persist(self, entry: AdminAuditEntry)` | Append a single audit entry to the .surp file. |
+| `load_all` | `def load_all(self)` | Load all persisted entries from the .surp file. |
 | `load_for_record` | `def load_for_record(self, model_name: str, record_pk: str)` | Load only entries matching a specific model + pk (case-insensitive). |
-| `clear` | `def clear(self)` | Remove the .crous audit file. |
+| `clear` | `def clear(self)` | Remove the .surp audit file. |
 | `truncate` | `def truncate(self, keep: int=10000)` | Keep only the *keep* most recent entries. |
 
 ### `AdminAuditLog`
@@ -344,14 +344,14 @@ Methods:
 | --- | --- | --- |
 | `admin_config` | `def admin_config(self)` |  |
 | `admin_config` | `def admin_config(self, value)` |  |
-| `start` | `def start(self)` | Enable CROUS hydration and load persisted entries. |
+| `start` | `def start(self)` | Enable SURP hydration and load persisted entries. |
 | `log` | `def log(self, user_id: str, username: str, role: str, action: AdminAction, *, model_name: str \| None=None, record_pk: str \| None=None, changes: dict[str, Any] \| None=None, ip_address: str \| None=None, user_agent: str \| None=None, metadata: dict[str, Any] \| None=None, success: bool=True, error_message: str \| None=None)` | Record an audit entry. |
 | `alog` | `async def alog(self, user_id: str, username: str, role: str, action: AdminAction, **kwargs: Any)` | Async version of log() -- awaits the DB write directly. Respects admin config action filtering. Use this when you are already inside an async context and want to guarantee the entry is persisted before continuing. |
 | `get_entries_async` | `async def get_entries_async(self, *, action: AdminAction \| None=None, user_id: str \| None=None, model_name: str \| None=None, limit: int=100, offset: int=0)` | Fetch entries from the DB (preferred) or in-memory fallback. |
-| `get_entries` | `def get_entries(self, *, action: AdminAction \| None=None, user_id: str \| None=None, model_name: str \| None=None, limit: int=100, offset: int=0)` | Synchronous get_entries -- returns in-memory entries only. Hydrates from the CROUS file on the first call. Use get_entries_async() when in an async context to also include DB-persisted entries. |
+| `get_entries` | `def get_entries(self, *, action: AdminAction \| None=None, user_id: str \| None=None, model_name: str \| None=None, limit: int=100, offset: int=0)` | Synchronous get_entries -- returns in-memory entries only. Hydrates from the SURP file on the first call. Use get_entries_async() when in an async context to also include DB-persisted entries. |
 | `count_async` | `async def count_async(self, *, action: AdminAction \| None=None, model_name: str \| None=None)` | Count entries from DB if available, else in-memory. |
 | `count` | `def count(self, *, action: AdminAction \| None=None, model_name: str \| None=None)` | Synchronous count -- returns in-memory count only. |
-| `clear` | `def clear(self)` | Clear in-memory fallback entries and CROUS file. DB entries are retained. |
+| `clear` | `def clear(self)` | Clear in-memory fallback entries and SURP file. DB entries are retained. |
 | `get_history_for_record` | `def get_history_for_record(self, model_name: str, record_pk: str)` | Return all audit entries for a specific model + pk. |
 
 ### `AdminController`

@@ -11,7 +11,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `aquilia/auth/authz.py` | 542 | 8 | 0 | AquilAuth - Authorization Engine |
 | `aquilia/auth/clearance.py` | 864 | 6 | 12 | Aquilia Clearance System -- Unique declarative access control. |
 | `aquilia/auth/core.py` | 652 | 14 | 0 | AquilAuth - Core Types |
-| `aquilia/auth/crous.py` | 395 | 7 | 0 | AquilAuth - Crous Artifacts |
+| `aquilia/auth/surp.py` | 395 | 7 | 0 | AquilAuth - Surp Artifacts |
 | `aquilia/auth/decorators.py` | 864 | 6 | 3 | AquilAuth - Authentication Decorators and Guards. |
 | `aquilia/auth/faults.py` | 493 | 37 | 2 | AquilAuth - Authentication/Authorization Faults |
 | `aquilia/auth/guards.py` | 522 | 6 | 3 | AquilAuth - Guards and Flow Integration |
@@ -74,13 +74,13 @@ This page is generated from the current Python source using the AST. It lists pu
 | `IdentityStore` | `aquilia/auth/core.py` | Protocol | Protocol for identity storage. |
 | `CredentialStore` | `aquilia/auth/core.py` | Protocol | Protocol for credential storage. |
 | `OAuthClientStore` | `aquilia/auth/core.py` | Protocol | Protocol for OAuth client storage. |
-| `CrousArtifact` | `aquilia/auth/crous.py` | object | Base crous artifact. |
-| `KeyArtifact` | `aquilia/auth/crous.py` | CrousArtifact | Cryptographic key artifact. |
-| `PolicyArtifact` | `aquilia/auth/crous.py` | CrousArtifact | Authorization policy artifact. |
-| `AuditEventArtifact` | `aquilia/auth/crous.py` | CrousArtifact | Audit event artifact. |
-| `ArtifactSigner` | `aquilia/auth/crous.py` | object | Signs and verifies crous artifacts. |
-| `MemoryArtifactStore` | `aquilia/auth/crous.py` | object | In-memory artifact store for development/testing. |
-| `AuditLogger` | `aquilia/auth/crous.py` | object | Audit event logger with crous artifact integration. |
+| `SurpArtifact` | `aquilia/auth/surp.py` | object | Base surp artifact. |
+| `KeyArtifact` | `aquilia/auth/surp.py` | SurpArtifact | Cryptographic key artifact. |
+| `PolicyArtifact` | `aquilia/auth/surp.py` | SurpArtifact | Authorization policy artifact. |
+| `AuditEventArtifact` | `aquilia/auth/surp.py` | SurpArtifact | Audit event artifact. |
+| `ArtifactSigner` | `aquilia/auth/surp.py` | object | Signs and verifies surp artifacts. |
+| `MemoryArtifactStore` | `aquilia/auth/surp.py` | object | In-memory artifact store for development/testing. |
+| `AuditLogger` | `aquilia/auth/surp.py` | object | Audit event logger with surp artifact integration. |
 | `AuthorizationRequiredFault` | `aquilia/auth/decorators.py` | Fault | Raised when authorization check fails. |
 | `AuthGuard` | `aquilia/auth/decorators.py` | object | Base class for authentication/authorization guards. |
 | `AdminGuard` | `aquilia/auth/decorators.py` | AuthGuard | Guard that requires admin role. |
@@ -999,11 +999,11 @@ Methods:
 | `delete` | `async def delete(self, client_id: str)` | Delete client. |
 | `list_all` | `async def list_all(self)` | List all clients. |
 
-### `CrousArtifact`
+### `SurpArtifact`
 
-- Source: `aquilia/auth/crous.py`
+- Source: `aquilia/auth/surp.py`
 - Bases: `object`
-- Summary: Base crous artifact.
+- Summary: Base surp artifact.
 - Decorators: `dataclass`
 
 Fields and class attributes:
@@ -1027,8 +1027,8 @@ Methods:
 
 ### `KeyArtifact`
 
-- Source: `aquilia/auth/crous.py`
-- Bases: `CrousArtifact`
+- Source: `aquilia/auth/surp.py`
+- Bases: `SurpArtifact`
 - Summary: Cryptographic key artifact.
 - Decorators: `dataclass`
 
@@ -1046,8 +1046,8 @@ Methods:
 
 ### `PolicyArtifact`
 
-- Source: `aquilia/auth/crous.py`
-- Bases: `CrousArtifact`
+- Source: `aquilia/auth/surp.py`
+- Bases: `SurpArtifact`
 - Summary: Authorization policy artifact.
 - Decorators: `dataclass`
 
@@ -1066,8 +1066,8 @@ Methods:
 
 ### `AuditEventArtifact`
 
-- Source: `aquilia/auth/crous.py`
-- Bases: `CrousArtifact`
+- Source: `aquilia/auth/surp.py`
+- Bases: `SurpArtifact`
 - Summary: Audit event artifact.
 - Decorators: `dataclass`
 
@@ -1084,20 +1084,20 @@ Fields and class attributes:
 
 ### `ArtifactSigner`
 
-- Source: `aquilia/auth/crous.py`
+- Source: `aquilia/auth/surp.py`
 - Bases: `object`
-- Summary: Signs and verifies crous artifacts.
+- Summary: Signs and verifies surp artifacts.
 
 Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `sign_artifact` | `def sign_artifact(self, artifact: CrousArtifact)` | Sign artifact. |
-| `verify_artifact` | `def verify_artifact(self, artifact: CrousArtifact, signature: str)` | Verify artifact signature. |
+| `sign_artifact` | `def sign_artifact(self, artifact: SurpArtifact)` | Sign artifact. |
+| `verify_artifact` | `def verify_artifact(self, artifact: SurpArtifact, signature: str)` | Verify artifact signature. |
 
 ### `MemoryArtifactStore`
 
-- Source: `aquilia/auth/crous.py`
+- Source: `aquilia/auth/surp.py`
 - Bases: `object`
 - Summary: In-memory artifact store for development/testing.
 
@@ -1105,15 +1105,15 @@ Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `save_artifact` | `async def save_artifact(self, artifact: CrousArtifact)` | Save artifact. |
+| `save_artifact` | `async def save_artifact(self, artifact: SurpArtifact)` | Save artifact. |
 | `get_artifact` | `async def get_artifact(self, artifact_id: str)` | Get artifact by ID. |
 | `list_artifacts` | `async def list_artifacts(self, artifact_type: str \| None=None)` | List artifacts by type. |
 
 ### `AuditLogger`
 
-- Source: `aquilia/auth/crous.py`
+- Source: `aquilia/auth/surp.py`
 - Bases: `object`
-- Summary: Audit event logger with crous artifact integration.
+- Summary: Audit event logger with surp artifact integration.
 
 Methods:
 

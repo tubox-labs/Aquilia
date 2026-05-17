@@ -10,7 +10,7 @@ Aquilia requires Python `>=3.10` according to `pyproject.toml`. The console scri
 pip install aquilia
 ```
 
-Core dependencies from `pyproject.toml` are `click`, `uvicorn`, `jinja2`, `markupsafe`, `crousr`, and `crous-native`.
+Core dependencies from `pyproject.toml` are `click`, `uvicorn`, `jinja2`, `markupsafe`, `surp`, and `surp`.
 
 ## Optional Extras
 

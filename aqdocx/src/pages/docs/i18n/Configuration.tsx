@@ -15,7 +15,7 @@ export function I18nConfiguration() {
     ['available_locales', 'list[str]', 'Allowed locale list for resolver and service checks.'],
     ['fallback_locale', 'str', 'Global fallback locale for lookup misses.'],
     ['catalog_dirs', 'list[str]', 'One or more locale roots (for example locales, modules/*/locales).'],
-    ['catalog_format', 'str', 'Catalog preference: crous, json, or yaml metadata path.'],
+    ['catalog_format', 'str', 'Catalog preference: surp, json, or yaml metadata path.'],
     ['missing_key_strategy', 'str', 'return_key, return_empty, return_default, raise, or log_and_key.'],
     ['resolver_order', 'list[str]', 'Ordered resolver names: query, cookie, header, path, session.'],
     ['cookie_name', 'str', 'Cookie key for CookieLocaleResolver.'],
@@ -27,7 +27,7 @@ export function I18nConfiguration() {
 
   const defaults: Array<[string, string, string, string, string]> = [
     ['enabled', 'False', 'True', 'True', 'True'],
-    ['catalog_format', 'crous', 'json', 'crous', 'json'],
+    ['catalog_format', 'surp', 'json', 'surp', 'json'],
     ['resolver_order', 'query,cookie,header', 'query,cookie,header', 'query,cookie,header', 'query,cookie,header'],
   ]
 
@@ -65,7 +65,7 @@ workspace = (
             available_locales=["en", "fr", "de", "ja"],
             fallback_locale="en",
             catalog_dirs=["locales", "modules/auth/locales"],
-            catalog_format="crous",
+            catalog_format="surp",
             missing_key_strategy="log_and_key",
             resolver_order=["query", "cookie", "session", "header"],
             cookie_name="aq_locale",
@@ -182,7 +182,7 @@ log_and_key    # logs warning and returns key
         available_locales=["en", "fr", "de", "ja"],
         fallback_locale="en",
         catalog_dirs=["locales", "modules/auth/locales"],
-        catalog_format="crous",
+        catalog_format="surp",
         missing_key_strategy="log_and_key",
         resolver_order=["query", "cookie", "session", "header"],
         cookie_name="aq_locale",

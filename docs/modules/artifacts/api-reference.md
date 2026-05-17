@@ -423,6 +423,6 @@ Methods:
 | `delete` | `def delete(self, name: str, *, version: str='')` |  |
 | `exists` | `def exists(self, name: str, *, version: str='')` |  |
 | `gc` | `def gc(self, referenced: set[str])` | Remove artifacts whose digest is not in *referenced*. |
-| `export_bundle` | `def export_bundle(self, names: list[str], output_path: str)` | Export a subset of artifacts as a Crous binary bundle. |
+| `export_bundle` | `def export_bundle(self, names: list[str], output_path: str)` | Export a subset of artifacts as a Surp binary bundle. |
 | `count` | `def count(self, *, kind: str='')` | Count artifacts, optionally filtered by kind. |
 | `import_bundle` | `def import_bundle(self, bundle_path: str)` | Import artifacts from a bundle file produced by ``export_bundle``. |

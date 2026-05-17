@@ -433,7 +433,7 @@ aq i18n coverage
 
 ### `aq i18n compile`
 
-Compile JSON locale files to CROUS format.
+Compile JSON locale files to SURP format.
 
 ```bash
 aq i18n compile [--directory VALUE] [--output VALUE]
@@ -457,7 +457,7 @@ aq db makemigrations [--app VALUE] [--migrations-dir VALUE] [--dsl VALUE] [--for
 | Option | `app` | `--app` | False | `` |
 | Option | `migrations_dir` | `--migrations-dir` | False | `migrations` |
 | Option | `dsl` | `--dsl, --no-dsl` | False | `True` |
-| Option | `fmt` | `--format` | False | `crous` |
+| Option | `fmt` | `--format` | False | `surp` |
 
 ### `aq db migrate`
 

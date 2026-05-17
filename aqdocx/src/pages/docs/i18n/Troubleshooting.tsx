@@ -50,7 +50,7 @@ export function I18nTroubleshooting() {
     {
       title: 'YAML locale files are ignored',
       causes: [
-        'service boot path uses FileCatalog default extension set in non-crous mode',
+        'service boot path uses FileCatalog default extension set in non-surp mode',
       ],
       fixes: [
         'prefer JSON catalog files in standard boot paths',

@@ -23,10 +23,10 @@ export function I18nAPIReference() {
     ['TranslationCatalog', 'Abstract catalog contract: get, get_plural, has, locales, keys.'],
     ['MemoryCatalog', 'In-memory nested dict backend with deep merge support.'],
     ['FileCatalog', 'Filesystem catalog backend (JSON-first by default).'],
-    ['CrousCatalog', 'CROUS-first backend with JSON/YAML fallback and compile support.'],
+    ['SurpCatalog', 'SURP-first backend with JSON/YAML fallback and compile support.'],
     ['NamespacedCatalog', 'Prefixes keys by namespace for module isolation.'],
     ['MergedCatalog', 'Layer multiple catalogs in ordered lookup sequence.'],
-    ['has_crous()', 'Returns whether optional crous package is importable.'],
+    ['has_surp()', 'Returns whether optional surp package is importable.'],
   ]
 
   const formatterSymbols: Array<[string, string]> = [
@@ -133,7 +133,7 @@ export function I18nAPIReference() {
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Top-Level Exports</h2>
         <CodeBlock language="python" filename="aquilia/i18n/__init__.py">{`from aquilia.i18n import (
     Locale, parse_locale, normalize_locale, parse_accept_language, negotiate_locale,
-    TranslationCatalog, MemoryCatalog, FileCatalog, CrousCatalog, NamespacedCatalog, MergedCatalog,
+    TranslationCatalog, MemoryCatalog, FileCatalog, SurpCatalog, NamespacedCatalog, MergedCatalog,
     PluralCategory, get_plural_rule, select_plural,
     MessageFormatter, format_message, format_number, format_currency, format_date,
     I18nConfig, I18nService, create_i18n_service,

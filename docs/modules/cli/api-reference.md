@@ -133,7 +133,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `i18n_inspect` | `aquilia/cli/__main__.py` | `def i18n_inspect(ctx)` | Display current i18n configuration as JSON. |
 | `i18n_extract` | `aquilia/cli/__main__.py` | `def i18n_extract(ctx, source_dirs: str, output: str, no_merge: bool)` | Extract translation keys from source files. |
 | `i18n_coverage` | `aquilia/cli/__main__.py` | `def i18n_coverage(ctx)` | Show translation coverage per locale. |
-| `i18n_compile` | `aquilia/cli/__main__.py` | `def i18n_compile(ctx, directory: str, output: str \| None)` | Compile JSON locale files to CROUS format. |
+| `i18n_compile` | `aquilia/cli/__main__.py` | `def i18n_compile(ctx, directory: str, output: str \| None)` | Compile JSON locale files to SURP format. |
 | `db` | `aquilia/cli/__main__.py` | `def db()` | Database and model ORM commands. |
 | `db_makemigrations` | `aquilia/cli/__main__.py` | `def db_makemigrations(ctx, app: str \| None, migrations_dir: str, dsl: bool, fmt: str)` | Generate migration files from Python Model definitions. |
 | `db_migrate` | `aquilia/cli/__main__.py` | `def db_migrate(ctx, migrations_dir: str, database_url: str \| None, database: str \| None, target: str \| None, fake: bool, plan: bool)` | Apply pending migrations to the database. |
@@ -193,7 +193,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `cmd_i18n_inspect` | `aquilia/cli/commands/i18n.py` | `def cmd_i18n_inspect()` | Show current i18n configuration as JSON. |
 | `cmd_i18n_extract` | `aquilia/cli/commands/i18n.py` | `def cmd_i18n_extract(source_dirs: str \| None=None, output: str='locales/en/messages.json', merge: bool=True, verbose: bool=False)` | Extract translation keys from Python and template source files. |
 | `cmd_i18n_coverage` | `aquilia/cli/commands/i18n.py` | `def cmd_i18n_coverage(verbose: bool=False)` | Show translation coverage per locale. |
-| `cmd_i18n_compile` | `aquilia/cli/commands/i18n.py` | `def cmd_i18n_compile(directory: str='locales', output: str \| None=None, verbose: bool=False)` | Compile JSON translation files to CROUS binary format. |
+| `cmd_i18n_compile` | `aquilia/cli/commands/i18n.py` | `def cmd_i18n_compile(directory: str='locales', output: str \| None=None, verbose: bool=False)` | Compile JSON translation files to SURP binary format. |
 | `create_workspace` | `aquilia/cli/commands/init.py` | `def create_workspace(name: str, minimal: bool=False, template: str \| None=None, verbose: bool=False, *, include_docker: bool=True, include_readme: bool=True, include_makefile: bool=True, include_tests: bool=True, include_gitignore: bool=True, include_license: str \| None=None)` | Create a new Aquilia workspace. |
 | `inspect_routes` | `aquilia/cli/commands/inspect.py` | `def inspect_routes(verbose: bool=False)` | Show all routes discovered from module manifests and controllers. |
 | `inspect_di` | `aquilia/cli/commands/inspect.py` | `def inspect_di(verbose: bool=False)` | Show the DI service graph from module manifests. |
@@ -237,7 +237,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `experiment_list` | `aquilia/cli/commands/mlops_cmds.py` | `def experiment_list()` | List all experiments. |
 | `experiment_conclude` | `aquilia/cli/commands/mlops_cmds.py` | `def experiment_conclude(experiment_id, winner)` | Conclude an experiment and optionally declare a winner. |
 | `experiment_summary` | `aquilia/cli/commands/mlops_cmds.py` | `def experiment_summary(experiment_id)` | Show detailed experiment summary with per-arm metrics. |
-| `cmd_makemigrations` | `aquilia/cli/commands/model_cmds.py` | `def cmd_makemigrations(app: str \| None=None, migrations_dir: str='migrations', verbose: bool=False, use_dsl: bool=True, migration_format: str='crous')` | Generate migration files from Python Model definitions. |
+| `cmd_makemigrations` | `aquilia/cli/commands/model_cmds.py` | `def cmd_makemigrations(app: str \| None=None, migrations_dir: str='migrations', verbose: bool=False, use_dsl: bool=True, migration_format: str='surp')` | Generate migration files from Python Model definitions. |
 | `cmd_migrate` | `aquilia/cli/commands/model_cmds.py` | `def cmd_migrate(migrations_dir: str='migrations', database_url: str='sqlite:///db.sqlite3', target: str \| None=None, verbose: bool=False, fake: bool=False, plan: bool=False, database: str \| None=None)` | Apply pending migrations to the database. |
 | `cmd_model_dump` | `aquilia/cli/commands/model_cmds.py` | `def cmd_model_dump(emit: str='python', output_dir: str \| None=None, verbose: bool=False)` | Dump model schema information. |
 | `cmd_shell` | `aquilia/cli/commands/model_cmds.py` | `def cmd_shell(database_url: str='sqlite:///db.sqlite3', verbose: bool=False)` | Launch an async REPL with models and database pre-loaded. |

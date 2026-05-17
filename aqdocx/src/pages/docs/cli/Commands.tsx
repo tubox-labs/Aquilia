@@ -36,7 +36,7 @@ export function CLICommands() {
             { cmd: 'aq serve', desc: 'Start the development server', usage: 'aq serve --reload --port 8000', details: 'Starts AquiliaServer with auto-reload. Options: --host, --port, --workers, --reload, --no-debug.' },
             { cmd: 'aq run', desc: 'Run a custom management command', usage: 'aq run seed_db --count 100', details: 'Executes a custom command registered via @cli_command decorator.' },
             { cmd: 'aq validate', desc: 'Validate project manifests', usage: 'aq validate', details: 'Runs RegistryValidator on all module manifests. Reports errors, warnings, and dependency graph.' },
-            { cmd: 'aq compile', desc: 'Compile manifests to artifacts', usage: 'aq compile --output artifacts', details: 'Writes explicit Crous artifacts for inspection and tooling. Runtime loads the workspace directly.' },
+            { cmd: 'aq compile', desc: 'Compile manifests to artifacts', usage: 'aq compile --output artifacts', details: 'Writes explicit Surp artifacts for inspection and tooling. Runtime loads the workspace directly.' },
             { cmd: 'aq freeze', desc: 'Snapshot generated artifacts', usage: 'aq freeze', details: 'Generates a fingerprinted artifact snapshot for integrity checks.' },
             { cmd: 'aq inspect', desc: 'Inspect the dependency graph', usage: 'aq inspect --format=svg', details: 'Outputs DI graph, route table, or middleware stack. Formats: text, json, svg, dot.' },
             { cmd: 'aq migrate', desc: 'Run database migrations', usage: 'aq migrate --target=latest', details: 'Applies pending migrations. Options: --target, --dry-run, --show-sql, --rollback.' },
