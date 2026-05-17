@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Http Versioning Client"
+  short_description: "Aquilia framework workflow: aquilia-http-versioning-client"
+  default_prompt: "Use aquilia-http-versioning-client to work on this Aquilia framework task."

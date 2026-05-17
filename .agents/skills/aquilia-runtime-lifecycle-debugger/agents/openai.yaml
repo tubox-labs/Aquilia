@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Runtime Lifecycle Debugger"
+  short_description: "Aquilia framework workflow: aquilia-runtime-lifecycle-debugger"
+  default_prompt: "Use aquilia-runtime-lifecycle-debugger to work on this Aquilia framework task."

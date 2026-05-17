@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Websocket Builder"
+  short_description: "Aquilia framework workflow: aquilia-websocket-builder"
+  default_prompt: "Use aquilia-websocket-builder to work on this Aquilia framework task."

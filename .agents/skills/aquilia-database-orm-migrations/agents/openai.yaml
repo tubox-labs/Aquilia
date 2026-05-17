@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Database Orm Migrations"
+  short_description: "Aquilia framework workflow: aquilia-database-orm-migrations"
+  default_prompt: "Use aquilia-database-orm-migrations to work on this Aquilia framework task."

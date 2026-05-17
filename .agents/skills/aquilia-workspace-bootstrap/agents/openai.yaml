@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Workspace Bootstrap"
+  short_description: "Aquilia framework workflow: aquilia-workspace-bootstrap"
+  default_prompt: "Use aquilia-workspace-bootstrap to work on this Aquilia framework task."

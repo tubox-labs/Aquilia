@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Module Manifest Builder"
+  short_description: "Aquilia framework workflow: aquilia-module-manifest-builder"
+  default_prompt: "Use aquilia-module-manifest-builder to work on this Aquilia framework task."

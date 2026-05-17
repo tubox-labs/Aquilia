@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Fault Middleware Builder"
+  short_description: "Aquilia framework workflow: aquilia-fault-middleware-builder"
+  default_prompt: "Use aquilia-fault-middleware-builder to work on this Aquilia framework task."

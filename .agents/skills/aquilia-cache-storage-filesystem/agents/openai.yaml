@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Cache Storage Filesystem"
+  short_description: "Aquilia framework workflow: aquilia-cache-storage-filesystem"
+  default_prompt: "Use aquilia-cache-storage-filesystem to work on this Aquilia framework task."

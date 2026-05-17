@@ -1,0 +1,23 @@
+{
+  "skill_name": "aquilia-skill-ecosystem",
+  "evals": [
+    {
+      "id": 0,
+      "name": "bootstrap-module-api",
+      "prompt": "In an Aquilia workspace, create a new orders module with workspace Module pointer, AppManifest, service injection, and CRUD controller routes. Explain which files to edit and which CLI commands can verify it.",
+      "expected_output": "Uses aquilia-workspace-bootstrap, aquilia-module-manifest-builder, aquilia-controller-api-builder, and aquilia-di-service-builder without deprecated workspace component registration."
+    },
+    {
+      "id": 1,
+      "name": "auth-db-testing",
+      "prompt": "Add authenticated project CRUD backed by SQLite models, sessions, and tests using Aquilia testing utilities. Include migration and validation workflow.",
+      "expected_output": "Uses auth/session, database/ORM/migrations, blueprint validation, and testing skills with source-backed constraints."
+    },
+    {
+      "id": 2,
+      "name": "ops-deploy-audit",
+      "prompt": "Audit an Aquilia app before production deployment to Render, including security hardening, artifacts, deploy generation, admin, cache/storage, and runtime lifecycle checks.",
+      "expected_output": "Uses framework audit, runtime lifecycle debugger, security hardening, artifacts, deploy provider render, and admin/cache/storage skills."
+    }
+  ]
+}

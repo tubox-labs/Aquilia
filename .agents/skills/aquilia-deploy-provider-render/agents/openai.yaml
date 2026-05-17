@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Deploy Provider Render"
+  short_description: "Aquilia framework workflow: aquilia-deploy-provider-render"
+  default_prompt: "Use aquilia-deploy-provider-render to work on this Aquilia framework task."

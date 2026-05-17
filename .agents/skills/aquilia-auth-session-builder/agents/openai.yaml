@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Auth Session Builder"
+  short_description: "Aquilia framework workflow: aquilia-auth-session-builder"
+  default_prompt: "Use aquilia-auth-session-builder to work on this Aquilia framework task."

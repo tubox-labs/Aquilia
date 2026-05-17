@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Security Hardening"
+  short_description: "Aquilia framework workflow: aquilia-security-hardening"
+  default_prompt: "Use aquilia-security-hardening to work on this Aquilia framework task."

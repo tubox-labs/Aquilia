@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Testing Debug Toolkit"
+  short_description: "Aquilia framework workflow: aquilia-testing-debug-toolkit"
+  default_prompt: "Use aquilia-testing-debug-toolkit to work on this Aquilia framework task."
