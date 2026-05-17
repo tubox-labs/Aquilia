@@ -4,12 +4,11 @@ Render Deployment Orchestrator.
 Orchestrates the complete lifecycle of deploying an Aquilia workspace
 to Render:
 
-1. **Build gate** — ensure ``aq build --mode=prod`` has been run
-2. **Docker build** — build the production image
-3. **Docker push** — push to a registry (Docker Hub, GHCR, etc.)
-4. **Env sync** — create/update Render service env vars
-5. **Service deploy** — create or update the Render service
-6. **Health wait** — poll deployment until live or failed
+1. **Docker image build** — build the production image
+2. **Docker push** — push to a registry (Docker Hub, GHCR, etc.)
+3. **Env sync** — create/update Render service env vars
+4. **Service deploy** — create or update the Render service
+5. **Health wait** — poll deployment until live or failed
 
 Render has **no App grouping** — services are top-level resources
 owned by a workspace (``ownerId``).

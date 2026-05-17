@@ -9,8 +9,8 @@ Commands:
     validate - Static validation of manifests
     compile  - Compile manifests to artifacts
     run      - Development server with hot-reload
-    serve    - Production server (immutable)
-    freeze   - Generate immutable artifacts
+    serve    - Production server
+    freeze   - Freeze generated artifacts
     inspect  - Query compiled artifacts
     migrate  - Convert legacy projects
     doctor   - Diagnose workspace issues
@@ -304,7 +304,6 @@ def cli(ctx, verbose: bool, quiet: bool, debug: bool, no_color: bool):
       aq init workspace my-api
       aq add module users
       aq validate
-      aq compile
       aq run
     """
     ctx.ensure_object(dict)
@@ -1079,7 +1078,7 @@ def run(ctx, mode: str, port, host, reload, skip_checks: bool):
 @click.pass_context
 def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout: int):
     """
-    Start production server with compiled Crous artifacts.
+    Start production server.
 
     Uses uvicorn by default. Pass --use-gunicorn for production
     deployments with gunicorn process management and UvicornWorker.
@@ -1117,7 +1116,7 @@ def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout
 @click.pass_context
 def freeze(ctx, output: str | None, sign: bool):
     """
-    Generate immutable artifacts for production.
+    Freeze generated artifacts for production integrity checks.
 
     Examples:
       aq freeze
@@ -1140,102 +1139,6 @@ def freeze(ctx, output: str | None, sign: bool):
 
     except Exception as e:
         error(f"  {_CROSS} Freeze failed: {e}")
-        sys.exit(1)
-
-
-@cli.command("build")
-@click.option("--mode", type=click.Choice(["dev", "prod"]), default="dev", help="Build mode")
-@click.option("--output", type=click.Path(), default="build", help="Output directory")
-@click.option("--compress", type=click.Choice(["none", "lz4", "zstd"]), default=None, help="Compression")
-@click.option("--check-only", is_flag=True, help="Only run checks, don't emit artifacts")
-@click.option("--skip-checks", is_flag=True, help="Skip static checks (faster)")
-@click.option("--force", is_flag=True, help="Bypass incremental build cache")
-@click.pass_context
-def build(ctx, mode: str, output: str, compress: str | None, check_only: bool, skip_checks: bool, force: bool):
-    """
-    Build the workspace (compile, check, bundle).
-
-    Compiles, validates, and bundles the entire workspace into optimized
-    Crous binary artifacts. If any check fails, the build is aborted.
-
-    Uses incremental caching: if source files haven't changed since the
-    last build, phases are skipped automatically. Use --force to bypass.
-
-    Examples:
-      aq build
-      aq build --mode=prod
-      aq build --mode=prod --compress=lz4
-      aq build --check-only
-      aq build --output=dist/
-      aq build --force
-    """
-    from aquilia.build import AquiliaBuildPipeline
-
-    try:
-        compression = compress or ("lz4" if mode == "prod" else "none")
-        verbose = ctx.obj["verbose"]
-
-        if not ctx.obj["quiet"]:
-            click.echo()
-            section("Aquilia Build Pipeline")
-            kv("Mode", mode)
-            kv("Compression", compression)
-            kv("Output", output)
-            if check_only:
-                kv("Check Only", "yes")
-            if force:
-                kv("Force", "yes (bypassing cache)")
-            click.echo()
-
-        result = AquiliaBuildPipeline.build(
-            workspace_root=str(Path.cwd()),
-            mode=mode,
-            verbose=verbose,
-            compression=compression,
-            check_only=check_only,
-            output_dir=output,
-            force=force,
-        )
-
-        if not ctx.obj["quiet"]:
-            # Phase timings
-            if verbose and result.phases:
-                section("Phase Timings")
-                for phase_name, ms in result.phases.items():
-                    kv(f"  {phase_name}", f"{ms:.1f}ms")
-                click.echo()
-
-            # Warnings
-            if result.warnings:
-                for warn in result.warnings:
-                    bullet(str(warn), fg="yellow")
-                click.echo()
-
-            if result.success:
-                success(f"  {_CHECK} {result.summary()}")
-
-                if result.bundle and not check_only:
-                    section("Artifacts")
-                    kv("Count", str(result.artifacts_count))
-                    kv("Fingerprint", result.fingerprint[:16] + "…")
-                    if result.bundle.bundle_path:
-                        kv("Bundle", str(result.bundle.bundle_path))
-                    for a in result.bundle.artifacts:
-                        tree_item(f"{a.name}.crous ({a.size_bytes} bytes)")
-            else:
-                error(f"  {_CROSS} Build FAILED")
-                click.echo()
-                for err in result.errors:
-                    bullet(str(err), fg="red")
-
-                sys.exit(1)
-
-    except ImportError as e:
-        error(f"  {_CROSS} Build pipeline requires the 'crous' package: {e}")
-        info("  Install with: pip install crous")
-        sys.exit(1)
-    except Exception as e:
-        error(f"  {_CROSS} Build error: {e}")
         sys.exit(1)
 
 

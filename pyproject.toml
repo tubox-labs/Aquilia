@@ -243,8 +243,6 @@ exclude_lines = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-# Override ruff's default exclude list (which skips directories named "build/")
-# so that aquilia/build/ is always linted and formatted.
 exclude = [
     ".git",
     ".venv",

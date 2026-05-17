@@ -1,8 +1,7 @@
 """Production server command.
 
-Starts the production server using frozen artifacts (if available)
-or the standard workspace app loader.  Multi-worker support is enabled
-by default for production workloads.
+Starts the production server from the native workspace app loader.
+Multi-worker support is enabled by default for production workloads.
 
 Supports two backends:
 - **gunicorn** (recommended) -- multi-worker process manager with
@@ -10,10 +9,8 @@ Supports two backends:
 - **uvicorn** (fallback) -- single-process or multi-worker via
   uvicorn's built-in forking.
 
-The production pipeline:
-1. Run the build pipeline (compile, check, bundle to Crous binary)
-2. Verify pre-built artifacts (or rebuild if missing/stale)
-3. Boot the server from compiled state
+The production pipeline resolves runtime settings, creates the workspace
+app module, and hands it to uvicorn or gunicorn.
 """
 
 import os
@@ -83,63 +80,6 @@ def serve_production(
     os.environ["AQUILIA_ENV"] = "prod"
     os.environ["AQUILIA_WORKSPACE"] = str(workspace_root)
 
-    # ===== BUILD PIPELINE -- Compile, check, and bundle (prod mode) =====
-    print("  Running production build pipeline...")
-    try:
-        from aquilia.build import AquiliaBuildPipeline
-
-        build_result = AquiliaBuildPipeline.build(
-            workspace_root=str(workspace_root),
-            mode="prod",
-            verbose=verbose,
-            compression="lz4",
-        )
-
-        if not build_result.success:
-            print("\n  Production build FAILED -- server will not start.\n")
-            for err in build_result.errors:
-                print(f"  {err}")
-            if build_result.warnings:
-                print()
-                for warn in build_result.warnings:
-                    print(f"  {warn}")
-            print(f"\n  Build failed in {build_result.total_ms:.0f}ms")
-            print("  Fix the errors above and try again.\n")
-            return
-
-        print(f"  {build_result.summary()}")
-
-        if build_result.warnings and verbose:
-            for warn in build_result.warnings:
-                print(f"  {warn}")
-
-    except ImportError:
-        if verbose:
-            print("  Build pipeline not available, proceeding without pre-compilation")
-    except Exception as e:
-        if verbose:
-            print(f"  Build pipeline error: {e}, proceeding without pre-compilation")
-
-    # ===== ARTIFACT VERIFICATION =====
-    build_dir = workspace_root / "build"
-    build_verified = False
-
-    if build_dir.exists():
-        try:
-            from aquilia.build.resolver import BuildResolver
-
-            resolver = BuildResolver(build_dir, verbose=verbose)
-            resolved = resolver.resolve()
-
-            if resolved:
-                build_verified = True
-                if verbose:
-                    print(f"  Verified {len(resolved.artifacts)} pre-built artifact(s)")
-                    print(f"    fingerprint: {resolved.fingerprint[:16]}…")
-        except Exception as e:
-            if verbose:
-                print(f"  Artifact verification failed: {e}")
-
     # Use the same app loader as `aq run` (runtime/app.py)
     from .run import _create_workspace_app
 
@@ -153,7 +93,6 @@ def serve_production(
         print(f"  Bind:    {host}:{port}")
         print(f"  Workers: {workers}")
         print(f"  App:     {app_module}")
-        print(f"  Build:   {'verified' if build_verified else 'dynamic'}")
         print()
 
     if use_gunicorn:
