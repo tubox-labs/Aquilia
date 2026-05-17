@@ -6,7 +6,7 @@ Covers:
 - Enhanced AdminUser with groups & permissions
 - Admin Blueprints
 - Server admin integration wiring (_wire_admin_integration)
-- Migration format (CROUS snapshot)
+- Migration format (SURP snapshot)
 - CLI createsuperuser (no raw SQL)
 - Route compilation for admin controller
 - Regression tests for existing functionality
@@ -817,35 +817,35 @@ class TestAdminRouteCount:
 
 
 class TestMigrationFormat:
-    """Test that migration system uses CROUS binary format exclusively."""
+    """Test that migration system uses SURP binary format exclusively."""
 
-    def test_snapshot_save_crous_binary(self):
-        """save_snapshot should write CROUS binary files."""
+    def test_snapshot_save_surp_binary(self):
+        """save_snapshot should write SURP binary files."""
         from aquilia.models.schema_snapshot import save_snapshot
         import tempfile
         import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            crous_path = os.path.join(tmpdir, "test.crous")
+            surp_path = os.path.join(tmpdir, "test.surp")
             snapshot = {"version": 1, "models": {}, "checksum": "abc"}
-            save_snapshot(snapshot, crous_path)
-            assert os.path.exists(crous_path)
-            # Verify it's binary CROUS, not JSON
-            with open(crous_path, "rb") as f:
-                header = f.read(7)
-            assert header == b"CROUSv1", f"Expected CROUS binary header, got {header!r}"
+            save_snapshot(snapshot, surp_path)
+            assert os.path.exists(surp_path)
+            # Verify it is Surp-decodable binary, not JSON text.
+            import surp
 
-    def test_snapshot_roundtrip_crous(self):
-        """save_snapshot + load_snapshot should roundtrip data via CROUS."""
+            assert surp.decode_from_file(surp_path) == snapshot
+
+    def test_snapshot_roundtrip_surp(self):
+        """save_snapshot + load_snapshot should roundtrip data via SURP."""
         from aquilia.models.schema_snapshot import save_snapshot, load_snapshot
         import tempfile
         import os
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            crous_path = os.path.join(tmpdir, "test.crous")
+            surp_path = os.path.join(tmpdir, "test.surp")
             snapshot = {"version": 1, "models": {"User": {"table": "users"}}, "checksum": "abc"}
-            save_snapshot(snapshot, crous_path)
-            loaded = load_snapshot(crous_path)
+            save_snapshot(snapshot, surp_path)
+            loaded = load_snapshot(surp_path)
             assert loaded is not None
             assert loaded["version"] == 1
             assert "User" in loaded["models"]
@@ -854,16 +854,16 @@ class TestMigrationFormat:
     def test_load_snapshot_nonexistent_returns_none(self):
         from aquilia.models.schema_snapshot import load_snapshot
 
-        result = load_snapshot("/nonexistent/path/snapshot.crous")
+        result = load_snapshot("/nonexistent/path/snapshot.surp")
         assert result is None
 
-    def test_migration_gen_default_path_is_crous(self):
-        """generate_dsl_migration should use .crous extension by default."""
+    def test_migration_gen_default_path_is_surp(self):
+        """generate_dsl_migration should use .surp extension by default."""
         from aquilia.models.migration_gen import generate_dsl_migration
         import inspect
 
         source = inspect.getsource(generate_dsl_migration)
-        assert "schema_snapshot.crous" in source
+        assert "schema_snapshot.surp" in source
 
     def test_no_json_fallback_in_save(self):
         """save_snapshot should not contain JSON fallback logic."""
@@ -881,15 +881,15 @@ class TestMigrationFormat:
         source = inspect.getsource(load_snapshot)
         assert "json.loads" not in source, "load_snapshot should not fall back to JSON"
 
-    def test_uses_crous_native(self):
-        """Both save and load should use _crous_native."""
+    def test_usessurp(self):
+        """Both save and load should use surp."""
         from aquilia.models.schema_snapshot import save_snapshot, load_snapshot
         import inspect
 
         save_src = inspect.getsource(save_snapshot)
         load_src = inspect.getsource(load_snapshot)
-        assert "_crous_native" in save_src
-        assert "_crous_native" in load_src
+        assert "surp" in save_src
+        assert "surp" in load_src
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -4081,17 +4081,17 @@ class TestCommandPaletteTheme:
 
 
 class TestSyntaxHighlighting:
-    """JSON and Crous syntax highlighting in code blocks."""
+    """JSON and Surp syntax highlighting in code blocks."""
 
     def test_highlight_json_method_exists(self):
         from aquilia.admin.site import AdminSite
 
         assert hasattr(AdminSite, "_highlight_json")
 
-    def test_highlight_crous_method_exists(self):
+    def test_highlight_surp_method_exists(self):
         from aquilia.admin.site import AdminSite
 
-        assert hasattr(AdminSite, "_highlight_crous")
+        assert hasattr(AdminSite, "_highlight_surp")
 
     def test_json_highlights_keys(self):
         from aquilia.admin.site import AdminSite
@@ -4145,46 +4145,46 @@ class TestSyntaxHighlighting:
         lines = result.split("\n")
         assert len(lines) == 5
 
-    def test_crous_highlights_sections(self):
+    def test_surp_highlights_sections(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("[Database]\nhost = localhost")
+        result = AdminSite._highlight_surp("[Database]\nhost = localhost")
         assert 'class="cls"' in result
 
-    def test_crous_highlights_keys(self):
+    def test_surp_highlights_keys(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("host = localhost")
+        result = AdminSite._highlight_surp("host = localhost")
         assert 'class="kw"' in result
 
-    def test_crous_highlights_comments(self):
+    def test_surp_highlights_comments(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("# this is a comment")
+        result = AdminSite._highlight_surp("# this is a comment")
         assert 'class="cmt"' in result
 
-    def test_crous_highlights_booleans(self):
+    def test_surp_highlights_booleans(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("enabled = true")
+        result = AdminSite._highlight_surp("enabled = true")
         assert 'class="kw"' in result
 
-    def test_crous_highlights_numbers(self):
+    def test_surp_highlights_numbers(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("port = 5432")
+        result = AdminSite._highlight_surp("port = 5432")
         assert 'class="num"' in result
 
-    def test_crous_highlights_hex(self):
+    def test_surp_highlights_hex(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("addr = 0xFF00AA")
+        result = AdminSite._highlight_surp("addr = 0xFF00AA")
         assert 'class="num"' in result
 
-    def test_crous_has_line_numbers(self):
+    def test_surp_has_line_numbers(self):
         from aquilia.admin.site import AdminSite
 
-        result = AdminSite._highlight_crous("[Server]\nport = 8080")
+        result = AdminSite._highlight_surp("[Server]\nport = 8080")
         assert 'class="code-line-num"' in result
 
 class TestDashboardThemeToggle:

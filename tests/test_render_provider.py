@@ -9,7 +9,7 @@ Exhaustive test coverage for the entire ``aquilia.providers.render`` package:
                           retry/backoff, rate-limit, auth errors, parsing,
                           every public API method (services, deploys,
                           env-vars, domains, autoscaling, owners)
-    § 4  Store          — Save/load round-trip, Crous binary format,
+    § 4  Store          — Save/load round-trip, Surp binary format,
                           HMAC integrity, corruption detection, clear,
                           config helpers, cross-machine portability
     § 5  Deployer       — Pipeline steps, dry-run, Docker build/push,
@@ -77,9 +77,9 @@ from aquilia.providers.render.store import (
     _derive_key,
     _xor_encrypt,
     _compute_hmac,
-    _CROUS_MAGIC,
-    _CROUS_VERSION,
-    _CROUS_VERSION_LEGACY,
+    _SURP_MAGIC,
+    _SURP_VERSION,
+    _SURP_VERSION_LEGACY,
     _SALT_SIZE,
     _NONCE_SIZE,
     _secure_zero,
@@ -1348,11 +1348,11 @@ class TestCredentialStore:
         assert store.load() == token
 
     def test_binary_format_header(self, store):
-        """Verify the Crous v2 binary format header structure."""
+        """Verify the credential blob v2 header structure."""
         store.save("rnd_check")
         blob = store.credentials_path.read_bytes()
-        assert blob[:4] == _CROUS_MAGIC
-        assert blob[4] == _CROUS_VERSION  # v2
+        assert blob[:4] == _SURP_MAGIC
+        assert blob[4] == _SURP_VERSION  # v2
         # byte 5 = cipher suite
         cipher_suite = blob[5]
         assert cipher_suite in (1, 3)  # AES-GCM or XOR-HMAC
@@ -1366,7 +1366,7 @@ class TestCredentialStore:
         assert len(blob[18 : 18 + _SALT_SIZE]) == _SALT_SIZE
 
     def test_credentials_path_property(self, store, store_dir):
-        assert store.credentials_path == store_dir / "credentials.crous"
+        assert store.credentials_path == store_dir / "credentials.surp"
 
     def test_config_path_property(self, store, store_dir):
         assert store.config_path == store_dir / "config.json"
@@ -2411,10 +2411,10 @@ class TestRegressionGuards:
         assert _MAX_RETRIES == 3
         assert _RETRY_BACKOFF == 1.5
 
-    def test_store_crous_magic(self):
-        assert _CROUS_MAGIC == b"AQCR"
-        assert _CROUS_VERSION == 2
-        assert _CROUS_VERSION_LEGACY == 1
+    def test_store_surp_magic(self):
+        assert _SURP_MAGIC == b"AQCR"
+        assert _SURP_VERSION == 2
+        assert _SURP_VERSION_LEGACY == 1
         assert _SALT_SIZE == 32
         assert _NONCE_SIZE == 12
 
@@ -3029,7 +3029,7 @@ class TestEnhancedSecurity:
     def test_store_status_v2_fields(self, store):
         store.save("rnd_status_v2", owner_name="team")
         s = store.status()
-        assert s["crous_version"] == 2
+        assert s["surp_version"] == 2
         assert s["cipher_suite"] in (1, 3)
         assert s["ttl"] == 0
         assert s["expired"] is False
@@ -3051,18 +3051,18 @@ class TestEnhancedSecurity:
 
     def test_store_load_unsupported_version(self, store):
         store._dir.mkdir(parents=True, exist_ok=True)
-        store.credentials_path.write_bytes(_CROUS_MAGIC + bytes([99]) + b"\x00" * 200)
+        store.credentials_path.write_bytes(_SURP_MAGIC + bytes([99]) + b"\x00" * 200)
         with pytest.raises(ProviderCredentialFault, match="Unsupported"):
             store.load()
 
     def test_store_load_truncated_v2(self, store):
         store._dir.mkdir(parents=True, exist_ok=True)
-        store.credentials_path.write_bytes(_CROUS_MAGIC + bytes([2]) + b"\x00" * 10)
+        store.credentials_path.write_bytes(_SURP_MAGIC + bytes([2]) + b"\x00" * 10)
         with pytest.raises(ProviderCredentialFault, match="too small"):
             store.load()
 
     def test_store_v2_hmac_tamper_detected(self, store):
-        """Modifying any byte in the crous blob should be detected."""
+        """Modifying any byte in the surp blob should be detected."""
         store.save("rnd_tamper_v2")
         blob = bytearray(store.credentials_path.read_bytes())
         blob[-1] ^= 0xFF  # Flip last byte of HMAC

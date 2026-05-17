@@ -6,11 +6,11 @@ Tests every change made during the two-phase architecture redesign:
 
 Phase 1 — Architecture Overhaul
   - Trace removal: no trace imports, no trace module, no trace CLI
-  - JSON → Crous migration: artifact store, aquilary core, aquilary loader
-  - Artifact store: .crous binary + .aq.json sidecar, fallback reads
+  - JSON → Surp migration: artifact store, aquilary core, aquilary loader
+  - Artifact store: .surp binary + .aq.json sidecar, fallback reads
   - Production deploy: gunicorn + UvicornWorker support
   - Deployment generator: no .aquilia/, gunicorn CMD, native introspection
-  - Analytics: cache dir moved to workspace cache, Crous format
+  - Analytics: cache dir moved to workspace cache, Surp format
   - pyproject.toml: server optional dependency group
 """
 
@@ -132,12 +132,12 @@ class TestTraceRemoval:
 
 
 # ════════════════════════════════════════════════════════════════════════
-# MODULE 2: CROUS BINARY MIGRATION — Artifact Store
+# MODULE 2: SURP BINARY MIGRATION — Artifact Store
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestArtifactStoreCrous:
-    """Test artifact store with Crous binary format."""
+class TestArtifactStoreSurp:
+    """Test artifact store with Surp binary format."""
 
     @pytest.fixture
     def store(self, tmp_path):
@@ -159,14 +159,14 @@ class TestArtifactStoreCrous:
             )
         )
 
-    def test_store_saves_crous_binary(self, store, sample_artifact):
-        """save() should write a .crous file as primary."""
+    def test_store_saves_surp_binary(self, store, sample_artifact):
+        """save() should write a .surp file as primary."""
         store.save(sample_artifact)
-        crous_files = list(Path(store.root).glob("*.crous"))
-        assert len(crous_files) >= 1, "No .crous file was created"
+        surp_files = list(Path(store.root).glob("*.surp"))
+        assert len(surp_files) >= 1, "No .surp file was created"
 
     def test_store_does_not_write_json_sidecar(self, store, sample_artifact):
-        """save() must NOT write a .aq.json sidecar (Crous-only store)."""
+        """save() must NOT write a .aq.json sidecar (Surp-only store)."""
         store.save(sample_artifact)
         json_files = list(Path(store.root).glob("*.aq.json"))
         assert len(json_files) == 0, "Unexpected .aq.json sidecar was created"
@@ -195,14 +195,14 @@ class TestArtifactStoreCrous:
         assert store.exists("test-config", version="1.0.0")
         assert not store.exists("test-config", version="2.0.0")
 
-    def test_store_delete_removes_crous_file(self, store, sample_artifact):
-        """delete() should remove the .crous file."""
+    def test_store_delete_removes_surp_file(self, store, sample_artifact):
+        """delete() should remove the .surp file."""
         store.save(sample_artifact)
         assert store.exists("test-config")
         removed = store.delete("test-config", version="1.0.0")
         assert removed >= 1
         assert not store.exists("test-config", version="1.0.0")
-        # Verify the crous file is gone
+        # Verify the surp file is gone
         assert len(list(Path(store.root).glob("test*"))) == 0
 
     def test_store_list_artifacts(self, store):
@@ -282,20 +282,20 @@ class TestArtifactStoreCrous:
         assert store.count(kind="config") == 1
         assert store.count(kind="module") == 0
 
-    def test_store_iter_files_prefers_crous(self, store, sample_artifact):
-        """_iter_files() should yield .crous before .aq.json and avoid duplicates."""
+    def test_store_iter_files_prefers_surp(self, store, sample_artifact):
+        """_iter_files() should yield .surp before .aq.json and avoid duplicates."""
         store.save(sample_artifact)
         files = list(store._iter_files())
-        # Should yield exactly 1 file (the .crous, not both)
+        # Should yield exactly 1 file (the .surp, not both)
         assert len(files) == 1
-        assert files[0].suffix == ".crous"
+        assert files[0].suffix == ".surp"
 
-    def test_store_crous_backend_initialized(self, store):
-        """Store should have a Crous backend available."""
-        assert store._crous_backend is not None
+    def test_store_surp_backend_initialized(self, store):
+        """Store should have a Surp backend available."""
+        assert store._surp_backend is not None
 
     def test_store_legacy_json_fallback(self, tmp_path):
-        """Store should still read legacy .aq.json files without .crous counterparts."""
+        """Store should still read legacy .aq.json files without .surp counterparts."""
         import json as _json
         from aquilia.artifacts.store import FilesystemArtifactStore
 
@@ -316,7 +316,7 @@ class TestArtifactStoreCrous:
         legacy_file = Path(store.root) / "legacy-art-1.0.0.aq.json"
         legacy_file.write_text(_json.dumps(legacy_data), encoding="utf-8")
 
-        # _iter_files should yield the .aq.json when no .crous counterpart exists
+        # _iter_files should yield the .aq.json when no .surp counterpart exists
         files = list(store._iter_files())
         assert len(files) == 1
         assert files[0].name.endswith(".aq.json")
@@ -329,7 +329,7 @@ class TestArtifactStoreCrous:
 
 
 class TestMemoryArtifactStore:
-    """Test the in-memory artifact store (not affected by Crous migration, but verify)."""
+    """Test the in-memory artifact store (not affected by Surp migration, but verify)."""
 
     def test_memory_store_crud(self):
         from aquilia.artifacts.store import MemoryArtifactStore
@@ -360,12 +360,12 @@ class TestMemoryArtifactStore:
 
 
 # ════════════════════════════════════════════════════════════════════════
-# MODULE 4: CROUS BINARY MIGRATION — Aquilary Core & Loader
+# MODULE 4: SURP BINARY MIGRATION — Aquilary Core & Loader
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestAquilaryCrousMigration:
-    """Test that aquilary core uses Crous for freeze/from_frozen."""
+class TestAquilarySurpMigration:
+    """Test that aquilary core uses Surp for freeze/from_frozen."""
 
     def test_aquilary_core_importable(self):
         from aquilia.aquilary.core import Aquilary, AquilaryRegistry
@@ -373,103 +373,91 @@ class TestAquilaryCrousMigration:
         assert Aquilary is not None
         assert AquilaryRegistry is not None
 
-    def test_freeze_writes_crous_format(self):
-        """AquilaryRegistry.export_manifest() should write .crous binary when Crous is available."""
+    def test_freeze_writes_surp_format(self):
+        """AquilaryRegistry.export_manifest() should write .surp binary when Surp is available."""
         import inspect
         from aquilia.aquilary.core import AquilaryRegistry
 
         # The freeze/export method is export_manifest on AquilaryRegistry
         assert hasattr(AquilaryRegistry, "export_manifest"), "AquilaryRegistry should have an export_manifest() method"
         source = inspect.getsource(AquilaryRegistry.export_manifest)
-        assert "crous" in source.lower(), "export_manifest() should reference Crous encoding"
+        assert "surp" in source.lower(), "export_manifest() should reference Surp encoding"
 
-    def test_from_frozen_reads_crous_format(self):
-        """Aquilary._from_frozen_manifest() should read .crous binary."""
+    def test_from_frozen_reads_surp_format(self):
+        """Aquilary._from_frozen_manifest() should read .surp binary."""
         import inspect
         from aquilia.aquilary.core import Aquilary
 
         # _from_frozen_manifest is a classmethod on Aquilary, not AquilaryRegistry
         assert hasattr(Aquilary, "_from_frozen_manifest"), "Aquilary should have a _from_frozen_manifest() classmethod"
         source = inspect.getsource(Aquilary._from_frozen_manifest)
-        assert "crous" in source.lower(), "_from_frozen_manifest() should reference Crous decoding"
+        assert "surp" in source.lower(), "_from_frozen_manifest() should reference Surp decoding"
         assert "json" in source.lower(), "_from_frozen_manifest() should have JSON fallback"
 
 
-class TestAquilaryLoaderCrous:
-    """Test that the manifest loader supports .crous files."""
+class TestAquilaryLoaderSurp:
+    """Test that the manifest loader supports .surp files."""
 
-    def test_loader_supports_crous_extension(self):
-        """ManifestLoader should accept .crous files in its loading logic."""
+    def test_loader_supports_surp_extension(self):
+        """ManifestLoader should accept .surp files in its loading logic."""
         import inspect
         from aquilia.aquilary.loader import ManifestLoader
 
-        # Check the full class source for .crous support
+        # Check the full class source for .surp support
         source = inspect.getsource(ManifestLoader)
-        assert ".crous" in source, "ManifestLoader should support .crous extension"
+        assert ".surp" in source, "ManifestLoader should support .surp extension"
 
-    def test_loader_load_dsl_supports_crous(self):
-        """_load_from_dsl_file should decode .crous files."""
+    def test_loader_load_dsl_supports_surp(self):
+        """_load_from_dsl_file should decode .surp files."""
         import inspect
         from aquilia.aquilary.loader import ManifestLoader
 
         source = inspect.getsource(ManifestLoader._load_from_dsl_file)
-        assert ".crous" in source, "_load_from_dsl_file should handle .crous format"
+        assert ".surp" in source, "_load_from_dsl_file should handle .surp format"
 
-    def test_loader_directory_scan_includes_crous(self):
-        """Directory scanning should look for manifest.crous."""
+    def test_loader_directory_scan_includes_surp(self):
+        """Directory scanning should look for manifest.surp."""
         import inspect
         from aquilia.aquilary.loader import ManifestLoader
 
-        # Check the full class source for manifest.crous file discovery
+        # Check the full class source for manifest.surp file discovery
         source = inspect.getsource(ManifestLoader)
-        assert "manifest.crous" in source or ".crous" in source, "ManifestLoader should discover manifest.crous files"
+        assert "manifest.surp" in source or ".surp" in source, "ManifestLoader should discover manifest.surp files"
 
 
 # ════════════════════════════════════════════════════════════════════════
-# MODULE 5: CROUS BINARY ENCODING — Low-Level Backend Tests
+# MODULE 5: SURP BINARY ENCODING — Low-Level Backend Tests
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestCrousBackend:
-    """Test the low-level Crous binary encoder/decoder."""
+class TestSurpBackend:
+    """Test the low-level Surp binary encoder/decoder."""
 
-    def test_crous_available(self):
-        """At least one Crous backend must be installed."""
+    def test_surp_available(self):
+        """Surp must be installed."""
         try:
-            import _crous_native
+            import surp
 
-            return  # native is available
+            return
         except ImportError:
-            pass
-        try:
-            import crous
-
-            return  # pure Python is available
-        except ImportError:
-            pytest.fail("Neither _crous_native nor crous is installed")
+            pytest.fail("surp is not installed")
 
     def test_encode_decode_dict(self):
-        try:
-            import _crous_native as backend
-        except ImportError:
-            import crous as backend
+        import surp as backend
+
         data = {"a": 1, "b": "hello", "c": [1, 2, 3]}
         assert backend.decode(backend.encode(data)) == data
 
     def test_encode_decode_nested(self):
-        try:
-            import _crous_native as backend
-        except ImportError:
-            import crous as backend
+        import surp as backend
+
         data = {"level1": {"level2": {"level3": [{"value": i} for i in range(10)]}}}
         assert backend.decode(backend.encode(data)) == data
 
     def test_encode_decode_types(self):
         """Test encoding of all supported types."""
-        try:
-            import _crous_native as backend
-        except ImportError:
-            import crous as backend
+        import surp as backend
+
         data = {
             "int": 42,
             "float": 3.14,
@@ -490,20 +478,16 @@ class TestCrousBackend:
         assert decoded["list"] == [1, "two", 3.0, True, None]
 
     def test_encode_empty_structures(self):
-        try:
-            import _crous_native as backend
-        except ImportError:
-            import crous as backend
+        import surp as backend
+
         assert backend.decode(backend.encode({})) == {}
         assert backend.decode(backend.encode([])) == []
         assert backend.decode(backend.encode("")) == ""
 
     def test_encode_large_payload(self):
-        """Crous should handle reasonably large payloads."""
-        try:
-            import _crous_native as backend
-        except ImportError:
-            import crous as backend
+        """Surp should handle reasonably large payloads."""
+        import surp as backend
+
         data = {
             "routes": [{"path": f"/api/resource/{i}", "method": "GET", "handler": f"handler_{i}"} for i in range(500)]
         }
@@ -721,11 +705,11 @@ class TestDeploymentGenerator:
 
 
 # ════════════════════════════════════════════════════════════════════════
-# MODULE 8: ANALYTICS — Cache Dir & Crous Format
+# MODULE 8: ANALYTICS — Cache Dir & Surp Format
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestAnalyticsCrous:
+class TestAnalyticsSurp:
     """Test analytics cache directory and format changes."""
 
     def test_analytics_cache_dir_is_build_cache(self):
@@ -737,21 +721,21 @@ class TestAnalyticsCrous:
         assert ".aquilia" not in source, "Analytics init still references .aquilia directory"
         assert "build" in source, "Analytics init should use build/.cache directory"
 
-    def test_analytics_cache_writes_crous(self):
-        """_cache_analysis should write Crous binary format."""
+    def test_analytics_cache_writes_surp(self):
+        """_cache_analysis should write Surp binary format."""
         import inspect
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics._cache_analysis)
-        assert "crous" in source.lower(), "_cache_analysis should write Crous format"
+        assert "surp" in source.lower(), "_cache_analysis should write Surp format"
 
-    def test_analytics_cache_reads_crous(self):
-        """get_cached_analysis should read Crous binary format."""
+    def test_analytics_cache_reads_surp(self):
+        """get_cached_analysis should read Surp binary format."""
         import inspect
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics.get_cached_analysis)
-        assert "crous" in source.lower(), "get_cached_analysis should read Crous format"
+        assert "surp" in source.lower(), "get_cached_analysis should read Surp format"
         assert "json" in source.lower(), "get_cached_analysis should have JSON fallback"
 
 
