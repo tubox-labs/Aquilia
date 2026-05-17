@@ -1,6 +1,6 @@
 import pytest
 
-from modules.orders.services import OrdersService
+from examples.multi_module_native_app.modules.orders.services import OrdersService
 
 
 @pytest.mark.asyncio

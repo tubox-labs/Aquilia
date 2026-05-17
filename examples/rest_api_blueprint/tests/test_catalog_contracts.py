@@ -1,7 +1,7 @@
 import pytest
 
-from modules.catalog.blueprints import ProductCreateBlueprint
-from modules.catalog.services import CatalogService
+from examples.rest_api_blueprint.modules.catalog.blueprints import ProductCreateBlueprint
+from examples.rest_api_blueprint.modules.catalog.services import CatalogService
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 import pytest
 
-from modules.jobs.services import JobsService
+from examples.background_jobs.modules.jobs.services import JobsService
 
 
 @pytest.mark.asyncio

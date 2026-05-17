@@ -1,25 +1,52 @@
 # REST API Blueprint Starter
 
-This starter is a clean product catalog API. It shows the normal Aquilia split: workspace routing, module manifest registration, controller transport code, service business logic, and blueprint validation.
+## Purpose
 
-The service uses an in-memory store so the project starts without a database. The API shape is still production-friendly: resources have stable IDs, writes are validated through blueprints, list routes support filtering and search, and delete is implemented as a soft deactivate operation.
+Product catalog API showing the standard Aquilia split: workspace routing, module manifest, controller transport code, service business logic, structured faults, and blueprint validation.
+
+## Architecture
+
+- `workspace.py` registers the `catalog` module at `/catalog` and enables DI, routing, fault handling, security headers, and telemetry.
+- `modules/catalog/manifest.py` declares `CatalogController` and `CatalogService`.
+- `blueprints.py` validates create/update payloads and rejects unknown fields.
+- `services.py` keeps an in-memory catalog so the app runs without a database.
 
 ## Run
 
 ```bash
 cd examples/rest_api_blueprint
-aquilia serve
+python -m uvicorn runtime:app --reload --port 8000
 ```
 
-Or point an ASGI server at `runtime:app`.
+Expected behavior: `GET /catalog/health` returns `{"module":"catalog","status":"ok",...}` and product routes operate on the in-memory catalog.
 
 ## Routes
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| `GET` | `/catalog/products` | List active products with optional `q`, `active`, `limit`, and `offset`. |
-| `POST` | `/catalog/products` | Create a product from `ProductCreateBlueprint`. |
+| `GET` | `/catalog/products` | List products with `q`, `active`, `limit`, and `offset`. |
+| `POST` | `/catalog/products` | Create product using `ProductCreateBlueprint`. |
 | `GET` | `/catalog/products/<sku>` | Read one product. |
-| `PATCH` | `/catalog/products/<sku>` | Partial update through `ProductUpdateBlueprint`. |
-| `DELETE` | `/catalog/products/<sku>` | Soft deactivate a product. |
-| `GET` | `/catalog/health` | Module health response. |
+| `PATCH` | `/catalog/products/<sku>` | Partial update. |
+| `DELETE` | `/catalog/products/<sku>` | Soft deactivate product. |
+| `GET` | `/catalog/health` | Module health. |
+
+## Test
+
+```bash
+python -m pytest examples/rest_api_blueprint -q
+```
+
+## Common Pitfalls
+
+- Keep route prefix in `workspace.py`; keep controllers/services in `manifest.py`.
+- `price_cents` must be non-negative.
+- The service is process-local memory; use a database-backed service for production persistence.
+
+## Extension Ideas
+
+Add model-backed persistence, OpenAPI assertions, cache-aside reads, auth guards for writes, and versioned v2 product response shapes.
+
+## Related APIs
+
+`Workspace`, `Module`, `Integration.routing`, `AppManifest`, `Controller`, `GET`, `POST`, `PATCH`, `DELETE`, `Blueprint`, `Response`, `ConflictFault`, `NotFoundFault`.

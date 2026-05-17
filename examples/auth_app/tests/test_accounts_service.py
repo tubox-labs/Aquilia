@@ -1,6 +1,6 @@
 import pytest
 
-from modules.accounts.services import AccountsService
+from examples.auth_app.modules.accounts.services import AccountsService
 
 
 @pytest.mark.asyncio
