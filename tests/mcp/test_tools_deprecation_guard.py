@@ -1,5 +1,5 @@
-from aquilia.mcp.context.indexer import build_index
-from aquilia.mcp.tools.deprecation_guard import deprecation_guard
+from aquilia.aquilia_mcp.context.indexer import build_index
+from aquilia.aquilia_mcp.tools.deprecation_guard import deprecation_guard
 
 
 def test_deprecation_guard_flags_register_methods(mcp_repo):

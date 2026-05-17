@@ -1,10 +1,10 @@
 import json
 from io import StringIO
 
-from aquilia.mcp.config import MCPConfig
-from aquilia.mcp.context.indexer import build_index
-from aquilia.mcp.server import AquiliaMCPServer
-from aquilia.mcp.transport.stdio import StdioTransport
+from aquilia.aquilia_mcp.config import MCPConfig
+from aquilia.aquilia_mcp.context.indexer import build_index
+from aquilia.aquilia_mcp.server import AquiliaMCPServer
+from aquilia.aquilia_mcp.transport.stdio import StdioTransport
 
 
 def test_end_to_end_stdio_initialize_and_tools_call(mcp_repo):

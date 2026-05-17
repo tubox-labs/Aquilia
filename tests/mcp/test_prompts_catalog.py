@@ -1,5 +1,5 @@
-from aquilia.mcp.context.indexer import build_index
-from aquilia.mcp.prompts.catalog import build_prompt_registry
+from aquilia.aquilia_mcp.context.indexer import build_index
+from aquilia.aquilia_mcp.prompts.catalog import build_prompt_registry
 
 
 def test_prompt_catalog_contains_required_prompt(mcp_repo):
