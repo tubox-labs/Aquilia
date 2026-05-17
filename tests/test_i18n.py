@@ -5,7 +5,7 @@ Tests every layer of the Aquilia i18n subsystem:
 
     §1  Locale — BCP 47 parsing, normalization, matching, negotiation
     §2  Plural — CLDR rules for 13 language families + edge cases
-    §3  Catalog — Memory, File, CROUS, Namespaced, Merged catalogs
+    §3  Catalog — Memory, File, SURP, Namespaced, Merged catalogs
     §4  Formatter — ICU MessageFormat, number/currency/date/ordinal
     §5  Service — t/tn/tp, missing-key strategies, fallback chains
     §6  Lazy — LazyString / LazyPluralString protocol compliance
@@ -787,12 +787,12 @@ class TestFileCatalog:
         assert cat.get("messages.welcome", "en") == "Welcome!"
 
 
-class TestCrousCatalog:
-    """CrousCatalog CROUS binary format backend."""
+class TestSurpCatalog:
+    """SurpCatalog SURP binary format backend."""
 
     @pytest.fixture
     def locale_dir(self, tmp_path):
-        """Create locale dir with JSON files for CROUS testing."""
+        """Create locale dir with JSON files for SURP testing."""
         en_dir = tmp_path / "locales" / "en"
         en_dir.mkdir(parents=True)
         (en_dir / "messages.json").write_text(
@@ -819,87 +819,87 @@ class TestCrousCatalog:
 
         return tmp_path / "locales"
 
-    def test_has_crous(self):
-        from aquilia.i18n.catalog import has_crous
+    def test_has_surp(self):
+        from aquilia.i18n.catalog import has_surp
 
-        # Should be True since crous is installed
-        assert has_crous() is True
+        # Should be True since surp is installed
+        assert has_surp() is True
 
     def test_load_from_json(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir], auto_compile=False)
+        cat = SurpCatalog([locale_dir], auto_compile=False)
         assert cat.get("messages.welcome", "en") == "Welcome!"
 
     def test_auto_compile(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir], auto_compile=True)
+        cat = SurpCatalog([locale_dir], auto_compile=True)
         cat.load()
-        # After auto-compile, .crous files should exist
-        crous_file = locale_dir / "en" / "messages.crous"
-        assert crous_file.exists()
+        # After auto-compile, .surp files should exist
+        surp_file = locale_dir / "en" / "messages.surp"
+        assert surp_file.exists()
 
-    def test_load_from_crous(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+    def test_load_from_surp(self, locale_dir):
+        from aquilia.i18n.catalog import SurpCatalog
 
         # First compile
-        cat1 = CrousCatalog([locale_dir], auto_compile=True)
+        cat1 = SurpCatalog([locale_dir], auto_compile=True)
         cat1.load()
 
         # Remove JSON files
         (locale_dir / "en" / "messages.json").unlink()
         (locale_dir / "fr" / "messages.json").unlink()
 
-        # Load from CROUS only
-        cat2 = CrousCatalog([locale_dir], auto_compile=False)
+        # Load from SURP only
+        cat2 = SurpCatalog([locale_dir], auto_compile=False)
         assert cat2.get("messages.welcome", "en") == "Welcome!"
 
     def test_compile_method(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir], auto_compile=False)
+        cat = SurpCatalog([locale_dir], auto_compile=False)
         count = cat.compile()
         assert count == 2  # en/messages.json + fr/messages.json
 
     def test_locales(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir])
+        cat = SurpCatalog([locale_dir])
         assert "en" in cat.locales()
         assert "fr" in cat.locales()
 
     def test_keys(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir])
+        cat = SurpCatalog([locale_dir])
         keys = cat.keys("en")
         assert "messages.welcome" in keys
         assert "messages.greeting" in keys
 
     def test_has(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir])
+        cat = SurpCatalog([locale_dir])
         assert cat.has("messages.welcome", "en")
         assert not cat.has("messages.welcome", "de")
 
-    def test_plural_via_crous(self, locale_dir):
-        from aquilia.i18n.catalog import CrousCatalog
+    def test_plural_via_surp(self, locale_dir):
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir], auto_compile=True)
+        cat = SurpCatalog([locale_dir], auto_compile=True)
         assert cat.get_plural("messages.items", "en", "one") == "{count} item"
         assert cat.get_plural("messages.items", "en", "other") == "{count} items"
 
-    def test_crous_prefers_crous_over_json(self, locale_dir):
-        """When both .crous and .json exist, prefer .crous."""
-        from aquilia.i18n.catalog import CrousCatalog
+    def test_surp_prefers_surp_over_json(self, locale_dir):
+        """When both .surp and .json exist, prefer .surp."""
+        from aquilia.i18n.catalog import SurpCatalog
 
-        # First load compiles to .crous from JSON
-        cat1 = CrousCatalog([locale_dir], auto_compile=True)
+        # First load compiles to .surp from JSON
+        cat1 = SurpCatalog([locale_dir], auto_compile=True)
         cat1.load()
 
-        # Modify the JSON (but .crous still has old content)
+        # Modify the JSON (but .surp still has old content)
         import time
 
         time.sleep(0.05)  # Ensure different mtime
@@ -913,28 +913,28 @@ class TestCrousCatalog:
         )
 
         # Load again — should auto-recompile since JSON is newer
-        cat2 = CrousCatalog([locale_dir], auto_compile=True)
+        cat2 = SurpCatalog([locale_dir], auto_compile=True)
         cat2.load()
         assert cat2.get("messages.welcome", "en") == "JSON Updated!"
 
     def test_nonexistent_dir(self):
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([Path("/nonexistent")], auto_compile=False)
+        cat = SurpCatalog([Path("/nonexistent")], auto_compile=False)
         cat.load()
         assert cat.locales() == set()
 
     def test_envelope_integrity(self, locale_dir):
-        """Validate CROUS envelope structure."""
-        import crous
-        from aquilia.i18n.catalog import CrousCatalog
+        """Validate SURP envelope structure."""
+        import surp
+        from aquilia.i18n.catalog import SurpCatalog
 
-        cat = CrousCatalog([locale_dir], auto_compile=True)
+        cat = SurpCatalog([locale_dir], auto_compile=True)
         cat.load()
 
-        crous_file = locale_dir / "en" / "messages.crous"
-        data = crous.load(str(crous_file))
-        assert data["__format__"] == "crous"
+        surp_file = locale_dir / "en" / "messages.surp"
+        data = surp.decode_from_file(str(surp_file))
+        assert data["__format__"] == "surp"
         assert data["schema_version"] == "1.0"
         assert data["artifact_type"] == "i18n_catalog"
         assert data["locale"] == "en"
@@ -1325,7 +1325,7 @@ class TestI18nConfig:
 
         cfg = I18nConfig()
         assert cfg.default_locale == "en"
-        assert cfg.catalog_format == "crous"
+        assert cfg.catalog_format == "surp"
         assert cfg.enabled is True
 
     def test_from_dict(self):
@@ -1511,11 +1511,11 @@ class TestCreateI18nService:
 
 
 class TestServiceBuildCatalog:
-    """Service._build_catalog with CROUS format."""
+    """Service._build_catalog with SURP format."""
 
-    def test_build_crous_catalog(self, tmp_path):
+    def test_build_surp_catalog(self, tmp_path):
         from aquilia.i18n.service import I18nConfig, I18nService
-        from aquilia.i18n.catalog import CrousCatalog
+        from aquilia.i18n.catalog import SurpCatalog
 
         locale_dir = tmp_path / "locales" / "en"
         locale_dir.mkdir(parents=True)
@@ -1523,10 +1523,10 @@ class TestServiceBuildCatalog:
 
         cfg = I18nConfig(
             catalog_dirs=[str(tmp_path / "locales")],
-            catalog_format="crous",
+            catalog_format="surp",
         )
         svc = I18nService(cfg)
-        assert isinstance(svc.catalog, CrousCatalog)
+        assert isinstance(svc.catalog, SurpCatalog)
         assert svc.t("messages.hello") == "Hello!"
 
     def test_build_json_catalog(self, tmp_path):
@@ -2282,7 +2282,7 @@ class TestConfigBuilders:
         integration = Integration.i18n(
             default_locale="fr",
             available_locales=["fr", "en", "de"],
-            catalog_format="crous",
+            catalog_format="surp",
         )
         data = (
             integration.to_dict()
@@ -2294,12 +2294,12 @@ class TestConfigBuilders:
         # Verify it contains the expected keys
         assert integration is not None
 
-    def test_config_loader_defaults_crous(self):
+    def test_config_loader_defaults_surp(self):
         from aquilia.config import ConfigLoader
 
         loader = ConfigLoader()
         cfg = loader.get_i18n_config()
-        assert cfg["catalog_format"] == "crous"
+        assert cfg["catalog_format"] == "surp"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2335,20 +2335,20 @@ class TestCLIInit:
         assert "welcome" in data
         assert "greeting" in data
 
-    def test_init_crous_format(self, tmp_path, monkeypatch):
+    def test_init_surp_format(self, tmp_path, monkeypatch):
         from aquilia.cli.commands.i18n import cmd_i18n_init
 
         monkeypatch.chdir(tmp_path)
 
-        cmd_i18n_init(locales="en", directory=str(tmp_path / "locales"), format="crous")
+        cmd_i18n_init(locales="en", directory=str(tmp_path / "locales"), format="surp")
 
-        crous_file = tmp_path / "locales" / "en" / "messages.crous"
-        assert crous_file.exists()
+        surp_file = tmp_path / "locales" / "en" / "messages.surp"
+        assert surp_file.exists()
 
-        import crous
+        import surp
 
-        data = crous.load(str(crous_file))
-        assert data["__format__"] == "crous"
+        data = surp.decode_from_file(str(surp_file))
+        assert data["__format__"] == "surp"
         assert data["artifact_type"] == "i18n_catalog"
         assert "translations" in data
 
@@ -2377,7 +2377,7 @@ class TestCLIInit:
 class TestCLICompile:
     """aq i18n compile command."""
 
-    def test_compile_json_to_crous(self, tmp_path, monkeypatch):
+    def test_compile_json_to_surp(self, tmp_path, monkeypatch):
         from aquilia.cli.commands.i18n import cmd_i18n_compile, cmd_i18n_init
 
         monkeypatch.chdir(tmp_path)
@@ -2385,13 +2385,13 @@ class TestCLICompile:
         # Create JSON files
         cmd_i18n_init(locales="en", directory=str(tmp_path / "locales"), format="json")
 
-        # Compile to CROUS
+        # Compile to SURP
         cmd_i18n_compile(directory=str(tmp_path / "locales"))
 
-        assert (tmp_path / "locales" / "en" / "messages.crous").exists()
+        assert (tmp_path / "locales" / "en" / "messages.surp").exists()
 
     def test_compile_subcommand_is_wired(self, tmp_path, monkeypatch):
-        pytest.importorskip("crous")
+        pytest.importorskip("surp")
 
         from click.testing import CliRunner
 
@@ -2405,7 +2405,7 @@ class TestCLICompile:
         result = runner.invoke(cli, ["i18n", "compile", "--directory", str(tmp_path / "locales")])
 
         assert result.exit_code == 0
-        assert (tmp_path / "locales" / "en" / "messages.crous").exists()
+        assert (tmp_path / "locales" / "en" / "messages.surp").exists()
 
 
 class TestCLIInspect:
@@ -2577,10 +2577,10 @@ class TestI18nRegression:
         result = format_decimal(3.14159, "en", decimals=2)
         assert result == "3.14"
 
-    def test_crous_round_trip(self, tmp_path):
-        """CROUS catalog survives full write → read round-trip."""
-        import crous
-        from aquilia.i18n.catalog import CrousCatalog
+    def test_surp_round_trip(self, tmp_path):
+        """SURP catalog survives full write → read round-trip."""
+        import surp
+        from aquilia.i18n.catalog import SurpCatalog
 
         locale_dir = tmp_path / "locales" / "en"
         locale_dir.mkdir(parents=True)
@@ -2597,12 +2597,12 @@ class TestI18nRegression:
         )
 
         # Write
-        cat1 = CrousCatalog([tmp_path / "locales"], auto_compile=True)
+        cat1 = SurpCatalog([tmp_path / "locales"], auto_compile=True)
         cat1.load()
 
-        # Read from CROUS
+        # Read from SURP
         (locale_dir / "messages.json").unlink()
-        cat2 = CrousCatalog([tmp_path / "locales"], auto_compile=False)
+        cat2 = SurpCatalog([tmp_path / "locales"], auto_compile=False)
         assert cat2.get("messages.hello", "en") == "Hello!"
         assert cat2.get("messages.nested.key", "en") == "value"
         assert cat2.get_plural("messages.plural", "en", "one") == "1 item"
@@ -2742,12 +2742,12 @@ class TestI18nRegression:
         assert cat.get("module1.key1", "en") == "val1"
         assert cat.get("module2.key2", "en") == "val2"
 
-    def test_has_crous_function(self):
-        """has_crous() reports crous library availability."""
-        from aquilia.i18n.catalog import has_crous
+    def test_has_surp_function(self):
+        """has_surp() reports surp library availability."""
+        from aquilia.i18n.catalog import has_surp
 
-        assert isinstance(has_crous(), bool)
-        assert has_crous() is True  # crous is installed in this env
+        assert isinstance(has_surp(), bool)
+        assert has_surp() is True  # surp is installed in this env
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2771,10 +2771,10 @@ class TestModuleExports:
             "TranslationCatalog",
             "MemoryCatalog",
             "FileCatalog",
-            "CrousCatalog",
+            "SurpCatalog",
             "NamespacedCatalog",
             "MergedCatalog",
-            "has_crous",
+            "has_surp",
             "PluralCategory",
             "PluralRule",
             "get_plural_rule",
@@ -2816,12 +2816,12 @@ class TestModuleExports:
             assert hasattr(i18n, name), f"Missing export: {name}"
             assert name in i18n.__all__, f"Not in __all__: {name}"
 
-    def test_crous_catalog_importable(self):
-        from aquilia.i18n import CrousCatalog
+    def test_surp_catalog_importable(self):
+        from aquilia.i18n import SurpCatalog
 
-        assert CrousCatalog is not None
+        assert SurpCatalog is not None
 
-    def test_has_crous_importable(self):
-        from aquilia.i18n import has_crous
+    def test_has_surp_importable(self):
+        from aquilia.i18n import has_surp
 
-        assert callable(has_crous)
+        assert callable(has_surp)

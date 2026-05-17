@@ -425,16 +425,16 @@ class TestTemplateCacheIntegrityFault:
     """TemplateCacheIntegrityFault for tampered cache."""
 
     def test_code(self):
-        f = TemplateCacheIntegrityFault("/tmp/cache.crous")
+        f = TemplateCacheIntegrityFault("/tmp/cache.surp")
         assert f.code == "TEMPLATE_CACHE_INTEGRITY"
 
     def test_severity_is_warn(self):
-        f = TemplateCacheIntegrityFault("/tmp/cache.crous")
+        f = TemplateCacheIntegrityFault("/tmp/cache.surp")
         assert f.severity == Severity.WARN
 
     def test_metadata_has_file(self):
-        f = TemplateCacheIntegrityFault("/tmp/cache.crous")
-        assert f.metadata["cache_file"] == "/tmp/cache.crous"
+        f = TemplateCacheIntegrityFault("/tmp/cache.surp")
+        assert f.metadata["cache_file"] == "/tmp/cache.surp"
 
 
 class TestTemplateSanitizationWarning:
@@ -558,21 +558,21 @@ class TestPickleRemoval:
     """Verify pickle.load is no longer used in bytecode cache or manager."""
 
     def test_bytecode_cache_no_pickle_load(self):
-        """CrousBytecodeCache._load uses JSON+HMAC, not pickle."""
+        """SurpBytecodeCache._load uses JSON+HMAC, not pickle."""
         import inspect
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        source = inspect.getsource(CrousBytecodeCache._load)
+        source = inspect.getsource(SurpBytecodeCache._load)
         assert "pickle.load" not in source
         assert "json.loads" in source
         assert "hmac" in source.lower()
 
     def test_bytecode_cache_no_pickle_dump(self):
-        """CrousBytecodeCache._save uses JSON+HMAC, not pickle."""
+        """SurpBytecodeCache._save uses JSON+HMAC, not pickle."""
         import inspect
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        source = inspect.getsource(CrousBytecodeCache._save)
+        source = inspect.getsource(SurpBytecodeCache._save)
         assert "pickle.dump" not in source
         assert "json.dumps" in source
 
@@ -598,11 +598,11 @@ class TestBytecodeHMACIntegrity:
     """Verify HMAC integrity check on bytecode cache load."""
 
     def test_save_and_load_roundtrip(self, tmp_path):
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        cache = CrousBytecodeCache(
+        cache = SurpBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.crous",
+            filename="test.surp",
             secret_key="test-secret-key",
         )
         # Manually add data
@@ -612,20 +612,20 @@ class TestBytecodeHMACIntegrity:
         cache._save()
 
         # Reload
-        cache2 = CrousBytecodeCache(
+        cache2 = SurpBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.crous",
+            filename="test.surp",
             secret_key="test-secret-key",
         )
         assert "test_template" in cache2._cache
         assert cache2._cache["test_template"] == b"bytecode_content_here"
 
     def test_tampered_file_rejected(self, tmp_path):
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        cache = CrousBytecodeCache(
+        cache = SurpBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.crous",
+            filename="test.surp",
             secret_key="test-secret-key",
         )
         cache._cache["tpl"] = b"code"
@@ -633,7 +633,7 @@ class TestBytecodeHMACIntegrity:
         cache._save()
 
         # Tamper with file
-        cache_file = tmp_path / "test.crous"
+        cache_file = tmp_path / "test.surp"
         raw = cache_file.read_bytes()
         # Replace one byte in payload (after HMAC line)
         tampered = raw[:65] + b"X" + raw[66:]
@@ -642,9 +642,9 @@ class TestBytecodeHMACIntegrity:
         # Reload — should reject silently
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            cache2 = CrousBytecodeCache(
+            cache2 = SurpBytecodeCache(
                 cache_dir=str(tmp_path),
-                filename="test.crous",
+                filename="test.surp",
                 secret_key="test-secret-key",
             )
             # Should have emitted a warning about integrity check
@@ -654,11 +654,11 @@ class TestBytecodeHMACIntegrity:
             assert len(cache2._cache) == 0
 
     def test_wrong_secret_rejected(self, tmp_path):
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        cache = CrousBytecodeCache(
+        cache = SurpBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.crous",
+            filename="test.surp",
             secret_key="correct-key",
         )
         cache._cache["tpl"] = b"code"
@@ -668,9 +668,9 @@ class TestBytecodeHMACIntegrity:
         # Load with wrong key
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            cache2 = CrousBytecodeCache(
+            cache2 = SurpBytecodeCache(
                 cache_dir=str(tmp_path),
-                filename="test.crous",
+                filename="test.surp",
                 secret_key="wrong-key",
             )
             integrity_warnings = [x for x in w if "integrity" in str(x.message).lower()]
@@ -678,33 +678,33 @@ class TestBytecodeHMACIntegrity:
             assert len(cache2._cache) == 0
 
     def test_missing_file_no_error(self, tmp_path):
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        cache = CrousBytecodeCache(
+        cache = SurpBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="nonexistent.crous",
+            filename="nonexistent.surp",
             secret_key="key",
         )
         assert len(cache._cache) == 0
 
     def test_cache_file_format_is_hmac_newline_json(self, tmp_path):
-        from aquilia.templates.bytecode_cache import CrousBytecodeCache
+        from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
-        cache = CrousBytecodeCache(
+        cache = SurpBytecodeCache(
             cache_dir=str(tmp_path),
-            filename="test.crous",
+            filename="test.surp",
             secret_key="my-key",
         )
         cache._cache["tpl"] = b"\x00\x01\x02"
         cache._metadata["tpl"] = {"source_hash": "abc"}
         cache._save()
 
-        raw = (tmp_path / "test.crous").read_bytes()
+        raw = (tmp_path / "test.surp").read_bytes()
         # First 64 chars are hex HMAC
         assert raw[64:65] == b"\n"
         # After newline is valid JSON
         payload = json.loads(raw[65:])
-        assert payload["__format__"] == "crous"
+        assert payload["__format__"] == "surp"
         assert payload["schema_version"] == "1.1"
 
 
