@@ -48,7 +48,9 @@ def build_index_cmd(force: bool, workspace: str, index_path: str | None) -> None
     """Build the persistent local source index."""
     config = _config(workspace, index_path)
     index = _load_index(config, force=force)
-    click.echo(json.dumps({"path": str(config.index_path), "fingerprint": index.fingerprint, "sources": len(index.sources)}))
+    click.echo(
+        json.dumps({"path": str(config.index_path), "fingerprint": index.fingerprint, "sources": len(index.sources)})
+    )
 
 
 @mcp_group.command("doctor")

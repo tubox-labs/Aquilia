@@ -79,7 +79,9 @@ def _python_source(path: Path, rel: str, text: str) -> SourceFile:
                 doc_summary = stripped[:220]
                 break
 
-    keywords = sorted(set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", rel + " " + " ".join(symbols) + " " + " ".join(imports))))[:80]
+    keywords = sorted(
+        set(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", rel + " " + " ".join(symbols) + " " + " ".join(imports)))
+    )[:80]
     return SourceFile(
         path=rel,
         kind="python",

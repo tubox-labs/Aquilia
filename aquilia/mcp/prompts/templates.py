@@ -59,7 +59,7 @@ Expected Code Shape:
 - AppManifest has name, version, controllers/services, base_path, imports/exports, and no deprecated route_prefix/database.
 - Module route prefixes live in Module(...).route_prefix(...).
 - Framework-domain failures use structured Aquilia Fault subclasses.
-{('- ' + hint) if hint else ''}
+{("- " + hint) if hint else ""}
 
 Anti-Pattern Guards:
 - Do not use Module.register_* methods.

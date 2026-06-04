@@ -41,7 +41,12 @@ def scaffold_module(index: KnowledgeIndex, arguments: dict) -> dict:
                 },
             ]
         )
-    files.append({"path": f"tests/test_{name.replace('-', '_')}.py", "shape": "focused pytest coverage for service/controller behavior"})
+    files.append(
+        {
+            "path": f"tests/test_{name.replace('-', '_')}.py",
+            "shape": "focused pytest coverage for service/controller behavior",
+        }
+    )
     return {
         "module": name,
         "files": files,
