@@ -56,6 +56,8 @@ dependencies = [
     "markupsafe>=2.1.0",
     # Surp serializer — used for manifest compilation and runtime evaluation
     "surp",
+    "psutil>=7.2.2",
+    "asyncpg>=0.31.0",
 ]
 
 # ---------------------------------------------------------------------------
@@ -146,7 +148,7 @@ mlops-bento = [
 # Explainability (SHAP + LIME)
 mlops-explain = [
     "shap>=0.42.0",
-    "lime>=1.0.0",
+    "lime>=0.2.0",
 ]
 
 # All MLOps extras combined

@@ -3,6 +3,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.venv/
 env/
 venv/
 ENV/
@@ -80,3 +81,7 @@ pr.md
 CLAUDE.md
 
 .mypy_cache/
+
+# Testing Projects
+prediction_logs/
+artifacts/
