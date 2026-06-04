@@ -67,7 +67,10 @@ def build_tool_registry(index: KnowledgeIndex) -> MCPRegistry:
             _schema(
                 {
                     "goal": {"type": "string", "description": "Application or feature goal."},
-                    "features": {"type": "array", "description": "Feature keywords such as auth, db, tasks, websocket."},
+                    "features": {
+                        "type": "array",
+                        "description": "Feature keywords such as auth, db, tasks, websocket.",
+                    },
                 },
                 ["goal"],
             ),

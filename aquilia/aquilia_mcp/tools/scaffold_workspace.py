@@ -31,7 +31,10 @@ def scaffold_workspace(index: KnowledgeIndex, arguments: dict) -> dict:
                     *[f"    .integrate({integration})" for integration in integrations],
                 ],
             },
-            {"path": "modules/<name>/manifest.py", "shape": "AppManifest with controllers/services and imports/exports"},
+            {
+                "path": "modules/<name>/manifest.py",
+                "shape": "AppManifest with controllers/services and imports/exports",
+            },
         ],
         "validation": ["python -m pytest tests/", "aq validate", "aq inspect routes"],
         "anchors": [fact for fact in index.facts if "config" in fact["id"] or "manifest" in fact["id"]],

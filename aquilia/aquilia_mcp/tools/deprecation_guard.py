@@ -15,8 +15,16 @@ _RULES = [
         "Module.register_services",
         "Declare services in modules/<name>/manifest.py AppManifest(services=[...]).",
     ),
-    (("Module.register_models", ".register_models("), "Module.register_models", "Declare models in AppManifest(models=[...])."),
-    (("Module.register_routes", ".register_routes("), "Module.register_routes", "Use Controller subclasses and @GET/@POST decorators."),
+    (
+        ("Module.register_models", ".register_models("),
+        "Module.register_models",
+        "Declare models in AppManifest(models=[...]).",
+    ),
+    (
+        ("Module.register_routes", ".register_routes("),
+        "Module.register_routes",
+        "Use Controller subclasses and @GET/@POST decorators.",
+    ),
     (
         ("Module.register_sockets", ".register_sockets("),
         "Module.register_sockets",

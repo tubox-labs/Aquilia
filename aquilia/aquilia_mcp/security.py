@@ -62,7 +62,9 @@ def resolve_readable_file(root: Path, relative_or_uri: str | Path) -> Path:
     if not path.is_file():
         raise MCPSecurityFault("Resource is not a file", metadata={"path": str(relative_or_uri)})
     if is_binary_path(path):
-        raise MCPSecurityFault("Binary resources are not exposed by the MCP server", metadata={"path": str(relative_or_uri)})
+        raise MCPSecurityFault(
+            "Binary resources are not exposed by the MCP server", metadata={"path": str(relative_or_uri)}
+        )
     return path
 
 

@@ -96,7 +96,10 @@ def _load_ast_fallback(root: Path) -> list[dict[str, Any]]:
             full = f"{parent_path} {cmd}".strip()
             if parent == "cli":
                 full = f"aq {cmd}"
-            if any(isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and d.func.attr == "group" for d in node.decorator_list):
+            if any(
+                isinstance(d, ast.Call) and isinstance(d.func, ast.Attribute) and d.func.attr == "group"
+                for d in node.decorator_list
+            ):
                 known_names[node.name] = full
             commands.append(
                 {

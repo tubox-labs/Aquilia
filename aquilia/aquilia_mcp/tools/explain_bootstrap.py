@@ -10,9 +10,7 @@ def explain_bootstrap(index: KnowledgeIndex, arguments: dict) -> dict:
     facts = [
         fact
         for fact in index.facts
-        if topic.lower() in fact["id"].lower()
-        or topic.lower() in fact["summary"].lower()
-        or topic == "runtime"
+        if topic.lower() in fact["id"].lower() or topic.lower() in fact["summary"].lower() or topic == "runtime"
     ]
     if not facts:
         facts = index.facts[:8]

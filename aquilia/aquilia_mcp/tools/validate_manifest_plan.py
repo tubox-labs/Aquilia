@@ -14,7 +14,10 @@ _CHECKS = [
     ("config.yaml", "YAML configuration is removed; use Python-native workspace.py/AquilaConfig patterns."),
     ("workspace.yml", "YAML configuration is removed; use Python-native workspace.py/AquilaConfig patterns."),
     ("middlewares=", "AppManifest.middlewares is legacy; use middleware=[MiddlewareConfig(...)] instead."),
-    ("default_fault_domain=", "AppManifest.default_fault_domain is legacy; use FaultHandlingConfig(default_domain=...)."),
+    (
+        "default_fault_domain=",
+        "AppManifest.default_fault_domain is legacy; use FaultHandlingConfig(default_domain=...).",
+    ),
     ("aquilia.models.parser", "AMDL parser imports are deprecated; use Python-native Model classes."),
     ("aquilia.models.runtime", "AMDL runtime imports are deprecated; use Python-native Model classes."),
 ]
