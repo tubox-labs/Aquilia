@@ -13,13 +13,20 @@ Versioning scheme: CalVer-inspired SemVer  MAJOR.MINOR.PATCHbN
   MINOR  — new features, backwards-compatible
   PATCH  — bug fixes, security patches
   bN     — beta pre-release (removed on stable release)
+
+Release names follow a pirate theme — each release gets a unique moniker
+from the golden age of piracy. Names are human-friendly aliases for the
+numeric version and appear in CLI banners, docs, and metadata.
 """
 
 #: Framework version — single source of truth.
-__version__: str = "1.0.4"
+__version__: str = "1.0.5"
 
 #: Version tuple for programmatic comparison.
-VERSION: tuple[int, int, int] = (1, 0, 4)
+VERSION: tuple[int, int, int] = (1, 0, 5)
+
+#: Human-friendly release name (pirate-themed).
+RELEASE_NAME: str = "Jolly Roger"
 
 #: Workspace scaffold version — intentionally frozen at 1.0.0.
 #: Generated workspace.py files should never auto-track framework releases.
