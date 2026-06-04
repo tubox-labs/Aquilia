@@ -53,7 +53,7 @@ import re as _re
 
 import click
 
-from . import __cli_name__, __version__
+from . import RELEASE_NAME, __cli_name__, __version__
 from .utils.colors import (
     _BULLET,
     _CHECK,
@@ -244,7 +244,7 @@ class AquiliaGroup(click.Group):
         """Override to add Aquilia branding to the top-level help."""
         # Only show the full banner for the root group
         if ctx.parent is None:
-            banner("Aquilia", subtitle=f"v{__version__}  {_CHECK}  manifest-driven framework CLI")
+            banner("Aquilia", subtitle=f'v{__version__}  "{RELEASE_NAME}"  {_CHECK}  manifest-driven framework CLI')
             click.echo()
 
         super().format_help(ctx, formatter)
@@ -297,7 +297,7 @@ class AquiliaGroup(click.Group):
 
 
 @click.group(cls=AquiliaGroup)
-@click.version_option(version=__version__, prog_name=__cli_name__)
+@click.version_option(version=f"{__version__} ({RELEASE_NAME})", prog_name=__cli_name__)
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output (show debug details, full tracebacks)")
 @click.option("--quiet", "-q", is_flag=True, help="Minimal output (suppress banners & decorations)")
 @click.option("--debug", is_flag=True, help="Enable debug mode (full stack traces on errors)")

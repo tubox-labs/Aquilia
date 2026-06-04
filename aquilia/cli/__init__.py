@@ -24,7 +24,7 @@ Philosophy:
 - Static-first validation
 """
 
-from aquilia._version import __version__  # noqa: F401 — re-exported
+from aquilia._version import RELEASE_NAME, __version__  # noqa: F401 — re-exported
 
 __cli_name__ = "aq"
 
