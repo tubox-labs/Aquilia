@@ -5,9 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-## [1.0.5] — Unreleased
+## [1.0.5] — 2026-06-04 — "Jolly Roger"
 
 ### Added
 - Added a production-grade, source-backed Aquilia MCP server under `aquilia.aquilia_mcp` with JSON-RPC stdio support, tool/resource/prompt registries, persistent repository indexing, installer helpers, and canonical `python -m aquilia.aquilia_mcp` entrypoints.
