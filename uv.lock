@@ -302,6 +302,7 @@ dependencies = [
     { name = "jinja2" },
     { name = "markupsafe" },
     { name = "psutil" },
+    { name = "ruff" },
     { name = "surp" },
     { name = "uvicorn" },
 ]
@@ -453,6 +454,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'testing'", specifier = ">=4.1.0" },
     { name = "python-multipart", marker = "extra == 'multipart'", specifier = ">=0.0.9" },
     { name = "redis", extras = ["asyncio"], marker = "extra == 'redis'", specifier = ">=5.0.0" },
+    { name = "ruff", specifier = ">=0.15.15" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
     { name = "shap", marker = "extra == 'mlops-explain'", specifier = ">=0.42.0" },
     { name = "surp" },
