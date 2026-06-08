@@ -18,7 +18,6 @@ from ..state import (
     SwarmState,
     TaskRecord,
     save_state,
-    save_tasks,
 )
 
 

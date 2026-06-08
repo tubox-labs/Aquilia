@@ -17,10 +17,9 @@ from __future__ import annotations
 import subprocess
 import uuid
 from pathlib import Path
-from typing import Any
 
+from ..state import TaskRecord, save_state, save_tasks
 from .base import AgentType, BaseAgent, Message, MessageType
-from ..state import SwarmState, TaskRecord, save_state, save_tasks
 
 
 class WorkerAgent(BaseAgent):
@@ -149,8 +148,8 @@ class WorkerAgent(BaseAgent):
     def _request_review_sync(
         self, files: list[str], task_id: str, coordinator_id: str
     ) -> bool:
-        from .review import ReviewAgent
         from .base import Message
+        from .review import ReviewAgent
 
         review_agent = ReviewAgent("review_sync", self._state, self._tasks)
         review_agent.register_in_state()

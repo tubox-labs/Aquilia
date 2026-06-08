@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from .base import AgentType, BaseAgent, Message, MessageType
-from .planner import PlannerAgent
-from .coordinator import CoordinatorAgent
-from .worker import WorkerAgent
-from .commit import CommitAgent
 from .changelog import ChangeLogAgent
+from .commit import CommitAgent
+from .coordinator import CoordinatorAgent
+from .planner import PlannerAgent
 from .review import ReviewAgent
 from .test import TestAgent
+from .worker import WorkerAgent
 
 __all__ = [
     "AgentType",

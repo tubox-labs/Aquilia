@@ -45,6 +45,21 @@ Protocol
 
 from __future__ import annotations
 
+from .agents.base import (
+    AgentType,
+    BaseAgent,
+    Message,
+    MessageType,
+)
+from .agents.changelog import ChangeLogAgent
+from .agents.commit import CommitAgent
+from .agents.coordinator import CoordinatorAgent
+from .agents.planner import PlannerAgent
+from .agents.review import ReviewAgent
+from .agents.test import TestAgent
+from .agents.worker import WorkerAgent
+from .engine import ExecutionEngine, cli_main
+from .recovery import RecoverySystem
 from .state import (
     AgentRecord,
     SwarmState,
@@ -53,26 +68,11 @@ from .state import (
     initialize_session,
     load_state,
     load_tasks,
+    record_commit_in_history,
+    restore_checkpoint,
     save_state,
     save_tasks,
-    restore_checkpoint,
-    record_commit_in_history,
 )
-from .recovery import RecoverySystem
-from .engine import ExecutionEngine, cli_main
-from .agents.base import (
-    AgentType,
-    MessageType,
-    Message,
-    BaseAgent,
-)
-from .agents.planner import PlannerAgent
-from .agents.coordinator import CoordinatorAgent
-from .agents.worker import WorkerAgent
-from .agents.commit import CommitAgent
-from .agents.changelog import ChangeLogAgent
-from .agents.review import ReviewAgent
-from .agents.test import TestAgent
 
 __version__ = "1.0.0"
 

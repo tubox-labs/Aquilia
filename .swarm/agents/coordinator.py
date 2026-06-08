@@ -12,22 +12,18 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timezone
-from typing import Any
 
-from .base import AgentType, BaseAgent, Message, MessageType
-from .planner import PlannerAgent
-from .worker import WorkerAgent
 from ..state import (
     SwarmState,
     TaskRecord,
-    create_checkpoint,
-    load_state,
     load_tasks,
     record_commit_in_history,
     save_state,
     save_tasks,
 )
+from .base import AgentType, BaseAgent, Message, MessageType
+from .planner import PlannerAgent
+from .worker import WorkerAgent
 
 
 class CoordinatorAgent(BaseAgent):
