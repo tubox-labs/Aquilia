@@ -1,5 +1,5 @@
-from aquilia import Integration, Module, Workspace
-from aquilia.integrations import AdminIntegration, AdminModules, ConsoleProvider, MailIntegration, OpenAPIIntegration, TemplatesIntegration, VersioningIntegration
+from aquilia import Module, Workspace
+from aquilia.integrations import AdminIntegration, AdminModules, CacheIntegration, ConsoleProvider, DiIntegration, FaultHandlingIntegration, MailIntegration, OpenAPIIntegration, RoutingIntegration, TemplatesIntegration, VersioningIntegration
 from aquilia.sessions import DEFAULT_USER_POLICY
 
 workspace = (
@@ -19,10 +19,10 @@ workspace = (
     .integrate(OpenAPIIntegration(title="Aquilia Native Commerce", version="1.0.0", enabled=True))
     .integrate(VersioningIntegration(default_version="1.0", versions=["1.0"]))
     .integrate(AdminIntegration(site_title="Commerce Admin", modules=AdminModules(audit=True, monitoring=True, storage=True, tasks=True)))
-    .integrate(Integration.di(auto_wire=True, manifest_validation=True))
-    .integrate(Integration.routing(strict_matching=True, compression=True))
-    .integrate(Integration.fault_handling(default_strategy="propagate"))
-    .integrate(Integration.cache(backend="memory", default_ttl=300))
+    .integrate(DiIntegration(auto_wire=True))
+    .integrate(RoutingIntegration(strict_matching=True))
+    .integrate(FaultHandlingIntegration(default_strategy="propagate"))
+    .integrate(CacheIntegration(backend="memory", default_ttl=300))
     .i18n(default_locale="en", available_locales=["en", "es", "fr"])
     .sessions(policies=[DEFAULT_USER_POLICY])
     .security(cors_enabled=True, csrf_protection=False, helmet_enabled=True, rate_limiting=True)

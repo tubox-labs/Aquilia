@@ -4,8 +4,9 @@ import os
 import tempfile
 from pathlib import Path
 
-from aquilia import AquilaConfig, Env, Integration, Module, Workspace
+from aquilia import AquilaConfig, Env, Module, Workspace
 from aquilia.config import ConfigLoader
+from aquilia.integrations import DiIntegration, FaultHandlingIntegration, RoutingIntegration
 from aquilia.runtime import AquiliaRuntime, RuntimeConfig, RuntimePhase
 
 
@@ -20,9 +21,9 @@ def build_workspace() -> Workspace:
         .env_config(BaseEnv)
         .runtime(mode="test", host="127.0.0.1", port=8123, reload=False)
         .module(Module("health", version="1.0.0").route_prefix("/health").tags("core", "runtime"))
-        .integrate(Integration.di(auto_wire=True, manifest_validation=True))
-        .integrate(Integration.routing(strict_matching=True))
-        .integrate(Integration.fault_handling(default_strategy="propagate"))
+        .integrate(DiIntegration(auto_wire=True))
+        .integrate(RoutingIntegration(strict_matching=True))
+        .integrate(FaultHandlingIntegration(default_strategy="propagate"))
     )
 
 
@@ -32,14 +33,15 @@ def _write_runtime_workspace(root: Path) -> None:
     (root / "modules" / "health" / "__init__.py").write_text("", encoding="utf-8")
     (root / "workspace.py").write_text(
         """
-from aquilia import Integration, Module, Workspace
+from aquilia import Module, Workspace
+from aquilia.integrations import DiIntegration, RoutingIntegration
 
 workspace = (
     Workspace("reference-runtime", version="1.0.0")
     .runtime(mode="test", host="127.0.0.1", port=8123, reload=False)
     .module(Module("health", version="1.0.0").route_prefix("/health"))
-    .integrate(Integration.di(auto_wire=True, manifest_validation=True))
-    .integrate(Integration.routing(strict_matching=True))
+    .integrate(DiIntegration(auto_wire=True))
+    .integrate(RoutingIntegration(strict_matching=True))
 )
 """.lstrip(),
         encoding="utf-8",

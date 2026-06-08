@@ -2,8 +2,14 @@
 
 from __future__ import annotations
 
-from aquilia import Integration, Module, Workspace
-from aquilia.config_builders import AquilaConfig
+from aquilia import AquilaConfig, Module, Workspace
+from aquilia.integrations import (
+    DiIntegration,
+    FaultHandlingIntegration,
+    MiddlewareChain,
+    RoutingIntegration,
+    StaticFilesIntegration,
+)
 
 
 class BenchEnv(AquilaConfig):
@@ -17,7 +23,7 @@ class BenchEnv(AquilaConfig):
 
 
 middleware_chain = (
-    Integration.middleware.chain()
+    MiddlewareChain()
     .use("aquilia.middleware.ExceptionMiddleware", priority=1, debug=False)
     .use("aquilia.middleware.RequestIdMiddleware", priority=10)
     .use("benchmark.apps.aquilia_app.middleware.PathNoopMiddleware", priority=20, layer_id=1)
@@ -41,11 +47,11 @@ workspace = (
         .route_prefix("/")
         .tags("benchmark")
     )
-    .integrate(Integration.di(auto_wire=True))
-    .integrate(Integration.routing(strict_matching=True))
-    .integrate(Integration.fault_handling(default_strategy="propagate"))
+    .integrate(DiIntegration(auto_wire=True))
+    .integrate(RoutingIntegration(strict_matching=True))
+    .integrate(FaultHandlingIntegration(default_strategy="propagate"))
     .integrate(
-        Integration.static_files(
+        StaticFilesIntegration(
             directories={"/static": "static"},
             cache_max_age=0,
             etag=False,
