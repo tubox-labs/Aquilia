@@ -698,6 +698,7 @@ from .pyconfig import (
 )
 from .request import Request
 from .response import Response
+from .sse import SSEEvent, SSEResponse
 
 # ============================================================================
 # Runtime Management
@@ -952,6 +953,9 @@ __all__ = [
     "ConfigLoader",
     "Request",
     "Response",
+    # SSE
+    "SSEEvent",
+    "SSEResponse",
     # Native Dotenv
     "load_dotenv",
     "dotenv_values",
