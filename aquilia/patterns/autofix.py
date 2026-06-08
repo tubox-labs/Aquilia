@@ -446,7 +446,7 @@ def generate_fix_suggestions(
         suggestions = engine.suggest_type_fix(invalid_type)
 
     elif "unterminated" in error_message.lower() or "unclosed" in error_message.lower():
-        expected = context.get("expected_delimiter", "»")
+        expected = context.get("expected_delimiter", "}")
         suggestions = engine.suggest_delimiter_fix(pattern, expected)
 
     elif "duplicate" in error_message.lower():

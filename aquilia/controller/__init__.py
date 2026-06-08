@@ -26,7 +26,7 @@ Example:
         async def list(self, ctx):
             return self.repo.list_all()
 
-        @GET("/«id:int»")
+        @GET("/{id:int}")
         async def retrieve(self, ctx, id: int):
             return self.repo.get(id)
 """

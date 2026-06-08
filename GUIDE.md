@@ -222,20 +222,20 @@ class BlogsController(Controller):
         item = await self.service.create(data)
         return Response.json(item, status=201)
 
-    @GET("/«id:int»")
+    @GET("/{id:int}")
     async def get_one(self, ctx: RequestCtx, id: int):
         item = await self.service.get_by_id(id)
         if not item:
             raise BlogNotFoundFault(id)
         return Response.json(item)
 
-    @PUT("/«id:int»")
+    @PUT("/{id:int}")
     async def update(self, ctx: RequestCtx, id: int):
         data = await ctx.json()
         item = await self.service.update(id, data)
         return Response.json(item)
 
-    @DELETE("/«id:int»")
+    @DELETE("/{id:int}")
     async def delete(self, ctx: RequestCtx, id: int):
         await self.service.delete(id)
         return Response.json({"deleted": True})
@@ -247,9 +247,9 @@ class BlogsController(Controller):
 |-----------|-------------|---------|
 | `@GET(path)` | GET | `@GET("/users")` |
 | `@POST(path)` | POST | `@POST("/users")` |
-| `@PUT(path)` | PUT | `@PUT("/users/«id:int»")` |
-| `@PATCH(path)` | PATCH | `@PATCH("/users/«id:int»")` |
-| `@DELETE(path)` | DELETE | `@DELETE("/users/«id:int»")` |
+| `@PUT(path)` | PUT | `@PUT("/users/{id:int}")` |
+| `@PATCH(path)` | PATCH | `@PATCH("/users/{id:int}")` |
+| `@DELETE(path)` | DELETE | `@DELETE("/users/{id:int}")` |
 | `@HEAD(path)` | HEAD | `@HEAD("/health")` |
 | `@OPTIONS(path)` | OPTIONS | `@OPTIONS("/users")` |
 | `@WS(path)` | WebSocket | `@WS("/live")` |
@@ -758,7 +758,7 @@ class AdminController(Controller):
     async def dashboard(self, ctx: RequestCtx):
         return Response.json({"message": "Admin dashboard"})
 
-    @DELETE("/users/«id:int»")
+    @DELETE("/users/{id:int}")
     @ScopeGuard("admin:delete")
     async def delete_user(self, ctx: RequestCtx, id: int):
         ...
@@ -896,7 +896,7 @@ except Exception as e:
 class ProductsController(Controller):
     prefix = "/"
 
-    @GET("/«id:int»")
+    @GET("/{id:int}")
     async def get_product(self, ctx: RequestCtx, id: int):
         product = await self.service.find(id)
         if not product:
@@ -1380,22 +1380,22 @@ Aquilia uses a formal EBNF-based pattern syntax for URLs.
 
 ```
 /static                     # Static segment
-/users/«id:int»             # Typed parameter
-/files/«path:path»          # Catch-all (splat)
-/items[/«category:str»]     # Optional group
-/search?«q:str»&«page:int»  # Query parameters
+/users/{id:int}             # Typed parameter
+/files/{path:path}          # Catch-all (splat)
+/items[/{category:str}]     # Optional group
+/search?{q:str}&{page:int}  # Query parameters
 ```
 
 ### Built-in Types
 
 | Type | Matches | Example |
 |------|---------|---------|
-| `str` | Any string | `«name:str»` |
-| `int` | Integer | `«id:int»` |
-| `float` | Float | `«price:float»` |
-| `uuid` | UUID | `«token:uuid»` |
-| `slug` | URL slug | `«slug:slug»` |
-| `path` | Path segments (greedy) | `«filepath:path»` |
+| `str` | Any string | `{name:str}` |
+| `int` | Integer | `{id:int}` |
+| `float` | Float | `{price:float}` |
+| `uuid` | UUID | `{token:uuid}` |
+| `slug` | URL slug | `{slug:slug}` |
+| `path` | Path segments (greedy) | `{filepath:path}` |
 
 ### Custom Types
 
@@ -1408,7 +1408,7 @@ TypeRegistry.register(
     converter=lambda s: datetime.strptime(s, "%Y-%m-%d").date(),
 )
 
-# Usage: /events/«date:date»
+# Usage: /events/{date:date}
 ```
 
 ### Pattern Compiler
@@ -1417,7 +1417,7 @@ TypeRegistry.register(
 from aquilia.patterns import PatternCompiler, PatternMatcher
 
 compiler = PatternCompiler()
-compiled = compiler.compile("/users/«id:int»/posts/«slug:slug»")
+compiled = compiler.compile("/users/{id:int}/posts/{slug:slug}")
 
 matcher = PatternMatcher()
 result = matcher.match(compiled, "/users/42/posts/hello-world")
