@@ -54,9 +54,7 @@ class TestAgent(BaseAgent):
         if scope in ("full", "tests"):
             results.update(self._run_pytest())
 
-        results["passed"] = all(
-            v not in ("failed", False) for v in results.values() if isinstance(v, str)
-        )
+        results["passed"] = all(v not in ("failed", False) for v in results.values() if isinstance(v, str))
         return results
 
     def _run_ruff(self) -> dict[str, str]:

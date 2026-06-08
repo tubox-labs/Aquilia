@@ -86,9 +86,7 @@ class WorkerAgent(BaseAgent):
                 )
             return False
 
-        success, commit_hash = self._request_commit_sync(
-            task, files, coordinator_id
-        )
+        success, commit_hash = self._request_commit_sync(task, files, coordinator_id)
         if not success:
             task.status = "failed"
             task.error = "Commit failed"
@@ -145,9 +143,7 @@ class WorkerAgent(BaseAgent):
 
         return sorted(set(staged + unstaged))
 
-    def _request_review_sync(
-        self, files: list[str], task_id: str, coordinator_id: str
-    ) -> bool:
+    def _request_review_sync(self, files: list[str], task_id: str, coordinator_id: str) -> bool:
         from .base import Message
         from .review import ReviewAgent
 
@@ -190,9 +186,7 @@ class WorkerAgent(BaseAgent):
             return result.payload.get("passed", False)
         return False
 
-    def _request_commit_sync(
-        self, task: TaskRecord, files: list[str], coordinator_id: str
-    ) -> tuple[bool, str]:
+    def _request_commit_sync(self, task: TaskRecord, files: list[str], coordinator_id: str) -> tuple[bool, str]:
         from .commit import CommitAgent
 
         commit_agent = CommitAgent("commit_sync", self._state, self._tasks)

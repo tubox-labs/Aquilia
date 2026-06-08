@@ -137,7 +137,5 @@ class BaseAgent(ABC):
         save_state(self._state)
 
     def deregister_from_state(self) -> None:
-        self._state.active_agents = [
-            a for a in self._state.active_agents if a.agent_id != self.agent_id
-        ]
+        self._state.active_agents = [a for a in self._state.active_agents if a.agent_id != self.agent_id]
         save_state(self._state)

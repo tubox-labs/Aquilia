@@ -69,10 +69,7 @@ class CoordinatorAgent(BaseAgent):
         for task in self._tasks:
             if task.status != "pending":
                 continue
-            if all(
-                dep in self._state.completed_tasks
-                for dep in task.dependencies
-            ):
+            if all(dep in self._state.completed_tasks for dep in task.dependencies):
                 ready.append(task)
         return ready
 
@@ -140,9 +137,7 @@ class CoordinatorAgent(BaseAgent):
 
             await asyncio.sleep(0)
 
-        all_completed = all(
-            t.status == "completed" for t in self._tasks
-        )
+        all_completed = all(t.status == "completed" for t in self._tasks)
         self._state.status = "completed" if all_completed else "partial"
         save_state(self._state)
         return all_completed
