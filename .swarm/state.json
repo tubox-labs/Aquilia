@@ -1,0 +1,12 @@
+{
+  "swarm_version": "1.0.0",
+  "session_id": null,
+  "status": "initializing",
+  "started_at": null,
+  "last_checkpoint": null,
+  "completed_tasks": [],
+  "failed_tasks": [],
+  "active_agents": [],
+  "current_task": null,
+  "commit_count": 0
+}
