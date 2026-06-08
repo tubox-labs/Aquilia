@@ -128,11 +128,11 @@ class ConfigLoader:
         if env_config_path.exists():
             loader._load_pyconfig_file(env_config_path)
 
-        # Step 4: Load from .env file
+        # Step 3: Load from .env file
         if env_file:
             loader._load_env_file(env_file)
 
-        # Step 4.5: Native dotenv auto-load for default/legacy flows.
+        # Step 4: Native dotenv auto-load for default/legacy flows.
         # For AquilaConfig users, this is typically already resolved by
         # pyconfig class policy and remains idempotent here.
         try:
@@ -501,6 +501,15 @@ class ConfigLoader:
         """Export all config as dictionary."""
         return self.config_data.copy()
 
+    def get_subsystem_config(self, name: str, defaults: dict) -> dict:
+        """Generic subsystem config reader with standard merge pattern."""
+        user_config = self.get(name, {}) or self.get(f"integrations.{name}", {})
+        merged = defaults.copy()
+        if user_config:
+            merged["enabled"] = user_config.get("enabled", True)
+            self._merge_dict(merged, user_config)
+        return merged
+
     def get_session_config(self) -> dict:
         """
         Get session configuration with defaults.
@@ -509,7 +518,7 @@ class ConfigLoader:
             Session configuration dictionary
         """
         default_session_config = {
-            "enabled": False,  # Opt-in
+            "enabled": False,
             "policy": {
                 "name": "user_default",
                 "ttl_days": 7,
@@ -518,16 +527,14 @@ class ConfigLoader:
                 "max_sessions_per_principal": 5,
             },
             "store": {
-                "type": "memory",  # "memory", "file", "redis"
+                "type": "memory",
                 "max_sessions": 10000,
-                # File store options
                 "directory": None,
-                # Redis options (future)
                 "redis_url": None,
                 "key_prefix": "aquilia:session:",
             },
             "transport": {
-                "adapter": "cookie",  # "cookie", "header"
+                "adapter": "cookie",
                 "cookie_name": "aquilia_session",
                 "cookie_httponly": True,
                 "cookie_secure": True,
@@ -536,27 +543,15 @@ class ConfigLoader:
             },
         }
 
-        # Get user-provided session config
-        # Check multiple possible config paths for flexibility
         user_config = self.get("sessions", {})
         if not user_config:
             user_config = self.get("integrations.sessions", {})
-        if not user_config:
-            # Check if workspace config exists - the workspace puts sessions config directly at root level
-            # when build() is called, so check there first
-            pass
 
-        # Merge with defaults
         merged = default_session_config.copy()
         if user_config:
-            # Enable sessions if config provided
             merged["enabled"] = user_config.get("enabled", True)
             self._merge_dict(merged, user_config)
 
-            # ── Normalize "store" field ──
-            # YAML configs may specify store as a plain string (e.g., "memory")
-            # instead of a dict (e.g., {"type": "memory", "max_sessions": 10000}).
-            # Normalize to dict form so downstream code always gets a dict or object.
             if isinstance(merged.get("store"), str):
                 store_str = merged["store"]
                 merged["store"] = {
@@ -564,35 +559,24 @@ class ConfigLoader:
                     "max_sessions": 10000,
                 }
 
-            # Special handling for workspace policies - if policies list exists and contains SessionPolicy objects,
-            # use the first one as the primary policy for the server
             if "policies" in user_config and user_config["policies"]:
                 first_policy = user_config["policies"][0]
-                # Check if it's a SessionPolicy object (from workspace), not just a string representation
                 if hasattr(first_policy, "name") and hasattr(first_policy, "ttl"):
                     merged["policy"] = first_policy
-                    # Also store reference to underlying transport/store if available
                     if hasattr(first_policy, "transport"):
                         merged["transport_policy"] = first_policy.transport
 
         return merged
 
     def get_auth_config(self) -> dict:
-        """
-        Get auth configuration with defaults.
-
-        Returns:
-            Auth configuration dictionary
-        """
-        default_auth_config = {
-            "enabled": False,  # Opt-in
+        return self.get_subsystem_config("auth", {
+            "enabled": False,
             "store": {
-                "type": "memory",  # "memory", "sql" (future)
-                # SQL options
+                "type": "memory",
                 "db_url": None,
             },
             "tokens": {
-                "secret_key": "aquilia_insecure_dev_secret",  # Should be overridden in prod
+                "secret_key": "aquilia_insecure_dev_secret",
                 "algorithm": "HS256",
                 "issuer": "aquilia",
                 "audience": "aquilia-app",
@@ -600,61 +584,23 @@ class ConfigLoader:
                 "refresh_token_ttl_days": 30,
             },
             "security": {
-                "require_auth_by_default": False,  # If true, all routes require auth unless public
+                "require_auth_by_default": False,
                 "hash_rounds": 12,
             },
-        }
-
-        # Get user-provided auth config
-        user_config = self.get("auth", {})
-        if not user_config:
-            user_config = self.get("integrations.auth", {})
-
-        # Merge with defaults
-        merged = default_auth_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_template_config(self) -> dict:
-        """
-        Get template configuration with defaults.
-
-        Returns:
-            Template configuration dictionary
-        """
-        default_template_config = {
+        return self.get_subsystem_config("templates", {
             "enabled": False,
             "search_paths": [],
             "precompile": False,
-            "cache": "memory",  # "memory", "surp", "none"
+            "cache": "memory",
             "sandbox": True,
             "sandbox_policy": "strict",
-        }
-
-        # Get user-provided template config
-        user_config = self.get("templates", {})
-        if not user_config:
-            user_config = self.get("integrations.templates", {})
-
-        # Merge with defaults
-        merged = default_template_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_security_config(self) -> dict:
-        """
-        Get security configuration with defaults.
-
-        Returns:
-            Security configuration dictionary with middleware flags
-        """
-        default_security_config = {
+        return self.get_subsystem_config("security", {
             "enabled": False,
             "cors_enabled": False,
             "csrf_protection": False,
@@ -663,25 +609,10 @@ class ConfigLoader:
             "https_redirect": False,
             "hsts": False,
             "proxy_fix": False,
-        }
-
-        user_config = self.get("security", {})
-
-        merged = default_security_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_static_config(self) -> dict:
-        """
-        Get static files configuration with defaults.
-
-        Returns:
-            Static files configuration dictionary
-        """
-        default_static_config = {
+        return self.get_subsystem_config("static_files", {
             "enabled": False,
             "directories": {"/static": "static"},
             "cache_max_age": 86400,
@@ -689,27 +620,10 @@ class ConfigLoader:
             "gzip": True,
             "brotli": True,
             "memory_cache": True,
-        }
-
-        user_config = self.get("integrations.static_files", {})
-        if not user_config:
-            user_config = self.get("static_files", {})
-
-        merged = default_static_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_cache_config(self) -> dict:
-        """
-        Get cache configuration with defaults.
-
-        Returns:
-            Cache configuration dictionary
-        """
-        default_cache_config = {
+        return self.get_subsystem_config("cache", {
             "enabled": False,
             "backend": "memory",
             "default_ttl": 300,
@@ -734,35 +648,16 @@ class ConfigLoader:
             "trace_enabled": True,
             "metrics_enabled": True,
             "log_level": "WARNING",
-        }
-
-        # Get user-provided cache config
-        user_config = self.get("cache", {})
-        if not user_config:
-            user_config = self.get("integrations.cache", {})
-
-        # Merge with defaults
-        merged = default_cache_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_i18n_config(self) -> dict:
-        """
-        Get i18n (internationalization) configuration with defaults.
-
-        Returns:
-            I18n configuration dictionary
-        """
-        default_i18n_config = {
+        return self.get_subsystem_config("i18n", {
             "enabled": False,
             "default_locale": "en",
             "available_locales": ["en"],
             "fallback_locale": "en",
             "catalog_dirs": ["locales"],
-            "catalog_format": "surp",
+            "catalog_format": "json",
             "missing_key_strategy": "log_and_key",
             "auto_reload": False,
             "auto_detect": True,
@@ -770,29 +665,10 @@ class ConfigLoader:
             "query_param": "lang",
             "path_prefix": False,
             "resolver_order": ["query", "cookie", "header"],
-        }
-
-        # Get user-provided i18n config
-        user_config = self.get("i18n", {})
-        if not user_config:
-            user_config = self.get("integrations.i18n", {})
-
-        # Merge with defaults
-        merged = default_i18n_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_mail_config(self) -> dict:
-        """
-        Get mail configuration with defaults.
-
-        Returns:
-            Mail configuration dictionary
-        """
-        default_mail_config = {
+        return self.get_subsystem_config("mail", {
             "enabled": False,
             "default_from": "noreply@localhost",
             "default_reply_to": None,
@@ -823,29 +699,10 @@ class ConfigLoader:
             },
             "metrics_enabled": True,
             "tracing_enabled": False,
-        }
-
-        # Get user-provided mail config
-        user_config = self.get("mail", {})
-        if not user_config:
-            user_config = self.get("integrations.mail", {})
-
-        # Merge with defaults
-        merged = default_mail_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_tasks_config(self) -> dict:
-        """
-        Get background tasks configuration with defaults.
-
-        Returns:
-            Tasks configuration dictionary
-        """
-        default_tasks_config = {
+        return self.get_subsystem_config("tasks", {
             "enabled": False,
             "backend": "memory",
             "num_workers": 4,
@@ -859,78 +716,28 @@ class ConfigLoader:
             "default_timeout": 300.0,
             "auto_start": True,
             "dead_letter_max": 1000,
-        }
-
-        # Get user-provided tasks config
-        user_config = self.get("tasks", {})
-        if not user_config:
-            user_config = self.get("integrations.tasks", {})
-
-        # Merge with defaults
-        merged = default_tasks_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })
 
     def get_storage_config(self) -> dict:
-        """
-        Get storage configuration with defaults.
-
-        Returns:
-            Storage configuration dictionary.
-        """
-        default_storage_config = {
+        return self.get_subsystem_config("storage", {
             "enabled": False,
             "default": "default",
             "backends": [],
-        }
+        })
 
-        # Get user-provided storage config
-        user_config = self.get("storage", {})
-        if not user_config:
-            user_config = self.get("integrations.storage", {})
-
-        # Merge with defaults
-        merged = default_storage_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
-
-    def get_middleware_config(self) -> list:
+    def get_middleware_config(self) -> list | None:
         """
         Get middleware chain configuration.
 
         Returns the user-defined middleware chain from workspace config,
         or ``None`` if no chain was configured (server falls back to
         built-in defaults).
-
-        Each entry is a dict with:
-        - ``path``: Dotted import path (e.g. ``aquilia.middleware.RequestIdMiddleware``)
-        - ``priority``: Execution order (lower = runs first)
-        - ``scope``: ``"global"`` or ``"app:<name>"``
-        - ``name``: Display name
-        - ``kwargs``: Constructor keyword arguments
-
-        Returns:
-            List of middleware entry dicts, or None.
         """
         chain = self.get("middleware_chain")
-        if chain is not None:
-            return chain
-        return None
+        return chain if chain is not None else None
 
     def get_versioning_config(self) -> dict:
-        """
-        Get API versioning configuration with defaults.
-
-        Returns:
-            Versioning configuration dictionary.
-        """
-        default_versioning_config = {
+        return self.get_subsystem_config("versioning", {
             "enabled": False,
             "strategy": "header",
             "versions": [],
@@ -953,17 +760,4 @@ class ConfigLoader:
             "include_supported_versions_header": True,
             "supported_versions_header": "X-API-Supported-Versions",
             "neutral_paths": ["/_health", "/openapi.json", "/docs", "/redoc"],
-        }
-
-        # Get user-provided versioning config
-        user_config = self.get("versioning", {})
-        if not user_config:
-            user_config = self.get("integrations.versioning", {})
-
-        # Merge with defaults
-        merged = default_versioning_config.copy()
-        if user_config:
-            merged["enabled"] = user_config.get("enabled", True)
-            self._merge_dict(merged, user_config)
-
-        return merged
+        })

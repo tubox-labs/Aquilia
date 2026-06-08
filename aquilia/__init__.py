@@ -249,8 +249,17 @@ from .cache import (
     invalidate,
     set_default_cache_service,
 )
-from .config import Config, ConfigLoader
-from .workspace import Module, Workspace
+from .config import (
+    AquilaConfig,
+    Config,
+    ConfigLoader,
+    Env,
+    Integration,
+    Module,
+    Secret,
+    Workspace,
+    section,
+)
 
 # ============================================================================
 # Controller System (NEW - First-class controllers)
@@ -518,8 +527,8 @@ from .integrations import (
     FaultHandlingIntegration,
     FileProvider,
     I18nIntegration,
-    IntegrationConfig,
     Integration,  # legacy — prefer typed dataclasses
+    IntegrationConfig,
     LoggingIntegration,
     MailAuth,
     MailIntegration,
