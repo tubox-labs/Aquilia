@@ -1,4 +1,4 @@
-from aquilia.aquilia_mcp.context.indexer import build_index, load_index, load_or_build_index, save_index
+from aquilia.mcp.context.indexer import build_index, load_index, load_or_build_index, save_index
 
 
 def test_index_build_save_load_roundtrip(mcp_repo, tmp_path):

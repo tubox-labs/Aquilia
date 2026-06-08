@@ -1,6 +1,6 @@
 # MCP CLI Reference
 
-All commands are mounted under `aq mcp` from `aquilia/cli/commands/mcp.py` and use the canonical server package `aquilia.aquilia_mcp`.
+All commands are mounted under `aq mcp` from `aquilia/cli/commands/mcp.py` and use the canonical server package `aquilia.mcp`.
 
 ## Serve
 
