@@ -26,6 +26,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated all test imports to use `aquilia.workspace` and
   `aquilia.integrations` directly.
 
+### Fixed
+- **Thread safety**: Replaced `bool` flag `_dotenv_lock` with `threading.RLock()`
+  in `pyconfig.py` — two threads loading dotenv simultaneously no longer corrupt
+  `os.environ`.
+- **I18n default values**: Fixed broken `dataclasses.field()` usage on plain
+  class attributes in `AquilaConfig.I18n` (replaced with plain lists).
+- **Catalog format consistency**: `ConfigLoader.get_i18n_config()` now defaults to
+  `"json"` (was `"surp"`), matching `AquilaConfig.I18n.catalog_format`.
+- **`for_env()` recursion**: `AquilaConfig.for_env()` now recursively searches all
+  subclass depths (was limited to 2 levels).
+- **Step numbering**: Renumbered `ConfigLoader.load()` steps to remove the gap
+  (Step 4 → Step 3, Step 4.5 → Step 4).
+- **Config boilerplate**: Added `ConfigLoader.get_subsystem_config()` generic method;
+  10 of 12 subsystem config getters are now thin wrappers, cutting boilerplate by ~80%.
+- **Config package**: Created `aquilia/config/` package as a canonical re-export hub.
+  `from aquilia.config import Workspace, Module, AquilaConfig, Env, Secret` works.
+- **pyproject.toml**: Removed `psutil>=7.2.2` from core dependencies (now optional).
+  Removed empty `templates`, `db`, and `files` extras. Fixed stale MLOps comment.
+
 ## [1.1.0] — 2026-06-08 — "Black Pearl"
 
 ### Removed
