@@ -118,44 +118,7 @@ server = [
     "uvicorn[standard]>=0.30.0",
 ]
 
-# ---- MLOps dependency groups ------------------------------------------------
 
-# Core MLOps (numpy for type support)
-mlops = [
-    "numpy>=1.24.0",
-]
-
-# ONNX Runtime inference & model export
-mlops-onnx = [
-    "onnxruntime>=1.16.0",
-    "onnx>=1.14.0",
-]
-
-# PyTorch runtime
-mlops-torch = [
-    "torch>=2.0.0",
-]
-
-# S3 model registry storage
-mlops-s3 = [
-    "boto3>=1.28.0",
-]
-
-# BentoML model export
-mlops-bento = [
-    "bentoml>=1.2.0",
-]
-
-# Explainability (SHAP + LIME)
-mlops-explain = [
-    "shap>=0.42.0",
-    "lime>=0.2.0",
-]
-
-# All MLOps extras combined
-mlops-all = [
-    "aquilia[mlops,mlops-onnx,mlops-torch,mlops-s3,mlops-bento,mlops-explain]",
-]
 
 # ---- Convenience bundles ----------------------------------------------------
 
@@ -166,7 +129,7 @@ full = [
 
 # Absolutely everything
 all = [
-    "aquilia[full,mlops-all]",
+    "aquilia[full]",
 ]
 
 # Testing & development
@@ -211,7 +174,7 @@ exclude = ["tests*", "benchmark*", "docs*", "myapp*"]
 [tool.setuptools.package-data]
 "aquilia" = ["py.typed"]
 "aquilia.admin" = ["templates/**/*.html"]
-"aquilia.mlops.deploy" = ["grafana/*.json", "k8s/*.yaml"]
+
 "aquilia.patterns" = ["README.md"]
 "aquilia.templates" = ["README.md"]
 

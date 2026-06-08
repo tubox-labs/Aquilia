@@ -80,9 +80,6 @@ from aquilia.integrations.mail import (
     SmtpProvider,
 )
 
-# ── MLOps ─────────────────────────────────────────────────────────────
-from aquilia.integrations.mlops import MLOpsIntegration
-
 # ── Middleware ────────────────────────────────────────────────────────
 from aquilia.integrations.mw import (
     MiddlewareChain,
@@ -172,8 +169,6 @@ __all__ = [
     "OpenAPIIntegration",
     # i18n
     "I18nIntegration",
-    # ML
-    "MLOpsIntegration",
     # Versioning
     "VersioningIntegration",
     # Deployment

@@ -5,7 +5,7 @@ Production-ready deployment file generators **and executor** for Aquilia
 workspaces.  Each sub-command generates a specific deployment artefact:
 
     aq deploy                -- Interactive wizard (generate + execute)
-    aq deploy dockerfile     -- Dockerfile (production / dev / mlops)
+    aq deploy dockerfile     -- Dockerfile (production / dev)
     aq deploy compose        -- docker-compose.yml
     aq deploy kubernetes     -- Full Kubernetes manifest suite
     aq deploy nginx          -- Nginx reverse-proxy configuration
@@ -402,7 +402,7 @@ def _interactive_deploy(
                 ("Python", wctx.get("python_version", "3.12")),
                 ("Cache", "yes" if wctx.get("has_cache") else "no"),
                 ("WebSockets", "yes" if wctx.get("has_websockets") else "no"),
-                ("MLOps", "yes" if wctx.get("has_mlops") else "no"),
+                ("WebSockets", "yes" if wctx.get("has_websockets") else "no"),
             ],
             icon=_GEAR,
         )
@@ -413,7 +413,7 @@ def _interactive_deploy(
         artefacts = multi_select(
             "Artefacts to generate",
             [
-                ("dockerfile", "Dockerfile (prod + dev + mlops)", True),
+                ("dockerfile", "Dockerfile (prod + dev)", True),
                 ("compose", "docker-compose.yml (full stack)", True),
                 ("kubernetes", "Kubernetes manifests (k8s/)", False),
                 ("nginx", "Nginx reverse-proxy config", False),
@@ -548,15 +548,6 @@ def _interactive_deploy(
             out / "Dockerfile.dev",
             docker_gen.generate_dockerfile_dev(),
             label="Dockerfile.dev (development)",
-            verbose=verbose,
-            force=force,
-            dry_run=dry_run,
-        ):
-            written += 1
-        if wctx.get("has_mlops") and _write_file(
-            out / "Dockerfile.mlops",
-            docker_gen.generate_dockerfile_mlops(),
-            label="Dockerfile.mlops (model-serving)",
             verbose=verbose,
             force=force,
             dry_run=dry_run,
@@ -863,11 +854,10 @@ def _interactive_deploy(
 
 @deploy_gen_group.command("dockerfile")
 @click.option("--dev", "dev_mode", is_flag=True, help="Generate development Dockerfile (with hot-reload)")
-@click.option("--mlops", "mlops_mode", is_flag=True, help="Generate MLOps model-serving Dockerfile")
 @click.option("--output", "-o", type=click.Path(), default=".", help="Output directory")
 @deploy_options
 @click.pass_context
-def deploy_dockerfile(ctx, dev_mode: bool, mlops_mode: bool, output: str, force: bool, dry_run: bool):
+def deploy_dockerfile(ctx, dev_mode: bool, output: str, force: bool, dry_run: bool):
     """
     Generate production-ready Dockerfiles.
 
@@ -878,8 +868,6 @@ def deploy_dockerfile(ctx, dev_mode: bool, mlops_mode: bool, output: str, force:
     Examples:
       aq deploy dockerfile
       aq deploy dockerfile --dev
-      aq deploy dockerfile --mlops
-      aq deploy dockerfile --dev --mlops   # Generate all variants
       aq deploy -f dockerfile              # Force overwrite
     """
     from ..generators.deployment import DockerfileGenerator
@@ -902,49 +890,28 @@ def deploy_dockerfile(ctx, dev_mode: bool, mlops_mode: bool, output: str, force:
         kv("Python", wctx.get("python_version", "3.12"))
         click.echo()
 
-        # Always generate production Dockerfile + .dockerignore
-        if not dev_mode or mlops_mode:
-            _write_file(
-                out / "Dockerfile",
-                gen.generate_dockerfile(),
-                label="Dockerfile (production)",
-                verbose=verbose,
-                force=force,
-                dry_run=dry_run,
-            )
-            _write_file(
-                out / ".dockerignore",
-                gen.generate_dockerignore(),
-                label=".dockerignore",
-                verbose=verbose,
-                force=force,
-                dry_run=dry_run,
-            )
+        _write_file(
+            out / "Dockerfile",
+            gen.generate_dockerfile(),
+            label="Dockerfile (production)",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
+        _write_file(
+            out / ".dockerignore",
+            gen.generate_dockerignore(),
+            label=".dockerignore",
+            verbose=verbose,
+            force=force,
+            dry_run=dry_run,
+        )
 
         if dev_mode:
             _write_file(
                 out / "Dockerfile.dev",
                 gen.generate_dockerfile_dev(),
                 label="Dockerfile.dev (development)",
-                verbose=verbose,
-                force=force,
-                dry_run=dry_run,
-            )
-            if not mlops_mode:
-                _write_file(
-                    out / ".dockerignore",
-                    gen.generate_dockerignore(),
-                    label=".dockerignore",
-                    verbose=verbose,
-                    force=force,
-                    dry_run=dry_run,
-                )
-
-        if mlops_mode or wctx.get("has_mlops"):
-            _write_file(
-                out / "Dockerfile.mlops",
-                gen.generate_dockerfile_mlops(),
-                label="Dockerfile.mlops (model-serving)",
                 verbose=verbose,
                 force=force,
                 dry_run=dry_run,
@@ -978,9 +945,9 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
     """
     Generate docker-compose.yml for the workspace.
 
-    Auto-detects services: PostgreSQL, MySQL, Redis, MLOps model server,
+    Auto-detects services: PostgreSQL, MySQL, Redis,
     Nginx, monitoring, and mail based on your workspace configuration.
-    Uses compose profiles for optional services (mlops, monitoring, dev).
+    Uses compose profiles for optional services (monitoring, dev).
 
     Examples:
       aq deploy compose
@@ -1044,22 +1011,19 @@ def deploy_compose(ctx, dev_mode: bool, monitoring: bool, output: str, force: bo
 
 @deploy_gen_group.command("kubernetes")
 @click.option("--output", "-o", type=click.Path(), default="k8s", help="Output directory")
-@click.option("--mlops", is_flag=True, help="Force include MLOps manifests")
 @deploy_options
 @click.pass_context
-def deploy_kubernetes(ctx, output: str, mlops: bool, force: bool, dry_run: bool):
+def deploy_kubernetes(ctx, output: str, force: bool, dry_run: bool):
     """
     Generate production Kubernetes manifests.
 
     Generates namespace, deployment, service, ingress, HPA, PDB,
     network policy, configmap, secret, service account, PVC,
     CronJob for maintenance, and init containers for DB readiness.
-    Includes MLOps manifests if mlops components are detected.
 
     Examples:
       aq deploy kubernetes
       aq deploy kubernetes -o deploy/k8s
-      aq deploy kubernetes --mlops
     """
     from ..generators.deployment import KubernetesGenerator
 
@@ -1071,8 +1035,6 @@ def deploy_kubernetes(ctx, output: str, mlops: bool, force: bool, dry_run: bool)
 
     try:
         wctx = _get_ctx(workspace_root)
-        if mlops:
-            wctx["has_mlops"] = True
 
         gen = KubernetesGenerator(wctx)
 
@@ -1135,8 +1097,8 @@ def deploy_nginx(ctx, output: str, force: bool, dry_run: bool):
     Generate Nginx reverse-proxy configuration.
 
     Includes rate-limiting, security headers (HSTS, CSP, XSS), gzip,
-    WebSocket upgrade support, upstream keepalive, and MLOps proxy
-    if detected. HTTPS block included (commented) with modern TLS config.
+    WebSocket upgrade support, and upstream keepalive.
+    HTTPS block included (commented) with modern TLS config.
 
     Examples:
       aq deploy nginx
@@ -1282,7 +1244,7 @@ def deploy_monitoring(ctx, output: str, force: bool, dry_run: bool):
     Generate monitoring configuration (Prometheus + Grafana).
 
     Creates Prometheus scrape config and Grafana provisioning files
-    for Aquilia app and MLOps model server metrics.
+    for Aquilia app metrics.
 
     Prometheus scrape targets are auto-configured based on detected
     modules (app metrics, model-server, Redis, Postgres exporters).
@@ -1490,15 +1452,6 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
             dry_run=dry_run,
         ):
             written += 1
-        if wctx.get("has_mlops") and _write_file(
-            out / "Dockerfile.mlops",
-            docker_gen.generate_dockerfile_mlops(),
-            label="Dockerfile.mlops",
-            verbose=verbose,
-            force=force,
-            dry_run=dry_run,
-        ):
-            written += 1
 
         # -- Compose --
         click.echo()
@@ -1693,8 +1646,6 @@ def deploy_all(ctx, output: str, monitoring: bool, ci_provider: str, force: bool
             ("Dockerfile.dev", "Development (hot-reload)"),
             (".dockerignore", "Build context exclusions"),
         ]
-        if wctx.get("has_mlops"):
-            structure.append(("Dockerfile.mlops", "MLOps model server"))
         structure += [
             ("docker-compose.yml", "Full service stack (profiles)"),
             ("docker-compose.dev.yml", "Dev override"),

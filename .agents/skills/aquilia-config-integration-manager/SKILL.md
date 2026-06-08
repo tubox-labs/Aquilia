@@ -1,6 +1,6 @@
 ---
 name: aquilia-config-integration-manager
-description: "Manage Aquilia Python-native configuration and typed integrations. Use for Integration.* builders, aquilia.integrations dataclasses, database/cache/storage/tasks/mail/templates/admin/openapi/mlops/security/session config, Env, Secret, and ConfigLoader behavior."
+description: "Manage Aquilia Python-native configuration and typed integrations. Use for Integration.* builders, aquilia.integrations dataclasses, database/cache/storage/tasks/mail/templates/admin/openapi/security/session config, Env, Secret, and ConfigLoader behavior."
 ---
 
 # Aquilia Config Integration Manager
