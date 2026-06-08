@@ -33,10 +33,10 @@ Quick start::
 
 Backward compatibility
 ----------------------
-The legacy ``Integration`` class in ``config_builders.py`` still works.
-Its static methods now delegate to these typed classes, so old code
+The legacy ``Integration`` class lives in ``_legacy.py`` (formerly
+``config_builders.py``).  Its static methods still work, so old code
 (``Integration.mail(...)``, ``Integration.admin(...)``, etc.) keeps
-working without changes.
+compiling, but new code should prefer the typed dataclasses.
 """
 
 # ── Protocol ──────────────────────────────────────────────────────────
@@ -125,6 +125,9 @@ from aquilia.integrations.tasks import TasksIntegration
 # ── Templates ─────────────────────────────────────────────────────────
 from aquilia.integrations.templates import TemplatesIntegration
 
+# ── Legacy Integration (backward compat) ───────────────────────────────
+from aquilia.integrations._legacy import Integration as Integration  # noqa: F811
+
 # ── Versioning ────────────────────────────────────────────────────────
 from aquilia.integrations.versioning_cfg import VersioningIntegration
 
@@ -183,4 +186,6 @@ __all__ = [
     "PatternsIntegration",
     "RegistryIntegration",
     "SerializersIntegration",
+    # Legacy
+    "Integration",
 ]

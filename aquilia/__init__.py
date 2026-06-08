@@ -250,7 +250,7 @@ from .cache import (
     set_default_cache_service,
 )
 from .config import Config, ConfigLoader
-from .config_builders import Integration, Module, Workspace
+from .workspace import Module, Workspace
 
 # ============================================================================
 # Controller System (NEW - First-class controllers)
@@ -519,6 +519,7 @@ from .integrations import (
     FileProvider,
     I18nIntegration,
     IntegrationConfig,
+    Integration,  # legacy — prefer typed dataclasses
     LoggingIntegration,
     MailAuth,
     MailIntegration,
@@ -1137,6 +1138,7 @@ __all__ = [
     # Config builders (NEW - Python config)
     "Workspace",
     "Module",
+    # Legacy Integration
     "Integration",
     # Typed Integration configs (modern API)
     "IntegrationConfig",
