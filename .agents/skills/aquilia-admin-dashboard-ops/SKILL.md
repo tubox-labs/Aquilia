@@ -1,6 +1,6 @@
 ---
 name: aquilia-admin-dashboard-ops
-description: "Build and operate Aquilia admin dashboard features. Use for AdminIntegration, AdminModules, admin templates/controllers/security/audit/users/permissions/monitoring/storage/tasks/mlops/provider pages, and aq admin commands."
+description: "Build and operate Aquilia admin dashboard features. Use for AdminIntegration, AdminModules, admin templates/controllers/security/audit/users/permissions/monitoring/storage/tasks/provider pages, and aq admin commands."
 ---
 
 # Aquilia Admin Dashboard Ops
@@ -9,7 +9,7 @@ description: "Build and operate Aquilia admin dashboard features. Use for AdminI
 Configure and extend the built-in Aquilia admin dashboard and admin CLI operations.
 
 ## Trigger Conditions
-Use for admin dashboard setup, admin pages, users/staff/superuser management, audit logs, permissions, monitoring, storage/tasks/mail/mlops admin modules, and `aq admin` commands.
+Use for admin dashboard setup, admin pages, users/staff/superuser management, audit logs, permissions, monitoring, storage/tasks/mail admin modules, and `aq admin` commands.
 
 ## Inputs
 - Admin site title, enabled modules, security settings, database URL, user credentials, and page/module requirements.

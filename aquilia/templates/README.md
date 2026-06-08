@@ -129,7 +129,7 @@ class BlogController(Controller):
         self.templates = templates
         self.repo = repo
     
-    @GET("/post/«id:int»")
+    @GET("/post/{id:int}")
     async def view_post(self, ctx, id: int):
         post = await self.repo.get(id)
         return self.render("blog/post.html", {"post": post}, ctx)

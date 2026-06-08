@@ -6,7 +6,7 @@ AquilaPatterns is a professional, production-grade URL routing system that provi
 
 - 🎯 **Static-first & toolable**: Patterns are data assets — parseable, analyzable, and deterministic
 - 🛡️ **Safe by default**: Compile-time errors for ambiguous/conflicting patterns
-- 📖 **Human-readable**: Clear token visuals with guillemets `«»`
+- 📖 **Human-readable**: Clear token visuals with braces `{}`
 - 🧩 **Composable**: Optional groups and multi-captures compose deterministically
 - ⚡ **Performant**: Radix-first matching with compiled castors
 - 🔌 **Extensible**: Custom types, transforms, and validators via registries
@@ -28,7 +28,7 @@ from aquilia.patterns import parse_pattern, PatternCompiler, PatternMatcher
 import asyncio
 
 # Parse a pattern
-pattern_str = "/users/«id:int»"
+pattern_str = "/users/{id:int}"
 ast = parse_pattern(pattern_str)
 
 # Compile it
@@ -53,12 +53,12 @@ asyncio.run(match_request())
 ### Token Parameters
 
 ```python
-«id:int»                          # Single segment, cast to int
-«slug:slug|re=^[a-z0-9-]+$»      # Slug with regex constraint
-«year:int|min=1900|max=2100»     # Integer with range
-«tag:str|in=(python,rust,go)»    # Enum constraint
-«data:json»                       # JSON object
-«uuid:uuid»                       # UUID v4
+{id:int}                          # Single segment, cast to int
+{slug:slug|re=^[a-z0-9-]+$}      # Slug with regex constraint
+{year:int|min=1900|max=2100}     # Integer with range
+{tag:str|in=(python,rust,go)}    # Enum constraint
+{data:json}                       # JSON object
+{uuid:uuid}                       # UUID v4
 ```
 
 ### Multi-Segment Captures (Splat)
@@ -71,8 +71,8 @@ asyncio.run(match_request())
 ### Optional Groups
 
 ```python
-/posts[/«year:int»[/«month:int»]]  # /posts, /posts/2024, /posts/2024/12
-/products[/«category:slug»]/«id:int»
+/posts[/{year:int}[/{month:int}]]  # /posts, /posts/2024, /posts/2024/12
+/products[/{category:slug}]/{id:int}
 ```
 
 ### Query Parameters
@@ -84,31 +84,31 @@ asyncio.run(match_request())
 ### Transforms
 
 ```python
-«username:str@lower»              # Apply lowercase transform
-«title:str@strip»                 # Strip whitespace
+{username:str@lower}              # Apply lowercase transform
+{title:str@strip}                 # Strip whitespace
 ```
 
 ### Complete Examples
 
 ```python
 # Basic routes
-"/users/«id:int»"
+"/users/{id:int}"
 "/files/*path"
-"/blog/«slug:slug»"
+"/blog/{slug:slug}"
 
 # With constraints
-"/articles/«year:int|min=1900|max=2100»"
-"/products/«cat:str|in=(electronics,books,toys)»"
-"/archive/«date:str|re=\"^\\d{4}-\\d{2}-\\d{2}$\"»"
+"/articles/{year:int|min=1900|max=2100}"
+"/products/{cat:str|in=(electronics,books,toys)}"
+"/archive/{date:str|re=\"^\\d{4}-\\d{2}-\\d{2}$\"}"
 
 # Optional groups
-"/api/«version:str»/items[/«id:int»]"
+"/api/{version:str}/items[/{id:int}]"
 
 # Query parameters
 "/search?query:str|min=1&limit:int=10"
 
 # Complex
-"/api/v«version:int»/users/«id:int»/posts[/«post_id:int»]?include:str=comments"
+"/api/v{version:int}/users/{id:int}/posts[/{post_id:int}]?include:str=comments"
 ```
 
 ---
@@ -117,15 +117,15 @@ asyncio.run(match_request())
 
 | Type | Description | Example |
 |------|-------------|---------|
-| `str` | String (default) | `«name:str»` |
-| `int` | Integer | `«id:int»` |
-| `float` | Floating point | `«price:float»` |
-| `uuid` | UUID v4 | `«id:uuid»` |
-| `slug` | URL-safe slug | `«slug:slug»` |
+| `str` | String (default) | `{name:str}` |
+| `int` | Integer | `{id:int}` |
+| `float` | Floating point | `{price:float}` |
+| `uuid` | UUID v4 | `{id:uuid}` |
+| `slug` | URL-safe slug | `{slug:slug}` |
 | `path` | Multi-segment path | `*path:path` |
-| `bool` | Boolean | `«active:bool»` |
-| `json` | JSON object/array | `«data:json»` |
-| `any` | No casting | `«value:any»` |
+| `bool` | Boolean | `{active:bool}` |
+| `json` | JSON object/array | `{data:json}` |
+| `any` | No casting | `{value:any}` |
 
 ---
 
@@ -133,11 +133,11 @@ asyncio.run(match_request())
 
 | Constraint | Description | Example |
 |------------|-------------|---------|
-| `min=` | Minimum value/length | `«age:int|min=18»` |
-| `max=` | Maximum value/length | `«age:int|max=120»` |
-| `re=` | Regex pattern | `«code:str|re=\"^[A-Z]{3}$\"»` |
-| `in=` | Enum values | `«status:str|in=(active,inactive)»` |
-| `hdr:` | Header predicate | `«id:int|hdr:X-API-Key=secret»` |
+| `min=` | Minimum value/length | `{age:int|min=18}` |
+| `max=` | Maximum value/length | `{age:int|max=120}` |
+| `re=` | Regex pattern | `{code:str|re=\"^[A-Z]{3}$\"}` |
+| `in=` | Enum values | `{status:str|in=(active,inactive)}` |
+| `hdr:` | Header predicate | `{id:int|hdr:X-API-Key=secret}` |
 
 ---
 
@@ -156,12 +156,12 @@ Patterns are ranked automatically by specificity for deterministic matching:
 ### Example Rankings
 
 ```
- 324  /users/«id:int»                              # Static + int
- 324  /articles/«year:int|min=1900|max=2100»      # Static + int with constraints
- 324  /products/«cat:str|in=(a,b,c)»              # Static + enum constraint
- 254  /blog/«slug:slug»                            # Static + slug type
+ 324  /users/{id:int}                              # Static + int
+ 324  /articles/{year:int|min=1900|max=2100}      # Static + int with constraints
+ 324  /products/{cat:str|in=(a,b,c)}              # Static + enum constraint
+ 254  /blog/{slug:slug}                            # Static + slug type
  204  /files/*path                                 # Static + splat
-  50  /«slug:str»                                  # Generic string only
+  50  /{slug:str}                                  # Generic string only
 ```
 
 ---
@@ -228,7 +228,7 @@ def email_type(value: str) -> str:
     return value.lower()
 
 # Use in patterns
-"/users/«email:email»"
+"/users/{email:email}"
 ```
 
 ---
@@ -245,7 +245,7 @@ def slugify(value: str) -> str:
     return value.lower().replace(" ", "-")
 
 # Use in patterns
-"/posts/«title:str@slugify»"
+"/posts/{title:str@slugify}"
 ```
 
 ---
@@ -258,14 +258,14 @@ AquilaPatterns provides rich error reporting with spans:
 PatternSyntaxError: Unterminated token starting at pos 8 
   --> my_app.py:12:9
   |
-12|   pattern = "/users/«id:int"
+12|   pattern = "/users/{id:int"
   |                    ^^^^^^^^
   |
-  = Expected '»' to close token
+  = Expected '}' to close token
 
 RouteAmbiguityError: Ambiguous routes detected
-  Pattern 1: /items/«id:int» (specificity=324)
-  Pattern 2: /items/«name:str» (specificity=274)
+  Pattern 1: /items/{id:int} (specificity=324)
+  Pattern 2: /items/{name:str} (specificity=274)
   
 Suggestions:
   1) Add stricter constraint to Pattern 2
@@ -344,12 +344,12 @@ pytest tests/patterns/ --cov=aquilia.patterns --cov-report=html
 ```python
 patterns = [
     "/products",
-    "/products/«id:int»",
-    "/products/«id:int»/reviews",
+    "/products/{id:int}",
+    "/products/{id:int}/reviews",
     "/products/search?q:str&category:slug&min_price:float=0&max_price:float",
-    "/categories/«slug:slug»/products",
-    "/cart/«user_id:uuid»/items",
-    "/orders/«order_id:uuid»",
+    "/categories/{slug:slug}/products",
+    "/cart/{user_id:uuid}/items",
+    "/orders/{order_id:uuid}",
 ]
 ```
 
@@ -358,10 +358,10 @@ patterns = [
 ```python
 patterns = [
     "/posts",
-    "/posts/«slug:slug»",
-    "/posts/«year:int»/«month:int»",
-    "/authors/«username:str»",
-    "/tags/«tag:slug»/posts",
+    "/posts/{slug:slug}",
+    "/posts/{year:int}/{month:int}",
+    "/authors/{username:str}",
+    "/tags/{tag:slug}/posts",
     "/search?q:str|min=3",
 ]
 ```
@@ -371,9 +371,9 @@ patterns = [
 ```python
 patterns = [
     "/files/*path",
-    "/download/«id:uuid»",
+    "/download/{id:uuid}",
     "/upload",
-    "/browse/«dir:path»",
+    "/browse/{dir:path}",
 ]
 ```
 
@@ -388,13 +388,13 @@ patterns = [
 "/users"
 
 # Integer parameter
-"/users/«id:int»"
+"/users/{id:int}"
 
 # String parameter
-"/users/«name:str»"
+"/users/{name:str}"
 
 # UUID parameter
-"/users/«id:uuid»"
+"/users/{id:uuid}"
 
 # Wildcard / catch-all
 "/files/*path"
@@ -404,10 +404,10 @@ patterns = [
 
 ```python
 # Min/max length
-"/posts/«slug:slug|min=3|max=80»"
+"/posts/{slug:slug|min=3|max=80}"
 
 # Numeric range
-"/years/«year:int|min=2000|max=2099»"
+"/years/{year:int|min=2000|max=2099}"
 ```
 
 ### Query parameters

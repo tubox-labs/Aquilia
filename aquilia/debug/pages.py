@@ -1254,8 +1254,8 @@ def render_welcome_page(*, aquilia_version: str = "", system_info: dict[str, Any
             </div>
             <div class="feature-card">
                  <div class="feature-icon" style="color:#f43f5e;border-color:rgba(244,63,94,0.2);background:rgba(244,63,94,0.1)">{_icon("cpu", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Aquilia MLOps</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Native model lifecycle management, serving, and experimental tracking integration.</p>
+                <h3 style="margin-bottom:8px;">Aquilia CLI</h3>
+                <p style="color:var(--tx-text-muted);font-size:14px;">Powerful `aq` CLI with workspace management, dev server, and infrastructure generation.</p>
             </div>
             <div class="feature-card">
                  <div class="feature-icon" style="color:#8b5cf6;border-color:rgba(139,92,246,0.2);background:rgba(139,92,246,0.1)">{_icon("layout", "icon icon-lg")}</div>

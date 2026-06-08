@@ -3,8 +3,7 @@ Aquilia Migration System -- generate and apply schema migrations.
 
 Provides:
 - Migration operations (op.create_table, op.drop_table, etc.)
-- Migration file generation from AMDL diffs (legacy)
-- Migration file generation from Python Model classes (new)
+- Migration file generation from Python Model classes
 - Migration runner with tracking table
 """
 
@@ -21,11 +20,6 @@ from typing import Any
 
 from ..db.engine import AquiliaDatabase
 from ..faults.domains import MigrationFault
-from .ast_nodes import ModelNode
-from .runtime import (
-    generate_create_index_sql,
-    generate_create_table_sql,
-)
 from .signals import post_migrate, pre_migrate
 
 logger = logging.getLogger("aquilia.models.migrations")
@@ -467,82 +461,6 @@ def _generate_revision() -> str:
 def _slugify(name: str) -> str:
     """Convert model name to a migration slug."""
     return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-
-
-def generate_migration_file(
-    models: list[ModelNode],
-    migrations_dir: str | Path,
-    slug: str | None = None,
-    dialect: str = "sqlite",
-) -> Path:
-    """
-    Generate a migration file from AMDL model nodes.
-
-    Creates a Python file with upgrade() and downgrade() functions.
-
-    Args:
-        models: List of ModelNode objects
-        migrations_dir: Directory to write migration file
-        slug: Optional slug for filename
-        dialect: Database dialect ("sqlite", "postgresql", "mysql")
-
-    Returns:
-        Path to generated migration file
-    """
-    rev = _generate_revision()
-    if not slug:
-        names = [_slugify(m.name) for m in models]
-        slug = "_".join(names[:3])
-        if len(models) > 3:
-            slug += f"_and_{len(models) - 3}_more"
-
-    filename = f"{rev}_{slug}.py"
-    mdir = Path(migrations_dir)
-    mdir.mkdir(parents=True, exist_ok=True)
-
-    # Build upgrade SQL
-    upgrade_lines: list[str] = []
-    downgrade_lines: list[str] = []
-
-    for model in models:
-        # Create table
-        create_sql = generate_create_table_sql(model, dialect=dialect)
-        upgrade_lines.append(f'    await conn.execute("""{create_sql}""")')
-
-        # Create indexes
-        for idx_sql in generate_create_index_sql(model, dialect=dialect):
-            upgrade_lines.append(f'    await conn.execute("""{idx_sql}""")')
-
-        # Drop table (downgrade)
-        downgrade_lines.append(f"    await conn.execute('DROP TABLE IF EXISTS \"{model.table_name}\"')")
-
-    upgrade_body = "\n".join(upgrade_lines) if upgrade_lines else "    pass"
-    downgrade_body = "\n".join(downgrade_lines) if downgrade_lines else "    pass"
-
-    content = f'''"""
-Migration: {rev}_{slug}
-Generated: {datetime.datetime.now(datetime.timezone.utc).isoformat()}
-Models: {", ".join(m.name for m in models)}
-"""
-
-# Revision identifiers
-revision = "{rev}"
-slug = "{slug}"
-
-
-async def upgrade(conn):
-    """Apply migration -- create tables."""
-{upgrade_body}
-
-
-async def downgrade(conn):
-    """Revert migration -- drop tables."""
-{downgrade_body}
-'''
-
-    filepath = mdir / filename
-    filepath.write_text(content, encoding="utf-8")
-    return filepath
 
 
 def generate_migration_from_models(

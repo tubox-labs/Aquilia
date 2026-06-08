@@ -87,7 +87,6 @@ class TestAdminConfigMailerModule:
                 "tasks": False,
                 "errors": False,
                 "testing": False,
-                "mlops": False,
                 "storage": False,
                 "mailer": True,
             }
@@ -242,16 +241,7 @@ class TestAdminModulesMailerBuilder:
         assert d["mailer"] is True
         assert d["storage"] is True
 
-    def test_enable_mailer_with_mlops(self):
-        from aquilia.config_builders import Integration
-
-        mods = Integration.AdminModules().enable_mlops().enable_mailer()
-        d = mods.to_dict()
-        assert d["mailer"] is True
-        assert d["mlops"] is True
-
-
-# ════════════════════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════════════════
 # 3. INTEGRATION.ADMIN() FLAT SYNTAX
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -1410,19 +1400,7 @@ class TestServerMailerRouteWiring:
         assert model_crud_pos > 0, "model CRUD routes not found in server source"
         assert mailer_pos < model_crud_pos, "Mailer routes must come before model CRUD catch-all"
 
-    def test_mailer_routes_after_mlops_routes(self):
-        """Mailer routes should be placed after MLOps routes."""
-        import aquilia.server as srv_mod
-
-        src = inspect.getsource(srv_mod)
-        mlops_pos = src.find("mlops_view")
-        mailer_pos = src.find("mailer_view")
-        assert mlops_pos > 0
-        assert mailer_pos > 0
-        assert mailer_pos > mlops_pos
-
-
-# ════════════════════════════════════════════════════════════════════════════
+    # ════════════════════════════════════════════════════════════════════════════
 # 12. DISABLED PAGE BEHAVIOUR
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -2154,7 +2132,7 @@ class TestMailerEdgeCases:
         assert cfg.is_module_enabled("mailer") is True
         assert cfg.is_module_enabled("storage") is True
         assert cfg.is_module_enabled("tasks") is True
-        assert cfg.is_module_enabled("mlops") is False
+        assert cfg.is_module_enabled("tasks") is True
 
 
 # ════════════════════════════════════════════════════════════════════════════

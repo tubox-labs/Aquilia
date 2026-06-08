@@ -187,7 +187,7 @@ class AquiliaServer:
         # Track startup state
         self._startup_complete = False
         self._startup_lock = None  # Will be created in async context
-        self._amdl_database: Any | None = None
+        self._database: Any | None = None
 
         # Create ASGI app with server reference for lifecycle management
         # Note: self.aquila_sockets is initialized in _setup_middleware()
@@ -2414,30 +2414,6 @@ class AquiliaServer:
                     ("GET", f"{url_prefix}/testing/api/", "testing_api", ctrl.testing_api),
                 ]
             )
-            admin_routes.extend(
-                [
-                    ("GET", f"{url_prefix}/mlops/", "mlops_view", ctrl.mlops_view),
-                    ("GET", f"{url_prefix}/mlops/api/", "mlops_api", ctrl.mlops_api),
-                    # MLOps interactive API endpoints
-                    ("POST", f"{url_prefix}/mlops/api/predict/", "mlops_predict", ctrl.mlops_predict),
-                    ("POST", f"{url_prefix}/mlops/api/compare/", "mlops_compare", ctrl.mlops_compare),
-                    ("POST", f"{url_prefix}/mlops/api/health-check/", "mlops_health_check", ctrl.mlops_health_check),
-                    ("POST", f"{url_prefix}/mlops/api/batch-predict/", "mlops_batch_predict", ctrl.mlops_batch_predict),
-                    (
-                        "GET",
-                        f"{url_prefix}/mlops/api/inference-history/",
-                        "mlops_inference_history",
-                        ctrl.mlops_inference_history,
-                    ),
-                    ("POST", f"{url_prefix}/mlops/api/alerts/", "mlops_update_alerts", ctrl.mlops_update_alerts),
-                    (
-                        "POST",
-                        f"{url_prefix}/mlops/api/export-snapshot/",
-                        "mlops_export_snapshot",
-                        ctrl.mlops_export_snapshot,
-                    ),
-                ]
-            )
 
             # Mailer routes (always registered — disabled page on off)
             admin_routes.extend(
@@ -2550,13 +2526,6 @@ class AquiliaServer:
             except Exception:
                 pass  # DI is optional
 
-            # ── Wire MLOps services into admin site ────────────────────
-            # When enable_mlops() is set, auto-create all MLOps subsystem
-            # instances and wire them into the admin site so the dashboard
-            # displays live data for any @model-decorated pipelines.
-            if _mod("mlops"):
-                self._wire_mlops_admin_services(site)
-
             # ── Wire provider services into admin site ───────────────
             if _mod("provider"):
                 self._wire_provider_admin_services(site)
@@ -2576,186 +2545,6 @@ class AquiliaServer:
             self.logger.warning(f"Admin integration skipped -- missing dependency: {e}")
         except Exception as e:
             self.logger.error(f"Admin integration failed: {e}", exc_info=True)
-
-    def _wire_mlops_admin_services(self, site) -> None:
-        """
-        Auto-create and wire all MLOps subsystem instances into the admin
-        site so the dashboard displays live data.
-
-        Called from ``_wire_admin_integration()`` when ``enable_mlops()``
-        is active.  Works in two phases:
-
-        1. **Registry**: pulls the global ``@model`` decorator registry
-           (populated when user modules import ``@model``-decorated classes).
-        2. **Subsystems**: creates ``MetricsCollector``, ``CircuitBreaker``,
-           ``TokenBucketRateLimiter``, ``MemoryTracker``, ``DriftDetector``,
-           ``ModelLineageDAG``, ``ExperimentLedger``, ``PluginHost``,
-           ``AdaptiveBatchQueue``, ``LRUCache`` and seeds them with
-           telemetry from the discovered models.
-        3. **Wire**: calls ``site.set_mlops_services(...)`` so the admin
-           page has full data.
-        """
-        try:
-            import random
-
-            from .mlops import (
-                AdaptiveBatchQueue,
-                CircuitBreaker,
-                DriftDetector,
-                DriftMethod,
-                ExperimentLedger,
-                LRUCache,
-                MemoryTracker,
-                MetricsCollector,
-                ModelLineageDAG,
-                PluginHost,
-                TokenBucketRateLimiter,
-            )
-            from .mlops.api.model_class import _get_global_registry
-
-            # ── 1. Registry ──────────────────────────────────────────
-            registry = _get_global_registry()
-            model_names = registry.list_models() if registry else []
-
-            # ── 2. Metrics Collector (seed with telemetry) ───────────
-            metrics = MetricsCollector()
-            rng = random.Random(42)
-            for model_name in model_names:
-                n_inferences = rng.randint(200, 2000)
-                for _ in range(n_inferences):
-                    latency = max(1.0, rng.gauss(25.0, 12.0))
-                    metrics.record_inference(
-                        model_name=model_name,
-                        latency_ms=latency,
-                        batch_size=rng.choice([1, 1, 1, 4, 8, 16]),
-                        error=rng.random() < 0.02,
-                    )
-
-            # ── 3. Circuit Breaker ───────────────────────────────────
-            circuit_breaker = CircuitBreaker(
-                failure_threshold=5,
-                success_threshold=3,
-                timeout_seconds=30.0,
-                half_open_max_calls=3,
-            )
-
-            # ── 4. Rate Limiter ──────────────────────────────────────
-            rate_limiter = TokenBucketRateLimiter(rate=100.0, capacity=500)
-
-            # ── 5. Memory Tracker (auto-allocate per model) ──────────
-            memory_tracker = MemoryTracker(soft_limit_mb=512, hard_limit_mb=1024)
-            _default_sizes = {"classifier": 48, "detector": 35, "default": 24}
-            for mname in model_names:
-                size = next(
-                    (v for k, v in _default_sizes.items() if k in mname),
-                    _default_sizes["default"],
-                )
-                with contextlib.suppress(Exception):
-                    memory_tracker.allocate(mname, size)
-
-            # ── 6. Drift Detector ────────────────────────────────────
-            drift_detector = DriftDetector(
-                method=DriftMethod.PSI,
-                threshold=0.15,
-                num_bins=20,
-            )
-            try:
-                import numpy as _np  # type: ignore[import-not-found]
-
-                _rng = _np.random.default_rng(99)
-                ref_features = [
-                    "feature_0",
-                    "feature_1",
-                    "feature_2",
-                    "feature_3",
-                    "feature_4",
-                    "feature_5",
-                    "feature_6",
-                ]
-                ref_data = {f: _rng.normal(0.0, 1.0, size=500).tolist() for f in ref_features}
-                drift_detector.set_reference(ref_data)
-            except Exception:
-                pass
-
-            # ── 7. Model Lineage DAG ─────────────────────────────────
-            lineage = ModelLineageDAG()
-            try:
-                lineage.add_model("raw_data", "v1", framework="data")
-                lineage.add_model("feature_pipeline", "v1", framework="sklearn", parents=["raw_data"])
-                for mname in model_names:
-                    entry = registry.get(mname) if registry else None
-                    tags = entry.tags if entry and hasattr(entry, "tags") else []
-                    lineage.add_model(
-                        f"{mname}:v1",
-                        "v1",
-                        framework="sklearn" if "sklearn" in tags else "custom",
-                        parents=["feature_pipeline"],
-                        metadata={"name": mname},
-                    )
-            except Exception:
-                pass
-
-            # ── 8. Experiment Ledger ─────────────────────────────────
-            ledger = ExperimentLedger()
-            if len(model_names) >= 1:
-                try:
-                    first = model_names[0]
-                    ledger.create(
-                        experiment_id=f"exp_{first}_ab",
-                        description=f"{first} v1 vs v2 A/B test",
-                        arms=[
-                            {"name": f"{first}:v1", "model_version": "v1", "weight": 0.8},
-                            {"name": f"{first}:v2_candidate", "model_version": "v2", "weight": 0.2},
-                        ],
-                    )
-                except Exception:
-                    pass
-            if len(model_names) >= 2:
-                try:
-                    second = model_names[1]
-                    ledger.create(
-                        experiment_id=f"exp_{second}_sweep",
-                        description=f"{second} hyperparameter sweep",
-                        arms=[
-                            {"name": "config_a", "model_version": "v1", "weight": 0.33},
-                            {"name": "config_b", "model_version": "v1", "weight": 0.34},
-                            {"name": "config_c", "model_version": "v1", "weight": 0.33},
-                        ],
-                    )
-                except Exception:
-                    pass
-
-            # ── 9. Plugin Host ───────────────────────────────────────
-            plugin_host = PluginHost()
-
-            # ── 10. Batch Queue ──────────────────────────────────────
-            batch_queue: Any = AdaptiveBatchQueue(max_capacity=256)
-
-            # ── 11. LRU Cache (pre-warm) ─────────────────────────────
-            lru_cache: Any = LRUCache(capacity=256)
-            for i in range(50):
-                with contextlib.suppress(Exception):
-                    lru_cache.put(f"inference:req_{i}", {"cached": True})
-
-            # ── Wire into admin site ─────────────────────────────────
-            site.set_mlops_services(
-                registry=registry,
-                metrics_collector=metrics,
-                drift_detector=drift_detector,
-                circuit_breaker=circuit_breaker,
-                rate_limiter=rate_limiter,
-                memory_tracker=memory_tracker,
-                plugin_host=plugin_host,
-                experiment_ledger=ledger,
-                lineage_dag=lineage,
-                batch_queue=batch_queue,
-                lru_cache=lru_cache,
-            )
-
-        except ImportError:
-            pass
-        except Exception as e:
-            self.logger.warning("MLOps admin wiring failed: %s", e)
 
     def _wire_provider_admin_services(self, site) -> None:
         """
@@ -3229,12 +3018,9 @@ class AquiliaServer:
                         f"Failed to register fault handler {handler_cfg.handler_path} for app {app_ctx.name}: {e}"
                     )
 
-    async def _register_amdl_models(self) -> None:
+    async def _register_models(self) -> None:
         """
         Register models discovered by the Aquilary pipeline.
-
-        Supports both legacy AMDL (.amdl) files and new pure-Python Model
-        subclasses (.py files with Model subclasses).
 
         Uses manifest-driven discovery (AppContext.models) populated by
         RuntimeRegistry.perform_autodiscovery() and explicit manifest
@@ -3243,7 +3029,7 @@ class AquiliaServer:
 
         Lifecycle:
         1. Collect model paths from AppContexts + global scan
-        2. Parse AMDL files / import Python model modules
+        2. Import Python model modules
         3. Configure database from manifest DatabaseConfig or config
         4. Optionally create tables / run migrations
         5. Register AquiliaDatabase + registries in all DI containers
@@ -3253,8 +3039,6 @@ class AquiliaServer:
         try:
             from .db.engine import AquiliaDatabase, configure_database, set_database  # noqa: F401
             from .models.base import Model, ModelRegistry
-            from .models.parser import parse_amdl_file
-            from .models.runtime import ModelRegistry as LegacyRegistry
         except ImportError:
             return
 
@@ -3272,9 +3056,6 @@ class AquiliaServer:
         # 1b. Global fallback scan (workspace-level models/ and modules/)
         for search_dir in [workspace_root / "models", workspace_root / "modules"]:
             if search_dir.is_dir():
-                for amdl in search_dir.rglob("*.amdl"):
-                    if amdl not in model_files:
-                        model_files.append(amdl)
                 # Only pick up Python files that are inside a "models" directory
                 # or are themselves named "models.py" -- never controllers/services/etc.
                 for pyf in search_dir.rglob("*.py"):
@@ -3288,26 +3069,9 @@ class AquiliaServer:
                     if pyf not in model_files:
                         model_files.append(pyf)
 
-        amdl_files = [f for f in model_files if f.suffix == ".amdl"]
         py_files = [f for f in model_files if f.suffix == ".py"]
 
-        len(amdl_files) + len(py_files)
-
-        # ── Phase 2a: Parse and register AMDL (legacy) ────────────────────
-        legacy_registry = getattr(self.runtime, "_model_registry", None) or LegacyRegistry()
-        amdl_count = 0
-
-        for amdl_path in amdl_files:
-            try:
-                amdl_file = parse_amdl_file(str(amdl_path))
-                for model in amdl_file.models:
-                    if model.name not in legacy_registry._models:
-                        legacy_registry.register_model(model)
-                        amdl_count += 1
-            except Exception as e:
-                self.logger.warning(f"Failed to parse {amdl_path}: {e}")
-
-        # ── Phase 2b: Import and register Python models ───────────────────
+        # ── Phase 2: Import and register Python models ───────────────────
         import importlib
         import importlib.util
         import sys
@@ -3433,18 +3197,13 @@ class AquiliaServer:
         if db_url:
             db = configure_database(db_url)
             await db.connect()
-            self._amdl_database = db
+            self._database = db
 
-            # Wire database to both registries
-            if legacy_registry._models:
-                legacy_registry.set_database(db)
+            # Wire database to ModelRegistry
             if ModelRegistry._models:
                 ModelRegistry.set_database(db)
 
             if auto_create:
-                # Create tables for both AMDL and Python models
-                if legacy_registry._models:
-                    await legacy_registry.create_tables()
                 if ModelRegistry._models:
                     await ModelRegistry.create_tables()
 
@@ -3470,16 +3229,6 @@ class AquiliaServer:
                         )
                     )
 
-                if legacy_registry._models:
-                    with contextlib.suppress(ValueError, Exception):
-                        container.register(
-                            ValueProvider(
-                                value=legacy_registry,
-                                token=LegacyRegistry,
-                                scope="app",
-                            )
-                        )
-
                 if ModelRegistry._models:
                     with contextlib.suppress(ValueError, Exception):
                         container.register(
@@ -3491,7 +3240,7 @@ class AquiliaServer:
                         )
 
         else:
-            self._amdl_database = None
+            self._database = None
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
@@ -3534,7 +3283,7 @@ class AquiliaServer:
                 declared_refs.append(ref)
 
                 # Validate explicit class refs directly.
-                if ":" not in ref or ref.endswith((".py", ".amdl")):
+                if ":" not in ref or ref.endswith(".py"):
                     continue
 
                 module_path, class_name = ref.split(":", 1)
@@ -3640,8 +3389,7 @@ class AquiliaServer:
                 self.logger.error(f"Lifecycle startup failed: {e}")
                 raise LifecycleError(f"Startup failed: {e}") from e
 
-            # Step 3.1: Register AMDL models from apps (if any .amdl files exist)
-            await self._register_amdl_models()
+            await self._register_models()
 
             # Step 3.15: Verify manifest model registration completeness
             self._validate_manifest_model_registry()
@@ -3847,12 +3595,12 @@ class AquiliaServer:
             except Exception as e:
                 self.logger.warning(f"Error shutting down WebSocket runtime: {e}")
 
-        # Disconnect AMDL database if connected
-        if hasattr(self, "_amdl_database") and self._amdl_database:
+        # Disconnect database if connected
+        if hasattr(self, "_database") and self._database:
             try:
-                await self._amdl_database.disconnect()
+                await self._database.disconnect()
             except Exception as e:
-                self.logger.warning(f"Error disconnecting AMDL database: {e}")
+                self.logger.warning(f"Error disconnecting database: {e}")
 
         # Reset startup state
         self._startup_complete = False

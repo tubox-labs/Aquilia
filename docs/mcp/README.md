@@ -2,7 +2,7 @@
 
 Aquilia MCP is a local, read-only Model Context Protocol server for coding agents working on Aquilia projects.
 
-It indexes the actual repository source, docs, examples, and tests, then exposes source-backed tools and prompts for Aquilia-aware generation, validation, discovery, and debugging. The canonical package is `aquilia.aquilia_mcp`; `aquilia.mcp` remains as a compatibility import path.
+It indexes the actual repository source, docs, examples, and tests, then exposes source-backed tools and prompts for Aquilia-aware generation, validation, discovery, and debugging. The canonical package is `aquilia.mcp`; `aquilia.mcp` remains as a compatibility import path.
 
 ## Quick Start
 
@@ -10,7 +10,7 @@ It indexes the actual repository source, docs, examples, and tests, then exposes
 aq mcp build-index --workspace .
 aq mcp doctor --json
 aq mcp list-tools
-python -m aquilia.aquilia_mcp --stdio --workspace .
+python -m aquilia.mcp --stdio --workspace .
 ```
 
 The server identity remains `aquilia-mcp`.

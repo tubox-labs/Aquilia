@@ -747,18 +747,6 @@ class ModelFault(Fault):
         )
 
 
-class AMDLParseFault(ModelFault):
-    """AMDL file parsing failed."""
-
-    def __init__(self, file: str, line: int, reason: str, **kwargs):
-        super().__init__(
-            code="AMDL_PARSE_ERROR",
-            message=f"AMDL parse error in '{file}' at line {line}: {reason}",
-            severity=Severity.FATAL,
-            metadata={"file": file, "line": line, "reason": reason, **kwargs.get("metadata", {})},
-        )
-
-
 class ModelNotFoundFault(ModelFault):
     """Model not found in registry."""
 

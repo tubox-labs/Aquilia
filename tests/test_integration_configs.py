@@ -59,7 +59,6 @@ class TestIntegrationImports:
             CsrfIntegration,
             OpenAPIIntegration,
             I18nIntegration,
-            MLOpsIntegration,
             VersioningIntegration,
             RenderIntegration,
             LoggingIntegration,
@@ -204,12 +203,6 @@ class TestProtocolCompliance:
 
         d = self._check_protocol(I18nIntegration())
         assert d["_integration_type"] == "i18n"
-
-    def test_mlops(self):
-        from aquilia.integrations import MLOpsIntegration
-
-        d = self._check_protocol(MLOpsIntegration())
-        assert d["_integration_type"] == "mlops"
 
     def test_versioning(self):
         from aquilia.integrations import VersioningIntegration
@@ -402,13 +395,6 @@ class TestDataclassConstruction:
 
         i = I18nIntegration()
         assert i.default_locale == "en"
-
-    def test_mlops_defaults(self):
-        from aquilia.integrations import MLOpsIntegration
-
-        m = MLOpsIntegration()
-        assert m.enabled is True
-        assert m.registry_db == "registry.db"
 
     def test_versioning_defaults(self):
         from aquilia.integrations import VersioningIntegration
@@ -1128,7 +1114,6 @@ class TestEdgeCases:
             CsrfIntegration,
             OpenAPIIntegration,
             I18nIntegration,
-            MLOpsIntegration,
             VersioningIntegration,
             RenderIntegration,
             LoggingIntegration,
@@ -1155,7 +1140,6 @@ class TestEdgeCases:
             (CsrfIntegration, {}),
             (OpenAPIIntegration, {}),
             (I18nIntegration, {}),
-            (MLOpsIntegration, {}),
             (VersioningIntegration, {}),
             (RenderIntegration, {}),
             (LoggingIntegration, {}),

@@ -67,7 +67,7 @@ class RouteDecorator:
         Initialize route decorator.
 
         Args:
-            path: URL path template (e.g., "/", "/«id:int»")
+            path: URL path template (e.g., "/", "/{id:int}")
                   If None, derives from method name
             method: HTTP method (GET, POST, etc.) -- set by subclasses
             pipeline: Method-level pipeline nodes (overrides class-level)

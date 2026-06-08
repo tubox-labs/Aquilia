@@ -37,7 +37,7 @@ class AdminModules:
     Controls which admin pages are visible.
 
     All modules default to ``True`` except monitoring, audit, containers,
-    pods, query_inspector, tasks, errors, testing, mlops, storage, mailer,
+    pods, query_inspector, tasks, errors, testing, storage, mailer,
     and provider which default to ``False`` (opt-in).
 
     Example::
@@ -61,7 +61,6 @@ class AdminModules:
     tasks: bool = False
     errors: bool = False
     testing: bool = False
-    mlops: bool = False
     storage: bool = False
     mailer: bool = False
     api_keys: bool = True
@@ -215,14 +214,6 @@ class AdminModules:
 
     def disable_testing(self) -> AdminModules:
         self.testing = False
-        return self
-
-    def enable_mlops(self) -> AdminModules:
-        self.mlops = True
-        return self
-
-    def disable_mlops(self) -> AdminModules:
-        self.mlops = False
         return self
 
     def enable_storage(self) -> AdminModules:

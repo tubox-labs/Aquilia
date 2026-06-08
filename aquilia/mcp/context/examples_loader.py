@@ -28,7 +28,6 @@ def example_mappings(sources: list[SourceFile]) -> list[dict[str, object]]:
             "crud",
             "i18n",
             "mail",
-            "mlops",
             "sqlite",
             "storage",
             "tasks",

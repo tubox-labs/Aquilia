@@ -7,7 +7,7 @@ Use this command in local agents:
 ```json
 {
   "command": "python",
-  "args": ["-m", "aquilia.aquilia_mcp", "--stdio", "--workspace", "/path/to/Aquilia"]
+  "args": ["-m", "aquilia.mcp", "--stdio", "--workspace", "/path/to/Aquilia"]
 }
 ```
 
@@ -25,7 +25,7 @@ Ask agents to call MCP tools before generating Aquilia code. The most useful fir
 
 ## Compatibility
 
-`aquilia.mcp` remains importable for older local configs, but new configs should use `aquilia.aquilia_mcp`.
+`aquilia.mcp` remains importable for older local configs, but new configs should use `aquilia.mcp`.
 
 ## Claude Desktop
 

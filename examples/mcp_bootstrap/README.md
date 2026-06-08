@@ -11,7 +11,7 @@ aq mcp build-index --workspace ../..
 Start the server:
 
 ```bash
-python -m aquilia.aquilia_mcp --stdio --workspace ../..
+python -m aquilia.mcp --stdio --workspace ../..
 ```
 
 See `mcp_config/` for Claude, Codex, and Gemini example config snippets.

@@ -18,7 +18,7 @@ aq mcp doctor --json
 Confirm the command works directly:
 
 ```bash
-python -m aquilia.aquilia_mcp --stdio --workspace .
+python -m aquilia.mcp --stdio --workspace .
 ```
 
 For old configs, `python -m aquilia.mcp` is still supported.

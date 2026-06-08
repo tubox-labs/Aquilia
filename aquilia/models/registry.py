@@ -23,7 +23,6 @@ class ModelRegistry:
     """
     Global registry for all Model subclasses.
 
-    Replaces the old AMDL-based ModelRegistry.
     Tracks all concrete models and resolves forward references.
     """
 

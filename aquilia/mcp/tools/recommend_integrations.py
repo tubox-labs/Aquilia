@@ -17,7 +17,6 @@ _RECOMMENDATIONS = {
     "template": ["Integration.templates(...)", "TemplatesIntegration(...)"],
     "i18n": ["Workspace.i18n(...)", "Integration.i18n(...)"],
     "admin": ["Integration.admin(...)", "AdminModules(...)"],
-    "mlops": ["Integration.mlops(...)", "Workspace.mlops(...)"],
     "versioning": ["Integration.versioning(...)", "version-aware controller decorators"],
     "http": [
         "Use aquilia.http.AsyncHTTPClient and MockTransport in tests; configure cache/retry through service code."

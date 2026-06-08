@@ -1,9 +1,6 @@
 """
 Aquilia Model System -- Pure Python, production-grade ORM.
 
-The model system has been completely rewritten from the old AMDL DSL
-to a pure Pythonic, metaclass-driven architecture.
-
 Usage:
     from aquilia.models import Model
     from aquilia.models.fields import (
@@ -35,7 +32,6 @@ Public API:
 
 # Re-export model-specific faults for convenience
 from ..faults.domains import (
-    AMDLParseFault,
     DatabaseConnectionFault,
     MigrationConflictFault,
     MigrationFault,
@@ -59,22 +55,6 @@ from .aggregate import (
     StringAgg,
     Sum,
     Variance,
-)
-
-# ── Legacy AMDL compatibility layer ─────────────────────────────────────────
-# These are preserved for backward compatibility with existing code that
-# imports AMDL types. They still function but are deprecated.
-from .ast_nodes import (
-    AMDLFile,
-    FieldType,
-    HookNode,
-    IndexNode,
-    LinkKind,
-    LinkNode,
-    MetaNode,
-    ModelNode,
-    NoteNode,
-    SlotNode,
 )
 from .base import (
     Model,
@@ -291,33 +271,15 @@ from .migrations import (
     MigrationInfo,
     MigrationOps,
     MigrationRunner,
-    generate_migration_file,
     generate_migration_from_models,
     op,
 )
 from .options import Options as EnhancedOptions
-from .parser import (
-    AMDLParseError,
-    parse_amdl,
-    parse_amdl_directory,
-    parse_amdl_file,
-)
 from .query import Prefetch, QCombination, QNode
 from .query import Q as QueryBuilder
 
 # New split-module exports (available but not replacing base.py)
 from .registry import ModelRegistry as NewModelRegistry
-from .runtime import (
-    ModelProxy,
-    generate_create_index_sql,
-    generate_create_table_sql,
-)
-from .runtime import (
-    ModelRegistry as LegacyModelRegistry,
-)
-from .runtime import (
-    Q as LegacyQ,
-)
 from .schema_snapshot import (
     ModelDiff,
     SchemaDiff,
@@ -539,31 +501,10 @@ __all__ = [
     "BrinIndex",
     "HashIndex",
     "FunctionalIndex",
-    # ── Legacy AMDL (backward compat) ────────────────────────────────
-    "AMDLFile",
-    "FieldType",
-    "HookNode",
-    "IndexNode",
-    "LinkKind",
-    "LinkNode",
-    "MetaNode",
-    "ModelNode",
-    "NoteNode",
-    "SlotNode",
-    "AMDLParseError",
-    "parse_amdl",
-    "parse_amdl_file",
-    "parse_amdl_directory",
-    "ModelProxy",
-    "LegacyModelRegistry",
-    "LegacyQ",
-    "generate_create_table_sql",
-    "generate_create_index_sql",
     # Migrations
     "MigrationOps",
     "MigrationRunner",
     "MigrationInfo",
-    "generate_migration_file",
     "generate_migration_from_models",
     "op",
     # New Migration DSL
@@ -600,7 +541,6 @@ __all__ = [
     "generate_dsl_migration",
     # Faults (re-exported)
     "ModelFault",
-    "AMDLParseFault",
     "ModelNotFoundFault",
     "ModelRegistrationFault",
     "MigrationFault",

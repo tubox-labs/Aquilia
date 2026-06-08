@@ -108,7 +108,9 @@ class PostgresAdapter(DatabaseAdapter):
             return
 
         if not _HAS_ASYNCPG:
-            raise ImportError("asyncpg is required for PostgreSQL support.\nInstall: pip install asyncpg")
+            raise ImportError(
+                "asyncpg is required for the PostgreSQL backend. Install it with: pip install aquilia[postgres]"
+            )
 
         min_size = options.pop("pool_min_size", 2)
         max_size = options.pop("pool_max_size", 10)

@@ -47,7 +47,6 @@ from .default_handlers import (
     SecurityFaultHandler,
 )
 from .domains import (
-    AMDLParseFault,
     AuthenticationFault,
     AuthorizationFault,
     BadGatewayFault,
@@ -217,7 +216,6 @@ __all__ = [
     "FilesystemFault",
     # Model faults
     "ModelFault",
-    "AMDLParseFault",
     "ModelNotFoundFault",
     "ModelRegistrationFault",
     "MigrationFault",

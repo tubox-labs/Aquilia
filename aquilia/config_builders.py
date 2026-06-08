@@ -1232,7 +1232,7 @@ class Integration:
         **kwargs,
     ) -> dict[str, Any]:
         """
-        Configure database and AMDL model integration.
+        Configure database integration.
 
         Accepts either a URL string or a typed DatabaseConfig object for
         developer-friendly, IDE-assisted configuration.
@@ -1252,8 +1252,8 @@ class Integration:
             migrations_dir: Directory for migration files
             pool_size: Connection pool size
             echo: Log SQL statements
-            model_paths: Explicit .amdl file paths
-            scan_dirs: Directories to scan for .amdl files
+            model_paths: Explicit model file paths
+            scan_dirs: Directories to scan for model files
             **kwargs: Additional database options
 
         Returns:
@@ -1770,7 +1770,6 @@ class Integration:
             "_tasks",
             "_errors",
             "_testing",
-            "_mlops",
             "_storage",
             "_mailer",
             "_api_keys",
@@ -1795,7 +1794,6 @@ class Integration:
             self._tasks: bool = False  # disabled by default
             self._errors: bool = False  # disabled by default
             self._testing: bool = False  # disabled by default
-            self._mlops: bool = False  # disabled by default
             self._storage: bool = False  # disabled by default
             self._mailer: bool = False  # disabled by default
             self._api_keys: bool = True
@@ -1978,17 +1976,6 @@ class Integration:
             self._testing = False
             return self
 
-        # ── MLOps (disabled by default) ──
-        def enable_mlops(self) -> "Integration.AdminModules":
-            """Show the MLOps page (model registry, serving, drift, rollouts). Disabled by default -- opt in."""
-            self._mlops = True
-            return self
-
-        def disable_mlops(self) -> "Integration.AdminModules":
-            """Hide the MLOps page."""
-            self._mlops = False
-            return self
-
         # ── Storage (disabled by default) ──
         def enable_storage(self) -> "Integration.AdminModules":
             """Show the Storage page (file browser, backend analytics, health). Disabled by default -- opt in."""
@@ -2076,7 +2063,6 @@ class Integration:
                 "tasks": self._tasks,
                 "errors": self._errors,
                 "testing": self._testing,
-                "mlops": self._mlops,
                 "storage": self._storage,
                 "mailer": self._mailer,
                 "api_keys": self._api_keys,
@@ -3284,7 +3270,6 @@ class Integration:
                 "tasks": kwargs.pop("enable_tasks", False),
                 "errors": kwargs.pop("enable_errors", False),
                 "testing": kwargs.pop("enable_testing", False),
-                "mlops": kwargs.pop("enable_mlops", False),
                 "storage": kwargs.pop("enable_storage", False),
                 "mailer": kwargs.pop("enable_mailer", False),
                 "api_keys": enable_api_keys if enable_api_keys is not None else True,
@@ -4263,148 +4248,6 @@ class Integration:
         }
 
     @staticmethod
-    def mlops(
-        *,
-        enabled: bool = True,
-        registry_db: str = "registry.db",
-        blob_root: str = ".aquilia-store",
-        storage_backend: str = "filesystem",
-        drift_method: str = "psi",
-        drift_threshold: float = 0.2,
-        drift_num_bins: int = 10,
-        max_batch_size: int = 16,
-        max_latency_ms: float = 50.0,
-        batching_strategy: str = "hybrid",
-        sample_rate: float = 0.01,
-        log_dir: str = "prediction_logs",
-        hmac_secret: str | None = None,
-        signing_private_key: str | None = None,
-        signing_public_key: str | None = None,
-        encryption_key: Any | None = None,
-        plugin_auto_discover: bool = True,
-        scaling_policy: dict[str, Any] | None = None,
-        rollout_default_strategy: str = "canary",
-        auto_rollback: bool = True,
-        metrics_model_name: str = "",
-        metrics_model_version: str = "",
-        # Ecosystem integration
-        cache_enabled: bool = True,
-        cache_ttl: int = 60,
-        cache_namespace: str = "mlops",
-        artifact_store_dir: str = "artifacts",
-        fault_engine_debug: bool = False,
-        **kwargs,
-    ) -> dict[str, Any]:
-        """
-        Configure MLOps platform integration.
-
-        Wires model packaging, registry, serving, observability, release
-        management, scheduling, security, and plugins into the Aquilia
-        framework via DI, lifecycle hooks, and middleware.
-
-        Ecosystem wiring:
-        - **CacheService** -- MLOps controller caches model metadata,
-          registry listings, and capability introspections.
-        - **FaultEngine** -- All MLOps exceptions flow through the engine
-          with scoped handlers for observability and recovery.
-        - **ArtifactStore** -- Model packs are managed via the Aquilia
-          artifact system with content-addressed storage and integrity
-          verification.
-        - **Effects** -- Controller methods declare ``CacheEffect`` to
-          participate in the effect middleware pipeline.
-
-        Args:
-            enabled: Enable/disable MLOps integration.
-            registry_db: Path to the registry SQLite database.
-            blob_root: Root directory for blob storage.
-            storage_backend: ``"filesystem"`` or ``"s3"``.
-            drift_method: ``"psi"``, ``"ks_test"``, or ``"distribution"``.
-            drift_threshold: Drift score threshold for alerts.
-            drift_num_bins: Number of histogram bins for PSI.
-            max_batch_size: Dynamic batcher max batch size.
-            max_latency_ms: Dynamic batcher max wait time (ms).
-            batching_strategy: ``"size"``, ``"time"``, or ``"hybrid"``.
-            sample_rate: Prediction logging sampling rate (0.0–1.0).
-            log_dir: Directory for prediction log files.
-            hmac_secret: HMAC secret for artifact signing.
-            signing_private_key: Path to RSA private key for signing.
-            signing_public_key: Path to RSA public key for verification.
-            encryption_key: Fernet key for blob encryption at rest.
-            plugin_auto_discover: Scan entry points for plugins.
-            scaling_policy: Autoscaler policy dict.
-            rollout_default_strategy: Default rollout strategy.
-            auto_rollback: Enable automatic rollback on metric degradation.
-            metrics_model_name: Default model name for metrics labels.
-            metrics_model_version: Default model version for metrics labels.
-            cache_enabled: Enable CacheService for MLOps caching.
-            cache_ttl: Default cache TTL in seconds.
-            cache_namespace: Cache namespace prefix.
-            artifact_store_dir: Directory for artifact storage.
-            fault_engine_debug: Enable FaultEngine debug mode.
-            **kwargs: Additional MLOps configuration.
-
-        Returns:
-            MLOps configuration dictionary.
-
-        Example::
-
-            .integrate(Integration.mlops(
-                registry_db="registry.db",
-                drift_method="psi",
-                drift_threshold=0.25,
-                max_batch_size=32,
-                plugin_auto_discover=True,
-                cache_enabled=True,
-                cache_ttl=120,
-            ))
-        """
-        return {
-            "_integration_type": "mlops",
-            "enabled": enabled,
-            "registry": {
-                "db_path": registry_db,
-                "blob_root": blob_root,
-                "storage_backend": storage_backend,
-            },
-            "serving": {
-                "max_batch_size": max_batch_size,
-                "max_latency_ms": max_latency_ms,
-                "batching_strategy": batching_strategy,
-            },
-            "observe": {
-                "drift_method": drift_method,
-                "drift_threshold": drift_threshold,
-                "drift_num_bins": drift_num_bins,
-                "sample_rate": sample_rate,
-                "log_dir": log_dir,
-                "metrics_model_name": metrics_model_name,
-                "metrics_model_version": metrics_model_version,
-            },
-            "release": {
-                "rollout_default_strategy": rollout_default_strategy,
-                "auto_rollback": auto_rollback,
-            },
-            "security": {
-                "hmac_secret": hmac_secret,
-                "signing_private_key": signing_private_key,
-                "signing_public_key": signing_public_key,
-                "encryption_key": encryption_key,
-            },
-            "plugins": {
-                "auto_discover": plugin_auto_discover,
-            },
-            "scaling_policy": scaling_policy,
-            "ecosystem": {
-                "cache_enabled": cache_enabled,
-                "cache_ttl": cache_ttl,
-                "cache_namespace": cache_namespace,
-                "artifact_store_dir": artifact_store_dir,
-                "fault_engine_debug": fault_engine_debug,
-            },
-            **kwargs,
-        }
-
-    @staticmethod
     def i18n(
         *,
         default_locale: str = "en",
@@ -4765,7 +4608,6 @@ class Workspace:
         self._telemetry_config: dict[str, Any] | None = None
         self._database_config: dict[str, Any] | None = None
         self._mail_config: dict[str, Any] | None = None
-        self._mlops_config: dict[str, Any] | None = None
         self._cache_config: dict[str, Any] | None = None
         self._i18n_config: dict[str, Any] | None = None
         self._tasks_config: dict[str, Any] | None = None
@@ -4967,9 +4809,6 @@ class Workspace:
             elif integration_type == "mail":
                 self._integrations["mail"] = integration
                 self._mail_config = integration
-            elif integration_type == "mlops":
-                self._integrations["mlops"] = integration
-                self._mlops_config = integration
             elif integration_type == "cache":
                 self._integrations["cache"] = integration
                 self._cache_config = integration
@@ -5239,7 +5078,7 @@ class Workspace:
                     user="admin",
                     password="secret",
                 ))
-                .module(Module("blog").register_models("models/blog.amdl"))
+                .module(Module("blog").register_models("models/blog.py"))
             )
 
             # Or with URL (backward compatible):
@@ -5270,68 +5109,6 @@ class Workspace:
                 "migrations_dir": migrations_dir,
                 **kwargs,
             }
-        return self
-
-    def mlops(
-        self,
-        enabled: bool = True,
-        registry_db: str = "registry.db",
-        blob_root: str = ".aquilia-store",
-        drift_method: str = "psi",
-        drift_threshold: float = 0.2,
-        max_batch_size: int = 16,
-        max_latency_ms: float = 50.0,
-        plugin_auto_discover: bool = True,
-        **kwargs,
-    ) -> "Workspace":
-        """
-        Configure MLOps platform for this workspace.
-
-        Shorthand for ``.integrate(Integration.mlops(...))``.
-
-        Args:
-            enabled: Enable MLOps subsystem.
-            registry_db: Path to registry database.
-            blob_root: Root directory for blob storage.
-            drift_method: Drift detection method.
-            drift_threshold: Drift alert threshold.
-            max_batch_size: Dynamic batcher max batch size.
-            max_latency_ms: Dynamic batcher max wait (ms).
-            plugin_auto_discover: Auto-discover plugins.
-            **kwargs: Additional MLOps configuration.
-
-        Example::
-
-            workspace = (
-                Workspace("ml-app")
-                .mlops(
-                    registry_db="models.db",
-                    drift_method="psi",
-                    max_batch_size=32,
-                )
-            )
-        """
-        config = Integration.mlops(
-            enabled=enabled,
-            registry_db=registry_db,
-            blob_root=blob_root,
-            drift_method=drift_method,
-            drift_threshold=drift_threshold,
-            max_batch_size=max_batch_size,
-            max_latency_ms=max_latency_ms,
-            plugin_auto_discover=plugin_auto_discover,
-            **kwargs,
-        )
-        self._mlops_config = config
-        self._integrations["mlops"] = config
-
-        if enabled:
-            # Auto-register MLOps lifecycle hooks if not already set
-            if not self._on_startup:
-                self.on_startup("aquilia.mlops.engine.lifecycle:mlops_on_startup")
-            if not self._on_shutdown:
-                self.on_shutdown("aquilia.mlops.engine.lifecycle:mlops_on_shutdown")
-
         return self
 
     def to_dict(self) -> dict[str, Any]:
@@ -5409,9 +5186,6 @@ class Workspace:
         if self._mail_config:
             config["mail"] = self._mail_config
             config["integrations"]["mail"] = self._mail_config
-        if self._mlops_config:
-            config["mlops"] = self._mlops_config
-            config["integrations"]["mlops"] = self._mlops_config
         if self._cache_config:
             config["cache"] = self._cache_config
             config["integrations"]["cache"] = self._cache_config
@@ -5518,9 +5292,6 @@ try:
         MiddlewareEntry as MiddlewareEntry,
     )
     from aquilia.integrations import (
-        MLOpsIntegration as MLOpsIntegration,
-    )
-    from aquilia.integrations import (
         OpenAPIIntegration as OpenAPIIntegration,
     )
     from aquilia.integrations import (
@@ -5601,7 +5372,6 @@ try:
         "CsrfIntegration",
         "OpenAPIIntegration",
         "I18nIntegration",
-        "MLOpsIntegration",
         "VersioningIntegration",
         "RenderIntegration",
         "LoggingIntegration",

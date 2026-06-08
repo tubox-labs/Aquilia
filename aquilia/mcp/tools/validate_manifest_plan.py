@@ -18,8 +18,6 @@ _CHECKS = [
         "default_fault_domain=",
         "AppManifest.default_fault_domain is legacy; use FaultHandlingConfig(default_domain=...).",
     ),
-    ("aquilia.models.parser", "AMDL parser imports are deprecated; use Python-native Model classes."),
-    ("aquilia.models.runtime", "AMDL runtime imports are deprecated; use Python-native Model classes."),
 ]
 
 

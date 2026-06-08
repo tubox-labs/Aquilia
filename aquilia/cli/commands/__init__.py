@@ -15,7 +15,6 @@ from . import (
     mail,
     manifest,
     migrate,
-    mlops_cmds,
     model_cmds,
     run,
     serve,
@@ -45,5 +44,4 @@ __all__ = [
     "mail",
     "test",
     "artifacts",
-    "mlops_cmds",
 ]
