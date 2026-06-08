@@ -10,25 +10,17 @@ Provides CLI interface and programmatic API for:
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .agents.coordinator import CoordinatorAgent
+from .recovery import RecoverySystem
 from .state import (
     SwarmState,
     TaskRecord,
     initialize_session,
-    load_state,
-    load_tasks,
-    save_state,
-    save_tasks,
 )
-from .agents.coordinator import CoordinatorAgent
-from .agents.planner import PlannerAgent
-from .agents.worker import WorkerAgent
-from .recovery import RecoverySystem
 
 ENGINE_ROOT = Path(__file__).resolve().parent
 

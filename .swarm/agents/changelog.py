@@ -11,7 +11,6 @@ from pathlib import Path
 
 from .base import AgentType, BaseAgent, Message, MessageType
 
-
 CHANGES_PATH: Path = Path(__file__).resolve().parent.parent.parent / "CHANGES.md"
 
 

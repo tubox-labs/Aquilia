@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import subprocess
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 from .base import AgentType, BaseAgent, Message, MessageType
-from ..state import SwarmState, TaskRecord
 
 
 class CommitAgent(BaseAgent):

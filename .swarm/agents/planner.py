@@ -7,10 +7,9 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import Any
 
-from .base import AgentType, BaseAgent, Message, MessageType
 from ..state import TaskRecord, save_tasks
+from .base import AgentType, BaseAgent, Message, MessageType
 
 
 class PlannerAgent(BaseAgent):
