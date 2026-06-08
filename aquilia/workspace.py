@@ -214,8 +214,7 @@ class Module:
         import warnings
 
         warnings.warn(
-            "Module.register_providers() is deprecated. "
-            "Declare providers in modules/<name>/manifest.py.",
+            "Module.register_providers() is deprecated. Declare providers in modules/<name>/manifest.py.",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -225,8 +224,7 @@ class Module:
         import warnings
 
         warnings.warn(
-            "Module.register_routes() is deprecated. "
-            "Use controller decorators (@GET, @POST, etc.) instead.",
+            "Module.register_routes() is deprecated. Use controller decorators (@GET, @POST, etc.) instead.",
             DeprecationWarning,
             stacklevel=2,
         )

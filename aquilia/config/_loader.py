@@ -569,161 +569,188 @@ class ConfigLoader:
         return merged
 
     def get_auth_config(self) -> dict:
-        return self.get_subsystem_config("auth", {
-            "enabled": False,
-            "store": {
-                "type": "memory",
-                "db_url": None,
+        return self.get_subsystem_config(
+            "auth",
+            {
+                "enabled": False,
+                "store": {
+                    "type": "memory",
+                    "db_url": None,
+                },
+                "tokens": {
+                    "secret_key": "aquilia_insecure_dev_secret",
+                    "algorithm": "HS256",
+                    "issuer": "aquilia",
+                    "audience": "aquilia-app",
+                    "access_token_ttl_minutes": 60,
+                    "refresh_token_ttl_days": 30,
+                },
+                "security": {
+                    "require_auth_by_default": False,
+                    "hash_rounds": 12,
+                },
             },
-            "tokens": {
-                "secret_key": "aquilia_insecure_dev_secret",
-                "algorithm": "HS256",
-                "issuer": "aquilia",
-                "audience": "aquilia-app",
-                "access_token_ttl_minutes": 60,
-                "refresh_token_ttl_days": 30,
-            },
-            "security": {
-                "require_auth_by_default": False,
-                "hash_rounds": 12,
-            },
-        })
+        )
 
     def get_template_config(self) -> dict:
-        return self.get_subsystem_config("templates", {
-            "enabled": False,
-            "search_paths": [],
-            "precompile": False,
-            "cache": "memory",
-            "sandbox": True,
-            "sandbox_policy": "strict",
-        })
+        return self.get_subsystem_config(
+            "templates",
+            {
+                "enabled": False,
+                "search_paths": [],
+                "precompile": False,
+                "cache": "memory",
+                "sandbox": True,
+                "sandbox_policy": "strict",
+            },
+        )
 
     def get_security_config(self) -> dict:
-        return self.get_subsystem_config("security", {
-            "enabled": False,
-            "cors_enabled": False,
-            "csrf_protection": False,
-            "helmet_enabled": False,
-            "rate_limiting": False,
-            "https_redirect": False,
-            "hsts": False,
-            "proxy_fix": False,
-        })
+        return self.get_subsystem_config(
+            "security",
+            {
+                "enabled": False,
+                "cors_enabled": False,
+                "csrf_protection": False,
+                "helmet_enabled": False,
+                "rate_limiting": False,
+                "https_redirect": False,
+                "hsts": False,
+                "proxy_fix": False,
+            },
+        )
 
     def get_static_config(self) -> dict:
-        return self.get_subsystem_config("static_files", {
-            "enabled": False,
-            "directories": {"/static": "static"},
-            "cache_max_age": 86400,
-            "etag": True,
-            "gzip": True,
-            "brotli": True,
-            "memory_cache": True,
-        })
+        return self.get_subsystem_config(
+            "static_files",
+            {
+                "enabled": False,
+                "directories": {"/static": "static"},
+                "cache_max_age": 86400,
+                "etag": True,
+                "gzip": True,
+                "brotli": True,
+                "memory_cache": True,
+            },
+        )
 
     def get_cache_config(self) -> dict:
-        return self.get_subsystem_config("cache", {
-            "enabled": False,
-            "backend": "memory",
-            "default_ttl": 300,
-            "max_size": 10000,
-            "eviction_policy": "lru",
-            "namespace": "default",
-            "key_prefix": "aq:",
-            "serializer": "json",
-            "redis_url": "redis://localhost:6379/0",
-            "redis_max_connections": 10,
-            "redis_socket_timeout": 5.0,
-            "redis_socket_connect_timeout": 5.0,
-            "redis_retry_on_timeout": True,
-            "redis_decode_responses": True,
-            "l1_max_size": 1000,
-            "l1_ttl": 60,
-            "l2_backend": "redis",
-            "middleware_enabled": False,
-            "middleware_cacheable_methods": ["GET", "HEAD"],
-            "middleware_default_ttl": 60,
-            "middleware_vary_headers": ["Accept", "Accept-Encoding"],
-            "trace_enabled": True,
-            "metrics_enabled": True,
-            "log_level": "WARNING",
-        })
+        return self.get_subsystem_config(
+            "cache",
+            {
+                "enabled": False,
+                "backend": "memory",
+                "default_ttl": 300,
+                "max_size": 10000,
+                "eviction_policy": "lru",
+                "namespace": "default",
+                "key_prefix": "aq:",
+                "serializer": "json",
+                "redis_url": "redis://localhost:6379/0",
+                "redis_max_connections": 10,
+                "redis_socket_timeout": 5.0,
+                "redis_socket_connect_timeout": 5.0,
+                "redis_retry_on_timeout": True,
+                "redis_decode_responses": True,
+                "l1_max_size": 1000,
+                "l1_ttl": 60,
+                "l2_backend": "redis",
+                "middleware_enabled": False,
+                "middleware_cacheable_methods": ["GET", "HEAD"],
+                "middleware_default_ttl": 60,
+                "middleware_vary_headers": ["Accept", "Accept-Encoding"],
+                "trace_enabled": True,
+                "metrics_enabled": True,
+                "log_level": "WARNING",
+            },
+        )
 
     def get_i18n_config(self) -> dict:
-        return self.get_subsystem_config("i18n", {
-            "enabled": False,
-            "default_locale": "en",
-            "available_locales": ["en"],
-            "fallback_locale": "en",
-            "catalog_dirs": ["locales"],
-            "catalog_format": "json",
-            "missing_key_strategy": "log_and_key",
-            "auto_reload": False,
-            "auto_detect": True,
-            "cookie_name": "aq_locale",
-            "query_param": "lang",
-            "path_prefix": False,
-            "resolver_order": ["query", "cookie", "header"],
-        })
+        return self.get_subsystem_config(
+            "i18n",
+            {
+                "enabled": False,
+                "default_locale": "en",
+                "available_locales": ["en"],
+                "fallback_locale": "en",
+                "catalog_dirs": ["locales"],
+                "catalog_format": "json",
+                "missing_key_strategy": "log_and_key",
+                "auto_reload": False,
+                "auto_detect": True,
+                "cookie_name": "aq_locale",
+                "query_param": "lang",
+                "path_prefix": False,
+                "resolver_order": ["query", "cookie", "header"],
+            },
+        )
 
     def get_mail_config(self) -> dict:
-        return self.get_subsystem_config("mail", {
-            "enabled": False,
-            "default_from": "noreply@localhost",
-            "default_reply_to": None,
-            "subject_prefix": "",
-            "providers": [],
-            "console_backend": False,
-            "preview_mode": False,
-            "templates": {
-                "template_dirs": ["mail_templates"],
-                "auto_escape": True,
-                "cache_compiled": True,
-                "strict_mode": False,
+        return self.get_subsystem_config(
+            "mail",
+            {
+                "enabled": False,
+                "default_from": "noreply@localhost",
+                "default_reply_to": None,
+                "subject_prefix": "",
+                "providers": [],
+                "console_backend": False,
+                "preview_mode": False,
+                "templates": {
+                    "template_dirs": ["mail_templates"],
+                    "auto_escape": True,
+                    "cache_compiled": True,
+                    "strict_mode": False,
+                },
+                "retry": {
+                    "max_attempts": 5,
+                    "base_delay": 1.0,
+                    "max_delay": 3600.0,
+                    "jitter": True,
+                },
+                "rate_limit": {
+                    "global_per_minute": 1000,
+                    "per_domain_per_minute": 100,
+                },
+                "security": {
+                    "dkim_enabled": False,
+                    "require_tls": True,
+                    "pii_redaction_enabled": False,
+                },
+                "metrics_enabled": True,
+                "tracing_enabled": False,
             },
-            "retry": {
-                "max_attempts": 5,
-                "base_delay": 1.0,
-                "max_delay": 3600.0,
-                "jitter": True,
-            },
-            "rate_limit": {
-                "global_per_minute": 1000,
-                "per_domain_per_minute": 100,
-            },
-            "security": {
-                "dkim_enabled": False,
-                "require_tls": True,
-                "pii_redaction_enabled": False,
-            },
-            "metrics_enabled": True,
-            "tracing_enabled": False,
-        })
+        )
 
     def get_tasks_config(self) -> dict:
-        return self.get_subsystem_config("tasks", {
-            "enabled": False,
-            "backend": "memory",
-            "num_workers": 4,
-            "default_queue": "default",
-            "cleanup_interval": 300.0,
-            "cleanup_max_age": 3600.0,
-            "max_retries": 3,
-            "retry_delay": 1.0,
-            "retry_backoff": 2.0,
-            "retry_max_delay": 300.0,
-            "default_timeout": 300.0,
-            "auto_start": True,
-            "dead_letter_max": 1000,
-        })
+        return self.get_subsystem_config(
+            "tasks",
+            {
+                "enabled": False,
+                "backend": "memory",
+                "num_workers": 4,
+                "default_queue": "default",
+                "cleanup_interval": 300.0,
+                "cleanup_max_age": 3600.0,
+                "max_retries": 3,
+                "retry_delay": 1.0,
+                "retry_backoff": 2.0,
+                "retry_max_delay": 300.0,
+                "default_timeout": 300.0,
+                "auto_start": True,
+                "dead_letter_max": 1000,
+            },
+        )
 
     def get_storage_config(self) -> dict:
-        return self.get_subsystem_config("storage", {
-            "enabled": False,
-            "default": "default",
-            "backends": [],
-        })
+        return self.get_subsystem_config(
+            "storage",
+            {
+                "enabled": False,
+                "default": "default",
+                "backends": [],
+            },
+        )
 
     def get_middleware_config(self) -> list | None:
         """
@@ -737,27 +764,30 @@ class ConfigLoader:
         return chain if chain is not None else None
 
     def get_versioning_config(self) -> dict:
-        return self.get_subsystem_config("versioning", {
-            "enabled": False,
-            "strategy": "header",
-            "versions": [],
-            "default_version": None,
-            "require_version": False,
-            "header_name": "X-API-Version",
-            "query_param": "api_version",
-            "url_prefix": "v",
-            "url_segment_index": 0,
-            "strip_version_from_path": True,
-            "media_type_param": "version",
-            "channels": {},
-            "channel_header": "X-API-Channel",
-            "channel_query_param": "api_channel",
-            "negotiation_mode": "exact",
-            "sunset_policy": {},
-            "sunset_schedules": {},
-            "include_version_header": True,
-            "response_header_name": "X-API-Version",
-            "include_supported_versions_header": True,
-            "supported_versions_header": "X-API-Supported-Versions",
-            "neutral_paths": ["/_health", "/openapi.json", "/docs", "/redoc"],
-        })
+        return self.get_subsystem_config(
+            "versioning",
+            {
+                "enabled": False,
+                "strategy": "header",
+                "versions": [],
+                "default_version": None,
+                "require_version": False,
+                "header_name": "X-API-Version",
+                "query_param": "api_version",
+                "url_prefix": "v",
+                "url_segment_index": 0,
+                "strip_version_from_path": True,
+                "media_type_param": "version",
+                "channels": {},
+                "channel_header": "X-API-Channel",
+                "channel_query_param": "api_channel",
+                "negotiation_mode": "exact",
+                "sunset_policy": {},
+                "sunset_schedules": {},
+                "include_version_header": True,
+                "response_header_name": "X-API-Version",
+                "include_supported_versions_header": True,
+                "supported_versions_header": "X-API-Supported-Versions",
+                "neutral_paths": ["/_health", "/openapi.json", "/docs", "/redoc"],
+            },
+        )
