@@ -143,13 +143,14 @@ def migrate_legacy(
         module_lines = "\n".join(f'    .module(Module("{m}").route_prefix("/{m}"))' for m in module_names)
         ws_content = (
             '"""Aquilia workspace (migrated from legacy layout)."""\n\n'
-            "from aquilia import Workspace, Module, Integration\n\n\n"
+            "from aquilia import Workspace, Module\n"
+            "from aquilia.integrations import DiIntegration, FaultHandlingIntegration, RoutingIntegration\n\n\n"
             "workspace = (\n"
             f'    Workspace("{workspace_root.name}", version="0.1.0")\n'
             f"{module_lines}\n"
-            "    .integrate(Integration.di(auto_wire=True))\n"
-            "    .integrate(Integration.routing(strict_matching=True))\n"
-            '    .integrate(Integration.fault_handling(default_strategy="propagate"))\n'
+            "    .integrate(DiIntegration(auto_wire=True))\n"
+            "    .integrate(RoutingIntegration(strict_matching=True))\n"
+            '    .integrate(FaultHandlingIntegration(default_strategy="propagate"))\n'
             ")\n"
         )
         ws_file.write_text(ws_content, encoding="utf-8")

@@ -29,8 +29,8 @@ Quick-start
 -----------
 Define environment config inline in ``workspace.py``::
 
-    from aquilia import Workspace, Module, Integration
-    from aquilia.config_builders import AquilaConfig, Env, Secret
+    from aquilia import Workspace, Module
+    from aquilia import AquilaConfig, Env, Secret
 
     class BaseEnv(AquilaConfig):
         class server(AquilaConfig.Server):

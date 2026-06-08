@@ -5,12 +5,12 @@ Install: pip install aquilia[otel]
 
 Quick start::
 
-    from aquilia.config_builders import Workspace, Integration
+    from aquilia import Workspace
     from aquilia.otel import OTelConfig
 
     workspace = (
         Workspace("myapp", version="1.0.0")
-        .integrate(Integration.otel(OTelConfig(
+        .configure_otel(OTelConfig(
             service_name    = "my-api",
             otlp_endpoint   = "http://otel-collector:4317",
         )))

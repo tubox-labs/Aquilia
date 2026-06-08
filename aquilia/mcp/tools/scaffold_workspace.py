@@ -25,7 +25,7 @@ def scaffold_workspace(index: KnowledgeIndex, arguments: dict) -> dict:
             {
                 "path": "workspace.py",
                 "shape": [
-                    "from aquilia import Integration, Module, Workspace",
+                    "from aquilia import Module, Workspace",
                     f'workspace = Workspace("{name}", version="0.1.0")',
                     *[f'    .module(Module("{module}").route_prefix("/{module}"))' for module in modules],
                     *[f"    .integrate({integration})" for integration in integrations],

@@ -34,7 +34,7 @@ Wiring:
 Quick Start::
 
     # workspace.py
-    from aquilia import Workspace, Integration
+    from aquilia import Workspace
     from aquilia.storage import LocalConfig, S3Config
 
     workspace = (

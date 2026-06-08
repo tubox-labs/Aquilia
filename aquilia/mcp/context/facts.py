@@ -38,7 +38,7 @@ _FACT_SPECS = [
     (
         "deprecation.module_register_methods",
         "Module.register_* methods are deprecated no-ops; component declarations belong in module manifests.",
-        "aquilia/config_builders.py",
+        "aquilia/workspace.py",
         ("register_controllers", "deprecated"),
     ),
     (
