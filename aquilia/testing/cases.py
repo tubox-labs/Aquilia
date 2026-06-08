@@ -185,7 +185,7 @@ class TransactionTestCase(AquiliaTestCase):
     async def asyncSetUp(self) -> None:
         await super().asyncSetUp()
         # Start a DB transaction if database is available
-        db = getattr(self.server.server, "_amdl_database", None)
+        db = getattr(self.server.server, "_database", None)
         if db and hasattr(db, "begin"):
             self._transaction = await db.begin()
 

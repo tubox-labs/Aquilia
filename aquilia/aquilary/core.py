@@ -42,7 +42,7 @@ class AppContext:
     # Lazy-loaded resources (import paths only)
     controllers: list[str] = field(default_factory=list)
     services: list[str] = field(default_factory=list)
-    models: list[str] = field(default_factory=list)  # .amdl file paths
+    models: list[str] = field(default_factory=list)  # model file paths
     middlewares: list[tuple[str, dict]] = field(default_factory=list)
 
     # Dependencies
@@ -594,9 +594,9 @@ class RuntimeRegistry:
             except Exception:
                 pass
 
-            # 5. Discover AMDL Model Files (Filesystem scan)
+            # 5. Discover Model Files (Filesystem scan)
             with contextlib.suppress(Exception):
-                self._discover_amdl_models(ctx)
+                self._discover_models(ctx)
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
@@ -697,18 +697,13 @@ class RuntimeRegistry:
     #         # Add flow to router
     #         self.router.add_flow(flow)
 
-    def _discover_amdl_models(self, ctx) -> None:
+    def _discover_models(self, ctx) -> None:
         """
         Discover model definitions for an app context.
 
-        Supports both legacy .amdl files and new pure-Python Model subclasses.
-
         Scans standard locations:
-        - modules/<app_name>/models/*.amdl  (legacy)
-        - modules/<app_name>/models.amdl    (legacy)
-        - modules/<app_name>/models.py      (new Python models)
-        - modules/<app_name>/models/*.py    (new Python models)
-        - modules/<app_name>/**/*.amdl      (recursive, legacy)
+        - modules/<app_name>/models.py      (Python models)
+        - modules/<app_name>/models/*.py    (Python models)
 
         Also honors workspace/integration-level database scan_dirs.
         """
@@ -722,14 +717,7 @@ class RuntimeRegistry:
         if module_models.is_dir():
             scan_dirs.append(module_models)
 
-        # Single file: modules/<app_name>/models.amdl (legacy)
-        single_file = workspace_root / "modules" / ctx.name / "models.amdl"
-        if single_file.is_file():
-            amdl_path = str(single_file)
-            if amdl_path not in ctx.models:
-                ctx.models.append(amdl_path)
-
-        # Single file: modules/<app_name>/models.py (new Python models)
+        # Single file: modules/<app_name>/models.py (Python models)
         py_models = workspace_root / "modules" / ctx.name / "models.py"
         if py_models.is_file():
             py_path = str(py_models)
@@ -756,12 +744,8 @@ class RuntimeRegistry:
                 if resolved.is_dir():
                     scan_dirs.append(resolved)
 
-        # Scan directories for .amdl files (legacy) and .py files (new)
+        # Scan directories for .py files
         for scan_dir in scan_dirs:
-            for amdl_file in scan_dir.rglob("*.amdl"):
-                amdl_path = str(amdl_file)
-                if amdl_path not in ctx.models:
-                    ctx.models.append(amdl_path)
             for py_file in scan_dir.rglob("*.py"):
                 if py_file.name.startswith("_"):
                     continue
@@ -814,7 +798,7 @@ class RuntimeRegistry:
         """
         Register discovered models into DI containers.
 
-        Supports both legacy AMDL (.amdl) and new Python Model subclasses (.py).
+        Handles Python Model subclasses (.py) and manifest class refs.
         Parses all model files from AppContexts, builds registries,
         and registers them as DI providers.
         """
@@ -823,7 +807,7 @@ class RuntimeRegistry:
 
         # Collect all model references from app contexts.
         # Entries can be:
-        #   - file paths (.py / .amdl), or
+        #   - file paths (.py), or
         #   - manifest class refs (module.path:ModelClass)
         all_model_refs: list[str] = []
         for ctx in self.meta.app_contexts:
@@ -839,57 +823,13 @@ class RuntimeRegistry:
             self._models_registered = True
             return
 
-        # Separate legacy .amdl from .py and manifest class references.
-        amdl_paths = [p for p in all_model_refs if p.endswith(".amdl")]
+        # Separate .py and manifest class references.
         py_paths = [p for p in all_model_refs if p.endswith(".py")]
-        class_refs = [p for p in all_model_refs if ":" in p and not p.endswith((".py", ".amdl"))]
+        class_refs = [p for p in all_model_refs if ":" in p and not p.endswith(".py")]
 
         registered_count = 0
 
-        # --- Handle legacy AMDL files ---
-        if amdl_paths:
-            try:
-                from aquilia.models.parser import parse_amdl_file
-                from aquilia.models.runtime import ModelRegistry as LegacyRegistry
-            except ImportError:
-                pass
-            else:
-                legacy_registry = LegacyRegistry()
-
-                for amdl_path in amdl_paths:
-                    try:
-                        from pathlib import Path
-
-                        if not Path(amdl_path).is_file():
-                            continue
-                        amdl_file = parse_amdl_file(amdl_path)
-                        for model in amdl_file.models:
-                            legacy_registry.register_model(model)
-                            registered_count += 1
-                    except Exception as e:
-                        import logging as _log
-
-                        _log.getLogger("aquilia.aquilary").warning(f"Failed to parse {amdl_path}: {e}")
-
-                if legacy_registry._models:
-                    from aquilia.di import Container
-                    from aquilia.di.providers import ValueProvider
-
-                    for ctx in self.meta.app_contexts:
-                        if ctx.name not in self.di_containers:
-                            self.di_containers[ctx.name] = Container(scope="app")
-                        container = self.di_containers[ctx.name]
-                        with contextlib.suppress(ValueError, Exception):
-                            container.register(
-                                ValueProvider(
-                                    value=legacy_registry,
-                                    token=LegacyRegistry,
-                                    scope="app",
-                                )
-                            )
-                    self._model_registry = legacy_registry
-
-        # --- Handle new Python Model subclasses ---
+        # --- Handle Python Model subclasses ---
         if py_paths:
             try:
                 from aquilia.models.base import ModelRegistry

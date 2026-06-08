@@ -395,7 +395,6 @@ from .effects import (
 # Faults System
 # ============================================================================
 from .faults import (
-    AMDLParseFault,
     DatabaseConnectionFault,
     Fault,
     FaultContext,
@@ -625,8 +624,6 @@ from .middleware_ext.static import StaticMiddleware
 # Model System (Pure Python ORM)
 # ============================================================================
 from .models import (
-    AMDLFile,
-    AMDLParseError,
     ArrayField,
     AutoField,
     BigAutoField,
@@ -641,7 +638,6 @@ from .models import (
     EmailField,
     # Fields
     Field,
-    FieldType,
     FieldValidationError,
     FileField,
     FilePathField,
@@ -649,32 +645,23 @@ from .models import (
     ForeignKey,
     GeneratedField,
     GenericIPAddressField,
-    HookNode,
     HStoreField,
     ImageField,
     Index,
     IntegerField,
     JSONField,
-    LinkKind,
-    LinkNode,
     ManyToManyField,
-    MetaNode,
     MigrationOps,
     # Migrations
     MigrationRunner,
     # New pure-Python model system
     Model,
     ModelMeta,
-    # Legacy AMDL (backward compat)
-    ModelNode,
-    ModelProxy,
     ModelRegistry,
-    NoteNode,
     OneToOneField,
     PositiveIntegerField,
     PositiveSmallIntegerField,
     Q,
-    SlotNode,
     SlugField,
     SmallIntegerField,
     TextField,
@@ -682,13 +669,6 @@ from .models import (
     UniqueConstraint,
     URLField,
     UUIDField,
-    generate_migration_file,
-    parse_amdl,
-    parse_amdl_directory,
-    parse_amdl_file,
-)
-from .models import (
-    IndexNode as LegacyIndexNode,
 )
 
 # ============================================================================
@@ -1297,7 +1277,6 @@ __all__ = [
     "FaultHandler",
     "RecoveryStrategy",
     "ModelFault",
-    "AMDLParseFault",
     "ModelNotFoundFault",
     "ModelRegistrationFault",
     "MigrationFault",
@@ -1504,26 +1483,9 @@ __all__ = [
     "ArrayField",
     "HStoreField",
     "GeneratedField",
-    # Legacy AMDL (backward compat)
-    "ModelNode",
-    "SlotNode",
-    "LinkNode",
-    "LegacyIndexNode",
-    "HookNode",
-    "MetaNode",
-    "NoteNode",
-    "AMDLFile",
-    "FieldType",
-    "LinkKind",
-    "parse_amdl",
-    "parse_amdl_file",
-    "parse_amdl_directory",
-    "AMDLParseError",
-    "ModelProxy",
     # Migrations
     "MigrationRunner",
     "MigrationOps",
-    "generate_migration_file",
     # Database
     "AquiliaDatabase",
     "configure_database",

@@ -1232,7 +1232,7 @@ class Integration:
         **kwargs,
     ) -> dict[str, Any]:
         """
-        Configure database and AMDL model integration.
+        Configure database integration.
 
         Accepts either a URL string or a typed DatabaseConfig object for
         developer-friendly, IDE-assisted configuration.
@@ -1252,8 +1252,8 @@ class Integration:
             migrations_dir: Directory for migration files
             pool_size: Connection pool size
             echo: Log SQL statements
-            model_paths: Explicit .amdl file paths
-            scan_dirs: Directories to scan for .amdl files
+            model_paths: Explicit model file paths
+            scan_dirs: Directories to scan for model files
             **kwargs: Additional database options
 
         Returns:
@@ -5078,7 +5078,7 @@ class Workspace:
                     user="admin",
                     password="secret",
                 ))
-                .module(Module("blog").register_models("models/blog.amdl"))
+                .module(Module("blog").register_models("models/blog.py"))
             )
 
             # Or with URL (backward compatible):
