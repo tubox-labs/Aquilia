@@ -14,7 +14,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 # Note: AuthConfig is imported lazily inside the auth() method to
 # avoid a circular import with aquilia.workspace.
 
@@ -129,7 +128,7 @@ class Integration:
             password: str | None = None,
             *,
             password_env: str | None = None,
-        ) -> "MailAuth":
+        ) -> MailAuth:
             """SMTP AUTH PLAIN / LOGIN."""
             return cls(
                 method="plain",
@@ -144,7 +143,7 @@ class Integration:
             key: str | None = None,
             *,
             env: str | None = None,
-        ) -> "MailAuth":
+        ) -> MailAuth:
             """API-key auth for SendGrid, Mailgun, Postmark, etc."""
             return cls(method="api_key", api_key=key, api_key_env=env)
 
@@ -158,7 +157,7 @@ class Integration:
             *,
             access_key_id_env: str | None = None,
             secret_access_key_env: str | None = None,
-        ) -> "MailAuth":
+        ) -> MailAuth:
             """AWS SES credentials."""
             return cls(
                 method="aws_ses",
@@ -181,7 +180,7 @@ class Integration:
             scope: str | None = None,
             access_token: str | None = None,
             refresh_token: str | None = None,
-        ) -> "MailAuth":
+        ) -> MailAuth:
             """OAuth2 bearer-token auth (Gmail, Microsoft 365, etc.)."""
             return cls(
                 method="oauth2",
@@ -202,7 +201,7 @@ class Integration:
             domain: str | None = None,
             *,
             password_env: str | None = None,
-        ) -> "MailAuth":
+        ) -> MailAuth:
             """Windows NTLM authentication."""
             return cls(
                 method="ntlm",
@@ -213,7 +212,7 @@ class Integration:
             )
 
         @classmethod
-        def anonymous(cls) -> "MailAuth":
+        def anonymous(cls) -> MailAuth:
             """No authentication -- open relay."""
             return cls(method="none")
 
@@ -1071,7 +1070,7 @@ class Integration:
                     }
                 )
 
-            def source(self, *paths: str) -> "Builder":
+            def source(self, *paths: str) -> Builder:
                 """Add template search paths."""
                 current = self.get("search_paths", [])
                 if current == ["templates"]:  # Replace default
@@ -1079,40 +1078,40 @@ class Integration:
                 self["search_paths"] = current + list(paths)
                 return self
 
-            def scan_modules(self) -> "Builder":
+            def scan_modules(self) -> Builder:
                 """Enable module auto-discovery."""
                 # This is implicit in server logic but good for intent
                 return self
 
-            def cached(self, strategy: str = "memory") -> "Builder":
+            def cached(self, strategy: str = "memory") -> Builder:
                 """Enable bytecode caching."""
                 self["cache"] = strategy
                 return self
 
-            def secure(self, strict: bool = True) -> "Builder":
+            def secure(self, strict: bool = True) -> Builder:
                 """Enable sandbox with security policy."""
                 self["sandbox"] = True
                 self["sandbox_policy"] = "strict" if strict else "permissive"
                 return self
 
-            def unsafe_dev_mode(self) -> "Builder":
+            def unsafe_dev_mode(self) -> Builder:
                 """Disable sandbox/caching for development."""
                 self["sandbox"] = False
                 self["cache"] = "none"
                 return self
 
-            def precompile(self) -> "Builder":
+            def precompile(self) -> Builder:
                 """Enable startup precompilation."""
                 self["precompile"] = True
                 return self
 
         @classmethod
-        def source(cls, *paths: str) -> "Builder":
+        def source(cls, *paths: str) -> Builder:
             """Start builder with source paths."""
             return cls.Builder().source(*paths)
 
         @classmethod
-        def defaults(cls) -> "Builder":
+        def defaults(cls) -> Builder:
             """Start with default configuration."""
             return cls.Builder()
 
@@ -1390,244 +1389,244 @@ class Integration:
             self._provider: bool = False  # disabled by default
 
         # ── Dashboard ──
-        def enable_dashboard(self) -> "Integration.AdminModules":
+        def enable_dashboard(self) -> Integration.AdminModules:
             """Show the Dashboard page."""
             self._dashboard = True
             return self
 
-        def disable_dashboard(self) -> "Integration.AdminModules":
+        def disable_dashboard(self) -> Integration.AdminModules:
             """Hide the Dashboard page."""
             self._dashboard = False
             return self
 
         # ── ORM ──
-        def enable_orm(self) -> "Integration.AdminModules":
+        def enable_orm(self) -> Integration.AdminModules:
             """Show the ORM Models page."""
             self._orm = True
             return self
 
-        def disable_orm(self) -> "Integration.AdminModules":
+        def disable_orm(self) -> Integration.AdminModules:
             """Hide the ORM Models page."""
             self._orm = False
             return self
 
         # ── Migrations ──
-        def enable_migrations(self) -> "Integration.AdminModules":
+        def enable_migrations(self) -> Integration.AdminModules:
             """Show the Migrations page."""
             self._migrations = True
             return self
 
-        def disable_migrations(self) -> "Integration.AdminModules":
+        def disable_migrations(self) -> Integration.AdminModules:
             """Hide the Migrations page."""
             self._migrations = False
             return self
 
         # ── Config ──
-        def enable_config(self) -> "Integration.AdminModules":
+        def enable_config(self) -> Integration.AdminModules:
             """Show the Configuration page."""
             self._config = True
             return self
 
-        def disable_config(self) -> "Integration.AdminModules":
+        def disable_config(self) -> Integration.AdminModules:
             """Hide the Configuration page."""
             self._config = False
             return self
 
         # ── Workspace ──
-        def enable_workspace(self) -> "Integration.AdminModules":
+        def enable_workspace(self) -> Integration.AdminModules:
             """Show the Workspace page."""
             self._workspace = True
             return self
 
-        def disable_workspace(self) -> "Integration.AdminModules":
+        def disable_workspace(self) -> Integration.AdminModules:
             """Hide the Workspace page."""
             self._workspace = False
             return self
 
         # ── Permissions ──
-        def enable_permissions(self) -> "Integration.AdminModules":
+        def enable_permissions(self) -> Integration.AdminModules:
             """Show the Permissions page."""
             self._permissions = True
             return self
 
-        def disable_permissions(self) -> "Integration.AdminModules":
+        def disable_permissions(self) -> Integration.AdminModules:
             """Hide the Permissions page."""
             self._permissions = False
             return self
 
         # ── Monitoring (disabled by default) ──
-        def enable_monitoring(self) -> "Integration.AdminModules":
+        def enable_monitoring(self) -> Integration.AdminModules:
             """Show the Monitoring page. Disabled by default -- opt in."""
             self._monitoring = True
             return self
 
-        def disable_monitoring(self) -> "Integration.AdminModules":
+        def disable_monitoring(self) -> Integration.AdminModules:
             """Hide the Monitoring page."""
             self._monitoring = False
             return self
 
         # ── Admin Users ──
-        def enable_admin_users(self) -> "Integration.AdminModules":
+        def enable_admin_users(self) -> Integration.AdminModules:
             """Show the Admin Users page."""
             self._admin_users = True
             return self
 
-        def disable_admin_users(self) -> "Integration.AdminModules":
+        def disable_admin_users(self) -> Integration.AdminModules:
             """Hide the Admin Users page."""
             self._admin_users = False
             return self
 
         # ── Profile ──
-        def enable_profile(self) -> "Integration.AdminModules":
+        def enable_profile(self) -> Integration.AdminModules:
             """Show the Profile page."""
             self._profile = True
             return self
 
-        def disable_profile(self) -> "Integration.AdminModules":
+        def disable_profile(self) -> Integration.AdminModules:
             """Hide the Profile page."""
             self._profile = False
             return self
 
         # ── Containers ──
-        def enable_containers(self) -> "Integration.AdminModules":
+        def enable_containers(self) -> Integration.AdminModules:
             """Show the Containers page (Docker containers, compose, images)."""
             self._containers = True
             return self
 
-        def disable_containers(self) -> "Integration.AdminModules":
+        def disable_containers(self) -> Integration.AdminModules:
             """Hide the Containers page."""
             self._containers = False
             return self
 
         # ── Pods ──
-        def enable_pods(self) -> "Integration.AdminModules":
+        def enable_pods(self) -> Integration.AdminModules:
             """Show the Pods page (Kubernetes pods, deployments, services)."""
             self._pods = True
             return self
 
-        def disable_pods(self) -> "Integration.AdminModules":
+        def disable_pods(self) -> Integration.AdminModules:
             """Hide the Pods page."""
             self._pods = False
             return self
 
         # ── Audit (disabled by default) ──
-        def enable_audit(self) -> "Integration.AdminModules":
+        def enable_audit(self) -> Integration.AdminModules:
             """Show the Audit Log page. Disabled by default -- opt in."""
             self._audit = True
             return self
 
-        def disable_audit(self) -> "Integration.AdminModules":
+        def disable_audit(self) -> Integration.AdminModules:
             """Hide the Audit Log page."""
             self._audit = False
             return self
 
         # ── Query Inspector (disabled by default) ──
-        def enable_query_inspector(self) -> "Integration.AdminModules":
+        def enable_query_inspector(self) -> Integration.AdminModules:
             """Show the Query Inspector page (SQL profiling, N+1 detection). Disabled by default -- opt in."""
             self._query_inspector = True
             return self
 
-        def disable_query_inspector(self) -> "Integration.AdminModules":
+        def disable_query_inspector(self) -> Integration.AdminModules:
             """Hide the Query Inspector page."""
             self._query_inspector = False
             return self
 
         # ── Background Tasks (disabled by default) ──
-        def enable_tasks(self) -> "Integration.AdminModules":
+        def enable_tasks(self) -> Integration.AdminModules:
             """Show the Background Tasks page. Disabled by default -- opt in."""
             self._tasks = True
             return self
 
-        def disable_tasks(self) -> "Integration.AdminModules":
+        def disable_tasks(self) -> Integration.AdminModules:
             """Hide the Background Tasks page."""
             self._tasks = False
             return self
 
         # ── Error Monitoring (disabled by default) ──
-        def enable_errors(self) -> "Integration.AdminModules":
+        def enable_errors(self) -> Integration.AdminModules:
             """Show the Error Monitoring page. Disabled by default -- opt in."""
             self._errors = True
             return self
 
-        def disable_errors(self) -> "Integration.AdminModules":
+        def disable_errors(self) -> Integration.AdminModules:
             """Hide the Error Monitoring page."""
             self._errors = False
             return self
 
         # ── Testing (disabled by default) ──
-        def enable_testing(self) -> "Integration.AdminModules":
+        def enable_testing(self) -> Integration.AdminModules:
             """Show the Testing page (test runner, coverage, assertions). Disabled by default -- opt in."""
             self._testing = True
             return self
 
-        def disable_testing(self) -> "Integration.AdminModules":
+        def disable_testing(self) -> Integration.AdminModules:
             """Hide the Testing page."""
             self._testing = False
             return self
 
         # ── Storage (disabled by default) ──
-        def enable_storage(self) -> "Integration.AdminModules":
+        def enable_storage(self) -> Integration.AdminModules:
             """Show the Storage page (file browser, backend analytics, health). Disabled by default -- opt in."""
             self._storage = True
             return self
 
-        def disable_storage(self) -> "Integration.AdminModules":
+        def disable_storage(self) -> Integration.AdminModules:
             """Hide the Storage page."""
             self._storage = False
             return self
 
         # ── Mailer (disabled by default) ──
-        def enable_mailer(self) -> "Integration.AdminModules":
+        def enable_mailer(self) -> Integration.AdminModules:
             """Show the Mailer page (providers, config, templates, send test). Disabled by default -- opt in."""
             self._mailer = True
             return self
 
-        def disable_mailer(self) -> "Integration.AdminModules":
+        def disable_mailer(self) -> Integration.AdminModules:
             """Hide the Mailer page."""
             self._mailer = False
             return self
 
         # ── Provider & Deployment (disabled by default) ──
-        def enable_provider(self) -> "Integration.AdminModules":
+        def enable_provider(self) -> Integration.AdminModules:
             """Show the Provider & Deployment page (Render, services, deploys, credentials). Disabled by default -- opt in."""
             self._provider = True
             return self
 
-        def disable_provider(self) -> "Integration.AdminModules":
+        def disable_provider(self) -> Integration.AdminModules:
             """Hide the Provider & Deployment page."""
             self._provider = False
             return self
 
         # ── API Keys ──
-        def enable_api_keys(self) -> "Integration.AdminModules":
+        def enable_api_keys(self) -> Integration.AdminModules:
             """Show the API Keys page."""
             self._api_keys = True
             return self
 
-        def disable_api_keys(self) -> "Integration.AdminModules":
+        def disable_api_keys(self) -> Integration.AdminModules:
             """Hide the API Keys page."""
             self._api_keys = False
             return self
 
         # ── Preferences ──
-        def enable_preferences(self) -> "Integration.AdminModules":
+        def enable_preferences(self) -> Integration.AdminModules:
             """Show the Preferences page."""
             self._preferences = True
             return self
 
-        def disable_preferences(self) -> "Integration.AdminModules":
+        def disable_preferences(self) -> Integration.AdminModules:
             """Hide the Preferences page."""
             self._preferences = False
             return self
 
         # ── Convenience ──
-        def enable_all(self) -> "Integration.AdminModules":
+        def enable_all(self) -> Integration.AdminModules:
             """Enable every admin module (including monitoring & audit)."""
             for attr in self.__slots__:
                 setattr(self, attr, True)
             return self
 
-        def disable_all(self) -> "Integration.AdminModules":
+        def disable_all(self) -> Integration.AdminModules:
             """Disable every admin module."""
             for attr in self.__slots__:
                 setattr(self, attr, False)
@@ -1695,52 +1694,52 @@ class Integration:
             self._log_searches: bool = True
             self._excluded_actions: list[str] = []
 
-        def enable(self) -> "Integration.AdminAudit":
+        def enable(self) -> Integration.AdminAudit:
             """Enable audit logging."""
             self._enabled = True
             return self
 
-        def disable(self) -> "Integration.AdminAudit":
+        def disable(self) -> Integration.AdminAudit:
             """Disable audit logging entirely."""
             self._enabled = False
             return self
 
-        def max_entries(self, n: int) -> "Integration.AdminAudit":
+        def max_entries(self, n: int) -> Integration.AdminAudit:
             """Set the maximum number of audit entries (FIFO eviction)."""
             self._max_entries = max(100, int(n))
             return self
 
-        def log_logins(self, enabled: bool = True) -> "Integration.AdminAudit":
+        def log_logins(self, enabled: bool = True) -> Integration.AdminAudit:
             """Record LOGIN / LOGOUT / LOGIN_FAILED events."""
             self._log_logins = enabled
             return self
 
-        def no_log_logins(self) -> "Integration.AdminAudit":
+        def no_log_logins(self) -> Integration.AdminAudit:
             """Skip LOGIN / LOGOUT / LOGIN_FAILED events."""
             self._log_logins = False
             return self
 
-        def log_views(self, enabled: bool = True) -> "Integration.AdminAudit":
+        def log_views(self, enabled: bool = True) -> Integration.AdminAudit:
             """Record VIEW / LIST events."""
             self._log_views = enabled
             return self
 
-        def no_log_views(self) -> "Integration.AdminAudit":
+        def no_log_views(self) -> Integration.AdminAudit:
             """Skip VIEW / LIST events."""
             self._log_views = False
             return self
 
-        def log_searches(self, enabled: bool = True) -> "Integration.AdminAudit":
+        def log_searches(self, enabled: bool = True) -> Integration.AdminAudit:
             """Record SEARCH events."""
             self._log_searches = enabled
             return self
 
-        def no_log_searches(self) -> "Integration.AdminAudit":
+        def no_log_searches(self) -> Integration.AdminAudit:
             """Skip SEARCH events."""
             self._log_searches = False
             return self
 
-        def exclude_actions(self, *actions: str) -> "Integration.AdminAudit":
+        def exclude_actions(self, *actions: str) -> Integration.AdminAudit:
             """
             Exclude specific actions from audit logging.
 
@@ -1804,17 +1803,17 @@ class Integration:
             self._metrics: list[str] = list(self._ALL_METRICS)
             self._refresh_interval: int = 30
 
-        def enable(self) -> "Integration.AdminMonitoring":
+        def enable(self) -> Integration.AdminMonitoring:
             """Enable monitoring dashboard."""
             self._enabled = True
             return self
 
-        def disable(self) -> "Integration.AdminMonitoring":
+        def disable(self) -> Integration.AdminMonitoring:
             """Disable monitoring dashboard."""
             self._enabled = False
             return self
 
-        def metrics(self, *names: str) -> "Integration.AdminMonitoring":
+        def metrics(self, *names: str) -> Integration.AdminMonitoring:
             """
             Set which metric sections to collect.
 
@@ -1827,12 +1826,12 @@ class Integration:
             self._metrics = list(names) if names else list(self._ALL_METRICS)
             return self
 
-        def all_metrics(self) -> "Integration.AdminMonitoring":
+        def all_metrics(self) -> Integration.AdminMonitoring:
             """Collect every available metric."""
             self._metrics = list(self._ALL_METRICS)
             return self
 
-        def refresh_interval(self, seconds: int) -> "Integration.AdminMonitoring":
+        def refresh_interval(self, seconds: int) -> Integration.AdminMonitoring:
             """Auto-refresh interval for the monitoring dashboard (min 5s)."""
             self._refresh_interval = max(5, int(seconds))
             return self
@@ -1877,83 +1876,83 @@ class Integration:
             self._models: bool = True
             self._devtools: bool = True
 
-        def show_overview(self) -> "Integration.AdminSidebar":
+        def show_overview(self) -> Integration.AdminSidebar:
             """Show the Overview section."""
             self._overview = True
             return self
 
-        def hide_overview(self) -> "Integration.AdminSidebar":
+        def hide_overview(self) -> Integration.AdminSidebar:
             """Hide the Overview section."""
             self._overview = False
             return self
 
-        def show_data(self) -> "Integration.AdminSidebar":
+        def show_data(self) -> Integration.AdminSidebar:
             """Show the Data section (ORM, Migrations)."""
             self._data = True
             return self
 
-        def hide_data(self) -> "Integration.AdminSidebar":
+        def hide_data(self) -> Integration.AdminSidebar:
             """Hide the Data section."""
             self._data = False
             return self
 
-        def show_system(self) -> "Integration.AdminSidebar":
+        def show_system(self) -> Integration.AdminSidebar:
             """Show the System section (Monitoring, Workspace, Config)."""
             self._system = True
             return self
 
-        def hide_system(self) -> "Integration.AdminSidebar":
+        def hide_system(self) -> Integration.AdminSidebar:
             """Hide the System section."""
             self._system = False
             return self
 
-        def show_infrastructure(self) -> "Integration.AdminSidebar":
+        def show_infrastructure(self) -> Integration.AdminSidebar:
             """Show the Infrastructure section (Containers, Pods)."""
             self._infrastructure = True
             return self
 
-        def hide_infrastructure(self) -> "Integration.AdminSidebar":
+        def hide_infrastructure(self) -> Integration.AdminSidebar:
             """Hide the Infrastructure section."""
             self._infrastructure = False
             return self
 
-        def show_security(self) -> "Integration.AdminSidebar":
+        def show_security(self) -> Integration.AdminSidebar:
             """Show the Security section (Permissions, Audit, Admin Users)."""
             self._security = True
             return self
 
-        def hide_security(self) -> "Integration.AdminSidebar":
+        def hide_security(self) -> Integration.AdminSidebar:
             """Hide the Security section."""
             self._security = False
             return self
 
-        def show_models(self) -> "Integration.AdminSidebar":
+        def show_models(self) -> Integration.AdminSidebar:
             """Show the Models section (per-model links)."""
             self._models = True
             return self
 
-        def hide_models(self) -> "Integration.AdminSidebar":
+        def hide_models(self) -> Integration.AdminSidebar:
             """Hide the Models section."""
             self._models = False
             return self
 
-        def show_devtools(self) -> "Integration.AdminSidebar":
+        def show_devtools(self) -> Integration.AdminSidebar:
             """Show the DevTools section (Query Inspector, Tasks, Errors)."""
             self._devtools = True
             return self
 
-        def hide_devtools(self) -> "Integration.AdminSidebar":
+        def hide_devtools(self) -> Integration.AdminSidebar:
             """Hide the DevTools section."""
             self._devtools = False
             return self
 
-        def show_all(self) -> "Integration.AdminSidebar":
+        def show_all(self) -> Integration.AdminSidebar:
             """Show every sidebar section."""
             for attr in self.__slots__:
                 setattr(self, attr, True)
             return self
 
-        def hide_all(self) -> "Integration.AdminSidebar":
+        def hide_all(self) -> Integration.AdminSidebar:
             """Hide every sidebar section."""
             for attr in self.__slots__:
                 setattr(self, attr, False)
@@ -2048,127 +2047,127 @@ class Integration:
             self._enable_volume_actions: bool = True
             self._enable_network_actions: bool = True
 
-        def docker_host(self, host: str) -> "Integration.AdminContainers":
+        def docker_host(self, host: str) -> Integration.AdminContainers:
             """Set Docker host (e.g. ``unix:///var/run/docker.sock`` or ``tcp://host:2375``)."""
             self._docker_host = host
             return self
 
-        def docker_socket(self, path: str) -> "Integration.AdminContainers":
+        def docker_socket(self, path: str) -> Integration.AdminContainers:
             """Shorthand for ``docker_host('unix://<path>')``."""
             self._docker_host = f"unix://{path}"
             return self
 
-        def allowed_actions(self, *actions: str) -> "Integration.AdminContainers":
+        def allowed_actions(self, *actions: str) -> Integration.AdminContainers:
             """Set which container lifecycle actions are permitted."""
             self._allowed_actions = list(actions)
             return self
 
-        def deny_actions(self, *actions: str) -> "Integration.AdminContainers":
+        def deny_actions(self, *actions: str) -> Integration.AdminContainers:
             """Deny specific actions (subtracted from allowed)."""
             self._denied_actions = list(actions)
             return self
 
-        def log_tail(self, lines: int) -> "Integration.AdminContainers":
+        def log_tail(self, lines: int) -> Integration.AdminContainers:
             """Default number of log lines to fetch (default 200)."""
             self._log_tail = max(10, int(lines))
             return self
 
-        def log_since(self, since: str) -> "Integration.AdminContainers":
+        def log_since(self, since: str) -> Integration.AdminContainers:
             """Default ``--since`` value for log fetching (e.g. ``'1h'``, ``'30m'``)."""
             self._log_since = since
             return self
 
-        def refresh_interval(self, seconds: int) -> "Integration.AdminContainers":
+        def refresh_interval(self, seconds: int) -> Integration.AdminContainers:
             """Auto-refresh interval for container metrics (min 5s)."""
             self._refresh_interval = max(5, int(seconds))
             return self
 
-        def compose_files(self, *files: str) -> "Integration.AdminContainers":
+        def compose_files(self, *files: str) -> Integration.AdminContainers:
             """Explicit compose file paths to discover."""
             self._compose_files = list(files)
             return self
 
-        def compose_project_dir(self, path: str) -> "Integration.AdminContainers":
+        def compose_project_dir(self, path: str) -> Integration.AdminContainers:
             """Set the compose project directory."""
             self._compose_project_dir = path
             return self
 
-        def show_system_containers(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def show_system_containers(self, enabled: bool = True) -> Integration.AdminContainers:
             """Show Docker system / infra containers (hidden by default)."""
             self._show_system_containers = enabled
             return self
 
-        def enable_exec(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_exec(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow ``docker exec`` from the admin UI."""
             self._enable_exec = enabled
             return self
 
-        def disable_exec(self) -> "Integration.AdminContainers":
+        def disable_exec(self) -> Integration.AdminContainers:
             """Disable ``docker exec`` in the admin UI."""
             self._enable_exec = False
             return self
 
-        def enable_prune(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_prune(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow ``docker system prune`` from the admin UI."""
             self._enable_prune = enabled
             return self
 
-        def disable_prune(self) -> "Integration.AdminContainers":
+        def disable_prune(self) -> Integration.AdminContainers:
             """Disable prune operations."""
             self._enable_prune = False
             return self
 
-        def enable_build(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_build(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow ``docker build`` / ``compose build`` from the admin UI."""
             self._enable_build = enabled
             return self
 
-        def disable_build(self) -> "Integration.AdminContainers":
+        def disable_build(self) -> Integration.AdminContainers:
             """Disable build operations."""
             self._enable_build = False
             return self
 
-        def enable_export(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_export(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow container filesystem export."""
             self._enable_export = enabled
             return self
 
-        def disable_export(self) -> "Integration.AdminContainers":
+        def disable_export(self) -> Integration.AdminContainers:
             """Disable container export."""
             self._enable_export = False
             return self
 
-        def enable_image_actions(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_image_actions(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow image pull / remove / tag operations."""
             self._enable_image_actions = enabled
             return self
 
-        def disable_image_actions(self) -> "Integration.AdminContainers":
+        def disable_image_actions(self) -> Integration.AdminContainers:
             """Disable image operations."""
             self._enable_image_actions = False
             return self
 
-        def enable_volume_actions(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_volume_actions(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow volume create / remove operations."""
             self._enable_volume_actions = enabled
             return self
 
-        def disable_volume_actions(self) -> "Integration.AdminContainers":
+        def disable_volume_actions(self) -> Integration.AdminContainers:
             """Disable volume operations."""
             self._enable_volume_actions = False
             return self
 
-        def enable_network_actions(self, enabled: bool = True) -> "Integration.AdminContainers":
+        def enable_network_actions(self, enabled: bool = True) -> Integration.AdminContainers:
             """Allow network create / remove operations."""
             self._enable_network_actions = enabled
             return self
 
-        def disable_network_actions(self) -> "Integration.AdminContainers":
+        def disable_network_actions(self) -> Integration.AdminContainers:
             """Disable network operations."""
             self._enable_network_actions = False
             return self
 
-        def read_only(self) -> "Integration.AdminContainers":
+        def read_only(self) -> Integration.AdminContainers:
             """Convenience -- disable all mutating operations."""
             self._allowed_actions = ["logs", "inspect"]
             self._enable_exec = False
@@ -2279,112 +2278,112 @@ class Integration:
             self._enable_apply: bool = True
             self._log_tail: int = 200
 
-        def kubeconfig(self, path: str) -> "Integration.AdminPods":
+        def kubeconfig(self, path: str) -> Integration.AdminPods:
             """Set path to kubeconfig file."""
             self._kubeconfig = path
             return self
 
-        def namespace(self, ns: str) -> "Integration.AdminPods":
+        def namespace(self, ns: str) -> Integration.AdminPods:
             """Set the target Kubernetes namespace (default ``"default"``)."""
             self._namespace = ns
             return self
 
-        def all_namespaces(self) -> "Integration.AdminPods":
+        def all_namespaces(self) -> Integration.AdminPods:
             """Query all namespaces."""
             self._namespace = "*"
             return self
 
-        def contexts(self, *names: str) -> "Integration.AdminPods":
+        def contexts(self, *names: str) -> Integration.AdminPods:
             """Set allowed kubectl contexts."""
             self._contexts = list(names)
             return self
 
-        def resources(self, *types: str) -> "Integration.AdminPods":
+        def resources(self, *types: str) -> Integration.AdminPods:
             """Set which K8s resource types to display."""
             self._resources = list(types) if types else list(self._ALL_RESOURCES)
             return self
 
-        def all_resources(self) -> "Integration.AdminPods":
+        def all_resources(self) -> Integration.AdminPods:
             """Display every supported K8s resource type."""
             self._resources = list(self._ALL_RESOURCES)
             return self
 
-        def manifest_dirs(self, *dirs: str) -> "Integration.AdminPods":
+        def manifest_dirs(self, *dirs: str) -> Integration.AdminPods:
             """Set directories to scan for K8s manifest files."""
             self._manifest_dirs = list(dirs)
             return self
 
-        def manifest_patterns(self, *patterns: str) -> "Integration.AdminPods":
+        def manifest_patterns(self, *patterns: str) -> Integration.AdminPods:
             """Set glob patterns for manifest files (default ``*.yaml``, ``*.yml``)."""
             self._manifest_patterns = list(patterns)
             return self
 
-        def refresh_interval(self, seconds: int) -> "Integration.AdminPods":
+        def refresh_interval(self, seconds: int) -> Integration.AdminPods:
             """Auto-refresh interval for pod metrics (min 5s)."""
             self._refresh_interval = max(5, int(seconds))
             return self
 
-        def log_tail(self, lines: int) -> "Integration.AdminPods":
+        def log_tail(self, lines: int) -> Integration.AdminPods:
             """Default number of log lines to fetch."""
             self._log_tail = max(10, int(lines))
             return self
 
-        def enable_logs(self, enabled: bool = True) -> "Integration.AdminPods":
+        def enable_logs(self, enabled: bool = True) -> Integration.AdminPods:
             """Allow pod log viewing."""
             self._enable_logs = enabled
             return self
 
-        def enable_exec(self, enabled: bool = True) -> "Integration.AdminPods":
+        def enable_exec(self, enabled: bool = True) -> Integration.AdminPods:
             """Allow ``kubectl exec`` from the admin UI."""
             self._enable_exec = enabled
             return self
 
-        def disable_exec(self) -> "Integration.AdminPods":
+        def disable_exec(self) -> Integration.AdminPods:
             """Disable ``kubectl exec``."""
             self._enable_exec = False
             return self
 
-        def enable_delete(self, enabled: bool = True) -> "Integration.AdminPods":
+        def enable_delete(self, enabled: bool = True) -> Integration.AdminPods:
             """Allow resource deletion."""
             self._enable_delete = enabled
             return self
 
-        def disable_delete(self) -> "Integration.AdminPods":
+        def disable_delete(self) -> Integration.AdminPods:
             """Disable resource deletion."""
             self._enable_delete = False
             return self
 
-        def enable_scale(self, enabled: bool = True) -> "Integration.AdminPods":
+        def enable_scale(self, enabled: bool = True) -> Integration.AdminPods:
             """Allow deployment scaling."""
             self._enable_scale = enabled
             return self
 
-        def disable_scale(self) -> "Integration.AdminPods":
+        def disable_scale(self) -> Integration.AdminPods:
             """Disable deployment scaling."""
             self._enable_scale = False
             return self
 
-        def enable_restart(self, enabled: bool = True) -> "Integration.AdminPods":
+        def enable_restart(self, enabled: bool = True) -> Integration.AdminPods:
             """Allow deployment rollout restart."""
             self._enable_restart = enabled
             return self
 
-        def disable_restart(self) -> "Integration.AdminPods":
+        def disable_restart(self) -> Integration.AdminPods:
             """Disable rollout restart."""
             self._enable_restart = False
             return self
 
-        def enable_apply(self, enabled: bool = True) -> "Integration.AdminPods":
+        def enable_apply(self, enabled: bool = True) -> Integration.AdminPods:
             """Allow ``kubectl apply -f`` from the admin UI."""
             self._enable_apply = enabled
             return self
 
-        def disable_apply(self) -> "Integration.AdminPods":
+        def disable_apply(self) -> Integration.AdminPods:
             """Disable ``kubectl apply``."""
             self._enable_apply = False
             return self
 
-        def read_only(self) -> "Integration.AdminPods":
+        def read_only(self) -> Integration.AdminPods:
             """Convenience -- disable all mutating operations."""
             self._enable_exec = False
             self._enable_delete = False
@@ -2500,66 +2499,66 @@ class Integration:
 
         # ── CSRF ──────────────────────────────────────────────────────
 
-        def csrf_enabled(self, enabled: bool = True) -> "Integration.AdminSecurity":
+        def csrf_enabled(self, enabled: bool = True) -> Integration.AdminSecurity:
             """Enable or disable CSRF protection."""
             self._csrf_enabled = enabled
             return self
 
-        def no_csrf(self) -> "Integration.AdminSecurity":
+        def no_csrf(self) -> Integration.AdminSecurity:
             """Disable CSRF protection (NOT recommended for production)."""
             self._csrf_enabled = False
             return self
 
-        def csrf_max_age(self, seconds: int) -> "Integration.AdminSecurity":
+        def csrf_max_age(self, seconds: int) -> Integration.AdminSecurity:
             """Set CSRF token max age in seconds (default: 7200 = 2h)."""
             self._csrf_max_age = max(60, int(seconds))
             return self
 
-        def csrf_token_length(self, length: int) -> "Integration.AdminSecurity":
+        def csrf_token_length(self, length: int) -> Integration.AdminSecurity:
             """Set CSRF token random nonce length (default: 32)."""
             self._csrf_token_length = max(16, int(length))
             return self
 
         # ── Rate Limiting ─────────────────────────────────────────────
 
-        def rate_limit_enabled(self, enabled: bool = True) -> "Integration.AdminSecurity":
+        def rate_limit_enabled(self, enabled: bool = True) -> Integration.AdminSecurity:
             """Enable or disable login rate limiting."""
             self._rate_limit_enabled = enabled
             return self
 
-        def no_rate_limit(self) -> "Integration.AdminSecurity":
+        def no_rate_limit(self) -> Integration.AdminSecurity:
             """Disable rate limiting (NOT recommended for production)."""
             self._rate_limit_enabled = False
             return self
 
-        def rate_limit_max_attempts(self, n: int) -> "Integration.AdminSecurity":
+        def rate_limit_max_attempts(self, n: int) -> Integration.AdminSecurity:
             """Max login attempts before lockout (default: 5)."""
             self._rate_limit_max_attempts = max(1, int(n))
             return self
 
-        def rate_limit_window(self, seconds: int) -> "Integration.AdminSecurity":
+        def rate_limit_window(self, seconds: int) -> Integration.AdminSecurity:
             """Rate limit window in seconds (default: 900 = 15min)."""
             self._rate_limit_window = max(10, int(seconds))
             return self
 
-        def sensitive_op_limit(self, n: int) -> "Integration.AdminSecurity":
+        def sensitive_op_limit(self, n: int) -> Integration.AdminSecurity:
             """Max sensitive operations per window (default: 30)."""
             self._sensitive_op_limit = max(1, int(n))
             return self
 
-        def sensitive_op_window(self, seconds: int) -> "Integration.AdminSecurity":
+        def sensitive_op_window(self, seconds: int) -> Integration.AdminSecurity:
             """Sensitive operation window in seconds (default: 300 = 5min)."""
             self._sensitive_op_window = max(10, int(seconds))
             return self
 
         # ── Progressive Lockout ───────────────────────────────────────
 
-        def progressive_lockout(self, enabled: bool = True) -> "Integration.AdminSecurity":
+        def progressive_lockout(self, enabled: bool = True) -> Integration.AdminSecurity:
             """Enable progressive lockout (escalating durations)."""
             self._progressive_lockout = enabled
             return self
 
-        def lockout_tiers(self, tiers: list[list[int]]) -> "Integration.AdminSecurity":
+        def lockout_tiers(self, tiers: list[list[int]]) -> Integration.AdminSecurity:
             """
             Set custom lockout tiers.
 
@@ -2574,37 +2573,37 @@ class Integration:
 
         # ── Password Policy ───────────────────────────────────────────
 
-        def password_min_length(self, n: int) -> "Integration.AdminSecurity":
+        def password_min_length(self, n: int) -> Integration.AdminSecurity:
             """Set minimum password length (default: 10)."""
             self._password_min_length = max(4, int(n))
             return self
 
-        def password_max_length(self, n: int) -> "Integration.AdminSecurity":
+        def password_max_length(self, n: int) -> Integration.AdminSecurity:
             """Set maximum password length (default: 128)."""
             self._password_max_length = max(32, int(n))
             return self
 
-        def password_require_upper(self, required: bool = True) -> "Integration.AdminSecurity":
+        def password_require_upper(self, required: bool = True) -> Integration.AdminSecurity:
             """Require at least one uppercase letter."""
             self._password_require_upper = required
             return self
 
-        def password_require_lower(self, required: bool = True) -> "Integration.AdminSecurity":
+        def password_require_lower(self, required: bool = True) -> Integration.AdminSecurity:
             """Require at least one lowercase letter."""
             self._password_require_lower = required
             return self
 
-        def password_require_digit(self, required: bool = True) -> "Integration.AdminSecurity":
+        def password_require_digit(self, required: bool = True) -> Integration.AdminSecurity:
             """Require at least one digit."""
             self._password_require_digit = required
             return self
 
-        def password_require_special(self, required: bool = True) -> "Integration.AdminSecurity":
+        def password_require_special(self, required: bool = True) -> Integration.AdminSecurity:
             """Require at least one special character."""
             self._password_require_special = required
             return self
 
-        def relaxed_password_policy(self) -> "Integration.AdminSecurity":
+        def relaxed_password_policy(self) -> Integration.AdminSecurity:
             """Use relaxed password policy (length-only, min 8)."""
             self._password_min_length = 8
             self._password_require_upper = False
@@ -2613,7 +2612,7 @@ class Integration:
             self._password_require_special = False
             return self
 
-        def strict_password_policy(self) -> "Integration.AdminSecurity":
+        def strict_password_policy(self) -> Integration.AdminSecurity:
             """Use strict password policy (min 12, all character classes)."""
             self._password_min_length = 12
             self._password_require_upper = True
@@ -2624,17 +2623,17 @@ class Integration:
 
         # ── Security Headers ──────────────────────────────────────────
 
-        def security_headers_enabled(self, enabled: bool = True) -> "Integration.AdminSecurity":
+        def security_headers_enabled(self, enabled: bool = True) -> Integration.AdminSecurity:
             """Enable or disable security header injection."""
             self._security_headers_enabled = enabled
             return self
 
-        def no_security_headers(self) -> "Integration.AdminSecurity":
+        def no_security_headers(self) -> Integration.AdminSecurity:
             """Disable security headers."""
             self._security_headers_enabled = False
             return self
 
-        def csp_template(self, template: str) -> "Integration.AdminSecurity":
+        def csp_template(self, template: str) -> Integration.AdminSecurity:
             """
             Set custom Content-Security-Policy template.
 
@@ -2647,26 +2646,26 @@ class Integration:
             self._csp_template = template
             return self
 
-        def frame_options(self, value: str) -> "Integration.AdminSecurity":
+        def frame_options(self, value: str) -> Integration.AdminSecurity:
             """Set X-Frame-Options header (default: DENY)."""
             self._frame_options = value
             return self
 
-        def permissions_policy(self, policy: str) -> "Integration.AdminSecurity":
+        def permissions_policy(self, policy: str) -> Integration.AdminSecurity:
             """Set Permissions-Policy header."""
             self._permissions_policy = policy
             return self
 
         # ── Session ───────────────────────────────────────────────────
 
-        def session_fixation_protection(self, enabled: bool = True) -> "Integration.AdminSecurity":
+        def session_fixation_protection(self, enabled: bool = True) -> Integration.AdminSecurity:
             """Enable session fixation protection (regenerate session on login)."""
             self._session_fixation_protection = enabled
             return self
 
         # ── Event Tracking ────────────────────────────────────────────
 
-        def event_tracker_max_events(self, n: int) -> "Integration.AdminSecurity":
+        def event_tracker_max_events(self, n: int) -> Integration.AdminSecurity:
             """Set max security events in the FIFO buffer (default: 1000)."""
             self._event_tracker_max_events = max(100, int(n))
             return self
@@ -2732,13 +2731,13 @@ class Integration:
         list_per_page: int = 25,
         theme: str = "auto",
         # ── Nested builder objects (IDE-friendly) ─────────────────
-        modules: Optional["Integration.AdminModules"] = None,
-        audit: Optional["Integration.AdminAudit"] = None,
-        monitoring: Optional["Integration.AdminMonitoring"] = None,
-        sidebar: Optional["Integration.AdminSidebar"] = None,
-        containers: Optional["Integration.AdminContainers"] = None,
-        pods: Optional["Integration.AdminPods"] = None,
-        security: Optional["Integration.AdminSecurity"] = None,
+        modules: Optional[Integration.AdminModules] = None,
+        audit: Optional[Integration.AdminAudit] = None,
+        monitoring: Optional[Integration.AdminMonitoring] = None,
+        sidebar: Optional[Integration.AdminSidebar] = None,
+        containers: Optional[Integration.AdminContainers] = None,
+        pods: Optional[Integration.AdminPods] = None,
+        security: Optional[Integration.AdminSecurity] = None,
         # ── Legacy flat params (backward compat) ─────────────────
         enable_audit: bool | None = None,
         audit_max_entries: int = 10_000,
@@ -3132,7 +3131,7 @@ class Integration:
                 scope: str = "global",
                 name: str | None = None,
                 **kwargs,
-            ) -> "Chain":
+            ) -> Chain:
                 """
                 Append a middleware to the chain.
 
@@ -3170,12 +3169,12 @@ class Integration:
                 return [e.to_dict() for e in self]
 
         @classmethod
-        def chain(cls) -> "Chain":
+        def chain(cls) -> Chain:
             """Create an empty middleware chain."""
             return cls.Chain()
 
         @classmethod
-        def defaults(cls) -> "Chain":
+        def defaults(cls) -> Chain:
             """
             Standard development middleware chain.
 
@@ -3190,7 +3189,7 @@ class Integration:
             )
 
         @classmethod
-        def production(cls) -> "Chain":
+        def production(cls) -> Chain:
             """
             Production-grade middleware chain.
 
@@ -3209,7 +3208,7 @@ class Integration:
             )
 
         @classmethod
-        def minimal(cls) -> "Chain":
+        def minimal(cls) -> Chain:
             """
             Minimal middleware chain -- just error handling.
 

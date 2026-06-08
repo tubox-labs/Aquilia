@@ -40,6 +40,8 @@ compiling, but new code should prefer the typed dataclasses.
 """
 
 # ── Protocol ──────────────────────────────────────────────────────────
+# ── Legacy Integration (backward compat) ───────────────────────────────
+from aquilia.integrations._legacy import Integration as Integration  # noqa: F811
 from aquilia.integrations._protocol import IntegrationConfig
 
 # ── Admin ─────────────────────────────────────────────────────────────
@@ -124,9 +126,6 @@ from aquilia.integrations.tasks import TasksIntegration
 
 # ── Templates ─────────────────────────────────────────────────────────
 from aquilia.integrations.templates import TemplatesIntegration
-
-# ── Legacy Integration (backward compat) ───────────────────────────────
-from aquilia.integrations._legacy import Integration as Integration  # noqa: F811
 
 # ── Versioning ────────────────────────────────────────────────────────
 from aquilia.integrations.versioning_cfg import VersioningIntegration

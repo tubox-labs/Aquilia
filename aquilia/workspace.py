@@ -30,7 +30,6 @@ from typing import Any
 
 from aquilia.integrations._protocol import IntegrationConfig
 
-
 # ──────────────────────────────────────────────────────────────────────
 # Dataclasses
 # ──────────────────────────────────────────────────────────────────────
@@ -158,38 +157,38 @@ class Module:
             auto_discover=True,
         )
 
-    def auto_discover(self, enabled: bool = True) -> "Module":
+    def auto_discover(self, enabled: bool = True) -> Module:
         self._config.auto_discover = enabled
         return self
 
-    def fault_domain(self, domain: str) -> "Module":
+    def fault_domain(self, domain: str) -> Module:
         self._config.fault_domain = domain
         return self
 
-    def route_prefix(self, prefix: str) -> "Module":
+    def route_prefix(self, prefix: str) -> Module:
         self._config.route_prefix = prefix
         return self
 
-    def depends_on(self, *modules: str) -> "Module":
+    def depends_on(self, *modules: str) -> Module:
         self._config.depends_on = list(modules)
         return self
 
-    def imports(self, *modules: str) -> "Module":
+    def imports(self, *modules: str) -> Module:
         self._config.imports = list(modules)
         self._config.depends_on = list(modules)
         return self
 
-    def exports(self, *components: str) -> "Module":
+    def exports(self, *components: str) -> Module:
         self._config.exports = list(components)
         return self
 
-    def tags(self, *module_tags: str) -> "Module":
+    def tags(self, *module_tags: str) -> Module:
         self._config.tags = list(module_tags)
         return self
 
     # ── Legacy registration methods (DEPRECATED) ───────────────────
 
-    def register_controllers(self, *controllers: str) -> "Module":
+    def register_controllers(self, *controllers: str) -> Module:
         import warnings
 
         warnings.warn(
@@ -200,7 +199,7 @@ class Module:
         )
         return self
 
-    def register_services(self, *services: str) -> "Module":
+    def register_services(self, *services: str) -> Module:
         import warnings
 
         warnings.warn(
@@ -211,7 +210,7 @@ class Module:
         )
         return self
 
-    def register_providers(self, *providers: dict[str, Any]) -> "Module":
+    def register_providers(self, *providers: dict[str, Any]) -> Module:
         import warnings
 
         warnings.warn(
@@ -222,7 +221,7 @@ class Module:
         )
         return self
 
-    def register_routes(self, *routes: dict[str, Any]) -> "Module":
+    def register_routes(self, *routes: dict[str, Any]) -> Module:
         import warnings
 
         warnings.warn(
@@ -233,7 +232,7 @@ class Module:
         )
         return self
 
-    def register_sockets(self, *sockets: str) -> "Module":
+    def register_sockets(self, *sockets: str) -> Module:
         import warnings
 
         warnings.warn(
@@ -244,7 +243,7 @@ class Module:
         )
         return self
 
-    def register_middlewares(self, *middlewares: str) -> "Module":
+    def register_middlewares(self, *middlewares: str) -> Module:
         import warnings
 
         warnings.warn(
@@ -255,7 +254,7 @@ class Module:
         )
         return self
 
-    def register_models(self, *models: str) -> "Module":
+    def register_models(self, *models: str) -> Module:
         import warnings
 
         warnings.warn(
@@ -266,7 +265,7 @@ class Module:
         )
         return self
 
-    def register_serializers(self, *serializers: str) -> "Module":
+    def register_serializers(self, *serializers: str) -> Module:
         import warnings
 
         warnings.warn(
@@ -277,11 +276,11 @@ class Module:
         )
         return self
 
-    def on_startup(self, hook: str) -> "Module":
+    def on_startup(self, hook: str) -> Module:
         self._config.on_startup = hook
         return self
 
-    def on_shutdown(self, hook: str) -> "Module":
+    def on_shutdown(self, hook: str) -> Module:
         self._config.on_shutdown = hook
         return self
 
@@ -295,7 +294,7 @@ class Module:
         auto_migrate: bool = False,
         migrations_dir: str = "migrations",
         **kwargs,
-    ) -> "Module":
+    ) -> Module:
         if config is not None:
             db_dict = config.to_dict()
             db_dict.update(
@@ -394,23 +393,23 @@ class Workspace:
         self._on_shutdown: str | None = None
         self._env_config: Any | None = None
 
-    def on_startup(self, hook: str) -> "Workspace":
+    def on_startup(self, hook: str) -> Workspace:
         self._on_startup = hook
         return self
 
-    def on_shutdown(self, hook: str) -> "Workspace":
+    def on_shutdown(self, hook: str) -> Workspace:
         self._on_shutdown = hook
         return self
 
-    def env_config(self, config_cls: "type | Any") -> "Workspace":
+    def env_config(self, config_cls: type | Any) -> Workspace:
         self._env_config = config_cls
         return self
 
-    def starter(self, module_name: str) -> "Workspace":
+    def starter(self, module_name: str) -> Workspace:
         self._starter = module_name
         return self
 
-    def middleware(self, chain: Any) -> "Workspace":
+    def middleware(self, chain: Any) -> Workspace:
         """
         Configure the middleware chain for this workspace.
 
@@ -441,7 +440,7 @@ class Workspace:
         port: int = 8000,
         reload: bool = True,
         workers: int = 1,
-    ) -> "Workspace":
+    ) -> Workspace:
         self._runtime = RuntimeConfig(
             mode=mode,
             host=host,
@@ -451,11 +450,11 @@ class Workspace:
         )
         return self
 
-    def module(self, module: Module) -> "Workspace":
+    def module(self, module: Module) -> Workspace:
         self._modules.append(module.build())
         return self
 
-    def integrate(self, integration: "dict[str, Any] | IntegrationConfig | Any") -> "Workspace":
+    def integrate(self, integration: dict[str, Any] | IntegrationConfig | Any) -> Workspace:
         """
         Add an integration.
 
@@ -544,7 +543,7 @@ class Workspace:
                     break
         return self
 
-    def sessions(self, policies: list[Any] | None = None, **kwargs) -> "Workspace":
+    def sessions(self, policies: list[Any] | None = None, **kwargs) -> Workspace:
         self._sessions_config = {"enabled": True, "policies": policies or [], **kwargs}
         return self
 
@@ -553,7 +552,7 @@ class Workspace:
         default_locale: str = "en",
         available_locales: list[str] | None = None,
         **kwargs,
-    ) -> "Workspace":
+    ) -> Workspace:
         """
         Configure internationalization.
 
@@ -585,7 +584,7 @@ class Workspace:
         num_workers: int = 4,
         backend: str = "memory",
         **kwargs,
-    ) -> "Workspace":
+    ) -> Workspace:
         """
         Configure background tasks.
 
@@ -616,7 +615,7 @@ class Workspace:
         default: str = "default",
         backends: dict[str, Any] | None = None,
         **kwargs,
-    ) -> "Workspace":
+    ) -> Workspace:
         """
         Configure file storage for the workspace.
 
@@ -654,7 +653,7 @@ class Workspace:
         hsts: bool = True,
         proxy_fix: bool = False,
         **kwargs,
-    ) -> "Workspace":
+    ) -> Workspace:
         self._security_config = {
             "enabled": True,
             "cors_enabled": cors_enabled,
@@ -670,7 +669,7 @@ class Workspace:
 
     def telemetry(
         self, tracing_enabled: bool = False, metrics_enabled: bool = True, logging_enabled: bool = True, **kwargs
-    ) -> "Workspace":
+    ) -> Workspace:
         self._telemetry_config = {
             "enabled": True,
             "tracing_enabled": tracing_enabled,
@@ -690,7 +689,7 @@ class Workspace:
         auto_migrate: bool = False,
         migrations_dir: str = "migrations",
         **kwargs,
-    ) -> "Workspace":
+    ) -> Workspace:
         if config is not None:
             self._database_config = config.to_dict()
             self._database_config.update(
