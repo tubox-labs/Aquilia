@@ -79,17 +79,6 @@ class AdminAction(str, Enum):
     FILE_DOWNLOAD = "file_download"
 
     # ── Profile ──────────────────────────────────────────────────────
-    PROFILE_UPDATE = "profile_update"
-    AVATAR_UPLOAD = "avatar_upload"
-    PASSWORD_CHANGE = "password_change"
-
-    # ── MLOps ────────────────────────────────────────────────────────
-    ML_INFERENCE = "ml_inference"
-    ML_BATCH_INFERENCE = "ml_batch_inference"
-    ML_COMPARE = "ml_compare"
-    ML_HEALTH_CHECK = "ml_health_check"
-    ALERT_CONFIG = "alert_config"
-    SNAPSHOT_EXPORT = "snapshot_export"
 
     # ── API Key Management ───────────────────────────────────────────
     API_KEY_CREATE = "api_key_create"

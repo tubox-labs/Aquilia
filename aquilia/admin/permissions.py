@@ -82,10 +82,6 @@ class AdminPermission(str, Enum):
     STORAGE_VIEW = "admin.storage.view"
     STORAGE_MANAGE = "admin.storage.manage"
 
-    # MLOps
-    MLOPS_VIEW = "admin.mlops.view"
-    MLOPS_MANAGE = "admin.mlops.manage"
-
     # Query Inspector
     QUERY_INSPECTOR_VIEW = "admin.query_inspector.view"
 
@@ -142,7 +138,6 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.CONTAINER_VIEW,
         AdminPermission.POD_VIEW,
         AdminPermission.STORAGE_VIEW,
-        AdminPermission.MLOPS_VIEW,
         AdminPermission.QUERY_INSPECTOR_VIEW,
         AdminPermission.TASKS_VIEW,
         AdminPermission.ERRORS_VIEW,
@@ -171,8 +166,6 @@ ROLE_PERMISSIONS: dict[AdminRole, set[AdminPermission]] = {
         AdminPermission.POD_MANAGE,
         AdminPermission.STORAGE_VIEW,
         AdminPermission.STORAGE_MANAGE,
-        AdminPermission.MLOPS_VIEW,
-        AdminPermission.MLOPS_MANAGE,
         AdminPermission.QUERY_INSPECTOR_VIEW,
         AdminPermission.TASKS_VIEW,
         AdminPermission.TASKS_MANAGE,

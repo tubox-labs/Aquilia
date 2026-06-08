@@ -235,7 +235,6 @@ class AquiliaGroup(click.Group):
         "Admin": ["admin"],
         "Inspect": ["inspect", "manifest", "analytics"],
         "Subsystems": ["ws", "cache", "mail", "i18n", "mcp"],
-        "MLOps": ["pack", "model", "mlops-deploy", "observe", "export", "plugin", "lineage", "experiment"],
         "Deploy": ["deploy-gen", "artifact"],
         "Migration": ["migrate"],
     }
@@ -2109,31 +2108,6 @@ def db_status(ctx, database_url: str | None):
     except Exception as e:
         error(f"  {_CROSS} status failed: {e}")
         sys.exit(1)
-
-
-# ============================================================================
-# MLOps commands
-# ============================================================================
-
-from .commands.mlops_cmds import (
-    deploy_group,
-    experiment_group,
-    export_group,
-    lineage_group,
-    model_group,
-    observe_group,
-    pack_group,
-    plugin_group,
-)
-
-cli.add_command(pack_group)
-cli.add_command(model_group)
-cli.add_command(deploy_group)
-cli.add_command(observe_group)
-cli.add_command(export_group)
-cli.add_command(plugin_group)
-cli.add_command(lineage_group)
-cli.add_command(experiment_group)
 
 
 # ============================================================================

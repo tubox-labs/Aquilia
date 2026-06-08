@@ -62,7 +62,7 @@ The boot sequence is: **Manifests → Aquilary → RuntimeRegistry → Controlle
 | Models/ORM | `aquilia/models/`, `aquilia/db/` | Async ORM, query builder, migrations |
 | Templates | `aquilia/templates/` | Sandboxed Jinja2 with bytecode caching |
 | CLI | `aquilia/cli/` | `aq` command — init, add, serve, validate, inspect |
-| MLOps | `aquilia/mlops/` | Model registry, inference, monitoring, deployment |
+
 | Tasks | `aquilia/tasks/` | Background job system with priority queues |
 | Storage | `aquilia/storage/` | Async file storage (local, S3, GCS, Azure, SFTP) |
 
