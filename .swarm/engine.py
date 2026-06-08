@@ -52,9 +52,7 @@ class ExecutionEngine:
 
     async def execute(self, request: str) -> bool:
         """Execute a request using the full swarm pipeline."""
-        self._coordinator = CoordinatorAgent(
-            "coordinator_001", self._state, self._tasks
-        )
+        self._coordinator = CoordinatorAgent("coordinator_001", self._state, self._tasks)
 
         checkpoint = self._recovery.create_checkpoint()
         success = await self._coordinator.execute_plan(request)
