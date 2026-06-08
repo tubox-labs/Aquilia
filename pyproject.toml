@@ -57,8 +57,6 @@ dependencies = [
     # Surp serializer — used for manifest compilation and runtime evaluation
     "surp",
     "psutil>=7.2.2",
-    "asyncpg>=0.31.0",
-    "ruff>=0.15.15",
 ]
 
 # ---------------------------------------------------------------------------
@@ -118,13 +116,26 @@ server = [
     "uvicorn[standard]>=0.30.0",
 ]
 
+# Async PostgreSQL driver
+postgres = [
+    "asyncpg>=0.31.0",
+]
+
+# OpenTelemetry distributed tracing
+otel = [
+    "opentelemetry-api>=1.24.0",
+    "opentelemetry-sdk>=1.24.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.24.0",
+    "opentelemetry-instrumentation-asgi>=0.45b0",
+]
+
 
 
 # ---- Convenience bundles ----------------------------------------------------
 
 # Everything except MLOps (templates, db & files are now core — kept in list for compat)
 full = [
-    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server]",
+    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel]",
 ]
 
 # Absolutely everything
@@ -142,7 +153,7 @@ testing = [
 
 dev = [
     "aquilia[testing]",
-    "ruff>=0.4.0",
+    "ruff>=0.15.15",
     "mypy>=1.10.0",
     "pre-commit>=3.7.0",
 ]
@@ -151,11 +162,11 @@ dev = [
 # URLs
 # ---------------------------------------------------------------------------
 [project.urls]
-Homepage    = "https://github.com/axiomchronicles/Aquilia"
-Documentation = "https://github.com/axiomchronicles/Aquilia#readme"
-Repository  = "https://github.com/axiomchronicles/Aquilia"
-Issues      = "https://github.com/axiomchronicles/Aquilia/issues"
-Changelog   = "https://github.com/axiomchronicles/Aquilia/blob/main/CHANGELOG.md"
+Homepage    = "https://github.com/tubox-labs/Aquilia"
+Documentation = "https://github.com/tubox-labs/Aquilia#readme"
+Repository  = "https://github.com/tubox-labs/Aquilia"
+Issues      = "https://github.com/tubox-labs/Aquilia/issues"
+Changelog   = "https://github.com/tubox-labs/Aquilia/blob/main/CHANGELOG.md"
 
 # ---------------------------------------------------------------------------
 # Console scripts
