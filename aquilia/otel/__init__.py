@@ -31,6 +31,7 @@ from ._config import OTelConfig
 from ._faults import OTEL_DOMAIN, OTelConfigFault, OTelExportFault, OTelFault
 from ._middleware import OTelMiddleware
 from ._tracer import get_tracer, setup, shutdown
+from typing import Any
 
 
 def get_current_span() -> Any:
