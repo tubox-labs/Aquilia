@@ -2,7 +2,7 @@
 # Aquilia — Async-native Python web framework
 # ============================================================================
 # Install core:           pip install aquilia
-# Install with extras:    pip install aquilia[auth,templates,db]
+# Install with extras:    pip install aquilia[auth,redis,mail]
 # Install everything:     pip install aquilia[all]
 # ============================================================================
 
@@ -56,20 +56,12 @@ dependencies = [
     "markupsafe>=2.1.0",
     # Surp serializer — used for manifest compilation and runtime evaluation
     "surp",
-    "psutil>=7.2.2",
 ]
 
 # ---------------------------------------------------------------------------
 # Optional dependency groups
 # ---------------------------------------------------------------------------
 [project.optional-dependencies]
-
-# NOTE: jinja2/markupsafe are now in core dependencies.
-# These aliases are kept for backwards compatibility with existing installs
-# that specify `pip install aquilia[templates]` or `pip install aquilia[db]`.
-templates = []
-
-db = []
 
 # Async SQLite compat shim — DEPRECATED: aiosqlite replaced by native aquilia.sqlite.
 # Kept for gradual migration; will be removed in next major version.
@@ -80,10 +72,6 @@ auth = [
     "cryptography>=42.0.0",
     "argon2-cffi>=23.1.0",
 ]
-
-# Async file I/O — DEPRECATED: aiofiles replaced by native aquilia.filesystem.
-# Kept as an empty list so existing `pip install aquilia[files]` won't break.
-files = []
 
 # Multipart form / file-upload parsing
 multipart = [
@@ -130,10 +118,8 @@ otel = [
 ]
 
 
-
 # ---- Convenience bundles ----------------------------------------------------
 
-# Everything except MLOps (templates, db & files are now core — kept in list for compat)
 full = [
     "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel]",
 ]
