@@ -1,6 +1,6 @@
 # Aquilia Framework — Complete Usage Guide
 
-> **Version:** 1.0.0  
+> **Version:** 1.1.0  
 > **Python:** 3.12+  
 > **Architecture:** ASGI-native, modular, DI-first
 
@@ -18,7 +18,7 @@
 8. [Faults (Error Handling)](#8-faults-error-handling)
 9. [WebSockets](#9-websockets)
 10. [Templates](#10-templates)
-11. [AMDL Models](#11-amdl-models)
+11. [Models & ORM](#11-models--orm)
 12. [Effects](#12-effects)
 13. [URL Patterns](#13-url-patterns)
 14. [Middleware](#14-middleware)
@@ -28,6 +28,9 @@
 18. [CLI Reference](#18-cli-reference)
 19. [Testing](#19-testing)
 20. [Deployment](#20-deployment)
+21. [Server-Sent Events (SSE)](#21-server-sent-events-sse)
+22. [OpenTelemetry](#22-opentelemetry)
+23. [Request Body Validation](#23-request-body-validation)
 
 ---
 
@@ -851,7 +854,7 @@ class UserNotFoundFault(Fault):
 | `IO` | I/O and external service errors |
 | `SECURITY` | Authentication / authorization failures |
 | `SYSTEM` | Internal framework errors |
-| `MODEL` | AMDL model / database errors |
+| `MODEL` | Model / database errors |
 | Custom | `FaultDomain.custom("BILLING")` |
 
 ### Severity Levels
@@ -1105,132 +1108,97 @@ prod_engine = create_production_engine(search_paths=["templates"])
 
 ---
 
-## 11. AMDL Models
+## 11. Models & ORM
 
-AMDL (Aquilia Model Definition Language) defines data models in `.amdl` files.
+Aquilia provides a pure-Python ORM with typed model classes, query building, and migration support.
 
-### Model Definition
+### Defining Models
 
-```amdl
-# models/user.amdl
-model User {
-    slot id: uuid @primary
-    slot email: string @unique @indexed
-    slot name: string
-    slot password_hash: string
-    slot role: string = "user"
-    slot is_active: bool = true
-    slot created_at: datetime @auto_now_add
-    slot updated_at: datetime @auto_now
+Models are Python classes that extend `Model` with typed field definitions:
 
-    link posts: Post[] @cascade
-    link profile: Profile? @set_null
+```python
+from aquilia.models import Model, CharField, EmailField, IntegerField, DateTimeField
+from aquilia.models import UUIDField, BooleanField, FloatField, TextField
 
-    index idx_email_active on (email, is_active)
+class User(Model):
+    id = UUIDField(primary_key=True, default=uuid4)
+    email = EmailField(unique=True, indexed=True)
+    name = CharField(max_length=255)
+    password_hash = CharField(max_length=512)
+    role = CharField(max_length=50, default="user")
+    is_active = BooleanField(default=True)
+    created_at = DateTimeField(auto_now_add=True)
+    updated_at = DateTimeField(auto_now=True)
 
-    hook before_save {
-        validate_email(self.email)
-    }
-
-    meta {
+    class Meta:
         table = "users"
         ordering = ["-created_at"]
-    }
 
-    note "Core user model for authentication and profiles"
-}
+class Post(Model):
+    id = UUIDField(primary_key=True, default=uuid4)
+    title = CharField(max_length=255)
+    content = TextField()
+    author = CharField(max_length=255)
+    published_at = DateTimeField(nullable=True)
+
+    class Meta:
+        table = "posts"
+        ordering = ["-published_at"]
 ```
 
-### AMDL Syntax Reference
+### Field Types
 
-#### Slots (Fields)
+| Field | Python Type | Description |
+|-------|-------------|-------------|
+| `CharField(max_length=n)` | `str` | Text up to `n` characters |
+| `TextField()` | `str` | Long unbounded text |
+| `EmailField(max_length=n)` | `str` | Email with validation |
+| `IntegerField()` | `int` | Integer |
+| `FloatField()` | `float` | Floating point |
+| `BooleanField()` | `bool` | Boolean |
+| `UUIDField()` | `uuid.UUID` | UUID |
+| `DateTimeField()` | `datetime` | DateTime |
+| `DateField()` | `date` | Date |
+| `JSONField()` | `dict` / `list` | JSON blob |
+| `BinaryField()` | `bytes` | Binary data |
 
-```amdl
-slot name: type [= default] [@decorator...]
-```
+### Field Options
 
-| Type | Description |
-|------|-------------|
-| `string` | Text field |
-| `int` | Integer |
-| `float` | Floating point |
-| `bool` | Boolean |
-| `uuid` | UUID |
-| `datetime` | DateTime |
-| `date` | Date |
-| `json` | JSON blob |
-| `text` | Long text |
-| `binary` | Binary data |
+| Option | Effect |
+|--------|--------|
+| `primary_key=True` | Primary key field |
+| `unique=True` | Unique constraint |
+| `indexed=True` | Database index |
+| `nullable=True` | Allow NULL |
+| `default=value` | Default value |
+| `auto_now=True` | Set to current timestamp on every save |
+| `auto_now_add=True` | Set to current timestamp on creation |
+| `max_length=n` | Max length constraint |
 
-#### Slot Decorators
-
-| Decorator | Effect |
-|-----------|--------|
-| `@primary` | Primary key |
-| `@unique` | Unique constraint |
-| `@indexed` | Database index |
-| `@nullable` | Allow NULL |
-| `@auto_now` | Set on every save |
-| `@auto_now_add` | Set on creation |
-| `@max_length(n)` | Max length constraint |
-| `@min_value(n)` | Min value constraint |
-| `@max_value(n)` | Max value constraint |
-
-#### Links (Relationships)
-
-```amdl
-link field_name: Model      # One-to-one
-link field_name: Model?     # Optional one-to-one
-link field_name: Model[]    # One-to-many
-```
-
-| Link Decorator | Effect |
-|----------------|--------|
-| `@cascade` | Delete linked records on parent delete |
-| `@set_null` | Set to NULL on parent delete |
-| `@restrict` | Prevent parent deletion |
-| `@protect` | Raise error on parent deletion |
-
-### Parsing AMDL
+### CRUD Operations
 
 ```python
-from aquilia.models import parse_amdl, parse_amdl_file, parse_amdl_directory
+from aquilia.models import Q
 
-# Parse string
-ast = parse_amdl("""
-model Product {
-    slot id: uuid @primary
-    slot name: string
-    slot price: float
-}
-""")
+# Create
+new_user = await User.objects.create(name="John", email="john@example.com")
 
-# Parse file
-ast = parse_amdl_file("models/user.amdl")
+# Read
+user = await User.objects.get(id="uuid-here")
+user = await User.objects.get_by(email="john@example.com")
+all_users = await User.objects.all()
+admins = await User.objects.filter(role="admin")
 
-# Parse entire directory
-models = parse_amdl_directory("models/")
-```
+# Query building
+recent = await User.objects.filter(
+    Q.eq("role", "admin") & Q.gt("created_at", cutoff)
+)
 
-### ModelProxy (Runtime CRUD)
+# Update
+await User.objects.filter(id="uuid-here").update(name="Jane")
 
-```python
-from aquilia.models import ModelProxy, ModelRegistry, Q
-
-# Register model
-registry = ModelRegistry()
-registry.register_from_ast(ast)
-
-# Create proxy
-User = ModelProxy("User", registry=registry)
-
-# CRUD operations
-user = await User.create(name="John", email="john@example.com")
-user = await User.find_by_id("uuid-here")
-users = await User.find_all()
-users = await User.filter(Q.eq("role", "admin") & Q.gt("created_at", cutoff))
-await User.update("uuid-here", name="Jane")
-await User.delete("uuid-here")
+# Delete
+await User.objects.filter(id="uuid-here").delete()
 ```
 
 ### Query Builder (Q)
@@ -1238,20 +1206,20 @@ await User.delete("uuid-here")
 ```python
 from aquilia.models import Q
 
-# Comparison operators
-Q.eq("status", "active")       # field == value
-Q.ne("status", "deleted")      # field != value
-Q.gt("age", 18)                # field > value
-Q.gte("age", 18)               # field >= value
-Q.lt("price", 100)             # field < value
-Q.lte("price", 100)            # field <= value
+# Comparison
+Q.eq("status", "active")       # ==
+Q.ne("status", "deleted")      # !=
+Q.gt("age", 18)                # >
+Q.gte("age", 18)               # >=
+Q.lt("price", 100)             # <
+Q.lte("price", 100)            # <=
 
-# String operators
+# String
 Q.contains("name", "john")     # LIKE %john%
 Q.starts_with("email", "admin")
 Q.ends_with("email", ".com")
 
-# Logical operators
+# Logical
 Q.eq("a", 1) & Q.eq("b", 2)   # AND
 Q.eq("a", 1) | Q.eq("b", 2)   # OR
 ~Q.eq("status", "deleted")     # NOT
@@ -1261,33 +1229,78 @@ Q.in_("role", ["admin", "mod"])
 Q.between("price", 10, 100)
 ```
 
+### Relationships
+
+```python
+class Profile(Model):
+    id = UUIDField(primary_key=True, default=uuid4)
+    bio = TextField(nullable=True)
+    user = UUIDField()  # Foreign key to User
+
+    class Meta:
+        table = "profiles"
+
+class Comment(Model):
+    id = UUIDField(primary_key=True, default=uuid4)
+    body = TextField()
+    post = UUIDField(indexed=True)  # Foreign key to Post
+    author = CharField(max_length=255)
+
+    class Meta:
+        table = "comments"
+```
+
 ### Migrations
 
 ```python
-from aquilia.models import MigrationRunner, generate_migration_file, op
+from aquilia.db import MigrationRunner, op
 
-# Generate migration
-generate_migration_file(
-    name="create_users",
-    models_dir="models/",
-    output_dir="migrations/",
-)
+# Generate from models module
+# aq db makemigrations
 
 # Run migrations
 runner = MigrationRunner(db_url="sqlite:///myapp.db")
 await runner.migrate()
 
-# Migration operations
+# Manual migration
 class CreateUsersTable:
     async def up(self):
         op.create_table("users", [
             op.column("id", "uuid", primary=True),
             op.column("email", "string", unique=True),
             op.column("name", "string"),
+            op.column("created_at", "datetime"),
         ])
 
     async def down(self):
         op.drop_table("users")
+```
+
+### Integration Configuration
+
+```python
+from aquilia import Integration
+
+workspace.integrate(
+    Integration.database(
+        driver="sqlite",
+        database="myapp.db",
+    )
+)
+```
+
+### Transaction Support
+
+```python
+from aquilia.effects import DBTx
+
+async def transfer_funds(from_id, to_id, amount):
+    async with DBTx() as tx:
+        sender = await User.objects.get(id=from_id)
+        receiver = await User.objects.get(id=to_id)
+        await User.objects.filter(id=from_id).update(balance=sender.balance - amount)
+        await User.objects.filter(id=to_id).update(balance=receiver.balance + amount)
+        # Auto-commits on success, rolls back on error
 ```
 
 ---
@@ -1660,9 +1673,9 @@ aq generate service <module> <name>
 # Discovery
 aq discover               # Show registered modules, controllers, services
 
-# Models
-aq model parse <file>     # Parse AMDL file
-aq model migrate          # Run migrations
+# Database
+aq db makemigrations      # Generate migrations from models
+aq db migrate             # Run pending migrations
 ```
 
 ---
@@ -1764,6 +1777,240 @@ AQUILIA_ENV=prod
 
 ---
 
+## 21. Server-Sent Events (SSE)
+
+Aquilia provides first-class SSE support for streaming data to clients.
+
+### Basic Event Stream
+
+```python
+from aquilia.sse import SSEResponse, SSEEvent
+
+class StreamController(Controller):
+    prefix = "/stream"
+
+    @GET("/events")
+    async def event_stream(self, ctx: RequestCtx):
+        async def generate():
+            for i in range(10):
+                yield SSEEvent(data=f"Message {i}", event="update")
+                await asyncio.sleep(1)
+            yield SSEEvent(data="Done", event="complete")
+
+        return SSEResponse(generate())
+```
+
+### LLM Token Streaming
+
+```python
+from aquilia.sse import SSEResponse, SSEEvent
+
+class LLMController(Controller):
+    prefix = "/llm"
+
+    @POST("/chat")
+    async def chat_stream(self, ctx: RequestCtx):
+        prompt = await ctx.json()
+
+        async def token_stream():
+            async for token in self.llm_service.stream(prompt["message"]):
+                yield SSEEvent(data=token, event="token")
+            yield SSEEvent(data="[DONE]", event="done")
+
+        return SSEResponse(token_stream())
+```
+
+### JSON Data Streaming
+
+```python
+from aquilia.sse import SSEResponse, SSEEvent
+import json
+
+class MetricsController(Controller):
+    prefix = "/metrics"
+
+    @GET("/live")
+    async def metrics_stream(self, ctx: RequestCtx):
+        async def emit_metrics():
+            while True:
+                metrics = await self.metrics_service.snapshot()
+                yield SSEEvent(
+                    data=json.dumps(metrics),
+                    event="metrics",
+                )
+                await asyncio.sleep(2)
+
+        return SSEResponse(emit_metrics())
+```
+
+### SSEEvent Fields
+
+| Field | Description |
+|-------|-------------|
+| `data` | Event payload (string) |
+| `event` | Event type name (defaults to `"message"`) |
+| `id` | Event ID for reconnection tracking |
+| `retry` | Client reconnection delay in milliseconds |
+
+### Client-Side Consumption
+
+```javascript
+const es = new EventSource("/stream/events");
+es.addEventListener("update", (e) => console.log(e.data));
+es.addEventListener("complete", () => es.close());
+```
+
+---
+
+## 22. OpenTelemetry
+
+Aquilia integrates with OpenTelemetry for distributed tracing and observability.
+
+### Configuration
+
+```python
+from aquilia.otel import OTelConfig
+from aquilia import Workspace
+
+workspace = Workspace(name="myapp")
+workspace.open_telemetry(
+    OTelConfig(
+        service_name="myapp",
+        exporter_endpoint="http://localhost:4317",
+        exporter_protocol="grpc",
+        trace_sampling=1.0,            # 100% sample rate in dev
+        batch_export=True,
+    )
+)
+```
+
+### Configuration Options
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `service_name` | Service name in traces | `"aquilia"` |
+| `exporter_endpoint` | Collector endpoint | `http://localhost:4317` |
+| `exporter_protocol` | `"grpc"` or `"http/protobuf"` | `"grpc"` |
+| `trace_sampling` | Sample rate (0.0–1.0) | `1.0` |
+| `batch_export` | Batch spans before sending | `True` |
+| `enabled` | Enable tracing | `True` |
+
+### Accessing the Current Span
+
+```python
+from aquilia.otel import current_span
+
+class OrderController(Controller):
+    prefix = "/orders"
+
+    @POST("/")
+    async def create_order(self, ctx: RequestCtx):
+        span = current_span()
+
+        # Add custom attributes
+        span.set_attribute("order.customer_id", ctx.identity.id)
+
+        # Create child span for sub-operation
+        with span.start_span("db.insert_order") as child:
+            order = await self.db.create(data)
+            child.set_attribute("order.id", str(order["id"]))
+
+        return Response.json(order, status=201)
+```
+
+### Automatic Instrumentation
+
+When OTel is configured, Aquilia automatically instruments:
+- Incoming HTTP requests (span name: `HTTP {method} {route}`)
+- Controller handler execution
+- Middleware pipeline
+- Database queries (when using the ORM)
+
+Spans are automatically propagated via W3C Trace Context headers.
+
+---
+
+## 23. Request Body Validation
+
+The `@validate_body` decorator validates incoming JSON request bodies against a Blueprint schema.
+
+### Basic Usage
+
+```python
+from aquilia.blueprint import Blueprint
+from aquilia.controller.validation import validate_body
+
+create_user_schema = Blueprint({
+    "email": str,
+    "name": str,
+    "role": str,
+})
+
+class UsersController(Controller):
+    prefix = "/users"
+
+    @POST("/")
+    @validate_body(create_user_schema)
+    async def create(self, ctx: RequestCtx, body: dict):
+        user = await self.service.create(body)
+        return Response.json(user, status=201)
+```
+
+### Blueprint with Constraints
+
+```python
+from aquilia.blueprint import Blueprint, Required, MinLength, Email
+
+register_schema = Blueprint({
+    "email": [Required(), Email()],
+    "password": [Required(), MinLength(8)],
+    "name": [Required(), MinLength(2)],
+    "age": [int, Required()],
+})
+
+class AuthController(Controller):
+    prefix = "/auth"
+
+    @POST("/register")
+    @validate_body(register_schema)
+    async def register(self, ctx: RequestCtx, body: dict):
+        user = await self.auth.register(**body)
+        return Response.json({"id": user.id}, status=201)
+```
+
+### Nested Blueprints
+
+```python
+address_schema = Blueprint({
+    "street": [Required(), str],
+    "city": [Required(), str],
+    "zip": [Required(), str],
+})
+
+order_schema = Blueprint({
+    "items": [Required(), list],
+    "shipping_address": [Required(), address_schema],
+    "notes": str,
+})
+```
+
+### Validation Behavior
+
+- On success: the validated `body` is injected as a keyword argument into the handler
+- On failure: returns HTTP 422 with structured error details
+
+```json
+{
+  "error": "validation_failed",
+  "details": {
+    "email": ["This field is required"],
+    "age": ["Expected int, got str"]
+  }
+}
+```
+
+---
+
 ## Quick Reference
 
 ### Imports Cheat Sheet
@@ -1806,10 +2053,21 @@ from aquilia.sockets import (
 
 # Models
 from aquilia.models import (
-    parse_amdl, parse_amdl_file, parse_amdl_directory,
-    ModelProxy, ModelRegistry, Q,
-    MigrationRunner, generate_migration_file,
+    Model, CharField, EmailField, IntegerField, FloatField,
+    DateTimeField, DateField, UUIDField, BooleanField,
+    TextField, JSONField, BinaryField, Q,
+    MigrationRunner,
 )
+
+# SSE
+from aquilia.sse import SSEResponse, SSEEvent
+
+# OpenTelemetry
+from aquilia.otel import OTelConfig, current_span
+
+# Validation
+from aquilia.blueprint import Blueprint
+from aquilia.controller.validation import validate_body
 
 # Templates
 from aquilia.templates import TemplateEngine, TemplateLoader
@@ -1835,4 +2093,4 @@ from aquilia.config import ConfigLoader
 
 ---
 
-*Built with ❤️ using Aquilia v1.0.0*
+*Built with ❤️ using Aquilia v1.1.0*
