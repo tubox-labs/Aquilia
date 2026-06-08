@@ -2294,12 +2294,12 @@ class TestConfigBuilders:
         # Verify it contains the expected keys
         assert integration is not None
 
-    def test_config_loader_defaults_surp(self):
+    def test_config_loader_defaults_json(self):
         from aquilia.config import ConfigLoader
 
         loader = ConfigLoader()
         cfg = loader.get_i18n_config()
-        assert cfg["catalog_format"] == "surp"
+        assert cfg["catalog_format"] == "json"
 
 
 # ═══════════════════════════════════════════════════════════════════════════

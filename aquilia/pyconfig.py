@@ -80,7 +80,6 @@ import os
 import threading
 import warnings
 from collections.abc import Callable
-from dataclasses import field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, TypeAlias, TypeVar, cast
 
@@ -214,7 +213,7 @@ class Secret:
 
 # Flag to track if dotenv has been loaded
 _dotenv_loaded: bool = False
-_dotenv_lock: bool = False  # Simple reentrant protection
+_dotenv_lock = threading.RLock()
 
 
 def _resolve_dotenv_options(config_cls: type[Any] | None) -> dict[str, Any]:
@@ -350,37 +349,34 @@ def _ensure_dotenv_loaded(*, config_cls: type[Any] | None = None) -> None:
     is invoked. Uses the DotEnvLoader singleton for thread-safe,
     idempotent loading.
     """
-    global _dotenv_loaded, _dotenv_lock
+    global _dotenv_loaded
 
-    if _dotenv_loaded or _dotenv_lock:
-        return
+    with _dotenv_lock:
+        if _dotenv_loaded:
+            return
 
-    _dotenv_lock = True
-    try:
-        from aquilia.dotenv import DotEnvLoader
+        try:
+            from aquilia.dotenv import DotEnvLoader
 
-        options = _resolve_dotenv_options(config_cls)
-        _validate_required_dotenv_files(options["search_paths"], options["required_paths"])
-        DotEnvLoader.configure(
-            search_paths=options["search_paths"],
-            auto_load=options["auto_load"],
-            override=options["override"],
-            interpolate=options["interpolate"],
-        )
-        DotEnvLoader.ensure_loaded(search_paths=options["search_paths"])
-        _dotenv_loaded = True
-    except ImportError:
-        # Fallback if dotenv module is not available
-        _dotenv_loaded = True
-    except Exception as exc:
-        from aquilia.faults.domains import ConfigMissingFault
+            options = _resolve_dotenv_options(config_cls)
+            _validate_required_dotenv_files(options["search_paths"], options["required_paths"])
+            DotEnvLoader.configure(
+                search_paths=options["search_paths"],
+                auto_load=options["auto_load"],
+                override=options["override"],
+                interpolate=options["interpolate"],
+            )
+            DotEnvLoader.ensure_loaded(search_paths=options["search_paths"])
+            _dotenv_loaded = True
+        except ImportError:
+            _dotenv_loaded = True
+        except Exception as exc:
+            from aquilia.faults.domains import ConfigMissingFault
 
-        if isinstance(exc, ConfigMissingFault):
-            raise
-        log.warning("Failed to auto-load .env: %s", exc)
-        _dotenv_loaded = True
-    finally:
-        _dotenv_lock = False
+            if isinstance(exc, ConfigMissingFault):
+                raise
+            log.warning("Failed to auto-load .env: %s", exc)
+            _dotenv_loaded = True
 
 
 def reset_dotenv_state() -> None:
@@ -1122,9 +1118,9 @@ class AquilaConfig:
 
         enabled: bool = False
         default_locale: str = "en"
-        available_locales: list[str] = field(default_factory=lambda: ["en"])  # type: ignore[misc]
+        available_locales = ["en"]
         fallback_locale: str = "en"
-        catalog_dirs: list[str] = field(default_factory=lambda: ["locales"])  # type: ignore[misc]
+        catalog_dirs = ["locales"]
         catalog_format: str = "json"
 
     class Signing:
@@ -1422,11 +1418,23 @@ class AquilaConfig:
         return current
 
     @classmethod
+    def _find_env_subclass(cls, env_name: str) -> type | None:
+        """Recursively search all descendants for an env match."""
+        env_lower = env_name.lower()
+        for subcls in cls.__subclasses__():
+            if getattr(subcls, "env", "").lower() == env_lower:
+                return subcls
+            found = subcls._find_env_subclass(env_name)
+            if found is not None:
+                return found
+        return None
+
+    @classmethod
     def for_env(cls, env_name: str) -> type[AquilaConfig]:
         """
         Resolve the correct subclass for *env_name* from the subclass tree.
 
-        Scans all direct subclasses and returns the first whose ``env``
+        Scans all descendants recursively and returns the first whose ``env``
         attribute equals *env_name* (case-insensitive).
 
         Example::
@@ -1437,13 +1445,9 @@ class AquilaConfig:
         Raises:
             ``ValueError`` if no matching subclass is found.
         """
-        for subcls in cls.__subclasses__():
-            if getattr(subcls, "env", "").lower() == env_name.lower():
-                return subcls
-            # Recurse one more level
-            for subsub in subcls.__subclasses__():
-                if getattr(subsub, "env", "").lower() == env_name.lower():
-                    return subsub
+        result = cls._find_env_subclass(env_name)
+        if result is not None:
+            return result
         from aquilia.faults.domains import ConfigMissingFault
 
         raise ConfigMissingFault(
