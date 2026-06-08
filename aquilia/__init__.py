@@ -698,7 +698,6 @@ from .pyconfig import (
 )
 from .request import Request
 from .response import Response
-from .sse import SSEEvent, SSEResponse
 
 # ============================================================================
 # Runtime Management
@@ -756,6 +755,7 @@ from .sockets import (
     SocketGuard,
     SocketRouter,
 )
+from .sse import SSEEvent, SSEResponse
 
 # Storage system (production-grade, async-first)
 from .storage import (

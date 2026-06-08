@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aquilia is an async-native, manifest-first Python web framework (Python 3.10+). It auto-discovers modules, wires DI, and generates infrastructure (Docker/K8s). The CLI is `aq`. Current version: `aquilia/_version.py`.
+Aquilia is an async-native, manifest-first Python web framework (Python 3.10+). It auto-discovers modules, wires DI, and generates infrastructure (Docker/K8s). The CLI is `aq`. Current version: 1.1.0.
 
 ## Commands
 
@@ -65,6 +65,8 @@ The boot sequence is: **Manifests → Aquilary → RuntimeRegistry → Controlle
 
 | Tasks | `aquilia/tasks/` | Background job system with priority queues |
 | Storage | `aquilia/storage/` | Async file storage (local, S3, GCS, Azure, SFTP) |
+| SSE | `aquilia/sse/` | Server-Sent Events streaming (`SSEResponse`, `SSEEvent`) |
+| OTel | `aquilia/otel/` | OpenTelemetry distributed tracing (`OTelConfig`, middleware) |
 
 ### Controller Pattern
 
@@ -93,6 +95,8 @@ Controllers declared in a module's `manifest.py` are auto-discovered — no manu
 - **Async-native.** Controllers and the entire request pipeline are async. Follow existing `Controller` + decorator style with `RequestCtx`.
 
 - **Security invariants.** No `pickle.load()` on untrusted data. Always validate/normalize file paths (null bytes, `..` traversal). Use parameterized queries only. Templates use `SandboxedEnvironment` with autoescape. Background tasks resolve only from the registered task registry.
+
+- **Request body validation.** Use `validate_body` from `aquilia/controller/validation.py` to validate incoming request bodies through Blueprints. Apply as a decorator on controller methods — on success, injects a validated `body: dict` kwarg; on failure, returns HTTP 422 with structured errors.
 
 ## Tooling Configuration
 

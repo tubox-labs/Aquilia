@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-06-08 — "Black Pearl"
+
+### Removed
+- Removed aquilia/mlops/ in its entirety
+- Removed duplicate aquilia/aquilia_mcp/ package (canonical is aquilia.mcp)
+- Removed AMDL DSL: parser, AST nodes, __init__old.py, AMDLParseFault
+- Removed aquilia/patterns/lsp/ Language Server Protocol server
+
+### Changed
+- URL pattern documentation: guillemet delimiters replaced with brace syntax {id:int}
+- Moved ruff from dependencies to [dev] optional extra
+- Moved asyncpg from dependencies to new [postgres] optional extra
+- Fixed broken GitHub URLs (axiomchronicles → tubox-labs)
+
+### Added
+- aquilia/sse/ — Server-Sent Events: SSEEvent, SSEResponse, json/text stream helpers
+- aquilia/otel/ — OpenTelemetry: OTelConfig, OTelMiddleware, no-op fallback
+- aquilia/controller/validation.py — @validate_body(BlueprintClass) decorator
+- aquilia/sqlite/_config.py — SqlitePoolConfig with full parameter surface
+- New [postgres] optional extra (asyncpg)
+- New [otel] optional extra (opentelemetry-*)
+
+### Fixed
+- aiosqlite removed as framework dependency; only available via [sqlite-compat]
+
 ## [1.0.5] — 2026-06-04 — "Jolly Roger"
 
 ### Added
