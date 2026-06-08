@@ -1,6 +1,6 @@
 from io import StringIO
 
-from aquilia.aquilia_mcp.transport.stdio import StdioTransport
+from aquilia.mcp.transport.stdio import StdioTransport
 
 
 class _Server:

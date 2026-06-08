@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.0.5] — 2026-06-04 — "Jolly Roger"
 
 ### Added
-- Added a production-grade, source-backed Aquilia MCP server under `aquilia.aquilia_mcp` with JSON-RPC stdio support, tool/resource/prompt registries, persistent repository indexing, installer helpers, and canonical `python -m aquilia.aquilia_mcp` entrypoints.
+- Added a production-grade, source-backed Aquilia MCP server under `aquilia.mcp` with JSON-RPC stdio support, tool/resource/prompt registries, persistent repository indexing, installer helpers, and canonical `python -m aquilia.mcp` entrypoints.
 - Added MCP tools and prompts for framework API discovery, bootstrap/runtime explanation, workspace and module scaffolding guidance, manifest-plan validation, integration recommendations, deprecation guarding, CLI discovery, example lookup, and agent prompt generation.
 - Added practical MCP documentation and bootstrap configs for Claude, Codex, and Gemini CLI under `docs/mcp/` and `examples/mcp_bootstrap/`.
 
@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated generated artifact extensions and documentation from `.crous` to `.surp` while preserving JSON fallback paths where the framework already supported them.
 - Updated package dependencies to install `surp` instead of `crousr` and `crous-native`.
 - Allowed `aq i18n init --format surp` to create Surp-backed starter catalogs.
-- Rewired `aq mcp` commands to the canonical `aquilia.aquilia_mcp` package while preserving the existing `aquilia.mcp` compatibility surface.
+- Rewired `aq mcp` commands to the canonical `aquilia.mcp` package while preserving the existing `aquilia.mcp` compatibility surface.
 
 ### Removed
 - Removed Crous-specific imports, native backend probing, API names, file extensions, and request/response tests.

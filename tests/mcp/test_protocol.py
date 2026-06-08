@@ -1,8 +1,8 @@
-from aquilia.aquilia_mcp.config import MCPConfig
-from aquilia.aquilia_mcp.context.indexer import build_index
-from aquilia.aquilia_mcp.faults import MCPProtocolFault
-from aquilia.aquilia_mcp.protocol import fault_to_error, parse_request, success_response
-from aquilia.aquilia_mcp.server import AquiliaMCPServer
+from aquilia.mcp.config import MCPConfig
+from aquilia.mcp.context.indexer import build_index
+from aquilia.mcp.faults import MCPProtocolFault
+from aquilia.mcp.protocol import fault_to_error, parse_request, success_response
+from aquilia.mcp.server import AquiliaMCPServer
 
 
 def test_parse_request_accepts_jsonrpc_object():
