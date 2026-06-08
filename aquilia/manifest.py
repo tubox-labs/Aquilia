@@ -383,7 +383,7 @@ class DatabaseConfig:
     echo: bool = False  # Log SQL statements
 
     # Model discovery
-    model_paths: list[str] = field(default_factory=list)  # Explicit .amdl paths
+    model_paths: list[str] = field(default_factory=list)  # Explicit model paths
     scan_dirs: list[str] = field(default_factory=lambda: ["models"])  # Directories to scan
 
     def __post_init__(self) -> None:

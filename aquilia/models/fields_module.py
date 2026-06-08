@@ -13,7 +13,7 @@ and serialization. Aquilia fields use a unique descriptive API:
         bio = Text(blank=True)
         joined = DateTime(auto_now_add=True)
 
-No $ prefixes, no AMDL -- just clean, expressive Python.
+No $ prefixes -- just clean, expressive Python.
 """
 
 from __future__ import annotations

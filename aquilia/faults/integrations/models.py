@@ -2,12 +2,11 @@
 AquilaFaults - Model/Database Integration.
 
 Integration module for connecting AquilaFaults with the model system:
-- Parser error wrapping (legacy AMDL)
 - Database connection fault handling
 - Query fault interception
 - Migration fault handling
 - Model discovery fault reporting
-- New Python ORM model registry patching
+- Python ORM model registry patching
 
 Usage:
     ```python
@@ -32,11 +31,8 @@ from ..core import (
     Transformed,
 )
 from ..domains import (
-    AMDLParseFault,
     DatabaseConnectionFault,
     MigrationFault,
-    ModelNotFoundFault,
-    ModelRegistrationFault,
     SchemaFault,
 )
 from ..handlers import FaultHandler
@@ -54,7 +50,6 @@ class ModelFaultHandler(FaultHandler):
     Fault handler for MODEL domain faults.
 
     Handles:
-    - AMDL parse errors → logged + abort startup
     - Database connection failures → retry with backoff
     - Query failures → logged + optional retry
     - Migration failures → abort with diagnostics
@@ -83,7 +78,7 @@ class ModelFaultHandler(FaultHandler):
                 fault.metadata["_retry_count"] = retry_count + 1
                 return Transformed(fault, preserve_context=True)
 
-        if isinstance(fault, (AMDLParseFault, SchemaFault)):
+        if isinstance(fault, SchemaFault):
             logger.critical(f"Fatal model fault: {fault.message}")
 
         # Migration faults: log migration name
@@ -125,55 +120,12 @@ def patch_model_registry() -> None:
     """
     Patch model registries to raise structured faults instead of bare exceptions.
 
-    Patches both the legacy AMDL ModelRegistry and the new Python ORM ModelRegistry.
+    Patches the Python ORM ModelRegistry.
 
-    Legacy wraps:
-    - ModelRegistry.register_model() → ModelRegistrationFault
-    - ModelRegistry.get_proxy() → ModelNotFoundFault
-    - ModelRegistry.create_tables() → SchemaFault
-
-    New ORM wraps:
+    ORM wraps:
     - ModelRegistry.create_tables() → SchemaFault
     """
-    # --- Legacy AMDL ModelRegistry ---
-    try:
-        from aquilia.models.runtime import ModelRegistry as LegacyRegistry
-    except ImportError:
-        pass
-    else:
-        _original_register = LegacyRegistry.register_model
-        _original_get_proxy = LegacyRegistry.get_proxy
-        _original_create_tables_legacy = LegacyRegistry.create_tables
-
-        def _patched_register(self, model_node, *args, **kwargs):
-            try:
-                return _original_register(self, model_node, *args, **kwargs)
-            except Exception as e:
-                raise ModelRegistrationFault(
-                    model_name=getattr(model_node, "name", "unknown"),
-                    reason=str(e),
-                ) from e
-
-        def _patched_get_proxy(self, name):
-            try:
-                return _original_get_proxy(self, name)
-            except (KeyError, LookupError) as e:
-                raise ModelNotFoundFault(model_name=name) from e
-
-        async def _patched_create_tables_legacy(self):
-            try:
-                return await _original_create_tables_legacy(self)
-            except Exception as e:
-                raise SchemaFault(
-                    table="(multiple)",
-                    reason=str(e),
-                ) from e
-
-        LegacyRegistry.register_model = _patched_register
-        LegacyRegistry.get_proxy = _patched_get_proxy
-        LegacyRegistry.create_tables = _patched_create_tables_legacy
-
-    # --- New Python ORM ModelRegistry ---
+    # --- Python ORM ModelRegistry ---
     try:
         from aquilia.models.base import ModelRegistry as NewRegistry
     except ImportError:

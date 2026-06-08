@@ -187,7 +187,7 @@ class AquiliaServer:
         # Track startup state
         self._startup_complete = False
         self._startup_lock = None  # Will be created in async context
-        self._amdl_database: Any | None = None
+        self._database: Any | None = None
 
         # Create ASGI app with server reference for lifecycle management
         # Note: self.aquila_sockets is initialized in _setup_middleware()
@@ -3018,12 +3018,9 @@ class AquiliaServer:
                         f"Failed to register fault handler {handler_cfg.handler_path} for app {app_ctx.name}: {e}"
                     )
 
-    async def _register_amdl_models(self) -> None:
+    async def _register_models(self) -> None:
         """
         Register models discovered by the Aquilary pipeline.
-
-        Supports both legacy AMDL (.amdl) files and new pure-Python Model
-        subclasses (.py files with Model subclasses).
 
         Uses manifest-driven discovery (AppContext.models) populated by
         RuntimeRegistry.perform_autodiscovery() and explicit manifest
@@ -3032,7 +3029,7 @@ class AquiliaServer:
 
         Lifecycle:
         1. Collect model paths from AppContexts + global scan
-        2. Parse AMDL files / import Python model modules
+        2. Import Python model modules
         3. Configure database from manifest DatabaseConfig or config
         4. Optionally create tables / run migrations
         5. Register AquiliaDatabase + registries in all DI containers
@@ -3042,8 +3039,6 @@ class AquiliaServer:
         try:
             from .db.engine import AquiliaDatabase, configure_database, set_database  # noqa: F401
             from .models.base import Model, ModelRegistry
-            from .models.parser import parse_amdl_file
-            from .models.runtime import ModelRegistry as LegacyRegistry
         except ImportError:
             return
 
@@ -3061,9 +3056,6 @@ class AquiliaServer:
         # 1b. Global fallback scan (workspace-level models/ and modules/)
         for search_dir in [workspace_root / "models", workspace_root / "modules"]:
             if search_dir.is_dir():
-                for amdl in search_dir.rglob("*.amdl"):
-                    if amdl not in model_files:
-                        model_files.append(amdl)
                 # Only pick up Python files that are inside a "models" directory
                 # or are themselves named "models.py" -- never controllers/services/etc.
                 for pyf in search_dir.rglob("*.py"):
@@ -3077,26 +3069,9 @@ class AquiliaServer:
                     if pyf not in model_files:
                         model_files.append(pyf)
 
-        amdl_files = [f for f in model_files if f.suffix == ".amdl"]
         py_files = [f for f in model_files if f.suffix == ".py"]
 
-        len(amdl_files) + len(py_files)
-
-        # ── Phase 2a: Parse and register AMDL (legacy) ────────────────────
-        legacy_registry = getattr(self.runtime, "_model_registry", None) or LegacyRegistry()
-        amdl_count = 0
-
-        for amdl_path in amdl_files:
-            try:
-                amdl_file = parse_amdl_file(str(amdl_path))
-                for model in amdl_file.models:
-                    if model.name not in legacy_registry._models:
-                        legacy_registry.register_model(model)
-                        amdl_count += 1
-            except Exception as e:
-                self.logger.warning(f"Failed to parse {amdl_path}: {e}")
-
-        # ── Phase 2b: Import and register Python models ───────────────────
+        # ── Phase 2: Import and register Python models ───────────────────
         import importlib
         import importlib.util
         import sys
@@ -3222,18 +3197,13 @@ class AquiliaServer:
         if db_url:
             db = configure_database(db_url)
             await db.connect()
-            self._amdl_database = db
+            self._database = db
 
-            # Wire database to both registries
-            if legacy_registry._models:
-                legacy_registry.set_database(db)
+            # Wire database to ModelRegistry
             if ModelRegistry._models:
                 ModelRegistry.set_database(db)
 
             if auto_create:
-                # Create tables for both AMDL and Python models
-                if legacy_registry._models:
-                    await legacy_registry.create_tables()
                 if ModelRegistry._models:
                     await ModelRegistry.create_tables()
 
@@ -3259,16 +3229,6 @@ class AquiliaServer:
                         )
                     )
 
-                if legacy_registry._models:
-                    with contextlib.suppress(ValueError, Exception):
-                        container.register(
-                            ValueProvider(
-                                value=legacy_registry,
-                                token=LegacyRegistry,
-                                scope="app",
-                            )
-                        )
-
                 if ModelRegistry._models:
                     with contextlib.suppress(ValueError, Exception):
                         container.register(
@@ -3280,7 +3240,7 @@ class AquiliaServer:
                         )
 
         else:
-            self._amdl_database = None
+            self._database = None
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
@@ -3323,7 +3283,7 @@ class AquiliaServer:
                 declared_refs.append(ref)
 
                 # Validate explicit class refs directly.
-                if ":" not in ref or ref.endswith((".py", ".amdl")):
+                if ":" not in ref or ref.endswith(".py"):
                     continue
 
                 module_path, class_name = ref.split(":", 1)
@@ -3429,8 +3389,7 @@ class AquiliaServer:
                 self.logger.error(f"Lifecycle startup failed: {e}")
                 raise LifecycleError(f"Startup failed: {e}") from e
 
-            # Step 3.1: Register AMDL models from apps (if any .amdl files exist)
-            await self._register_amdl_models()
+            await self._register_models()
 
             # Step 3.15: Verify manifest model registration completeness
             self._validate_manifest_model_registry()
@@ -3636,12 +3595,12 @@ class AquiliaServer:
             except Exception as e:
                 self.logger.warning(f"Error shutting down WebSocket runtime: {e}")
 
-        # Disconnect AMDL database if connected
-        if hasattr(self, "_amdl_database") and self._amdl_database:
+        # Disconnect database if connected
+        if hasattr(self, "_database") and self._database:
             try:
-                await self._amdl_database.disconnect()
+                await self._database.disconnect()
             except Exception as e:
-                self.logger.warning(f"Error disconnecting AMDL database: {e}")
+                self.logger.warning(f"Error disconnecting database: {e}")
 
         # Reset startup state
         self._startup_complete = False
