@@ -98,6 +98,7 @@ from .renderers import (
     negotiate,
 )
 from .router import ControllerRouter
+from .validation import RequestBodyValidationFault, ValidationFault, validate_body
 
 __all__ = [
     # Base
@@ -134,6 +135,10 @@ __all__ = [
     "CompiledController",
     # Routing
     "ControllerRouter",
+    # Validation
+    "validate_body",
+    "ValidationFault",
+    "RequestBodyValidationFault",
     # OpenAPI
     "OpenAPIGenerator",
     "OpenAPIConfig",
