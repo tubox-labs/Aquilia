@@ -302,6 +302,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]  # re-exports are intentional
+".swarm/**/*.py" = ["N999"]  # dot-prefixed directory is valid for swarm system
 
 [tool.mypy]
 python_version = "3.10"
