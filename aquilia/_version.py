@@ -20,13 +20,13 @@ numeric version and appear in CLI banners, docs, and metadata.
 """
 
 #: Framework version — single source of truth.
-__version__: str = "1.1.0"
+__version__: str = "1.1.1"
 
 #: Version tuple for programmatic comparison.
-VERSION: tuple[int, int, int] = (1, 1, 0)
+VERSION: tuple[int, int, int] = (1, 1, 1)
 
 #: Human-friendly release name (pirate-themed).
-RELEASE_NAME: str = "Jolly Roger"
+RELEASE_NAME: str = "Sea Serpent"
 
 #: Workspace scaffold version — intentionally frozen at 1.0.0.
 #: Generated workspace.py files should never auto-track framework releases.

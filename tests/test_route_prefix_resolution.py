@@ -410,8 +410,7 @@ class TestModuleBuilderRoutePrefix:
 
     def test_module_route_prefix_method(self):
         """Module.route_prefix() sets the route_prefix."""
-        from aquilia.config_builders import Module
-
+        from aquilia.workspace import Module
         mod = Module("users").route_prefix("/api/users")
         built = mod.build()
 
@@ -419,8 +418,7 @@ class TestModuleBuilderRoutePrefix:
 
     def test_module_default_route_prefix(self):
         """Module without explicit route_prefix defaults to /{name}."""
-        from aquilia.config_builders import Module
-
+        from aquilia.workspace import Module
         mod = Module("users")
         result = mod._config.to_dict()
 
@@ -428,8 +426,7 @@ class TestModuleBuilderRoutePrefix:
 
     def test_module_to_dict_includes_route_prefix(self):
         """ModuleConfig.to_dict() includes route_prefix."""
-        from aquilia.config_builders import Module
-
+        from aquilia.workspace import Module
         mod = Module("auth").route_prefix("/v1/auth")
         result = mod._config.to_dict()
 

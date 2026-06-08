@@ -591,7 +591,7 @@ class TestRuntimeConfigResolution:
 
         ws = tmp_path / "workspace.py"
         ws.write_text(
-            "from aquilia.config_builders import Workspace, AquilaConfig\n"
+            "from aquilia import Workspace, AquilaConfig\n"
             "\n"
             "class BaseEnv(AquilaConfig):\n"
             "    env = 'dev'\n"

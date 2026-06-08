@@ -377,28 +377,28 @@ class TestIntegrationTasksConfig:
 
     def test_no_run_on_startup_key(self):
         """run_on_startup should NOT exist in config dict."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks()
         assert "run_on_startup" not in config
 
     def test_scheduler_tick_default(self):
         """scheduler_tick should default to 15.0."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks()
         assert config["scheduler_tick"] == 15.0
 
     def test_scheduler_tick_custom(self):
         """Custom scheduler_tick should be preserved."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks(scheduler_tick=5.0)
         assert config["scheduler_tick"] == 5.0
 
     def test_all_config_keys(self):
         """All expected keys should be in the config dict."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks()
         expected = {
@@ -421,7 +421,7 @@ class TestIntegrationTasksConfig:
         assert expected.issubset(set(config.keys()))
 
     def test_integration_type(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks(scheduler_tick=10)
         assert config["_integration_type"] == "tasks"

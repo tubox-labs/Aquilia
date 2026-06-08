@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] — 2026-06-09 — "Sea Serpent"
+
+### Removed
+- Removed `aquilia/config_builders.py` — the 5420-line god-file has been deleted.
+
+### Changed
+- Extracted `Workspace`, `Module`, and supporting dataclasses (`RuntimeConfig`,
+  `ModuleConfig`, `AuthConfig`) into a clean `aquilia/workspace.py` module.
+- `Workspace.integrate()` accepts `aquilia.integrations.*` typed dataclasses
+  directly via the `IntegrationConfig` protocol (already partially supported).
+- `Workspace.i18n()`, `Workspace.tasks()`, and `Workspace.storage()` convenience
+  methods now use `I18nIntegration`, `TasksIntegration`, and `StorageIntegration`
+  typed dataclasses internally instead of the legacy `Integration.*` static methods.
+- Moved the legacy `Integration` class to `aquilia/integrations/_legacy.py`
+  for backward compatibility.  Existing code using `Integration.mail(...)`,
+  `Integration.admin(...)`, etc. continues to work.
+- Updated all example workspace files to use typed integration dataclasses
+  from `aquilia.integrations` instead of the `Integration` static API.
+- Updated all test imports to use `aquilia.workspace` and
+  `aquilia.integrations` directly.
+
 ## [1.1.0] — 2026-06-08 — "Black Pearl"
 
 ### Removed

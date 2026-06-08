@@ -147,21 +147,21 @@ class TestAdminModulesMailerBuilder:
     """AdminModules builder must have enable/disable_mailer methods."""
 
     def test_enable_mailer(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_mailer()
         d = mods.to_dict()
         assert d["mailer"] is True
 
     def test_disable_mailer(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_mailer().disable_mailer()
         d = mods.to_dict()
         assert d["mailer"] is False
 
     def test_mailer_disabled_by_default(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         d = mods.to_dict()
@@ -169,21 +169,21 @@ class TestAdminModulesMailerBuilder:
 
     def test_enable_mailer_returns_self(self):
         """Fluent API — enable_mailer returns self for chaining."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         result = mods.enable_mailer()
         assert result is mods
 
     def test_disable_mailer_returns_self(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         result = mods.disable_mailer()
         assert result is mods
 
     def test_chaining_with_other_modules(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_tasks().enable_errors().enable_mailer()
         d = mods.to_dict()
@@ -192,49 +192,49 @@ class TestAdminModulesMailerBuilder:
         assert d["mailer"] is True
 
     def test_enable_all_includes_mailer(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_all()
         d = mods.to_dict()
         assert d["mailer"] is True
 
     def test_disable_all_includes_mailer(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_all().disable_all()
         d = mods.to_dict()
         assert d["mailer"] is False
 
     def test_mailer_key_in_to_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         d = mods.to_dict()
         assert "mailer" in d
 
     def test_repr_includes_mailer_when_enabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_mailer()
         r = repr(mods)
         assert "mailer" in r
 
     def test_repr_excludes_mailer_when_disabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         r = repr(mods)
         assert "mailer" not in r
 
     def test_slots_contains_mailer(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         assert "_mailer" in mods.__slots__
 
     def test_enable_mailer_with_storage(self):
         """enable_mailer + enable_storage together."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_storage().enable_mailer()
         d = mods.to_dict()
@@ -250,19 +250,19 @@ class TestIntegrationAdminFlatMailer:
     """Integration.admin(enable_mailer=True) flat param."""
 
     def test_flat_enable_mailer(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(enable_mailer=True)
         assert cfg["modules"]["mailer"] is True
 
     def test_flat_enable_mailer_default_false(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin()
         assert cfg["modules"]["mailer"] is False
 
     def test_flat_enable_mailer_with_other_modules(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             enable_mailer=True,
@@ -275,7 +275,7 @@ class TestIntegrationAdminFlatMailer:
 
     def test_flat_enable_mailer_preserved_in_admin_config(self):
         """Round-trip: flat syntax → AdminConfig."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         raw = Integration.admin(enable_mailer=True)
@@ -283,7 +283,7 @@ class TestIntegrationAdminFlatMailer:
         assert cfg.is_module_enabled("mailer") is True
 
     def test_flat_enable_mailer_false_preserved_in_admin_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         raw = Integration.admin(enable_mailer=False)
@@ -291,7 +291,7 @@ class TestIntegrationAdminFlatMailer:
         assert cfg.is_module_enabled("mailer") is False
 
     def test_flat_enable_mailer_not_in_default_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin()
         assert cfg["modules"]["mailer"] is False
@@ -306,22 +306,22 @@ class TestWorkspaceMailerRoundTrip:
     """Workspace serialisation includes mailer module."""
 
     def test_workspace_admin_mailer_enabled(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = Workspace("test").integrate(Integration.admin(enable_mailer=True))
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["mailer"] is True
 
     def test_workspace_admin_mailer_disabled(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = Workspace("test").integrate(Integration.admin())
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["mailer"] is False
 
     def test_workspace_admin_modules_builder_mailer(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         mods = Integration.AdminModules().enable_mailer()
         ws = Workspace("test").integrate(Integration.admin(modules=mods))
         d = ws.to_dict()
@@ -1568,66 +1568,66 @@ class TestConfigBuildersMailerDetail:
     """Detailed checks on config_builders mailer integration."""
 
     def test_admin_modules_has_mailer_slot(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         assert "_mailer" in mods.__slots__
 
     def test_admin_modules_mailer_initial_value(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         assert mods._mailer is False
 
     def test_to_dict_has_mailer_key(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         d = mods.to_dict()
         assert "mailer" in d
 
     def test_to_dict_mailer_false_by_default(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.AdminModules().to_dict()
         assert d["mailer"] is False
 
     def test_to_dict_mailer_true_after_enable(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.AdminModules().enable_mailer().to_dict()
         assert d["mailer"] is True
 
     def test_enable_mailer_method_exists(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert hasattr(Integration.AdminModules, "enable_mailer")
 
     def test_disable_mailer_method_exists(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert hasattr(Integration.AdminModules, "disable_mailer")
 
     def test_enable_mailer_is_callable(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert callable(getattr(Integration.AdminModules, "enable_mailer"))
 
     def test_disable_mailer_is_callable(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert callable(getattr(Integration.AdminModules, "disable_mailer"))
 
     def test_legacy_admin_flat_pop_enable_mailer(self):
         """Integration.admin(enable_mailer=True) uses kwargs.pop."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(enable_mailer=True)
         assert cfg["modules"]["mailer"] is True
 
     def test_legacy_admin_flat_no_leftover_kwarg(self):
         """enable_mailer should be popped, not left as unknown kwarg."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         # Should not raise on unknown kwargs
         cfg = Integration.admin(enable_mailer=True)
@@ -2099,7 +2099,7 @@ class TestMailerEdgeCases:
         assert len(html) > 0
 
     def test_config_builder_mailer_survives_enable_all_disable_all(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         mods.enable_all()
@@ -2110,7 +2110,7 @@ class TestMailerEdgeCases:
         assert mods.to_dict()["mailer"] is True
 
     def test_multiple_enable_disable_cycles(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         for _ in range(5):
@@ -2121,7 +2121,8 @@ class TestMailerEdgeCases:
 
     def test_workspace_roundtrip_full(self):
         """Full Workspace → to_dict → AdminConfig.from_dict round-trip."""
-        from aquilia.config_builders import Workspace, Integration
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         ws = Workspace("test").integrate(

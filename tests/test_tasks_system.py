@@ -1097,7 +1097,7 @@ class TestTasksConfigBuilders:
     """Verify config_builders Integration.tasks() and Workspace.tasks()."""
 
     def test_integration_tasks(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks(num_workers=8, max_retries=5)
         assert config["_integration_type"] == "tasks"
@@ -1107,7 +1107,7 @@ class TestTasksConfigBuilders:
         assert config["backend"] == "memory"
 
     def test_integration_tasks_default_params(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.tasks()
         assert config["enabled"] is True
@@ -1116,8 +1116,7 @@ class TestTasksConfigBuilders:
         assert config["auto_start"] is True
 
     def test_workspace_tasks_shorthand(self):
-        from aquilia.config_builders import Workspace
-
+        from aquilia.workspace import Workspace
         ws = Workspace("test").tasks(num_workers=12, backend="redis")
         d = ws.to_dict()
         assert "tasks" in d
@@ -1126,14 +1125,14 @@ class TestTasksConfigBuilders:
         assert d["tasks"]["enabled"] is True
 
     def test_workspace_integrate_tasks(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = Workspace("test").integrate(Integration.tasks(num_workers=6))
         d = ws.to_dict()
         assert d["integrations"]["tasks"]["num_workers"] == 6
 
     def test_admin_modules_devtools(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_query_inspector().enable_tasks().enable_errors()
         d = mods.to_dict()
@@ -1142,7 +1141,7 @@ class TestTasksConfigBuilders:
         assert d["errors"] is True
 
     def test_admin_modules_devtools_disabled_by_default(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         d = mods.to_dict()
@@ -1151,7 +1150,7 @@ class TestTasksConfigBuilders:
         assert d["errors"] is False
 
     def test_admin_sidebar_devtools(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         sidebar = Integration.AdminSidebar()
         d = sidebar.to_dict()
@@ -1162,7 +1161,7 @@ class TestTasksConfigBuilders:
         assert d["devtools"] is False
 
     def test_admin_sidebar_show_devtools(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         sidebar = Integration.AdminSidebar().hide_devtools().show_devtools()
         d = sidebar.to_dict()
@@ -1687,8 +1686,8 @@ class TestRegressions:
 
     def test_workspace_to_dict_round_trip(self):
         """Verify Workspace serialization includes tasks config."""
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = (
             Workspace("myapp")
             .tasks(num_workers=8)
@@ -1708,7 +1707,7 @@ class TestRegressions:
 
     def test_admin_modules_enable_all_includes_devtools(self):
         """Verify enable_all() enables devtools modules too."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_all()
         d = mods.to_dict()

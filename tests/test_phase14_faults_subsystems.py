@@ -85,7 +85,7 @@ from aquilia.admin.subsystems import (
     get_admin_subsystems,
 )
 from aquilia.faults import Fault
-from aquilia.config_builders import Integration
+from aquilia.integrations import Integration
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

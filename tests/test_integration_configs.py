@@ -85,7 +85,7 @@ class TestIntegrationImports:
         assert IntegrationConfig is not None
 
     def test_import_from_config_builders(self):
-        from aquilia.config_builders import (
+        from aquilia.integrations import (
             MailIntegration,
             AdminModules,
             CacheIntegration,

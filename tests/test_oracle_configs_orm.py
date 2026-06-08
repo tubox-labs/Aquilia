@@ -1931,7 +1931,7 @@ class TestIntegrationDatabaseWithConfig:
     """Tests for Integration.database() with typed config objects."""
 
     def test_with_sqlite_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.db.configs import SqliteConfig
 
         config = SqliteConfig(path="app.db")
@@ -1940,7 +1940,7 @@ class TestIntegrationDatabaseWithConfig:
         assert "sqlite:///app.db" in result["url"]
 
     def test_with_postgres_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.db.configs import PostgresConfig
 
         config = PostgresConfig(
@@ -1955,7 +1955,7 @@ class TestIntegrationDatabaseWithConfig:
         assert "mydb" in result["url"]
 
     def test_with_oracle_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.db.configs import OracleConfig
 
         config = OracleConfig(
@@ -1968,20 +1968,20 @@ class TestIntegrationDatabaseWithConfig:
         assert "oracle://" in result["url"]
 
     def test_with_url_backward_compat(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         result = Integration.database(url="sqlite:///legacy.db")
         assert result["url"] == "sqlite:///legacy.db"
         assert result["enabled"] is True
 
     def test_default_no_config_no_url(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         result = Integration.database()
         assert result["url"] == "sqlite:///db.sqlite3"
 
     def test_config_with_overrides(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.db.configs import SqliteConfig
 
         config = SqliteConfig(path="base.db")
@@ -1994,7 +1994,7 @@ class TestIntegrationDatabaseWithConfig:
         assert result["pool_size"] == 20
 
     def test_scan_dirs_preserved(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         result = Integration.database(
             url="sqlite:///db.sqlite3",
@@ -2007,7 +2007,7 @@ class TestWorkspaceDatabaseWithConfig:
     """Tests for Workspace.database() with typed config objects."""
 
     def test_workspace_with_config(self):
-        from aquilia.config_builders import Workspace
+        from aquilia.workspace import Workspace
         from aquilia.db.configs import PostgresConfig
 
         config = PostgresConfig(
@@ -2023,15 +2023,13 @@ class TestWorkspaceDatabaseWithConfig:
         assert "postgresql://" in d["database"]["url"]
 
     def test_workspace_with_url_backward_compat(self):
-        from aquilia.config_builders import Workspace
-
+        from aquilia.workspace import Workspace
         ws = Workspace("test").database(url="sqlite:///test.db")
         d = ws.to_dict()
         assert d["database"]["url"] == "sqlite:///test.db"
 
     def test_workspace_database_in_integrations(self):
-        from aquilia.config_builders import Workspace
-
+        from aquilia.workspace import Workspace
         ws = Workspace("test").database(url="sqlite:///test.db")
         d = ws.to_dict()
         assert "database" in d["integrations"]
@@ -2041,7 +2039,7 @@ class TestModuleDatabaseWithConfig:
     """Tests for Module.database() with typed config objects."""
 
     def test_module_with_config(self):
-        from aquilia.config_builders import Module
+        from aquilia.workspace import Module
         from aquilia.db.configs import SqliteConfig
 
         config = SqliteConfig(path="module.db")
@@ -2052,8 +2050,7 @@ class TestModuleDatabaseWithConfig:
         assert "sqlite:///module.db" in built.database["url"]
 
     def test_module_with_url_backward_compat(self):
-        from aquilia.config_builders import Module
-
+        from aquilia.workspace import Module
         mod = Module("users").database(url="sqlite:///users.db")
         built = mod.build()
         assert built.database["url"] == "sqlite:///users.db"
@@ -2114,13 +2111,6 @@ class TestPackageExports:
         assert "PostgresConfig" in db_all
         assert "MysqlConfig" in db_all
         assert "OracleConfig" in db_all
-
-    def test_config_builders_exports(self):
-        from aquilia.config_builders import __all__ as cb_all
-
-        assert "Workspace" in cb_all
-        assert "Integration" in cb_all
-        assert "Module" in cb_all
 
     def test_backends_all_contains_oracle(self):
         from aquilia.db.backends import __all__ as backends_all

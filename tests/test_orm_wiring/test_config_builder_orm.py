@@ -1,4 +1,5 @@
-from aquilia.config_builders import Module, Workspace
+from aquilia.workspace import Module
+from aquilia.workspace import Workspace
 from aquilia.config import ConfigLoader
 
 

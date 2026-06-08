@@ -2277,7 +2277,7 @@ class TestConfigBuilders:
     """Integration.i18n() and Workspace.i18n() config wiring."""
 
     def test_integration_i18n_creates_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         integration = Integration.i18n(
             default_locale="fr",

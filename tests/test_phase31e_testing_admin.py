@@ -128,21 +128,21 @@ class TestAdminModulesTestingBuilder:
     """AdminModules builder must have enable/disable_testing methods."""
 
     def test_enable_testing(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_testing()
         d = mods.to_dict()
         assert d["testing"] is True
 
     def test_disable_testing(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_testing().disable_testing()
         d = mods.to_dict()
         assert d["testing"] is False
 
     def test_testing_disabled_by_default(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         d = mods.to_dict()
@@ -150,21 +150,21 @@ class TestAdminModulesTestingBuilder:
 
     def test_enable_testing_returns_self(self):
         """Fluent API — enable_testing returns self for chaining."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         result = mods.enable_testing()
         assert result is mods
 
     def test_disable_testing_returns_self(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         result = mods.disable_testing()
         assert result is mods
 
     def test_chaining_with_other_modules(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_tasks().enable_errors().enable_testing()
         d = mods.to_dict()
@@ -173,42 +173,42 @@ class TestAdminModulesTestingBuilder:
         assert d["testing"] is True
 
     def test_enable_all_includes_testing(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_all()
         d = mods.to_dict()
         assert d["testing"] is True
 
     def test_disable_all_includes_testing(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_all().disable_all()
         d = mods.to_dict()
         assert d["testing"] is False
 
     def test_testing_key_in_to_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         d = mods.to_dict()
         assert "testing" in d
 
     def test_repr_includes_testing_when_enabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_testing()
         r = repr(mods)
         assert "testing" in r
 
     def test_repr_excludes_testing_when_disabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         r = repr(mods)
         assert "testing" not in r
 
     def test_slots_contains_testing(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules()
         assert "_testing" in mods.__slots__
@@ -223,19 +223,19 @@ class TestIntegrationAdminFlat:
     """Integration.admin(enable_testing=True) flat param."""
 
     def test_flat_enable_testing(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(enable_testing=True)
         assert cfg["modules"]["testing"] is True
 
     def test_flat_enable_testing_default_false(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin()
         assert cfg["modules"]["testing"] is False
 
     def test_flat_enable_testing_with_other_modules(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             enable_testing=True,
@@ -248,7 +248,7 @@ class TestIntegrationAdminFlat:
 
     def test_flat_enable_testing_preserved_in_admin_config(self):
         """Round-trip: flat syntax → AdminConfig."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         raw = Integration.admin(enable_testing=True)
@@ -265,22 +265,22 @@ class TestWorkspaceTestingRoundTrip:
     """Workspace serialisation includes testing module."""
 
     def test_workspace_admin_testing_enabled(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = Workspace("test").integrate(Integration.admin(enable_testing=True))
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is True
 
     def test_workspace_admin_testing_disabled(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = Workspace("test").integrate(Integration.admin())
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is False
 
     def test_workspace_admin_modules_builder_testing(self):
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         mods = Integration.AdminModules().enable_testing()
         ws = Workspace("test").integrate(Integration.admin(modules=mods))
         d = ws.to_dict()
@@ -1373,7 +1373,7 @@ class TestTestingAdminIntegration:
 
     def test_full_pipeline(self):
         """Config enables testing → data gathered → HTML rendered."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig, AdminSite
         from aquilia.admin.templates import render_testing_page
 
@@ -1399,7 +1399,7 @@ class TestTestingAdminIntegration:
 
     def test_disabled_module_config(self):
         """When testing module is disabled, config reports False."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         raw = Integration.admin()
@@ -1408,8 +1408,8 @@ class TestTestingAdminIntegration:
 
     def test_workspace_full_config(self):
         """Full workspace config with testing enabled round-trips."""
-        from aquilia.config_builders import Workspace, Integration
-
+        from aquilia.workspace import Workspace
+        from aquilia.integrations import Integration
         ws = Workspace("testapp").integrate(
             Integration.admin(
                 enable_testing=True,
@@ -1427,7 +1427,7 @@ class TestTestingAdminIntegration:
 
     def test_admin_modules_builder_all_devtools(self):
         """AdminModules builder enables all devtools including testing."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         mods = Integration.AdminModules().enable_query_inspector().enable_tasks().enable_errors().enable_testing()
         d = mods.to_dict()

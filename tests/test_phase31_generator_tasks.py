@@ -372,7 +372,7 @@ class TestWorkspaceTasksIntegration:
 
     def test_integration_tasks_builder(self):
         """Integration.tasks() must produce correct config dict."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.tasks(
             backend="memory",

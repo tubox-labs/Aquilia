@@ -6306,12 +6306,12 @@ class TestAdminModulesBuilder:
     """Test Integration.AdminModules fluent builder."""
 
     def test_import(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert hasattr(Integration, "AdminModules")
 
     def test_defaults(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminModules()
         d = m.to_dict()
@@ -6321,19 +6321,19 @@ class TestAdminModulesBuilder:
         assert d["audit"] is False
 
     def test_enable_monitoring(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminModules().enable_monitoring()
         assert m.to_dict()["monitoring"] is True
 
     def test_disable_dashboard(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminModules().disable_dashboard()
         assert m.to_dict()["dashboard"] is False
 
     def test_enable_all(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminModules().enable_all()
         d = m.to_dict()
@@ -6341,7 +6341,7 @@ class TestAdminModulesBuilder:
             assert val is True, f"{key} should be True after enable_all()"
 
     def test_disable_all(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminModules().disable_all()
         d = m.to_dict()
@@ -6349,7 +6349,7 @@ class TestAdminModulesBuilder:
             assert val is False, f"{key} should be False after disable_all()"
 
     def test_fluent_chain(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminModules().disable_all().enable_dashboard().enable_orm().enable_monitoring()
         d = m.to_dict()
@@ -6359,7 +6359,7 @@ class TestAdminModulesBuilder:
         assert d["audit"] is False
 
     def test_repr(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         r = repr(Integration.AdminModules())
         assert "AdminModules" in r
@@ -6369,53 +6369,53 @@ class TestAdminAuditBuilder:
     """Test Integration.AdminAudit fluent builder."""
 
     def test_import(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert hasattr(Integration, "AdminAudit")
 
     def test_defaults_disabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit()
         d = a.to_dict()
         assert d["enabled"] is False
 
     def test_enable(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable()
         assert a.to_dict()["enabled"] is True
 
     def test_max_entries(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable().max_entries(500)
         d = a.to_dict()
         assert d["max_entries"] == 500
 
     def test_log_logins_off(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable().no_log_logins()
         d = a.to_dict()
         assert d["log_logins"] is False
 
     def test_log_views_off(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable().no_log_views()
         d = a.to_dict()
         assert d["log_views"] is False
 
     def test_log_searches_off(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable().no_log_searches()
         d = a.to_dict()
         assert d["log_searches"] is False
 
     def test_exclude_actions(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable().exclude_actions("VIEW", "LIST")
         d = a.to_dict()
@@ -6423,7 +6423,7 @@ class TestAdminAuditBuilder:
         assert "LIST" in d["excluded_actions"]
 
     def test_fluent_chain(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.AdminAudit().enable().max_entries(200).no_log_logins().exclude_actions("SEARCH")
         d = a.to_dict()
@@ -6433,7 +6433,7 @@ class TestAdminAuditBuilder:
         assert "SEARCH" in d["excluded_actions"]
 
     def test_repr(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         r = repr(Integration.AdminAudit())
         assert "AdminAudit" in r
@@ -6443,32 +6443,32 @@ class TestAdminMonitoringBuilder:
     """Test Integration.AdminMonitoring fluent builder."""
 
     def test_import(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert hasattr(Integration, "AdminMonitoring")
 
     def test_defaults_disabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring()
         d = m.to_dict()
         assert d["enabled"] is False
 
     def test_enable(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring().enable()
         assert m.to_dict()["enabled"] is True
 
     def test_metrics_subset(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring().enable().metrics("cpu", "memory")
         d = m.to_dict()
         assert d["metrics"] == ["cpu", "memory"]
 
     def test_all_metrics(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring().enable().all_metrics()
         d = m.to_dict()
@@ -6477,21 +6477,21 @@ class TestAdminMonitoringBuilder:
         assert len(d["metrics"]) == 8
 
     def test_refresh_interval(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring().enable().refresh_interval(15)
         d = m.to_dict()
         assert d["refresh_interval"] == 15
 
     def test_refresh_interval_minimum(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring().enable().refresh_interval(1)
         d = m.to_dict()
         assert d["refresh_interval"] == 5  # clamped to minimum
 
     def test_fluent_chain(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         m = Integration.AdminMonitoring().enable().metrics("cpu", "disk").refresh_interval(10)
         d = m.to_dict()
@@ -6500,7 +6500,7 @@ class TestAdminMonitoringBuilder:
         assert d["refresh_interval"] == 10
 
     def test_repr(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         r = repr(Integration.AdminMonitoring())
         assert "AdminMonitoring" in r
@@ -6510,12 +6510,12 @@ class TestAdminSidebarBuilder:
     """Test Integration.AdminSidebar fluent builder."""
 
     def test_import(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         assert hasattr(Integration, "AdminSidebar")
 
     def test_defaults_all_visible(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         s = Integration.AdminSidebar()
         d = s.to_dict()
@@ -6523,19 +6523,19 @@ class TestAdminSidebarBuilder:
             assert d[key] is True, f"{key} should be True by default"
 
     def test_hide_data(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         s = Integration.AdminSidebar().hide_data()
         assert s.to_dict()["data"] is False
 
     def test_hide_security(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         s = Integration.AdminSidebar().hide_security()
         assert s.to_dict()["security"] is False
 
     def test_hide_all(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         s = Integration.AdminSidebar().hide_all()
         d = s.to_dict()
@@ -6543,7 +6543,7 @@ class TestAdminSidebarBuilder:
             assert val is False, f"{key} should be False after hide_all()"
 
     def test_show_all(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         s = Integration.AdminSidebar().hide_all().show_all()
         d = s.to_dict()
@@ -6551,7 +6551,7 @@ class TestAdminSidebarBuilder:
             assert val is True, f"{key} should be True after show_all()"
 
     def test_fluent_chain(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         s = Integration.AdminSidebar().hide_all().show_overview().show_models()
         d = s.to_dict()
@@ -6562,7 +6562,7 @@ class TestAdminSidebarBuilder:
         assert d["security"] is False
 
     def test_repr(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         r = repr(Integration.AdminSidebar())
         assert "AdminSidebar" in r
@@ -6572,7 +6572,7 @@ class TestBuildersWithIntegrationAdmin:
     """Test that builder objects work with Integration.admin()."""
 
     def test_modules_builder_passed_to_admin(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         modules = Integration.AdminModules().enable_all()
         cfg = Integration.admin(modules=modules)
@@ -6581,7 +6581,7 @@ class TestBuildersWithIntegrationAdmin:
         assert cfg["modules"]["dashboard"] is True
 
     def test_audit_builder_passed_to_admin(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         audit = Integration.AdminAudit().enable().no_log_logins().max_entries(100)
         cfg = Integration.admin(audit=audit)
@@ -6591,7 +6591,7 @@ class TestBuildersWithIntegrationAdmin:
         assert cfg["modules"]["audit"] is True
 
     def test_monitoring_builder_passed_to_admin(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         monitoring = Integration.AdminMonitoring().enable().metrics("cpu", "memory")
         cfg = Integration.admin(monitoring=monitoring)
@@ -6600,7 +6600,7 @@ class TestBuildersWithIntegrationAdmin:
         assert cfg["modules"]["monitoring"] is True
 
     def test_sidebar_builder_passed_to_admin(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         sidebar = Integration.AdminSidebar().hide_data().hide_security()
         cfg = Integration.admin(sidebar=sidebar)
@@ -6609,7 +6609,7 @@ class TestBuildersWithIntegrationAdmin:
         assert cfg["sidebar_sections"]["overview"] is True
 
     def test_all_builders_combined(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             modules=Integration.AdminModules().enable_all(),
@@ -6627,7 +6627,7 @@ class TestBuildersWithIntegrationAdmin:
 
     def test_builders_override_flat_params(self):
         """Builder objects should take priority over flat params."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             modules=Integration.AdminModules().enable_monitoring(),
@@ -6637,7 +6637,7 @@ class TestBuildersWithIntegrationAdmin:
 
     def test_flat_params_still_work(self):
         """Legacy flat params should still work when no builders passed."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             enable_monitoring=True,
@@ -6652,7 +6652,7 @@ class TestBuildersWithIntegrationAdmin:
 
     def test_builder_to_full_config_roundtrip(self):
         """Builder → Integration.admin() → AdminConfig.from_dict() roundtrip."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         cfg_dict = Integration.admin(
@@ -6776,7 +6776,7 @@ class TestIntegrationAdminConfigBuilder:
     """Test Integration.admin() produces correct config dict with new fields."""
 
     def test_default_config_has_modules(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin()
         assert "modules" in cfg
@@ -6784,7 +6784,7 @@ class TestIntegrationAdminConfigBuilder:
         assert cfg["modules"]["orm"] is True
 
     def test_audit_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             enable_audit=True,
@@ -6797,7 +6797,7 @@ class TestIntegrationAdminConfigBuilder:
         assert "LIST" in cfg["audit_config"]["excluded_actions"]
 
     def test_monitoring_config(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             enable_monitoring=True,
@@ -6809,13 +6809,13 @@ class TestIntegrationAdminConfigBuilder:
         assert cfg["monitoring_config"]["refresh_interval"] == 15
 
     def test_monitoring_refresh_minimum(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(monitoring_refresh_interval=1)
         assert cfg["monitoring_config"]["refresh_interval"] == 5  # min clamped
 
     def test_sidebar_sections(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(sidebar_sections={"data": False, "security": False})
         assert cfg["sidebar_sections"]["data"] is False
@@ -6823,14 +6823,14 @@ class TestIntegrationAdminConfigBuilder:
         assert cfg["sidebar_sections"]["overview"] is True
 
     def test_disable_monitoring(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(enable_monitoring=False)
         assert cfg["modules"]["monitoring"] is False
         assert cfg["monitoring_config"]["enabled"] is False
 
     def test_all_modules_disabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             enable_dashboard=False,
@@ -6850,7 +6850,7 @@ class TestIntegrationAdminConfigBuilder:
             assert val is False, f"Module {key} should be False"
 
     def test_default_all_metrics(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin()
         expected = ["cpu", "memory", "disk", "network", "process", "python", "system", "health_checks"]
@@ -6858,7 +6858,7 @@ class TestIntegrationAdminConfigBuilder:
 
     def test_backward_compatible_keys(self):
         """Existing keys (url_prefix, site_title, etc.) must still be present."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         cfg = Integration.admin(
             url_prefix="/admin",
@@ -7239,7 +7239,7 @@ class TestAdminConfigServerWiring:
 
     def test_parsed_config_from_dict(self):
         """AdminConfig.from_dict should handle full Integration.admin() output."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
 
         raw = Integration.admin(

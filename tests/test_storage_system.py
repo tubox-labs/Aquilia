@@ -112,9 +112,8 @@ from aquilia.storage.registry import (
 from aquilia.storage.subsystem import StorageSubsystem
 from aquilia.storage.effects import StorageEffectProvider
 from aquilia.effects import EffectKind
-from aquilia.config_builders import Integration, Workspace
-
-
+from aquilia.integrations import Integration
+from aquilia.workspace import Workspace
 # ═══════════════════════════════════════════════════════════════════════════
 #  SECTION 1 — Base Abstractions
 # ═══════════════════════════════════════════════════════════════════════════

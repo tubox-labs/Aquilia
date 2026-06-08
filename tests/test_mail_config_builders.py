@@ -20,7 +20,7 @@ from typing import Any, Dict
 
 
 def _mail_integration():
-    from aquilia.config_builders import Integration
+    from aquilia.integrations import Integration
 
     return Integration
 
@@ -83,7 +83,7 @@ class TestMailAuthImport:
 
 class TestMailAuthPlain:
     def _plain(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.MailAuth.plain(**kw)
 
@@ -111,7 +111,7 @@ class TestMailAuthPlain:
         assert set(d.keys()) == {"method", "username", "password"}
 
     def test_direct_init_method(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth(method="plain", username="x", password="y")
         d = a.to_dict()
@@ -126,25 +126,25 @@ class TestMailAuthPlain:
 
 class TestMailAuthApiKey:
     def test_method_is_api_key(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.api_key(env="SG_KEY")
         assert a.to_dict()["method"] == "api_key"
 
     def test_api_key_env_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.api_key(env="SG_KEY")
         assert a.to_dict()["api_key_env"] == "SG_KEY"
 
     def test_literal_api_key_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.api_key(key="SG.abc123")
         assert a.to_dict()["api_key"] == "SG.abc123"
 
     def test_both_key_and_env(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.api_key(key="SG.x", env="SG_KEY")
         d = a.to_dict()
@@ -159,31 +159,31 @@ class TestMailAuthApiKey:
 
 class TestMailAuthAwsSes:
     def test_method_is_aws_ses(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.aws_ses(region="us-east-1")
         assert a.to_dict()["method"] == "aws_ses"
 
     def test_region_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.aws_ses(region="eu-west-1")
         assert a.to_dict()["aws_region"] == "eu-west-1"
 
     def test_access_key_id_env(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.aws_ses(access_key_id_env="AWS_KEY")
         assert a.to_dict()["aws_access_key_id_env"] == "AWS_KEY"
 
     def test_secret_env(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.aws_ses(secret_access_key_env="AWS_SECRET")
         assert a.to_dict()["aws_secret_access_key_env"] == "AWS_SECRET"
 
     def test_literal_credentials(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.aws_ses(
             access_key_id="AKIA123",
@@ -196,7 +196,7 @@ class TestMailAuthAwsSes:
         assert d["aws_region"] == "us-west-2"
 
     def test_session_token(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.aws_ses(session_token="tok123")
         assert a.to_dict()["aws_session_token"] == "tok123"
@@ -209,37 +209,37 @@ class TestMailAuthAwsSes:
 
 class TestMailAuthOAuth2:
     def test_method_is_oauth2(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.oauth2("cid", "csec", token_url="https://tok.url")
         assert a.to_dict()["method"] == "oauth2"
 
     def test_client_id_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.oauth2("mycid", token_url="https://t.url")
         assert a.to_dict()["client_id"] == "mycid"
 
     def test_token_url_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.oauth2("c", token_url="https://my.token.url")
         assert a.to_dict()["token_url"] == "https://my.token.url"
 
     def test_scope_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.oauth2("c", token_url="https://t.url", scope="mail.send")
         assert a.to_dict()["scope"] == "mail.send"
 
     def test_client_secret_env(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.oauth2("c", client_secret_env="OAUTH_SEC", token_url="https://t.url")
         assert a.to_dict()["client_secret_env"] == "OAUTH_SEC"
 
     def test_refresh_token_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.oauth2("c", token_url="https://t.url", refresh_token="rtok")
         assert a.to_dict()["refresh_token"] == "rtok"
@@ -252,13 +252,13 @@ class TestMailAuthOAuth2:
 
 class TestMailAuthNtlm:
     def test_method_is_ntlm(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.ntlm("DOMAIN\\user", "pass", domain="DOMAIN")
         assert a.to_dict()["method"] == "ntlm"
 
     def test_domain_in_dict(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.ntlm("u", domain="CORP")
         assert a.to_dict()["domain"] == "CORP"
@@ -271,13 +271,13 @@ class TestMailAuthNtlm:
 
 class TestMailAuthAnonymous:
     def test_method_is_none(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.anonymous()
         assert a.to_dict()["method"] == "none"
 
     def test_no_credential_keys(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         a = Integration.MailAuth.anonymous()
         d = a.to_dict()
@@ -336,7 +336,7 @@ class TestMailProviderImport:
 
 class TestMailProviderSMTP:
     def _smtp(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.MailProvider.SMTP(**kw)
 
@@ -396,7 +396,7 @@ class TestMailProviderSMTP:
         assert d["source_address"] == "1.2.3.4"
 
     def test_auth_serialised(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         auth = Integration.MailAuth.plain("u", "p")
         d = self._smtp(name="s", auth=auth).to_dict()
@@ -408,7 +408,7 @@ class TestMailProviderSMTP:
         assert d["auth"]["username"] == "x"
 
     def test_default_name(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP().to_dict()
         assert d["name"] == "smtp"
@@ -417,7 +417,7 @@ class TestMailProviderSMTP:
     def test_single_provider_not_iterable_bug(self):
         """Regression: passing a single SMTP instance to Integration.mail()
         should NOT raise TypeError: 'SMTP' object is not iterable."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         provider = Integration.MailProvider.SMTP(name="gmail", host="smtp.gmail.com", port=587)
         # Must not raise
@@ -436,7 +436,7 @@ class TestMailProviderSMTP:
 
 class TestMailProviderSES:
     def _ses(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.MailProvider.SES(**kw)
 
@@ -475,7 +475,7 @@ class TestMailProviderSES:
         assert d["endpoint_url"] == "http://localhost:4566"
 
     def test_auth_ses_credentials(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         auth = Integration.MailAuth.aws_ses(access_key_id="AKIA", secret_access_key="sec", region="us-east-1")
         d = self._ses(name="s", auth=auth).to_dict()
@@ -489,7 +489,7 @@ class TestMailProviderSES:
 
 class TestMailProviderSendGrid:
     def _sg(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.MailProvider.SendGrid(**kw)
 
@@ -526,7 +526,7 @@ class TestMailProviderSendGrid:
         assert self._sg(name="sg").to_dict()["timeout"] == 30.0
 
     def test_auth_api_key(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         auth = Integration.MailAuth.api_key(env="SG_KEY")
         d = self._sg(name="sg", auth=auth).to_dict()
@@ -544,7 +544,7 @@ class TestMailProviderSendGrid:
 
 class TestMailProviderConsole:
     def _con(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.MailProvider.Console(**kw)
 
@@ -574,7 +574,7 @@ class TestMailProviderConsole:
 
 class TestMailProviderFile:
     def _file(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.MailProvider.File(**kw)
 
@@ -617,7 +617,7 @@ class TestMailProviderFile:
 
 class TestIntegrationMailFunction:
     def _mail(self, **kw):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         return Integration.mail(**kw)
 
@@ -642,7 +642,7 @@ class TestIntegrationMailFunction:
         assert self._mail()["auth"] is None
 
     def test_auth_plain_serialised(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(auth=Integration.MailAuth.plain("u", "p"))
         assert d["auth"]["method"] == "plain"
@@ -655,39 +655,39 @@ class TestIntegrationMailFunction:
     # ── providers as list of MailProvider instances ──────────────────
 
     def test_providers_list_smtp(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=[Integration.MailProvider.SMTP(name="s", host="h")])
         assert d["providers"][0]["type"] == "smtp"
         assert d["providers"][0]["host"] == "h"
 
     def test_providers_list_ses(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=[Integration.MailProvider.SES(name="s", region="eu-west-1")])
         assert d["providers"][0]["type"] == "ses"
         assert d["providers"][0]["region"] == "eu-west-1"
 
     def test_providers_list_sendgrid(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=[Integration.MailProvider.SendGrid(name="sg")])
         assert d["providers"][0]["type"] == "sendgrid"
 
     def test_providers_list_console(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=[Integration.MailProvider.Console()])
         assert d["providers"][0]["type"] == "console"
 
     def test_providers_list_file(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=[Integration.MailProvider.File()])
         assert d["providers"][0]["type"] == "file"
 
     def test_providers_mixed_dict_and_instance(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(
             providers=[
@@ -702,7 +702,7 @@ class TestIntegrationMailFunction:
 
     def test_single_smtp_instance_not_list_no_error(self):
         """Regression for TypeError: 'SMTP' object is not iterable."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         provider = Integration.MailProvider.SMTP(name="gmail", host="smtp.gmail.com", port=587)
         d = self._mail(default_from="me@example.com", providers=provider)
@@ -710,26 +710,26 @@ class TestIntegrationMailFunction:
         assert d["providers"][0]["host"] == "smtp.gmail.com"
 
     def test_single_ses_instance_not_list_no_error(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         provider = Integration.MailProvider.SES(name="ses")
         d = self._mail(providers=provider)
         assert d["providers"][0]["type"] == "ses"
 
     def test_single_console_instance_not_list_no_error(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=Integration.MailProvider.Console())
         assert d["providers"][0]["type"] == "console"
 
     def test_single_file_instance_not_list_no_error(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=Integration.MailProvider.File())
         assert d["providers"][0]["type"] == "file"
 
     def test_single_sendgrid_instance_not_list_no_error(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = self._mail(providers=Integration.MailProvider.SendGrid(name="sg"))
         assert d["providers"][0]["type"] == "sendgrid"
@@ -737,14 +737,14 @@ class TestIntegrationMailFunction:
     # ── per-provider auth normalisation ──────────────────────────────
 
     def test_per_provider_auth_in_dict_normalised(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         auth = Integration.MailAuth.api_key(env="KEY")
         d = self._mail(providers=[{"name": "sg", "type": "sendgrid", "auth": auth}])
         assert d["providers"][0]["auth"]["api_key_env"] == "KEY"
 
     def test_provider_instance_with_auth_serialised(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         provider = Integration.MailProvider.SMTP(
             name="s",
@@ -1022,7 +1022,7 @@ class TestProviderConfigBlueprintAuthField:
 class TestMailConfigFullRoundTrip:
     def test_integration_mail_to_mailconfig(self):
         """Full pipeline: Integration.mail() → MailConfig.from_dict()."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.mail.config import MailConfig
 
         d = Integration.mail(
@@ -1052,7 +1052,7 @@ class TestMailConfigFullRoundTrip:
         assert cfg.retry.max_attempts == 3
 
     def test_integration_mail_ses_to_mailconfig(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.mail.config import MailConfig
 
         d = Integration.mail(
@@ -1073,7 +1073,7 @@ class TestMailConfigFullRoundTrip:
         assert cfg.providers[0].name == "ses"
 
     def test_integration_mail_multiple_providers(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.mail.config import MailConfig
 
         d = Integration.mail(
@@ -1089,7 +1089,7 @@ class TestMailConfigFullRoundTrip:
 
     def test_single_provider_no_list_full_pipeline(self):
         """Regression: single provider object without list wrapping."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.mail.config import MailConfig
 
         d = Integration.mail(
@@ -1102,7 +1102,7 @@ class TestMailConfigFullRoundTrip:
 
     def test_workspace_like_gmail_smtp_config(self):
         """Mirrors the myapp/workspace.py Gmail config that triggered the bug."""
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.mail.config import MailConfig
 
         d = Integration.mail(
@@ -1133,37 +1133,37 @@ class TestMailConfigFullRoundTrip:
 
 class TestMailProviderBaseDefaults:
     def test_base_has_name(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP(name="x").to_dict()
         assert "name" in d
 
     def test_base_has_type(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP(name="x").to_dict()
         assert "type" in d
 
     def test_base_has_priority(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP(name="x").to_dict()
         assert "priority" in d
 
     def test_base_has_enabled(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP(name="x").to_dict()
         assert "enabled" in d
 
     def test_base_has_rate_limit_per_min(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP(name="x").to_dict()
         assert "rate_limit_per_min" in d
 
     def test_no_auth_key_when_none(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         d = Integration.MailProvider.SMTP(name="x").to_dict()
         assert "auth" not in d

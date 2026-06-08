@@ -1447,7 +1447,7 @@ class TestIntegrationVersioning:
     """Test Integration.versioning() config builder."""
 
     def test_builder(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
 
         config = Integration.versioning(
             strategy="header",
@@ -1463,7 +1463,7 @@ class TestIntegrationVersioning:
         assert config["channels"]["stable"] == "2.0"
 
     def test_builder_with_sunset(self):
-        from aquilia.config_builders import Integration
+        from aquilia.integrations import Integration
         from aquilia.versioning.sunset import SunsetPolicy
 
         config = Integration.versioning(
