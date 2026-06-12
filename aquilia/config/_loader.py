@@ -222,8 +222,13 @@ class ConfigLoader:
         if base_cls is None:
             return
 
-        # Resolve environment variant
-        env_name = os.environ.get("AQ_ENV", "dev")
+        # Load .env BEFORE reading AQ_ENV so a .env that sets
+        # AQ_ENV=prod is visible when we choose the environment class.
+        from aquilia.pyconfig import _ensure_dotenv_loaded
+
+        _ensure_dotenv_loaded(config_cls=base_cls)
+
+        env_name = os.environ.get("AQUILIA_ENV") or os.environ.get("AQ_ENV", "dev")
         try:
             resolved = base_cls.for_env(env_name)
         except ValueError:

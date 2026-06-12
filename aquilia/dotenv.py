@@ -668,6 +668,10 @@ def _default_dotenv_search_paths(mode: str | None = None) -> list[str]:
     Return default dotenv search paths when no explicit paths are configured.
 
     Order defines precedence (later files override earlier dotenv files).
+
+    Only ``.env``, ``.env.local``, and mode-specific variants are loaded.
+    ``.env.example`` / ``.env.default`` are templates intended to be copied
+    (not loaded as config sources).
     """
     resolved_mode = (mode or _resolve_runtime_mode()).lower().strip() or "dev"
     if resolved_mode == "production":
@@ -675,9 +679,6 @@ def _default_dotenv_search_paths(mode: str | None = None) -> list[str]:
 
     candidates = [
         ".env",
-        ".env.example",
-        ".env.defaults",
-        ".env.default",
         ".env.local",
         f".env.{resolved_mode}",
         f".env.{resolved_mode}.local",

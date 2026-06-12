@@ -744,7 +744,13 @@ class Workspace:
 
             env_cfg = self._env_config
             if isinstance(env_cfg, type):
-                env_name = os.environ.get("AQ_ENV", "dev")
+                # Load .env BEFORE reading AQ_ENV — otherwise a .env that
+                # sets AQ_ENV=prod will be invisible and DevEnv wins.
+                from aquilia.pyconfig import _ensure_dotenv_loaded
+
+                _ensure_dotenv_loaded(config_cls=env_cfg)
+
+                env_name = os.environ.get("AQUILIA_ENV") or os.environ.get("AQ_ENV", "dev")
                 try:
                     env_cfg = env_cfg.for_env(env_name)
                 except Exception:
