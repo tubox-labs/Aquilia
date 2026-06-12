@@ -3154,7 +3154,7 @@ class Integration:
                 Returns:
                     Self for chaining.
                 """
-                entry = Entry(
+                entry = Integration.middleware.Entry(
                     path=path,
                     priority=priority,
                     scope=scope,
