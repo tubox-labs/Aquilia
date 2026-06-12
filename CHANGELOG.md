@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2] — 2026-06-12 — "Crimson Gale"
+
+### Fixed
+- **`name 'Entry' is not defined` server crash**: `Integration.middleware.Entry` is a
+  `@dataclass` nested inside `middleware` which is nested inside `Integration`. Python
+  class bodies do not create enclosing scopes for nested function bodies, so the bare
+  `Entry(...)` call inside `Chain.use()` raised `NameError`. Fixed by using the
+  fully-qualified `Integration.middleware.Entry(...)` path.
+- **Generated workspace missing `Integration` import**: Commit `ca37a5e` removed
+  `Integration` from the generated `workspace.py` imports but the template body still
+  called `Integration.middleware.defaults()`, `Integration.di(...)`, etc. Restored
+  `Integration` to the import lines in both full and minimal templates.
+- **`.env` values never reflected in workspace config**: Three related bugs conspired
+  to make `.env`-defined values invisible:
+  1. `Workspace.to_dict()` read `os.environ.get("AQ_ENV", "dev")` **before** dotenv
+     was loaded, so a `.env` with `AQ_ENV=prod` always selected `DevEnv`.
+  2. `_default_dotenv_search_paths()` listed `.env.example` **after** `.env`, and
+     since `merged_values.update()` lets later files win, `.env.example` clobbered
+     `.env` values (e.g. `AQ_HOST=127.0.0.1` overrode `ProdEnv`'s `0.0.0.0`).
+  3. `ConfigLoader._load_pyconfig_file()` had the same order-of-operations bug.
+- **`AQ_ENV`/`AQUILIA_ENV` inconsistency**: `Workspace.to_dict()` only checked
+  `AQ_ENV` but the runtime sets `AQUILIA_ENV`. Now both are checked with
+  `AQUILIA_ENV` taking precedence.
+- **Removed template files from dotenv search paths**: `.env.example`, `.env.defaults`,
+  and `.env.default` are **templates** meant to be copied, not config sources.
+  They are no longer loaded by the default dotenv search.
+- **`.env.example` used wrong variable names**: Generated `.env.example` documented
+  `AQUILIA_MODE`, `AQUILIA_HOST`, `SECRET_KEY` — none of which match the
+  `AQ_ENV`, `AQ_HOST`, `AQ_SECRET_KEY` names the framework actually reads.
+
 ## [1.1.1] — 2026-06-09 — "Sea Serpent"
 
 ### Removed
