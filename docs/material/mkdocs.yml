@@ -52,7 +52,6 @@ theme:
     - search.share
     - search.suggest
     - toc.follow
-    - toc.integrate
   icon:
     repo: fontawesome/brands/github
     edit: material/pencil
@@ -181,36 +180,36 @@ extra:
 
 nav:
   - Home: index.md
-  - Getting Started:
+  - ":material-rocket-launch-outline: Getting Started":
       - getting-started/overview.md
       - getting-started/installation.md
       - getting-started/quickstart.md
       - getting-started/first-project.md
-  - Concepts:
+  - ":material-brain: Concepts":
       - concepts/architecture.md
       - concepts/system-design.md
       - concepts/core-concepts.md
       - concepts/lifecycle.md
       - concepts/execution-model.md
-  - Architecture:
+  - ":material-cube-outline: Architecture":
       - architecture/overview.md
       - architecture/components.md
       - architecture/services.md
       - architecture/workflows.md
       - architecture/storage.md
       - architecture/deployment.md
-  - Guides:
+  - ":material-book-open-variant: Guides":
       - guides/configuration.md
       - guides/integrations.md
       - guides/authentication.md
       - guides/monitoring.md
       - guides/logging.md
       - guides/troubleshooting.md
-  - Tutorials:
+  - ":material-school-outline: Tutorials":
       - tutorials/beginner.md
       - tutorials/intermediate.md
       - tutorials/advanced.md
-  - Reference:
+  - ":material-bookshelf: Reference":
       - reference/api/index.md
       - reference/api/asgi.md
       - reference/api/controllers.md
@@ -221,7 +220,7 @@ nav:
       - reference/api/flow.md
       - reference/api/effects.md
       - reference/api/health.md
-      - Modules:
+      - ":material-puzzle: Modules":
           - reference/modules/core/index.md
           - reference/modules/core/manifest.md
           - reference/modules/core/server.md
@@ -274,7 +273,7 @@ nav:
           - reference/modules/typing/index.md
           - reference/modules/utils/index.md
           - reference/modules/versioning/index.md
-      - Classes:
+      - ":material-shape-outline: Classes":
           - reference/classes/controller.md
           - reference/classes/request-ctx.md
           - reference/classes/blueprint.md
@@ -286,7 +285,7 @@ nav:
           - reference/classes/cache-service.md
           - reference/classes/auth-manager.md
       - reference/configuration/index.md
-  - CLI Reference:
+  - ":material-console-line: CLI Reference":
       - reference/cli/index.md
       - reference/cli/init.md
       - reference/cli/add.md
@@ -311,17 +310,17 @@ nav:
       - reference/cli/manifest.md
       - reference/cli/run.md
       - reference/cli/model.md
-  - Development:
+  - ":material-code-braces: Development":
       - development/contributing.md
       - development/testing.md
       - development/debugging.md
       - development/release-process.md
-  - Deployment:
+  - ":material-cloud-upload: Deployment":
       - deployment/docker.md
       - deployment/kubernetes.md
       - deployment/cloud.md
       - deployment/production.md
-  - Examples:
+  - ":material-file-code-outline: Examples":
       - examples/index.md
       - examples/rest-api.md
       - examples/authentication.md
@@ -335,6 +334,6 @@ nav:
       - examples/i18n.md
       - examples/versioning.md
       - examples/sqlite.md
-  - Changelog:
+  - ":material-history: Changelog":
       - changelog/index.md
-  - Tags: tags.md
+  - ":material-tag-outline: Tags": tags.md

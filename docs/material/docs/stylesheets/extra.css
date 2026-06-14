@@ -1,16 +1,16 @@
 :root {
-  --md-primary-fg-color: #13AA52;
-  --md-primary-fg-color--light: #00ED64;
-  --md-primary-fg-color--dark: #0C7A3B;
-  --md-accent-fg-color: #00ED64;
+  --md-primary-fg-color: #00684A;
+  --md-primary-fg-color--light: #00804A;
+  --md-primary-fg-color--dark: #004D35;
+  --md-accent-fg-color: #00A86B;
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #00ED64;
-  --md-primary-fg-color--light: #66FFA0;
-  --md-primary-fg-color--dark: #13AA52;
-  --md-accent-fg-color: #66FFA0;
-  --md-typeset-a-color: #00ED64;
+  --md-primary-fg-color: #00A86B;
+  --md-primary-fg-color--light: #5EDB9F;
+  --md-primary-fg-color--dark: #00684A;
+  --md-accent-fg-color: #5EDB9F;
+  --md-typeset-a-color: #00A86B;
 }
 
 .md-typeset .admonition.tip,
