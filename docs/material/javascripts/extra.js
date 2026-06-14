@@ -1,0 +1,1 @@
+// Empty JS file for future extensions

@@ -1,0 +1,127 @@
+:root {
+  --md-primary-fg-color: #4051b5;
+  --md-primary-fg-color--light: #5c6bc0;
+  --md-primary-fg-color--dark: #303f9f;
+  --md-accent-fg-color: #536dfe;
+}
+
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-color: #00bfa5;
+}
+
+.md-typeset .admonition.warning,
+.md-typeset details.warning {
+  border-color: #ff9100;
+}
+
+.md-typeset .admonition.danger,
+.md-typeset details.danger {
+  border-color: #ff1744;
+}
+
+.md-typeset .grid {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+.md-typeset .grid.cards > ul > li {
+  border: .05rem solid var(--md-default-fg-color--lightest);
+  border-radius: .2rem;
+  transition: border .25s, box-shadow .25s;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  border-color: var(--md-accent-fg-color);
+  box-shadow: var(--md-shadow-z2);
+}
+
+.highlight .hll {
+  background-color: var(--md-code-hl-color);
+}
+
+.api-signature {
+  font-family: var(--md-code-font-family);
+  background: var(--md-code-bg-color);
+  border-radius: .2rem;
+  padding: .5rem .75rem;
+  margin: .5rem 0;
+  overflow-x: auto;
+}
+
+.api-signature .sig-name {
+  font-weight: 700;
+  color: var(--md-code-hl-name-color);
+}
+
+.api-signature .sig-punctuation {
+  color: var(--md-code-hl-punctuation-color);
+}
+
+.api-signature .sig-param {
+  font-style: italic;
+}
+
+.api-signature .sig-return {
+  font-weight: 600;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.feature-card {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: .5rem;
+  padding: 1.25rem;
+  transition: border-color .25s, box-shadow .25s;
+}
+
+.feature-card:hover {
+  border-color: var(--md-primary-fg-color);
+  box-shadow: var(--md-shadow-z2);
+}
+
+.feature-card h3 {
+  margin-top: 0;
+  color: var(--md-primary-fg-color);
+}
+
+.feature-card .feature-icon {
+  font-size: 1.5rem;
+  margin-bottom: .5rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: .25em .5em;
+  font-size: .75em;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: .2rem;
+}
+
+.badge-primary {
+  color: #fff;
+  background-color: var(--md-primary-fg-color);
+}
+
+.badge-success {
+  color: #fff;
+  background-color: #00bfa5;
+}
+
+.badge-warning {
+  color: #212121;
+  background-color: #ff9100;
+}
+
+.badge-danger {
+  color: #fff;
+  background-color: #ff1744;
+}

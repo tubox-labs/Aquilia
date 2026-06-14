@@ -1,0 +1,343 @@
+site_name: Aquilia
+site_description: Async-native, manifest-first Python web framework
+site_author: Aquilia Team
+site_url: https://aquilia.dev
+docs_dir: .
+site_dir: ../material-site
+repo_name: aquilia
+repo_url: https://github.com/anomalyco/Aquilia
+edit_uri: edit/main/docs/material/
+
+copyright: Copyright &copy; 2026 Aquilia Team
+
+theme:
+  name: material
+  custom_dir: overrides
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.code.select
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.path
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+  favicon: assets/favicon.ico
+  logo: assets/logo.png
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      permalink_title: Anchor link to this section
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - docs/material/includes/abbreviations.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|[.!?\\\-]'
+      lang:
+        - en
+  - tags
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [../..]
+          options:
+            show_source: false
+            show_root_heading: true
+            show_root_toc_entry: true
+            show_category_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            heading_level: 2
+            docstring_style: google
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            filters:
+              - "!^_"
+            group_by_category: false
+            show_submodules: false
+  - minify:
+      minify_html: true
+  - git-revision-date-localized:
+      type: date
+
+extra:
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+    feedback:
+      title: Was this page helpful?
+      ratings:
+        - icon: material/emoticon-happy-outline
+          name: This page was helpful
+          data: 1
+          note: >-
+            Thanks for your feedback!
+        - icon: material/emoticon-sad-outline
+          name: This page could be improved
+          data: 0
+          note: >-
+            Thanks for your feedback! Help us improve this page by
+            opening a <a href="https://github.com/anomalyco/Aquilia/issues/new/choose"
+            target="_blank" rel="noopener">GitHub issue</a>.
+  consent:
+    title: Cookie consent
+    description: >-
+      We use cookies to recognize your repeated visits and preferences, as well
+      as to measure the effectiveness of our documentation and whether users
+      find what they're searching for. With your consent, you're helping us to
+      make our documentation better.
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/anomalyco/Aquilia
+      name: Aquilia on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/aquilia/
+      name: Aquilia on PyPI
+  version:
+    provider: mike
+    default: latest
+  generator: false
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - getting-started/overview.md
+      - getting-started/installation.md
+      - getting-started/quickstart.md
+      - getting-started/first-project.md
+  - Concepts:
+      - concepts/architecture.md
+      - concepts/system-design.md
+      - concepts/core-concepts.md
+      - concepts/lifecycle.md
+      - concepts/execution-model.md
+  - Architecture:
+      - architecture/overview.md
+      - architecture/components.md
+      - architecture/services.md
+      - architecture/workflows.md
+      - architecture/storage.md
+      - architecture/deployment.md
+  - Guides:
+      - guides/configuration.md
+      - guides/integrations.md
+      - guides/authentication.md
+      - guides/monitoring.md
+      - guides/logging.md
+      - guides/troubleshooting.md
+  - Tutorials:
+      - tutorials/beginner.md
+      - tutorials/intermediate.md
+      - tutorials/advanced.md
+  - Reference:
+      - reference/api/index.md
+      - reference/api/asgi.md
+      - reference/api/controllers.md
+      - reference/api/websockets.md
+      - reference/api/sse.md
+      - reference/api/versioning.md
+      - reference/api/faults.md
+      - reference/api/flow.md
+      - reference/api/effects.md
+      - reference/api/health.md
+      - Modules:
+          - reference/modules/core/index.md
+          - reference/modules/core/manifest.md
+          - reference/modules/core/server.md
+          - reference/modules/core/runtime.md
+          - reference/modules/core/entrypoint.md
+          - reference/modules/core/middleware.md
+          - reference/modules/core/request.md
+          - reference/modules/core/response.md
+          - reference/modules/core/asgi.md
+          - reference/modules/core/flow.md
+          - reference/modules/core/effects.md
+          - reference/modules/core/lifecycle.md
+          - reference/modules/core/health.md
+          - reference/modules/core/signing.md
+          - reference/modules/core/dotenv.md
+          - reference/modules/admin/index.md
+          - reference/modules/aquilary/index.md
+          - reference/modules/artifacts/index.md
+          - reference/modules/auth/index.md
+          - reference/modules/blueprints/index.md
+          - reference/modules/cache/index.md
+          - reference/modules/cli/index.md
+          - reference/modules/controller/index.md
+          - reference/modules/db/index.md
+          - reference/modules/debug/index.md
+          - reference/modules/di/index.md
+          - reference/modules/discovery/index.md
+          - reference/modules/faults/index.md
+          - reference/modules/filesystem/index.md
+          - reference/modules/http/index.md
+          - reference/modules/i18n/index.md
+          - reference/modules/integrations/index.md
+          - reference/modules/mail/index.md
+          - reference/modules/mcp/index.md
+          - reference/modules/middleware_ext/index.md
+          - reference/modules/mlops/index.md
+          - reference/modules/models/index.md
+          - reference/modules/otel/index.md
+          - reference/modules/patterns/index.md
+          - reference/modules/providers/index.md
+          - reference/modules/sessions/index.md
+          - reference/modules/sockets/index.md
+          - reference/modules/sqlite/index.md
+          - reference/modules/sse/index.md
+          - reference/modules/storage/index.md
+          - reference/modules/subsystems/index.md
+          - reference/modules/tasks/index.md
+          - reference/modules/templates/index.md
+          - reference/modules/testing/index.md
+          - reference/modules/typing/index.md
+          - reference/modules/utils/index.md
+          - reference/modules/versioning/index.md
+      - Classes:
+          - reference/classes/controller.md
+          - reference/classes/request-ctx.md
+          - reference/classes/blueprint.md
+          - reference/classes/model.md
+          - reference/classes/fault.md
+          - reference/classes/middleware.md
+          - reference/classes/socket-controller.md
+          - reference/classes/flow-pipeline.md
+          - reference/classes/cache-service.md
+          - reference/classes/auth-manager.md
+      - reference/configuration/index.md
+  - CLI Reference:
+      - reference/cli/index.md
+      - reference/cli/init.md
+      - reference/cli/add.md
+      - reference/cli/serve.md
+      - reference/cli/validate.md
+      - reference/cli/inspect.md
+      - reference/cli/freeze.md
+      - reference/cli/compile.md
+      - reference/cli/discover.md
+      - reference/cli/test.md
+      - reference/cli/deploy.md
+      - reference/cli/migrate.md
+      - reference/cli/cache.md
+      - reference/cli/mail.md
+      - reference/cli/i18n.md
+      - reference/cli/ws.md
+      - reference/cli/admin.md
+      - reference/cli/provider.md
+      - reference/cli/mcp.md
+      - reference/cli/artifacts.md
+      - reference/cli/analytics.md
+      - reference/cli/manifest.md
+      - reference/cli/run.md
+      - reference/cli/model.md
+  - Development:
+      - development/contributing.md
+      - development/testing.md
+      - development/debugging.md
+      - development/release-process.md
+  - Deployment:
+      - deployment/docker.md
+      - deployment/kubernetes.md
+      - deployment/cloud.md
+      - deployment/production.md
+  - Examples:
+      - examples/index.md
+      - examples/rest-api.md
+      - examples/authentication.md
+      - examples/websockets.md
+      - examples/background-jobs.md
+      - examples/admin-dashboard.md
+      - examples/cache-http.md
+      - examples/multi-module.md
+      - examples/storage.md
+      - examples/mail.md
+      - examples/i18n.md
+      - examples/versioning.md
+      - examples/sqlite.md
+  - Changelog:
+      - changelog/index.md
+  - Tags: tags.md
