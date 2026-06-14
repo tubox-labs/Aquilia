@@ -2,7 +2,6 @@ site_name: Aquilia
 site_description: Async-native, manifest-first Python web framework
 site_author: Aquilia Team
 site_url: https://aquilia.dev
-docs_dir: .
 site_dir: ../material-site
 repo_name: aquilia
 repo_url: https://github.com/anomalyco/Aquilia
