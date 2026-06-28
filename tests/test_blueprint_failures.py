@@ -210,3 +210,73 @@ def test_dataobject_dict_shadowing_and_json_serialization():
         "values": [1, 2],
         "get": "value",
     }
+
+
+def test_dataobject_advanced_features():
+    import pytest
+
+    from aquilia.utils.data import DataObject
+
+    # 1. Deep recursive wrapping
+    raw = {"user": {"name": "Kai", "roles": [{"name": "admin"}, {"name": "editor"}], "settings": ({"theme": "dark"},)}}
+    data = DataObject(raw)
+    assert isinstance(data.user, DataObject)
+    assert isinstance(data.user.roles[0], DataObject)
+    assert data.user.roles[0].name == "admin"
+    assert isinstance(data.user.settings[0], DataObject)
+    assert data.user.settings[0].theme == "dark"
+
+    # Test that setting dynamic lists also wraps recursively
+    data.user.new_roles = [{"name": "guest"}]
+    assert isinstance(data.user.new_roles[0], DataObject)
+    assert data.user.new_roles[0].name == "guest"
+
+    # 2. Immutability / freezing
+    assert data.is_frozen() is False
+    data.freeze()
+    assert data.is_frozen() is True
+    assert data.user.is_frozen() is True
+    assert data.user.roles[0].is_frozen() is True
+
+    # Mutating frozen DataObject should raise TypeError
+    with pytest.raises(TypeError, match="frozen"):
+        data.user.name = "New"
+    with pytest.raises(TypeError, match="frozen"):
+        data["new_key"] = 1
+    with pytest.raises(TypeError, match="frozen"):
+        del data.user
+    with pytest.raises(TypeError, match="frozen"):
+        data.clear()
+
+    # 3. Convenience Methods
+    # Unfreeze to test update/merge
+    unfrozen = DataObject(data.to_plain())
+    assert unfrozen.is_frozen() is False
+
+    # Find dot-path
+    assert unfrozen.find("user.name") == "Kai"
+    assert unfrozen.find("user.roles.0.name") == "admin"
+    assert unfrozen.find("user.settings.0.theme") == "dark"
+    assert unfrozen.find("user.non_existent", "Default") == "Default"
+
+    # Flatten
+    flat = unfrozen.flatten()
+    assert flat["user.name"] == "Kai"
+    assert flat["user.roles.0.name"] == "admin"
+    assert flat["user.settings.0.theme"] == "dark"
+
+    # Update recursive
+    unfrozen.update_recursive({"user": {"name": "Kai A.", "settings": [{"theme": "light"}]}})
+    assert unfrozen.user.name == "Kai A."
+    assert isinstance(unfrozen.user.settings[0], DataObject)
+    assert unfrozen.user.settings[0].theme == "light"
+
+    # Merge
+    merged = unfrozen.merge({"user": {"profile": "Developer"}})
+    assert merged.user.name == "Kai A."
+    assert merged.user.profile == "Developer"
+    assert "profile" not in unfrozen.user  # Original is untouched
+
+    # to_json
+    js = unfrozen.to_json()
+    assert '"theme": "light"' in js
