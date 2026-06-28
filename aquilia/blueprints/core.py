@@ -664,7 +664,30 @@ class BlueprintUnion:
 # ── Blueprint Base Class ─────────────────────────────────────────────────
 
 
+class BlueprintSerializationDescriptor:
+    """Descriptor to support calling to_dict/to_dict_many as class methods or instance methods."""
+
+    def __init__(self, name: str):
+        self.name = name
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            # Accessed on the class, e.g., ComplexUserBlueprint.to_dict
+            if self.name == "to_dict":
+                def class_to_dict(obj, *, _depth: int = 0, _seen: set | None = None):
+                    return owner(instance=obj).to_dict(_depth=_depth, _seen=_seen)
+                return class_to_dict
+            elif self.name == "to_dict_many":
+                def class_to_dict_many(objs, *, _depth: int = 0, _seen: set | None = None):
+                    return owner(many=True).to_dict_many(objs, _depth=_depth, _seen=_seen)
+                return class_to_dict_many
+        # Accessed on the instance, e.g., bp.to_dict
+        return getattr(instance, f"_{self.name}_instance")
+
+
 class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
+    to_dict = BlueprintSerializationDescriptor("to_dict")
+    to_dict_many = BlueprintSerializationDescriptor("to_dict_many")
     """
     The Blueprint -- a contract between a Model and the outside world.
 
@@ -769,13 +792,13 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             return self._validated_data
         return {}
 
-    def to_dict(
+    def _to_dict_instance(
         self,
         instance: Any = None,
         *,
         _depth: int = 0,
         _seen: set | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Mold a model instance into a dict, respecting projections.
 
@@ -784,8 +807,17 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             _depth: Internal depth counter for Lens traversal
             _seen: Internal cycle detection set
         """
+        if instance is None and self.many:
+            if self.instance is not None:
+                return self.to_dict_many(self.instance, _depth=_depth, _seen=_seen)
+            if self._validated_data is not None:
+                return self._validated_data
+            return []
+
         obj = instance or self.instance
         if obj is None:
+            if self._validated_data is not None:
+                return self._validated_data
             return {}
 
         # Resolve projection
@@ -817,7 +849,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
         return result
 
-    def to_dict_many(
+    def _to_dict_many_instance(
         self,
         instances: Any,
         *,
