@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Zero Runtime Dependencies**: Completely migrated the Blueprints validation engine to pure-Python using only Python standard library modules.
 
+### Fixed
+- **Form URL Encoded & Multipart Blueprint validation**: Resolved critical validation failure where blueprints bound to form or multipart request payloads lost all fields because the validation engine strictly checked `isinstance(data, dict)`. Blueprints and `Sigil` validation now support mapping-like objects (such as `FormData` and `MultiDict`).
+- **Missing content-type routing**: Fixed body parser selection in `ControllerEngine._get_body()` to route to `json()`, `form()`, or `multipart()` based on the `Content-Type` header, ensuring multipart payloads are parsed.
+- **Empty string coercion**: Coerces empty string `""` values submitted in forms to `None` for nullable fields, or `UNSET` to allow default value injection.
+- **String annotation resolution for modules**: Improved `_safe_resolve_annotation` to support attribute traversal on module-level types (e.g. `uuid.UUID` or `datetime.date`) when using string-based runtime annotations.
+- **Incorrect RegistryFault kwargs**: Corrected the `RegistryFault` call parameters to match its domain constructor signature.
+
 ## [1.1.2] — 2026-06-12 — "Crimson Gale"
 
 ### Fixed
