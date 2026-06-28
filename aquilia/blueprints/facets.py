@@ -51,6 +51,7 @@ __all__ = [
     "JSONFacet",
     "FileFacet",
     "ChoiceFacet",
+    "LiteralFacet",
     "Computed",
     "Constant",
     "WriteOnly",
@@ -112,6 +113,62 @@ class FacetMeta(type):
     @property
     def dict(cls) -> _FactoryProxy:
         return _FactoryProxy(DictFacet)
+
+    def pattern(cls, regex: str, **kwargs: Any) -> TextFacet:
+        """Create a TextFacet constrained by a regex pattern."""
+        return TextFacet(pattern=regex, **kwargs)
+
+    def email(cls, **kwargs: Any) -> EmailFacet:
+        """Create an EmailFacet."""
+        return EmailFacet(**kwargs)
+
+    def url(cls, **kwargs: Any) -> URLFacet:
+        """Create a URLFacet."""
+        return URLFacet(**kwargs)
+
+    def uuid(cls, **kwargs: Any) -> UUIDFacet:
+        """Create a UUIDFacet."""
+        return UUIDFacet(**kwargs)
+
+    def choice(cls, choices: Any, **kwargs: Any) -> ChoiceFacet:
+        """Create a ChoiceFacet."""
+        return ChoiceFacet(choices=choices, **kwargs)
+
+    def date(cls, **kwargs: Any) -> DateFacet:
+        """Create a DateFacet."""
+        return DateFacet(**kwargs)
+
+    def datetime(cls, **kwargs: Any) -> DateTimeFacet:
+        """Create a DateTimeFacet."""
+        return DateTimeFacet(**kwargs)
+
+    def decimal(cls, **kwargs: Any) -> DecimalFacet:
+        """Create a DecimalFacet."""
+        return DecimalFacet(**kwargs)
+
+    def ip(cls, **kwargs: Any) -> IPFacet:
+        """Create an IPFacet."""
+        return IPFacet(**kwargs)
+
+    def slug(cls, **kwargs: Any) -> SlugFacet:
+        """Create a SlugFacet."""
+        return SlugFacet(**kwargs)
+
+    def time(cls, **kwargs: Any) -> TimeFacet:
+        """Create a TimeFacet."""
+        return TimeFacet(**kwargs)
+
+    def json(cls, **kwargs: Any) -> JSONFacet:
+        """Create a JSONFacet."""
+        return JSONFacet(**kwargs)
+
+    def file(cls, **kwargs: Any) -> FileFacet:
+        """Create a FileFacet."""
+        return FileFacet(**kwargs)
+
+    def duration(cls, **kwargs: Any) -> DurationFacet:
+        """Create a DurationFacet."""
+        return DurationFacet(**kwargs)
 
 
 class _FactoryProxy:
@@ -1137,6 +1194,14 @@ class ChoiceFacet(Facet):
         schema = super().to_schema()
         schema["enum"] = sorted(str(v) for v in self._valid_values)
         return schema
+
+
+class LiteralFacet(ChoiceFacet):
+    """Facet representing a single fixed literal value."""
+
+    def __init__(self, value: Any, **kwargs: Any):
+        super().__init__(choices=[value], **kwargs)
+        self.value = value
 
 
 # ── PolymorphicFacet ───────────────────────────────────────────────────

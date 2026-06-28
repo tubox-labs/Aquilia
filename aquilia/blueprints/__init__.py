@@ -55,6 +55,7 @@ from .facets import (
     # Boolean
     BoolFacet,
     ChoiceFacet,
+    LiteralFacet,
     # Special
     Computed,
     Constant,
@@ -135,6 +136,7 @@ __all__ = [
     "JSONFacet",
     "FileFacet",
     "ChoiceFacet",
+    "LiteralFacet",
     "Computed",
     "Constant",
     "WriteOnly",
