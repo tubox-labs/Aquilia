@@ -18,6 +18,20 @@ class DataObject(dict):
         assert data["name"]["last"] == "A."
     """
 
+    def __getattribute__(self, name: str) -> Any:
+        if not name.startswith("_"):
+            try:
+                if dict.__contains__(self, name):
+                    value = dict.__getitem__(self, name)
+                    # Recursively wrap nested dicts
+                    if isinstance(value, dict) and not isinstance(value, DataObject):
+                        value = DataObject(value)
+                        dict.__setitem__(self, name, value)
+                    return value
+            except KeyError:
+                pass
+        return super().__getattribute__(name)
+
     def __getattr__(self, name: str) -> Any:
         try:
             value = self[name]
