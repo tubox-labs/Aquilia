@@ -813,7 +813,10 @@ class BlueprintProvider:
             )
 
         if self._auto_seal:
-            bp_instance.is_sealed(raise_fault=True)
+            if hasattr(bp_instance, "is_sealed_async"):
+                await bp_instance.is_sealed_async(raise_fault=True)
+            else:
+                bp_instance.is_sealed(raise_fault=True)
 
         return bp_instance
 

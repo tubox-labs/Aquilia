@@ -49,6 +49,103 @@ ModelT = TypeVar("ModelT")
 # Global registry for resolving forward/lazy Blueprint references by string name
 _blueprint_registry: dict[str, type[Blueprint]] = {}
 
+def resolve_sync_safe(container: Any, key: Any) -> Any:
+    """Safe resolution from container cache or sync resolve without raising loop errors."""
+    import asyncio
+    
+    # Guard against Mock objects to avoid infinite recursion
+    if hasattr(container, "_mock_new_parent") or type(container).__name__ in ("Mock", "MagicMock", "NonCallableMagicMock", "AsyncMock"):
+        return None
+    
+    # 1. Convert to key
+    if hasattr(container, "_token_to_key"):
+        token_key = container._token_to_key(key)
+    else:
+        token_key = str(key)
+        
+    if hasattr(container, "_make_cache_key"):
+        cache_key = container._make_cache_key(token_key, None)
+    else:
+        cache_key = token_key
+        
+    # Check current container cache
+    if hasattr(container, "_cache") and cache_key in container._cache:
+        return container._cache[cache_key]
+        
+    # Check parent container cache recursively
+    parent = getattr(container, "_parent", None)
+    if parent is not None:
+        val = resolve_sync_safe(parent, key)
+        if val is not None:
+            return val
+
+    # 2. If not cached, check if loop is running. If not, resolve synchronously
+    try:
+        asyncio.get_running_loop()
+        has_loop = True
+    except RuntimeError:
+        has_loop = False
+        
+    if not has_loop and hasattr(container, "resolve"):
+        try:
+            return container.resolve(key, optional=True)
+        except Exception:
+            pass
+            
+    # 3. If loop is running, check if the provider is a ValueProvider
+    # We look up the provider recursively
+    if hasattr(container, "_lookup_provider"):
+        try:
+            provider = container._lookup_provider(token_key, None)
+            if provider is not None:
+                # ValueProvider.instantiate is technically async, but it returns self._value.
+                # We can get it directly!
+                if hasattr(provider, "_value"):
+                    return provider._value
+        except Exception:
+            pass
+            
+    return None
+
+
+class BlueprintContext(dict):
+    """
+    Context dictionary for Blueprints.
+    
+    Acts as a standard dict, but falls back to resolving string keys or type keys
+    from the DI container (if present under the key 'container').
+    """
+    def __getitem__(self, key: Any) -> Any:
+        try:
+            return super().__getitem__(key)
+        except KeyError:
+            container = super().get("container")
+            if container is not None:
+                res = resolve_sync_safe(container, key)
+                if res is not None:
+                    return res
+            raise
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: Any) -> bool:
+        if super().__contains__(key):
+            return True
+        container = super().get("container")
+        if container is not None:
+            try:
+                # Check if registered in container
+                if hasattr(container, "is_registered") and container.is_registered(key):
+                    return True
+            except Exception:
+                pass
+        return False
+
+
 # ── Spec Descriptor ──────────────────────────────────────────────────────
 
 
@@ -765,7 +862,10 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         self.many = many
         self.partial = partial
         self._projection_name = projection
-        self.context: dict[str, Any] = context or {}
+        if context is not None and (hasattr(context, "container") or type(context).__name__ == "BlueprintContext"):
+            self.context = context
+        else:
+            self.context = BlueprintContext(context) if context is not None else BlueprintContext()
 
         # State
         self._validated_data: DataObject | list[DataObject] | None = None
@@ -776,6 +876,14 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         self._sigil = getattr(self.__class__, "_sigil", None)
         # Store context
         self._context = self.context
+
+    @property
+    def has_async_wards(self) -> bool:
+        """Check if this blueprint has async ward methods or legacy async seal methods."""
+        return (
+            any(wm.mode == "async" for wm in self.__class__._ward_methods)
+            or bool(getattr(self.__class__, "_async_seal_methods", []))
+        )
 
     @property
     def _bound_facets(self) -> dict[str, Facet]:
@@ -885,7 +993,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
     # ── Inbound: Cast + Seal ─────────────────────────────────────────
 
-    def is_sealed(self, *, raise_fault: bool = False) -> bool:
+    def is_sealed(self, *, raise_fault: bool = False, _bypass_async_check: bool = False) -> bool:
         """
         Validate the input data through the full pipeline.
 
@@ -901,6 +1009,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         Returns:
             True if data passes all seals.
         """
+        if not _bypass_async_check and self.has_async_wards:
+            raise RuntimeError("Blueprint contains async wards (is async but called from sync context) and must be validated using is_sealed_async().")
+
         if self._is_sealed is not None:
             if raise_fault and not self._is_sealed:
                 raise SealFault(
@@ -1015,7 +1126,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         Async variant of is_sealed -- also runs async_seal_* and async ward methods.
         """
         # Run sync pipeline (which skips async wards)
-        if not self.is_sealed(raise_fault=False):
+        if not self.is_sealed(raise_fault=False, _bypass_async_check=True):
             if raise_fault:
                 raise SealFault(message="Blueprint validation failed", errors=self._errors)
             return False
@@ -1132,6 +1243,8 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
     def validated_data(self) -> DataObject | list[DataObject] | None:
         """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
+            if self.has_async_wards:
+                raise RuntimeError("Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties.")
             self.is_sealed()
         return self._validated_data
 
@@ -1139,6 +1252,8 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
     def errors(self) -> dict[str, list[str]]:
         """Validation errors -- available after sealing attempt."""
         if self._is_sealed is None:
+            if self.has_async_wards:
+                raise RuntimeError("Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties.")
             self.is_sealed()
         return self._errors
 

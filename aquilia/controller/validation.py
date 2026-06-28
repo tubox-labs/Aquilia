@@ -93,8 +93,12 @@ def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
 
             try:
                 bp = blueprint_class(data=data, projection=projection)
-                if not bp.is_sealed():
-                    errors = bp.seal_errors() if hasattr(bp, "seal_errors") else {}
+                if hasattr(bp, "is_sealed_async"):
+                    is_ok = await bp.is_sealed_async()
+                else:
+                    is_ok = bp.is_sealed()
+                if not is_ok:
+                    errors = bp.errors if hasattr(bp, "errors") else (bp.seal_errors() if hasattr(bp, "seal_errors") else {})
                     fault = RequestBodyValidationFault(context={"errors": errors})
                     return Response.json(
                         {"error": fault.message, "code": fault.code, "detail": errors},

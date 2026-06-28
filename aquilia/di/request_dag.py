@@ -219,7 +219,10 @@ class RequestDAG:
             from aquilia.blueprints.integration import bind_blueprint_to_request
 
             bp = await bind_blueprint_to_request(base_type, self._request)
-            bp.is_sealed(raise_fault=True)
+            if hasattr(bp, "is_sealed_async"):
+                await bp.is_sealed_async(raise_fault=True)
+            else:
+                bp.is_sealed(raise_fault=True)
             return bp
 
         # No Dep/extractor annotation → resolve from container by type
