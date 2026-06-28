@@ -158,3 +158,23 @@ def test_union_serialization():
     drawing = _MockDrawing(shape=_MockCircle(radius=10.0))
     serialized = Drawing.to_dict(drawing)
     assert serialized == {"shape": {"kind": "circle", "radius": 10.0}}
+
+
+def test_blueprint_as_serialization_input():
+    # Verify that a sealed blueprint instance passed to the class's to_dict
+    # returns its validated data directly.
+    class DummyBlueprint(Blueprint):
+        name: str
+
+    bp = DummyBlueprint(data={"name": "Alice"})
+    assert bp.is_sealed() is True
+    
+    # 1. Instance level to_dict()
+    assert bp.to_dict() == {"name": "Alice"}
+    
+    # 2. Class level to_dict(bp)
+    assert DummyBlueprint.to_dict(bp) == {"name": "Alice"}
+
+    # 3. Class level to_dict_many([bp])
+    assert DummyBlueprint.to_dict_many([bp]) == [{"name": "Alice"}]
+

@@ -675,14 +675,21 @@ class BlueprintSerializationDescriptor:
             # Accessed on the class, e.g., ComplexUserBlueprint.to_dict
             if self.name == "to_dict":
                 def class_to_dict(obj, *, _depth: int = 0, _seen: set | None = None):
+                    from aquilia.blueprints.core import Blueprint
+                    if isinstance(obj, Blueprint):
+                        return obj.to_dict(_depth=_depth, _seen=_seen)
                     return owner(instance=obj).to_dict(_depth=_depth, _seen=_seen)
                 return class_to_dict
             elif self.name == "to_dict_many":
                 def class_to_dict_many(objs, *, _depth: int = 0, _seen: set | None = None):
+                    from aquilia.blueprints.core import Blueprint
+                    if isinstance(objs, Blueprint):
+                        return objs.to_dict_many(_depth=_depth, _seen=_seen)
                     return owner(many=True).to_dict_many(objs, _depth=_depth, _seen=_seen)
                 return class_to_dict_many
         # Accessed on the instance, e.g., bp.to_dict
         return getattr(instance, f"_{self.name}_instance")
+
 
 
 class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
@@ -820,6 +827,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 return self._validated_data
             return {}
 
+        if isinstance(obj, Blueprint):
+            return obj.to_dict(_depth=_depth, _seen=_seen)
+
         # Resolve projection
         projection_fields = self._projections.resolve(self._projection_name)
 
@@ -857,7 +867,10 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         _seen: set | None = None,
     ) -> list[dict[str, Any]]:
         """Mold multiple instances."""
+        if isinstance(instances, Blueprint):
+            return instances.to_dict_many(_depth=_depth, _seen=_seen)
         return [self.to_dict(instance=obj, _depth=_depth, _seen=_seen) for obj in instances]
+
 
     # ── Inbound: Cast + Seal ─────────────────────────────────────────
 
