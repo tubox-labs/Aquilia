@@ -118,6 +118,7 @@ class ControllerFactory:
         instance = await self._resolve_and_instantiate(
             controller_class,
             container,
+            ctx=ctx,
         )
 
         return instance
@@ -126,6 +127,7 @@ class ControllerFactory:
         self,
         controller_class: type,
         container: Any | None,
+        ctx: Any | None = None,
     ) -> Any:
         """
         Resolve constructor dependencies and instantiate.
@@ -160,6 +162,7 @@ class ControllerFactory:
                     resolved = await self._resolve_parameter(
                         param_type,
                         container,
+                        ctx=ctx,
                     )
                     params[param_name] = resolved
                 elif has_default:
@@ -211,6 +214,7 @@ class ControllerFactory:
         self,
         param_type: type,
         container: Any,
+        ctx: Any | None = None,
     ) -> Any:
         """
         Resolve a single parameter from DI container.
@@ -238,7 +242,14 @@ class ControllerFactory:
                                         # Dep with callable → mini resolve
                                         from aquilia.di.request_dag import RequestDAG
 
-                                        dag = RequestDAG(container)
+                                        request = None
+                                        if ctx is not None:
+                                            if hasattr(ctx, "request"):
+                                                request = ctx.request
+                                            else:
+                                                request = ctx
+                                        
+                                        dag = RequestDAG(container, request=request)
                                         try:
                                             return await dag.resolve(arg, actual_type)
                                         finally:
