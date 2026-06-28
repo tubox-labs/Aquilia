@@ -239,14 +239,37 @@ async def bind_blueprint_to_request(
         if container is not None:
             bp_context["container"] = container
 
-    # Instantiate Blueprint
+    # Fast path: Validate using Sigil directly when application/json to bypass runtime overhead
+    is_json = "application/json" in content_type or not content_type
+    if is_json:
+        errors, validated = blueprint_cls._sigil.validate(data, partial=partial, context=bp_context)
+        bp = blueprint_cls(
+            data=data,
+            partial=partial,
+            projection=projection,
+            context=bp_context,
+        )
+        if errors:
+            bp._errors = errors
+            bp._is_sealed = False
+            bp._validated_data = None
+        else:
+            has_wards = bool(getattr(blueprint_cls, "_ward_methods", []))
+            has_custom_validate = blueprint_cls.validate is not Blueprint.validate
+            if not has_wards and not has_custom_validate:
+                from ..utils.data import DataObject
+                bp._errors = {}
+                bp._validated_data = DataObject(validated)
+                bp._is_sealed = True
+        return bp
+
+    # Instantiate Blueprint (fallback)
     bp = blueprint_cls(
         data=data,
         partial=partial,
         projection=projection,
         context=bp_context,
     )
-
     return bp
 
 
