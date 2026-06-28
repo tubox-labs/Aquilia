@@ -1,0 +1,117 @@
+import pytest
+from typing import Annotated, Literal
+from aquilia.blueprints import Blueprint, Facet, Sigil, BlueprintUnion
+from aquilia.blueprints.exceptions import SealFault
+
+
+def test_sigil_content_hash():
+    class SimpleBP(Blueprint):
+        name: str
+        age: int
+
+    class SimpleBP2(Blueprint):
+        name: str
+        age: int
+
+    class DiffBP(Blueprint):
+        name: str
+        age: float  # changed type
+
+    assert SimpleBP._sigil.content_hash == SimpleBP2._sigil.content_hash
+    assert SimpleBP._sigil.content_hash != DiffBP._sigil.content_hash
+
+
+def test_sigil_diff():
+    class BaseBP(Blueprint):
+        name: str
+        age: int
+
+    class NewBP(Blueprint):
+        name: str
+        email: str
+        age: float
+
+    diff = BaseBP._sigil.diff(NewBP._sigil)
+    assert "email" in diff.added_fields
+    assert "age" in diff.changed_fields
+    assert diff.breaking is True  # because age type changed from int to float
+
+
+def test_blueprint_union_dispatch_literal():
+    class Circle(Blueprint):
+        type: Literal["circle"]
+        radius: float
+
+    class Square(Blueprint):
+        type: Literal["square"]
+        side: float
+
+    Shape = Circle | Square
+
+    assert isinstance(Shape, BlueprintUnion)
+
+    # Test Circle validation
+    errors, val = Shape.validate({"type": "circle", "radius": 5.0})
+    assert not errors
+    assert val["type"] == "circle"
+    assert val["radius"] == 5.0
+
+    # Test Square validation
+    errors, val = Shape.validate({"type": "square", "side": 4.0})
+    assert not errors
+    assert val["type"] == "square"
+    assert val["side"] == 4.0
+
+    # Test unknown dispatch type
+    errors, val = Shape.validate({"type": "triangle", "base": 3.0})
+    assert errors
+    assert "__all__" in errors or "type" in errors
+
+
+def test_blueprint_union_dispatch_discriminator():
+    class Dog(Blueprint):
+        class Spec:
+            discriminator = "kind"
+        kind: str
+        bark_volume: int
+
+    class Cat(Blueprint):
+        class Spec:
+            discriminator = "kind"
+        kind: str
+        purr_frequency: float
+
+    Animal = Dog | Cat
+    assert isinstance(Animal, BlueprintUnion)
+
+    errors, val = Animal.validate({"kind": "Dog", "bark_volume": 11})
+    assert not errors
+    assert val["kind"] == "Dog"
+    assert val["bark_volume"] == 11
+
+
+def test_blueprint_revision_migration():
+    class V1(Blueprint):
+        class Spec:
+            revision = 1
+        username: str
+
+    class V2(Blueprint):
+        class Spec:
+            revision = 2
+            migrate_from = V1
+
+        email: str
+
+        @classmethod
+        def migrate_step(cls, data: dict, from_rev: int) -> dict:
+            if from_rev == 1:
+                data["email"] = f"{data.pop('username')}@example.com"
+            return data
+
+    # Test direct migration when V2 is passed data from V1 schema
+    # (i.e. username is provided instead of email)
+    # V2 requires "email", so if migration doesn't run it will fail.
+    errors, validated = V2._sigil.validate({"username": "ada"})
+    assert not errors
+    assert validated["email"] == "ada@example.com"
