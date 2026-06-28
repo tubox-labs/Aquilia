@@ -1,23 +1,24 @@
-import pytest
+import uuid
 from datetime import date, datetime
 from enum import Enum
-import uuid
 from typing import Annotated, Literal
 
-from aquilia.blueprints import Blueprint, ward, Facet
-from aquilia.blueprints.annotations import Field
-from aquilia.blueprints.core import BlueprintUnion
-from aquilia.blueprints.exceptions import SealFault
+import pytest
+
+from aquilia.blueprints import Blueprint, Facet, ward
+
 
 # Enums and Types for testing
 class UserRole(Enum):
     ADMIN = "admin"
     USER = "user"
 
+
 class OrderItemBlueprint(Blueprint):
     product_id: int
     qty: Annotated[int, Facet.int[1:]]
     price: Annotated[float, Facet.float[0:]]
+
 
 class OrderBlueprint(Blueprint):
     items: list[OrderItemBlueprint]
@@ -28,27 +29,18 @@ class OrderBlueprint(Blueprint):
     def total_matches_items(self, data):
         computed = sum(i.price * i.qty for i in data.items)
         if abs(computed - data.total) > 0.01:
-            self.reject(
-                "total",
-                f"Expected {computed}, got {data.total}"
-            )
+            self.reject("total", f"Expected {computed}, got {data.total}")
 
     @ward(mode="async")
     async def discount_code_is_valid(self, data):
-        if (
-            data.discount_code
-            and not await self.context["promo_service"].exists(
-                data.discount_code
-            )
-        ):
-            self.reject(
-                "discount_code",
-                "Unknown or expired code"
-            )
+        if data.discount_code and not await self.context["promo_service"].exists(data.discount_code):
+            self.reject("discount_code", "Unknown or expired code")
+
 
 class PromoServiceMock:
     async def exists(self, code: str) -> bool:
         return code == "VALID10"
+
 
 # 1. Ward Validation Reproduction
 @pytest.mark.asyncio
@@ -74,11 +66,14 @@ class Circle(Blueprint):
     kind: Literal["circle"] = "circle"
     radius: Annotated[float, Facet.float[0:]]
 
+
 class Square(Blueprint):
     kind: Literal["square"] = "square"
     side: Annotated[float, Facet.float[0:]]
 
+
 Shape = Circle | Square
+
 
 def test_union_schema_generation():
     # This should generate schema without set subscription TypeError
@@ -96,6 +91,7 @@ class ComplexUserBlueprint(Blueprint):
     created_at: datetime
     active: bool = True
     birthday: date | None = None
+
 
 def test_to_dict_inbound_and_outbound():
     user_id = uuid.uuid4()
@@ -145,6 +141,7 @@ def test_to_dict_inbound_and_outbound():
 class Drawing(Blueprint):
     shape: Circle | Square
 
+
 def test_union_serialization():
     class _MockDrawing:
         def __init__(self, shape):
@@ -168,13 +165,48 @@ def test_blueprint_as_serialization_input():
 
     bp = DummyBlueprint(data={"name": "Alice"})
     assert bp.is_sealed() is True
-    
+
     # 1. Instance level to_dict()
     assert bp.to_dict() == {"name": "Alice"}
-    
+
     # 2. Class level to_dict(bp)
     assert DummyBlueprint.to_dict(bp) == {"name": "Alice"}
 
     # 3. Class level to_dict_many([bp])
     assert DummyBlueprint.to_dict_many([bp]) == [{"name": "Alice"}]
 
+
+def test_dataobject_dict_shadowing_and_json_serialization():
+    from aquilia.utils.data import DataObject
+
+    # 1. Standard dictionary containing keys matching method names
+    data = DataObject({"items": [{"qty": 2, "price": 5.0}], "keys": ["a", "b"], "values": [1, 2], "get": "value"})
+
+    # 2. Assert values are accessible via dot-notation (shadowing)
+    assert data.items == [{"qty": 2, "price": 5.0}]
+    assert data.keys == ["a", "b"]
+    assert data.values == [1, 2]
+    assert data.get == "value"
+
+    # 3. Assert calling them as methods still invokes original dict methods
+    assert list(data.items()) == [
+        ("items", [{"qty": 2, "price": 5.0}]),
+        ("keys", ["a", "b"]),
+        ("values", [1, 2]),
+        ("get", "value"),
+    ]
+    assert list(data.keys()) == ["items", "keys", "values", "get"]
+    assert list(data.values()) == [[{"qty": 2, "price": 5.0}], ["a", "b"], [1, 2], "value"]
+
+    # 4. Assert json serialization compiles cleanly
+    import json
+
+    from aquilia.response import _json_default_serializer
+
+    serialized = json.dumps(data, default=_json_default_serializer)
+    assert json.loads(serialized) == {
+        "items": [{"qty": 2, "price": 5.0}],
+        "keys": ["a", "b"],
+        "values": [1, 2],
+        "get": "value",
+    }
