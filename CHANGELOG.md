@@ -14,11 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bulk & Stream Validation**: Implemented `seal_many` (with ThreadPoolExecutor parallel mode), `seal_stream` (for async NDJSON streaming), and `seal_columnar` (for bulk ETL columnar passes).
 - **Test Generation**: Added `Blueprint.example()` for random schema-valid dictionary generation, and `Blueprint.strategy()` for Hypothesis integration.
 - **Discriminated Unions (`BlueprintUnion`)**: Support concrete type union validation (e.g. `Circle | Square`) with automated Literal or explicit `Spec.discriminator` dispatching.
+- **Form & File Uploads via Blueprints (`UploadFile` and `FormData`)**: Added first-class support for explicit and implicit file uploads and form inputs in Blueprints. Support includes single/multiple/optional file uploads, custom content types, size limits, primitive type castings, and nested blueprints for form/multipart data validation.
 
 ### Changed
 - **Zero Runtime Dependencies**: Completely migrated the Blueprints validation engine to pure-Python using only Python standard library modules.
 
 ### Fixed
+- **Ward execution attribute collision**: Resolved validation crash when using `@ward` methods on models with fields named `items`, `keys`, `values`, `get` or other dictionary method names. Overrode `__getattribute__` on `DataObject` to prioritize dictionary keys over class-level dictionary methods.
+- **Union schema generation crash**: Corrected literal constraint schema generation for unions (e.g. `Circle | Square`) which crashed with a `TypeError: 'set' object is not subscriptable`. Changed `ChoiceFacet.allowed_values` property to return an ordered `tuple` of keys rather than an unordered `set`.
+- **Serialization failure in `to_dict` and `to_dict_many`**: Fixed `to_dict()` and `to_dict_many()` serialization to work correctly when called as class methods (e.g. `Blueprint.to_dict(instance)`) and support inbound validated data mapping (when `instance` is None) on `many=True` and `many=False` blueprints. Implemented `BlueprintSerializationDescriptor` to cleanly route class-level vs instance-level method calls.
 - **Form URL Encoded & Multipart Blueprint validation**: Resolved critical validation failure where blueprints bound to form or multipart request payloads lost all fields because the validation engine strictly checked `isinstance(data, dict)`. Blueprints and `Sigil` validation now support mapping-like objects (such as `FormData` and `MultiDict`).
 - **Missing content-type routing**: Fixed body parser selection in `ControllerEngine._get_body()` to route to `json()`, `form()`, or `multipart()` based on the `Content-Type` header, ensuring multipart payloads are parsed.
 - **Empty string coercion**: Coerces empty string `""` values submitted in forms to `None` for nullable fields, or `UNSET` to allow default value injection.

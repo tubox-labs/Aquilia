@@ -2011,6 +2011,74 @@ order_schema = Blueprint({
 
 ---
 
+## 24. Form & File Upload Validation
+
+Blueprints support validating and parsing incoming form fields (`FormData`) and file uploads (`UploadFile`) from `multipart/form-data` and `application/x-www-form-urlencoded` request payloads.
+
+### Declaring File and Form Inputs
+
+You can declare form inputs and files using both implicit and explicit declaration styles:
+
+```python
+from aquilia.blueprints import Blueprint
+from aquilia.controller.validation import validate_body
+from aquilia._uploads import UploadFile, FormData
+
+# Style 1: Implicit declaration (uses sensible defaults)
+class SimpleUploadBlueprint(Blueprint):
+    avatar: UploadFile
+    username: FormData
+
+# Style 2: Explicit declaration (allows metadata and validation constraints)
+class ConfiguredUploadBlueprint(Blueprint):
+    # Restrict file size and content types
+    avatar: UploadFile(max_size=5 * 1024 * 1024, allowed_types=["image/png", "image/jpeg"])
+    # Cast form parameter to a primitive (or a nested blueprint) and set a default
+    age: FormData(type=int, default=18)
+```
+
+### Handler Injection
+
+When using the `@validate_body` decorator, the parsed and validated form fields and `UploadFile` objects are injected directly into your controller handler:
+
+```python
+class ProfileController(Controller):
+    prefix = "/profile"
+
+    @POST("/upload")
+    @validate_body(ConfiguredUploadBlueprint)
+    async def upload(self, ctx: RequestCtx, body: dict):
+        avatar_file = body["avatar"]  # An instance of UploadFile
+        age = body["age"]            # Cast to int (e.g., 25)
+        
+        # Read the file content
+        content = await avatar_file.read()
+        
+        # Stream file in chunks
+        async for chunk in avatar_file.stream(chunk_size=64*1024):
+            process_chunk(chunk)
+            
+        # Save to disk
+        final_path = await avatar_file.save("uploads/avatars/avatar.png", overwrite=True)
+        
+        return Response.json({"path": str(final_path), "age": age})
+```
+
+### Collection and Optional Support
+
+```python
+class OptionalAndMultiBlueprint(Blueprint):
+    # Optional file or form inputs
+    optional_doc: UploadFile | None = None
+    optional_name: FormData | None = None
+    
+    # Lists of files or form values
+    files: list[UploadFile]
+    tags: list[FormData]  # E.g. parsed from matching list parameter keys
+```
+
+---
+
 ## Quick Reference
 
 ### Imports Cheat Sheet
