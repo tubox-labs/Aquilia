@@ -63,7 +63,9 @@ def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
         @functools.wraps(handler)
         async def wrapper(self: Any, ctx: Any, *args: Any, **kwargs: Any) -> Any:
             try:
-                content_type = ctx.request.headers.get("content-type", "") or ctx.request.headers.get("Content-Type", "")
+                content_type = ctx.request.headers.get("content-type", "") or ctx.request.headers.get(
+                    "Content-Type", ""
+                )
                 if "application/json" in content_type:
                     raw_body = await ctx.body()
                     data = json.loads(raw_body) if raw_body else {}

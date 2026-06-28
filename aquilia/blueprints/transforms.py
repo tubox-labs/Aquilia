@@ -10,6 +10,7 @@ Usage::
 Each transform is a plain function: one positional argument → transformed value.
 Custom transforms follow the same contract.
 """
+
 from __future__ import annotations
 
 import re
@@ -107,8 +108,10 @@ def coerce_bool(value) -> bool:
 
 def truncate(max_len: int) -> Callable[[str], str]:
     """Return a transform that truncates strings to *max_len* characters."""
+
     def _truncate(value: str) -> str:
         return value[:max_len]
+
     _truncate.__name__ = f"truncate({max_len})"
     _truncate.__qualname__ = f"truncate({max_len})"
     return _truncate

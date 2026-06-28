@@ -90,6 +90,7 @@ UNSET = _Unset()
 
 # ── Facet Factory Metaclass ──────────────────────────────────────────────
 
+
 class FacetMeta(type):
     """Metaclass on Facet to support class property factory proxies."""
 
@@ -435,6 +436,7 @@ class Facet(metaclass=FacetMeta):
     def __rshift__(self, other: Any) -> Any:
         """Pipeline operator: compose transforms left-to-right."""
         from .pipeline import Pipeline, _as_rune
+
         return Pipeline([_as_rune(self), _as_rune(other)])
 
     def __repr__(self) -> str:
@@ -1031,6 +1033,7 @@ class DictFacet(Facet):
             value = value.strip()
             if value.startswith("{") and value.endswith("}"):
                 import json
+
                 try:
                     value = json.loads(value)
                 except Exception as exc:
@@ -1143,6 +1146,7 @@ class JSONFacet(Facet):
             value = value.strip()
             if (value.startswith("{") and value.endswith("}")) or (value.startswith("[") and value.endswith("]")):
                 import json
+
                 try:
                     value = json.loads(value)
                 except Exception:
@@ -1563,6 +1567,7 @@ class UploadFileFacet(FileFacet):
             return None
 
         from .._uploads import UploadFile
+
         if not isinstance(value, UploadFile):
             raise CastFault(
                 self.name or "<unbound>",
@@ -1601,6 +1606,7 @@ class UploadFileFacet(FileFacet):
         if value is None:
             return None
         from .._uploads import UploadFile
+
         if isinstance(value, UploadFile):
             return {
                 "filename": value.filename,
@@ -1630,6 +1636,7 @@ class FormDataFacet(Facet):
         self.child_facet = None
 
         from .annotations import UNSET, _build_facet_from_annotation
+
         self.child_facet = _build_facet_from_annotation(
             name=self.name or "",
             annotation=type,

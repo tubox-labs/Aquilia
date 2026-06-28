@@ -21,6 +21,7 @@ Usage::
             if data.discount_code and not await lookup(data.discount_code):
                 self.reject("discount_code", "Unknown code")
 """
+
 from __future__ import annotations
 
 import inspect
@@ -36,13 +37,14 @@ __all__ = ["ward", "WardMethod", "collect_ward_methods"]
 # WardMethod
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True, slots=True)
 class WardMethod:
     """Descriptor for a single cross-field validator registered on a Blueprint."""
 
     name: str
-    fn: object   # the callable
-    mode: str    # "sync" or "async"
+    fn: object  # the callable
+    mode: str  # "sync" or "async"
 
 
 # ---------------------------------------------------------------------------
@@ -77,9 +79,7 @@ class ward:
 
     def __new__(cls, fn: Callable[..., Any] | None = None, *, mode: str = "sync") -> Any:  # noqa: ANN401
         if mode not in _VALID_MODES:
-            raise ValueError(
-                f"Invalid ward mode {mode!r}; expected one of {sorted(_VALID_MODES)}"
-            )
+            raise ValueError(f"Invalid ward mode {mode!r}; expected one of {sorted(_VALID_MODES)}")
 
         if fn is not None:
             # Bare usage: @ward  (fn is the decorated method)
@@ -113,6 +113,7 @@ class ward:
 # ---------------------------------------------------------------------------
 # collect_ward_methods
 # ---------------------------------------------------------------------------
+
 
 def collect_ward_methods(
     name: str,

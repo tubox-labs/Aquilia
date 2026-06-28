@@ -37,6 +37,7 @@ class UploadFileMeta(type):
 
         if is_blueprint_decl:
             from .blueprints.facets import UploadFileFacet
+
             return UploadFileFacet(**kwargs)
 
         return super().__call__(*args, **kwargs)
@@ -173,6 +174,7 @@ class FormDataMeta(type):
 
         if is_blueprint_decl:
             from .blueprints.facets import FormDataFacet
+
             return FormDataFacet(**kwargs)
 
         return super().__call__(*args, **kwargs)

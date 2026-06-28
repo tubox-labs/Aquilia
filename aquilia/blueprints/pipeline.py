@@ -12,6 +12,7 @@ Usage::
     ok, value, error = pipeline.run("  HELLO  ")
     # ok=True, value="hello", error=None
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -70,6 +71,7 @@ class Pipeline:
                     value = rune.fn(value)
             except Exception as exc:
                 from .exceptions import CastFault
+
                 if isinstance(exc, CastFault):
                     msg = exc.field_errors.get(exc.field, [str(exc)])[0]
                     return (False, value, msg)

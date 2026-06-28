@@ -280,6 +280,7 @@ async def bind_blueprint_to_request(
             has_custom_validate = blueprint_cls.validate is not Blueprint.validate
             if not has_wards and not has_custom_validate:
                 from ..utils.data import DataObject
+
                 bp._errors = {}
                 bp._validated_data = DataObject(validated)
                 bp._is_sealed = True

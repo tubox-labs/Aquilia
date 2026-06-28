@@ -4,6 +4,7 @@ Aquilia Blueprint Sigil -- compiled schema IR.
 A Sigil is built once per Blueprint class and stored as ``cls._sigil``.
 It is the compiled, immutable representation of the schema.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -23,6 +24,7 @@ __all__ = ["Sigil", "FieldSpec", "SigilDiff", "FieldDiff", "build_sigil"]
 # ---------------------------------------------------------------------------
 # Sigil / FieldSpec
 # ---------------------------------------------------------------------------
+
 
 class FieldSpec:
     """Compiled field specification in a Sigil schema."""
@@ -327,6 +329,7 @@ class Sigil:
                 sch["multipleOf"] = multiple_of
 
             from .facets import ChoiceFacet
+
             if isinstance(facet, ChoiceFacet):
                 allowed = getattr(facet, "allowed_values", ())
                 if len(allowed) == 1:
@@ -336,6 +339,7 @@ class Sigil:
                     sch["enum"] = list(allowed)
 
             from .facets import PolymorphicFacet
+
             if isinstance(facet, PolymorphicFacet):
                 choices_schemas = []
                 for choice in facet.choices:
@@ -464,6 +468,7 @@ class Sigil:
 # Diff Dataclasses
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True, slots=True)
 class FieldDiff:
     was: str
@@ -482,6 +487,7 @@ class SigilDiff:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def serialize_facet_shape(facet: Any) -> list[tuple[str, str]]:
     """Determine shape constraints of a facet for hash computation."""
@@ -555,6 +561,7 @@ def check_strict_type(facet: Any, value: Any) -> bool:
 
 def is_mapping_like(val: Any) -> bool:
     from collections.abc import Mapping
+
     try:
         from .._datastructures import MultiDict
     except ImportError:
@@ -574,6 +581,7 @@ def is_mapping_like(val: Any) -> bool:
 
 def get_keys(data: Any) -> set[str]:
     from collections.abc import Mapping
+
     try:
         from .._datastructures import MultiDict
     except ImportError:
@@ -596,6 +604,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
     from collections.abc import Mapping
 
     from .facets import UNSET, FileFacet, ListFacet, TextFacet
+
     try:
         from .._datastructures import MultiDict
     except ImportError:
@@ -628,6 +637,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
 
             indices = set()
             import re
+
             pattern1 = re.compile(rf"^{re.escape(fname)}\[(\d+)\]")
             pattern2 = re.compile(rf"^{re.escape(fname)}\.(\d+)")
 
@@ -658,6 +668,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                 if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
                     try:
                         import json
+
                         parsed = json.loads(val)
                         if isinstance(parsed, list):
                             return parsed
@@ -687,6 +698,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
             if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
                 try:
                     import json
+
                     parsed = json.loads(val)
                     if isinstance(parsed, list):
                         return parsed
@@ -742,6 +754,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
 
 def _get_single_val(data: Any, key: str, form_data_cls: Any, multi_dict_cls: Any) -> Any:
     from .facets import UNSET
+
     if form_data_cls is not None and isinstance(data, form_data_cls):
         if key in data.fields:
             return data.fields.get(key)
@@ -753,11 +766,11 @@ def _get_single_val(data: Any, key: str, form_data_cls: Any, multi_dict_cls: Any
     return UNSET
 
 
-
 def extract_nested_mapping(data: Any, prefix: str) -> Any:
     from collections.abc import Mapping
 
     from .facets import UNSET
+
     try:
         from .._datastructures import MultiDict
     except ImportError:
@@ -776,20 +789,20 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
 
         for k in data.fields:
             if k.startswith(dot_prefix):
-                sub_key = k[len(dot_prefix):]
+                sub_key = k[len(dot_prefix) :]
                 for v in data.fields.get_all(k):
                     nested_fields.add(sub_key, v)
             elif k.startswith(bracket_prefix) and k.endswith("]"):
-                sub_key = k[len(bracket_prefix):-1]
+                sub_key = k[len(bracket_prefix) : -1]
                 for v in data.fields.get_all(k):
                     nested_fields.add(sub_key, v)
 
         for k, file_list in data.files.items():
             if k.startswith(dot_prefix):
-                sub_key = k[len(dot_prefix):]
+                sub_key = k[len(dot_prefix) :]
                 nested_files[sub_key] = file_list
             elif k.startswith(bracket_prefix) and k.endswith("]"):
-                sub_key = k[len(bracket_prefix):-1]
+                sub_key = k[len(bracket_prefix) : -1]
                 nested_files[sub_key] = file_list
 
         if len(nested_fields) > 0 or len(nested_files) > 0:
@@ -804,6 +817,7 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
         if isinstance(val, str):
             try:
                 import json
+
                 parsed = json.loads(val)
                 if isinstance(parsed, (dict, list)):
                     return parsed
@@ -815,11 +829,11 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
         nested_fields = MultiDict()
         for k in data:
             if k.startswith(dot_prefix):
-                sub_key = k[len(dot_prefix):]
+                sub_key = k[len(dot_prefix) :]
                 for v in data.get_all(k):
                     nested_fields.add(sub_key, v)
             elif k.startswith(bracket_prefix) and k.endswith("]"):
-                sub_key = k[len(bracket_prefix):-1]
+                sub_key = k[len(bracket_prefix) : -1]
                 for v in data.get_all(k):
                     nested_fields.add(sub_key, v)
         if len(nested_fields) > 0:
@@ -829,6 +843,7 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
         if isinstance(val, str):
             try:
                 import json
+
                 parsed = json.loads(val)
                 if isinstance(parsed, (dict, list)):
                     return parsed
@@ -843,10 +858,10 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
         nested_dict = {}
         for k, v in data.items():
             if k.startswith(dot_prefix):
-                sub_key = k[len(dot_prefix):]
+                sub_key = k[len(dot_prefix) :]
                 nested_dict[sub_key] = v
             elif k.startswith(bracket_prefix) and k.endswith("]"):
-                sub_key = k[len(bracket_prefix):-1]
+                sub_key = k[len(bracket_prefix) : -1]
                 nested_dict[sub_key] = v
         if nested_dict:
             return nested_dict
@@ -859,6 +874,7 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
     from collections.abc import Mapping
 
     from .facets import UNSET
+
     try:
         from .._datastructures import MultiDict
     except ImportError:
@@ -872,12 +888,18 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
         return None
 
     all_keys = []
-    if isinstance(data, (dict, Mapping)) and not (MultiDict is not None and isinstance(data, MultiDict)) or MultiDict is not None and isinstance(data, MultiDict):
+    if (
+        isinstance(data, (dict, Mapping))
+        and not (MultiDict is not None and isinstance(data, MultiDict))
+        or MultiDict is not None
+        and isinstance(data, MultiDict)
+    ):
         all_keys = list(data.keys())
     elif FormData is not None and isinstance(data, FormData):
         all_keys = list(data.fields.keys()) | list(data.files.keys())
 
     import re
+
     pattern1 = re.compile(r"^\[(\d+)\]")
     pattern2 = re.compile(r"^(\d+)\b")
 

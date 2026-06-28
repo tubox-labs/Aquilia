@@ -258,6 +258,7 @@ class Field:
 
 # ── BlueprintUnionAdapterFacet ──────────────────────────────────────────
 
+
 class BlueprintUnionAdapterFacet(Facet):
     """Thin adapter Facet that delegates casting and sealing to a BlueprintUnion."""
 
@@ -763,12 +764,14 @@ def _build_facet_from_annotation(
     """
     # Support Annotated metadata
     from typing import Annotated
+
     if get_origin(annotation) is Annotated:
         args = get_args(annotation)
         actual_type = args[0]
         metadata = args[1:]
 
         from .pipeline import Pipeline
+
         target_facet = None
         pipeline = None
         for meta in metadata:
@@ -784,7 +787,10 @@ def _build_facet_from_annotation(
         # Check if the type is a BlueprintUnion (which handles class | class operator)
         # We'll map it to a thin adapter Facet in Step 9
         from .core import BlueprintUnion
-        if isinstance(actual_type, BlueprintUnion) or (hasattr(actual_type, "__origin__") and actual_type.__origin__ is BlueprintUnion):
+
+        if isinstance(actual_type, BlueprintUnion) or (
+            hasattr(actual_type, "__origin__") and actual_type.__origin__ is BlueprintUnion
+        ):
             union_kwargs = {}
             if field_spec is not None:
                 if field_spec.default is not UNSET:
@@ -903,7 +909,10 @@ def _build_facet_from_annotation(
 
     # ── BlueprintUnion check ─────────────────────────────────────────
     from .core import BlueprintUnion
-    if isinstance(inner_type, BlueprintUnion) or (hasattr(inner_type, "__origin__") and inner_type.__origin__ is BlueprintUnion):
+
+    if isinstance(inner_type, BlueprintUnion) or (
+        hasattr(inner_type, "__origin__") and inner_type.__origin__ is BlueprintUnion
+    ):
         return BlueprintUnionAdapterFacet(inner_type, **kwargs)
 
     # ── Nested Blueprint ─────────────────────────────────────────────
@@ -916,6 +925,7 @@ def _build_facet_from_annotation(
 
     # ── Literal / Choices handling ───────────────────────────────────
     from typing import Literal
+
     try:
         from typing import Literal as LiteralExt
     except ImportError:
@@ -1012,8 +1022,10 @@ def _build_facet_from_annotation(
 
     # ── Enum types ───────────────────────────────────────────────────
     from enum import Enum
+
     if isinstance(inner_type, type) and issubclass(inner_type, Enum):
         from .facets import EnumFacet
+
         enum_kwargs = {k: v for k, v in kwargs.items() if k not in ("min_length", "max_length", "allow_blank")}
         return EnumFacet(enum_class=inner_type, **enum_kwargs)
 
@@ -1179,6 +1191,7 @@ def introspect_annotations(
 
     resolve_ns.update(vars(builtins))
     from typing import Annotated
+
     resolve_ns["Optional"] = Optional
     resolve_ns["Union"] = Union
     resolve_ns["Annotated"] = Annotated

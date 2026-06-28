@@ -651,6 +651,7 @@ class ControllerEngine:
             ct = request.content_type()
             if ct:
                 from aquilia.request import ParsedContentType
+
                 parsed_ct = ParsedContentType.parse(ct)
                 if parsed_ct:
                     media_type = parsed_ct.media_type

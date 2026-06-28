@@ -319,10 +319,12 @@ class BlueprintMeta(type):
 
         # Collect ward methods
         from .ward import collect_ward_methods
+
         cls._ward_methods = collect_ward_methods(name, bases, namespace)
 
         # Build sigil
         from .sigil import build_sigil
+
         cls._sigil = build_sigil(cls)
 
         # Register the Blueprint in the global registry for forward references
@@ -508,6 +510,7 @@ class BlueprintMeta(type):
 
     def __or__(cls, other: Any) -> Any:
         from .core import Blueprint, BlueprintUnion
+
         if isinstance(other, type) and issubclass(other, Blueprint):
             return BlueprintUnion((cls, other))
         if isinstance(other, BlueprintUnion):
@@ -516,6 +519,7 @@ class BlueprintMeta(type):
 
     def __ror__(cls, other: Any) -> Any:
         from .core import Blueprint, BlueprintUnion
+
         if isinstance(other, type) and issubclass(other, Blueprint):
             return BlueprintUnion((other, cls))
         return NotImplemented
@@ -575,13 +579,13 @@ class BlueprintUnion:
                 member_fields = getattr(member, "_all_facets", {})
                 for fname, facet in member_fields.items():
                     from .facets import ChoiceFacet
+
                     if isinstance(facet, ChoiceFacet):
                         candidate_fields.setdefault(fname, []).append(member)
 
             # Filter to those present in all members
             common_candidates = [
-                fname for fname, members_list in candidate_fields.items()
-                if len(members_list) == len(self.members)
+                fname for fname, members_list in candidate_fields.items() if len(members_list) == len(self.members)
             ]
 
             # Check if their Literal values are disjoint
@@ -608,6 +612,7 @@ class BlueprintUnion:
                 facet = member._all_facets.get(discriminator_field)
                 if facet is not None:
                     from .facets import ChoiceFacet
+
                     if isinstance(facet, ChoiceFacet):
                         allowed = getattr(facet, "allowed_values", ())
                         for val in allowed:
@@ -620,6 +625,7 @@ class BlueprintUnion:
         if self._dispatch:
             from .facets import UNSET, TextFacet
             from .sigil import get_field_value, is_mapping_like
+
             tag = None
             if self.discriminator_field and is_mapping_like(data):
                 tag = get_field_value(data, self.discriminator_field, TextFacet())
@@ -631,6 +637,7 @@ class BlueprintUnion:
             return cls._sigil.validate(data)
         else:
             import warnings
+
             warnings.warn(
                 "No discriminator found; falling back to try-each validation. "
                 "Add a Literal-typed field or set Spec.discriminator.",
@@ -674,22 +681,27 @@ class BlueprintSerializationDescriptor:
         if instance is None:
             # Accessed on the class, e.g., ComplexUserBlueprint.to_dict
             if self.name == "to_dict":
+
                 def class_to_dict(obj, *, _depth: int = 0, _seen: set | None = None):
                     from aquilia.blueprints.core import Blueprint
+
                     if isinstance(obj, Blueprint):
                         return obj.to_dict(_depth=_depth, _seen=_seen)
                     return owner(instance=obj).to_dict(_depth=_depth, _seen=_seen)
+
                 return class_to_dict
             elif self.name == "to_dict_many":
+
                 def class_to_dict_many(objs, *, _depth: int = 0, _seen: set | None = None):
                     from aquilia.blueprints.core import Blueprint
+
                     if isinstance(objs, Blueprint):
                         return objs.to_dict_many(_depth=_depth, _seen=_seen)
                     return owner(many=True).to_dict_many(objs, _depth=_depth, _seen=_seen)
+
                 return class_to_dict_many
         # Accessed on the instance, e.g., bp.to_dict
         return getattr(instance, f"_{self.name}_instance")
-
 
 
 class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
@@ -871,7 +883,6 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             return instances.to_dict_many(_depth=_depth, _seen=_seen)
         return [self.to_dict(instance=obj, _depth=_depth, _seen=_seen) for obj in instances]
 
-
     # ── Inbound: Cast + Seal ─────────────────────────────────────────
 
     def is_sealed(self, *, raise_fault: bool = False) -> bool:
@@ -912,6 +923,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         validated: dict[str, Any] = {}
 
         from .sigil import is_mapping_like
+
         data = self._input_data if is_mapping_like(self._input_data) else {}
 
         # ── Unknown field rejection ──────────────────────────────────
@@ -921,6 +933,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
         if extra_fields_mode == "reject" and is_mapping_like(data):
             from .sigil import get_keys
+
             known_fields = set(self._bound_facets.keys())
             unknown = get_keys(data) - known_fields
             if unknown:
@@ -1013,6 +1026,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             if wm.mode == "async":
                 try:
                     import inspect
+
                     if inspect.iscoroutinefunction(wm.fn):
                         await wm.fn(self, data_obj)
                     else:
@@ -1036,6 +1050,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
     def _seal_many(self, *, raise_fault: bool) -> bool:
         """Validate a list of input items."""
         from .sigil import extract_flat_list_mapping, is_mapping_like
+
         input_data = self._input_data
         if is_mapping_like(input_data):
             extracted = extract_flat_list_mapping(input_data)
@@ -1056,9 +1071,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             max_items = self.context["max_many_items"]
 
         if len(input_data) > max_items:
-            self._errors = {
-                "__all__": [f"List contains {len(input_data)} items, exceeding the maximum of {max_items}"]
-            }
+            self._errors = {"__all__": [f"List contains {len(input_data)} items, exceeding the maximum of {max_items}"]}
             self._is_sealed = False
             if raise_fault:
                 raise SealFault(
@@ -1393,10 +1406,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
                 ok = not errors
                 outcome = SealOutcome(
-                    index=idx,
-                    ok=ok,
-                    value=validated if ok else None,
-                    errors=errors if not ok else None
+                    index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None
                 )
                 if not ok and raise_on_any:
                     raise SealFault(message="Seal validation failed", errors=errors)
@@ -1444,12 +1454,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                         errors.setdefault("__all__", []).append(str(exc))
 
                 ok = not errors
-                return SealOutcome(
-                    index=idx,
-                    ok=ok,
-                    value=validated if ok else None,
-                    errors=errors if not ok else None
-                )
+                return SealOutcome(index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None)
 
             with ThreadPoolExecutor(max_workers=min(32, len(rows))) as executor:
                 futures = executor.map(validate_single, enumerate(rows))
@@ -1476,6 +1481,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                     for wm in cls._ward_methods:
                         try:
                             import inspect
+
                             if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
                                 await wm.fn(inst, data_obj)
                             else:
@@ -1508,12 +1514,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                         errors.setdefault("__all__", []).append(str(exc))
 
                 ok = not errors
-                yield SealOutcome(
-                    index=idx,
-                    ok=ok,
-                    value=validated if ok else None,
-                    errors=errors if not ok else None
-                )
+                yield SealOutcome(index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None)
                 idx += 1
             else:
                 if isinstance(chunk, bytes):
@@ -1528,6 +1529,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                         continue
 
                     import json
+
                     try:
                         item = json.loads(line)
                         errors, validated = cls._sigil.validate(item)
@@ -1539,6 +1541,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                             for wm in cls._ward_methods:
                                 try:
                                     import inspect
+
                                     if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
                                         await wm.fn(inst, data_obj)
                                     else:
@@ -1572,23 +1575,18 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
                         ok = not errors
                         yield SealOutcome(
-                            index=idx,
-                            ok=ok,
-                            value=validated if ok else None,
-                            errors=errors if not ok else None
+                            index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None
                         )
                     except Exception as e:
                         yield SealOutcome(
-                            index=idx,
-                            ok=False,
-                            value=None,
-                            errors={"__all__": [f"JSON parse error: {e}"]}
+                            index=idx, ok=False, value=None, errors={"__all__": [f"JSON parse error: {e}"]}
                         )
                     idx += 1
 
         if buffer.strip():
             try:
                 import json
+
                 item = json.loads(buffer.strip())
                 errors, validated = cls._sigil.validate(item)
                 if not errors:
@@ -1599,6 +1597,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                     for wm in cls._ward_methods:
                         try:
                             import inspect
+
                             if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
                                 await wm.fn(inst, data_obj)
                             else:
@@ -1631,19 +1630,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                         errors.setdefault("__all__", []).append(str(exc))
 
                 ok = not errors
-                yield SealOutcome(
-                    index=idx,
-                    ok=ok,
-                    value=validated if ok else None,
-                    errors=errors if not ok else None
-                )
+                yield SealOutcome(index=idx, ok=ok, value=validated if ok else None, errors=errors if not ok else None)
             except Exception as e:
-                yield SealOutcome(
-                    index=idx,
-                    ok=False,
-                    value=None,
-                    errors={"__all__": [f"JSON parse error: {e}"]}
-                )
+                yield SealOutcome(index=idx, ok=False, value=None, errors={"__all__": [f"JSON parse error: {e}"]})
 
     @classmethod
     def seal_columnar(cls, rows_as_dicts_iterable: Any) -> ColumnarReport:
@@ -1656,6 +1645,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         for fname, spec in cls._sigil.fields.items():
             facet = spec.facet
             from .facets import Computed, Constant
+
             if isinstance(facet, (Computed, Constant)) or facet.read_only:
                 continue
 
@@ -1795,7 +1785,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 child = getattr(facet, "child", None)
                 if child is not None:
                     if isinstance(child, TextFacet):
-                        result[fname] = ["".join(random.choice(string.ascii_lowercase) for _ in range(5)) for _ in range(num_items)]
+                        result[fname] = [
+                            "".join(random.choice(string.ascii_lowercase) for _ in range(5)) for _ in range(num_items)
+                        ]
                     elif isinstance(child, IntFacet):
                         result[fname] = [random.randint(0, 100) for _ in range(num_items)]
                     else:
@@ -1810,6 +1802,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
             import uuid
             from datetime import date, datetime
+
             facet_cls_name = type(facet).__name__
             if facet_cls_name == "DateFacet":
                 result[fname] = date.today().isoformat()
@@ -1874,7 +1867,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 if pattern is not None:
                     fields_strategies[fname] = st.from_regex(pattern, fullmatch=True)
                 else:
-                    fields_strategies[fname] = st.text(alphabet=string.ascii_lowercase, min_size=min_len, max_size=max_len)
+                    fields_strategies[fname] = st.text(
+                        alphabet=string.ascii_lowercase, min_size=min_len, max_size=max_len
+                    )
                 continue
 
             if isinstance(facet, IntFacet):
@@ -1885,7 +1880,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 if mult is not None:
                     fields_strategies[fname] = st.integers(
                         min_value=(min_val + mult - 1) // mult if min_val is not None else -100,
-                        max_value=max_val // mult if max_val is not None else 100
+                        max_value=max_val // mult if max_val is not None else 100,
                     ).map(lambda x, m=mult: x * m)
                 else:
                     fields_strategies[fname] = st.integers(min_value=min_val, max_value=max_val)
@@ -1899,10 +1894,12 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 if mult is not None:
                     fields_strategies[fname] = st.integers(
                         min_value=int(min_val / mult) if min_val is not None else -100,
-                        max_value=int(max_val / mult) if max_val is not None else 100
+                        max_value=int(max_val / mult) if max_val is not None else 100,
                     ).map(lambda x, m=mult: float(x * m))
                 else:
-                    fields_strategies[fname] = st.floats(min_value=min_val, max_value=max_val, allow_nan=False, allow_infinity=False)
+                    fields_strategies[fname] = st.floats(
+                        min_value=min_val, max_value=max_val, allow_nan=False, allow_infinity=False
+                    )
                 continue
 
             if isinstance(facet, BoolFacet):
