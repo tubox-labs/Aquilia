@@ -768,7 +768,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         self.context: dict[str, Any] = context or {}
 
         # State
-        self._validated_data: dict[str, Any] | None = None
+        self._validated_data: DataObject | list[DataObject] | None = None
         self._errors: dict[str, list[str]] = {}
         self._is_sealed: bool | None = None  # None = not yet validated
 
@@ -797,7 +797,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
     # ── Outbound: Mold ───────────────────────────────────────────────
 
     @property
-    def data(self) -> dict[str, Any] | list[dict[str, Any]]:
+    def data(self) -> DataObject | list[DataObject] | dict[str, Any] | list[dict[str, Any]]:
         """
         The output representation -- molded from the instance.
 
@@ -1129,7 +1129,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         raise CastFault(field, message)
 
     @property
-    def validated_data(self) -> dict[str, Any] | list[dict[str, Any]] | None:
+    def validated_data(self) -> DataObject | list[DataObject] | None:
         """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
             self.is_sealed()
