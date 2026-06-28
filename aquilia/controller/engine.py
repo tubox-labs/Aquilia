@@ -30,6 +30,76 @@ from .compiler import CompiledRoute
 from .factory import ControllerFactory, InstantiationMode
 
 
+class LazyServiceProxy:
+    """Lazy proxy that resolves a DI service asynchronously on method invocation or fallback to cached instance."""
+
+    def __init__(self, container, token):
+        self._container = container
+        self._token = token
+
+    def _get_cached_instance(self):
+        token_key = self._container._token_to_key(self._token)
+        if token_key in self._container._cache:
+            return self._container._cache[token_key]
+        return None
+
+    def __getattr__(self, name):
+        cached = self._get_cached_instance()
+        if cached is not None:
+            return getattr(cached, name)
+
+        # Async wrapper for method invocation
+        async def async_method_wrapper(*args, **kwargs):
+            resolved = await self._container.resolve_async(self._token)
+            method = getattr(resolved, name)
+            result = method(*args, **kwargs)
+            if inspect.isawaitable(result):
+                return await result
+            return result
+
+        return async_method_wrapper
+
+    def __repr__(self):
+        cached = self._get_cached_instance()
+        if cached is not None:
+            return repr(cached)
+        return f"<LazyServiceProxy token={self._token}>"
+
+
+class BlueprintContext(dict):
+    """Custom context dictionary that lazily resolves registered services from the DI container."""
+
+    def __init__(self, initial_dict, container=None):
+        super().__init__(initial_dict)
+        self.container = container
+
+    def __getitem__(self, key):
+        if super().__contains__(key):
+            return super().__getitem__(key)
+
+        if self.container:
+            token_key = self.container._token_to_key(key)
+            if token_key in self.container._providers or key in self.container._providers:
+                return LazyServiceProxy(self.container, key)
+
+        raise KeyError(key)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key):
+        if super().__contains__(key):
+            return True
+        if self.container:
+            token_key = self.container._token_to_key(key)
+            if token_key in self.container._providers or key in self.container._providers:
+                return True
+        return False
+
+
 class ControllerEngine:
     """
     Executes controller methods with complete integration.
@@ -218,8 +288,10 @@ class ControllerEngine:
             is_simple = ControllerEngine._simple_route_cache.get(route_id)
             if is_simple is None:
                 params = route_metadata.parameters
-                has_blueprint = getattr(route_metadata, "request_blueprint", None) or getattr(
-                    route_metadata, "response_blueprint", None
+                has_blueprint = (
+                    getattr(route_metadata, "request_blueprint", None)
+                    or getattr(route_metadata, "response_blueprint", None)
+                    or any(self._is_blueprint_class(p.type) for p in params)
                 )
                 has_filters_or_pagination = (
                     getattr(route_metadata, "filterset_class", None)
@@ -642,6 +714,7 @@ class ControllerEngine:
         # Track if body has been consumed by a blueprint
         _body_consumed = False
         _body_cache = None
+        all_blueprint_errors = {}
 
         async def _get_body():
             nonlocal _body_cache
@@ -711,16 +784,19 @@ class ControllerEngine:
                 use_blueprint = decorator_request_blueprint
 
             # ── Blueprint body binding ───────────────────────────────────
-            if use_blueprint is not None and not _body_consumed:
+            if use_blueprint is not None:
                 body = await _get_body()
                 _body_consumed = True
 
                 # Build context with request + container
-                bp_context = {"request": request}
-                if container:
-                    bp_context["container"] = container
-                if ctx.identity:
-                    bp_context["identity"] = ctx.identity
+                bp_context = BlueprintContext(
+                    {
+                        "request": request,
+                        "container": container,
+                        "identity": ctx.identity,
+                    },
+                    container=container,
+                )
 
                 # Handle ProjectedRef (Blueprint["projection"])
                 projection = None
@@ -743,7 +819,20 @@ class ControllerEngine:
                     projection=projection,
                     context=bp_context,
                 )
-                bp_instance.is_sealed(raise_fault=True)
+
+                if hasattr(bp_instance, "is_sealed_async"):
+                    is_ok = await bp_instance.is_sealed_async(raise_fault=False)
+                else:
+                    is_ok = bp_instance.is_sealed(raise_fault=False)
+
+                if not is_ok:
+                    for field, field_errors in bp_instance.errors.items():
+                        if field in all_blueprint_errors:
+                            for err in field_errors:
+                                if err not in all_blueprint_errors[field]:
+                                    all_blueprint_errors[field].append(err)
+                        else:
+                            all_blueprint_errors[field] = list(field_errors)
 
                 # Inject the FULL Blueprint instance if:
                 # 1. The parameter is explicitly typed as a Blueprint subclass
@@ -913,6 +1002,14 @@ class ControllerEngine:
                     else:
                         # Re-raise original error if it's not handled
                         raise
+
+        if all_blueprint_errors:
+            from aquilia.blueprints.exceptions import SealFault
+
+            raise SealFault(
+                message="Blueprint validation failed",
+                errors=all_blueprint_errors,
+            )
 
         return kwargs, request_dag
 
