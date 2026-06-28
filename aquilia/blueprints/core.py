@@ -49,29 +49,35 @@ ModelT = TypeVar("ModelT")
 # Global registry for resolving forward/lazy Blueprint references by string name
 _blueprint_registry: dict[str, type[Blueprint]] = {}
 
+
 def resolve_sync_safe(container: Any, key: Any) -> Any:
     """Safe resolution from container cache or sync resolve without raising loop errors."""
     import asyncio
-    
+
     # Guard against Mock objects to avoid infinite recursion
-    if hasattr(container, "_mock_new_parent") or type(container).__name__ in ("Mock", "MagicMock", "NonCallableMagicMock", "AsyncMock"):
+    if hasattr(container, "_mock_new_parent") or type(container).__name__ in (
+        "Mock",
+        "MagicMock",
+        "NonCallableMagicMock",
+        "AsyncMock",
+    ):
         return None
-    
+
     # 1. Convert to key
     if hasattr(container, "_token_to_key"):
         token_key = container._token_to_key(key)
     else:
         token_key = str(key)
-        
+
     if hasattr(container, "_make_cache_key"):
         cache_key = container._make_cache_key(token_key, None)
     else:
         cache_key = token_key
-        
+
     # Check current container cache
     if hasattr(container, "_cache") and cache_key in container._cache:
         return container._cache[cache_key]
-        
+
     # Check parent container cache recursively
     parent = getattr(container, "_parent", None)
     if parent is not None:
@@ -85,13 +91,13 @@ def resolve_sync_safe(container: Any, key: Any) -> Any:
         has_loop = True
     except RuntimeError:
         has_loop = False
-        
+
     if not has_loop and hasattr(container, "resolve"):
         try:
             return container.resolve(key, optional=True)
         except Exception:
             pass
-            
+
     # 3. If loop is running, check if the provider is a ValueProvider
     # We look up the provider recursively
     if hasattr(container, "_lookup_provider"):
@@ -104,17 +110,18 @@ def resolve_sync_safe(container: Any, key: Any) -> Any:
                     return provider._value
         except Exception:
             pass
-            
+
     return None
 
 
 class BlueprintContext(dict):
     """
     Context dictionary for Blueprints.
-    
+
     Acts as a standard dict, but falls back to resolving string keys or type keys
     from the DI container (if present under the key 'container').
     """
+
     def __getitem__(self, key: Any) -> Any:
         try:
             return super().__getitem__(key)
@@ -880,9 +887,8 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
     @property
     def has_async_wards(self) -> bool:
         """Check if this blueprint has async ward methods or legacy async seal methods."""
-        return (
-            any(wm.mode == "async" for wm in self.__class__._ward_methods)
-            or bool(getattr(self.__class__, "_async_seal_methods", []))
+        return any(wm.mode == "async" for wm in self.__class__._ward_methods) or bool(
+            getattr(self.__class__, "_async_seal_methods", [])
         )
 
     @property
@@ -1010,7 +1016,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             True if data passes all seals.
         """
         if not _bypass_async_check and self.has_async_wards:
-            raise RuntimeError("Blueprint contains async wards (is async but called from sync context) and must be validated using is_sealed_async().")
+            raise RuntimeError(
+                "Blueprint contains async wards (is async but called from sync context) and must be validated using is_sealed_async()."
+            )
 
         if self._is_sealed is not None:
             if raise_fault and not self._is_sealed:
@@ -1244,7 +1252,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
             if self.has_async_wards:
-                raise RuntimeError("Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties.")
+                raise RuntimeError(
+                    "Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
+                )
             self.is_sealed()
         return self._validated_data
 
@@ -1253,7 +1263,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """Validation errors -- available after sealing attempt."""
         if self._is_sealed is None:
             if self.has_async_wards:
-                raise RuntimeError("Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties.")
+                raise RuntimeError(
+                    "Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
+                )
             self.is_sealed()
         return self._errors
 

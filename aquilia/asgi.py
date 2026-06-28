@@ -95,6 +95,7 @@ class ASGIAdapter:
 
             if request is not None:
                 from .request import Request as RequestClass
+
                 await container.register_instance(RequestClass, request, scope="request")
             return container
 
@@ -353,6 +354,7 @@ class ASGIAdapter:
 
         # Register Request instance in container for BlueprintProvider request lookup
         from .request import Request as RequestClass
+
         await di_container.register_instance(RequestClass, request, scope="request")
 
         # ── Acquire RequestCtx from pool (zero-alloc hot path) ──

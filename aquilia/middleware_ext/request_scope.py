@@ -132,6 +132,7 @@ class SimplifiedRequestScopeMiddleware:
 
         # Register request in DI container
         from aquilia.request import Request as RequestClass
+
         if isinstance(request, RequestClass):
             await request_container.register_instance(RequestClass, request, scope="request")
 

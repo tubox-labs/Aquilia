@@ -248,7 +248,7 @@ class ControllerFactory:
                                                 request = ctx.request
                                             else:
                                                 request = ctx
-                                        
+
                                         dag = RequestDAG(container, request=request)
                                         try:
                                             return await dag.resolve(arg, actual_type)
