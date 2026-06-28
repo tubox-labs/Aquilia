@@ -1024,6 +1024,15 @@ class DictFacet(Facet):
         self.max_keys = max_keys if max_keys is not None else self.DEFAULT_MAX_KEYS
 
     def cast(self, value: Any) -> dict:
+        if isinstance(value, str):
+            value = value.strip()
+            if value.startswith("{") and value.endswith("}"):
+                import json
+                try:
+                    value = json.loads(value)
+                except Exception as exc:
+                    raise CastFault(self.name or "<unbound>", "Invalid JSON object string") from exc
+
         if not isinstance(value, dict):
             raise CastFault(self.name or "<unbound>", f"Expected object, got {type(value).__name__}")
 
@@ -1127,6 +1136,14 @@ class JSONFacet(Facet):
                 self._check_depth(item, current_depth + 1)
 
     def cast(self, value: Any) -> Any:
+        if isinstance(value, str):
+            value = value.strip()
+            if (value.startswith("{") and value.endswith("}")) or (value.startswith("[") and value.endswith("]")):
+                import json
+                try:
+                    value = json.loads(value)
+                except Exception:
+                    pass
         self._check_depth(value)
         return value
 

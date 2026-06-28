@@ -439,8 +439,9 @@ class LazyBlueprintFacet(Facet):
             from aquilia.faults.domains import RegistryFault
 
             raise RegistryFault(
-                name=self.ref,
+                code="REGISTRY_ERROR",
                 message=f"Cannot resolve forward reference '{self.ref}'. Blueprint not found.",
+                metadata={"name": self.ref},
             )
 
         kwargs = {
@@ -583,6 +584,19 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
     """
 
     annotation_str = annotation_str.strip()
+
+    # Dot attribute lookup: "uuid.UUID", "datetime.datetime"
+    if "." in annotation_str and "[" not in annotation_str and "|" not in annotation_str:
+        parts = [p.strip() for p in annotation_str.split(".")]
+        base = namespace.get(parts[0])
+        if base is not None:
+            curr = base
+            try:
+                for part in parts[1:]:
+                    curr = getattr(curr, part)
+                return curr
+            except AttributeError:
+                pass
 
     # Simple name lookup
     if annotation_str.isidentifier():

@@ -111,7 +111,7 @@ class Sigil:
 
     def validate(
         self,
-        data: dict[str, Any],
+        data: Any,
         *,
         strict: bool | None = None,
         partial: bool = False,
@@ -124,8 +124,13 @@ class Sigil:
         is_strict = self.strict if strict is None else strict
 
         # Run migrations sequentially if revision context matches
-        if self.revision is not None and self.migrate_from and isinstance(data, dict):
-            data_rev = data.get("__revision__")
+        if self.revision is not None and self.migrate_from and is_mapping_like(data):
+            data_rev = None
+            if isinstance(data, dict):
+                data_rev = data.get("__revision__")
+            elif hasattr(data, "get"):
+                data_rev = data.get("__revision__")
+
             if data_rev is None and self.migrate_from:
                 # If __revision__ is not specified, start migrating from the lowest available migration revision
                 data_rev = min(self.migrate_from.keys())
@@ -168,7 +173,7 @@ class Sigil:
             if facet.read_only:
                 continue
 
-            raw = data.get(fname, UNSET) if isinstance(data, dict) else UNSET
+            raw = get_field_value(data, fname, facet)
 
             # Handle missing values
             if raw is UNSET:
@@ -205,7 +210,7 @@ class Sigil:
                     list_errors = {}
                     list_validated = []
                     for idx, item in enumerate(raw):
-                        if not isinstance(item, dict):
+                        if not is_mapping_like(item):
                             list_errors[str(idx)] = {"__all__": ["Expected a dictionary"]}
                             continue
                         sub_errors, sub_validated = nested_cls._sigil.validate(
@@ -226,7 +231,7 @@ class Sigil:
                         except Exception as exc:
                             errors.setdefault(fname, []).append(str(exc))
                 else:
-                    if not isinstance(raw, dict):
+                    if not is_mapping_like(raw):
                         errors.setdefault(fname, []).append("Expected a dictionary")
                         continue
                     sub_errors, sub_validated = nested_cls._sigil.validate(
@@ -549,6 +554,359 @@ def check_strict_type(facet: Any, value: Any) -> bool:
     if isinstance(facet, DictFacet):
         return isinstance(value, dict)
     return True
+
+
+def is_mapping_like(val: Any) -> bool:
+    from collections.abc import Mapping
+    try:
+        from .._datastructures import MultiDict
+    except ImportError:
+        MultiDict = None
+    try:
+        from .._uploads import FormData
+    except ImportError:
+        FormData = None
+
+    types = [dict, Mapping]
+    if MultiDict is not None:
+        types.append(MultiDict)
+    if FormData is not None:
+        types.append(FormData)
+    return isinstance(val, tuple(types))
+
+
+def get_keys(data: Any) -> set[str]:
+    from collections.abc import Mapping
+    try:
+        from .._datastructures import MultiDict
+    except ImportError:
+        MultiDict = None
+    try:
+        from .._uploads import FormData
+    except ImportError:
+        FormData = None
+
+    if isinstance(data, (dict, Mapping)):
+        return set(data.keys())
+    if MultiDict is not None and isinstance(data, MultiDict):
+        return set(data.keys())
+    if FormData is not None and isinstance(data, FormData):
+        return set(data.fields.keys()) | set(data.files.keys())
+    return set()
+
+
+def get_field_value(data: Any, fname: str, facet: Any) -> Any:
+    from collections.abc import Mapping
+    from .facets import UNSET, ListFacet, FileFacet, TextFacet
+    try:
+        from .._datastructures import MultiDict
+    except ImportError:
+        MultiDict = None
+    try:
+        from .._uploads import FormData
+    except ImportError:
+        FormData = None
+
+    keys_to_try = [fname, f"{fname}[]"]
+
+    if isinstance(data, (dict, Mapping)) and not (MultiDict is not None and isinstance(data, MultiDict)):
+        for k in keys_to_try:
+            if k in data:
+                return data[k]
+        return UNSET
+
+    is_list_facet = isinstance(facet, ListFacet) or getattr(facet, "many", False)
+
+    if is_list_facet:
+        child_facet = getattr(facet, "child", None)
+        nested_cls = get_nested_blueprint_cls(child_facet) if child_facet else None
+
+        if nested_cls is not None:
+            all_keys = []
+            if MultiDict is not None and isinstance(data, MultiDict):
+                all_keys = list(data.keys())
+            elif FormData is not None and isinstance(data, FormData):
+                all_keys = list(data.fields.keys()) | list(data.files.keys())
+            
+            indices = set()
+            import re
+            pattern1 = re.compile(rf"^{re.escape(fname)}\[(\d+)\]")
+            pattern2 = re.compile(rf"^{re.escape(fname)}\.(\d+)")
+            
+            for k in all_keys:
+                m1 = pattern1.match(k)
+                if m1:
+                    indices.add(int(m1.group(1)))
+                else:
+                    m2 = pattern2.match(k)
+                    if m2:
+                        indices.add(int(m2.group(1)))
+            
+            if indices:
+                sorted_indices = sorted(list(indices))
+                results = []
+                for idx in sorted_indices:
+                    prefix1 = f"{fname}[{idx}]"
+                    prefix2 = f"{fname}.{idx}"
+                    nested_val = extract_nested_mapping(data, prefix1)
+                    if nested_val is UNSET:
+                        nested_val = extract_nested_mapping(data, prefix2)
+                    if nested_val is not UNSET:
+                        results.append(nested_val)
+                return results
+            
+            for k in keys_to_try:
+                val = _get_single_val(data, k, FormData, MultiDict)
+                if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
+                    try:
+                        import json
+                        parsed = json.loads(val)
+                        if isinstance(parsed, list):
+                            return parsed
+                    except Exception:
+                        pass
+            return UNSET
+
+        is_file_list = isinstance(child_facet, FileFacet) if child_facet else False
+
+        if is_file_list:
+            if FormData is not None and isinstance(data, FormData):
+                for k in keys_to_try:
+                    if k in data.files:
+                        return data.get_all_files(k)
+        
+        if FormData is not None and isinstance(data, FormData):
+            for k in keys_to_try:
+                if k in data.fields:
+                    return data.get_all_fields(k)
+        elif MultiDict is not None and isinstance(data, MultiDict):
+            for k in keys_to_try:
+                if k in data:
+                    return data.get_all(k)
+        
+        for k in keys_to_try:
+            val = _get_single_val(data, k, FormData, MultiDict)
+            if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
+                try:
+                    import json
+                    parsed = json.loads(val)
+                    if isinstance(parsed, list):
+                        return parsed
+                except Exception:
+                    pass
+        
+        for k in keys_to_try:
+            val = _get_single_val(data, k, FormData, MultiDict)
+            if val is not UNSET:
+                return [val]
+
+        return UNSET
+
+    if isinstance(facet, FileFacet):
+        if FormData is not None and isinstance(data, FormData):
+            for k in keys_to_try:
+                if k in data.files:
+                    return data.get_file(k)
+                if k in data.fields:
+                    return data.get_field(k)
+        elif MultiDict is not None and isinstance(data, MultiDict):
+            for k in keys_to_try:
+                if k in data:
+                    return data.get(k)
+        return UNSET
+
+    nested_cls = get_nested_blueprint_cls(facet)
+    if nested_cls is not None:
+        nested_val = extract_nested_mapping(data, fname)
+        if nested_val is not UNSET:
+            return nested_val
+        return UNSET
+
+    for k in keys_to_try:
+        val = _get_single_val(data, k, FormData, MultiDict)
+        if val is not UNSET:
+            if val == "":
+                if not isinstance(facet, TextFacet):
+                    if facet.allow_null:
+                        return None
+                    if not facet.required:
+                        return UNSET
+                    return None
+                else:
+                    if facet.allow_null:
+                        return None
+                    if not facet.required:
+                        return UNSET
+            return val
+
+    return UNSET
+
+
+def _get_single_val(data: Any, key: str, FormData: Any, MultiDict: Any) -> Any:
+    from .facets import UNSET
+    if FormData is not None and isinstance(data, FormData):
+        if key in data.fields:
+            return data.fields.get(key)
+        if key in data.files:
+            return data.get_file(key)
+    elif MultiDict is not None and isinstance(data, MultiDict):
+        if key in data:
+            return data.get(key)
+    return UNSET
+
+
+def extract_nested_mapping(data: Any, prefix: str) -> Any:
+    from collections.abc import Mapping
+    from .facets import UNSET
+    try:
+        from .._datastructures import MultiDict
+    except ImportError:
+        MultiDict = None
+    try:
+        from .._uploads import FormData
+    except ImportError:
+        FormData = None
+
+    dot_prefix = f"{prefix}."
+    bracket_prefix = f"{prefix}["
+
+    if FormData is not None and isinstance(data, FormData):
+        nested_fields = MultiDict() if MultiDict is not None else {}
+        nested_files = {}
+
+        for k in data.fields:
+            if k.startswith(dot_prefix):
+                sub_key = k[len(dot_prefix):]
+                for v in data.fields.get_all(k):
+                    nested_fields.add(sub_key, v)
+            elif k.startswith(bracket_prefix) and k.endswith("]"):
+                sub_key = k[len(bracket_prefix):-1]
+                for v in data.fields.get_all(k):
+                    nested_fields.add(sub_key, v)
+
+        for k, file_list in data.files.items():
+            if k.startswith(dot_prefix):
+                sub_key = k[len(dot_prefix):]
+                nested_files[sub_key] = file_list
+            elif k.startswith(bracket_prefix) and k.endswith("]"):
+                sub_key = k[len(bracket_prefix):-1]
+                nested_files[sub_key] = file_list
+
+        if len(nested_fields) > 0 or len(nested_files) > 0:
+            return FormData(fields=nested_fields, files=nested_files)
+        
+        val = UNSET
+        if prefix in data.fields:
+            val = data.fields.get(prefix)
+        elif prefix in data.files:
+            val = data.get_file(prefix)
+        
+        if isinstance(val, str):
+            try:
+                import json
+                parsed = json.loads(val)
+                if isinstance(parsed, (dict, list)):
+                    return parsed
+            except Exception:
+                pass
+        return val
+
+    elif MultiDict is not None and isinstance(data, MultiDict):
+        nested_fields = MultiDict()
+        for k in data:
+            if k.startswith(dot_prefix):
+                sub_key = k[len(dot_prefix):]
+                for v in data.get_all(k):
+                    nested_fields.add(sub_key, v)
+            elif k.startswith(bracket_prefix) and k.endswith("]"):
+                sub_key = k[len(bracket_prefix):-1]
+                for v in data.get_all(k):
+                    nested_fields.add(sub_key, v)
+        if len(nested_fields) > 0:
+            return nested_fields
+        
+        val = data.get(prefix) if prefix in data else UNSET
+        if isinstance(val, str):
+            try:
+                import json
+                parsed = json.loads(val)
+                if isinstance(parsed, (dict, list)):
+                    return parsed
+            except Exception:
+                pass
+        return val
+
+    elif isinstance(data, (dict, Mapping)):
+        if prefix in data:
+            return data[prefix]
+        
+        nested_dict = {}
+        for k, v in data.items():
+            if k.startswith(dot_prefix):
+                sub_key = k[len(dot_prefix):]
+                nested_dict[sub_key] = v
+            elif k.startswith(bracket_prefix) and k.endswith("]"):
+                sub_key = k[len(bracket_prefix):-1]
+                nested_dict[sub_key] = v
+        if nested_dict:
+            return nested_dict
+        return UNSET
+
+    return UNSET
+
+
+def extract_flat_list_mapping(data: Any) -> list[Any] | None:
+    from collections.abc import Mapping
+    from .facets import UNSET
+    try:
+        from .._datastructures import MultiDict
+    except ImportError:
+        MultiDict = None
+    try:
+        from .._uploads import FormData
+    except ImportError:
+        FormData = None
+
+    if not is_mapping_like(data):
+        return None
+
+    all_keys = []
+    if isinstance(data, (dict, Mapping)) and not (MultiDict is not None and isinstance(data, MultiDict)):
+        all_keys = list(data.keys())
+    elif MultiDict is not None and isinstance(data, MultiDict):
+        all_keys = list(data.keys())
+    elif FormData is not None and isinstance(data, FormData):
+        all_keys = list(data.fields.keys()) | list(data.files.keys())
+
+    import re
+    pattern1 = re.compile(r"^\[(\d+)\]")
+    pattern2 = re.compile(r"^(\d+)\b")
+
+    indices = set()
+    for k in all_keys:
+        m1 = pattern1.match(k)
+        if m1:
+            indices.add(int(m1.group(1)))
+        else:
+            m2 = pattern2.match(k)
+            if m2:
+                indices.add(int(m2.group(1)))
+
+    if not indices:
+        return None
+
+    sorted_indices = sorted(list(indices))
+    results = []
+    for idx in sorted_indices:
+        prefix1 = f"[{idx}]"
+        prefix2 = f"{idx}"
+
+        nested_val = extract_nested_mapping(data, prefix1)
+        if nested_val is UNSET:
+            nested_val = extract_nested_mapping(data, prefix2)
+        if nested_val is not UNSET:
+            results.append(nested_val)
+    return results
 
 
 def get_nested_blueprint_cls(facet: Any) -> type | None:

@@ -616,9 +616,15 @@ class BlueprintUnion:
 
         return None, None
 
-    def validate(self, data: dict) -> tuple[dict, dict]:
+    def validate(self, data: Any) -> tuple[dict, dict]:
         if self._dispatch:
-            tag = data.get(self.discriminator_field) if isinstance(data, dict) else None
+            from .sigil import is_mapping_like, get_field_value
+            from .facets import UNSET, TextFacet
+            tag = None
+            if self.discriminator_field and is_mapping_like(data):
+                tag = get_field_value(data, self.discriminator_field, TextFacet())
+                if tag is UNSET:
+                    tag = None
             cls = self._dispatch.get(tag)
             if cls is None:
                 return {self.discriminator_field or "tag": [f"Unknown discriminator value: {tag!r}"]}, {}
@@ -860,16 +866,18 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         self._errors = {}
         validated: dict[str, Any] = {}
 
-        data = self._input_data if isinstance(self._input_data, dict) else {}
+        from .sigil import is_mapping_like
+        data = self._input_data if is_mapping_like(self._input_data) else {}
 
         # ── Unknown field rejection ──────────────────────────────────
         extra_fields_mode = self._spec.extra_fields if self._spec else "ignore"
         if self.context.get("extra_fields"):
             extra_fields_mode = self.context["extra_fields"]
 
-        if extra_fields_mode == "reject" and isinstance(data, dict):
+        if extra_fields_mode == "reject" and is_mapping_like(data):
+            from .sigil import get_keys
             known_fields = set(self._bound_facets.keys())
-            unknown = set(data.keys()) - known_fields
+            unknown = get_keys(data) - known_fields
             if unknown:
                 for field_name in sorted(unknown):
                     self._errors.setdefault(field_name, []).append(f"Unknown field '{field_name}' is not allowed")
@@ -982,7 +990,14 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
     def _seal_many(self, *, raise_fault: bool) -> bool:
         """Validate a list of input items."""
-        if not isinstance(self._input_data, (list, tuple)):
+        from .sigil import is_mapping_like, extract_flat_list_mapping
+        input_data = self._input_data
+        if is_mapping_like(input_data):
+            extracted = extract_flat_list_mapping(input_data)
+            if extracted is not None:
+                input_data = extracted
+
+        if not isinstance(input_data, (list, tuple)):
             self._errors = {"__all__": ["Expected a list"]}
             self._is_sealed = False
             if raise_fault:
@@ -995,21 +1010,21 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         if self.context.get("max_many_items"):
             max_items = self.context["max_many_items"]
 
-        if len(self._input_data) > max_items:
+        if len(input_data) > max_items:
             self._errors = {
-                "__all__": [f"List contains {len(self._input_data)} items, exceeding the maximum of {max_items}"]
+                "__all__": [f"List contains {len(input_data)} items, exceeding the maximum of {max_items}"]
             }
             self._is_sealed = False
             if raise_fault:
                 raise SealFault(
-                    message=f"Too many items ({len(self._input_data)} > {max_items})",
+                    message=f"Too many items ({len(input_data)} > {max_items})",
                     errors=self._errors,
                 )
             return False
 
         all_validated = []
         all_errors = {}
-        for i, item in enumerate(self._input_data):
+        for i, item in enumerate(input_data):
             child = self.__class__(
                 data=item,
                 partial=self.partial,

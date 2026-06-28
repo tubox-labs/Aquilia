@@ -647,13 +647,42 @@ class ControllerEngine:
             nonlocal _body_cache
             if _body_cache is not None:
                 return _body_cache
+
+            ct = request.content_type()
+            if ct:
+                from aquilia.request import ParsedContentType
+                parsed_ct = ParsedContentType.parse(ct)
+                if parsed_ct:
+                    media_type = parsed_ct.media_type
+                    if media_type in ("application/json", "application/x-json", "text/json"):
+                        try:
+                            _body_cache = await request.json()
+                            return _body_cache
+                        except Exception:
+                            pass
+                    elif media_type == "application/x-www-form-urlencoded":
+                        try:
+                            _body_cache = await request.form()
+                            return _body_cache
+                        except Exception:
+                            pass
+                    elif media_type.startswith("multipart/"):
+                        try:
+                            _body_cache = await request.multipart()
+                            return _body_cache
+                        except Exception:
+                            pass
+
             try:
                 _body_cache = await request.json()
             except Exception:
                 try:
                     _body_cache = await request.form()
                 except Exception:
-                    _body_cache = {}
+                    try:
+                        _body_cache = await request.multipart()
+                    except Exception:
+                        _body_cache = {}
             return _body_cache
 
         for param in route_metadata.parameters:
