@@ -73,6 +73,10 @@ class _SpecData:
         "validators",
         "extra_fields",
         "max_many_items",
+        "strict",
+        "revision",
+        "migrate_from",
+        "discriminator",
     )
 
     def __init__(self, spec_cls: type | None = None):
@@ -89,6 +93,10 @@ class _SpecData:
             self.validators = []
             self.extra_fields = "ignore"
             self.max_many_items = 10000
+            self.strict = False
+            self.revision = None
+            self.migrate_from = {}
+            self.discriminator = None
             return
 
         self.model = getattr(spec_cls, "model", None)
@@ -103,6 +111,22 @@ class _SpecData:
         self.validators = list(getattr(spec_cls, "validators", []))
         self.extra_fields = getattr(spec_cls, "extra_fields", "ignore")
         self.max_many_items = getattr(spec_cls, "max_many_items", 10000)
+        self.strict = getattr(spec_cls, "strict", False)
+        self.revision = getattr(spec_cls, "revision", None)
+        migrate_val = getattr(spec_cls, "migrate_from", None)
+        if isinstance(migrate_val, dict):
+            self.migrate_from = dict(migrate_val)
+        elif isinstance(migrate_val, type):
+            rev = getattr(getattr(migrate_val, "_spec", None), "revision", 1) or 1
+            self.migrate_from = {rev: migrate_val}
+        elif isinstance(migrate_val, (list, tuple)):
+            self.migrate_from = {}
+            for item in migrate_val:
+                rev = getattr(getattr(item, "_spec", None), "revision", 1) or 1
+                self.migrate_from[rev] = item
+        else:
+            self.migrate_from = {}
+        self.discriminator = getattr(spec_cls, "discriminator", None)
 
 
 # ── Metaclass ────────────────────────────────────────────────────────────
@@ -264,6 +288,12 @@ class BlueprintMeta(type):
         # Sort by creation order
         cls._all_facets = dict(sorted(all_facets.items(), key=lambda item: item[1]._order))
 
+        # Bind class-level facets name and source properties
+        for fname, facet in cls._all_facets.items():
+            facet.name = fname
+            if facet.source is None:
+                facet.source = fname
+
         # Build projection registry
         cls._projections = ProjectionRegistry()
         write_only_names = {fname for fname, f in cls._all_facets.items() if f.write_only}
@@ -286,6 +316,14 @@ class BlueprintMeta(type):
                 method = getattr(cls, attr_name, None)
                 if callable(method):
                     cls._async_seal_methods.append(attr_name)
+
+        # Collect ward methods
+        from .ward import collect_ward_methods
+        cls._ward_methods = collect_ward_methods(name, bases, namespace)
+
+        # Build sigil
+        from .sigil import build_sigil
+        cls._sigil = build_sigil(cls)
 
         # Register the Blueprint in the global registry for forward references
         # Only register if it's an actual defined Blueprint, not a base
@@ -468,6 +506,20 @@ class BlueprintMeta(type):
         model_name = cls._spec.model.__name__ if cls._spec and cls._spec.model else "None"
         return f"<Blueprint '{cls.__name__}' model={model_name}>"
 
+    def __or__(cls, other: Any) -> Any:
+        from .core import BlueprintUnion, Blueprint
+        if isinstance(other, type) and issubclass(other, Blueprint):
+            return BlueprintUnion((cls, other))
+        if isinstance(other, BlueprintUnion):
+            return BlueprintUnion((cls, *other.members))
+        return NotImplemented
+
+    def __ror__(cls, other: Any) -> Any:
+        from .core import BlueprintUnion, Blueprint
+        if isinstance(other, type) and issubclass(other, Blueprint):
+            return BlueprintUnion((other, cls))
+        return NotImplemented
+
 
 def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Facet:
     """
@@ -493,6 +545,114 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
     facet = Facet(**kwargs)
     facet.source = f"{name}_id" if isinstance(model_field, (ForeignKey, OneToOneField)) else name
     return facet
+
+
+# ── BlueprintUnion ────────────────────────────────────────────────────────
+
+
+class BlueprintUnion:
+    """Compiled discriminated union wrapper constructed via | operator on Blueprints."""
+
+    __slots__ = ("members", "discriminator_field", "_dispatch")
+
+    def __init__(self, members: tuple):
+        self.members = members
+        self.discriminator_field, self._dispatch = self._build_dispatch()
+
+    def _build_dispatch(self):
+        discriminator_field = None
+        # Check if any member has Spec.discriminator set explicitly
+        for member in self.members:
+            spec = getattr(member, "_spec", None)
+            if spec and getattr(spec, "discriminator", None):
+                discriminator_field = spec.discriminator
+                break
+
+        # If not explicitly set, auto-detect it
+        if discriminator_field is None:
+            candidate_fields = {}
+            for member in self.members:
+                member_fields = getattr(member, "_all_facets", {})
+                for fname, facet in member_fields.items():
+                    from .facets import ChoiceFacet
+                    if isinstance(facet, ChoiceFacet):
+                        candidate_fields.setdefault(fname, []).append(member)
+
+            # Filter to those present in all members
+            common_candidates = [
+                fname for fname, members_list in candidate_fields.items()
+                if len(members_list) == len(self.members)
+            ]
+
+            # Check if their Literal values are disjoint
+            for fname in common_candidates:
+                values_to_member = {}
+                disjoint = True
+                for member in self.members:
+                    facet = member._all_facets[fname]
+                    allowed = getattr(facet, "allowed_values", ())
+                    for val in allowed:
+                        if val in values_to_member:
+                            disjoint = False
+                            break
+                        values_to_member[val] = member
+                    if not disjoint:
+                        break
+                if disjoint:
+                    discriminator_field = fname
+                    break
+
+        if discriminator_field is not None:
+            dispatch = {}
+            for member in self.members:
+                facet = member._all_facets.get(discriminator_field)
+                if facet is not None:
+                    from .facets import ChoiceFacet
+                    if isinstance(facet, ChoiceFacet):
+                        allowed = getattr(facet, "allowed_values", ())
+                        for val in allowed:
+                            dispatch[val] = member
+            return discriminator_field, dispatch
+
+        return None, None
+
+    def validate(self, data: dict) -> tuple[dict, dict]:
+        if self._dispatch:
+            tag = data.get(self.discriminator_field) if isinstance(data, dict) else None
+            cls = self._dispatch.get(tag)
+            if cls is None:
+                return {self.discriminator_field or "tag": [f"Unknown discriminator value: {tag!r}"]}, {}
+            return cls._sigil.validate(data)
+        else:
+            import warnings
+            warnings.warn(
+                "No discriminator found; falling back to try-each validation. "
+                "Add a Literal-typed field or set Spec.discriminator.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            for cls in self.members:
+                errors, validated = cls._sigil.validate(data)
+                if not errors:
+                    return {}, validated
+            return {"__union__": ["No member matched"]}, {}
+
+    def __or__(self, other):
+        if isinstance(other, BlueprintUnion):
+            return BlueprintUnion((*self.members, *other.members))
+        return BlueprintUnion((*self.members, other))
+
+    def __ror__(self, other):
+        return BlueprintUnion((other, *self.members))
+
+    def to_json_schema(self) -> dict:
+        choices_schemas = []
+        for member in self.members:
+            choices_schemas.append(member._sigil.to_json_schema())
+        sch = {"oneOf": choices_schemas}
+        if self.discriminator_field:
+            sch["discriminator"] = {"propertyName": self.discriminator_field}
+        return sch
 
 
 # ── Blueprint Base Class ─────────────────────────────────────────────────
@@ -564,12 +724,15 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         self._errors: dict[str, list[str]] = {}
         self._is_sealed: bool | None = None  # None = not yet validated
 
-        # Bind facets to this instance
-        self._bound_facets: dict[str, Facet] = {}
-        for fname, facet in self._all_facets.items():
-            bound = facet.clone()
-            bound.bind(fname, self)
-            self._bound_facets[fname] = bound
+        # Reference to compiled schema
+        self._sigil = getattr(self.__class__, "_sigil", None)
+        # Store context
+        self._context = self.context
+
+    @property
+    def _bound_facets(self) -> dict[str, Facet]:
+        # TODO(deprecation): remove in next major
+        return self.__class__._all_facets
 
     def __getattr__(self, name: str) -> Any:
         """Proxy attribute access to validated_data."""
@@ -701,7 +864,6 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
         # ── Unknown field rejection ──────────────────────────────────
         extra_fields_mode = self._spec.extra_fields if self._spec else "ignore"
-        # Also check context for runtime override
         if self.context.get("extra_fields"):
             extra_fields_mode = self.context["extra_fields"]
 
@@ -719,68 +881,16 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                     )
                 return False
 
-        # Phase 1 + 2: Cast + Field Seals
-        for fname, facet in self._bound_facets.items():
-            if isinstance(facet, (Computed, Constant)):
-                continue
-
-            # Handle DI-injectable facets (even if read_only)
-            if isinstance(facet, Inject):
-                resolved = facet.resolve_from_context(self.context)
-                if resolved is not UNSET:
-                    validated[fname] = resolved
-                continue
-
-            if facet.read_only:
-                continue
-
-            raw = data.get(fname, UNSET)
-
-            # Handle missing values
-            if raw is UNSET:
-                if self.partial:
-                    continue
-                if facet.default is not UNSET:
-                    default = facet.default() if callable(facet.default) else facet.default
-                    validated[fname] = default
-                    continue
-                if facet.required:
-                    self._errors.setdefault(fname, []).append("This field is required")
-                    continue
-                if facet.allow_null:
-                    validated[fname] = None
-                    continue
-                continue
-
-            # Handle null
-            if raw is None:
-                if facet.allow_null:
-                    validated[fname] = None
-                    continue
-                self._errors.setdefault(fname, []).append("This field may not be null")
-                continue
-
-            # Cast
-            try:
-                cast_value = facet.cast(raw)
-            except CastFault as exc:
-                self._errors.setdefault(fname, []).append(str(exc))
-                continue
-            except (ValueError, TypeError) as exc:
-                self._errors.setdefault(fname, []).append(str(exc))
-                continue
-
-            # Seal (field-level validation)
-            try:
-                sealed_value = facet.seal(cast_value)
-            except CastFault as exc:
-                self._errors.setdefault(fname, []).append(str(exc))
-                continue
-            except (ValueError, TypeError) as exc:
-                self._errors.setdefault(fname, []).append(str(exc))
-                continue
-
-            validated[fname] = sealed_value
+        # Phase 1 + 2: Structural validation via Sigil
+        strict_override = self.context.get("strict", None)
+        errors, validated_dict = self._sigil.validate(
+            data,
+            strict=strict_override,
+            partial=self.partial,
+            context=self.context,
+        )
+        self._errors.update(errors)
+        validated.update(validated_dict)
 
         if self._errors:
             self._is_sealed = False
@@ -788,21 +898,18 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 raise SealFault(message="Blueprint validation failed", errors=self._errors)
             return False
 
-        # Phase 3: Cross-field seals (seal_* methods)
-        import inspect
-
-        for method_name in self._seal_methods:
-            method = getattr(self, method_name, None)
-            if method is not None:
+        # Phase 3: Cross-field seals (ward methods)
+        validated = DataObject(validated)
+        data_obj = validated
+        for wm in self.__class__._ward_methods:
+            if wm.mode == "sync":
                 try:
-                    if inspect.iscoroutinefunction(method):
-                        # In sync context, skip coroutine seal methods (they will be run in async context)
-                        continue
-                    else:
-                        method(validated)
+                    wm.fn(self, data_obj)
                 except CastFault as exc:
-                    self._errors.setdefault(exc.field, []).append(str(exc))
-                except (ValueError, TypeError) as exc:
+                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                    if exc.field not in self._errors or msg not in self._errors[exc.field]:
+                        self._errors.setdefault(exc.field, []).append(msg)
+                except Exception as exc:
                     self._errors.setdefault("__all__", []).append(str(exc))
 
         if self._errors:
@@ -815,14 +922,16 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         try:
             validated = self.validate(validated)
         except CastFault as exc:
-            self._errors.setdefault(exc.field, []).append(str(exc))
+            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+            if exc.field not in self._errors or msg not in self._errors[exc.field]:
+                self._errors.setdefault(exc.field, []).append(msg)
         except SealFault as exc:
             if hasattr(exc, "field_errors") and exc.field_errors:
                 for field, msgs in exc.field_errors.items():
                     self._errors.setdefault(field, []).extend(msgs)
             else:
                 self._errors.setdefault("__all__", []).append(str(exc))
-        except (ValueError, TypeError) as exc:
+        except Exception as exc:
             self._errors.setdefault("__all__", []).append(str(exc))
 
         if self._errors:
@@ -831,48 +940,35 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 raise SealFault(message="Blueprint validation failed", errors=self._errors)
             return False
 
-        self._validated_data = DataObject(validated)
+        self._validated_data = validated
         self._is_sealed = True
         return True
 
     async def is_sealed_async(self, *, raise_fault: bool = False) -> bool:
         """
-        Async variant of is_sealed -- also runs async_seal_* methods.
-
-        Pipeline:
-            1-4. Same as is_sealed()
-            5. Async seals: ``async_seal_*()`` methods
+        Async variant of is_sealed -- also runs async_seal_* and async ward methods.
         """
-        import inspect
-
-        # Run sync pipeline, but skip coroutine seal methods
+        # Run sync pipeline (which skips async wards)
         if not self.is_sealed(raise_fault=False):
             if raise_fault:
                 raise SealFault(message="Blueprint validation failed", errors=self._errors)
             return False
 
-        # Phase 5: Async seals and coroutine seal_* methods
-        for method_name in self._seal_methods:
-            method = getattr(self, method_name, None)
-            if method is not None and inspect.iscoroutinefunction(method):
+        # Phase 5: Async seals and coroutine ward methods
+        data_obj = self._validated_data
+        for wm in self.__class__._ward_methods:
+            if wm.mode == "async":
                 try:
-                    await method(self._validated_data)
-                except CastFault as exc:
-                    self._errors.setdefault(exc.field, []).append(str(exc))
-                except (ValueError, TypeError) as exc:
-                    self._errors.setdefault("__all__", []).append(str(exc))
-
-        for method_name in self._async_seal_methods:
-            method = getattr(self, method_name, None)
-            if method is not None:
-                try:
-                    if inspect.iscoroutinefunction(method):
-                        await method(self._validated_data)
+                    import inspect
+                    if inspect.iscoroutinefunction(wm.fn):
+                        await wm.fn(self, data_obj)
                     else:
-                        method(self._validated_data)
+                        wm.fn(self, data_obj)
                 except CastFault as exc:
-                    self._errors.setdefault(exc.field, []).append(str(exc))
-                except (ValueError, TypeError) as exc:
+                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                    if exc.field not in self._errors or msg not in self._errors[exc.field]:
+                        self._errors.setdefault(exc.field, []).append(msg)
+                except Exception as exc:
                     self._errors.setdefault("__all__", []).append(str(exc))
 
         if self._errors:
@@ -1139,23 +1235,24 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         Returns:
             JSON Schema dict
         """
+        base_schema = cls._sigil.to_json_schema()
         projection_fields = cls._projections.resolve(projection)
 
         properties: dict[str, Any] = {}
         required: list[str] = []
 
+        import copy
+
         for fname, facet in cls._all_facets.items():
-            # Filter by mode
             if mode == "output" and facet.write_only:
                 continue
             if mode == "input" and facet.read_only:
                 continue
-
-            # Apply projection
             if projection_fields and fname not in projection_fields:
                 continue
 
-            properties[fname] = facet.to_schema()
+            if fname in base_schema["properties"]:
+                properties[fname] = copy.deepcopy(base_schema["properties"][fname])
 
             if mode == "input" and facet.required and not facet.read_only:
                 required.append(fname)
@@ -1166,6 +1263,9 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         }
         if required:
             schema["required"] = required
+
+        if "$defs" in base_schema:
+            schema["$defs"] = copy.deepcopy(base_schema["$defs"])
 
         title = cls.__name__
         if projection:
@@ -1188,7 +1288,610 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """Get a facet by name."""
         return cls._all_facets.get(name)
 
+    @classmethod
+    def seal_many(cls, rows: list[dict], *, parallel: bool = False, raise_on_any: bool = False) -> list[SealOutcome]:
+        """Validate multiple rows of input data, returning outcomes."""
+        outcomes = []
+        if not parallel or len(rows) <= 1:
+            for idx, row in enumerate(rows):
+                errors, validated = cls._sigil.validate(row)
+                if not errors:
+                    inst = cls(data=row)
+                    inst._errors = {}
+                    validated = DataObject(validated)
+                    data_obj = validated
+                    for wm in cls._ward_methods:
+                        if wm.mode == "sync":
+                            try:
+                                wm.fn(inst, data_obj)
+                            except CastFault as exc:
+                                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                                if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                                    inst._errors.setdefault(exc.field, []).append(msg)
+                            except Exception as exc:
+                                inst.reject("__all__", str(exc))
+                    errors = inst.errors
+
+                if not errors:
+                    try:
+                        inst = cls(data=row)
+                        inst._errors = {}
+                        validated = inst.validate(validated)
+                        errors = inst.errors
+                    except CastFault as exc:
+                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                        if exc.field not in errors or msg not in errors[exc.field]:
+                            errors.setdefault(exc.field, []).append(msg)
+                    except SealFault as exc:
+                        if hasattr(exc, "field_errors") and exc.field_errors:
+                            for field, msgs in exc.field_errors.items():
+                                errors.setdefault(field, []).extend(msgs)
+                        else:
+                            errors.setdefault("__all__", []).append(str(exc))
+                    except Exception as exc:
+                        errors.setdefault("__all__", []).append(str(exc))
+
+                ok = not errors
+                outcome = SealOutcome(
+                    index=idx,
+                    ok=ok,
+                    value=validated if ok else None,
+                    errors=errors if not ok else None
+                )
+                if not ok and raise_on_any:
+                    raise SealFault(message="Seal validation failed", errors=errors)
+                outcomes.append(outcome)
+        else:
+            from concurrent.futures import ThreadPoolExecutor
+
+            def validate_single(args):
+                idx, row = args
+                errors, validated = cls._sigil.validate(row)
+                if not errors:
+                    inst = cls(data=row)
+                    inst._errors = {}
+                    validated = DataObject(validated)
+                    data_obj = validated
+                    for wm in cls._ward_methods:
+                        if wm.mode == "sync":
+                            try:
+                                wm.fn(inst, data_obj)
+                            except CastFault as exc:
+                                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                                if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                                    inst._errors.setdefault(exc.field, []).append(msg)
+                            except Exception as exc:
+                                inst.reject("__all__", str(exc))
+                    errors = inst.errors
+
+                if not errors:
+                    try:
+                        inst = cls(data=row)
+                        inst._errors = {}
+                        validated = inst.validate(validated)
+                        errors = inst.errors
+                    except CastFault as exc:
+                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                        if exc.field not in errors or msg not in errors[exc.field]:
+                            errors.setdefault(exc.field, []).append(msg)
+                    except SealFault as exc:
+                        if hasattr(exc, "field_errors") and exc.field_errors:
+                            for field, msgs in exc.field_errors.items():
+                                errors.setdefault(field, []).extend(msgs)
+                        else:
+                            errors.setdefault("__all__", []).append(str(exc))
+                    except Exception as exc:
+                        errors.setdefault("__all__", []).append(str(exc))
+
+                ok = not errors
+                return SealOutcome(
+                    index=idx,
+                    ok=ok,
+                    value=validated if ok else None,
+                    errors=errors if not ok else None
+                )
+
+            with ThreadPoolExecutor(max_workers=min(32, len(rows))) as executor:
+                futures = executor.map(validate_single, enumerate(rows))
+                for outcome in futures:
+                    if not outcome.ok and raise_on_any:
+                        raise SealFault(message="Seal validation failed", errors=outcome.errors)
+                    outcomes.append(outcome)
+
+        return outcomes
+
+    @classmethod
+    async def seal_stream(cls, byte_or_dict_iterator: Any, *, chunk_size: int | None = None) -> Any:
+        """Validate stream NDJSON data or dicts asynchronously."""
+        idx = 0
+        buffer = ""
+        async for chunk in byte_or_dict_iterator:
+            if isinstance(chunk, dict):
+                errors, validated = cls._sigil.validate(chunk)
+                if not errors:
+                    inst = cls(data=chunk)
+                    inst._errors = {}
+                    validated = DataObject(validated)
+                    data_obj = validated
+                    for wm in cls._ward_methods:
+                        try:
+                            import inspect
+                            if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
+                                await wm.fn(inst, data_obj)
+                            else:
+                                wm.fn(inst, data_obj)
+                        except CastFault as exc:
+                            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                            if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                                inst._errors.setdefault(exc.field, []).append(msg)
+                        except Exception as exc:
+                            inst.reject("__all__", str(exc))
+                    errors = inst.errors
+
+                if not errors:
+                    try:
+                        inst = cls(data=chunk)
+                        inst._errors = {}
+                        validated = inst.validate(validated)
+                        errors = inst.errors
+                    except CastFault as exc:
+                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                        if exc.field not in errors or msg not in errors[exc.field]:
+                            errors.setdefault(exc.field, []).append(msg)
+                    except SealFault as exc:
+                        if hasattr(exc, "field_errors") and exc.field_errors:
+                            for field, msgs in exc.field_errors.items():
+                                errors.setdefault(field, []).extend(msgs)
+                        else:
+                            errors.setdefault("__all__", []).append(str(exc))
+                    except Exception as exc:
+                        errors.setdefault("__all__", []).append(str(exc))
+
+                ok = not errors
+                yield SealOutcome(
+                    index=idx,
+                    ok=ok,
+                    value=validated if ok else None,
+                    errors=errors if not ok else None
+                )
+                idx += 1
+            else:
+                if isinstance(chunk, bytes):
+                    buffer += chunk.decode("utf-8")
+                else:
+                    buffer += str(chunk)
+
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    import json
+                    try:
+                        item = json.loads(line)
+                        errors, validated = cls._sigil.validate(item)
+                        if not errors:
+                            inst = cls(data=item)
+                            inst._errors = {}
+                            validated = DataObject(validated)
+                            data_obj = validated
+                            for wm in cls._ward_methods:
+                                try:
+                                    import inspect
+                                    if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
+                                        await wm.fn(inst, data_obj)
+                                    else:
+                                        wm.fn(inst, data_obj)
+                                except CastFault as exc:
+                                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                                    if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                                        inst._errors.setdefault(exc.field, []).append(msg)
+                                except Exception as exc:
+                                    inst.reject("__all__", str(exc))
+                            errors = inst.errors
+
+                        if not errors:
+                            try:
+                                inst = cls(data=item)
+                                inst._errors = {}
+                                validated = inst.validate(validated)
+                                errors = inst.errors
+                            except CastFault as exc:
+                                msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                                if exc.field not in errors or msg not in errors[exc.field]:
+                                    errors.setdefault(exc.field, []).append(msg)
+                            except SealFault as exc:
+                                if hasattr(exc, "field_errors") and exc.field_errors:
+                                    for field, msgs in exc.field_errors.items():
+                                        errors.setdefault(field, []).extend(msgs)
+                                else:
+                                    errors.setdefault("__all__", []).append(str(exc))
+                            except Exception as exc:
+                                errors.setdefault("__all__", []).append(str(exc))
+
+                        ok = not errors
+                        yield SealOutcome(
+                            index=idx,
+                            ok=ok,
+                            value=validated if ok else None,
+                            errors=errors if not ok else None
+                        )
+                    except Exception as e:
+                        yield SealOutcome(
+                            index=idx,
+                            ok=False,
+                            value=None,
+                            errors={"__all__": [f"JSON parse error: {e}"]}
+                        )
+                    idx += 1
+
+        if buffer.strip():
+            try:
+                import json
+                item = json.loads(buffer.strip())
+                errors, validated = cls._sigil.validate(item)
+                if not errors:
+                    inst = cls(data=item)
+                    inst._errors = {}
+                    validated = DataObject(validated)
+                    data_obj = validated
+                    for wm in cls._ward_methods:
+                        try:
+                            import inspect
+                            if wm.mode == "async" and inspect.iscoroutinefunction(wm.fn):
+                                await wm.fn(inst, data_obj)
+                            else:
+                                wm.fn(inst, data_obj)
+                        except CastFault as exc:
+                            msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                            if exc.field not in inst._errors or msg not in inst._errors[exc.field]:
+                                inst._errors.setdefault(exc.field, []).append(msg)
+                        except Exception as exc:
+                            inst.reject("__all__", str(exc))
+                    errors = inst.errors
+
+                if not errors:
+                    try:
+                        inst = cls(data=item)
+                        inst._errors = {}
+                        validated = inst.validate(validated)
+                        errors = inst.errors
+                    except CastFault as exc:
+                        msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                        if exc.field not in errors or msg not in errors[exc.field]:
+                            errors.setdefault(exc.field, []).append(msg)
+                    except SealFault as exc:
+                        if hasattr(exc, "field_errors") and exc.field_errors:
+                            for field, msgs in exc.field_errors.items():
+                                errors.setdefault(field, []).extend(msgs)
+                        else:
+                            errors.setdefault("__all__", []).append(str(exc))
+                    except Exception as exc:
+                        errors.setdefault("__all__", []).append(str(exc))
+
+                ok = not errors
+                yield SealOutcome(
+                    index=idx,
+                    ok=ok,
+                    value=validated if ok else None,
+                    errors=errors if not ok else None
+                )
+            except Exception as e:
+                yield SealOutcome(
+                    index=idx,
+                    ok=False,
+                    value=None,
+                    errors={"__all__": [f"JSON parse error: {e}"]}
+                )
+
+    @classmethod
+    def seal_columnar(cls, rows_as_dicts_iterable: Any) -> ColumnarReport:
+        """Perform column-oriented validation over bulk records."""
+        rows = list(rows_as_dicts_iterable)
+        num_rows = len(rows)
+        valid_mask = [True] * num_rows
+        errors_by_column = {fname: [None] * num_rows for fname in cls._sigil.fields}
+
+        for fname, spec in cls._sigil.fields.items():
+            facet = spec.facet
+            from .facets import Computed, Constant
+            if isinstance(facet, (Computed, Constant)) or facet.read_only:
+                continue
+
+            column_values = [row.get(fname, UNSET) for row in rows]
+            failed_count = 0
+            for idx, val in enumerate(column_values):
+                if val is UNSET:
+                    if facet.default is not UNSET:
+                        continue
+                    if facet.required:
+                        errors_by_column[fname][idx] = "This field is required"
+                        valid_mask[idx] = False
+                        failed_count += 1
+                        continue
+                    if facet.allow_null:
+                        continue
+                    continue
+                if val is None:
+                    if facet.allow_null:
+                        continue
+                    errors_by_column[fname][idx] = "This field may not be null"
+                    valid_mask[idx] = False
+                    failed_count += 1
+                    continue
+
+                try:
+                    cast_val = facet.cast(val)
+                    facet.seal(cast_val)
+                except Exception as exc:
+                    errors_by_column[fname][idx] = str(exc)
+                    valid_mask[idx] = False
+                    failed_count += 1
+
+        return ColumnarReport(valid_mask=valid_mask, errors_by_column=errors_by_column)
+
+    @classmethod
+    def example(cls) -> dict[str, Any]:
+        """Generate schema-valid random test data dict."""
+        import random
+        import string
+        from .facets import (
+            BoolFacet,
+            ChoiceFacet,
+            DictFacet,
+            FloatFacet,
+            IntFacet,
+            ListFacet,
+            TextFacet,
+        )
+        from .sigil import get_nested_blueprint_cls
+
+        result = {}
+        for fname, spec in cls._sigil.fields.items():
+            facet = spec.facet
+            if facet.read_only:
+                continue
+
+            nested_cls = get_nested_blueprint_cls(facet)
+            if nested_cls is not None:
+                is_many = getattr(facet, "many", False)
+                if is_many:
+                    result[fname] = [nested_cls.example() for _ in range(random.randint(1, 3))]
+                else:
+                    result[fname] = nested_cls.example()
+                continue
+
+            if isinstance(facet, ChoiceFacet):
+                allowed = getattr(facet, "_valid_values", ())
+                if allowed:
+                    result[fname] = random.choice(list(allowed))
+                else:
+                    result[fname] = None
+                continue
+
+            if isinstance(facet, TextFacet):
+                min_len = facet.min_length or 0
+                max_len = facet.max_length or (min_len + 10)
+                length = random.randint(min_len, max_len)
+
+                pattern = getattr(facet, "pattern", None)
+                if pattern is not None:
+                    p_str = pattern.pattern
+                    if p_str == r"^[-a-zA-Z0-9_]+$":
+                        chars = string.ascii_letters + string.digits + "-_"
+                        result[fname] = "".join(random.choice(chars) for _ in range(max(1, length)))
+                    elif p_str == r"^[a-z0-9-]+$":
+                        chars = string.ascii_lowercase + string.digits + "-"
+                        result[fname] = "".join(random.choice(chars) for _ in range(max(1, length)))
+                    else:
+                        chars = string.ascii_letters + string.digits
+                        result[fname] = "".join(random.choice(chars) for _ in range(max(1, length)))
+                else:
+                    result[fname] = "".join(random.choice(string.ascii_lowercase) for _ in range(length))
+                continue
+
+            if isinstance(facet, IntFacet):
+                min_val = facet.min_value if facet.min_value is not None else 0
+                max_val = facet.max_value if facet.max_value is not None else (min_val + 100)
+
+                mult = getattr(facet, "multiple_of", None)
+                if mult is not None:
+                    start_mult = (min_val + mult - 1) // mult
+                    end_mult = max_val // mult
+                    if start_mult <= end_mult:
+                        result[fname] = random.randint(start_mult, end_mult) * mult
+                    else:
+                        result[fname] = min_val
+                else:
+                    result[fname] = random.randint(min_val, max_val)
+                continue
+
+            if isinstance(facet, FloatFacet):
+                min_val = facet.min_value if facet.min_value is not None else 0.0
+                max_val = facet.max_value if facet.max_value is not None else (min_val + 100.0)
+
+                mult = getattr(facet, "multiple_of", None)
+                if mult is not None:
+                    start_mult = int((min_val + mult - 1e-9) / mult)
+                    end_mult = int(max_val / mult)
+                    if start_mult <= end_mult:
+                        result[fname] = float(random.randint(start_mult, end_mult) * mult)
+                    else:
+                        result[fname] = float(min_val)
+                else:
+                    result[fname] = random.uniform(min_val, max_val)
+                continue
+
+            if isinstance(facet, BoolFacet):
+                result[fname] = random.choice([True, False])
+                continue
+
+            if isinstance(facet, ListFacet):
+                min_items = getattr(facet, "min_items", 0) or 0
+                max_items = getattr(facet, "max_items", 5) or (min_items + 3)
+                num_items = random.randint(min_items, max_items)
+                child = getattr(facet, "child", None)
+                if child is not None:
+                    if isinstance(child, TextFacet):
+                        result[fname] = ["".join(random.choice(string.ascii_lowercase) for _ in range(5)) for _ in range(num_items)]
+                    elif isinstance(child, IntFacet):
+                        result[fname] = [random.randint(0, 100) for _ in range(num_items)]
+                    else:
+                        result[fname] = []
+                else:
+                    result[fname] = []
+                continue
+
+            if isinstance(facet, DictFacet):
+                result[fname] = {}
+                continue
+
+            from datetime import date, datetime
+            import uuid
+            facet_cls_name = type(facet).__name__
+            if facet_cls_name == "DateFacet":
+                result[fname] = date.today().isoformat()
+            elif facet_cls_name == "DateTimeFacet":
+                result[fname] = datetime.now().isoformat()
+            elif facet_cls_name == "UUIDFacet":
+                result[fname] = str(uuid.uuid4())
+            else:
+                result[fname] = None
+
+        return result
+
+    @classmethod
+    def strategy(cls) -> Any:
+        """Construct hypothesis FixedDictionary SearchStrategy matching this schema."""
+        try:
+            from hypothesis import strategies as st
+        except ImportError:
+            raise ImportError("hypothesis is not installed. pip install hypothesis to use Blueprint.strategy().")
+
+        import string
+        from .facets import (
+            BoolFacet,
+            ChoiceFacet,
+            DictFacet,
+            FloatFacet,
+            IntFacet,
+            ListFacet,
+            TextFacet,
+        )
+        from .sigil import get_nested_blueprint_cls
+
+        fields_strategies = {}
+        for fname, spec in cls._sigil.fields.items():
+            facet = spec.facet
+            if facet.read_only:
+                continue
+
+            nested_cls = get_nested_blueprint_cls(facet)
+            if nested_cls is not None:
+                is_many = getattr(facet, "many", False)
+                if is_many:
+                    fields_strategies[fname] = st.lists(nested_cls.strategy(), min_size=1, max_size=3)
+                else:
+                    fields_strategies[fname] = nested_cls.strategy()
+                continue
+
+            if isinstance(facet, ChoiceFacet):
+                allowed = getattr(facet, "_valid_values", ())
+                if allowed:
+                    fields_strategies[fname] = st.sampled_from(list(allowed))
+                else:
+                    fields_strategies[fname] = st.none()
+                continue
+
+            if isinstance(facet, TextFacet):
+                min_len = facet.min_length if facet.min_length is not None else 0
+                max_len = facet.max_length if facet.max_length is not None else (min_len + 16)
+
+                pattern = getattr(facet, "pattern", None)
+                if pattern is not None:
+                    fields_strategies[fname] = st.from_regex(pattern, fullmatch=True)
+                else:
+                    fields_strategies[fname] = st.text(alphabet=string.ascii_lowercase, min_size=min_len, max_size=max_len)
+                continue
+
+            if isinstance(facet, IntFacet):
+                min_val = facet.min_value if facet.min_value is not None else -1000
+                max_val = facet.max_value if facet.max_value is not None else 1000
+
+                mult = getattr(facet, "multiple_of", None)
+                if mult is not None:
+                    fields_strategies[fname] = st.integers(
+                        min_value=(min_val + mult - 1) // mult if min_val is not None else -100,
+                        max_value=max_val // mult if max_val is not None else 100
+                    ).map(lambda x, m=mult: x * m)
+                else:
+                    fields_strategies[fname] = st.integers(min_value=min_val, max_value=max_val)
+                continue
+
+            if isinstance(facet, FloatFacet):
+                min_val = facet.min_value if facet.min_value is not None else -1000.0
+                max_val = facet.max_value if facet.max_value is not None else 1000.0
+
+                mult = getattr(facet, "multiple_of", None)
+                if mult is not None:
+                    fields_strategies[fname] = st.integers(
+                        min_value=int(min_val / mult) if min_val is not None else -100,
+                        max_value=int(max_val / mult) if max_val is not None else 100
+                    ).map(lambda x, m=mult: float(x * m))
+                else:
+                    fields_strategies[fname] = st.floats(min_value=min_val, max_value=max_val, allow_nan=False, allow_infinity=False)
+                continue
+
+            if isinstance(facet, BoolFacet):
+                fields_strategies[fname] = st.booleans()
+                continue
+
+            if isinstance(facet, ListFacet):
+                min_items = getattr(facet, "min_items", 0) or 0
+                max_items = getattr(facet, "max_items", 5) or 5
+                child = getattr(facet, "child", None)
+                if child is not None:
+                    if isinstance(child, TextFacet):
+                        el_strat = st.text(alphabet=string.ascii_lowercase, min_size=1, max_size=5)
+                    elif isinstance(child, IntFacet):
+                        el_strat = st.integers(min_value=0, max_value=100)
+                    else:
+                        el_strat = st.none()
+                else:
+                    el_strat = st.none()
+                fields_strategies[fname] = st.lists(el_strat, min_size=min_items, max_size=max_items)
+                continue
+
+            if isinstance(facet, DictFacet):
+                fields_strategies[fname] = st.dictionaries(st.text(), st.text())
+                continue
+
+            fields_strategies[fname] = st.none()
+
+        return st.fixed_dictionaries(fields_strategies)
+
     def __repr__(self) -> str:
         model_name = self._spec.model.__name__ if self._spec.model else "None"
         state = "sealed" if self._is_sealed else ("failed" if self._is_sealed is False else "pending")
         return f"<{type(self).__name__} model={model_name} state={state}>"
+
+
+# ---------------------------------------------------------------------------
+# Outbound reports and outcomes
+# ---------------------------------------------------------------------------
+
+from dataclasses import dataclass
+
+@dataclass(frozen=True, slots=True)
+class SealOutcome:
+    index: int
+    ok: bool
+    value: dict | None
+    errors: dict | None
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnarReport:
+    valid_mask: list[bool]
+    errors_by_column: dict[str, list[str | None]]

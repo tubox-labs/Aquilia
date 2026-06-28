@@ -98,11 +98,21 @@ from .integration import (
 from .lenses import Lens
 from .projections import ProjectionRegistry
 from .schema import generate_component_schemas, generate_schema
+from .ward import ward, WardMethod
+from .sigil import Sigil, FieldSpec
+from .core import SealOutcome, ColumnarReport, BlueprintUnion
 
 __all__ = [
     # Core
     "Blueprint",
     "BlueprintMeta",
+    "ward",
+    "WardMethod",
+    "Sigil",
+    "FieldSpec",
+    "SealOutcome",
+    "ColumnarReport",
+    "BlueprintUnion",
     # Facets
     "Facet",
     "UNSET",
