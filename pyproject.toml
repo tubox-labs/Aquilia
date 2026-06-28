@@ -239,6 +239,7 @@ ignore = [
     "N817",   # camelCase imported as acronym
     "N818",   # exception name should end in Error
     "B004",   # unreliable callable check
+    "B008",   # function call in argument defaults (Dep DI syntax)
     "B007",   # unused loop variable
     "B018",   # useless expression
     "B023",   # function uses loop variable

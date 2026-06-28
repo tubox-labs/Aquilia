@@ -357,8 +357,18 @@ def _extract_method_params(
             param_type = type_hints.get(param_name, Any)
 
             # Determine source
+            #
+            # PRECEDENCE RULE: Explicit Dep(...) declarations (whether via
+            # Annotated[T, Dep(...)] or as a default value ``param: T = Dep(fn)``)
+            # always take precedence over implicit source detection from the
+            # type annotation (e.g. Blueprint → body, Session → di).
+            # We check for Dep in the default value first so that Blueprint-typed
+            # parameters with Dep defaults are classified as "dep", not "body".
             if param_name in path_params:
                 source = "path"
+            elif _has_dep_default(param):
+                # Default value is a Dep(...) descriptor → resolve via RequestDAG
+                source = "dep"
             elif _is_blueprint_type(param_type):
                 # Blueprint subclass → auto-parse request body
                 source = "body"
@@ -432,6 +442,27 @@ def _extract_method_params(
         pass
 
     return params
+
+
+def _has_dep_default(param: Any) -> bool:
+    """
+    Check if a parameter's default value is a Dep(...) instance.
+
+    Supports the ``param: T = Dep(callable)`` syntax for dependency injection,
+    where the Dep descriptor is specified as the default value rather than
+    via ``Annotated[T, Dep(...)]``.
+
+    This must be checked BEFORE type-based source detection (e.g. Blueprint → body)
+    so that explicit dependency declarations always take precedence.
+    """
+    if param.default is inspect.Parameter.empty:
+        return False
+    try:
+        from aquilia.di.dep import Dep
+
+        return isinstance(param.default, Dep)
+    except ImportError:
+        return False
 
 
 def _is_blueprint_type(annotation: Any) -> bool:

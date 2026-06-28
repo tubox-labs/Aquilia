@@ -769,11 +769,16 @@ class ControllerEngine:
             # ── Blueprint injection ──────────────────────────────────────
             # If the parameter type is a Blueprint subclass, auto-parse
             # the request body through it.
+            #
+            # PRECEDENCE: If a parameter is classified as source="dep"
+            # (i.e. it has a Dep(...) default or Annotated[T, Dep(...)]),
+            # skip blueprint body binding entirely — the dependency result
+            # takes priority over request body data.
             param_is_blueprint = self._is_blueprint_class(param.type)
 
             use_blueprint = None
 
-            if param_is_blueprint:
+            if param_is_blueprint and param.source != "dep":
                 use_blueprint = param.type
             elif (
                 decorator_request_blueprint
@@ -915,15 +920,24 @@ class ControllerEngine:
                 try:
                     from typing import Annotated, get_args, get_origin
 
+                    from aquilia.di.dep import Dep as DepMarker
                     from aquilia.di.dep import _extract_dep_from_annotation
                     from aquilia.di.request_dag import RequestDAG
 
+                    # Try extracting Dep from Annotated[T, Dep(...)] first
                     dep_meta = _extract_dep_from_annotation(param.type)
+                    base_type = param.type
+
+                    # Fallback: check if Dep(...) is the parameter's default value
+                    # (supports ``param: T = Dep(callable)`` syntax)
+                    if dep_meta is None and isinstance(param.default, DepMarker):
+                        dep_meta = param.default
+                        # base_type is already the raw annotation (e.g. ArticleBlueprint)
+
                     if dep_meta is not None:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
-                        # Get base type from Annotated
-                        base_type = param.type
+                        # Get base type from Annotated (if applicable)
                         if get_origin(param.type) is Annotated:
                             base_type = get_args(param.type)[0]
                         value = await request_dag.resolve(dep_meta, base_type)
