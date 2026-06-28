@@ -250,6 +250,31 @@ class Field:
         return f"Field({', '.join(parts)})"
 
 
+# ── BlueprintUnionAdapterFacet ──────────────────────────────────────────
+
+class BlueprintUnionAdapterFacet(Facet):
+    """Thin adapter Facet that delegates casting and sealing to a BlueprintUnion."""
+
+    _type_name = "object"
+
+    def __init__(self, union: Any, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.union = union
+
+    def cast(self, value: Any) -> Any:
+        errors, validated = self.union.validate(value)
+        if errors:
+            err_msg = "; ".join(f"{k}: {v}" for k, v in errors.items())
+            raise CastFault(self.name or "<unbound>", err_msg)
+        return validated
+
+    def seal(self, value: Any) -> Any:
+        return super().seal(value)
+
+    def to_schema(self) -> dict[str, Any]:
+        return self.union.to_json_schema()
+
+
 # ── NestedBlueprintFacet ────────────────────────────────────────────────
 
 
@@ -698,6 +723,79 @@ def _build_facet_from_annotation(
     Returns:
         A configured Facet instance, or None if unrecognised.
     """
+    # Support Annotated metadata
+    from typing import Annotated
+    if get_origin(annotation) is Annotated:
+        args = get_args(annotation)
+        actual_type = args[0]
+        metadata = args[1:]
+        
+        from .pipeline import Pipeline
+        target_facet = None
+        pipeline = None
+        for meta in metadata:
+            if isinstance(meta, Facet):
+                target_facet = meta
+            elif isinstance(meta, Pipeline):
+                pipeline = meta
+                if pipeline.runes and pipeline.runes[0].is_facet:
+                    target_facet = pipeline.runes[0].fn
+            elif isinstance(meta, Field):
+                field_spec = meta
+        
+        # Check if the type is a BlueprintUnion (which handles class | class operator)
+        # We'll map it to a thin adapter Facet in Step 9
+        from .core import BlueprintUnion
+        if isinstance(actual_type, BlueprintUnion) or (hasattr(actual_type, "__origin__") and actual_type.__origin__ is BlueprintUnion):
+            union_kwargs = {}
+            if field_spec is not None:
+                if field_spec.default is not UNSET:
+                    union_kwargs["default"] = field_spec.default
+                    union_kwargs["required"] = False
+                elif field_spec.default_factory is not None:
+                    union_kwargs["default"] = field_spec.default_factory
+                    union_kwargs["required"] = False
+                if field_spec.required is not None:
+                    union_kwargs["required"] = field_spec.required
+                if field_spec.read_only:
+                    union_kwargs["read_only"] = True
+                if field_spec.write_only:
+                    union_kwargs["write_only"] = True
+                if field_spec.allow_null:
+                    union_kwargs["allow_null"] = True
+            elif class_default is not UNSET and not isinstance(class_default, Field):
+                union_kwargs["default"] = class_default
+                union_kwargs["required"] = False
+            return BlueprintUnionAdapterFacet(actual_type, **union_kwargs)
+
+        if target_facet is not None:
+            if pipeline is not None:
+                target_facet._pipeline = pipeline
+            
+            # Apply defaults and required overrides
+            if class_default is not UNSET and not isinstance(class_default, Field):
+                target_facet.default = class_default
+                target_facet.required = False
+            if field_spec is not None:
+                if field_spec.default is not UNSET:
+                    target_facet.default = field_spec.default
+                    target_facet.required = False
+                elif field_spec.default_factory is not None:
+                    target_facet.default = field_spec.default_factory
+                    target_facet.required = False
+                if field_spec.required is not None:
+                    target_facet.required = field_spec.required
+                if field_spec.read_only:
+                    target_facet.read_only = True
+                if field_spec.write_only:
+                    target_facet.write_only = True
+                if field_spec.allow_null:
+                    target_facet.allow_null = True
+            
+            return target_facet
+            
+        annotation = actual_type
+
     # Unwrap Optional
     inner_type, is_optional = _unwrap_optional(annotation)
 
@@ -746,6 +844,11 @@ def _build_facet_from_annotation(
         choice_kwargs = dict(kwargs)
         return ChoiceFacet(choices=field_spec.choices, **choice_kwargs)
 
+    # ── BlueprintUnion check ─────────────────────────────────────────
+    from .core import BlueprintUnion
+    if isinstance(inner_type, BlueprintUnion) or (hasattr(inner_type, "__origin__") and inner_type.__origin__ is BlueprintUnion):
+        return BlueprintUnionAdapterFacet(inner_type, **kwargs)
+
     # ── Nested Blueprint ─────────────────────────────────────────────
     if _is_blueprint_class(inner_type):
         nested_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank",)}
@@ -754,8 +857,24 @@ def _build_facet_from_annotation(
             return LazyBlueprintFacet(ref_name, many=False, **nested_kwargs)
         return NestedBlueprintFacet(inner_type, many=False, **nested_kwargs)
 
+    # ── Literal / Choices handling ───────────────────────────────────
+    from typing import Literal
+    try:
+        from typing_extensions import Literal as LiteralExt
+    except ImportError:
+        LiteralExt = Literal
+
+    origin = get_origin(inner_type)
+    if origin is Literal or origin is LiteralExt:
+        allowed = get_args(inner_type)
+        choice_kwargs = dict(kwargs)
+        choice_kwargs.pop("allow_blank", None)
+        choice_kwargs.pop("min_length", None)
+        choice_kwargs.pop("max_length", None)
+        return ChoiceFacet(choices=allowed, **choice_kwargs)
+
     # ── Polymorphic / Union Nesting ──────────────────────────────────
-    if get_origin(inner_type) is Union:
+    if origin is Union:
         union_args = get_args(inner_type)
         choices = []
         for arg in union_args:
@@ -993,8 +1112,10 @@ def introspect_annotations(
     import builtins
 
     resolve_ns.update(vars(builtins))
+    from typing import Annotated
     resolve_ns["Optional"] = Optional
     resolve_ns["Union"] = Union
+    resolve_ns["Annotated"] = Annotated
     resolve_ns["List"] = list
     resolve_ns["Dict"] = dict
     resolve_ns["Set"] = set

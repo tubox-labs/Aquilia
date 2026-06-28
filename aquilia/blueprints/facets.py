@@ -84,10 +84,87 @@ class _Unset:
 UNSET = _Unset()
 
 
+# ── Facet Factory Metaclass ──────────────────────────────────────────────
+
+class FacetMeta(type):
+    """Metaclass on Facet to support class property factory proxies."""
+
+    @property
+    def text(cls) -> _FactoryProxy:
+        return _FactoryProxy(TextFacet)
+
+    @property
+    def int(cls) -> _FactoryProxy:
+        return _FactoryProxy(IntFacet)
+
+    @property
+    def float(cls) -> _FactoryProxy:
+        return _FactoryProxy(FloatFacet)
+
+    @property
+    def bool(cls) -> _FactoryProxy:
+        return _FactoryProxy(BoolFacet)
+
+    @property
+    def list(cls) -> _FactoryProxy:
+        return _FactoryProxy(ListFacet)
+
+    @property
+    def dict(cls) -> _FactoryProxy:
+        return _FactoryProxy(DictFacet)
+
+
+class _FactoryProxy:
+    """Proxy descriptor to support slice-subscript bounds on Facet factory."""
+
+    __slots__ = ("facet_class",)
+
+    def __init__(self, facet_class: type[Facet]):
+        self.facet_class = facet_class
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Facet:
+        return self.facet_class(*args, **kwargs)
+
+    def __getitem__(self, val: Any) -> Facet:
+        if self.facet_class is ListFacet:
+            if isinstance(val, tuple):
+                child_facet = val[0]
+                sl = val[1]
+                if not isinstance(sl, slice):
+                    raise TypeError("Expected a slice for list bounds")
+                return ListFacet(child=child_facet, min_items=sl.start, max_items=sl.stop)
+            elif isinstance(val, slice):
+                return ListFacet(min_items=val.start, max_items=val.stop)
+            else:
+                return ListFacet(child=val)
+
+        if not isinstance(val, slice):
+            raise TypeError("Expected a slice")
+
+        if self.facet_class is TextFacet:
+            return TextFacet(min_length=val.start, max_length=val.stop)
+        
+        if self.facet_class is IntFacet:
+            # multiple_of is step
+            return IntFacet(min_value=val.start, max_value=val.stop, multiple_of=val.step)
+            
+        if self.facet_class is FloatFacet:
+            kwargs = {}
+            if val.start is not None:
+                kwargs["min_value"] = float(val.start)
+            if val.stop is not None:
+                kwargs["max_value"] = float(val.stop)
+            if val.step is not None:
+                kwargs["multiple_of"] = float(val.step)
+            return FloatFacet(**kwargs)
+
+        raise TypeError(f"Subscripting not supported on {self.facet_class.__name__}")
+
+
 # ── Facet Base ───────────────────────────────────────────────────────────
 
 
-class Facet:
+class Facet(metaclass=FacetMeta):
     """
     Base facet -- a single data point in a Blueprint.
 
@@ -257,7 +334,7 @@ class Facet:
             schema["writeOnly"] = True
         return schema
 
-    # ── Factories ────────────────────────────────────────────────────
+    # ── Factories ────────────────------------------------------------
 
     @classmethod
     def write_only(cls, **kwargs) -> Facet:
@@ -270,6 +347,35 @@ class Facet:
         """Factory: create a read-only facet."""
         kwargs["read_only"] = True
         return cls(**kwargs)
+
+    def __getitem__(self, val: Any) -> Facet:
+        """Subscript slice constraint convenience."""
+        if not isinstance(val, slice):
+            raise TypeError("Expected a slice")
+        new_facet = self.clone()
+        if isinstance(new_facet, TextFacet):
+            if val.start is not None:
+                new_facet.min_length = val.start
+            if val.stop is not None:
+                new_facet.max_length = val.stop
+        elif isinstance(new_facet, (IntFacet, FloatFacet)):
+            if val.start is not None:
+                new_facet.min_value = val.start
+            if val.stop is not None:
+                new_facet.max_value = val.stop
+            if val.step is not None:
+                new_facet.multiple_of = val.step
+        elif isinstance(new_facet, ListFacet):
+            if val.start is not None:
+                new_facet.min_items = val.start
+            if val.stop is not None:
+                new_facet.max_items = val.stop
+        return new_facet
+
+    def __rshift__(self, other: Any) -> Any:
+        """Pipeline operator: compose transforms left-to-right."""
+        from .pipeline import Pipeline, _as_rune
+        return Pipeline([_as_rune(self), _as_rune(other)])
 
     def __repr__(self) -> str:
         name = self.name or "<unbound>"
@@ -452,11 +558,13 @@ class IntFacet(Facet):
         *,
         min_value: int | None = None,
         max_value: int | None = None,
+        multiple_of: int | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.min_value = min_value
         self.max_value = max_value
+        self.multiple_of = multiple_of
 
     def cast(self, value: Any) -> int:
         if isinstance(value, bool):
@@ -471,6 +579,9 @@ class IntFacet(Facet):
             raise CastFault(self.name or "<unbound>", f"Must be at least {self.min_value}")
         if self.max_value is not None and value > self.max_value:
             raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
+        if self.multiple_of is not None:
+            if value % self.multiple_of != 0:
+                raise CastFault(self.name or "<unbound>", f"Must be a multiple of {self.multiple_of}")
         return super().seal(value)
 
     def to_schema(self) -> dict[str, Any]:
@@ -479,6 +590,8 @@ class IntFacet(Facet):
             schema["minimum"] = self.min_value
         if self.max_value is not None:
             schema["maximum"] = self.max_value
+        if self.multiple_of is not None:
+            schema["multipleOf"] = self.multiple_of
         return schema
 
 
@@ -494,6 +607,7 @@ class FloatFacet(Facet):
         max_value: float | None = None,
         allow_nan: bool = False,
         allow_infinity: bool = False,
+        multiple_of: float | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -501,6 +615,7 @@ class FloatFacet(Facet):
         self.max_value = max_value
         self.allow_nan = allow_nan
         self.allow_infinity = allow_infinity
+        self.multiple_of = multiple_of
 
     def cast(self, value: Any) -> float:
         import math
@@ -520,6 +635,9 @@ class FloatFacet(Facet):
             raise CastFault(self.name or "<unbound>", f"Must be at least {self.min_value}")
         if self.max_value is not None and value > self.max_value:
             raise CastFault(self.name or "<unbound>", f"Must be at most {self.max_value}")
+        if self.multiple_of is not None:
+            if abs(value / self.multiple_of - round(value / self.multiple_of)) > 1e-9:
+                raise CastFault(self.name or "<unbound>", f"Must be a multiple of {self.multiple_of}")
         return super().seal(value)
 
     def to_schema(self) -> dict[str, Any]:
@@ -528,6 +646,8 @@ class FloatFacet(Facet):
             schema["minimum"] = self.min_value
         if self.max_value is not None:
             schema["maximum"] = self.max_value
+        if self.multiple_of is not None:
+            schema["multipleOf"] = self.multiple_of
         return schema
 
 
@@ -996,6 +1116,11 @@ class ChoiceFacet(Facet):
         else:
             self.choices = {c: c for c in choices}
             self._valid_values = set(choices)
+
+    @property
+    def allowed_values(self) -> set:
+        """Alias for _valid_values, matching schema needs."""
+        return self._valid_values
 
     def cast(self, value: Any) -> Any:
         return value
