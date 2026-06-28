@@ -130,6 +130,11 @@ class SimplifiedRequestScopeMiddleware:
         # Create request-scoped child container for proper isolation
         request_container = app_container.create_request_scope()
 
+        # Register request in DI container
+        from aquilia.request import Request as RequestClass
+        if isinstance(request, RequestClass):
+            await request_container.register_instance(RequestClass, request, scope="request")
+
         # Store in request state
         request.state.di_container = request_container
         request.state.app_container = app_container

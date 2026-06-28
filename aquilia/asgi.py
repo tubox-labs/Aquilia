@@ -84,13 +84,19 @@ class ASGIAdapter:
             if not server or not hasattr(server, "runtime"):
                 from .di import Container
 
-                return Container(scope="request")
-            if server.runtime.di_containers:
+                container = Container(scope="request")
+            elif server.runtime.di_containers:
                 app_container = next(iter(server.runtime.di_containers.values()))
-                return app_container.create_request_scope()
-            from .di import Container
+                container = app_container.create_request_scope()
+            else:
+                from .di import Container
 
-            return Container(scope="request")
+                container = Container(scope="request")
+
+            if request is not None:
+                from .request import Request as RequestClass
+                await container.register_instance(RequestClass, request, scope="request")
+            return container
 
         self.socket_runtime.container_factory = container_factory
 
@@ -344,6 +350,10 @@ class ASGIAdapter:
             from .di import Container
 
             di_container = Container(scope="request")
+
+        # Register Request instance in container for BlueprintProvider request lookup
+        from .request import Request as RequestClass
+        await di_container.register_instance(RequestClass, request, scope="request")
 
         # ── Acquire RequestCtx from pool (zero-alloc hot path) ──
         ctx = _ctx_pool.acquire(
