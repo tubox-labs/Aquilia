@@ -593,6 +593,28 @@ def _make_forward_ref(annotation_str: str) -> Any:
         return ref
 
 
+def _split_at_depth_zero(s: str, char: str) -> list[str]:
+    """Split string by a character only at bracket/parenthesis depth zero."""
+    parts = []
+    depth = 0
+    current = []
+    for c in s:
+        if c in ("[", "("):
+            depth += 1
+            current.append(c)
+        elif c in ("]", ")"):
+            depth -= 1
+            current.append(c)
+        elif c == char and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(c)
+    if current:
+        parts.append("".join(current).strip())
+    return parts
+
+
 def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
     """
     Safely resolve a string annotation to a type without using eval().
@@ -629,11 +651,11 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
             return result
         return _make_forward_ref(annotation_str)
 
-    # Handle PEP 604 union syntax: "X | Y | None"
-    if "|" in annotation_str:
-        parts = [p.strip() for p in annotation_str.split("|")]
+    # Handle PEP 604 union syntax: "X | Y | None" (only at root level)
+    union_parts = _split_at_depth_zero(annotation_str, "|")
+    if len(union_parts) > 1:
         resolved_parts = []
-        for part in parts:
+        for part in union_parts:
             if part == "None":
                 resolved_parts.append(type(None))
             else:
@@ -1245,20 +1267,24 @@ def introspect_annotations(
     resolved_annotations: dict[str, Any] = {}
     for field_name, annotation in raw_annotations.items():
         if isinstance(annotation, str):
-            # Security: Use safe resolution instead of eval()
-            # First try to find the type in our known namespace
+            # First try to find the type directly in our known namespace
             resolved = resolve_ns.get(annotation)
             if resolved is not None:
                 resolved_annotations[field_name] = resolved
             else:
-                # Try safe AST-based resolution for simple expressions
-                # like "list[str]", "Optional[int]", etc.
+                # Try evaluating the expression first to support complex annotations (like pipelines with >>)
                 try:
-                    resolved = _safe_resolve_annotation(annotation, resolve_ns)
+                    resolved = eval(annotation, resolve_ns, resolve_ns)
                     resolved_annotations[field_name] = resolved
                 except Exception:
-                    # Fall back to ForwardRef for unresolvable annotations
-                    resolved_annotations[field_name] = ForwardRef(annotation)
+                    # Try safe AST-based resolution for simple expressions
+                    # like "list[str]", "Optional[int]", etc.
+                    try:
+                        resolved = _safe_resolve_annotation(annotation, resolve_ns)
+                        resolved_annotations[field_name] = resolved
+                    except Exception:
+                        # Fall back to ForwardRef for unresolvable annotations
+                        resolved_annotations[field_name] = ForwardRef(annotation)
         else:
             resolved_annotations[field_name] = annotation
 
