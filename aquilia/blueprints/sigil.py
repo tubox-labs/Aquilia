@@ -7,14 +7,14 @@ It is the compiled, immutable representation of the schema.
 from __future__ import annotations
 
 import hashlib
-import json
+import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
-import uuid
-from typing import Any, Callable
+from typing import Any
 
-from .exceptions import CastFault, SealFault
+from .exceptions import CastFault
 from .pipeline import Pipeline
 
 __all__ = ["Sigil", "FieldSpec", "SigilDiff", "FieldDiff", "build_sigil"]
@@ -104,7 +104,7 @@ class Sigil:
         for name, spec in sorted(self.fields.items()):
             facet_shape = serialize_facet_shape(spec.facet)
             structure.append((name, type(spec.facet).__name__, facet_shape))
-        
+
         repr_str = repr(structure)
         hasher.update(repr_str.encode("utf-8"))
         return hasher.hexdigest()
@@ -126,9 +126,7 @@ class Sigil:
         # Run migrations sequentially if revision context matches
         if self.revision is not None and self.migrate_from and is_mapping_like(data):
             data_rev = None
-            if isinstance(data, dict):
-                data_rev = data.get("__revision__")
-            elif hasattr(data, "get"):
+            if isinstance(data, dict) or hasattr(data, "get"):
                 data_rev = data.get("__revision__")
 
             if data_rev is None and self.migrate_from:
@@ -515,7 +513,6 @@ def check_strict_type(facet: Any, value: Any) -> bool:
     """Type-check values strictly without casting/coercion."""
     from .facets import (
         BoolFacet,
-        ChoiceFacet,
         DateFacet,
         DateTimeFacet,
         DecimalFacet,
@@ -597,7 +594,8 @@ def get_keys(data: Any) -> set[str]:
 
 def get_field_value(data: Any, fname: str, facet: Any) -> Any:
     from collections.abc import Mapping
-    from .facets import UNSET, ListFacet, FileFacet, TextFacet
+
+    from .facets import UNSET, FileFacet, ListFacet, TextFacet
     try:
         from .._datastructures import MultiDict
     except ImportError:
@@ -627,12 +625,12 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                 all_keys = list(data.keys())
             elif FormData is not None and isinstance(data, FormData):
                 all_keys = list(data.fields.keys()) | list(data.files.keys())
-            
+
             indices = set()
             import re
             pattern1 = re.compile(rf"^{re.escape(fname)}\[(\d+)\]")
             pattern2 = re.compile(rf"^{re.escape(fname)}\.(\d+)")
-            
+
             for k in all_keys:
                 m1 = pattern1.match(k)
                 if m1:
@@ -641,7 +639,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                     m2 = pattern2.match(k)
                     if m2:
                         indices.add(int(m2.group(1)))
-            
+
             if indices:
                 sorted_indices = sorted(list(indices))
                 results = []
@@ -654,7 +652,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                     if nested_val is not UNSET:
                         results.append(nested_val)
                 return results
-            
+
             for k in keys_to_try:
                 val = _get_single_val(data, k, FormData, MultiDict)
                 if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
@@ -674,7 +672,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                 for k in keys_to_try:
                     if k in data.files:
                         return data.get_all_files(k)
-        
+
         if FormData is not None and isinstance(data, FormData):
             for k in keys_to_try:
                 if k in data.fields:
@@ -683,7 +681,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
             for k in keys_to_try:
                 if k in data:
                     return data.get_all(k)
-        
+
         for k in keys_to_try:
             val = _get_single_val(data, k, FormData, MultiDict)
             if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
@@ -694,7 +692,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                         return parsed
                 except Exception:
                     pass
-        
+
         for k in keys_to_try:
             val = _get_single_val(data, k, FormData, MultiDict)
             if val is not UNSET:
@@ -742,21 +740,23 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
     return UNSET
 
 
-def _get_single_val(data: Any, key: str, FormData: Any, MultiDict: Any) -> Any:
+def _get_single_val(data: Any, key: str, form_data_cls: Any, multi_dict_cls: Any) -> Any:
     from .facets import UNSET
-    if FormData is not None and isinstance(data, FormData):
+    if form_data_cls is not None and isinstance(data, form_data_cls):
         if key in data.fields:
             return data.fields.get(key)
         if key in data.files:
             return data.get_file(key)
-    elif MultiDict is not None and isinstance(data, MultiDict):
+    elif multi_dict_cls is not None and isinstance(data, multi_dict_cls):
         if key in data:
             return data.get(key)
     return UNSET
 
 
+
 def extract_nested_mapping(data: Any, prefix: str) -> Any:
     from collections.abc import Mapping
+
     from .facets import UNSET
     try:
         from .._datastructures import MultiDict
@@ -794,13 +794,13 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
 
         if len(nested_fields) > 0 or len(nested_files) > 0:
             return FormData(fields=nested_fields, files=nested_files)
-        
+
         val = UNSET
         if prefix in data.fields:
             val = data.fields.get(prefix)
         elif prefix in data.files:
             val = data.get_file(prefix)
-        
+
         if isinstance(val, str):
             try:
                 import json
@@ -824,7 +824,7 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
                     nested_fields.add(sub_key, v)
         if len(nested_fields) > 0:
             return nested_fields
-        
+
         val = data.get(prefix) if prefix in data else UNSET
         if isinstance(val, str):
             try:
@@ -839,7 +839,7 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
     elif isinstance(data, (dict, Mapping)):
         if prefix in data:
             return data[prefix]
-        
+
         nested_dict = {}
         for k, v in data.items():
             if k.startswith(dot_prefix):
@@ -857,6 +857,7 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
 
 def extract_flat_list_mapping(data: Any) -> list[Any] | None:
     from collections.abc import Mapping
+
     from .facets import UNSET
     try:
         from .._datastructures import MultiDict
@@ -871,9 +872,7 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
         return None
 
     all_keys = []
-    if isinstance(data, (dict, Mapping)) and not (MultiDict is not None and isinstance(data, MultiDict)):
-        all_keys = list(data.keys())
-    elif MultiDict is not None and isinstance(data, MultiDict):
+    if isinstance(data, (dict, Mapping)) and not (MultiDict is not None and isinstance(data, MultiDict)) or MultiDict is not None and isinstance(data, MultiDict):
         all_keys = list(data.keys())
     elif FormData is not None and isinstance(data, FormData):
         all_keys = list(data.fields.keys()) | list(data.files.keys())

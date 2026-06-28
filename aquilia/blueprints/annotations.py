@@ -42,14 +42,13 @@ from typing import (
     get_args,
     get_origin,
 )
-from .._uploads import UploadFile, FormData
 
+from .._uploads import FormData, UploadFile
 from .exceptions import CastFault
 from .facets import (
     UNSET,
     BoolFacet,
     ChoiceFacet,
-    LiteralFacet,
     Computed,
     DateFacet,
     DateTimeFacet,
@@ -59,15 +58,16 @@ from .facets import (
     EmailFacet,
     Facet,
     FloatFacet,
+    FormDataFacet,
     IntFacet,
     ListFacet,
+    LiteralFacet,
     PolymorphicFacet,
     TextFacet,
     TimeFacet,
+    UploadFileFacet,
     URLFacet,
     UUIDFacet,
-    UploadFileFacet,
-    FormDataFacet,
 )
 
 __all__ = [
@@ -767,7 +767,7 @@ def _build_facet_from_annotation(
         args = get_args(annotation)
         actual_type = args[0]
         metadata = args[1:]
-        
+
         from .pipeline import Pipeline
         target_facet = None
         pipeline = None
@@ -780,7 +780,7 @@ def _build_facet_from_annotation(
                     target_facet = pipeline.runes[0].fn
             elif isinstance(meta, Field):
                 field_spec = meta
-        
+
         # Check if the type is a BlueprintUnion (which handles class | class operator)
         # We'll map it to a thin adapter Facet in Step 9
         from .core import BlueprintUnion
@@ -809,7 +809,7 @@ def _build_facet_from_annotation(
         if target_facet is not None:
             if pipeline is not None:
                 target_facet._pipeline = pipeline
-            
+
             # Apply defaults and required overrides
             if class_default is not UNSET and not isinstance(class_default, Field):
                 target_facet.default = class_default
@@ -829,9 +829,9 @@ def _build_facet_from_annotation(
                     target_facet.write_only = True
                 if field_spec.allow_null:
                     target_facet.allow_null = True
-            
+
             return target_facet
-            
+
         annotation = actual_type
 
     # Unwrap Optional
@@ -917,7 +917,7 @@ def _build_facet_from_annotation(
     # ── Literal / Choices handling ───────────────────────────────────
     from typing import Literal
     try:
-        from typing_extensions import Literal as LiteralExt
+        from typing import Literal as LiteralExt
     except ImportError:
         LiteralExt = Literal
 

@@ -507,7 +507,7 @@ class BlueprintMeta(type):
         return f"<Blueprint '{cls.__name__}' model={model_name}>"
 
     def __or__(cls, other: Any) -> Any:
-        from .core import BlueprintUnion, Blueprint
+        from .core import Blueprint, BlueprintUnion
         if isinstance(other, type) and issubclass(other, Blueprint):
             return BlueprintUnion((cls, other))
         if isinstance(other, BlueprintUnion):
@@ -515,7 +515,7 @@ class BlueprintMeta(type):
         return NotImplemented
 
     def __ror__(cls, other: Any) -> Any:
-        from .core import BlueprintUnion, Blueprint
+        from .core import Blueprint, BlueprintUnion
         if isinstance(other, type) and issubclass(other, Blueprint):
             return BlueprintUnion((other, cls))
         return NotImplemented
@@ -618,8 +618,8 @@ class BlueprintUnion:
 
     def validate(self, data: Any) -> tuple[dict, dict]:
         if self._dispatch:
-            from .sigil import is_mapping_like, get_field_value
             from .facets import UNSET, TextFacet
+            from .sigil import get_field_value, is_mapping_like
             tag = None
             if self.discriminator_field and is_mapping_like(data):
                 tag = get_field_value(data, self.discriminator_field, TextFacet())
@@ -1035,7 +1035,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
     def _seal_many(self, *, raise_fault: bool) -> bool:
         """Validate a list of input items."""
-        from .sigil import is_mapping_like, extract_flat_list_mapping
+        from .sigil import extract_flat_list_mapping, is_mapping_like
         input_data = self._input_data
         if is_mapping_like(input_data):
             extracted = extract_flat_list_mapping(input_data)
@@ -1696,6 +1696,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """Generate schema-valid random test data dict."""
         import random
         import string
+
         from .facets import (
             BoolFacet,
             ChoiceFacet,
@@ -1807,8 +1808,8 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 result[fname] = {}
                 continue
 
-            from datetime import date, datetime
             import uuid
+            from datetime import date, datetime
             facet_cls_name = type(facet).__name__
             if facet_cls_name == "DateFacet":
                 result[fname] = date.today().isoformat()
@@ -1830,6 +1831,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             raise ImportError("hypothesis is not installed. pip install hypothesis to use Blueprint.strategy().")
 
         import string
+
         from .facets import (
             BoolFacet,
             ChoiceFacet,
@@ -1942,6 +1944,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 # ---------------------------------------------------------------------------
 
 from dataclasses import dataclass
+
 
 @dataclass(frozen=True, slots=True)
 class SealOutcome:

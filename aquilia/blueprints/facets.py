@@ -203,11 +203,11 @@ class _FactoryProxy:
 
         if self.facet_class is TextFacet:
             return TextFacet(min_length=val.start, max_length=val.stop)
-        
+
         if self.facet_class is IntFacet:
             # multiple_of is step
             return IntFacet(min_value=val.start, max_value=val.stop, multiple_of=val.step)
-            
+
         if self.facet_class is FloatFacet:
             kwargs = {}
             if val.start is not None:
@@ -1629,7 +1629,7 @@ class FormDataFacet(Facet):
         self.type_annotation = type
         self.child_facet = None
 
-        from .annotations import _build_facet_from_annotation, UNSET
+        from .annotations import UNSET, _build_facet_from_annotation
         self.child_facet = _build_facet_from_annotation(
             name=self.name or "",
             annotation=type,

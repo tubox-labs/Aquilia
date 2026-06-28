@@ -38,7 +38,7 @@ Quick Start::
 """
 
 from .annotations import Field, NestedBlueprintFacet, computed
-from .core import Blueprint, BlueprintMeta
+from .core import Blueprint, BlueprintMeta, BlueprintUnion, ColumnarReport, SealOutcome
 from .exceptions import (
     BLUEPRINT,
     BlueprintFault,
@@ -55,10 +55,6 @@ from .facets import (
     # Boolean
     BoolFacet,
     ChoiceFacet,
-    LiteralFacet,
-    EnumFacet,
-    UploadFileFacet,
-    FormDataFacet,
     # Special
     Computed,
     Constant,
@@ -69,10 +65,12 @@ from .facets import (
     DictFacet,
     DurationFacet,
     EmailFacet,
+    EnumFacet,
     # Base
     Facet,
     FileFacet,
     FloatFacet,
+    FormDataFacet,
     Hidden,
     Inject,
     # Numeric
@@ -81,11 +79,13 @@ from .facets import (
     JSONFacet,
     # Structured
     ListFacet,
+    LiteralFacet,
     ReadOnly,
     SlugFacet,
     # Text
     TextFacet,
     TimeFacet,
+    UploadFileFacet,
     URLFacet,
     UUIDFacet,
     WriteOnly,
@@ -102,9 +102,8 @@ from .integration import (
 from .lenses import Lens
 from .projections import ProjectionRegistry
 from .schema import generate_component_schemas, generate_schema
-from .ward import ward, WardMethod
-from .sigil import Sigil, FieldSpec
-from .core import SealOutcome, ColumnarReport, BlueprintUnion
+from .sigil import FieldSpec, Sigil
+from .ward import WardMethod, ward
 
 __all__ = [
     # Core
