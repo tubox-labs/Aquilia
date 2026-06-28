@@ -26,8 +26,24 @@ from .filesystem import append_file, async_open, read_file, stream_read, write_f
 # ============================================================================
 
 
+class UploadFileMeta(type):
+    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
+        is_blueprint_decl = True
+        if args:
+            if isinstance(args[0], str):
+                is_blueprint_decl = False
+        elif "filename" in kwargs:
+            is_blueprint_decl = False
+
+        if is_blueprint_decl:
+            from .blueprints.facets import UploadFileFacet
+            return UploadFileFacet(**kwargs)
+
+        return super().__call__(*args, **kwargs)
+
+
 @dataclass
-class UploadFile:
+class UploadFile(metaclass=UploadFileMeta):
     """
     Uploaded file representation.
 
@@ -147,8 +163,23 @@ FormValue = str | UploadFile
 # ============================================================================
 
 
+class FormDataMeta(type):
+    def __call__(cls, *args: Any, **kwargs: Any) -> Any:
+        is_blueprint_decl = False
+        if kwargs:
+            allowed_keys = {"fields", "files"}
+            if any(k not in allowed_keys for k in kwargs):
+                is_blueprint_decl = True
+
+        if is_blueprint_decl:
+            from .blueprints.facets import FormDataFacet
+            return FormDataFacet(**kwargs)
+
+        return super().__call__(*args, **kwargs)
+
+
 @dataclass
-class FormData:
+class FormData(metaclass=FormDataMeta):
     """
     Parsed form data containing both fields and files.
 

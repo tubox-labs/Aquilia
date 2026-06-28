@@ -165,23 +165,45 @@ async def bind_blueprint_to_request(
 
     # Parse request body
     body = {}
-    if "application/json" in content_type or not content_type:
+    if "application/json" in content_type:
         try:
             body = await request.json()
         except Exception:
             body = {}
-
-    if not body and (
-        "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type or not content_type
-    ):
+    elif "multipart/form-data" in content_type:
         try:
-            form_data = await request.form()
-            form_dict = form_data.fields.to_dict() if hasattr(form_data, "fields") else dict(form_data)
-            body = _unflatten_dict(form_dict)
+            body = await request.multipart()
+        except (AttributeError, TypeError):
+            try:
+                body = await request.form()
+            except Exception:
+                body = {}
         except Exception:
             body = {}
+    elif "application/x-www-form-urlencoded" in content_type:
+        try:
+            body = await request.form()
+        except Exception:
+            body = {}
+    else:
+        if not content_type:
+            try:
+                body = await request.json()
+            except Exception:
+                try:
+                    body = await request.form()
+                except Exception:
+                    body = {}
 
-    data = dict(body) if isinstance(body, dict) else {}
+    try:
+        from .._uploads import FormData
+    except ImportError:
+        FormData = None
+
+    if FormData is not None and isinstance(body, FormData):
+        data = body
+    else:
+        data = dict(body) if isinstance(body, dict) else {}
 
     # Extract DI parameters (Query, Header) from Facet defaults
     try:

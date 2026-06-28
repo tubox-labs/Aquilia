@@ -63,19 +63,26 @@ def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
         @functools.wraps(handler)
         async def wrapper(self: Any, ctx: Any, *args: Any, **kwargs: Any) -> Any:
             try:
-                raw_body = await ctx.body()
-                if not raw_body:
-                    data: dict = {}
+                content_type = ctx.request.headers.get("content-type", "") or ctx.request.headers.get("Content-Type", "")
+                if "application/json" in content_type:
+                    raw_body = await ctx.body()
+                    data = json.loads(raw_body) if raw_body else {}
+                elif "multipart/form-data" in content_type:
+                    data = await ctx.multipart()
+                elif "application/x-www-form-urlencoded" in content_type:
+                    data = await ctx.form()
                 else:
-                    content_type = ctx.request.headers.get("content-type", "")
-                    if "application/json" in content_type:
-                        data = json.loads(raw_body)
-                    elif "application/x-www-form-urlencoded" in content_type or "multipart/form-data" in content_type:
-                        form = await ctx.form()
-                        data = dict(form)
+                    raw_body = await ctx.body()
+                    if raw_body:
+                        try:
+                            data = json.loads(raw_body)
+                        except Exception:
+                            # Try parsing as form URL-encoded
+                            form = await ctx.form()
+                            data = dict(form)
                     else:
-                        data = json.loads(raw_body)
-            except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+                        data = {}
+            except (json.JSONDecodeError, UnicodeDecodeError, ValueError) as exc:
                 fault = RequestBodyParseFault(context={"error": str(exc)})
                 return Response.json(
                     {"error": fault.message, "code": fault.code},
