@@ -115,3 +115,32 @@ def test_blueprint_revision_migration():
     errors, validated = V2._sigil.validate({"username": "ada"})
     assert not errors
     assert validated["email"] == "ada@example.com"
+
+
+def test_new_facets_and_pipeline_schema_merging():
+    from aquilia.blueprints.transforms import strip, lower, dasherize
+
+    class ArticleBlueprint(Blueprint):
+        slug: Annotated[str, Facet.text() >> strip >> lower >> dasherize >> Facet.pattern(r"^[a-z0-9-]+$")]
+        author_email: Annotated[str, Facet.email()]
+        website: Annotated[str, Facet.url()]
+
+    # Verify that Facet proxy methods created correct facets
+    assert ArticleBlueprint.get_facet("slug") is not None
+    assert ArticleBlueprint.get_facet("author_email") is not None
+    assert ArticleBlueprint.get_facet("website") is not None
+
+    # Test pipeline execution
+    ok = ArticleBlueprint(data={
+        "slug": "  My Great SLUG  ",
+        "author_email": "test@example.com",
+        "website": "https://example.com"
+    })
+    assert ok.is_sealed() is True
+    assert ok.validated_data["slug"] == "my-great-slug"
+
+    # Verify pipeline schema merging
+    sch = ArticleBlueprint.to_schema()
+    slug_sch = sch["properties"]["slug"]
+    assert slug_sch["type"] == "string"
+    assert slug_sch["pattern"] == "^[a-z0-9-]+$"
