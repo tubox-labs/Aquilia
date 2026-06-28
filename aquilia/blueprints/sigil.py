@@ -295,6 +295,14 @@ class Sigil:
             facet = spec.facet
             sch = facet.to_schema()
 
+            if spec.pipeline is not None:
+                for rune in spec.pipeline.runes:
+                    if rune.is_facet:
+                        sub_sch = rune.fn.to_schema()
+                        for k, v in sub_sch.items():
+                            if k not in ("type", "title", "description") or k not in sch:
+                                sch[k] = v
+
             nested_cls = get_nested_blueprint_cls(facet)
             if nested_cls is not None:
                 cls_name = nested_cls.__name__

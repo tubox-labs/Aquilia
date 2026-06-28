@@ -69,6 +69,10 @@ class Pipeline:
                 else:
                     value = rune.fn(value)
             except Exception as exc:
+                from .exceptions import CastFault
+                if isinstance(exc, CastFault):
+                    msg = exc.field_errors.get(exc.field, [str(exc)])[0]
+                    return (False, value, msg)
                 return (False, value, str(exc))
         return (True, value, None)
 

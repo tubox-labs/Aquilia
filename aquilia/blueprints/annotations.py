@@ -48,6 +48,7 @@ from .facets import (
     UNSET,
     BoolFacet,
     ChoiceFacet,
+    LiteralFacet,
     Computed,
     DateFacet,
     DateTimeFacet,
@@ -871,6 +872,8 @@ def _build_facet_from_annotation(
         choice_kwargs.pop("allow_blank", None)
         choice_kwargs.pop("min_length", None)
         choice_kwargs.pop("max_length", None)
+        if len(allowed) == 1:
+            return LiteralFacet(value=allowed[0], **choice_kwargs)
         return ChoiceFacet(choices=allowed, **choice_kwargs)
 
     # ── Polymorphic / Union Nesting ──────────────────────────────────
