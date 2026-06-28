@@ -24,7 +24,7 @@ from typing import (
     Any,
 )
 
-from .exceptions import CastFault
+from .exceptions import CastFault, SealFault
 
 if TYPE_CHECKING:
     from .core import Blueprint
@@ -52,6 +52,9 @@ __all__ = [
     "FileFacet",
     "ChoiceFacet",
     "LiteralFacet",
+    "EnumFacet",
+    "UploadFileFacet",
+    "FormDataFacet",
     "Computed",
     "Constant",
     "WriteOnly",
@@ -1192,9 +1195,9 @@ class ChoiceFacet(Facet):
             self._valid_values = set(choices)
 
     @property
-    def allowed_values(self) -> set:
+    def allowed_values(self) -> tuple:
         """Alias for _valid_values, matching schema needs."""
-        return self._valid_values
+        return tuple(self.choices.keys())
 
     def cast(self, value: Any) -> Any:
         return value
@@ -1219,6 +1222,62 @@ class LiteralFacet(ChoiceFacet):
     def __init__(self, value: Any, **kwargs: Any):
         super().__init__(choices=[value], **kwargs)
         self.value = value
+
+
+class EnumFacet(Facet):
+    """Facet representing a Python Enum type."""
+
+    def __init__(self, enum_class: type, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.enum_class = enum_class
+        self._valid_members = set(enum_class)
+        self._valid_values = {m.value for m in enum_class}
+
+    @property
+    def allowed_values(self) -> tuple:
+        return tuple(m.value for m in self.enum_class)
+
+    def cast(self, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, self.enum_class):
+            return value
+        try:
+            return self.enum_class(value)
+        except ValueError:
+            pass
+        if isinstance(value, str) and value in self.enum_class.__members__:
+            return self.enum_class[value]
+        raise CastFault(
+            self.name or "<unbound>",
+            f"Invalid choice '{value}'. Valid: {list(self._valid_values)}",
+        )
+
+    def seal(self, value: Any) -> Any:
+        if value not in self._valid_members:
+            value = self.cast(value)
+        return super().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, self.enum_class):
+            return value.value
+        return value
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        first_val = next(iter(self._valid_values)) if self._valid_values else None
+        if isinstance(first_val, int):
+            schema["type"] = "integer"
+        elif isinstance(first_val, float):
+            schema["type"] = "number"
+        elif isinstance(first_val, bool):
+            schema["type"] = "boolean"
+        else:
+            schema["type"] = "string"
+        schema["enum"] = list(self._valid_values)
+        return schema
 
 
 # ── PolymorphicFacet ───────────────────────────────────────────────────
@@ -1482,6 +1541,127 @@ class Inject(Facet):
                 return obj
 
         return UNSET
+
+
+class UploadFileFacet(FileFacet):
+    """Facet representing an uploaded file."""
+
+    _type_name = "object"
+
+    def __init__(
+        self,
+        *,
+        max_size: int | None = None,
+        allowed_types: list[str] | None = None,
+        **kwargs: Any,
+    ):
+        super().__init__(allowed_types=allowed_types, **kwargs)
+        self.max_size = max_size
+
+    def cast(self, value: Any) -> Any:
+        if value is None:
+            return None
+
+        from .._uploads import UploadFile
+        if not isinstance(value, UploadFile):
+            raise CastFault(
+                self.name or "<unbound>",
+                f"Expected UploadFile, got {type(value).__name__}",
+            )
+
+        if self.max_size is not None and value.size is not None:
+            if value.size > self.max_size:
+                raise CastFault(
+                    self.name or "<unbound>",
+                    f"File size {value.size} exceeds maximum limit of {self.max_size} bytes",
+                )
+
+        if self.allowed_types is not None and value.content_type:
+            mime = value.content_type.lower()
+            matched = False
+            for allowed in self.allowed_types:
+                allowed_lower = allowed.lower()
+                if allowed_lower == mime:
+                    matched = True
+                    break
+                if allowed_lower.endswith("/*"):
+                    prefix = allowed_lower[:-2]
+                    if mime.startswith(prefix):
+                        matched = True
+                        break
+            if not matched:
+                raise CastFault(
+                    self.name or "<unbound>",
+                    f"Content type '{value.content_type}' is not allowed. Allowed: {self.allowed_types}",
+                )
+
+        return value
+
+    def mold(self, value: Any) -> Any:
+        if value is None:
+            return None
+        from .._uploads import UploadFile
+        if isinstance(value, UploadFile):
+            return {
+                "filename": value.filename,
+                "content_type": value.content_type,
+                "size": value.size,
+            }
+        return super().mold(value)
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        schema["type"] = "string"
+        schema["format"] = "binary"
+        return schema
+
+
+class FormDataFacet(Facet):
+    """Facet representing form data input (from urlencoded or multipart fields)."""
+
+    def __init__(
+        self,
+        *,
+        type: Any = str,
+        **kwargs: Any,
+    ):
+        super().__init__(**kwargs)
+        self.type_annotation = type
+        self.child_facet = None
+
+        from .annotations import _build_facet_from_annotation, UNSET
+        self.child_facet = _build_facet_from_annotation(
+            name=self.name or "",
+            annotation=type,
+            field_spec=None,
+            class_default=UNSET,
+        )
+
+    def cast(self, value: Any) -> Any:
+        if value is None:
+            return None
+
+        if self.child_facet is not None:
+            self.child_facet.name = self.name
+            return self.child_facet.cast(value)
+
+        return str(value)
+
+    def seal(self, value: Any) -> Any:
+        if self.child_facet is not None:
+            self.child_facet.name = self.name
+            return self.child_facet.seal(value)
+        return super().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        if self.child_facet is not None:
+            return self.child_facet.mold(value)
+        return value
+
+    def to_schema(self) -> dict[str, Any]:
+        if self.child_facet is not None:
+            return self.child_facet.to_schema()
+        return super().to_schema()
 
 
 # ── Model Field → Facet Mapping ──────────────────────────────────────────

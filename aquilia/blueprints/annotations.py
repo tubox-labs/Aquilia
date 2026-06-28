@@ -42,6 +42,7 @@ from typing import (
     get_args,
     get_origin,
 )
+from .._uploads import UploadFile, FormData
 
 from .exceptions import CastFault
 from .facets import (
@@ -65,6 +66,8 @@ from .facets import (
     TimeFacet,
     URLFacet,
     UUIDFacet,
+    UploadFileFacet,
+    FormDataFacet,
 )
 
 __all__ = [
@@ -93,6 +96,8 @@ ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
     dict: DictFacet,
     list: ListFacet,
     bytes: TextFacet,
+    UploadFile: UploadFileFacet,
+    FormData: FormDataFacet,
 }
 
 
@@ -271,6 +276,24 @@ class BlueprintUnionAdapterFacet(Facet):
 
     def seal(self, value: Any) -> Any:
         return super().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        if value is None:
+            return None
+        # Try to find a member blueprint that matches the model class of value
+        for member in self.union.members:
+            spec = getattr(member, "_spec", None)
+            if spec and spec.model and isinstance(value, spec.model):
+                return member(instance=value).to_dict()
+        # Fallback: try molding with each member blueprint
+        for member in self.union.members:
+            try:
+                if isinstance(value, dict):
+                    return value
+                return member(instance=value).to_dict()
+            except Exception:
+                pass
+        return value
 
     def to_schema(self) -> dict[str, Any]:
         return self.union.to_json_schema()
@@ -814,6 +837,25 @@ def _build_facet_from_annotation(
     # Unwrap Optional
     inner_type, is_optional = _unwrap_optional(annotation)
 
+    if isinstance(inner_type, Facet):
+        if is_optional:
+            inner_type.allow_null = True
+            inner_type.required = False
+        if field_spec is not None:
+            if field_spec.required is not None:
+                inner_type.required = field_spec.required
+            if field_spec.read_only:
+                inner_type.read_only = True
+            if field_spec.write_only:
+                inner_type.write_only = True
+            if field_spec.allow_null:
+                inner_type.allow_null = True
+            if field_spec.default is not UNSET:
+                inner_type.default = field_spec.default
+            elif field_spec.default_factory is not None:
+                inner_type.default = field_spec.default_factory
+        return inner_type
+
     # Collect kwargs from Field descriptor
     kwargs: dict[str, Any] = {}
 
@@ -967,6 +1009,13 @@ def _build_facet_from_annotation(
                     value_facet = child_facet_cls()
 
         return DictFacet(value_facet=value_facet, **dict_kwargs)
+
+    # ── Enum types ───────────────────────────────────────────────────
+    from enum import Enum
+    if isinstance(inner_type, type) and issubclass(inner_type, Enum):
+        from .facets import EnumFacet
+        enum_kwargs = {k: v for k, v in kwargs.items() if k not in ("min_length", "max_length", "allow_blank")}
+        return EnumFacet(enum_class=inner_type, **enum_kwargs)
 
     # ── Scalar types ─────────────────────────────────────────────────
     facet_cls = ANNOTATION_TO_FACET.get(inner_type)
