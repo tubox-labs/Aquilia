@@ -200,24 +200,11 @@ class RequestDAG:
 
     async def _resolve_single_sub_dep(self, pname: str, ptype: type, sub_dep: Any) -> Any:
         """Resolve a single sub-dependency parameter."""
-        # Check for Header/Query/Body extractors first
+        # Check for Header/Query/Body/Cookie/Path extractors first
+        from aquilia.di.dep import Query, Header, Body, Cookie, Path
         if self._request is not None:
-            if isinstance(sub_dep, Header):
-                return self._extract_header_value(sub_dep, ptype)
-            if isinstance(sub_dep, Query):
-                return self._extract_query_value(sub_dep, ptype)
-            if isinstance(sub_dep, Body):
-                base_type = _get_base_type(ptype)
-                if _is_blueprint_type(base_type):
-                    from aquilia.blueprints.integration import bind_blueprint_to_request
-
-                    bp = await bind_blueprint_to_request(base_type, self._request)
-                    if hasattr(bp, "is_sealed_async"):
-                        await bp.is_sealed_async(raise_fault=True)
-                    else:
-                        bp.is_sealed(raise_fault=True)
-                    return bp
-                return await self._extract_body_value(sub_dep)
+            if isinstance(sub_dep, (Query, Header, Body, Cookie, Path)):
+                return await self._resolve_extracted_parameter(pname, ptype, sub_dep)
 
         if isinstance(sub_dep, Dep):
             # Recursive Dep resolution
@@ -237,6 +224,72 @@ class RequestDAG:
 
         # No Dep/extractor annotation → resolve from container by type
         return await self._resolve_from_container(ptype, tag=None)
+
+    async def _resolve_extracted_parameter(self, pname: str, ptype: type, sub_dep: Any) -> Any:
+        """Asynchronously resolve extracted parameter."""
+        base_type = _get_base_type(ptype)
+        if _is_blueprint_type(base_type):
+            from aquilia.blueprints.integration import bind_blueprint_to_request
+
+            bp = await bind_blueprint_to_request(base_type, self._request)
+            if hasattr(bp, "is_sealed_async"):
+                await bp.is_sealed_async(raise_fault=True)
+            else:
+                bp.is_sealed(raise_fault=True)
+            return bp
+
+        from aquilia.di.dep import Body
+        body = None
+        if isinstance(sub_dep, Body) or sub_dep is None:
+            body = await self._extract_body_value(None)
+        return self._resolve_extracted_parameter_sync(pname, ptype, sub_dep, body=body)
+
+    def _resolve_extracted_parameter_sync(self, pname: str, ptype: type, sub_dep: Any, body: Any = None) -> Any:
+        """Synchronously resolve, cast, and validate parameter using unified Facet pipeline."""
+        from aquilia.blueprints.annotations import _build_facet_from_annotation
+        from aquilia.blueprints.facets import UNSET
+        from aquilia.blueprints.integration import extract_value_from_request
+        from aquilia.faults.domains import BadRequestFault
+        from aquilia.blueprints.exceptions import CastFault
+
+        facet = _build_facet_from_annotation(
+            name=pname,
+            annotation=ptype,
+            field_spec=None,
+            class_default=UNSET,
+        )
+
+        raw_val = extract_value_from_request(self._request, pname, sub_dep, facet, body)
+
+        if raw_val is UNSET:
+            if getattr(sub_dep, "default", None) not in (None, ...):
+                raw_val = sub_dep.default
+            elif facet.default is not UNSET:
+                raw_val = facet.default() if callable(facet.default) else facet.default
+            elif getattr(sub_dep, "required", False) or facet.required:
+                raise BadRequestFault(
+                    message=f"Missing required parameter: {pname}",
+                    detail=f"Missing required parameter: {pname}",
+                )
+            else:
+                raw_val = None
+
+        if raw_val is None:
+            if facet.allow_null:
+                return None
+            raise BadRequestFault(
+                message=f"Parameter '{pname}' may not be null",
+                detail=f"Parameter '{pname}' may not be null",
+            )
+
+        try:
+            cast_val = facet.cast(raw_val)
+            return facet.seal(cast_val)
+        except CastFault as exc:
+            raise BadRequestFault(
+                message=f"Invalid value for parameter '{pname}': {exc}",
+                detail=f"Invalid value for parameter '{pname}': {exc}",
+            )
 
     async def _invoke_generator(self, dep: Dep, kwargs: dict[str, Any]) -> Any:
         """Invoke a generator Dep and track teardown."""
@@ -276,83 +329,13 @@ class RequestDAG:
 
     def _extract_header_value(self, header: Header, ptype: type) -> Any:
         """Extract header value from request."""
-        if self._request is None:
-            if header.required:
-                from ..faults.domains import BadRequestFault
-
-                raise BadRequestFault(
-                    message=f"No request available for Header('{header.name}')",
-                    detail=f"No request available for Header('{header.name}')",
-                )
-            return header.default
-
-        # Try Aquilia's request API
-        value = None
-        if hasattr(self._request, "headers"):
-            headers = self._request.headers
-            if isinstance(headers, dict) or hasattr(headers, "get"):
-                value = headers.get(header.header_key)
-
-        if value is None:
-            if header.required:
-                from ..faults.domains import BadRequestFault
-
-                raise BadRequestFault(
-                    message=f"Missing required header: {header.name}",
-                    detail=f"Missing required header: {header.name}",
-                )
-            return header.default
-
-        return value
+        return self._resolve_extracted_parameter_sync(header.name or "", ptype, header)
 
     def _extract_query_value(self, query: Query, ptype: type) -> Any:
         """Extract query parameter from request."""
-        if self._request is None:
-            return query.default
+        return self._resolve_extracted_parameter_sync(query.name or "", ptype, query)
 
-        if hasattr(self._request, "query_param"):
-            value = self._request.query_param(query.name)
-        elif hasattr(self._request, "query_params"):
-            qps = self._request.query_params
-            value = qps.get(query.name) if isinstance(qps, dict) else None
-        else:
-            value = None
-
-        if value is None:
-            if query.required:
-                from ..faults.domains import BadRequestFault
-
-                raise BadRequestFault(
-                    message=f"Missing required query parameter: {query.name}",
-                    detail=f"Missing required query parameter: {query.name}",
-                )
-            return query.default
-
-        # Try to cast to expected type (SEC-DI-08: guard against bad input)
-        base_type = _get_base_type(ptype)
-        try:
-            if base_type is int:
-                return int(value)
-            elif base_type is float:
-                return float(value)
-            elif base_type is bool:
-                return value.lower() in ("true", "1", "yes")
-        except (ValueError, TypeError, AttributeError) as exc:
-            from ..faults.domains import BadRequestFault
-
-            raise BadRequestFault(
-                message=(
-                    f"Invalid value for query parameter '{query.name}': "
-                    f"cannot convert {value!r} to {base_type.__name__}"
-                ),
-                detail=(
-                    f"Invalid value for query parameter '{query.name}': "
-                    f"cannot convert {value!r} to {base_type.__name__}"
-                ),
-            ) from exc
-        return value
-
-    async def _extract_body_value(self, body: Body) -> Any:
+    async def _extract_body_value(self, body: Body | None) -> Any:
         """Extract body from request."""
         if self._request is None:
             return {}

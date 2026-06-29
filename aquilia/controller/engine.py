@@ -818,10 +818,13 @@ class ControllerEngine:
                 # Determine if PATCH → partial
                 is_partial = request.method == "PATCH"
 
-                bp_instance = bp_cls(
-                    data=body,
-                    partial=is_partial,
+                from aquilia.blueprints.integration import bind_blueprint_to_request
+
+                bp_instance = await bind_blueprint_to_request(
+                    bp_cls,
+                    request,
                     projection=projection,
+                    partial=is_partial,
                     context=bp_context,
                 )
 
@@ -853,6 +856,65 @@ class ControllerEngine:
                     kwargs[param_name] = bp_instance
                 else:
                     kwargs[param_name] = bp_instance.validated_data
+                continue
+
+            # Check for explicit extractors first (Header, Query, Cookie, Path, Body)
+            from aquilia.di.dep import _extract_body, _extract_cookie, _extract_header, _extract_path, _extract_query
+
+            has_extractor = (
+                _extract_header(param.type) is not None
+                or _extract_query(param.type) is not None
+                or _extract_cookie(param.type) is not None
+                or _extract_path(param.type) is not None
+                or _extract_body(param.type) is not None
+            )
+
+            if has_extractor:
+                from aquilia.di.request_dag import RequestDAG, _get_base_type, _is_blueprint_type
+
+                header_meta = _extract_header(param.type)
+                query_meta = _extract_query(param.type)
+                cookie_meta = _extract_cookie(param.type)
+                path_meta = _extract_path(param.type)
+                body_meta = _extract_body(param.type)
+
+                try:
+                    if header_meta is not None:
+                        if request_dag is None:
+                            request_dag = RequestDAG(container, request)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, header_meta)
+                    elif query_meta is not None:
+                        if request_dag is None:
+                            request_dag = RequestDAG(container, request)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, query_meta)
+                    elif cookie_meta is not None:
+                        if request_dag is None:
+                            request_dag = RequestDAG(container, request)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, cookie_meta)
+                    elif path_meta is not None:
+                        if request_dag is None:
+                            request_dag = RequestDAG(container, request)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, path_meta)
+                    elif body_meta is not None:
+                        if request_dag is None:
+                            request_dag = RequestDAG(container, request)
+                        base_type = _get_base_type(param.type)
+                        if _is_blueprint_type(base_type):
+                            from aquilia.blueprints.integration import bind_blueprint_to_request
+
+                            bp = await bind_blueprint_to_request(base_type, request)
+                            if hasattr(bp, "is_sealed_async"):
+                                await bp.is_sealed_async(raise_fault=True)
+                            else:
+                                bp.is_sealed(raise_fault=True)
+                            kwargs[param_name] = bp
+                        else:
+                            kwargs[param_name] = await request_dag._extract_body_value(body_meta)
+                except Exception:
+                    if not param.required and param.default is not inspect.Parameter.empty:
+                        kwargs[param_name] = param.default
+                    else:
+                        raise
                 continue
 
             # Path parameters
@@ -943,21 +1005,37 @@ class ControllerEngine:
                         value = await request_dag.resolve(dep_meta, base_type)
                         kwargs[param_name] = value
                     else:
-                        from aquilia.di.dep import _extract_body, _extract_header, _extract_query
+                        from aquilia.di.dep import (
+                            _extract_body,
+                            _extract_cookie,
+                            _extract_header,
+                            _extract_path,
+                            _extract_query,
+                        )
                         from aquilia.di.request_dag import _get_base_type, _is_blueprint_type
 
                         header_meta = _extract_header(param.type)
                         query_meta = _extract_query(param.type)
+                        cookie_meta = _extract_cookie(param.type)
+                        path_meta = _extract_path(param.type)
                         body_meta = _extract_body(param.type)
 
                         if header_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
-                            kwargs[param_name] = request_dag._extract_header_value(header_meta, param.type)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, header_meta)
                         elif query_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
-                            kwargs[param_name] = request_dag._extract_query_value(query_meta, param.type)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, query_meta)
+                        elif cookie_meta is not None:
+                            if request_dag is None:
+                                request_dag = RequestDAG(container, request)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, cookie_meta)
+                        elif path_meta is not None:
+                            if request_dag is None:
+                                request_dag = RequestDAG(container, request)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, path_meta)
                         elif body_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
@@ -1050,7 +1128,6 @@ class ControllerEngine:
 
         if all_blueprint_errors:
             from aquilia.blueprints.exceptions import SealFault
-
             raise SealFault(
                 message="Blueprint validation failed",
                 errors=all_blueprint_errors,
