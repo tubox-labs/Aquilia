@@ -34,15 +34,33 @@ class StdioTransport:
         self._stopping = False
 
     def serve(self) -> None:
-        old_handler = signal.getsignal(signal.SIGINT)
+        # Print beautiful startup messages to stderr (so it doesn't corrupt stdout JSON-RPC)
+        sys.stderr.write("\n")
+        sys.stderr.write("   \033[1;36m┌────────────────────────────────────────────────────────┐\033[0m\n")
+        sys.stderr.write("   \033[1;36m│\033[0m  🚀  \033[1;32mAquilia MCP Server Started\033[0m                        \033[1;36m│\033[0m\n")
+        sys.stderr.write(f"   \033[1;36m│\033[0m  📁  Workspace: \033[33m{self.server.config.root}\033[0m   \033[1;36m│\033[0m\n")
+        sys.stderr.write(f"   \033[1;36m│\033[0m  🛠️   Tools:     \033[1;35m{len(self.server.registry.list_tools())}\033[0m tools available         \033[1;36m│\033[0m\n")
+        sys.stderr.write(f"   \033[1;36m│\033[0m  📝  Prompts:   \033[1;35m{len(self.server.registry.list_prompts())}\033[0m prompts available       \033[1;36m│\033[0m\n")
+        sys.stderr.write("   \033[1;36m│\033[0m  💡  \033[36mServing over STDIO. Press Ctrl+C to stop.\033[0m         \033[1;36m│\033[0m\n")
+        sys.stderr.write("   \033[1;36m└────────────────────────────────────────────────────────┘\033[0m\n")
+        sys.stderr.write("\n")
+        sys.stderr.flush()
 
-        def _handle_sigint(signum, frame):
-            self._stopping = True
+        old_sigint = None
+        old_sigterm = None
+
+        def _handle_signal(signum, frame):
+            raise KeyboardInterrupt()
 
         try:
-            signal.signal(signal.SIGINT, _handle_sigint)
+            old_sigint = signal.signal(signal.SIGINT, _handle_signal)
         except ValueError:
-            old_handler = None
+            pass
+
+        try:
+            old_sigterm = signal.signal(signal.SIGTERM, _handle_signal)
+        except ValueError:
+            pass
 
         try:
             while not self._stopping:
@@ -52,10 +70,20 @@ class StdioTransport:
                 response = self.handle_line(line)
                 if response is not None:
                     self._write(response)
+        except (KeyboardInterrupt, SystemExit):
+            self._stopping = True
         finally:
-            if old_handler is not None:
+            # Restore signal handlers
+            if old_sigint is not None:
                 with _suppress_signal_error():
-                    signal.signal(signal.SIGINT, old_handler)
+                    signal.signal(signal.SIGINT, old_sigint)
+            if old_sigterm is not None:
+                with _suppress_signal_error():
+                    signal.signal(signal.SIGTERM, old_sigterm)
+
+            sys.stderr.write("\n\033[1;31m🛑 Aquilia MCP Server shutting down gracefully...\033[0m\n")
+            sys.stderr.write("\033[1;32m👋 Goodbye!\033[0m\n\n")
+            sys.stderr.flush()
 
     def handle_line(self, line: str) -> dict[str, Any] | None:
         if not line.strip():
