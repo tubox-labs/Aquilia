@@ -3533,6 +3533,39 @@ class AquiliaServer:
                 if effect_registry is None:
                     effect_registry = EffectRegistry()
 
+                # Auto-register core default effect providers if integrated and not explicitly registered
+                try:
+                    from .effects import DBTxProvider, CacheProvider, TaskQueueProvider, StorageProvider
+                    
+                    db_config = self.config.get_database_config()
+                    if db_config and db_config.get("url"):
+                        if "DBTx" not in effect_registry.providers:
+                            effect_registry.register("DBTx", DBTxProvider(db_config["url"]))
+                        if "db" not in effect_registry.providers:
+                            effect_registry.register("db", DBTxProvider(db_config["url"]))
+
+                    if hasattr(self, "_cache_service") and self._cache_service is not None:
+                        if "Cache" not in effect_registry.providers:
+                            effect_registry.register("Cache", CacheProvider(cache_service=self._cache_service))
+                        if "cache" not in effect_registry.providers:
+                            effect_registry.register("cache", CacheProvider(cache_service=self._cache_service))
+
+                    if hasattr(self, "_task_manager") and self._task_manager is not None:
+                        if "Queue" not in effect_registry.providers:
+                            effect_registry.register("Queue", TaskQueueProvider(task_manager=self._task_manager))
+                        if "queue" not in effect_registry.providers:
+                            effect_registry.register("queue", TaskQueueProvider(task_manager=self._task_manager))
+
+                    storage_config = self.config.get_storage_config()
+                    if storage_config and storage_config.get("backends", {}).get("local", {}).get("root"):
+                        root_path = storage_config["backends"]["local"]["root"]
+                        if "Storage" not in effect_registry.providers:
+                            effect_registry.register("Storage", StorageProvider(root_path))
+                        if "storage" not in effect_registry.providers:
+                            effect_registry.register("storage", StorageProvider(root_path))
+                except Exception as auto_reg_err:
+                    self.logger.warning(f"Failed to auto-register core default effect providers: {auto_reg_err}")
+
                 await effect_registry.initialize_all()
                 self._effect_registry = effect_registry
 
