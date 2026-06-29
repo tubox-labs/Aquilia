@@ -591,6 +591,8 @@ class AquiliaServer:
                 name="inspector",
             )
 
+            self._ensure_admin_static_assets()
+
             from aquilia.inspector.di_listener import InspectorDiagnosticListener
 
             di_listener = InspectorDiagnosticListener()
@@ -2470,7 +2472,7 @@ class AquiliaServer:
                         ),
                         (
                             "POST",
-                            "/__aquilia__/inspector/api/traces/{{trace_id}}/replay/",
+                            "/__aquilia__/inspector/api/traces/{trace_id}/replay/",
                             "inspector_replay_api_standalone",
                             ctrl.inspector_replay_api,
                         ),
