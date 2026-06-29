@@ -797,3 +797,23 @@ class ConfigLoader:
                 "neutral_paths": ["/_health", "/openapi.json", "/docs", "/redoc"],
             },
         )
+
+    def get_inspector_config(self) -> dict:
+        return self.get_subsystem_config(
+            "inspector",
+            {
+                "enabled": None,
+                "force_enable_in_prod": False,
+                "max_traces": 200,
+                "max_body_bytes": 65536,
+                "capture_request_body": True,
+                "capture_response_body": True,
+                "capture_client_addr": False,
+                "slow_request_threshold_ms": 500.0,
+                "mount_path": "/__aquilia__/inspector",
+                "standalone_ui_enabled": True,
+                "admin_page_enabled": True,
+                "replay_enabled": True,
+                "live_stream_enabled": True,
+            },
+        )
