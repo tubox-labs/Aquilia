@@ -4055,7 +4055,7 @@ class AdminController(Controller):
             app_list=app_list,
             identity_name=_get_identity_name(identity) if not is_standalone else "Developer",
             identity_avatar=_get_identity_avatar(identity) if not is_standalone else "",
-            site_title="Aquilia Telemetry" if is_standalone else self.site.site_title,
+            site_title="Aquilia Telemetry" if is_standalone else self.site.title,
             url_prefix=url_prefix,
         )
         return _secure_html_response(html, self.site)
