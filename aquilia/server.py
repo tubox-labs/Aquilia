@@ -2459,31 +2459,6 @@ class AquiliaServer:
                 _inspector_enabled = True
 
             if _inspector_enabled:
-                has_admin_integration = self.config.get("integrations", {}).get("admin") is not None
-                if has_admin_integration:
-                    admin_routes.extend(
-                        [
-                            ("GET", f"{url_prefix}/inspector/", "inspector_view", ctrl.inspector_view),
-                            (
-                                "GET",
-                                f"{url_prefix}/inspector/api/traces/",
-                                "inspector_traces_api",
-                                ctrl.inspector_traces_api,
-                            ),
-                            (
-                                "POST",
-                                f"{url_prefix}/inspector/api/traces/{{trace_id}}/replay/",
-                                "inspector_replay_api",
-                                ctrl.inspector_replay_api,
-                            ),
-                            (
-                                "GET",
-                                f"{url_prefix}/inspector/stream/",
-                                "inspector_stream_api",
-                                ctrl.inspector_stream_api,
-                            ),
-                        ]
-                    )
                 admin_routes.extend(
                     [
                         ("GET", "/__aquilia__/inspector/", "inspector_view_standalone", ctrl.inspector_view),
@@ -2498,6 +2473,12 @@ class AquiliaServer:
                             "/__aquilia__/inspector/api/traces/{{trace_id}}/replay/",
                             "inspector_replay_api_standalone",
                             ctrl.inspector_replay_api,
+                        ),
+                        (
+                            "POST",
+                            "/__aquilia__/inspector/api/clear/",
+                            "inspector_clear_api_standalone",
+                            ctrl.inspector_clear_api,
                         ),
                         (
                             "GET",

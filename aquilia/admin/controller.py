@@ -4024,57 +4024,29 @@ class AdminController(Controller):
             self.site.config.get("debug") or self.site.config.get("reload") or os.environ.get("AQUILIA_ENV") == "dev"
         )
 
-    @GET("/inspector/")
+    @GET("/__aquilia__/inspector/")
     async def inspector_view(self, request, ctx: RequestCtx) -> Response:
-        """Request Inspector UI page."""
-        is_standalone = request.path.startswith("/__aquilia__/inspector")
-        identity = None
-
-        if is_standalone:
-            if not self._is_debug():
-                return Response(b"Forbidden", status=403)
-        else:
-            self._ensure_csrf(ctx)
-            var_identity, denied = _require_identity(ctx)
-            if denied:
-                return denied
-            identity = var_identity
-
-            if not self.site.admin_config.is_module_enabled("inspector"):
-                return self._module_disabled_response("Request Inspector", identity)
-
-            if not has_admin_permission(identity, AdminPermission.MONITORING_VIEW):
-                return self._permission_denied_response("Request Inspector", identity, AdminPermission.MONITORING_VIEW)
+        """Request Inspector UI page (standalone)."""
+        if not self._is_debug():
+            return Response(b"Forbidden", status=403)
 
         self._ensure_initialized()
-        app_list = self.site.get_app_list(identity) if not is_standalone else []
-
-        url_prefix = "/__aquilia__/inspector" if is_standalone else self.site.url_prefix
+        url_prefix = "/__aquilia__/inspector"
 
         html = render_inspector_page(
-            app_list=app_list,
-            identity_name=_get_identity_name(identity) if not is_standalone else "Developer",
-            identity_avatar=_get_identity_avatar(identity) if not is_standalone else "",
-            site_title="Aquilia Telemetry" if is_standalone else self.site.title,
+            app_list=[],
+            identity_name="Developer",
+            identity_avatar="",
+            site_title="Aquilia Telemetry",
             url_prefix=url_prefix,
         )
         return _secure_html_response(html, self.site)
 
-    @GET("/inspector/api/traces/")
+    @GET("/__aquilia__/inspector/api/traces/")
     async def inspector_traces_api(self, request, ctx: RequestCtx) -> Response:
         """Get recent traces list."""
-        is_standalone = request.path.startswith("/__aquilia__/inspector")
-
-        if is_standalone:
-            if not self._is_debug():
-                return Response(b"Forbidden", status=403)
-        else:
-            identity, denied = _require_identity(ctx)
-            if denied:
-                return Response(b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
-
-            if not self.site.admin_config.is_module_enabled("inspector"):
-                return Response(b'{"error":"disabled"}', status=404, headers={"content-type": "application/json"})
+        if not self._is_debug():
+            return Response(b"Forbidden", status=403)
 
         from aquilia.inspector.collector import get_collector
         from aquilia.inspector.config import get_inspector_config
@@ -4091,21 +4063,11 @@ class AdminController(Controller):
             headers={"content-type": "application/json; charset=utf-8"},
         )
 
-    @POST("/inspector/api/traces/{trace_id}/replay/")
+    @POST("/__aquilia__/inspector/api/traces/{trace_id}/replay/")
     async def inspector_replay_api(self, request, ctx: RequestCtx) -> Response:
         """Replay request by trace ID."""
-        is_standalone = request.path.startswith("/__aquilia__/inspector")
-
-        if is_standalone:
-            if not self._is_debug():
-                return Response(b"Forbidden", status=403)
-        else:
-            identity, denied = _require_identity(ctx)
-            if denied:
-                return Response(b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
-
-            if not self.site.admin_config.is_module_enabled("inspector"):
-                return Response(b'{"error":"disabled"}', status=404, headers={"content-type": "application/json"})
+        if not self._is_debug():
+            return Response(b"Forbidden", status=403)
 
         trace_id = request.state.get("path_params", {}).get("trace_id") or ""
         from aquilia.inspector.collector import get_collector
@@ -4147,21 +4109,32 @@ class AdminController(Controller):
                 headers={"content-type": "application/json; charset=utf-8"},
             )
 
-    @GET("/inspector/stream/")
+    @POST("/__aquilia__/inspector/api/clear/")
+    async def inspector_clear_api(self, request, ctx: RequestCtx) -> Response:
+        """Clear all recent traces."""
+        if not self._is_debug():
+            return Response(b"Forbidden", status=403)
+
+        from aquilia.inspector.collector import get_collector
+        from aquilia.inspector.config import get_inspector_config
+
+        config = get_inspector_config(self.site.config)
+        collector = get_collector(config)
+        collector.clear()
+
+        import json
+
+        return Response(
+            content=json.dumps({"status": "success"}).encode("utf-8"),
+            status=200,
+            headers={"content-type": "application/json; charset=utf-8"},
+        )
+
+    @GET("/__aquilia__/inspector/stream/")
     async def inspector_stream_api(self, request, ctx: RequestCtx) -> Response:
         """SSE Live trace stream endpoint."""
-        is_standalone = request.path.startswith("/__aquilia__/inspector")
-
-        if is_standalone:
-            if not self._is_debug():
-                return Response(b"Forbidden", status=403)
-        else:
-            identity, denied = _require_identity(ctx)
-            if denied:
-                return Response(b'{"error":"unauthorized"}', status=401, headers={"content-type": "application/json"})
-
-            if not self.site.admin_config.is_module_enabled("inspector"):
-                return Response(b'{"error":"disabled"}', status=404, headers={"content-type": "application/json"})
+        if not self._is_debug():
+            return Response(b"Forbidden", status=403)
 
         from aquilia.inspector.collector import get_collector
         from aquilia.inspector.config import get_inspector_config
