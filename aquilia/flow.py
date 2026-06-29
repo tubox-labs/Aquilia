@@ -143,6 +143,10 @@ class FlowContext:
         self.identity = identity
         self.session = session
         self.effects: dict[str, Any] = {}
+        if request is not None and hasattr(request, "state") and isinstance(request.state, dict):
+            pre_acquired = request.state.get("effects")
+            if isinstance(pre_acquired, dict):
+                self.effects.update(pre_acquired)
         self.metadata: dict[str, Any] = {
             "node_trace": [],
             "timings": {},
@@ -160,6 +164,10 @@ class FlowContext:
             EffectFault: If the effect has not been acquired.
         """
         if name not in self.effects:
+            if self.request is not None and hasattr(self.request, "state") and isinstance(self.request.state, dict):
+                req_effects = self.request.state.get("effects", {})
+                if name in req_effects:
+                    return req_effects[name]
             from .faults.domains import EffectFault
 
             raise EffectFault(
@@ -172,7 +180,11 @@ class FlowContext:
 
     def has_effect(self, name: str) -> bool:
         """Check if an effect resource is currently acquired."""
-        return name in self.effects
+        if name in self.effects:
+            return True
+        if self.request is not None and hasattr(self.request, "state") and isinstance(self.request.state, dict):
+            return name in self.request.state.get("effects", {})
+        return False
 
     # -- State shortcuts ---------------------------------------------------
 
