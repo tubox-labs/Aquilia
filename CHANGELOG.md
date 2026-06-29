@@ -54,6 +54,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Empty string coercion**: Coerces empty string `""` values submitted in forms to `None` for nullable fields, or `UNSET` to allow default value injection.
 - **String annotation resolution for modules**: Improved `_safe_resolve_annotation` to support attribute traversal on module-level types (e.g. `uuid.UUID` or `datetime.date`) when using string-based runtime annotations.
 - **Incorrect RegistryFault kwargs**: Corrected the `RegistryFault` call parameters to match its domain constructor signature.
+- **Middleware Standardization**: Refactored core framework and extension middlewares to inherit from the `Middleware` base class and follow the standard execution signature: `async def __call__(self, request, ctx, next_handler)`.
+- **Dynamic Middleware Setup**: Fixed instantiation of dynamically configured middlewares in `AquiliaServer._instantiate_middleware` by auto-injecting the `EffectRegistry` for `EffectMiddleware` and `FlowContextMiddleware`.
+- **Type-Aware Parameter Injection**: Extended parameter binding in `ControllerEngine` to dynamically detect and inject `RequestCtx`, `Request`, and `FlowContext` parameters based on their type annotation, regardless of the parameter name (e.g. `req: RequestCtx` or `ctx: FlowContext` are now correctly injected). Excluded special parameters from static route query/path metadata compile passes.
+- **Bidirectional Effect Context Fallback**: Updated `FlowContext` and `RequestCtx` to automatically fall back to and copy pre-acquired request-level effects in their constructor and effect resolution methods, ensuring compatibility when accessed from handler methods decorated with `@requires`.
 
 ## [1.1.2] — 2026-06-12 — "Crimson Gale"
 
