@@ -960,11 +960,17 @@ class RuntimeRegistry:
             return None, None
 
         def _make_provider_adapter(service_cls: type, invoke: str):
-            async def adapter(provider_instance):
-                if invoke == "provide":
-                    result = provider_instance.provide()
+            from ..di.core import Container
+
+            async def adapter(provider_instance, container: Container):
+                import inspect
+
+                method = getattr(provider_instance, invoke)
+                sig = inspect.signature(method)
+                if "container" in sig.parameters:
+                    result = method(container=container)
                 else:
-                    result = provider_instance()
+                    result = method()
                 if inspect.isawaitable(result):
                     return await result
                 return result
@@ -972,6 +978,7 @@ class RuntimeRegistry:
             adapter.__name__ = f"{service_cls.__name__}_{invoke}_adapter"
             adapter.__qualname__ = adapter.__name__
             adapter.__annotations__["provider_instance"] = service_cls
+            adapter.__annotations__["container"] = Container
             return adapter
 
         for ctx in self.meta.app_contexts:
