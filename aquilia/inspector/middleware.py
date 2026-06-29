@@ -142,6 +142,9 @@ class InspectorMiddleware:
         self._collector = get_collector(config)
 
     async def __call__(self, request: Request, ctx: RequestCtx, next_handler: RequestHandler) -> Response:
+        if request.path.startswith("/__aquilia__/") or request.path.startswith("/static/"):
+            return await next_handler(request, ctx)
+
         trace = RequestTrace(
             trace_id=ctx.request_id,
             method=request.method,

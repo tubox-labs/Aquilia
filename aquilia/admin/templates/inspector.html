@@ -1197,7 +1197,7 @@
     <header>
         <div class="header-left">
             <div class="brand">
-                <img src="/static/logo.png" alt="Aquilia Logo"/>
+                <img src="https://raw.githubusercontent.com/tubox-labs/Aquilia/master/assets/logo.png" alt="Aquilia Logo"/>
                 <h2>Aquilia Inspector</h2>
             </div>
             <!-- Global Search/Filter -->
@@ -1340,12 +1340,7 @@
             // Load initial traces
             fetchTraces();
 
-            // Background Refresher (Fail-safe poll fallback every 4 seconds)
-            setInterval(() => {
-                if (!isStreamPaused) {
-                    fetchTracesSilently();
-                }
-            }, 4000);
+
 
             // Custom Dialog functions
             function showAlert(message, title = "Notification") {
@@ -1541,35 +1536,7 @@
                     .catch(err => console.error("Failed to fetch traces", err));
             }
 
-            function fetchTracesSilently() {
-                fetch(urlPrefix + "/api/traces/")
-                    .then(res => res.json())
-                    .then(data => {
-                        const capData = data.slice(0, settings.maxTraces);
-                        // Deep compare basic updates
-                        let changed = false;
-                        if (capData.length !== allTraces.length) {
-                            changed = true;
-                        } else {
-                            for (let i = 0; i < capData.length; i++) {
-                                if (capData[i].trace_id !== allTraces[i].trace_id || capData[i].spans.length !== allTraces[i].spans.length) {
-                                    changed = true;
-                                    break;
-                                }
-                            }
-                        }
 
-                        if (changed) {
-                            allTraces = capData;
-                            renderList();
-                            const current = allTraces.find(t => t.trace_id === selectedTraceId);
-                            if (current) {
-                                renderDetails(current);
-                            }
-                        }
-                    })
-                    .catch(err => console.error("Silent sync failed", err));
-            }
 
             function getRelativeTime(timestamp) {
                 const diff = Math.floor(Date.now() / 1000 - timestamp);

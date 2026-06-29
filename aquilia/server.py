@@ -591,8 +591,6 @@ class AquiliaServer:
                 name="inspector",
             )
 
-            self._ensure_admin_static_assets()
-
             from aquilia.inspector.di_listener import InspectorDiagnosticListener
 
             di_listener = InspectorDiagnosticListener()
