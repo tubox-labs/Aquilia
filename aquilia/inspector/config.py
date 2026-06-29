@@ -48,12 +48,22 @@ class InspectorConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "InspectorConfig":
+        data = dict(data)
+        if "ring_buffer_size" in data:
+            data["max_traces"] = data.pop("ring_buffer_size")
+
         kw = {}
+        import inspect
+
+        sig = inspect.signature(cls)
+        valid_keys = sig.parameters.keys()
+
         for k, v in data.items():
-            if k in ("redact_headers", "redact_body_keys"):
-                kw[k] = frozenset(v)
-            else:
-                kw[k] = v
+            if k in valid_keys:
+                if k in ("redact_headers", "redact_body_keys"):
+                    kw[k] = frozenset(v)
+                else:
+                    kw[k] = v
         return cls(**kw)
 
     def to_dict(self) -> dict[str, Any]:
@@ -74,3 +84,9 @@ class InspectorConfig:
             "replay_enabled": self.replay_enabled,
             "live_stream_enabled": self.live_stream_enabled,
         }
+
+
+def get_inspector_config(config_loader: Any) -> InspectorConfig:
+    """Helper to load and parse InspectorConfig from ConfigLoader."""
+    raw = config_loader.get_inspector_config()
+    return InspectorConfig.from_dict(raw)
