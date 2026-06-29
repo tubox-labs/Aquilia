@@ -748,6 +748,29 @@ class ConfigLoader:
             },
         )
 
+    def get_database_config(self) -> dict:
+        """
+        Get database configuration with defaults.
+
+        Returns:
+            Database configuration dictionary.
+        """
+        return self.get_subsystem_config(
+            "database",
+            {
+                "enabled": False,
+                "url": None,
+                "auto_connect": True,
+                "auto_create": True,
+                "auto_migrate": False,
+                "migrations_dir": "migrations",
+                "pool_size": 5,
+                "echo": False,
+                "model_paths": [],
+                "scan_dirs": ["models"],
+            },
+        )
+
     def get_storage_config(self) -> dict:
         return self.get_subsystem_config(
             "storage",

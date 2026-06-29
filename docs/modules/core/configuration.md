@@ -41,7 +41,7 @@ This page distinguishes direct configuration APIs from indirect runtime wiring. 
 | --- | --- | --- | --- |
 | `Config` | `aquilia/config.py` |  | Base class for typed configuration classes. |
 | `ConfigError` | `aquilia/config.py` |  | Raised when configuration validation fails. |
-| `ConfigLoader` | `aquilia/config.py` | `load`, `get`, `get_app_config`, `to_dict`, `get_session_config`, `get_auth_config`, `get_template_config`, `get_security_config`, `get_static_config`, `get_cache_config`, `get_i18n_config`, `get_mail_config`, `get_tasks_config`, `get_storage_config`, `get_middleware_config`, `get_versioning_config` | Loads and merges configuration from multiple sources with precedence: CLI args > Environment variables > .env files > config files > defaults |
+| `ConfigLoader` | `aquilia/config.py` | `load`, `get`, `get_app_config`, `to_dict`, `get_session_config`, `get_auth_config`, `get_template_config`, `get_security_config`, `get_static_config`, `get_cache_config`, `get_i18n_config`, `get_mail_config`, `get_tasks_config`, `get_database_config`, `get_storage_config`, `get_middleware_config`, `get_versioning_config` | Loads and merges configuration from multiple sources with precedence: CLI args > Environment variables > .env files > config files > defaults |
 | `RuntimeConfig` | `aquilia/config_builders.py` |  | Runtime configuration. |
 | `ModuleConfig` | `aquilia/config_builders.py` | `to_dict` | Module configuration -- workspace-level orchestration metadata. |
 | `AuthConfig` | `aquilia/config_builders.py` | `to_dict` | Authentication configuration. |

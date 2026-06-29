@@ -531,6 +531,7 @@ Methods:
 | `get_i18n_config` | `def get_i18n_config(self)` | Get i18n (internationalization) configuration with defaults. |
 | `get_mail_config` | `def get_mail_config(self)` | Get mail configuration with defaults. |
 | `get_tasks_config` | `def get_tasks_config(self)` | Get background tasks configuration with defaults. |
+| `get_database_config` | `def get_database_config(self)` | Get database configuration with defaults. |
 | `get_storage_config` | `def get_storage_config(self)` | Get storage configuration with defaults. |
 | `get_middleware_config` | `def get_middleware_config(self)` | Get middleware chain configuration. |
 | `get_versioning_config` | `def get_versioning_config(self)` | Get API versioning configuration with defaults. |

@@ -30,3 +30,45 @@ def test_config_builder_database_scan_dirs():
     assert manifest.database is None
     assert "database" in loader.config_data
     assert "custom_models" in loader.config_data["database"].get("scan_dirs", [])
+
+
+def test_get_database_config_defaults():
+    loader = ConfigLoader()
+    config = loader.get_database_config()
+    assert config["enabled"] is False
+    assert config["url"] is None
+    assert config["auto_connect"] is True
+    assert config["auto_create"] is True
+    assert config["auto_migrate"] is False
+    assert config["migrations_dir"] == "migrations"
+    assert config["pool_size"] == 5
+    assert config["echo"] is False
+    assert config["model_paths"] == []
+    assert config["scan_dirs"] == ["models"]
+
+
+def test_get_database_config_with_overrides():
+    loader = ConfigLoader()
+    loader.config_data["database"] = {
+        "enabled": True,
+        "url": "postgresql://localhost/mydb",
+        "pool_size": 10,
+    }
+    config = loader.get_database_config()
+    assert config["enabled"] is True
+    assert config["url"] == "postgresql://localhost/mydb"
+    assert config["pool_size"] == 10
+    assert config["auto_connect"] is True  # preserved default
+
+
+def test_get_database_config_from_integrations():
+    loader = ConfigLoader()
+    loader.config_data["integrations"] = {
+        "database": {
+            "enabled": True,
+            "url": "sqlite:///custom.db",
+        }
+    }
+    config = loader.get_database_config()
+    assert config["enabled"] is True
+    assert config["url"] == "sqlite:///custom.db"
