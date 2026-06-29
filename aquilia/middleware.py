@@ -669,4 +669,3 @@ class CompressionMiddleware(Middleware):
 # Import consolidated middlewares from their canonical locations for backward compatibility
 from .middleware_ext.logging import LoggingMiddleware  # noqa: F401
 from .middleware_ext.security import CORSMiddleware  # noqa: F401
-
