@@ -15,7 +15,7 @@ from .cli_loader import load_cli_commands
 from .examples_loader import example_mappings
 from .facts import derive_facts
 from .parser import parse_source_file
-from .scanner import iter_source_files
+from .scanner import iter_source_files, resolve_repository_root
 
 
 def _content_fingerprint(root: Path, file_hashes: list[tuple[str, str]]) -> str:
@@ -29,7 +29,7 @@ def _content_fingerprint(root: Path, file_hashes: list[tuple[str, str]]) -> str:
 
 def tree_fingerprint(root: Path) -> str:
     """Fingerprint the indexed source tree without parsing every file."""
-    root = root.expanduser().resolve()
+    root = resolve_repository_root(root)
     digest = hashlib.sha256()
     digest.update(str(aquilia_version).encode())
     for path in iter_source_files(root):
@@ -42,7 +42,7 @@ def tree_fingerprint(root: Path) -> str:
 
 
 def build_index(root: Path) -> KnowledgeIndex:
-    root = root.expanduser().resolve()
+    root = resolve_repository_root(root)
     indexed_paths = iter_source_files(root)
     sources = [parse_source_file(root, path) for path in indexed_paths]
     file_hashes = [(source.path, source.content_hash) for source in sources]
@@ -88,7 +88,7 @@ def load_index(path: Path) -> KnowledgeIndex:
 
 
 def load_or_build_index(root: Path, path: Path | None, *, force: bool = False) -> KnowledgeIndex:
-    root = root.expanduser().resolve()
+    root = resolve_repository_root(root)
     if path is not None and path.exists() and not force:
         existing = load_index(path)
         if existing.metadata.get("tree_fingerprint") == tree_fingerprint(root):

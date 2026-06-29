@@ -13,3 +13,11 @@ def test_cli_mcp_query_runs(mcp_repo):
     result = CliRunner().invoke(cli, ["mcp", "query", "runtime", "--workspace", str(mcp_repo)])
     assert result.exit_code == 0, result.output
     assert "results" in result.output
+
+
+def test_cli_mcp_subdirectory_resolution(mcp_repo):
+    sub = mcp_repo / "aquilia" / "cli"
+    result = CliRunner().invoke(cli, ["mcp", "list-tools", "--workspace", str(sub)])
+    assert result.exit_code == 0, result.output
+    assert "find_api" in result.output
+

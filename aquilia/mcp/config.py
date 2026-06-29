@@ -28,6 +28,18 @@ class MCPConfig:
             raise ConfigInvalidFault(key="mcp.root", reason=f"Path does not exist: {root}")
         if not root.is_dir():
             raise ConfigInvalidFault(key="mcp.root", reason=f"Path is not a directory: {root}")
+        
+        # Traverse up parents to locate repository root containing aquilia/
+        if not (root / "aquilia").is_dir():
+            found = False
+            for parent in root.parents:
+                if (parent / "aquilia").is_dir():
+                    root = parent
+                    found = True
+                    break
+            if not found:
+                raise ConfigInvalidFault(key="mcp.root", reason="Expected repository root containing aquilia/")
+        
         object.__setattr__(self, "root", root)
 
         if self.index_path is None:
