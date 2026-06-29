@@ -1064,22 +1064,25 @@ class AquiliaServer:
             sunset_policy = None
             sp_cfg = versioning_config.get("sunset_policy", {})
             if sp_cfg:
-                sunset_policy = SunsetPolicy(
-                    warn_header=sp_cfg.get("warn_header", True),
-                    grace_period=timedelta(
-                        days=sp_cfg.get("grace_period_days", 180),
-                    ),
-                    enforce_sunset=sp_cfg.get("enforce_sunset", True),
-                    enforce_retired=sp_cfg.get("enforce_retired", True),
-                    gradual_rejection_percent=sp_cfg.get(
-                        "gradual_rejection_percent",
-                        0,
-                    ),
-                    migration_url_template=sp_cfg.get(
-                        "migration_url_template",
-                        None,
-                    ),
-                )
+                if isinstance(sp_cfg, SunsetPolicy):
+                    sunset_policy = sp_cfg
+                elif isinstance(sp_cfg, dict):
+                    sunset_policy = SunsetPolicy(
+                        warn_header=sp_cfg.get("warn_header", True),
+                        grace_period=timedelta(
+                            days=sp_cfg.get("grace_period_days", 180),
+                        ),
+                        enforce_sunset=sp_cfg.get("enforce_sunset", True),
+                        enforce_retired=sp_cfg.get("enforce_retired", True),
+                        gradual_rejection_percent=sp_cfg.get(
+                            "gradual_rejection_percent",
+                            0,
+                        ),
+                        migration_url_template=sp_cfg.get(
+                            "migration_url_template",
+                            None,
+                        ),
+                    )
 
             # Build VersionConfig dataclass from workspace config dict
             config = VersionConfig(

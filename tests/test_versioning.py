@@ -1472,6 +1472,67 @@ class TestIntegrationVersioning:
         )
         assert config["sunset_policy"] is not None
 
+    def test_server_setup_with_sunset_policy_instance(self):
+        from aquilia.integrations import Integration
+        from aquilia.versioning.sunset import SunsetPolicy
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+
+        server = MagicMock(spec=AquiliaServer)
+        server.middleware_stack = MagicMock()
+        server.logger = MagicMock()
+        server.config = {
+            "integrations.versioning": Integration.versioning(
+                strategy="url",
+                versions=["1.0"],
+                default_version="1.0",
+                channels={
+                    "stable": "1.0"
+                },
+                sunset_policy=SunsetPolicy(
+                    warn_header=True
+                )
+            )
+        }
+
+        # Now call the actual method bound to our mock server
+        AquiliaServer._setup_versioning(server)
+
+        # Verify it successfully set up the version strategy and sunset policy
+        assert server._version_strategy is not None
+        assert server._version_strategy._config.sunset_policy is not None
+        assert server._version_strategy._config.sunset_policy.warn_header is True
+
+    def test_server_setup_with_sunset_policy_dict(self):
+        from aquilia.integrations import Integration
+        from aquilia.server import AquiliaServer
+        from unittest.mock import MagicMock
+
+        server = MagicMock(spec=AquiliaServer)
+        server.middleware_stack = MagicMock()
+        server.logger = MagicMock()
+        server.config = {
+            "integrations.versioning": {
+                "enabled": True,
+                "strategy": "url",
+                "versions": ["1.0"],
+                "default_version": "1.0",
+                "sunset_policy": {
+                    "warn_header": False,
+                    "grace_period_days": 45,
+                }
+            }
+        }
+
+        # Call the method
+        AquiliaServer._setup_versioning(server)
+
+        # Verify it successfully set up the version strategy and sunset policy
+        assert server._version_strategy is not None
+        assert server._version_strategy._config.sunset_policy is not None
+        assert server._version_strategy._config.sunset_policy.warn_header is False
+        assert server._version_strategy._config.sunset_policy.grace_period.days == 45
+
 
 # ════════════════════════════════════════════════════════════════════════════
 #  12. END-TO-END SCENARIO
