@@ -385,6 +385,7 @@ class Workspace:
         self._tasks_config: dict[str, Any] | None = None
         self._storage_config: dict[str, Any] | None = None
         self._render_config: dict[str, Any] | None = None
+        self._inspector_config: dict[str, Any] | None = None
         self._starter: str | None = None
         self._middleware_chain: list[dict[str, Any]] | None = None
         self._on_startup: str | None = None
@@ -539,6 +540,21 @@ class Workspace:
                 if key != "enabled":
                     self._integrations[key] = integration
                     break
+        return self
+
+    def inspector(self, enabled: bool = True, **kwargs) -> Workspace:
+        """
+        Configure request inspector.
+
+        Example::
+
+            workspace = (
+                Workspace("myapp")
+                .inspector(enabled=True, ring_buffer_size=50)
+            )
+        """
+        self._inspector_config = {"enabled": enabled, **kwargs}
+        self._integrations["inspector"] = self._inspector_config
         return self
 
     def sessions(self, policies: list[Any] | None = None, **kwargs) -> Workspace:
@@ -797,6 +813,11 @@ class Workspace:
         if self._storage_config:
             config["storage"] = self._storage_config
             config["integrations"]["storage"] = self._storage_config
+        if self._inspector_config:
+            config["inspector"] = self._inspector_config
+            if "integrations" not in config:
+                config["integrations"] = {}
+            config["integrations"]["inspector"] = self._inspector_config
 
         return config
 

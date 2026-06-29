@@ -567,6 +567,38 @@ class AquiliaServer:
                     except Exception as e:
                         self.logger.error(f"Failed to register middleware from app {ctx.name}: {e}")
 
+        # Setup Request Inspector Middleware and listeners if enabled
+        from aquilia.inspector.config import InspectorConfig
+
+        inspector_dict = self.config.get_inspector_config()
+        inspector_config = InspectorConfig(**inspector_dict)
+        inspector_enabled = inspector_config.enabled
+        if inspector_enabled is None:
+            inspector_enabled = self._is_debug()
+        if inspector_config.force_enable_in_prod:
+            inspector_enabled = True
+
+        if inspector_enabled:
+            from aquilia.inspector.middleware import InspectorMiddleware
+
+            self.middleware_stack.add(
+                InspectorMiddleware(inspector_config),
+                scope="global",
+                priority=11,
+                name="inspector",
+            )
+
+            from aquilia.inspector.di_listener import InspectorDiagnosticListener
+
+            di_listener = InspectorDiagnosticListener()
+            for container in self.runtime.di_containers.values():
+                container.add_diagnostic_listener(di_listener)
+
+            from aquilia.inspector.fault_bridge import get_fault_listener
+
+            fault_listener = get_fault_listener(inspector_config)
+            self.fault_engine.on_fault(fault_listener)
+
     def _register_app_middleware(self, mw_config: Any):
         """Register application middleware from config."""
         import importlib
