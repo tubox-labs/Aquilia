@@ -1174,13 +1174,15 @@ class RuntimeRegistry:
                     )
                     container.register(provider)
 
-                    # Also register with global effect registry if it exists
+                    # Also register with global effect registry if it exists in container
                     try:
                         from aquilia.effects import EffectRegistry
 
-                        EffectRegistry.register(effect_name, effect)
-                    except ImportError:
-                        pass  # Effect registry not available
+                        registry = container.resolve(EffectRegistry)
+                        provider_inst = effect() if isinstance(effect, type) else effect
+                        registry.register(effect_name, provider_inst)
+                    except Exception:
+                        pass  # Effect registry not available or resolving failed
 
                 except Exception as e:
                     import logging as _log
