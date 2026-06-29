@@ -131,6 +131,11 @@ class AsyncHTTPClient:
         return self._session.config
 
     @property
+    def middleware(self) -> HTTPClientMiddlewareStackProxy:
+        """Expose the middleware stack for modification."""
+        return HTTPClientMiddlewareStackProxy(self._session._middleware)
+
+    @property
     def cookies(self) -> CookieJar:
         """Get cookie jar."""
         return self._session.cookies
@@ -554,3 +559,27 @@ async def patch(url: str, **kwargs: Any) -> HTTPClientResponse:
 async def delete(url: str, **kwargs: Any) -> HTTPClientResponse:
     """Make a DELETE request."""
     return await request("DELETE", url, **kwargs)
+
+
+class HTTPClientMiddlewareStackProxy:
+    __slots__ = ("_list",)
+
+    def __init__(self, middleware_list: list):
+        self._list = middleware_list
+
+    def add(self, middleware: Any) -> HTTPClientMiddlewareStackProxy:
+        self._list.append(middleware)
+        return self
+
+    def add_many(self, middleware: list) -> HTTPClientMiddlewareStackProxy:
+        self._list.extend(middleware)
+        return self
+
+    def __iter__(self):
+        return iter(self._list)
+
+    def __len__(self) -> int:
+        return len(self._list)
+
+    def append(self, middleware: Any) -> None:
+        self._list.append(middleware)

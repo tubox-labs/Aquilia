@@ -97,15 +97,57 @@ class HTTPClientProvider:
         """DI scope."""
         return self._scope
 
-    async def __call__(self) -> AsyncHTTPClient:
+    async def __call__(self, container: Any = None) -> AsyncHTTPClient:
         """Create or return HTTP client."""
+        inspector_enabled = False
+        config_loader = None
+        if container is not None:
+            try:
+                from aquilia.config import ConfigLoader
+
+                if container.is_registered("Config"):
+                    cfg_ns = container.get("Config")
+                    if hasattr(cfg_ns, "get_inspector_config"):
+                        config_loader = cfg_ns
+                if not config_loader and container.is_registered(ConfigLoader):
+                    config_loader = container.get(ConfigLoader)
+            except Exception:
+                pass
+
+        if not config_loader:
+            try:
+                from aquilia.testing.config import get_active_config
+
+                config_loader = get_active_config()
+            except Exception:
+                pass
+
+        if config_loader:
+            try:
+                inspector_cfg = config_loader.get_inspector_config()
+                inspector_enabled = inspector_cfg.get("enabled")
+                if inspector_enabled is None:
+                    inspector_enabled = config_loader.get("debug", False)
+                if inspector_cfg.get("force_enable_in_prod"):
+                    inspector_enabled = True
+            except Exception:
+                pass
+
+        mw_list = []
+        if inspector_enabled:
+            try:
+                from aquilia.inspector.http_hook import InspectorHTTPClientMiddleware
+
+                mw_list.append(InspectorHTTPClientMiddleware())
+            except Exception:
+                pass
+
         if self._scope == "singleton":
             if self._client is None:
-                self._client = AsyncHTTPClient(config=self._config)
+                self._client = AsyncHTTPClient(config=self._config, middleware=mw_list)
             return self._client
 
-        # For app/request scope, create new client
-        return AsyncHTTPClient(config=self._config)
+        return AsyncHTTPClient(config=self._config, middleware=mw_list)
 
     async def shutdown(self) -> None:
         """Shutdown the provider."""
