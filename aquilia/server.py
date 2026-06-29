@@ -1007,6 +1007,18 @@ class AquiliaServer:
         if class_name == "ExceptionMiddleware" and "debug" not in kwargs:
             kwargs["debug"] = self._is_debug()
 
+        # Auto-inject effect_registry for EffectMiddleware / FlowContextMiddleware when not explicit
+        if class_name in ("EffectMiddleware", "FlowContextMiddleware") and "effect_registry" not in kwargs:
+            registry = getattr(self, "_effect_registry", None)
+            if registry is None:
+                from .effects import EffectRegistry
+                base_container = self._get_base_container()
+                try:
+                    registry = base_container.resolve(EffectRegistry)
+                except Exception:
+                    registry = EffectRegistry()
+            kwargs["effect_registry"] = registry
+
         try:
             return cls(**kwargs)
         except Exception as exc:
