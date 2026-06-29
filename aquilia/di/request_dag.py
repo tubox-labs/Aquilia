@@ -207,6 +207,16 @@ class RequestDAG:
             if isinstance(sub_dep, Query):
                 return self._extract_query_value(sub_dep, ptype)
             if isinstance(sub_dep, Body):
+                base_type = _get_base_type(ptype)
+                if _is_blueprint_type(base_type):
+                    from aquilia.blueprints.integration import bind_blueprint_to_request
+
+                    bp = await bind_blueprint_to_request(base_type, self._request)
+                    if hasattr(bp, "is_sealed_async"):
+                        await bp.is_sealed_async(raise_fault=True)
+                    else:
+                        bp.is_sealed(raise_fault=True)
+                    return bp
                 return await self._extract_body_value(sub_dep)
 
         if isinstance(sub_dep, Dep):

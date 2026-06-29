@@ -383,11 +383,11 @@ def _extract_method_params(
                         if hasattr(meta, "_inject_token") or hasattr(meta, "_inject_tag"):
                             has_inject_or_dep = True
                             break
-                        # Check for Dep marker
+                        # Check for Dep/Header/Query/Body marker
                         try:
-                            from aquilia.di.dep import Dep
+                            from aquilia.di.dep import Body, Dep, Header, Query
 
-                            if isinstance(meta, Dep):
+                            if isinstance(meta, (Dep, Header, Query, Body)):
                                 has_inject_or_dep = True
                                 source = "dep"
                                 break

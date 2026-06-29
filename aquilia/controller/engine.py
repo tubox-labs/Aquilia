@@ -943,13 +943,44 @@ class ControllerEngine:
                         value = await request_dag.resolve(dep_meta, base_type)
                         kwargs[param_name] = value
                     else:
-                        # Fallback to container resolve if Dep not extractable
-                        resolve_token = param.type if param.type is not inspect.Parameter.empty else param_name
-                        value = await container.resolve_async(resolve_token, optional=not param.required)
-                        if value is not None:
-                            kwargs[param_name] = value
-                        elif not param.required and param.default is not inspect.Parameter.empty:
-                            kwargs[param_name] = param.default
+                        from aquilia.di.dep import _extract_body, _extract_header, _extract_query
+                        from aquilia.di.request_dag import _get_base_type, _is_blueprint_type
+
+                        header_meta = _extract_header(param.type)
+                        query_meta = _extract_query(param.type)
+                        body_meta = _extract_body(param.type)
+
+                        if header_meta is not None:
+                            if request_dag is None:
+                                request_dag = RequestDAG(container, request)
+                            kwargs[param_name] = request_dag._extract_header_value(header_meta, param.type)
+                        elif query_meta is not None:
+                            if request_dag is None:
+                                request_dag = RequestDAG(container, request)
+                            kwargs[param_name] = request_dag._extract_query_value(query_meta, param.type)
+                        elif body_meta is not None:
+                            if request_dag is None:
+                                request_dag = RequestDAG(container, request)
+                            base_type = _get_base_type(param.type)
+                            if _is_blueprint_type(base_type):
+                                from aquilia.blueprints.integration import bind_blueprint_to_request
+
+                                bp = await bind_blueprint_to_request(base_type, request)
+                                if hasattr(bp, "is_sealed_async"):
+                                    await bp.is_sealed_async(raise_fault=True)
+                                else:
+                                    bp.is_sealed(raise_fault=True)
+                                kwargs[param_name] = bp
+                            else:
+                                kwargs[param_name] = await request_dag._extract_body_value(body_meta)
+                        else:
+                            # Fallback to container resolve if Dep not extractable
+                            resolve_token = param.type if param.type is not inspect.Parameter.empty else param_name
+                            value = await container.resolve_async(resolve_token, optional=not param.required)
+                            if value is not None:
+                                kwargs[param_name] = value
+                            elif not param.required and param.default is not inspect.Parameter.empty:
+                                kwargs[param_name] = param.default
                 except Exception:
                     if not param.required and param.default is not inspect.Parameter.empty:
                         kwargs[param_name] = param.default

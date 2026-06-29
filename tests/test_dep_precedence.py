@@ -732,3 +732,168 @@ class TestRequestDAGDepResolution:
         assert call_count == 2
 
         await dag.teardown()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  Test Annotated Extraction (Header, Query, Body, Dep) with Blueprints
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class OrderBlueprint(Blueprint):
+    total: float
+    items: list[str]
+
+
+class ArticleBlueprint(Blueprint):
+    id: int
+    title: str
+
+
+from aquilia.di.dep import Body, Header, Query
+
+
+# Define dependency provider returning a Blueprint at module scope
+async def get_article(
+    article_id: Annotated[int, Query("article_id")],
+) -> ArticleBlueprint:
+    # Simulated db lookup
+    bp = ArticleBlueprint(data={"id": article_id, "title": "Aquilia Guide"})
+    bp.is_sealed(raise_fault=True)
+    return bp
+
+
+# Define Controller at module scope
+class BriefController(Controller):
+    @POST("/order")
+    async def order(
+        self,
+        ctx: RequestCtx,
+        orders: OrderBlueprint,
+        header: Annotated[str, Header("content-type")],
+        article: ArticleBlueprint = Dep(get_article),
+    ):
+        return {
+            "header": header,
+            "order_total": orders.total,
+            "item_count": len(orders.items),
+            "article": {
+                "id": article.id,
+                "title": article.title,
+            },
+        }
+
+
+class UserProfile(Blueprint):
+    username: str
+    email: str
+
+
+async def get_user_profile(
+    profile: Annotated[UserProfile, Body()],
+) -> UserProfile:
+    return profile
+
+
+class TestAnnotatedExtractorDI:
+    """Covers extraction using Annotated[T, Header/Query/Body] and Dep containing Blueprints."""
+
+    @pytest.mark.asyncio
+    async def test_controller_header_query_body_and_dep_with_blueprints(self):
+        from aquilia.controller.engine import ControllerEngine
+        from aquilia.controller.metadata import extract_controller_metadata
+
+        # Build mock request
+        body_bytes = json.dumps({"total": 99.9, "items": ["book", "pen"]}).encode("utf-8")
+        headers = {
+            "content-type": "application/json",
+            "content-length": str(len(body_bytes)),
+        }
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/order",
+            "headers": [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers.items()],
+            "query_string": b"article_id=42",
+        }
+
+        async def receive():
+            return {
+                "type": "http.request",
+                "body": body_bytes,
+                "more_body": False,
+            }
+
+        req = Request(scope, receive)
+        ctx = RequestCtx(req)
+        req.state["container"] = make_container()
+
+        # Engine execution with ControllerFactory
+        engine = ControllerEngine(ControllerFactory())
+        meta = extract_controller_metadata(BriefController, "tests:BriefController")
+        route_meta = meta.get_route("POST", "/order")
+
+        assert route_meta is not None
+
+        # Verify metadata source classifications
+        sources = {p.name: p.source for p in route_meta.parameters}
+        assert sources["orders"] == "body"
+        assert sources["header"] == "dep"
+        assert sources["article"] == "dep"
+
+        # Execute parameter binding & calling
+        kwargs, _ = await engine._bind_parameters(
+            route_meta,
+            req,
+            ctx,
+            path_params={},
+            container=req.state["container"],
+        )
+
+        assert kwargs["header"] == "application/json"
+        assert isinstance(kwargs["orders"], OrderBlueprint)
+        assert kwargs["orders"].total == 99.9
+        assert isinstance(kwargs["article"], ArticleBlueprint)
+        assert kwargs["article"].id == 42
+        assert kwargs["article"].title == "Aquilia Guide"
+
+        # Safe call execution
+        controller_instance = BriefController()
+        result = await engine._safe_call(controller_instance.order, ctx, **kwargs)
+        assert result == {
+            "header": "application/json",
+            "order_total": 99.9,
+            "item_count": 2,
+            "article": {
+                "id": 42,
+                "title": "Aquilia Guide",
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_sub_dependency_annotated_body_blueprint_extraction(self):
+        container = make_container()
+        body_bytes = json.dumps({"username": "alex", "email": "alex@example.com"}).encode("utf-8")
+        scope = {
+            "type": "http",
+            "method": "POST",
+            "path": "/",
+            "headers": [(b"content-type", b"application/json")],
+        }
+
+        async def receive():
+            return {
+                "type": "http.request",
+                "body": body_bytes,
+                "more_body": False,
+            }
+
+        req = Request(scope, receive)
+        dag = RequestDAG(container, request=req)
+
+        dep = Dep(get_user_profile)
+        resolved = await dag.resolve(dep, UserProfile)
+        assert isinstance(resolved, UserProfile)
+        assert resolved.username == "alex"
+        assert resolved.email == "alex@example.com"
+
+        await dag.teardown()
