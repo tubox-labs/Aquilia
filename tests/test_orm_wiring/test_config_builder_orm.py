@@ -1,6 +1,5 @@
-from aquilia.workspace import Module
-from aquilia.workspace import Workspace
 from aquilia.config import ConfigLoader
+from aquilia.workspace import Module, Workspace
 
 
 def test_config_builder_database_scan_dirs():

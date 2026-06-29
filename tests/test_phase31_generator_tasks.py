@@ -7,12 +7,9 @@ Tests cover:
 3. Auth background task definitions and execution
 """
 
-import asyncio
 import os
 import sys
 import tempfile
-import textwrap
-from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -204,8 +201,8 @@ class TestConfigNamespaceValidation:
 
     def test_validator_warns_on_missing_namespace(self):
         """Validator should produce a warning when config.apps.<name> is missing."""
-        from aquilia.aquilary.validator import RegistryValidator
         from aquilia.aquilary.errors import ValidationReport
+        from aquilia.aquilary.validator import RegistryValidator
 
         class FakeManifest:
             name = "auth"
@@ -225,8 +222,8 @@ class TestConfigNamespaceValidation:
 
     def test_validator_no_warning_when_namespace_exists(self):
         """No warning when config.apps.<name> is present."""
-        from aquilia.aquilary.validator import RegistryValidator
         from aquilia.aquilary.errors import ValidationReport
+        from aquilia.aquilary.validator import RegistryValidator
 
         class FakeManifest:
             name = "auth"
@@ -244,8 +241,8 @@ class TestConfigNamespaceValidation:
 
     def test_validator_skips_when_no_config(self):
         """When config is None, validation is skipped — no crash."""
-        from aquilia.aquilary.validator import RegistryValidator
         from aquilia.aquilary.errors import ValidationReport
+        from aquilia.aquilary.validator import RegistryValidator
 
         class FakeManifest:
             name = "auth"
@@ -391,6 +388,7 @@ class TestErrorTrackerLogLevel:
     def test_error_tracker_no_info_log(self):
         """_setup_error_tracker should NOT contain verbose info logs (production-minimal)."""
         import inspect
+
         from aquilia.server import AquiliaServer
 
         source = inspect.getsource(AquiliaServer._setup_error_tracker)
@@ -436,6 +434,7 @@ class TestRenderTasksPageRegisteredTasks:
     def test_render_tasks_page_includes_registered_tasks(self):
         """render_tasks_page should pass registered_tasks to the Jinja2 template."""
         import inspect
+
         from aquilia.admin.templates import render_tasks_page
 
         source = inspect.getsource(render_tasks_page)

@@ -1,4 +1,15 @@
-from aquilia.sockets import AckEvent, Connection, Event, OnConnect, OnDisconnect, Schema, Socket, SocketController, Subscribe, Unsubscribe
+from aquilia.sockets import (
+    AckEvent,
+    Connection,
+    Event,
+    OnConnect,
+    OnDisconnect,
+    Schema,
+    Socket,
+    SocketController,
+    Subscribe,
+    Unsubscribe,
+)
 
 from .services import ChatPresenceService
 

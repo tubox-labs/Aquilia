@@ -19,20 +19,14 @@ Tests cover:
 
 from __future__ import annotations
 
-import asyncio
-import os
 import sqlite3
-import tempfile
 from pathlib import Path
 
 import pytest
 import pytest_asyncio
 
 from aquilia.sqlite import (
-    AsyncConnection,
-    CacheStats,
     ConnectionPool,
-    PoolExhaustedError,
     Row,
     SqliteConnectionError,
     SqliteError,
@@ -41,17 +35,11 @@ from aquilia.sqlite import (
     SqlitePoolConfig,
     SqliteQueryError,
     SqliteSchemaError,
-    SqliteSecurityError,
-    SqliteTimeoutError,
     StatementCache,
-    TransactionContext,
-    SavepointContext,
     build_pragmas,
     create_pool,
     map_sqlite_error,
-    row_factory,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -402,9 +390,8 @@ class TestTransactions:
     @pytest.mark.asyncio
     async def test_commit(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
-        async with pool.acquire(readonly=False) as conn:
-            async with conn.transaction(mode="IMMEDIATE"):
-                await conn.execute("INSERT INTO t (val) VALUES (?)", ["committed"])
+        async with pool.acquire(readonly=False) as conn, conn.transaction(mode="IMMEDIATE"):
+            await conn.execute("INSERT INTO t (val) VALUES (?)", ["committed"])
         rows = await pool.fetch_all("SELECT val FROM t")
         assert len(rows) == 1
         assert rows[0]["val"] == "committed"
@@ -430,24 +417,22 @@ class TestSavepoints:
     @pytest.mark.asyncio
     async def test_savepoint_release(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
-        async with pool.acquire(readonly=False) as conn:
-            async with conn.transaction() as txn:
-                await conn.execute("INSERT INTO t (val) VALUES (?)", ["outer"])
-                async with txn.savepoint("sp1"):
-                    await conn.execute("INSERT INTO t (val) VALUES (?)", ["inner"])
+        async with pool.acquire(readonly=False) as conn, conn.transaction() as txn:
+            await conn.execute("INSERT INTO t (val) VALUES (?)", ["outer"])
+            async with txn.savepoint("sp1"):
+                await conn.execute("INSERT INTO t (val) VALUES (?)", ["inner"])
         rows = await pool.fetch_all("SELECT val FROM t ORDER BY val")
         assert [r["val"] for r in rows] == ["inner", "outer"]
 
     @pytest.mark.asyncio
     async def test_savepoint_rollback(self, pool: ConnectionPool):
         await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
-        async with pool.acquire(readonly=False) as conn:
-            async with conn.transaction() as txn:
-                await conn.execute("INSERT INTO t (val) VALUES (?)", ["keep"])
-                with pytest.raises(ValueError, match="boom"):
-                    async with txn.savepoint("sp1"):
-                        await conn.execute("INSERT INTO t (val) VALUES (?)", ["discard"])
-                        raise ValueError("boom")
+        async with pool.acquire(readonly=False) as conn, conn.transaction() as txn:
+            await conn.execute("INSERT INTO t (val) VALUES (?)", ["keep"])
+            with pytest.raises(ValueError, match="boom"):
+                async with txn.savepoint("sp1"):
+                    await conn.execute("INSERT INTO t (val) VALUES (?)", ["discard"])
+                    raise ValueError("boom")
         rows = await pool.fetch_all("SELECT val FROM t ORDER BY val")
         assert [r["val"] for r in rows] == ["keep"]
 

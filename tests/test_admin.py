@@ -15,67 +15,63 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 import datetime
 import os
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# ── Admin system imports ────────────────────────────────────────────────
-
-from aquilia.admin.faults import (
-    AdminFault,
-    AdminAuthenticationFault,
-    AdminAuthorizationFault,
-    AdminModelNotFoundFault,
-    AdminRecordNotFoundFault,
-    AdminValidationFault,
-    AdminActionFault,
-)
-from aquilia.admin.permissions import (
-    AdminRole,
-    AdminPermission,
-    ROLE_PERMISSIONS,
-    get_admin_role,
-    has_admin_permission,
-    has_model_permission,
-    require_admin_access,
-)
 from aquilia.admin.audit import (
     AdminAction,
     AdminAuditEntry,
     AdminAuditLog,
 )
-from aquilia.admin.options import (
-    ModelAdmin,
-    AdminActionDescriptor,
-    action,
-)
-from aquilia.admin.registry import (
-    register,
-    autodiscover,
-    flush_pending_registrations,
-    _pending_registrations,
-)
-from aquilia.admin.site import AdminSite, AdminConfig
-from aquilia.admin.templates import (
-    render_login_page,
-    render_dashboard,
-    render_list_view,
-    render_form_view,
-    render_audit_page,
-)
 from aquilia.admin.controller import (
     AdminController,
+    _get_identity_name,
     _html_response,
     _redirect,
-    _get_identity,
-    _get_identity_name,
 )
 
+# ── Admin system imports ────────────────────────────────────────────────
+from aquilia.admin.faults import (
+    AdminActionFault,
+    AdminAuthenticationFault,
+    AdminAuthorizationFault,
+    AdminFault,
+    AdminModelNotFoundFault,
+    AdminRecordNotFoundFault,
+    AdminValidationFault,
+)
+from aquilia.admin.options import (
+    AdminActionDescriptor,
+    ModelAdmin,
+    action,
+)
+from aquilia.admin.permissions import (
+    ROLE_PERMISSIONS,
+    AdminPermission,
+    AdminRole,
+    get_admin_role,
+    has_admin_permission,
+    has_model_permission,
+    require_admin_access,
+)
+from aquilia.admin.registry import (
+    _pending_registrations,
+    autodiscover,
+    flush_pending_registrations,
+    register,
+)
+from aquilia.admin.site import AdminConfig, AdminSite
+from aquilia.admin.templates import (
+    render_audit_page,
+    render_dashboard,
+    render_form_view,
+    render_list_view,
+    render_login_page,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Test helpers: Mock models and identities
@@ -91,15 +87,15 @@ class MockField:
         self.primary_key = kwargs.get("primary_key", False)
         self.auto_now = kwargs.get("auto_now", False)
         self.auto_now_add = kwargs.get("auto_now_add", False)
-        self.choices = kwargs.get("choices", None)
-        self.max_length = kwargs.get("max_length", None)
+        self.choices = kwargs.get("choices")
+        self.max_length = kwargs.get("max_length")
         self.blank = kwargs.get("blank", False)
         self.null = kwargs.get("null", False)
         self.unique = kwargs.get("unique", False)
         self.help_text = kwargs.get("help_text", "")
-        self.default = kwargs.get("default", None)
+        self.default = kwargs.get("default")
         self.editable = kwargs.get("editable", True)
-        self.verbose_name = kwargs.get("verbose_name", None)
+        self.verbose_name = kwargs.get("verbose_name")
 
     def has_default(self) -> bool:
         return self.default is not None
@@ -147,7 +143,7 @@ class MockModel:
 
     __name__ = "MockModel"
     _pk_attr = "id"
-    _fields: Dict[str, MockField] = {}
+    _fields: dict[str, MockField] = {}
     _meta: Any = None
     objects = MockManager()
 
@@ -225,8 +221,8 @@ class MockIdentity:
     def __init__(
         self,
         id: str = "user-1",
-        roles: Optional[List[str]] = None,
-        attributes: Optional[Dict[str, Any]] = None,
+        roles: list[str] | None = None,
+        attributes: dict[str, Any] | None = None,
         is_superuser: bool = False,
         is_staff: bool = False,
     ):

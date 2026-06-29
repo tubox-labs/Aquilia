@@ -28,36 +28,30 @@ Tests:
 
 from __future__ import annotations
 
-import asyncio
-import time
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Imports
 # ═══════════════════════════════════════════════════════════════════════════════
-
 from aquilia.admin.faults import (
     ADMIN_DOMAIN,
-    AdminFault,
+    AdminActionFault,
     AdminAuthenticationFault,
     AdminAuthorizationFault,
-    AdminCSRFViolationFault,
-    AdminRateLimitFault,
-    AdminSecurityFault,
-    AdminModelNotFoundFault,
-    AdminRecordNotFoundFault,
-    AdminValidationFault,
-    AdminActionFault,
     AdminConfigurationFault,
-    AdminRegistrationFault,
-    AdminInlineFault,
-    AdminTemplateFault,
+    AdminCSRFViolationFault,
     AdminExportFault,
+    AdminFault,
+    AdminInlineFault,
+    AdminModelNotFoundFault,
+    AdminRateLimitFault,
+    AdminRecordNotFoundFault,
+    AdminRegistrationFault,
+    AdminSecurityFault,
+    AdminTemplateFault,
+    AdminValidationFault,
 )
 from aquilia.admin.security import (
     AdminCSRFProtection,
@@ -69,24 +63,23 @@ from aquilia.admin.security import (
 )
 from aquilia.admin.site import AdminConfig, AdminSite
 from aquilia.admin.subsystems import (
-    AdminCacheIntegration,
-    AdminTasks,
-    AdminLifecycle,
-    AdminSubsystems,
-    AdminAuthGuard,
-    AdminPermGuard,
-    AdminCSRFGuard,
-    AdminRateLimitGuard,
     AdminAuditHook,
-    AdminDBEffect,
+    AdminAuthGuard,
     AdminCacheEffect,
+    AdminCacheIntegration,
+    AdminCSRFGuard,
+    AdminDBEffect,
+    AdminLifecycle,
+    AdminPermGuard,
+    AdminRateLimitGuard,
+    AdminSubsystems,
     AdminTaskEffect,
+    AdminTasks,
     build_admin_flow_pipeline,
     get_admin_subsystems,
 )
 from aquilia.faults import Fault
 from aquilia.integrations import Integration
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Task 1: Fault Mechanism Tests
@@ -275,8 +268,8 @@ class TestRawExceptionConversion:
 
     def test_inlines_no_fk_raises_inline_fault(self):
         """inlines.py: No FK → AdminInlineFault (not ValueError)."""
-        from aquilia.admin.inlines import InlineModelAdmin
         from aquilia.admin.faults import AdminInlineFault
+        from aquilia.admin.inlines import InlineModelAdmin
 
         class ParentModel:
             __name__ = "ParentModel"
@@ -301,8 +294,8 @@ class TestRawExceptionConversion:
 
     def test_permissions_superadmin_revoke_raises_authz_fault(self):
         """permissions.py: SUPERADMIN revoke → AdminAuthorizationFault (not ValueError)."""
-        from aquilia.admin.permissions import AdminRole, AdminPermission, update_role_permissions
         from aquilia.admin.faults import AdminAuthorizationFault
+        from aquilia.admin.permissions import AdminPermission, AdminRole, update_role_permissions
 
         with pytest.raises(AdminAuthorizationFault) as exc_info:
             update_role_permissions(AdminRole.SUPERADMIN, AdminPermission.MODEL_VIEW, granted=False)
@@ -312,8 +305,8 @@ class TestRawExceptionConversion:
     def test_registry_no_model_raises_registration_fault(self):
         """registry.py: Missing model → AdminRegistrationFault (not ValueError)."""
         from aquilia.admin.faults import AdminRegistrationFault
-        from aquilia.admin.registry import register
         from aquilia.admin.options import ModelAdmin
+        from aquilia.admin.registry import register
 
         class BadAdmin(ModelAdmin):
             model = None
@@ -357,8 +350,8 @@ class TestRawExceptionConversion:
 
     def test_templates_no_jinja_raises_config_fault(self):
         """templates.py: No Jinja2 → AdminConfigurationFault (not RuntimeError)."""
-        from aquilia.admin.faults import AdminConfigurationFault
         import aquilia.admin.templates as tpl_mod
+        from aquilia.admin.faults import AdminConfigurationFault
 
         # Save originals
         orig_engine = tpl_mod._admin_engine
@@ -1391,12 +1384,6 @@ class TestEndToEnd:
         from aquilia.admin import (
             AdminCSRFViolationFault,
             AdminRateLimitFault,
-            AdminSecurityFault,
-            AdminConfigurationFault,
-            AdminRegistrationFault,
-            AdminInlineFault,
-            AdminTemplateFault,
-            AdminExportFault,
         )
 
         # Verify they're actual classes
@@ -1406,20 +1393,8 @@ class TestEndToEnd:
     def test_all_subsystems_importable_from_admin_package(self):
         """All subsystem classes are importable from aquilia.admin."""
         from aquilia.admin import (
-            AdminSubsystems,
             AdminCacheIntegration,
-            AdminTasks,
-            AdminLifecycle,
-            AdminAuthGuard,
-            AdminPermGuard,
-            AdminCSRFGuard,
-            AdminRateLimitGuard,
-            AdminAuditHook,
-            AdminDBEffect,
-            AdminCacheEffect,
-            AdminTaskEffect,
-            build_admin_flow_pipeline,
-            get_admin_subsystems,
+            AdminSubsystems,
         )
 
         assert AdminSubsystems is not None

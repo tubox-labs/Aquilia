@@ -13,57 +13,53 @@ Verifies:
            - Regex-based HTML sanitizer emits deprecation warning
 """
 
-import asyncio
 import json
-import hashlib
-import hmac
-import os
-import pytest
 import warnings
-from datetime import datetime, timezone
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 # ============================================================================
 # Imports — Fault classes
 # ============================================================================
-
 from aquilia.faults.core import Fault, FaultDomain, Severity
-
-# Tasks faults
-from aquilia.tasks.faults import (
-    TASKS_DOMAIN,
-    TaskFault,
-    TaskScheduleFault,
-    TaskNotBoundFault,
-    TaskEnqueueFault,
-    TaskResolutionFault,
-)
 
 # Storage faults
 from aquilia.storage.base import (
     STORAGE_DOMAIN,
-    StorageError,
-    FileNotFoundError as StorageFileNotFoundError,
-    PermissionError as StoragePermissionError,
-    StorageFullError,
     BackendUnavailableError,
-    StorageIOFault,
-    StorageConfigFault,
     StorageBackend,
+    StorageConfigFault,
+    StorageError,
     StorageFile,
-    StorageMetadata,
+    StorageFullError,
+    StorageIOFault,
+)
+from aquilia.storage.base import (
+    FileNotFoundError as StorageFileNotFoundError,
+)
+from aquilia.storage.base import (
+    PermissionError as StoragePermissionError,
+)
+
+# Tasks faults
+from aquilia.tasks.faults import (
+    TASKS_DOMAIN,
+    TaskEnqueueFault,
+    TaskFault,
+    TaskNotBoundFault,
+    TaskResolutionFault,
+    TaskScheduleFault,
 )
 
 # Template faults
 from aquilia.templates.faults import (
     TEMPLATE_DOMAIN,
-    TemplateFault,
-    TemplateEngineUnavailableFault,
     TemplateCacheIntegrityFault,
+    TemplateEngineUnavailableFault,
+    TemplateFault,
     TemplateSanitizationWarning,
 )
-
 
 # ============================================================================
 # TASK 1 — Fault Taxonomy Tests
@@ -560,6 +556,7 @@ class TestPickleRemoval:
     def test_bytecode_cache_no_pickle_load(self):
         """SurpBytecodeCache._load uses JSON+HMAC, not pickle."""
         import inspect
+
         from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
         source = inspect.getsource(SurpBytecodeCache._load)
@@ -570,6 +567,7 @@ class TestPickleRemoval:
     def test_bytecode_cache_no_pickle_dump(self):
         """SurpBytecodeCache._save uses JSON+HMAC, not pickle."""
         import inspect
+
         from aquilia.templates.bytecode_cache import SurpBytecodeCache
 
         source = inspect.getsource(SurpBytecodeCache._save)
@@ -579,6 +577,7 @@ class TestPickleRemoval:
     def test_manager_no_pickle_dump(self):
         """TemplateManager.compile_all uses JSON+HMAC, not pickle."""
         import inspect
+
         from aquilia.templates.manager import TemplateManager
 
         source = inspect.getsource(TemplateManager.compile_all)
@@ -588,6 +587,7 @@ class TestPickleRemoval:
     def test_manager_no_pickle_import(self):
         """manager.py does not import pickle at all."""
         import inspect
+
         from aquilia.templates import manager as mgr_mod
 
         source = inspect.getsource(mgr_mod)

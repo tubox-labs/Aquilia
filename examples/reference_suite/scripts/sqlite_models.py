@@ -23,12 +23,11 @@ async def run() -> dict:
             await pool.execute(
                 "CREATE TABLE inventory_items (id INTEGER PRIMARY KEY AUTOINCREMENT, sku TEXT UNIQUE, name TEXT, stock INTEGER)"
             )
-            async with pool.acquire(readonly=False) as conn:
-                async with conn.transaction(mode="IMMEDIATE"):
-                    await conn.execute(
-                        "INSERT INTO inventory_items (sku, name, stock) VALUES (?, ?, ?)",
-                        ["AQ-REF", "Reference Item", 12],
-                    )
+            async with pool.acquire(readonly=False) as conn, conn.transaction(mode="IMMEDIATE"):
+                await conn.execute(
+                    "INSERT INTO inventory_items (sku, name, stock) VALUES (?, ?, ?)",
+                    ["AQ-REF", "Reference Item", 12],
+                )
             row = await pool.fetch_one("SELECT sku, stock FROM inventory_items WHERE sku = ?", ["AQ-REF"])
             return {
                 "model_table": InventoryItem._table_name,

@@ -1,4 +1,4 @@
-from aquilia import Controller, GET, POST, RequestCtx, Response
+from aquilia import GET, POST, Controller, RequestCtx, Response
 from aquilia.auth import authenticated
 
 from .blueprints import LoginBlueprint, RegisterBlueprint

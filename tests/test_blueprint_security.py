@@ -1,7 +1,6 @@
 import asyncio
-import sys
-# --- Blueprint validation error detail regression and async seal tests ---
 
+# --- Blueprint validation error detail regression and async seal tests ---
 from aquilia.blueprints import Blueprint
 from aquilia.blueprints.exceptions import SealFault
 
@@ -49,8 +48,9 @@ def test_blueprint_validation_error_details_multiple():
 
 
 def test_blueprint_validation_error_json_shape():
-    from aquilia.middleware import ExceptionMiddleware
     from types import SimpleNamespace
+
+    from aquilia.middleware import ExceptionMiddleware
 
     mw = ExceptionMiddleware(debug=True)
 
@@ -134,12 +134,16 @@ Vulnerability Coverage:
 import asyncio
 import math
 import threading
-import warnings
-from typing import Any, Dict, List, Optional, Union
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Optional, Union
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from aquilia.blueprints.annotations import (
+    NestedBlueprintFacet,
+    _safe_resolve_annotation,
+    _split_type_args,
+)
 from aquilia.blueprints.core import Blueprint, _SpecData
 from aquilia.blueprints.exceptions import CastFault, SealFault
 from aquilia.blueprints.facets import (
@@ -149,12 +153,6 @@ from aquilia.blueprints.facets import (
     JSONFacet,
     TextFacet,
 )
-from aquilia.blueprints.annotations import (
-    NestedBlueprintFacet,
-    _safe_resolve_annotation,
-    _split_type_args,
-    introspect_annotations,
-)
 from aquilia.blueprints.integration import (
     MAX_BODY_SIZE,
     MAX_UNFLATTEN_DEPTH,
@@ -162,7 +160,6 @@ from aquilia.blueprints.integration import (
     _unflatten_dict,
     bind_blueprint_to_request,
 )
-
 
 # ════════════════════════════════════════════════════════════════════════
 # HELPERS — Minimal Blueprint subclasses for testing

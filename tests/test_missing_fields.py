@@ -1,5 +1,6 @@
 import pytest
-from aquilia.models.fields import SmallAutoField, VarcharField, FieldValidationError
+
+from aquilia.models.fields import FieldValidationError, SmallAutoField, VarcharField
 
 
 def test_small_auto_field():

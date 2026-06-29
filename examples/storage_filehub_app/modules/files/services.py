@@ -21,7 +21,9 @@ class FileHubService:
     async def shutdown(self) -> None:
         await self.registry.shutdown_all()
 
-    async def upload_document(self, name: str, content: bytes, *, tenant: str, quarantine: bool = False) -> dict[str, Any]:
+    async def upload_document(
+        self, name: str, content: bytes, *, tenant: str, quarantine: bool = False
+    ) -> dict[str, Any]:
         backend = self.registry["quarantine" if quarantine else "documents"]
         stored_name = await backend.save(
             f"{tenant}/{name}",

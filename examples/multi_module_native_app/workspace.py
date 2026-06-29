@@ -1,5 +1,17 @@
 from aquilia import Module, Workspace
-from aquilia.integrations import AdminIntegration, AdminModules, CacheIntegration, ConsoleProvider, DiIntegration, FaultHandlingIntegration, MailIntegration, OpenAPIIntegration, RoutingIntegration, TemplatesIntegration, VersioningIntegration
+from aquilia.integrations import (
+    AdminIntegration,
+    AdminModules,
+    CacheIntegration,
+    ConsoleProvider,
+    DiIntegration,
+    FaultHandlingIntegration,
+    MailIntegration,
+    OpenAPIIntegration,
+    RoutingIntegration,
+    TemplatesIntegration,
+    VersioningIntegration,
+)
 from aquilia.sessions import DEFAULT_USER_POLICY
 
 workspace = (
@@ -8,8 +20,15 @@ workspace = (
     .module(Module("accounts", version="1.0.0").route_prefix("/accounts").tags("auth", "identity"))
     .module(Module("catalog", version="1.0.0").route_prefix("/catalog").tags("products"))
     .module(Module("orders", version="1.0.0").route_prefix("/orders").imports("accounts", "catalog").tags("orders"))
-    .module(Module("notifications", version="1.0.0").route_prefix("/notifications").imports("accounts").tags("mail", "tasks"))
-    .module(Module("realtime", version="1.0.0").route_prefix("/realtime").imports("accounts", "orders").tags("websocket"))
+    .module(
+        Module("notifications", version="1.0.0")
+        .route_prefix("/notifications")
+        .imports("accounts")
+        .tags("mail", "tasks")
+    )
+    .module(
+        Module("realtime", version="1.0.0").route_prefix("/realtime").imports("accounts", "orders").tags("websocket")
+    )
     .module(Module("operations", version="1.0.0").route_prefix("/ops").tags("admin", "health"))
     .database(url="sqlite:///runtime/app.db", auto_create=True, auto_migrate=False)
     .tasks(num_workers=4, backend="memory", scheduler_tick=15.0)
@@ -18,7 +37,11 @@ workspace = (
     .integrate(TemplatesIntegration(search_paths=["templates"], cache="memory", sandbox=True))
     .integrate(OpenAPIIntegration(title="Aquilia Native Commerce", version="1.0.0", enabled=True))
     .integrate(VersioningIntegration(default_version="1.0", versions=["1.0"]))
-    .integrate(AdminIntegration(site_title="Commerce Admin", modules=AdminModules(audit=True, monitoring=True, storage=True, tasks=True)))
+    .integrate(
+        AdminIntegration(
+            site_title="Commerce Admin", modules=AdminModules(audit=True, monitoring=True, storage=True, tasks=True)
+        )
+    )
     .integrate(DiIntegration(auto_wire=True))
     .integrate(RoutingIntegration(strict_matching=True))
     .integrate(FaultHandlingIntegration(default_strategy="propagate"))

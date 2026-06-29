@@ -1,4 +1,4 @@
-from aquilia.controller import Controller, POST, RequestCtx
+from aquilia.controller import POST, Controller, RequestCtx
 from aquilia.response import Response
 
 from .services import ReleaseArtifactService

@@ -14,9 +14,8 @@ These tests verify:
   10. All integration types importable from aquilia top-level
 """
 
-import pytest
-from typing import Dict, Any
 
+import pytest
 
 # ============================================================================
 # 1. Top-level import smoke test
@@ -29,46 +28,6 @@ class TestIntegrationImports:
     def test_import_from_aquilia(self):
         from aquilia import (
             IntegrationConfig,
-            AuthIntegration,
-            DatabaseIntegration,
-            SessionIntegration,
-            MailIntegration,
-            MailAuth,
-            SmtpProvider,
-            SesProvider,
-            SendGridProvider,
-            ConsoleProvider,
-            FileProvider,
-            AdminIntegration,
-            AdminModules,
-            AdminAudit,
-            AdminMonitoring,
-            AdminSidebar,
-            AdminContainers,
-            AdminPods,
-            AdminSecurity,
-            MiddlewareChain,
-            MiddlewareEntry,
-            CacheIntegration,
-            TasksIntegration,
-            StorageIntegration,
-            TemplatesIntegration,
-            CorsIntegration,
-            CspIntegration,
-            RateLimitIntegration,
-            CsrfIntegration,
-            OpenAPIIntegration,
-            I18nIntegration,
-            VersioningIntegration,
-            RenderIntegration,
-            LoggingIntegration,
-            StaticFilesIntegration,
-            DiIntegration,
-            RoutingIntegration,
-            FaultHandlingIntegration,
-            PatternsIntegration,
-            RegistryIntegration,
-            SerializersIntegration,
         )
 
         # All symbols resolve without error
@@ -77,18 +36,12 @@ class TestIntegrationImports:
     def test_import_from_integrations_package(self):
         from aquilia.integrations import (
             IntegrationConfig,
-            MailIntegration,
-            AdminModules,
-            CacheIntegration,
         )
 
         assert IntegrationConfig is not None
 
     def test_import_from_config_builders(self):
         from aquilia.integrations import (
-            MailIntegration,
-            AdminModules,
-            CacheIntegration,
             IntegrationConfig,
         )
 
@@ -665,9 +618,9 @@ class TestAdminSubclasses:
 
     def test_admin_integration_full(self):
         from aquilia.integrations import (
+            AdminAudit,
             AdminIntegration,
             AdminModules,
-            AdminAudit,
             AdminMonitoring,
             AdminSecurity,
         )
@@ -760,7 +713,7 @@ class TestMailIntegration:
         assert d["region"] == "eu-west-1"
 
     def test_sendgrid_provider(self):
-        from aquilia.integrations import SendGridProvider, MailAuth
+        from aquilia.integrations import MailAuth, SendGridProvider
 
         p = SendGridProvider(auth=MailAuth.api_key(env="SG_KEY"))
         d = p.to_dict()
@@ -783,7 +736,7 @@ class TestMailIntegration:
         assert d["output_dir"] == "/tmp/mail"
 
     def test_mail_integration_composition(self):
-        from aquilia.integrations import MailIntegration, MailAuth, SmtpProvider
+        from aquilia.integrations import MailAuth, MailIntegration, SmtpProvider
 
         mail = MailIntegration(
             default_from="noreply@app.com",
@@ -864,7 +817,7 @@ class TestWorkspaceTypedIntegrate:
     """Test Workspace.integrate() accepting IntegrationConfig objects."""
 
     def test_integrate_cache(self):
-        from aquilia import Workspace, CacheIntegration
+        from aquilia import CacheIntegration, Workspace
 
         ws = Workspace("test").integrate(CacheIntegration(backend="redis", max_size=500))
         d = ws.to_dict()
@@ -872,7 +825,7 @@ class TestWorkspaceTypedIntegrate:
         assert d["integrations"]["cache"]["max_size"] == 500
 
     def test_integrate_mail(self):
-        from aquilia import Workspace, MailIntegration, SmtpProvider
+        from aquilia import MailIntegration, SmtpProvider, Workspace
 
         ws = Workspace("test").integrate(
             MailIntegration(
@@ -884,7 +837,7 @@ class TestWorkspaceTypedIntegrate:
         assert d["integrations"]["mail"]["default_from"] == "hi@app.com"
 
     def test_integrate_cors(self):
-        from aquilia import Workspace, CorsIntegration
+        from aquilia import CorsIntegration, Workspace
 
         ws = Workspace("test").integrate(
             CorsIntegration(
@@ -896,7 +849,7 @@ class TestWorkspaceTypedIntegrate:
         assert d["security"]["cors"]["allow_origins"] == ["https://app.com"]
 
     def test_integrate_admin(self):
-        from aquilia import Workspace, AdminIntegration, AdminModules
+        from aquilia import AdminIntegration, AdminModules, Workspace
 
         ws = Workspace("test").integrate(
             AdminIntegration(
@@ -908,7 +861,7 @@ class TestWorkspaceTypedIntegrate:
         assert d["integrations"]["admin"]["site_title"] == "Test Admin"
 
     def test_integrate_versioning(self):
-        from aquilia import Workspace, VersioningIntegration
+        from aquilia import VersioningIntegration, Workspace
 
         ws = Workspace("test").integrate(
             VersioningIntegration(
@@ -924,10 +877,10 @@ class TestWorkspaceTypedIntegrate:
 
     def test_integrate_multiple_typed(self):
         from aquilia import (
-            Workspace,
             CacheIntegration,
             I18nIntegration,
             TasksIntegration,
+            Workspace,
         )
 
         ws = (
@@ -942,7 +895,7 @@ class TestWorkspaceTypedIntegrate:
         assert d["integrations"]["tasks"]["num_workers"] == 8
 
     def test_integrate_legacy_dict_still_works(self):
-        from aquilia import Workspace, Integration
+        from aquilia import Integration, Workspace
 
         ws = Workspace("test").integrate(Integration.cache(backend="memory", max_size=2000))
         d = ws.to_dict()
@@ -950,7 +903,7 @@ class TestWorkspaceTypedIntegrate:
         assert d["integrations"]["cache"]["max_size"] == 2000
 
     def test_integrate_mixed_typed_and_legacy(self):
-        from aquilia import Workspace, Integration, CacheIntegration, I18nIntegration
+        from aquilia import CacheIntegration, I18nIntegration, Integration, Workspace
 
         ws = (
             Workspace("test")
@@ -1103,28 +1056,28 @@ class TestEdgeCases:
         """Every to_dict() must include _integration_type."""
         from aquilia.integrations import (
             AuthIntegration,
-            DatabaseIntegration,
-            MailIntegration,
             CacheIntegration,
-            TasksIntegration,
-            StorageIntegration,
             CorsIntegration,
             CspIntegration,
-            RateLimitIntegration,
             CsrfIntegration,
-            OpenAPIIntegration,
-            I18nIntegration,
-            VersioningIntegration,
-            RenderIntegration,
-            LoggingIntegration,
-            StaticFilesIntegration,
+            DatabaseIntegration,
             DiIntegration,
-            RoutingIntegration,
             FaultHandlingIntegration,
+            I18nIntegration,
+            LoggingIntegration,
+            MailIntegration,
+            OpenAPIIntegration,
             PatternsIntegration,
+            RateLimitIntegration,
             RegistryIntegration,
+            RenderIntegration,
+            RoutingIntegration,
             SerializersIntegration,
+            StaticFilesIntegration,
+            StorageIntegration,
+            TasksIntegration,
             TemplatesIntegration,
+            VersioningIntegration,
         )
 
         for cls, kwargs in [
@@ -1173,9 +1126,9 @@ class TestEdgeCases:
         from aquilia import Workspace
         from aquilia.integrations import (
             CacheIntegration,
+            CorsIntegration,
             I18nIntegration,
             VersioningIntegration,
-            CorsIntegration,
         )
 
         ws = (

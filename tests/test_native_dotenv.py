@@ -12,11 +12,8 @@ These tests verify:
 """
 
 import os
-import tempfile
-from pathlib import Path
 
 import pytest
-
 
 # ============================================================================
 # DOTENV PARSER TESTS

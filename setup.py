@@ -6,8 +6,9 @@ NOTE: This file exists for backwards compatibility with older tooling.
 All canonical configuration lives in ``pyproject.toml``.
 """
 
-from setuptools import setup, find_packages
 from pathlib import Path
+
+from setuptools import find_packages, setup
 
 # ---------------------------------------------------------------------------
 # Version — single source of truth is aquilia/_version.py

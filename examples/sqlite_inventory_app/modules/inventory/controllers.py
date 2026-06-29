@@ -1,4 +1,4 @@
-from aquilia.controller import Controller, GET, POST, RequestCtx
+from aquilia.controller import GET, POST, Controller, RequestCtx
 from aquilia.response import Response
 
 from .services import InventorySqliteService

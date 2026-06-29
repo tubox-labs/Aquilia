@@ -20,96 +20,86 @@ Tests all controller subsystems including:
 import asyncio
 import inspect
 import json
-import math
 import time
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from typing import Any, Optional
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Imports
 # ═══════════════════════════════════════════════════════════════════════════
-
 from aquilia.controller.base import (
     Controller,
-    RequestCtx,
     ExceptionFilter,
     Interceptor,
+    RequestCtx,
     Throttle,
     _reset_current_request_ctx,
     _set_current_request_ctx,
-    _ControllerMeta,
 )
 from aquilia.controller.decorators import (
-    GET,
-    POST,
-    PUT,
-    PATCH,
     DELETE,
+    GET,
     HEAD,
     OPTIONS,
+    PATCH,
+    POST,
+    PUT,
     TRACE,
-    WS,
-    RouteDecorator,
-    route,
     VALID_HTTP_METHODS,
+    WS,
+    route,
 )
+from aquilia.controller.engine import ControllerEngine
 from aquilia.controller.factory import (
     ControllerFactory,
     InstantiationMode,
-    ScopeViolationError,
-)
-from aquilia.controller.engine import ControllerEngine
-from aquilia.controller.metadata import (
-    ControllerMetadata,
-    RouteMetadata,
-    ParameterMetadata,
-    extract_controller_metadata,
 )
 from aquilia.controller.filters import (
-    FilterSet,
-    FilterSetMeta,
-    SearchFilter,
-    OrderingFilter,
     BaseFilterBackend,
-    apply_filters_to_list,
-    apply_search_to_list,
-    apply_ordering_to_list,
+    FilterSet,
+    OrderingFilter,
+    SearchFilter,
     _coerce_value,
-    _matches_lookup,
     _get_nested,
+    _matches_lookup,
+    apply_filters_to_list,
+    apply_ordering_to_list,
+    apply_search_to_list,
+)
+from aquilia.controller.metadata import (
+    ControllerMetadata,
+    ParameterMetadata,
+    RouteMetadata,
+    extract_controller_metadata,
+)
+from aquilia.controller.openapi import (
+    OpenAPIConfig,
+    _parse_docstring,
+    _python_type_to_schema,
+    generate_redoc_html,
+    generate_swagger_html,
 )
 from aquilia.controller.pagination import (
     BasePagination,
-    PageNumberPagination,
-    LimitOffsetPagination,
     CursorPagination,
+    LimitOffsetPagination,
     NoPagination,
+    PageNumberPagination,
 )
 from aquilia.controller.renderers import (
     BaseRenderer,
+    ContentNegotiator,
+    HTMLRenderer,
     JSONRenderer,
+    PlainTextRenderer,
     XMLRenderer,
     YAMLRenderer,
-    PlainTextRenderer,
-    HTMLRenderer,
-    MessagePackRenderer,
-    ContentNegotiator,
-    negotiate,
-    _parse_accept,
     _media_matches,
+    _parse_accept,
+    negotiate,
 )
-from aquilia.controller.openapi import (
-    OpenAPIGenerator,
-    OpenAPIConfig,
-    generate_swagger_html,
-    generate_redoc_html,
-    _python_type_to_schema,
-    _parse_docstring,
-)
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Helpers / Fixtures
@@ -896,8 +886,8 @@ class TestEngineAuthGuardClassTokenPipeline:
 
     async def test_class_token_auth_guard_blocks_missing_bearer_token(self):
         """pipeline=[AuthGuard] must execute guard and deny unauthenticated requests."""
-        from aquilia.auth.guards import AuthGuard
         from aquilia.auth.faults import AUTH_REQUIRED
+        from aquilia.auth.guards import AuthGuard
 
         factory = ControllerFactory()
         engine = ControllerEngine(factory)
@@ -1592,12 +1582,12 @@ class TestOpenAPITypeMapping:
         assert _python_type_to_schema(bool) == {"type": "boolean"}
 
     def test_list_of_str(self):
-        schema = _python_type_to_schema(List[str])
+        schema = _python_type_to_schema(list[str])
         assert schema["type"] == "array"
         assert schema["items"] == {"type": "string"}
 
     def test_dict_of_str_int(self):
-        schema = _python_type_to_schema(Dict[str, int])
+        schema = _python_type_to_schema(dict[str, int])
         assert schema["type"] == "object"
         assert schema["additionalProperties"] == {"type": "integer"}
 

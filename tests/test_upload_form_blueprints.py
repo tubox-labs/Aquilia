@@ -1,15 +1,15 @@
-import pytest
-import json
-from typing import Optional, Annotated
 
-from aquilia.blueprints import Blueprint, CastFault, SealFault
-from aquilia._uploads import UploadFile, FormData, create_upload_file_from_bytes
+import pytest
+
 from aquilia._datastructures import MultiDict
+from aquilia._uploads import FormData, UploadFile, create_upload_file_from_bytes
+from aquilia.blueprints import Blueprint
 from aquilia.blueprints.integration import bind_blueprint_to_request
 from aquilia.controller.validation import validate_body
 from aquilia.response import Response
 
 # ── Declarations ───────────────────────────────────────────────────────────
+
 
 class ImplicitUploadBlueprint(Blueprint):
     file: UploadFile
@@ -43,6 +43,7 @@ class NestedUploadBlueprint(Blueprint):
 
 # ── Tests ───────────────────────────────────────────────────────────────────
 
+
 def test_implicit_blueprint_instantiation():
     # Test with raw dictionary
     f = create_upload_file_from_bytes("test.png", b"hello", "image/png")
@@ -60,7 +61,7 @@ def test_implicit_blueprint_instantiation():
 def test_explicit_blueprint_instantiation():
     # Test explicit blueprint config and validation
     f_valid = create_upload_file_from_bytes("test.png", b"small content", "image/png")
-    
+
     # Valid explicit fields
     data_valid = {
         "file": f_valid,
@@ -119,13 +120,10 @@ def test_optional_fields():
 def test_collections():
     f1 = create_upload_file_from_bytes("f1.png", b"f1", "image/png")
     f2 = create_upload_file_from_bytes("f2.png", b"f2", "image/png")
-    
+
     # Test collections of files and form data
     # Standard MultiDict structure
-    form_data = FormData(
-        fields=MultiDict([("tags", "tag1"), ("tags", "tag2")]),
-        files={"files": [f1, f2]}
-    )
+    form_data = FormData(fields=MultiDict([("tags", "tag1"), ("tags", "tag2")]), files={"files": [f1, f2]})
     bp = CollectionUploadBlueprint(data=form_data)
     assert bp.is_sealed() is True
     assert bp.validated_data["files"] == [f1, f2]
@@ -134,11 +132,10 @@ def test_collections():
 
 def test_nested_blueprints():
     f = create_upload_file_from_bytes("nested.png", b"nested", "image/png")
-    
+
     # Nested mapping payload
     form_data = FormData(
-        fields=MultiDict([("inner.title", "Inner Title"), ("outer_name", "Outer Name")]),
-        files={"inner.file": [f]}
+        fields=MultiDict([("inner.title", "Inner Title"), ("outer_name", "Outer Name")]), files={"inner.file": [f]}
     )
     bp = NestedUploadBlueprint(data=form_data)
     assert bp.is_sealed() is True
@@ -149,17 +146,16 @@ def test_nested_blueprints():
 
 # ── Request Binding Integration Tests ──────────────────────────────────────
 
+
 @pytest.mark.asyncio
 async def test_bind_blueprint_to_multipart_request():
     f = create_upload_file_from_bytes("avatar.png", b"avatar bytes", "image/png")
-    form_data = FormData(
-        fields=MultiDict([("name", "Bob")]),
-        files={"file": [f]}
-    )
+    form_data = FormData(fields=MultiDict([("name", "Bob")]), files={"file": [f]})
 
     class MockRequest:
         def __init__(self):
             self.headers = {"content-type": "multipart/form-data; boundary=xyz"}
+
         async def multipart(self):
             return form_data
 
@@ -177,14 +173,12 @@ async def test_bind_blueprint_to_urlencoded_request():
         age: FormData(type=int)
         is_admin: FormData(type=bool)
 
-    form_data = FormData(
-        fields=MultiDict([("name", "Bob"), ("age", "30"), ("is_admin", "true")]),
-        files={}
-    )
+    form_data = FormData(fields=MultiDict([("name", "Bob"), ("age", "30"), ("is_admin", "true")]), files={})
 
     class MockRequest:
         def __init__(self):
             self.headers = {"content-type": "application/x-www-form-urlencoded"}
+
         async def form(self):
             return form_data
 
@@ -198,10 +192,7 @@ async def test_bind_blueprint_to_urlencoded_request():
 @pytest.mark.asyncio
 async def test_validate_body_decorator_multipart():
     f = create_upload_file_from_bytes("avatar.png", b"avatar bytes", "image/png")
-    form_data = FormData(
-        fields=MultiDict([("name", "Bob")]),
-        files={"file": [f]}
-    )
+    form_data = FormData(fields=MultiDict([("name", "Bob")]), files={"file": [f]})
 
     executed = {}
 
@@ -223,6 +214,7 @@ async def test_validate_body_decorator_multipart():
 
 
 # ── Regression / JSON Validation Tests ──────────────────────────────────────
+
 
 @pytest.mark.asyncio
 async def test_json_validation_unchanged():
@@ -257,10 +249,9 @@ def test_missing_required_fields():
 
 
 def test_invalid_field_types():
-    bp = ExplicitUploadBlueprint(data={
-        "file": create_upload_file_from_bytes("test.png", b"hello", "image/png"),
-        "name": "not-an-int"
-    })
+    bp = ExplicitUploadBlueprint(
+        data={"file": create_upload_file_from_bytes("test.png", b"hello", "image/png"), "name": "not-an-int"}
+    )
     assert bp.is_sealed() is False
     assert "name" in bp.errors
 
@@ -270,4 +261,3 @@ def test_empty_uploads():
     bp = ImplicitUploadBlueprint(data={"file": f_empty, "name": "Bob"})
     assert bp.is_sealed() is True
     assert bp.validated_data["file"].size == 0
-

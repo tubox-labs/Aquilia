@@ -16,7 +16,6 @@ from __future__ import annotations
 import hmac
 import time
 from dataclasses import FrozenInstanceError
-from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,13 +25,11 @@ from aquilia.admin.security import (
     AdminRateLimiter,
     AdminSecurityHeaders,
     AdminSecurityPolicy,
-    PasswordStrength,
     PasswordValidator,
     SecurityEvent,
     SecurityEventTracker,
     register_security_providers,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  1. AdminCSRFProtection Tests

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import logging
 
-from aquilia.faults.engine import FaultEngine
 from aquilia.faults.core import Escalate
+from aquilia.faults.engine import FaultEngine
 from aquilia.http import AsyncHTTPClient, MockTransport
 from aquilia.patterns import PatternMatcher, compile_pattern
 

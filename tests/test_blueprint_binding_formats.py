@@ -1,34 +1,32 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date, datetime, time, timedelta
+import uuid
+from datetime import date, datetime, time
 from decimal import Decimal
 from enum import Enum
-import json
-import uuid
+
 import pytest
 
-from aquilia.blueprints import Blueprint, ListFacet, NestedBlueprintFacet, TextFacet, ChoiceFacet
-from aquilia.blueprints.core import BlueprintUnion
-from aquilia.blueprints.exceptions import SealFault
-from aquilia.blueprints.sigil import (
-    is_mapping_like,
-    get_keys,
-    get_field_value,
-    extract_nested_mapping,
-    extract_flat_list_mapping,
-)
-from aquilia.request import Request
-from aquilia.controller.decorators import POST
-from aquilia.controller.base import Controller, RequestCtx
-from aquilia.controller.engine import ControllerEngine
-from aquilia._uploads import FormData, UploadFile
 from aquilia._datastructures import MultiDict
-
+from aquilia._uploads import FormData
+from aquilia.blueprints import Blueprint, ChoiceFacet, ListFacet, NestedBlueprintFacet, TextFacet
+from aquilia.blueprints.sigil import (
+    extract_flat_list_mapping,
+    extract_nested_mapping,
+    get_field_value,
+    get_keys,
+    is_mapping_like,
+)
+from aquilia.controller.base import Controller, RequestCtx
+from aquilia.controller.decorators import POST
+from aquilia.controller.engine import ControllerEngine
+from aquilia.request import Request
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  Blueprint Definitions
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class StatusEnum(str, Enum):
     ACTIVE = "active"
@@ -92,6 +90,7 @@ class UnionMemberBBlueprint(Blueprint):
 # ═══════════════════════════════════════════════════════════════════════════
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def make_mock_request(
     method: str = "POST",
@@ -163,6 +162,7 @@ def make_multipart_body(
 #  Unit Tests: Mapping-Like Helpers
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def test_helper_is_mapping_like():
     assert is_mapping_like({}) is True
     assert is_mapping_like(MultiDict()) is True
@@ -221,13 +221,9 @@ def test_helper_flat_list_mapping():
 #  Integration Tests: Request Lifecycle & Formats
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 def test_blueprint_json_validation_regression():
-    data = {
-        "name": "John",
-        "age": 25,
-        "price": 10.5,
-        "tags": ["a", "b"]
-    }
+    data = {"name": "John", "age": 25, "price": 10.5, "tags": ["a", "b"]}
     bp = ProductBlueprint(data=data)
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "John"
@@ -281,7 +277,7 @@ def test_comprehensive_coercion_types_form():
     form_data.add("created_at", "2026-06-28T12:00:00")
     form_data.add("start_date", "2026-06-28")
     form_data.add("alert_time", "12:00:00")
-    
+
     id_val = str(uuid.uuid4())
     form_data.add("id_uuid", id_val)
     form_data.add("status", "active")
@@ -315,22 +311,22 @@ def test_comprehensive_coercion_types_form():
 
 def test_blueprint_union_validation_from_form():
     union = UnionMemberABlueprint | UnionMemberBBlueprint
-    
+
     # Try choice A
     form_a = MultiDict()
     form_a.add("type_field", "A")
     form_a.add("value_a", "123")
-    
+
     errors, validated = union.validate(form_a)
     assert not errors
     assert validated["type_field"] == "A"
     assert validated["value_a"] == 123
-    
+
     # Try choice B
     form_b = MultiDict()
     form_b.add("type_field", "B")
     form_b.add("value_b", "hello")
-    
+
     errors, validated = union.validate(form_b)
     assert not errors
     assert validated["type_field"] == "B"
@@ -340,6 +336,7 @@ def test_blueprint_union_validation_from_form():
 # ═══════════════════════════════════════════════════════════════════════════
 #  Controller Engine Parameter Binding Tests
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 class ProductController(Controller):
     @POST("/")
@@ -359,10 +356,12 @@ async def test_controller_engine_binds_form_urlencoded():
 
     ctx = RequestCtx(request=req)
     from aquilia.controller.factory import ControllerFactory
+
     engine = ControllerEngine(ControllerFactory())
-    
+
     # Introspect/compile endpoint metadata
     from aquilia.controller.metadata import extract_controller_metadata
+
     meta = extract_controller_metadata(ProductController, "test:Product")
     route_meta = meta.routes[0]
 
@@ -394,9 +393,11 @@ async def test_controller_engine_binds_multipart():
 
     ctx = RequestCtx(request=req)
     from aquilia.controller.factory import ControllerFactory
+
     engine = ControllerEngine(ControllerFactory())
 
     from aquilia.controller.metadata import extract_controller_metadata
+
     meta = extract_controller_metadata(ProductController, "test:Product")
     route_meta = meta.routes[0]
 
@@ -412,6 +413,7 @@ async def test_controller_engine_binds_multipart():
 # ═══════════════════════════════════════════════════════════════════════════
 #  Edge Cases
 # ═══════════════════════════════════════════════════════════════════════════
+
 
 def test_missing_and_invalid_values_form():
     # Missing required field 'price'
@@ -470,6 +472,7 @@ def test_empty_string_coercion_rules():
 #  Stress and Concurrency Tests
 # ═══════════════════════════════════════════════════════════════════════════
 
+
 @pytest.mark.asyncio
 async def test_concurrent_blueprint_validation_stress():
     # Simulate multiple concurrent validations of form data
@@ -480,7 +483,7 @@ async def test_concurrent_blueprint_validation_stress():
         form_data.add("price", str(10.5 + i))
         form_data.add("tags", f"tag-{i}")
         form_data.add("tags", "all")
-        
+
         bp = ProductBlueprint(data=form_data)
         assert bp.is_sealed() is True
         assert bp.validated_data["name"] == f"Product-{i}"

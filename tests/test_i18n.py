@@ -20,19 +20,12 @@ Tests every layer of the Aquilia i18n subsystem:
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
-import os
-import shutil
-import tempfile
-from datetime import date, datetime, time, timezone
-from decimal import Decimal
+from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any, Dict, Optional, Set
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # §1 — Locale
@@ -96,22 +89,22 @@ class TestLocaleParsing:
         assert loc.region == "US"
 
     def test_invalid_empty(self):
-        from aquilia.i18n.locale import parse_locale
         from aquilia.faults.domains import ConfigInvalidFault
+        from aquilia.i18n.locale import parse_locale
 
         with pytest.raises(ConfigInvalidFault):
             parse_locale("")
 
     def test_invalid_none(self):
-        from aquilia.i18n.locale import parse_locale
         from aquilia.faults.domains import ConfigInvalidFault
+        from aquilia.i18n.locale import parse_locale
 
         with pytest.raises(ConfigInvalidFault):
             parse_locale(None)
 
     def test_invalid_garbage(self):
-        from aquilia.i18n.locale import parse_locale
         from aquilia.faults.domains import ConfigInvalidFault
+        from aquilia.i18n.locale import parse_locale
 
         with pytest.raises(ConfigInvalidFault):
             parse_locale("!!!invalid!!!")
@@ -927,6 +920,7 @@ class TestSurpCatalog:
     def test_envelope_integrity(self, locale_dir):
         """Validate SURP envelope structure."""
         import surp
+
         from aquilia.i18n.catalog import SurpCatalog
 
         cat = SurpCatalog([locale_dir], auto_compile=True)
@@ -1264,7 +1258,7 @@ class TestFormatPercent:
         from aquilia.i18n.formatter import format_percent
 
         result = format_percent(0.4256, "en", decimals=1)
-        assert "42.6%" == result
+        assert result == "42.6%"
 
 
 class TestFormatDecimal:
@@ -1362,8 +1356,8 @@ class TestI18nService:
     """I18nService orchestration."""
 
     def _make_service(self, **overrides):
-        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         catalog = MemoryCatalog(
             {
@@ -1406,12 +1400,12 @@ class TestI18nService:
     def test_plural_one(self):
         svc = self._make_service()
         result = svc.tn("messages.items", 1)
-        assert "1 item" == result
+        assert result == "1 item"
 
     def test_plural_many(self):
         svc = self._make_service()
         result = svc.tn("messages.items", 5)
-        assert "5 items" == result
+        assert result == "5 items"
 
     def test_tp_alias(self):
         svc = self._make_service()
@@ -1502,8 +1496,8 @@ class TestCreateI18nService:
         assert svc.config.default_locale == "de"
 
     def test_with_catalog(self):
-        from aquilia.i18n.service import create_i18n_service
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import create_i18n_service
 
         cat = MemoryCatalog({"en": {"test": {"key": "value"}}})
         svc = create_i18n_service(catalog=cat)
@@ -1514,8 +1508,8 @@ class TestServiceBuildCatalog:
     """Service._build_catalog with SURP format."""
 
     def test_build_surp_catalog(self, tmp_path):
-        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.catalog import SurpCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         locale_dir = tmp_path / "locales" / "en"
         locale_dir.mkdir(parents=True)
@@ -1530,8 +1524,8 @@ class TestServiceBuildCatalog:
         assert svc.t("messages.hello") == "Hello!"
 
     def test_build_json_catalog(self, tmp_path):
-        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.catalog import FileCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         locale_dir = tmp_path / "locales" / "en"
         locale_dir.mkdir(parents=True)
@@ -1555,8 +1549,8 @@ class TestLazyString:
     """LazyString deferred translation."""
 
     def _make_service(self):
-        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         catalog = MemoryCatalog(
             {
@@ -1719,8 +1713,8 @@ class TestLazyPluralString:
     """LazyPluralString with count."""
 
     def _make_service(self):
-        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         catalog = MemoryCatalog(
             {
@@ -1737,14 +1731,14 @@ class TestLazyPluralString:
 
         svc = self._make_service()
         lazy = LazyPluralString("items", 1, service=svc)
-        assert "1 item" == str(lazy)
+        assert str(lazy) == "1 item"
 
     def test_plural(self):
         from aquilia.i18n.lazy import LazyPluralString
 
         svc = self._make_service()
         lazy = LazyPluralString("items", 5, service=svc)
-        assert "5 items" == str(lazy)
+        assert str(lazy) == "5 items"
 
     def test_repr(self):
         from aquilia.i18n.lazy import LazyPluralString
@@ -1758,13 +1752,13 @@ class TestLazyFactories:
     """lazy_t / lazy_tn factory functions."""
 
     def test_lazy_t(self):
-        from aquilia.i18n.lazy import lazy_t, LazyString
+        from aquilia.i18n.lazy import LazyString, lazy_t
 
         result = lazy_t("test.key", default="Default")
         assert isinstance(result, LazyString)
 
     def test_lazy_tn(self):
-        from aquilia.i18n.lazy import lazy_tn, LazyPluralString
+        from aquilia.i18n.lazy import LazyPluralString, lazy_tn
 
         result = lazy_tn("items", 5)
         assert isinstance(result, LazyPluralString)
@@ -1774,7 +1768,7 @@ class TestLazyContext:
     """set_lazy_context / clear_lazy_context."""
 
     def test_set_and_clear(self):
-        from aquilia.i18n.lazy import set_lazy_context, clear_lazy_context, _service_ref, _locale_ref, LazyString
+        from aquilia.i18n.lazy import LazyString, _locale_ref, _service_ref, clear_lazy_context, set_lazy_context
 
         svc = MagicMock()
         svc.t.return_value = "Resolved"
@@ -1824,11 +1818,11 @@ class _MockRequest:
 
     def __init__(
         self,
-        headers: Optional[dict] = None,
-        cookies: Optional[dict] = None,
-        query_params: Optional[dict] = None,
+        headers: dict | None = None,
+        cookies: dict | None = None,
+        query_params: dict | None = None,
         path: str = "/",
-        state: Optional[dict] = None,
+        state: dict | None = None,
     ):
         self.headers = headers or {}
         self.cookies = cookies or {}
@@ -1952,7 +1946,7 @@ class TestChainLocaleResolver:
     """ChainLocaleResolver tries multiple resolvers."""
 
     def test_first_wins(self):
-        from aquilia.i18n.middleware import ChainLocaleResolver, QueryLocaleResolver, CookieLocaleResolver
+        from aquilia.i18n.middleware import ChainLocaleResolver, CookieLocaleResolver, QueryLocaleResolver
 
         chain = ChainLocaleResolver(
             [
@@ -1967,7 +1961,7 @@ class TestChainLocaleResolver:
         assert chain.resolve(request) == "fr"
 
     def test_fallback_to_second(self):
-        from aquilia.i18n.middleware import ChainLocaleResolver, QueryLocaleResolver, CookieLocaleResolver
+        from aquilia.i18n.middleware import ChainLocaleResolver, CookieLocaleResolver, QueryLocaleResolver
 
         chain = ChainLocaleResolver(
             [
@@ -2013,8 +2007,8 @@ class TestI18nMiddleware:
     """I18nMiddleware request processing."""
 
     def _make_service(self):
-        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         return I18nService(
             I18nConfig(default_locale="en", available_locales=["en", "fr"]),
@@ -2061,7 +2055,6 @@ class TestI18nMiddleware:
     @pytest.mark.asyncio
     async def test_cleanup_on_exception(self):
         from aquilia.i18n.middleware import I18nMiddleware
-        from aquilia.i18n.lazy import _service_ref
 
         svc = self._make_service()
         mw = I18nMiddleware(svc)
@@ -2115,14 +2108,14 @@ class TestI18nFaults:
         assert fault.code == "I18N_PLURAL_RULE"
 
     def test_inheritance(self):
+        from aquilia.faults.core import Fault
         from aquilia.i18n.faults import (
-            I18nFault,
-            MissingTranslationFault,
-            InvalidLocaleFault,
             CatalogLoadFault,
+            I18nFault,
+            InvalidLocaleFault,
+            MissingTranslationFault,
             PluralRuleFault,
         )
-        from aquilia.faults.core import Fault
 
         assert issubclass(I18nFault, Fault)
         assert issubclass(MissingTranslationFault, I18nFault)
@@ -2131,8 +2124,8 @@ class TestI18nFaults:
         assert issubclass(PluralRuleFault, I18nFault)
 
     def test_fault_domain(self):
-        from aquilia.i18n.faults import I18nFault, MissingTranslationFault
         from aquilia.faults.core import FaultDomain
+        from aquilia.i18n.faults import MissingTranslationFault
 
         fault = MissingTranslationFault("test", "en")
         assert fault.domain == FaultDomain.I18N
@@ -2161,8 +2154,9 @@ class TestTemplateIntegration:
 
     def _make_env_and_service(self):
         from jinja2 import Environment
-        from aquilia.i18n.service import I18nConfig, I18nService
+
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
         from aquilia.i18n.template_integration import register_i18n_template_globals
 
         catalog = MemoryCatalog(
@@ -2216,9 +2210,9 @@ class TestDIIntegration:
     """DI container provider registration."""
 
     def test_register_in_dict(self):
+        from aquilia.i18n.catalog import MemoryCatalog
         from aquilia.i18n.di_integration import register_i18n_providers
         from aquilia.i18n.service import I18nConfig, I18nService
-        from aquilia.i18n.catalog import MemoryCatalog
 
         svc = I18nService(I18nConfig(), catalog=MemoryCatalog())
         container = {}
@@ -2230,9 +2224,9 @@ class TestDIIntegration:
         assert container[I18nConfig] is svc.config
 
     def test_register_with_explicit_config(self):
+        from aquilia.i18n.catalog import MemoryCatalog
         from aquilia.i18n.di_integration import register_i18n_providers
         from aquilia.i18n.service import I18nConfig, I18nService
-        from aquilia.i18n.catalog import MemoryCatalog
 
         cfg = I18nConfig(default_locale="de")
         svc = I18nService(I18nConfig(), catalog=MemoryCatalog())
@@ -2242,9 +2236,9 @@ class TestDIIntegration:
         assert container[I18nConfig].default_locale == "de"
 
     def test_register_value_api(self):
+        from aquilia.i18n.catalog import MemoryCatalog
         from aquilia.i18n.di_integration import register_i18n_providers
         from aquilia.i18n.service import I18nConfig, I18nService
-        from aquilia.i18n.catalog import MemoryCatalog
 
         class MockContainer:
             def __init__(self):
@@ -2259,9 +2253,9 @@ class TestDIIntegration:
         assert I18nService in container.values
 
     def test_unsupported_container_no_crash(self):
+        from aquilia.i18n.catalog import MemoryCatalog
         from aquilia.i18n.di_integration import register_i18n_providers
         from aquilia.i18n.service import I18nConfig, I18nService
-        from aquilia.i18n.catalog import MemoryCatalog
 
         svc = I18nService(I18nConfig(), catalog=MemoryCatalog())
         # Should not crash, just log a warning
@@ -2518,8 +2512,9 @@ class TestI18nRegression:
     def test_concurrent_service_access(self):
         """Service is thread-safe for reads."""
         import threading
-        from aquilia.i18n.service import I18nConfig, I18nService
+
         from aquilia.i18n.catalog import MemoryCatalog
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         catalog = MemoryCatalog(
             {
@@ -2579,7 +2574,6 @@ class TestI18nRegression:
 
     def test_surp_round_trip(self, tmp_path):
         """SURP catalog survives full write → read round-trip."""
-        import surp
         from aquilia.i18n.catalog import SurpCatalog
 
         locale_dir = tmp_path / "locales" / "en"
@@ -2645,9 +2639,9 @@ class TestI18nRegression:
 
     def test_missing_key_strategy_log_and_key(self):
         """log_and_key strategy logs warning and returns key."""
-        from aquilia.i18n.service import I18nConfig, I18nService
+
         from aquilia.i18n.catalog import MemoryCatalog
-        import logging
+        from aquilia.i18n.service import I18nConfig, I18nService
 
         svc = I18nService(
             I18nConfig(missing_key_strategy="log_and_key"),

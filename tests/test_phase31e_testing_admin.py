@@ -20,15 +20,11 @@ Comprehensive tests for the new Testing Framework admin page:
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import json
 import os
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
 
 import pytest
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # 1. ADMIN CONFIG — MODULE REGISTRATION
@@ -248,8 +244,8 @@ class TestIntegrationAdminFlat:
 
     def test_flat_enable_testing_preserved_in_admin_config(self):
         """Round-trip: flat syntax → AdminConfig."""
-        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
+        from aquilia.integrations import Integration
 
         raw = Integration.admin(enable_testing=True)
         cfg = AdminConfig.from_dict(raw)
@@ -265,22 +261,25 @@ class TestWorkspaceTestingRoundTrip:
     """Workspace serialisation includes testing module."""
 
     def test_workspace_admin_testing_enabled(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = Workspace("test").integrate(Integration.admin(enable_testing=True))
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is True
 
     def test_workspace_admin_testing_disabled(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = Workspace("test").integrate(Integration.admin())
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["testing"] is False
 
     def test_workspace_admin_modules_builder_testing(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         mods = Integration.AdminModules().enable_testing()
         ws = Workspace("test").integrate(Integration.admin(modules=mods))
         d = ws.to_dict()
@@ -1373,9 +1372,9 @@ class TestTestingAdminIntegration:
 
     def test_full_pipeline(self):
         """Config enables testing → data gathered → HTML rendered."""
-        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig, AdminSite
         from aquilia.admin.templates import render_testing_page
+        from aquilia.integrations import Integration
 
         # 1. Config
         raw = Integration.admin(enable_testing=True)
@@ -1399,8 +1398,8 @@ class TestTestingAdminIntegration:
 
     def test_disabled_module_config(self):
         """When testing module is disabled, config reports False."""
-        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
+        from aquilia.integrations import Integration
 
         raw = Integration.admin()
         cfg = AdminConfig.from_dict(raw)
@@ -1408,8 +1407,9 @@ class TestTestingAdminIntegration:
 
     def test_workspace_full_config(self):
         """Full workspace config with testing enabled round-trips."""
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = Workspace("testapp").integrate(
             Integration.admin(
                 enable_testing=True,

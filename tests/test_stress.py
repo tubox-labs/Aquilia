@@ -1,7 +1,6 @@
-import pytest
 import time
-from typing import List
-from aquilia.blueprints import Blueprint, Facet, SealOutcome
+
+from aquilia.blueprints import Blueprint
 
 
 def test_high_nesting_depth_validation():
@@ -21,17 +20,7 @@ def test_high_nesting_depth_validation():
     class Level1(Blueprint):
         child: Level2
 
-    payload = {
-        "child": {
-            "child": {
-                "child": {
-                    "child": {
-                        "val": 42
-                    }
-                }
-            }
-        }
-    }
+    payload = {"child": {"child": {"child": {"child": {"val": 42}}}}}
 
     bp = Level1(data=payload)
     assert bp.is_sealed() is True

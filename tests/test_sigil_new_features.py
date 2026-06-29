@@ -1,7 +1,6 @@
-import pytest
 from typing import Annotated, Literal
-from aquilia.blueprints import Blueprint, Facet, Sigil, BlueprintUnion
-from aquilia.blueprints.exceptions import SealFault
+
+from aquilia.blueprints import Blueprint, BlueprintUnion, Facet
 
 
 def test_sigil_content_hash():
@@ -72,12 +71,14 @@ def test_blueprint_union_dispatch_discriminator():
     class Dog(Blueprint):
         class Spec:
             discriminator = "kind"
+
         kind: str
         bark_volume: int
 
     class Cat(Blueprint):
         class Spec:
             discriminator = "kind"
+
         kind: str
         purr_frequency: float
 
@@ -94,6 +95,7 @@ def test_blueprint_revision_migration():
     class V1(Blueprint):
         class Spec:
             revision = 1
+
         username: str
 
     class V2(Blueprint):
@@ -118,7 +120,7 @@ def test_blueprint_revision_migration():
 
 
 def test_new_facets_and_pipeline_schema_merging():
-    from aquilia.blueprints.transforms import strip, lower, dasherize
+    from aquilia.blueprints.transforms import dasherize, lower, strip
 
     class ArticleBlueprint(Blueprint):
         slug: Annotated[str, Facet.text() >> strip >> lower >> dasherize >> Facet.pattern(r"^[a-z0-9-]+$")]
@@ -131,11 +133,9 @@ def test_new_facets_and_pipeline_schema_merging():
     assert ArticleBlueprint.get_facet("website") is not None
 
     # Test pipeline execution
-    ok = ArticleBlueprint(data={
-        "slug": "  My Great SLUG  ",
-        "author_email": "test@example.com",
-        "website": "https://example.com"
-    })
+    ok = ArticleBlueprint(
+        data={"slug": "  My Great SLUG  ", "author_email": "test@example.com", "website": "https://example.com"}
+    )
     assert ok.is_sealed() is True
     assert ok.validated_data["slug"] == "my-great-slug"
 

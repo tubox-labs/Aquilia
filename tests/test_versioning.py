@@ -15,12 +15,11 @@ Tests cover all 11 submodules:
   11. Integration — RouteDecorator version param, metadata, router, config
 """
 
-import asyncio
-import pytest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 
 # ════════════════════════════════════════════════════════════════════════════
 #  1. CORE TYPES
@@ -154,8 +153,9 @@ class TestApiVersion:
         assert d["patch"] == 3
 
     def test_frozen(self):
-        from aquilia.versioning.core import ApiVersion
         from dataclasses import FrozenInstanceError
+
+        from aquilia.versioning.core import ApiVersion
 
         v = ApiVersion(1, 0)
         with pytest.raises(FrozenInstanceError):
@@ -217,8 +217,8 @@ class TestVersionErrors:
         assert "abc" in str(e.message)
 
     def test_unsupported_version_error(self):
-        from aquilia.versioning.errors import UnsupportedVersionError
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.errors import UnsupportedVersionError
 
         v = ApiVersion(9, 9)
         e = UnsupportedVersionError(v, supported=[ApiVersion(1, 0), ApiVersion(2, 0)])
@@ -226,8 +226,8 @@ class TestVersionErrors:
         assert len(e.supported) == 2
 
     def test_sunset_error(self):
-        from aquilia.versioning.errors import VersionSunsetError
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.errors import VersionSunsetError
 
         v = ApiVersion(1, 0)
         e = VersionSunsetError(
@@ -249,8 +249,8 @@ class TestVersionErrors:
         assert "query" in e.metadata["strategies"]
 
     def test_negotiation_error(self):
-        from aquilia.versioning.errors import VersionNegotiationError
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.errors import VersionNegotiationError
 
         e = VersionNegotiationError(
             requested=ApiVersion(5, 0),
@@ -534,8 +534,8 @@ class TestCustomResolver:
 
 class TestVersionGraph:
     def test_register_and_contains(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         v = ApiVersion(1, 0)
@@ -544,8 +544,8 @@ class TestVersionGraph:
         assert not g.contains(ApiVersion(9, 9))
 
     def test_latest(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
@@ -555,8 +555,8 @@ class TestVersionGraph:
         assert g.latest == ApiVersion(3, 0)
 
     def test_freeze_links_successors(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
@@ -570,8 +570,8 @@ class TestVersionGraph:
         assert node2.successor == ApiVersion(3, 0)
 
     def test_active_versions(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
@@ -581,8 +581,8 @@ class TestVersionGraph:
         assert len(active) == 2
 
     def test_channel(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion, VersionChannel
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         v = ApiVersion(2, 0)
@@ -591,8 +591,8 @@ class TestVersionGraph:
         assert g.get_by_channel(VersionChannel.STABLE) == v
 
     def test_register_route(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         v = ApiVersion(2, 0)
@@ -602,8 +602,8 @@ class TestVersionGraph:
         assert "GET /users" in node.routes
 
     def test_register_controller(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         v = ApiVersion(1, 0)
@@ -613,8 +613,8 @@ class TestVersionGraph:
         assert "UsersController" in node.controllers
 
     def test_to_dict(self):
-        from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.graph import VersionGraph
 
         g = VersionGraph()
         g.register(ApiVersion(1, 0))
@@ -642,8 +642,8 @@ class TestSunsetPolicy:
 
 class TestSunsetRegistry:
     def test_register_and_get(self):
-        from aquilia.versioning.sunset import SunsetRegistry
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import SunsetRegistry
 
         r = SunsetRegistry()
         v = ApiVersion(1, 0)
@@ -655,8 +655,8 @@ class TestSunsetRegistry:
         assert deprecated[0].version == v
 
     def test_sunset_entries(self):
-        from aquilia.versioning.sunset import SunsetRegistry
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import SunsetRegistry
 
         r = SunsetRegistry()
         v = ApiVersion(1, 0)
@@ -671,8 +671,8 @@ class TestSunsetRegistry:
         assert sunset[0].version == v
 
     def test_to_dict(self):
-        from aquilia.versioning.sunset import SunsetRegistry
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import SunsetRegistry
 
         r = SunsetRegistry()
         r.register(ApiVersion(1, 0))
@@ -682,8 +682,8 @@ class TestSunsetRegistry:
 
 class TestSunsetEnforcer:
     def test_no_rejection_for_active(self):
-        from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry, SunsetEnforcer
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import SunsetEnforcer, SunsetPolicy, SunsetRegistry
 
         reg = SunsetRegistry()
         v = ApiVersion(2, 0)
@@ -692,8 +692,8 @@ class TestSunsetEnforcer:
         assert enforcer.check(v) is None
 
     def test_rejection_for_sunset(self):
-        from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry, SunsetEnforcer
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import SunsetEnforcer, SunsetPolicy, SunsetRegistry
 
         reg = SunsetRegistry()
         v = ApiVersion(1, 0)
@@ -708,8 +708,8 @@ class TestSunsetEnforcer:
         assert result is not None
 
     def test_headers_for_deprecated(self):
-        from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry, SunsetEnforcer
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import SunsetEnforcer, SunsetPolicy, SunsetRegistry
 
         reg = SunsetRegistry()
         v = ApiVersion(1, 0)
@@ -743,9 +743,9 @@ class TestNegotiationMode:
 
 class TestVersionNegotiator:
     def _build(self, mode="exact", versions=None):
+        from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.graph import VersionGraph
         from aquilia.versioning.negotiation import NegotiationMode, VersionNegotiator
-        from aquilia.versioning.core import ApiVersion
 
         g = VersionGraph()
         for v in versions or [ApiVersion(1, 0), ApiVersion(2, 0), ApiVersion(3, 0)]:
@@ -989,8 +989,8 @@ class TestVersionMiddleware:
 
     @pytest.mark.asyncio
     async def test_resolves_and_stores(self):
-        from aquilia.versioning.middleware import VersionMiddleware
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.middleware import VersionMiddleware
 
         strategy = self._build_strategy()
         mw = VersionMiddleware(strategy)
@@ -1010,8 +1010,8 @@ class TestVersionMiddleware:
 
     @pytest.mark.asyncio
     async def test_default_version_used(self):
-        from aquilia.versioning.middleware import VersionMiddleware
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.middleware import VersionMiddleware
 
         strategy = self._build_strategy()
         mw = VersionMiddleware(strategy)
@@ -1299,8 +1299,8 @@ class TestMetadataVersionCapture:
 
     def test_controller_metadata_version(self):
         from aquilia.controller.base import Controller
-        from aquilia.controller.metadata import extract_controller_metadata
         from aquilia.controller.decorators import GET
+        from aquilia.controller.metadata import extract_controller_metadata
 
         class UsersV2(Controller):
             prefix = "/users"
@@ -1315,8 +1315,8 @@ class TestMetadataVersionCapture:
 
     def test_route_metadata_version(self):
         from aquilia.controller.base import Controller
-        from aquilia.controller.metadata import extract_controller_metadata
         from aquilia.controller.decorators import GET
+        from aquilia.controller.metadata import extract_controller_metadata
 
         class Items(Controller):
             prefix = "/items"
@@ -1330,8 +1330,8 @@ class TestMetadataVersionCapture:
 
     def test_version_neutral_controller(self):
         from aquilia.controller.base import Controller
-        from aquilia.controller.metadata import extract_controller_metadata
         from aquilia.controller.decorators import GET
+        from aquilia.controller.metadata import extract_controller_metadata
         from aquilia.versioning.core import VERSION_NEUTRAL
 
         class Health(Controller):
@@ -1351,10 +1351,10 @@ class TestRouterVersionFiltering:
 
     def _build_router_with_versioned_controllers(self):
         from aquilia.controller.base import Controller
-        from aquilia.controller.decorators import GET
         from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
         from aquilia.controller.router import ControllerRouter
-        from aquilia.versioning.core import ApiVersion, VERSION_NEUTRAL
+        from aquilia.versioning.core import ApiVersion
 
         class UsersV1(Controller):
             prefix = "/v1/users"
@@ -1484,10 +1484,10 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     async def test_full_pipeline_header(self):
         """E2E: header-based versioning with sunset warning."""
-        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
-        from aquilia.versioning.middleware import VersionMiddleware
-        from aquilia.versioning.sunset import SunsetPolicy
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.middleware import VersionMiddleware
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+        from aquilia.versioning.sunset import SunsetPolicy
 
         now = datetime.now(timezone.utc)
         config = VersionConfig(
@@ -1528,9 +1528,9 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     async def test_full_pipeline_url(self):
         """E2E: URL path versioning with path stripping."""
-        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
-        from aquilia.versioning.middleware import VersionMiddleware
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.middleware import VersionMiddleware
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         config = VersionConfig(
             strategy="url",
@@ -1555,9 +1555,9 @@ class TestEndToEnd:
     @pytest.mark.asyncio
     async def test_full_pipeline_channel(self):
         """E2E: Channel-based version resolution."""
-        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
-        from aquilia.versioning.middleware import VersionMiddleware
         from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.middleware import VersionMiddleware
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         config = VersionConfig(
             strategy="channel",

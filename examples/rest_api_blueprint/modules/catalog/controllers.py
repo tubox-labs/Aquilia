@@ -1,4 +1,4 @@
-from aquilia import Controller, DELETE, GET, PATCH, POST, RequestCtx, Response
+from aquilia import DELETE, GET, PATCH, POST, Controller, RequestCtx, Response
 
 from .blueprints import ProductCreateBlueprint, ProductUpdateBlueprint
 from .services import CatalogService

@@ -4,7 +4,6 @@ from typing import Any
 
 from aquilia.i18n import I18nConfig, I18nService, MemoryCatalog, negotiate_locale
 
-
 TRANSLATIONS = {
     "en": {
         "messages": {

@@ -1,4 +1,4 @@
-from aquilia.controller import Controller, GET, RequestCtx
+from aquilia.controller import GET, Controller, RequestCtx
 from aquilia.response import Response
 from aquilia.versioning import version as api_version
 from aquilia.versioning import version_neutral

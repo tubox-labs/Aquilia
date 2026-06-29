@@ -1,13 +1,15 @@
-import pytest
-import asyncio
 from typing import Annotated
+
+import pytest
+
 from aquilia.blueprints import Blueprint, Facet, ward
-from aquilia.blueprints.exceptions import SealFault, CastFault
+from aquilia.blueprints.exceptions import CastFault
 
 
 def test_regex_redos_defense():
     # Defining a potentially vulnerable regex pattern should raise CastFault at definition time
     with pytest.raises(CastFault) as exc_info:
+
         class PatternBP(Blueprint):
             val: Annotated[str, Facet.text(pattern=r"^(a+)+$")]
 

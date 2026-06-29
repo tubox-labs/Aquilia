@@ -1,4 +1,4 @@
-from aquilia.controller import Controller, DELETE, GET, RequestCtx
+from aquilia.controller import DELETE, GET, Controller, RequestCtx
 from aquilia.response import Response
 
 from .services import EdgeGatewayService

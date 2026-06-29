@@ -7,10 +7,7 @@ Verifies the integration-level fixes from the comprehensive framework audit:
   INT-03: Middleware priority ordering is correct and non-conflicting
 """
 
-import pytest
-import asyncio
-from unittest.mock import MagicMock, AsyncMock, patch
-
+from unittest.mock import MagicMock
 
 # ──────────────────────────────────────────────────────────────────────
 # INT-01: CSRF middleware priority must be AFTER session/auth (15)
@@ -23,7 +20,6 @@ class TestCSRFMiddlewarePriority:
     def test_csrf_priority_is_20(self):
         """CSRF middleware must have priority 20 (after session at 15)."""
         # Read the server source and verify the priority constant
-        import ast
         from pathlib import Path
 
         server_path = Path(__file__).parent.parent / "aquilia" / "server.py"

@@ -14,12 +14,11 @@ Covers:
 - §10: Edge cases & regression guards
 """
 
-import asyncio
 import json
-import pytest
-from typing import Any, Dict, Optional
-from unittest.mock import MagicMock, patch
+from typing import Any
+from unittest.mock import patch
 
+import pytest
 import surp as _surp_mod
 
 # ============================================================================
@@ -30,8 +29,8 @@ import surp as _surp_mod
 def _make_scope(
     method: str = "POST",
     path: str = "/",
-    headers: Optional[Dict[str, str]] = None,
-    content_type: Optional[str] = None,
+    headers: dict[str, str] | None = None,
+    content_type: str | None = None,
 ) -> dict:
     """Build a minimal ASGI scope dict."""
     raw_headers = []
@@ -66,8 +65,8 @@ def _make_receive(body: bytes):
 
 def _make_request(
     body: bytes = b"",
-    content_type: Optional[str] = None,
-    accept: Optional[str] = None,
+    content_type: str | None = None,
+    accept: str | None = None,
     **extra_headers,
 ):
     """Build a Request with the given body, content-type, and accept."""
@@ -325,9 +324,8 @@ class TestRequestSurpParser:
 
         payload = _surp_mod.encode({"test": 1})
         req = _make_request(body=payload, content_type="application/x-surp")
-        with patch("aquilia.request._HAS_SURP", False):
-            with pytest.raises(SurpUnavailable):
-                await req.surp()
+        with patch("aquilia.request._HAS_SURP", False), pytest.raises(SurpUnavailable):
+            await req.surp()
 
     @pytest.mark.asyncio
     async def test_model_validation_dict(self):
@@ -388,7 +386,7 @@ class TestResponseSurp:
     """Response.surp() serialization."""
 
     def test_basic_dict(self):
-        from aquilia.response import Response, SURP_MEDIA_TYPE
+        from aquilia.response import SURP_MEDIA_TYPE, Response
 
         resp = Response.surp({"key": "value"})
         assert resp.status == 200
@@ -546,7 +544,7 @@ class TestResponseNegotiated:
     """Response.negotiated() selects SURP vs JSON."""
 
     def test_negotiated_surp_when_preferred(self):
-        from aquilia.response import Response, SURP_MEDIA_TYPE
+        from aquilia.response import SURP_MEDIA_TYPE, Response
 
         req = _make_request(accept="application/x-surp;q=1.0, application/json;q=0.8")
         resp = Response.negotiated({"data": 1}, req)
@@ -570,7 +568,7 @@ class TestResponseNegotiated:
         assert "json" in ct
 
     def test_negotiated_with_requires_surp(self):
-        from aquilia.response import Response, SURP_MEDIA_TYPE, requires_surp
+        from aquilia.response import SURP_MEDIA_TYPE, Response, requires_surp
 
         @requires_surp
         async def handler():
@@ -669,8 +667,9 @@ class TestRequiresSurpDecorator:
         assert my_handler.__surp_response__ is True
 
     def test_preserves_function(self):
-        from aquilia.response import requires_surp
         import inspect
+
+        from aquilia.response import requires_surp
 
         @requires_surp
         async def my_handler():
@@ -680,8 +679,8 @@ class TestRequiresSurpDecorator:
 
     def test_stacks_with_other_decorators(self):
         """requires_surp can stack with @requires effects."""
-        from aquilia.response import requires_surp
         from aquilia.flow import requires
+        from aquilia.response import requires_surp
 
         @requires_surp
         @requires("DBTx")
@@ -747,7 +746,7 @@ class TestSurpFaults:
         assert issubclass(InvalidSurp, RequestFault)
 
     def test_surp_unavailable_is_request_fault(self):
-        from aquilia.request import SurpUnavailable, RequestFault
+        from aquilia.request import RequestFault, SurpUnavailable
 
         assert issubclass(SurpUnavailable, RequestFault)
 
@@ -900,7 +899,6 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_deeply_nested_structure(self):
         """Deep nesting should encode/decode correctly."""
-        from aquilia.response import Response
 
         data: Any = "leaf"
         for _ in range(20):
@@ -928,7 +926,6 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_negative_integers(self):
-        from aquilia.response import Response
 
         data = {"neg": -42, "zero": 0, "pos": 100}
         wire = _surp_mod.encode(data)
@@ -945,8 +942,9 @@ class TestEdgeCases:
         assert parsed == data
 
     def test_response_surp_preserves_insertion_order(self):
-        from aquilia.response import Response
         from collections import OrderedDict
+
+        from aquilia.response import Response
 
         data = OrderedDict([("z", 1), ("a", 2), ("m", 3)])
         resp = Response.surp(data)
@@ -967,7 +965,6 @@ class TestModuleExports:
     def test_request_importable(self):
         from aquilia.request import (
             SURP_MEDIA_TYPE,
-            SURP_MEDIA_TYPES,
             InvalidSurp,
             SurpUnavailable,
         )

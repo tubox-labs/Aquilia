@@ -8,7 +8,7 @@ to avoid requiring a full workspace filesystem.
 import os
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -17,8 +17,7 @@ REPO_ROOT = Path(__file__).parent.parent.absolute()
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from aquilia.runtime import AquiliaRuntime, RuntimeConfig, RuntimePhase, _PHASE_ORDER
-
+from aquilia.runtime import _PHASE_ORDER, AquiliaRuntime, RuntimeConfig, RuntimePhase
 
 # ──────────────────────────────────────────────────────────────────────
 # RuntimePhase tests

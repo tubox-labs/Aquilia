@@ -10,8 +10,6 @@ Covers:
   - Backward compatibility: plain dict providers still work
 """
 
-import pytest
-from typing import Any, Dict
 
 
 # ═══════════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-from aquilia import Controller, GET, POST, RequestCtx, Response
+from aquilia import GET, POST, Controller, RequestCtx, Response
 from aquilia.auth import AdminGuard, authenticated
 from aquilia.auth.decorators import requires
 

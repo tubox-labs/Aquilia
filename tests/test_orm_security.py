@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import pytest
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 pytestmark = pytest.mark.asyncio
@@ -46,22 +45,22 @@ class TestFilterClauseFieldValidation:
         assert params == [18]
 
     def test_injection_in_field_rejected(self):
-        from aquilia.models.query import _build_filter_clause
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import _build_filter_clause
 
         with pytest.raises(QueryFault, match="Invalid field name"):
             _build_filter_clause('name"; DROP TABLE users--', "x")
 
     def test_injection_in_lookup_field_rejected(self):
-        from aquilia.models.query import _build_filter_clause
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import _build_filter_clause
 
         with pytest.raises(QueryFault, match="Invalid field name"):
             _build_filter_clause('x"; DROP TABLE users--__gt', 1)
 
     def test_spaces_rejected(self):
-        from aquilia.models.query import _build_filter_clause
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import _build_filter_clause
 
         with pytest.raises(QueryFault, match="Invalid field name"):
             _build_filter_clause("name OR 1=1", "x")
@@ -95,15 +94,15 @@ class TestFuncValidation:
         assert "UPPER" in sql
 
     def test_injection_rejected(self):
-        from aquilia.models.expression import Func, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Func, Value
 
         with pytest.raises(QueryFault, match="Invalid SQL function name"):
             Func("UPPER; DROP TABLE users", Value("x"))
 
     def test_parentheses_rejected(self):
-        from aquilia.models.expression import Func, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Func, Value
 
         with pytest.raises(QueryFault, match="Invalid SQL function name"):
             Func("UPPER()", Value("x"))
@@ -153,15 +152,15 @@ class TestCastValidation:
         assert "NUMERIC(10, 2)" in sql
 
     def test_injection_rejected(self):
-        from aquilia.models.expression import Cast, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Cast, Value
 
         with pytest.raises(QueryFault, match="Invalid SQL type"):
             Cast(Value(1), "INTEGER; DROP TABLE users")
 
     def test_subquery_in_type_rejected(self):
-        from aquilia.models.expression import Cast, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Cast, Value
 
         with pytest.raises(QueryFault, match="Invalid SQL type"):
             Cast(Value(1), "(SELECT 1)")
@@ -176,38 +175,38 @@ class TestWhenDDLGuard:
     """When() must reject string conditions containing DDL keywords."""
 
     def test_safe_string_condition_accepted(self):
-        from aquilia.models.expression import When, Value
+        from aquilia.models.expression import Value, When
 
         w = When(condition="age > 18", then=Value("adult"))
         sql, _ = w.as_sql("sqlite")
         assert "age > 18" in sql
 
     def test_drop_rejected(self):
-        from aquilia.models.expression import When, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Value, When
 
         with pytest.raises(QueryFault, match="unsafe When condition"):
             w = When(condition="1=1; DROP TABLE users", then=Value(1))
             w.as_sql("sqlite")
 
     def test_alter_rejected(self):
-        from aquilia.models.expression import When, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Value, When
 
         with pytest.raises(QueryFault, match="unsafe When condition"):
             w = When(condition="ALTER TABLE users ADD col INT", then=Value(1))
             w.as_sql("sqlite")
 
     def test_dict_condition_key_validated(self):
-        from aquilia.models.expression import When, Value
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import Value, When
 
         with pytest.raises(QueryFault, match="Invalid field name"):
             w = When(condition={'x"; DROP TABLE users--': "val"}, then=Value(1))
             w.as_sql("sqlite")
 
     def test_dict_condition_safe(self):
-        from aquilia.models.expression import When, Value
+        from aquilia.models.expression import Value, When
 
         w = When(condition={"status": "active"}, then=Value(1))
         sql, params = w.as_sql("sqlite")
@@ -311,36 +310,36 @@ class TestRawSQLDDLRejection:
         assert params == [1.1]
 
     def test_drop_raises(self):
-        from aquilia.models.expression import RawSQL
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import RawSQL
 
         with pytest.raises(QueryFault, match="dangerous DDL"):
             RawSQL("DROP TABLE users")
 
     def test_alter_raises(self):
-        from aquilia.models.expression import RawSQL
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import RawSQL
 
         with pytest.raises(QueryFault, match="dangerous DDL"):
             RawSQL("ALTER TABLE users ADD COLUMN evil TEXT")
 
     def test_truncate_raises(self):
-        from aquilia.models.expression import RawSQL
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import RawSQL
 
         with pytest.raises(QueryFault, match="dangerous DDL"):
             RawSQL("TRUNCATE TABLE users")
 
     def test_grant_raises(self):
-        from aquilia.models.expression import RawSQL
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import RawSQL
 
         with pytest.raises(QueryFault, match="dangerous DDL"):
             RawSQL("GRANT ALL ON users TO evil_user")
 
     def test_execute_raises(self):
-        from aquilia.models.expression import RawSQL
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.expression import RawSQL
 
         with pytest.raises(QueryFault, match="dangerous DDL"):
             RawSQL("EXECUTE sp_executesql N'SELECT 1'")
@@ -374,8 +373,8 @@ class TestQMethodFieldValidation:
 
     def test_group_by_injection_rejected(self):
         """group_by() must reject injection in field names."""
-        from aquilia.models.query import Q
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import Q
 
         class FakeModel:
             _table_name = "t"
@@ -406,8 +405,8 @@ class TestQMethodFieldValidation:
         assert "department" in new_qs._group_by
 
     def test_only_injection_rejected(self):
-        from aquilia.models.query import Q
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import Q
 
         class FakeModel:
             _table_name = "t"
@@ -422,8 +421,8 @@ class TestQMethodFieldValidation:
             qs.only('id"; DROP TABLE users--')
 
     def test_defer_injection_rejected(self):
-        from aquilia.models.query import Q
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import Q
 
         class FakeModel:
             _table_name = "t"
@@ -448,10 +447,10 @@ class TestModelGetFilterValidation:
 
     async def test_injection_in_get_rejected(self):
         """Model.get() must reject malicious filter keys."""
-        from aquilia.models.base import Model
-        from aquilia.models import fields as f
-        from aquilia.faults.domains import QueryFault
         from aquilia.db.engine import AquiliaDatabase
+        from aquilia.faults.domains import QueryFault
+        from aquilia.models import fields as f
+        from aquilia.models.base import Model
 
         db = AquiliaDatabase("sqlite://:memory:")
         await db.connect()
@@ -475,10 +474,10 @@ class TestModelGetFilterValidation:
 
     async def test_valid_get_filter_accepted(self):
         """Model.get() with valid field names should work normally."""
-        from aquilia.models.base import Model
-        from aquilia.models import fields as f
-        from aquilia.faults.domains import ModelNotFoundFault
         from aquilia.db.engine import AquiliaDatabase
+        from aquilia.faults.domains import ModelNotFoundFault
+        from aquilia.models import fields as f
+        from aquilia.models.base import Model
 
         db = AquiliaDatabase("sqlite://:memory:")
         await db.connect()
@@ -528,7 +527,6 @@ class TestAtomicIsolationWhitelist:
         Injection through isolation level is rejected at __aenter__ time.
         We verify the validation logic works by calling the relevant code path.
         """
-        from aquilia.models.transactions import Atomic
 
         # The isolation level is validated during __aenter__, not __init__,
         # so we verify the whitelist set is correct
@@ -580,8 +578,8 @@ class TestValidateFieldName:
             _validate_field_name(name)  # Should not raise
 
     def test_invalid_names(self):
-        from aquilia.models.query import _validate_field_name
         from aquilia.faults.domains import QueryFault
+        from aquilia.models.query import _validate_field_name
 
         for name in [
             "",

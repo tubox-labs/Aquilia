@@ -62,12 +62,9 @@ Module 6: Integration
 import asyncio
 import inspect
 import time
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, AsyncMock, patch
+from typing import Any
 
 import pytest
-
 
 # ════════════════════════════════════════════════════════════════════════
 # MODULE 1: ORM EXPRESSION SYSTEM
@@ -332,7 +329,7 @@ class TestWhenCase:
     """Test When/Case conditional expressions."""
 
     def test_when_dict_condition(self):
-        from aquilia.models.expression import When, Value
+        from aquilia.models.expression import Value, When
 
         w = When(condition={"status": "active"}, then=Value(1))
         sql, params = w.as_sql()
@@ -341,7 +338,7 @@ class TestWhenCase:
         assert params == ["active", 1]
 
     def test_when_string_condition(self):
-        from aquilia.models.expression import When, Value
+        from aquilia.models.expression import Value, When
 
         w = When(condition="age > 18", then=Value("adult"))
         sql, params = w.as_sql()
@@ -349,7 +346,7 @@ class TestWhenCase:
         assert params == ["adult"]
 
     def test_case(self):
-        from aquilia.models.expression import Case, When, Value
+        from aquilia.models.expression import Case, Value, When
 
         c = Case(
             When(condition={"status": "active"}, then=Value("A")),
@@ -362,7 +359,7 @@ class TestWhenCase:
         assert "ELSE" in sql
 
     def test_case_no_default(self):
-        from aquilia.models.expression import Case, When, Value
+        from aquilia.models.expression import Case, Value, When
 
         c = Case(When(condition="1=1", then=Value(0)))
         sql, params = c.as_sql()
@@ -378,7 +375,7 @@ class TestSubqueryExists:
 
         s = Subquery("SELECT id FROM orders")
         sql, _ = s.as_sql()
-        assert "(SELECT id FROM orders)" == sql
+        assert sql == "(SELECT id FROM orders)"
 
     def test_exists_raw_string(self):
         from aquilia.models.expression import Exists
@@ -411,7 +408,7 @@ class TestFuncExpressions:
     """Test Func-based expressions."""
 
     def test_func_generic(self):
-        from aquilia.models.expression import Func, F
+        from aquilia.models.expression import F, Func
 
         f = Func("UPPER", F("name"))
         sql, _ = f.as_sql()
@@ -434,28 +431,28 @@ class TestFuncExpressions:
         assert params == ["Anonymous"]
 
     def test_greatest_sqlite(self):
-        from aquilia.models.expression import Greatest, F, Value
+        from aquilia.models.expression import F, Greatest, Value
 
         g = Greatest(F("a"), F("b"), Value(0))
         sql, params = g.as_sql("sqlite")
         assert "MAX(" in sql  # SQLite uses MAX
 
     def test_greatest_postgres(self):
-        from aquilia.models.expression import Greatest, F, Value
+        from aquilia.models.expression import F, Greatest
 
         g = Greatest(F("a"), F("b"))
         sql, _ = g.as_sql("postgresql")
         assert "GREATEST(" in sql
 
     def test_least_sqlite(self):
-        from aquilia.models.expression import Least, F, Value
+        from aquilia.models.expression import F, Least, Value
 
         l = Least(F("a"), F("b"), Value(100))
         sql, _ = l.as_sql("sqlite")
         assert "MIN(" in sql
 
     def test_nullif(self):
-        from aquilia.models.expression import NullIf, F, Value
+        from aquilia.models.expression import F, NullIf, Value
 
         n = NullIf(F("value"), Value(0))
         sql, params = n.as_sql()
@@ -704,8 +701,8 @@ class TestBuildFilterClause:
         assert "LIKE" in sql
 
     def test_f_expression_filter(self):
-        from aquilia.models.query import _build_filter_clause
         from aquilia.models.expression import F
+        from aquilia.models.query import _build_filter_clause
 
         sql, params = _build_filter_clause("balance__gt", F("min_balance"))
         assert '"min_balance"' in sql
@@ -783,8 +780,8 @@ class TestFieldMixins:
     """Test field mixins."""
 
     def test_nullable_mixin_defaults(self):
-        from aquilia.models.fields.mixins import NullableMixin
         from aquilia.models.fields import CharField
+        from aquilia.models.fields.mixins import NullableMixin
 
         class NullableChar(NullableMixin, CharField):
             pass
@@ -794,8 +791,8 @@ class TestFieldMixins:
         assert f.blank is True
 
     def test_unique_mixin(self):
-        from aquilia.models.fields.mixins import UniqueMixin
         from aquilia.models.fields import CharField
+        from aquilia.models.fields.mixins import UniqueMixin
 
         class UniqueChar(UniqueMixin, CharField):
             pass
@@ -804,8 +801,8 @@ class TestFieldMixins:
         assert f.unique is True
 
     def test_indexed_mixin(self):
-        from aquilia.models.fields.mixins import IndexedMixin
         from aquilia.models.fields import CharField
+        from aquilia.models.fields.mixins import IndexedMixin
 
         class IndexedChar(IndexedMixin, CharField):
             pass
@@ -814,8 +811,8 @@ class TestFieldMixins:
         assert f.db_index is True
 
     def test_autonow_mixin(self):
-        from aquilia.models.fields.mixins import AutoNowMixin
         from aquilia.models.fields import DateTimeField
+        from aquilia.models.fields.mixins import AutoNowMixin
 
         class AutoNowDT(AutoNowMixin, DateTimeField):
             pass
@@ -837,6 +834,7 @@ class TestFieldMixins:
 
     def test_encrypted_mixin_base64_fallback(self):
         import warnings
+
         from aquilia.models.fields.mixins import EncryptedMixin
 
         # Reset encryption state
@@ -879,7 +877,7 @@ class TestSmallAutoVarchar:
     """Regression: SmallAutoField and VarcharField (from test_missing_fields)."""
 
     def test_small_auto_field(self):
-        from aquilia.models.fields import SmallAutoField, FieldValidationError
+        from aquilia.models.fields import FieldValidationError, SmallAutoField
 
         field = SmallAutoField(primary_key=True)
         assert field.primary_key is True
@@ -893,7 +891,7 @@ class TestSmallAutoVarchar:
             field.validate(50000)
 
     def test_varchar_field(self):
-        from aquilia.models.fields import VarcharField, FieldValidationError
+        from aquilia.models.fields import FieldValidationError, VarcharField
 
         field = VarcharField(max_length=200)
         assert field.max_length == 200
@@ -1177,7 +1175,7 @@ class TestMockEffectRegistry:
         assert mock.return_value == "cache_handle"
 
     def test_reset_all(self):
-        from aquilia.testing.effects import MockEffectRegistry, MockEffectProvider
+        from aquilia.testing.effects import MockEffectRegistry
 
         reg = MockEffectRegistry()
         reg.register_mock("a")
@@ -1219,14 +1217,14 @@ class TestFlowEnums:
 
     def test_priority_constants(self):
         from aquilia.flow import (
-            PRIORITY_CRITICAL,
             PRIORITY_AUTH,
-            PRIORITY_VALIDATE,
-            PRIORITY_TRANSFORM,
+            PRIORITY_CLEANUP,
+            PRIORITY_CRITICAL,
             PRIORITY_DEFAULT,
             PRIORITY_ENRICH,
             PRIORITY_LOG,
-            PRIORITY_CLEANUP,
+            PRIORITY_TRANSFORM,
+            PRIORITY_VALIDATE,
         )
 
         assert PRIORITY_CRITICAL < PRIORITY_AUTH < PRIORITY_VALIDATE
@@ -1278,8 +1276,8 @@ class TestFlowContext:
         assert not ctx.has_effect("cache")
 
     def test_effect_missing_raises(self):
-        from aquilia.flow import FlowContext
         from aquilia.faults.domains import EffectFault
+        from aquilia.flow import FlowContext
 
         ctx = FlowContext()
         with pytest.raises(EffectFault, match="not acquired"):
@@ -1352,7 +1350,7 @@ class TestFlowNode:
     """Test FlowNode dataclass."""
 
     def test_node_creation(self):
-        from aquilia.flow import FlowNode, FlowNodeType, PRIORITY_DEFAULT
+        from aquilia.flow import PRIORITY_DEFAULT, FlowNode, FlowNodeType
 
         node = FlowNode(
             type=FlowNodeType.HANDLER,
@@ -1412,7 +1410,7 @@ class TestRequiresDecorator:
     """Test @requires decorator."""
 
     def test_basic_requires(self):
-        from aquilia.flow import requires, get_required_effects
+        from aquilia.flow import get_required_effects, requires
 
         @requires("DBTx")
         async def handler(ctx):
@@ -1421,7 +1419,7 @@ class TestRequiresDecorator:
         assert get_required_effects(handler) == ["DBTx"]
 
     def test_multiple_requires(self):
-        from aquilia.flow import requires, get_required_effects
+        from aquilia.flow import get_required_effects, requires
 
         @requires("DBTx", "Cache")
         async def handler(ctx):
@@ -1432,7 +1430,7 @@ class TestRequiresDecorator:
         assert "Cache" in effects
 
     def test_stacked_requires(self):
-        from aquilia.flow import requires, get_required_effects
+        from aquilia.flow import get_required_effects, requires
 
         @requires("Cache")
         @requires("DBTx")
@@ -1528,7 +1526,7 @@ class TestLayerComposition:
         assert order.index("db") < order.index("cache")
 
     def test_circular_dependency_detected(self):
-        from aquilia.flow import Layer, LayerComposition, FlowError
+        from aquilia.flow import FlowError, Layer, LayerComposition
 
         l1 = Layer(name="a", factory=lambda: None, deps=["b"])
         l2 = Layer(name="b", factory=lambda: None, deps=["a"])
@@ -1558,7 +1556,7 @@ class TestLayerComposition:
 
     @pytest.mark.asyncio
     async def test_build_all_missing_dep_raises(self):
-        from aquilia.flow import Layer, LayerComposition, FlowError
+        from aquilia.flow import FlowError, Layer, LayerComposition
 
         l = Layer(name="db", factory=lambda: None, deps=["missing"])
         comp = LayerComposition([l])
@@ -1596,7 +1594,7 @@ class TestFlowPipelineBuilder:
         assert len(p._nodes) == 4
 
     def test_builder_types_assigned(self):
-        from aquilia.flow import FlowPipeline, FlowNodeType
+        from aquilia.flow import FlowNodeType, FlowPipeline
 
         p = (
             FlowPipeline("test")
@@ -1639,7 +1637,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_simple_success(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def my_handler(ctx):
             return {"user": "alice"}
@@ -1653,7 +1651,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_guard_passes(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def guard(ctx):
             return True  # pass
@@ -1667,7 +1665,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_guard_blocks(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def guard(ctx):
             return False  # block
@@ -1684,7 +1682,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_guard_exception_is_guarded(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def bad_guard(ctx):
             raise PermissionError("denied")
@@ -1696,7 +1694,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_transform_updates_state(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def add_role(ctx):
             return {"role": "admin"}
@@ -1711,7 +1709,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_hooks_run_after_handler(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         trace = []
 
@@ -1737,7 +1735,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_error_status(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def bad_handler(ctx):
             raise RuntimeError("boom")
@@ -1749,7 +1747,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_node_condition(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus, FlowNode, FlowNodeType
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         trace = []
 
@@ -1778,7 +1776,7 @@ class TestFlowPipelineExecution:
     @pytest.mark.asyncio
     async def test_execution_order(self):
         """Guards < Transforms < Effects < Handler < Hooks."""
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         order = []
 
@@ -1813,7 +1811,7 @@ class TestFlowPipelineExecution:
 
     @pytest.mark.asyncio
     async def test_timings_populated(self):
-        from aquilia.flow import FlowPipeline, FlowContext
+        from aquilia.flow import FlowContext, FlowPipeline
 
         async def handler(ctx):
             return "ok"
@@ -1830,7 +1828,7 @@ class TestFlowPipelineEffectLifecycle:
 
     @pytest.mark.asyncio
     async def test_effects_acquired_and_released(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus, requires
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus, requires
         from aquilia.testing.effects import MockEffectRegistry
 
         registry = MockEffectRegistry()
@@ -1852,7 +1850,7 @@ class TestFlowPipelineEffectLifecycle:
 
     @pytest.mark.asyncio
     async def test_effects_released_on_error(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus, requires
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus, requires
         from aquilia.testing.effects import MockEffectRegistry
 
         registry = MockEffectRegistry()
@@ -1872,7 +1870,7 @@ class TestFlowPipelineEffectLifecycle:
 
     @pytest.mark.asyncio
     async def test_multiple_effects(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus, requires
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus, requires
         from aquilia.testing.effects import MockEffectRegistry
 
         registry = MockEffectRegistry()
@@ -1895,7 +1893,7 @@ class TestFlowPipelineEffectLifecycle:
 
     @pytest.mark.asyncio
     async def test_no_registry_still_works(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def handler(ctx):
             return "ok"
@@ -1910,7 +1908,7 @@ class TestFlowPipelineTimeout:
 
     @pytest.mark.asyncio
     async def test_timeout(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def slow_handler(ctx):
             await asyncio.sleep(10)
@@ -1924,7 +1922,7 @@ class TestFlowPipelineTimeout:
 
     @pytest.mark.asyncio
     async def test_no_timeout(self):
-        from aquilia.flow import FlowPipeline, FlowContext, FlowStatus
+        from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
         async def fast_handler(ctx):
             return "fast"
@@ -1977,26 +1975,26 @@ class TestFactoryFunctions:
         assert p.name == "test"
 
     def test_guard_factory(self):
-        from aquilia.flow import guard, FlowNodeType
+        from aquilia.flow import FlowNodeType, guard
 
         node = guard(lambda ctx: True, name="auth", priority=20)
         assert node.type == FlowNodeType.GUARD
         assert node.name == "auth"
 
     def test_transform_factory(self):
-        from aquilia.flow import transform, FlowNodeType
+        from aquilia.flow import FlowNodeType, transform
 
         node = transform(lambda ctx: ctx, name="norm")
         assert node.type == FlowNodeType.TRANSFORM
 
     def test_handler_factory(self):
-        from aquilia.flow import handler, FlowNodeType
+        from aquilia.flow import FlowNodeType, handler
 
         node = handler(lambda ctx: None, name="main")
         assert node.type == FlowNodeType.HANDLER
 
     def test_hook_factory(self):
-        from aquilia.flow import hook, FlowNodeType
+        from aquilia.flow import FlowNodeType, hook
 
         node = hook(lambda ctx: None, name="log")
         assert node.type == FlowNodeType.HOOK
@@ -2006,7 +2004,7 @@ class TestFromPipelineList:
     """Test from_pipeline_list bridge."""
 
     def test_from_pipeline_list(self):
-        from aquilia.flow import from_pipeline_list, FlowNode, FlowNodeType, PRIORITY_AUTH
+        from aquilia.flow import FlowNode, FlowNodeType, from_pipeline_list
 
         node1 = FlowNode(type=FlowNodeType.GUARD, callable=lambda ctx: True, name="g")
         node2 = FlowNode(type=FlowNodeType.TRANSFORM, callable=lambda ctx: ctx, name="t")
@@ -2080,8 +2078,8 @@ class TestFromPipelineList:
 
     @pytest.mark.asyncio
     async def test_from_pipeline_list_class_token_missing_provider_raises_di_fault(self):
-        from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
         from aquilia.faults.domains import DIResolutionFault
+        from aquilia.flow import FlowContext, FlowStatus, from_pipeline_list
 
         class MissingDependency:
             pass
@@ -2147,7 +2145,7 @@ class TestIntegrationImports:
         assert EffectSubsystem is not None
 
     def test_middleware_ext_init_exports(self):
-        from aquilia.middleware_ext import EffectMiddleware, FlowContextMiddleware
+        from aquilia.middleware_ext import EffectMiddleware
 
         assert EffectMiddleware is not None
 

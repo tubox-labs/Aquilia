@@ -1,4 +1,5 @@
 """Tests for request body validation via @validate_body."""
+
 import pytest
 
 from aquilia.blueprints import Blueprint
@@ -6,7 +7,6 @@ from aquilia.blueprints.facets import IntFacet, TextFacet
 from aquilia.controller.validation import (
     RequestBodyParseFault,
     RequestBodyValidationFault,
-    ValidationFault,
     validate_body,
 )
 from aquilia.response import Response

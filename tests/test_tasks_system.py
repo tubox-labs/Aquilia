@@ -18,10 +18,8 @@ Covers:
 from __future__ import annotations
 
 import asyncio
-import time
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -229,7 +227,7 @@ class TestJob:
         assert j1.fingerprint != j3.fingerprint
 
     def test_to_dict(self):
-        from aquilia.tasks.job import Job, JobState, Priority
+        from aquilia.tasks.job import Job, Priority
 
         j = Job(name="email", queue="mail", priority=Priority.HIGH)
         d = j.to_dict()
@@ -245,7 +243,7 @@ class TestJob:
         assert "fingerprint" in d
 
     def test_job_repr_includes_name(self):
-        from aquilia.tasks.job import Job, JobState
+        from aquilia.tasks.job import Job
 
         j = Job(name="send_email")
         r = repr(j)
@@ -269,7 +267,7 @@ class TestTaskDecorator:
     """Verify @task decorator behavior."""
 
     def test_decorator_without_args(self):
-        from aquilia.tasks.decorators import task, _task_registry
+        from aquilia.tasks.decorators import task
 
         @task
         async def my_simple_task():
@@ -314,7 +312,7 @@ class TestTaskDecorator:
         assert result == 7
 
     def test_task_registered_in_registry(self):
-        from aquilia.tasks.decorators import task, get_registered_tasks
+        from aquilia.tasks.decorators import get_registered_tasks, task
 
         @task(name="test_tasks_system:registered_task")
         async def registered_task():
@@ -324,7 +322,7 @@ class TestTaskDecorator:
         assert "test_tasks_system:registered_task" in tasks
 
     def test_get_task_lookup(self):
-        from aquilia.tasks.decorators import task, get_task
+        from aquilia.tasks.decorators import get_task, task
 
         @task(name="test_tasks_system:lookup_task")
         async def lookup_task():
@@ -655,7 +653,7 @@ class TestTaskManager:
 
     @pytest.fixture
     def manager(self):
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         return TaskManager(backend=MemoryBackend(), num_workers=2)
 
@@ -873,7 +871,6 @@ class TestTaskManager:
                 raise RuntimeError("flaky")
             return "success"
 
-        from aquilia.tasks.decorators import task
         from aquilia.tasks.job import JobState
 
         manager.num_workers = 1  # Easier to reason about
@@ -1024,7 +1021,7 @@ class TestWorker:
 
     @pytest.mark.asyncio
     async def test_worker_lifecycle(self):
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
         from aquilia.tasks.worker import Worker
 
         manager = TaskManager(backend=MemoryBackend(), num_workers=0)
@@ -1038,7 +1035,7 @@ class TestWorker:
 
     @pytest.mark.asyncio
     async def test_worker_stats(self):
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
         from aquilia.tasks.worker import Worker
 
         manager = TaskManager(backend=MemoryBackend(), num_workers=0)
@@ -1117,6 +1114,7 @@ class TestTasksConfigBuilders:
 
     def test_workspace_tasks_shorthand(self):
         from aquilia.workspace import Workspace
+
         ws = Workspace("test").tasks(num_workers=12, backend="redis")
         d = ws.to_dict()
         assert "tasks" in d
@@ -1125,8 +1123,9 @@ class TestTasksConfigBuilders:
         assert d["tasks"]["enabled"] is True
 
     def test_workspace_integrate_tasks(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = Workspace("test").integrate(Integration.tasks(num_workers=6))
         d = ws.to_dict()
         assert d["integrations"]["tasks"]["num_workers"] == 6
@@ -1177,7 +1176,7 @@ class TestTaskQueueProvider:
     """Verify TaskQueueProvider and TaskQueueHandle."""
 
     def test_import(self):
-        from aquilia.effects import TaskQueueProvider, TaskQueueHandle
+        from aquilia.effects import TaskQueueHandle, TaskQueueProvider
 
         assert TaskQueueProvider is not None
         assert TaskQueueHandle is not None
@@ -1185,7 +1184,7 @@ class TestTaskQueueProvider:
     @pytest.mark.asyncio
     async def test_acquire_with_manager(self):
         from aquilia.effects import TaskQueueProvider
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         manager = TaskManager(backend=MemoryBackend())
         provider = TaskQueueProvider(task_manager=manager)
@@ -1198,7 +1197,7 @@ class TestTaskQueueProvider:
 
     @pytest.mark.asyncio
     async def test_acquire_without_manager_fallback(self):
-        from aquilia.effects import TaskQueueProvider, QueueHandle
+        from aquilia.effects import QueueHandle, TaskQueueProvider
 
         provider = TaskQueueProvider()
         handle = await provider.acquire("test")
@@ -1207,7 +1206,7 @@ class TestTaskQueueProvider:
     @pytest.mark.asyncio
     async def test_health_check_with_manager(self):
         from aquilia.effects import TaskQueueProvider
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         manager = TaskManager(backend=MemoryBackend())
         provider = TaskQueueProvider(task_manager=manager)
@@ -1227,7 +1226,7 @@ class TestTaskQueueProvider:
     @pytest.mark.asyncio
     async def test_enqueue_via_handle(self):
         from aquilia.effects import TaskQueueProvider
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         manager = TaskManager(backend=MemoryBackend())
         provider = TaskQueueProvider(task_manager=manager)
@@ -1289,7 +1288,7 @@ class TestAdminSiteTaskIntegration:
     @pytest.mark.asyncio
     async def test_get_tasks_data_with_manager(self):
         from aquilia.admin.site import AdminSite
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         manager = TaskManager(backend=MemoryBackend())
         site = AdminSite()
@@ -1362,7 +1361,6 @@ class TestServerAdminRouteRegistration:
         Verify _wire_admin_integration registers devtools and infra routes
         even when modules are disabled in config.
         """
-        from aquilia.config import ConfigLoader
         from aquilia.admin.site import AdminConfig
 
         # Simulate all modules disabled
@@ -1392,7 +1390,7 @@ class TestServerAdminRouteRegistration:
     def test_controller_disabled_response_method(self):
         """Verify _module_disabled_response returns valid HTML."""
         from aquilia.admin.controller import AdminController
-        from aquilia.admin.site import AdminSite, AdminConfig
+        from aquilia.admin.site import AdminConfig, AdminSite
 
         site = AdminSite()
         site.admin_config = AdminConfig()
@@ -1408,7 +1406,7 @@ class TestServerAdminRouteRegistration:
     def test_disabled_hints_for_new_modules(self):
         """Verify config hints exist for Query Inspector, Background Tasks, and Error Monitoring."""
         from aquilia.admin.controller import AdminController
-        from aquilia.admin.site import AdminSite, AdminConfig
+        from aquilia.admin.site import AdminConfig, AdminSite
 
         site = AdminSite()
         site.admin_config = AdminConfig()
@@ -1435,13 +1433,13 @@ class TestServerTaskSetup:
     def test_task_exports_from_aquilia(self):
         """Verify all task symbols are exported from aquilia package."""
         from aquilia import (
-            TaskManager,
-            TaskBackend,
-            MemoryBackend,
             Job,
-            JobState,
-            TaskPriority,
             JobResult,
+            JobState,
+            MemoryBackend,
+            TaskBackend,
+            TaskManager,
+            TaskPriority,
             Worker,
             task,
         )
@@ -1458,7 +1456,7 @@ class TestServerTaskSetup:
 
     def test_task_priority_alias(self):
         """Verify TaskPriority doesn't clash with mail Priority."""
-        from aquilia import TaskPriority, Priority
+        from aquilia import Priority, TaskPriority
 
         # TaskPriority is the tasks.job.Priority
         # Priority is the mail.Priority
@@ -1535,7 +1533,7 @@ class TestEffectRegistryIntegration:
     @pytest.mark.asyncio
     async def test_register_task_queue_provider(self):
         from aquilia.effects import EffectRegistry, TaskQueueProvider
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         registry = EffectRegistry()
         manager = TaskManager(backend=MemoryBackend())
@@ -1554,7 +1552,7 @@ class TestEffectRegistryIntegration:
     @pytest.mark.asyncio
     async def test_effect_health_check(self):
         from aquilia.effects import EffectRegistry, TaskQueueProvider
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         registry = EffectRegistry()
         manager = TaskManager(backend=MemoryBackend())
@@ -1649,7 +1647,7 @@ class TestRegressions:
         assert issubclass(MemoryBackend, TaskBackend)
 
     def test_task_manager_default_backend(self):
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         manager = TaskManager()
         assert isinstance(manager.backend, MemoryBackend)
@@ -1672,7 +1670,7 @@ class TestRegressions:
     @pytest.mark.asyncio
     async def test_concurrent_enqueue(self):
         """Verify no race conditions on concurrent enqueue."""
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         manager = TaskManager(backend=MemoryBackend())
 
@@ -1686,8 +1684,9 @@ class TestRegressions:
 
     def test_workspace_to_dict_round_trip(self):
         """Verify Workspace serialization includes tasks config."""
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = (
             Workspace("myapp")
             .tasks(num_workers=8)
@@ -1747,8 +1746,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_notify_inspector_records_query(self):
         """_notify_inspector should record a query in the QueryInspector."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         before = inspector._counter
@@ -1769,8 +1768,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_notify_inspector_records_update_operation(self):
         """_notify_inspector correctly identifies UPDATE operations."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         AquiliaDatabase._notify_inspector(
@@ -1786,8 +1785,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_notify_inspector_records_insert_operation(self):
         """_notify_inspector correctly identifies INSERT operations."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         AquiliaDatabase._notify_inspector(
@@ -1801,8 +1800,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_notify_inspector_records_delete_operation(self):
         """_notify_inspector correctly identifies DELETE operations."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         AquiliaDatabase._notify_inspector(
@@ -1831,8 +1830,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_notify_inspector_generates_sequential_ids(self):
         """Each query should get a monotonically increasing ID."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         c_before = inspector._counter
@@ -1945,8 +1944,9 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_admin_config_is_frozen(self):
         """AdminConfig is a frozen dataclass — cannot assign new attributes."""
-        from aquilia.admin.site import AdminConfig
         import dataclasses
+
+        from aquilia.admin.site import AdminConfig
 
         config = AdminConfig()
         with pytest.raises(dataclasses.FrozenInstanceError):
@@ -1958,9 +1958,10 @@ class TestQueryInspectorCRUDIntegration:
     async def test_edit_submit_reads_queries_from_site(self):
         """edit_submit should read _last_update_queries from self.site,
         not from admin_config."""
-        from aquilia.admin.controller import AdminController
-        from aquilia.admin.site import AdminSite, AdminConfig
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminSite
 
         site = AdminSite()
         site.update_record = AsyncMock(return_value=True)
@@ -2018,9 +2019,10 @@ class TestQueryInspectorCRUDIntegration:
     async def test_edit_submit_without_query_inspector_module(self):
         """When query_inspector module is disabled, query_inspection
         should be None in the rendered template."""
-        from aquilia.admin.controller import AdminController
-        from aquilia.admin.site import AdminSite, AdminConfig
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminConfig, AdminSite
 
         site = AdminSite()
         site.admin_config = AdminConfig(modules={"query_inspector": False})
@@ -2068,9 +2070,10 @@ class TestQueryInspectorCRUDIntegration:
     async def test_edit_submit_with_query_inspector_enabled(self):
         """When query_inspector module is enabled, query_inspection
         should contain the captured queries."""
-        from aquilia.admin.controller import AdminController
-        from aquilia.admin.site import AdminSite, AdminConfig
         from unittest.mock import AsyncMock, MagicMock, patch
+
+        from aquilia.admin.controller import AdminController
+        from aquilia.admin.site import AdminConfig, AdminSite
 
         site = AdminSite()
         site.admin_config = AdminConfig(modules={"query_inspector": True})
@@ -2132,9 +2135,10 @@ class TestQueryInspectorCRUDIntegration:
     async def test_edit_submit_get_record_fails_redirects(self):
         """If get_record fails after successful update, should redirect
         to model list (302) rather than crash."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from aquilia.admin.controller import AdminController
         from aquilia.admin.site import AdminSite
-        from unittest.mock import AsyncMock, MagicMock, patch
 
         site = AdminSite()
         site.update_record = AsyncMock(return_value=True)
@@ -2166,9 +2170,10 @@ class TestQueryInspectorCRUDIntegration:
     async def test_edit_submit_resets_last_update_queries(self):
         """After reading _last_update_queries, the site attribute should
         be reset to an empty list."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
         from aquilia.admin.controller import AdminController
         from aquilia.admin.site import AdminSite
-        from unittest.mock import AsyncMock, MagicMock, patch
 
         site = AdminSite()
         site.update_record = AsyncMock(return_value=True)
@@ -2211,8 +2216,9 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_render_form_view_accepts_query_inspection(self):
         """render_form_view should accept query_inspection parameter."""
-        from aquilia.admin.templates import render_form_view
         import inspect
+
+        from aquilia.admin.templates import render_form_view
 
         sig = inspect.signature(render_form_view)
         assert "query_inspection" in sig.parameters
@@ -2450,6 +2456,7 @@ class TestQueryInspectorCRUDIntegration:
     def test_admin_config_frozen_no_arbitrary_attrs(self):
         """Ensure we don't accidentally try to set attrs on frozen AdminConfig."""
         import dataclasses
+
         from aquilia.admin.site import AdminConfig
 
         config = AdminConfig()
@@ -2477,8 +2484,8 @@ class TestQueryInspectorCRUDIntegration:
     def test_inspector_record_then_to_dict_roundtrip(self):
         """Record a query through the engine, verify it appears in inspector
         with correct to_dict() output that the template can consume."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         before = inspector._counter
@@ -2510,8 +2517,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_inspector_multiple_queries_different_operations(self):
         """Multiple queries of different types are correctly categorised."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         before = inspector._counter
@@ -2532,8 +2539,8 @@ class TestQueryInspectorCRUDIntegration:
 
     def test_inspector_timing_is_preserved(self):
         """Duration values are accurately preserved through the pipeline."""
-        from aquilia.db.engine import AquiliaDatabase
         from aquilia.admin.query_inspector import get_query_inspector
+        from aquilia.db.engine import AquiliaDatabase
 
         inspector = get_query_inspector()
         before = inspector._counter
@@ -2823,7 +2830,7 @@ class TestMemoryBackendChartData:
     @pytest.mark.asyncio
     async def test_charts_state_doughnut(self):
         """charts.state_doughnut reflects actual job states."""
-        from aquilia.tasks.engine import MemoryBackend, Job, JobState
+        from aquilia.tasks.engine import Job, MemoryBackend
 
         backend = MemoryBackend()
         await backend.push(Job(func_ref="test.fn", name="test"))
@@ -2836,7 +2843,7 @@ class TestMemoryBackendChartData:
     @pytest.mark.asyncio
     async def test_charts_queue_breakdown(self):
         """charts.queue_breakdown has per-queue state arrays."""
-        from aquilia.tasks.engine import MemoryBackend, Job
+        from aquilia.tasks.engine import Job, MemoryBackend
 
         backend = MemoryBackend()
         await backend.push(Job(func_ref="fn1", name="t1", queue="high"))
@@ -2863,8 +2870,9 @@ class TestMemoryBackendChartData:
     @pytest.mark.asyncio
     async def test_success_rate_with_completed_only(self):
         """Success rate is 100% when all terminal jobs completed."""
-        from aquilia.tasks.engine import MemoryBackend, Job, JobState
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
+        from aquilia.tasks.engine import Job, JobState, MemoryBackend
 
         backend = MemoryBackend()
         for i in range(3):
@@ -2880,8 +2888,9 @@ class TestMemoryBackendChartData:
     @pytest.mark.asyncio
     async def test_success_rate_with_failures(self):
         """Success rate reflects completed vs failed ratio."""
-        from aquilia.tasks.engine import MemoryBackend, Job, JobState
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
+        from aquilia.tasks.engine import Job, JobState, MemoryBackend
 
         backend = MemoryBackend()
         # 3 completed
@@ -2915,8 +2924,9 @@ class TestMemoryBackendChartData:
     @pytest.mark.asyncio
     async def test_percentiles_with_data(self):
         """P50/P95/P99 are computed from completed job durations."""
-        from aquilia.tasks.engine import MemoryBackend, Job, JobState
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
+        from aquilia.tasks.engine import Job, JobState, MemoryBackend
 
         backend = MemoryBackend()
         for i in range(1, 101):
@@ -2935,8 +2945,9 @@ class TestMemoryBackendChartData:
     @pytest.mark.asyncio
     async def test_duration_histogram_buckets(self):
         """Duration histogram correctly bins job durations."""
-        from aquilia.tasks.engine import MemoryBackend, Job, JobState
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timedelta, timezone
+
+        from aquilia.tasks.engine import Job, JobState, MemoryBackend
 
         backend = MemoryBackend()
         durations = [5, 25, 75, 150, 400, 750, 3000, 8000]

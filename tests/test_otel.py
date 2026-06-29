@@ -1,4 +1,5 @@
 """Tests for OpenTelemetry support — all pass without otel SDK installed."""
+
 import pytest
 
 from aquilia.otel import OTelConfig, get_current_span, get_tracer, shutdown

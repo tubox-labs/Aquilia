@@ -1,4 +1,4 @@
-from aquilia import Controller, POST, RequestCtx, Response
+from aquilia import POST, Controller, RequestCtx, Response
 from aquilia.auth import authenticated
 
 from .services import NotificationService

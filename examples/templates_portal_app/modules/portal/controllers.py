@@ -1,4 +1,4 @@
-from aquilia.controller import Controller, GET, RequestCtx
+from aquilia.controller import GET, Controller, RequestCtx
 from aquilia.response import Response
 
 from .services import PortalRenderService

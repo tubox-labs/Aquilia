@@ -14,18 +14,10 @@ Phase 1 — Architecture Overhaul
   - pyproject.toml: server optional dependency group
 """
 
-import importlib
-import json
-import os
-import shutil
-import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-from typing import Any, Dict
+from unittest.mock import patch
 
 import pytest
-
 
 # ════════════════════════════════════════════════════════════════════════
 # MODULE 1: TRACE REMOVAL — Verify trace is completely gone
@@ -87,6 +79,7 @@ class TestTraceRemoval:
     def test_server_has_no_trace_attribute(self):
         """AquiliaServer must not have a .trace attribute in __init__."""
         import inspect
+
         from aquilia.server import AquiliaServer
 
         source = inspect.getsource(AquiliaServer.__init__)
@@ -96,6 +89,7 @@ class TestTraceRemoval:
     def test_server_startup_no_trace_journal(self):
         """AquiliaServer.startup() must not call trace.journal."""
         import inspect
+
         from aquilia.server import AquiliaServer
 
         source = inspect.getsource(AquiliaServer.startup)
@@ -105,6 +99,7 @@ class TestTraceRemoval:
     def test_server_shutdown_no_trace_journal(self):
         """AquiliaServer.shutdown() must not call trace.journal."""
         import inspect
+
         from aquilia.server import AquiliaServer
 
         source = inspect.getsource(AquiliaServer.shutdown)
@@ -115,6 +110,7 @@ class TestTraceRemoval:
     def test_server_startup_no_trace(self):
         """startup() should not reference old trace system."""
         import inspect
+
         from aquilia.server import AquiliaServer
 
         source = inspect.getsource(AquiliaServer.startup)
@@ -124,6 +120,7 @@ class TestTraceRemoval:
     def test_cache_cli_no_trace_path(self):
         """cmd_cache_stats() must not reference .aquilia/diagnostics.json."""
         import inspect
+
         from aquilia.cli.commands.cache import cmd_cache_stats
 
         source = inspect.getsource(cmd_cache_stats)
@@ -297,6 +294,7 @@ class TestArtifactStoreSurp:
     def test_store_legacy_json_fallback(self, tmp_path):
         """Store should still read legacy .aq.json files without .surp counterparts."""
         import json as _json
+
         from aquilia.artifacts.store import FilesystemArtifactStore
 
         store = FilesystemArtifactStore(root=str(tmp_path / "artifacts"))
@@ -332,8 +330,8 @@ class TestMemoryArtifactStore:
     """Test the in-memory artifact store (not affected by Surp migration, but verify)."""
 
     def test_memory_store_crud(self):
-        from aquilia.artifacts.store import MemoryArtifactStore
         from aquilia.artifacts.core import Artifact, ArtifactEnvelope, ArtifactIntegrity
+        from aquilia.artifacts.store import MemoryArtifactStore
 
         store = MemoryArtifactStore()
 
@@ -376,6 +374,7 @@ class TestAquilarySurpMigration:
     def test_freeze_writes_surp_format(self):
         """AquilaryRegistry.export_manifest() should write .surp binary when Surp is available."""
         import inspect
+
         from aquilia.aquilary.core import AquilaryRegistry
 
         # The freeze/export method is export_manifest on AquilaryRegistry
@@ -386,6 +385,7 @@ class TestAquilarySurpMigration:
     def test_from_frozen_reads_surp_format(self):
         """Aquilary._from_frozen_manifest() should read .surp binary."""
         import inspect
+
         from aquilia.aquilary.core import Aquilary
 
         # _from_frozen_manifest is a classmethod on Aquilary, not AquilaryRegistry
@@ -401,6 +401,7 @@ class TestAquilaryLoaderSurp:
     def test_loader_supports_surp_extension(self):
         """ManifestLoader should accept .surp files in its loading logic."""
         import inspect
+
         from aquilia.aquilary.loader import ManifestLoader
 
         # Check the full class source for .surp support
@@ -410,6 +411,7 @@ class TestAquilaryLoaderSurp:
     def test_loader_load_dsl_supports_surp(self):
         """_load_from_dsl_file should decode .surp files."""
         import inspect
+
         from aquilia.aquilary.loader import ManifestLoader
 
         source = inspect.getsource(ManifestLoader._load_from_dsl_file)
@@ -418,6 +420,7 @@ class TestAquilaryLoaderSurp:
     def test_loader_directory_scan_includes_surp(self):
         """Directory scanning should look for manifest.surp."""
         import inspect
+
         from aquilia.aquilary.loader import ManifestLoader
 
         # Check the full class source for manifest.surp file discovery
@@ -508,6 +511,7 @@ class TestServeCommand:
     def test_serve_production_signature(self):
         """serve_production should accept gunicorn params."""
         import inspect
+
         from aquilia.cli.commands.serve import serve_production
 
         sig = inspect.signature(serve_production)
@@ -526,6 +530,7 @@ class TestServeCommand:
         defaults (use_gunicorn, timeout, graceful_timeout) remain.
         """
         import inspect
+
         from aquilia.cli.commands.serve import serve_production
 
         sig = inspect.signature(serve_production)
@@ -549,6 +554,7 @@ class TestServeCommand:
     def test_serve_cli_has_gunicorn_options(self):
         """CLI 'serve' command should have --use-gunicorn flag."""
         from click.testing import CliRunner
+
         from aquilia.cli.__main__ import cli
 
         runner = CliRunner()
@@ -564,6 +570,7 @@ class TestServeDocstring:
 
     def test_serve_docstring_mentions_gunicorn(self):
         import inspect
+
         from aquilia.cli.commands.serve import serve_production
 
         doc = inspect.getdoc(serve_production)
@@ -618,6 +625,7 @@ class TestRuntimeConfigResolution:
     def test_run_dev_server_signature_uses_none_defaults(self):
         """run_dev_server accepts None for host/port/reload (resolved from config)."""
         import inspect
+
         from aquilia.cli.commands.run import run_dev_server
 
         sig = inspect.signature(run_dev_server)
@@ -628,6 +636,7 @@ class TestRuntimeConfigResolution:
     def test_server_run_signature_uses_none_defaults(self):
         """AquiliaServer.run() accepts None for host/port/reload."""
         import inspect
+
         from aquilia.server import AquiliaServer
 
         sig = inspect.signature(AquiliaServer.run)
@@ -647,6 +656,7 @@ class TestDeploymentGenerator:
     def test_dockerfile_no_aquilia_dir(self):
         """Production Dockerfile should not create .aquilia/ directory."""
         import inspect
+
         from aquilia.cli.generators.deployment import DockerfileGenerator
 
         source = inspect.getsource(DockerfileGenerator.generate_dockerfile)
@@ -655,6 +665,7 @@ class TestDeploymentGenerator:
     def test_dockerfile_uses_uvicorn(self):
         """Production Dockerfile CMD should use uvicorn."""
         import inspect
+
         from aquilia.cli.generators.deployment import DockerfileGenerator
 
         source = inspect.getsource(DockerfileGenerator.generate_dockerfile)
@@ -663,6 +674,7 @@ class TestDeploymentGenerator:
     def test_dockerignore_no_aquilia_dir(self):
         """Dockerignore should not reference .aquilia/."""
         import inspect
+
         from aquilia.cli.generators.deployment import DockerfileGenerator
 
         source = inspect.getsource(DockerfileGenerator.generate_dockerignore)
@@ -671,6 +683,7 @@ class TestDeploymentGenerator:
     def test_compose_no_trace_volume(self):
         """Compose generator should not have app-trace volume."""
         import inspect
+
         from aquilia.cli.generators.deployment import ComposeGenerator
 
         source = inspect.getsource(ComposeGenerator.generate_compose)
@@ -679,6 +692,7 @@ class TestDeploymentGenerator:
     def test_kubernetes_no_trace_volume(self):
         """K8s deployment should not have trace volume mounts."""
         import inspect
+
         from aquilia.cli.generators.deployment import KubernetesGenerator
 
         source = inspect.getsource(KubernetesGenerator.generate_deployment)
@@ -689,6 +703,7 @@ class TestDeploymentGenerator:
     def test_makefile_uses_compile_command(self):
         """Makefile compile target should use the native compile command."""
         import inspect
+
         from aquilia.cli.generators.deployment import MakefileGenerator
 
         source = inspect.getsource(MakefileGenerator.generate_makefile)
@@ -698,6 +713,7 @@ class TestDeploymentGenerator:
     def test_makefile_clean_no_aquilia(self):
         """Makefile clean target should not reference .aquilia/."""
         import inspect
+
         from aquilia.cli.generators.deployment import MakefileGenerator
 
         source = inspect.getsource(MakefileGenerator.generate_makefile)
@@ -715,6 +731,7 @@ class TestAnalyticsSurp:
     def test_analytics_cache_dir_is_build_cache(self):
         """DiscoveryAnalytics cache_dir should be build/.cache, not .aquilia/discovery."""
         import inspect
+
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics.__init__)
@@ -724,6 +741,7 @@ class TestAnalyticsSurp:
     def test_analytics_cache_writes_surp(self):
         """_cache_analysis should write Surp binary format."""
         import inspect
+
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics._cache_analysis)
@@ -732,6 +750,7 @@ class TestAnalyticsSurp:
     def test_analytics_cache_reads_surp(self):
         """get_cached_analysis should read Surp binary format."""
         import inspect
+
         from aquilia.cli.commands.analytics import DiscoveryAnalytics
 
         source = inspect.getsource(DiscoveryAnalytics.get_cached_analysis)
@@ -795,14 +814,13 @@ class TestExecutionHelpers:
         """_run with a command that doesn't exist → returns False."""
         from aquilia.cli.commands.deploy_gen import _run
 
-        with patch("aquilia.cli.commands.deploy_gen.info"):
-            with patch("aquilia.cli.commands.deploy_gen.error"):
-                result = _run(
-                    ["this_cmd_does_not_exist_xyz"],
-                    label="test",
-                    cwd=tmp_path,
-                    dry_run=False,
-                )
+        with patch("aquilia.cli.commands.deploy_gen.info"), patch("aquilia.cli.commands.deploy_gen.error"):
+            result = _run(
+                ["this_cmd_does_not_exist_xyz"],
+                label="test",
+                cwd=tmp_path,
+                dry_run=False,
+            )
         assert result is False
 
     def test_exec_docker_build_dry_run(self, tmp_path):

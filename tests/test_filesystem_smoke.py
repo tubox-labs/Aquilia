@@ -1,24 +1,21 @@
 """Smoke tests for aquilia.filesystem — native async file I/O module."""
 
-import asyncio
 import os
-import shutil
-import tempfile
 
 import pytest
 
 from aquilia.filesystem import (
-    write_file,
-    read_file,
-    file_exists,
-    delete_file,
-    async_open,
-    FileSystem,
-    async_tempfile,
-    async_tempdir,
-    stream_read,
     AsyncPath,
+    FileSystem,
+    async_open,
+    async_tempdir,
+    async_tempfile,
+    delete_file,
+    file_exists,
     file_stat,
+    read_file,
+    stream_read,
+    write_file,
 )
 
 
@@ -31,7 +28,7 @@ def sandbox(tmp_path):
 async def test_write_and_read_file(sandbox):
     p = sandbox / "test.txt"
     n = await write_file(str(p), "Hello Aquilia", sandbox=str(sandbox))
-    assert n == len("Hello Aquilia".encode())
+    assert n == len(b"Hello Aquilia")
     content = await read_file(str(p), encoding="utf-8", sandbox=str(sandbox))
     assert content == "Hello Aquilia"
 

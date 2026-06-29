@@ -52,11 +52,12 @@ class CatalogService:
         if q:
             needle = q.lower()
             items = [
-                item for item in items
+                item
+                for item in items
                 if needle in item.name.lower() or needle in item.sku.lower() or needle in " ".join(item.tags).lower()
             ]
         total = len(items)
-        page = items[offset: offset + limit]
+        page = items[offset : offset + limit]
         return {"items": [item.to_dict() for item in page], "total": total, "limit": limit, "offset": offset}
 
     async def get_product(self, sku: str) -> dict[str, Any]:

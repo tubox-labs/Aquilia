@@ -19,7 +19,6 @@ import json
 import os
 import sys
 from datetime import datetime, timedelta, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -38,7 +37,7 @@ class TestEverySchedule:
     """Verify every() creates correct IntervalSchedule instances."""
 
     def test_every_seconds(self):
-        from aquilia.tasks.schedule import every, IntervalSchedule
+        from aquilia.tasks.schedule import IntervalSchedule, every
 
         s = every(seconds=30)
         assert isinstance(s, IntervalSchedule)
@@ -69,15 +68,15 @@ class TestEverySchedule:
         assert s.interval == 2 * 3600 + 30 * 60
 
     def test_every_zero_raises(self):
-        from aquilia.tasks.schedule import every
         from aquilia.tasks.faults import TaskScheduleFault
+        from aquilia.tasks.schedule import every
 
         with pytest.raises(TaskScheduleFault, match="must be > 0"):
             every()
 
     def test_every_negative_raises(self):
-        from aquilia.tasks.schedule import every
         from aquilia.tasks.faults import TaskScheduleFault
+        from aquilia.tasks.schedule import every
 
         with pytest.raises(TaskScheduleFault, match="must be > 0"):
             every(seconds=-10)
@@ -170,11 +169,11 @@ class TestCronSchedule:
         from aquilia.tasks.schedule import cron
 
         s = cron("*/5 * * * *")
-        assert "cron(*/5 * * * *)" == s.human_readable
+        assert s.human_readable == "cron(*/5 * * * *)"
 
     def test_invalid_field_count(self):
-        from aquilia.tasks.schedule import cron
         from aquilia.tasks.faults import TaskScheduleFault
+        from aquilia.tasks.schedule import cron
 
         with pytest.raises(TaskScheduleFault, match="5 fields"):
             cron("* * *")
@@ -207,8 +206,8 @@ class TestTaskScheduleDecorator:
     """Verify @task decorator accepts and stores schedule param."""
 
     def test_task_without_schedule(self):
-        from aquilia.tasks.decorators import _TaskDescriptor
         from aquilia.tasks import task
+        from aquilia.tasks.decorators import _TaskDescriptor
 
         @task
         async def plain_task():
@@ -219,7 +218,7 @@ class TestTaskScheduleDecorator:
         assert plain_task.is_periodic is False
 
     def test_task_with_interval_schedule(self):
-        from aquilia.tasks import task, every
+        from aquilia.tasks import every, task
 
         @task(schedule=every(minutes=10))
         async def periodic_task():
@@ -229,7 +228,7 @@ class TestTaskScheduleDecorator:
         assert periodic_task.schedule.interval == 600
 
     def test_task_with_cron_schedule(self):
-        from aquilia.tasks import task, cron
+        from aquilia.tasks import cron, task
 
         @task(schedule=cron("0 */6 * * *"))
         async def cron_task():
@@ -273,7 +272,7 @@ class TestTaskDelayAndSend:
     async def test_delay_dispatches_to_manager(self):
         """delay() should enqueue via bound TaskManager."""
         from aquilia.tasks import task
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         @task(queue="test")
         async def greet(name="world"):
@@ -302,7 +301,7 @@ class TestTaskDelayAndSend:
     async def test_send_is_alias_for_delay(self):
         """send() should work identically to delay()."""
         from aquilia.tasks import task
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         @task(queue="test")
         async def ping():
@@ -326,7 +325,7 @@ class TestTaskDelayAndSend:
     async def test_delay_with_args_and_kwargs(self):
         """delay() should pass arguments correctly."""
         from aquilia.tasks import task
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         @task
         async def add(a, b):
@@ -350,7 +349,7 @@ class TestTaskDelayAndSend:
     async def test_bind_sets_manager(self):
         """bind() should set _manager on descriptor."""
         from aquilia.tasks import task
-        from aquilia.tasks.engine import TaskManager, MemoryBackend
+        from aquilia.tasks.engine import MemoryBackend, TaskManager
 
         @task
         async def noop():
@@ -444,7 +443,7 @@ class TestServerNoAutoEnqueue:
     def test_server_source_no_run_on_startup(self):
         """server.py should not reference run_on_startup."""
         filepath = os.path.join(REPO_ROOT, "aquilia", "server.py")
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             content = f.read()
         assert "run_on_startup" not in content
         assert "_enqueue_startup_tasks" not in content
@@ -460,7 +459,7 @@ class TestSEOFiles:
 
     def _read_file(self, relpath):
         filepath = os.path.join(REPO_ROOT, relpath)
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             return f.read()
 
     # ── index.html ───────────────────────────────────────────────────

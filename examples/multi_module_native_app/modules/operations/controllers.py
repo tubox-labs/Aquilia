@@ -1,4 +1,4 @@
-from aquilia import Controller, GET, RequestCtx, Response
+from aquilia import GET, Controller, RequestCtx, Response
 
 from .services import OperationsService
 

@@ -22,13 +22,12 @@
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from aquilia.faults.domains import QueryFault
 from aquilia.models.sql_builder import UpsertIgnoreBuilder
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 1. UpsertIgnoreBuilder Tests
@@ -463,7 +462,7 @@ class TestFindOrCreateWithPatching:
     async def test_creates_new_record(self):
         """When no record exists, creates new and returns (instance, True)."""
         from aquilia.models.base import Model
-        from aquilia.models.fields_module import CharField, IntegerField
+        from aquilia.models.fields_module import CharField
 
         mock_db = MockDB()
         mock_db._execute_result = MockCursor(lastrowid=42)

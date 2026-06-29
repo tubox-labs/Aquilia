@@ -6,8 +6,7 @@ from aquilia.auth import AuthManager
 from aquilia.auth.hashing import PasswordPolicy
 from aquilia.auth.integration.di_providers import create_auth_container
 from aquilia.di import Container
-from aquilia.di.providers import ClassProvider
-from aquilia.di.providers import ValueProvider
+from aquilia.di.providers import ClassProvider, ValueProvider
 
 
 def test_auth_container_registers_password_policy_provider():

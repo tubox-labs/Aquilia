@@ -21,76 +21,68 @@ This file provides **deep regression coverage** for every public API surface:
 
 from __future__ import annotations
 
-import json
-import struct
 import time
-import hashlib
-import hmac as _hmac
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 
-# ── Module under test ────────────────────────────────────────────────────
-from aquilia.signing import (
-    # Exceptions (backward-compat aliases)
-    SigningError,
-    BadSignature,
-    SignatureExpired,
-    SignatureMalformed,
-    UnsupportedAlgorithmError,
-    # Core classes
-    Signer,
-    TimestampSigner,
-    RotatingSigner,
-    # Structured payload
-    dumps,
-    loads,
-    # Backends
-    SignerBackend,
-    HmacSignerBackend,
-    # Factories
-    make_signer,
-    make_timestamp_signer,
-    # Primitives
-    b64_encode,
-    b64_decode,
-    constant_time_compare,
-    derive_key,
-    # Domain signers
-    SessionSigner,
-    CSRFSigner,
-    ActivationLinkSigner,
-    CacheKeySigner,
-    CookieSigner,
-    APIKeySigner,
-    # Config
-    SigningConfig,
-)
-from aquilia.signing import (
-    configure,
-    _get_global_secret,
-    _get_global_rotating_signer,
-    _GLOBAL_SECRETS,
-    _EPOCH,
-    _SEP,
-    _MIN_KEY_BYTES,
-    _HMAC_ALGORITHMS,
-    _ASYMMETRIC_ALGORITHMS,
-    _check_key_length,
-)
 from aquilia.faults.domains import (
     BadSignatureFault,
     ConfigInvalidFault,
     ConfigMissingFault,
+    Fault,
+    SecurityFault,
     SignatureExpiredFault,
     SignatureMalformedFault,
     SigningFault,
     UnsupportedAlgorithmFault,
-    SecurityFault,
-    Fault,
 )
 
+# ── Module under test ────────────────────────────────────────────────────
+from aquilia.signing import (
+    _ASYMMETRIC_ALGORITHMS,
+    _EPOCH,
+    _HMAC_ALGORITHMS,
+    _MIN_KEY_BYTES,
+    _SEP,
+    ActivationLinkSigner,
+    APIKeySigner,
+    BadSignature,
+    CacheKeySigner,
+    CookieSigner,
+    CSRFSigner,
+    HmacSignerBackend,
+    RotatingSigner,
+    # Domain signers
+    SessionSigner,
+    SignatureExpired,
+    SignatureMalformed,
+    # Core classes
+    Signer,
+    # Backends
+    SignerBackend,
+    # Config
+    SigningConfig,
+    # Exceptions (backward-compat aliases)
+    SigningError,
+    TimestampSigner,
+    UnsupportedAlgorithmError,
+    _check_key_length,
+    _get_global_rotating_signer,
+    _get_global_secret,
+    b64_decode,
+    # Primitives
+    b64_encode,
+    configure,
+    constant_time_compare,
+    derive_key,
+    # Structured payload
+    dumps,
+    loads,
+    # Factories
+    make_signer,
+    make_timestamp_signer,
+)
 
 # ── Fixtures ─────────────────────────────────────────────────────────────
 
@@ -1320,7 +1312,7 @@ class TestEdgeCases:
 
     def test_epoch_is_2020(self):
         dt = datetime(2020, 1, 1, tzinfo=timezone.utc)
-        assert _EPOCH == int(dt.timestamp() * 1_000_000)
+        assert int(dt.timestamp() * 1_000_000) == _EPOCH
 
     def test_signer_with_custom_backend(self):
         """Users can inject a custom SignerBackend."""

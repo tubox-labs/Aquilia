@@ -22,7 +22,13 @@ class ReleaseArtifactService:
         )
         digest = self.store.save(artifact)
         token = dumps({"name": artifact.name, "version": artifact.version, "digest": digest}, secret=self.secret)
-        return {"name": artifact.name, "version": artifact.version, "digest": digest, "verified": artifact.verify(), "token": token}
+        return {
+            "name": artifact.name,
+            "version": artifact.version,
+            "digest": digest,
+            "verified": artifact.verify(),
+            "token": token,
+        }
 
     def inspect_release(self, name: str, token: str) -> dict[str, Any]:
         signed = loads(token, secret=self.secret)
@@ -39,4 +45,8 @@ class ReleaseArtifactService:
             raise KeyError(name)
         promoted = artifact.evolve(version=to_version, environment=environment)
         self.store.save(promoted)
-        return {"digest": promoted.digest, "derived_from": promoted.tags["derived_from"], "environment": promoted.payload["environment"]}
+        return {
+            "digest": promoted.digest,
+            "derived_from": promoted.tags["derived_from"],
+            "environment": promoted.payload["environment"],
+        }

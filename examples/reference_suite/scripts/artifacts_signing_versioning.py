@@ -3,7 +3,9 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from aquilia.artifacts import ArtifactBuilder, ArtifactReader, MemoryArtifactStore
-from aquilia.signing import Signer, dumps as signing_dumps, loads as signing_loads
+from aquilia.signing import Signer
+from aquilia.signing import dumps as signing_dumps
+from aquilia.signing import loads as signing_loads
 from aquilia.versioning import ApiVersion, HeaderResolver, URLPathResolver
 
 

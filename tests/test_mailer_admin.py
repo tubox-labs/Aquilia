@@ -25,16 +25,11 @@ Exhaustive regression tests for the Mailer admin integration:
 
 from __future__ import annotations
 
-import asyncio
 import inspect
-import json
 import os
-import re
-from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock
 
 import pytest
-
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -242,6 +237,8 @@ class TestAdminModulesMailerBuilder:
         assert d["storage"] is True
 
     # ════════════════════════════════════════════════════════════════════════════
+
+
 # 3. INTEGRATION.ADMIN() FLAT SYNTAX
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -275,16 +272,16 @@ class TestIntegrationAdminFlatMailer:
 
     def test_flat_enable_mailer_preserved_in_admin_config(self):
         """Round-trip: flat syntax → AdminConfig."""
-        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
+        from aquilia.integrations import Integration
 
         raw = Integration.admin(enable_mailer=True)
         cfg = AdminConfig.from_dict(raw)
         assert cfg.is_module_enabled("mailer") is True
 
     def test_flat_enable_mailer_false_preserved_in_admin_config(self):
-        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
+        from aquilia.integrations import Integration
 
         raw = Integration.admin(enable_mailer=False)
         cfg = AdminConfig.from_dict(raw)
@@ -306,22 +303,25 @@ class TestWorkspaceMailerRoundTrip:
     """Workspace serialisation includes mailer module."""
 
     def test_workspace_admin_mailer_enabled(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = Workspace("test").integrate(Integration.admin(enable_mailer=True))
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["mailer"] is True
 
     def test_workspace_admin_mailer_disabled(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         ws = Workspace("test").integrate(Integration.admin())
         d = ws.to_dict()
         assert d["integrations"]["admin"]["modules"]["mailer"] is False
 
     def test_workspace_admin_modules_builder_mailer(self):
-        from aquilia.workspace import Workspace
         from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
+
         mods = Integration.AdminModules().enable_mailer()
         ws = Workspace("test").integrate(Integration.admin(modules=mods))
         d = ws.to_dict()
@@ -357,28 +357,28 @@ class TestAdminPermissionsMailer:
         assert AdminPermission.MAILER_MANAGE.value == "admin.mailer.manage"
 
     def test_viewer_role_has_mailer_view(self):
-        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminRole, AdminPermission
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission, AdminRole
 
         assert AdminPermission.MAILER_VIEW in ROLE_PERMISSIONS[AdminRole.VIEWER]
 
     def test_viewer_role_no_mailer_manage(self):
-        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminRole, AdminPermission
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission, AdminRole
 
         assert AdminPermission.MAILER_MANAGE not in ROLE_PERMISSIONS[AdminRole.VIEWER]
 
     def test_staff_role_has_mailer_view(self):
-        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminRole, AdminPermission
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission, AdminRole
 
         assert AdminPermission.MAILER_VIEW in ROLE_PERMISSIONS[AdminRole.STAFF]
 
     def test_staff_role_has_mailer_manage(self):
-        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminRole, AdminPermission
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission, AdminRole
 
         assert AdminPermission.MAILER_MANAGE in ROLE_PERMISSIONS[AdminRole.STAFF]
 
     def test_admin_role_has_mailer_view(self):
         """Superadmin role should inherit at least MAILER_VIEW."""
-        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminRole, AdminPermission
+        from aquilia.admin.permissions import ROLE_PERMISSIONS, AdminPermission, AdminRole
 
         admin_perms = ROLE_PERMISSIONS.get(AdminRole.SUPERADMIN, set())
         # Superadmin might use FULL_ACCESS or explicit perms
@@ -1401,6 +1401,8 @@ class TestServerMailerRouteWiring:
         assert mailer_pos < model_crud_pos, "Mailer routes must come before model CRUD catch-all"
 
     # ════════════════════════════════════════════════════════════════════════════
+
+
 # 12. DISABLED PAGE BEHAVIOUR
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -1611,12 +1613,12 @@ class TestConfigBuildersMailerDetail:
     def test_enable_mailer_is_callable(self):
         from aquilia.integrations import Integration
 
-        assert callable(getattr(Integration.AdminModules, "enable_mailer"))
+        assert callable(Integration.AdminModules.enable_mailer)
 
     def test_disable_mailer_is_callable(self):
         from aquilia.integrations import Integration
 
-        assert callable(getattr(Integration.AdminModules, "disable_mailer"))
+        assert callable(Integration.AdminModules.disable_mailer)
 
     def test_legacy_admin_flat_pop_enable_mailer(self):
         """Integration.admin(enable_mailer=True) uses kwargs.pop."""
@@ -2121,9 +2123,9 @@ class TestMailerEdgeCases:
 
     def test_workspace_roundtrip_full(self):
         """Full Workspace → to_dict → AdminConfig.from_dict round-trip."""
-        from aquilia.workspace import Workspace
-        from aquilia.integrations import Integration
         from aquilia.admin.site import AdminConfig
+        from aquilia.integrations import Integration
+        from aquilia.workspace import Workspace
 
         ws = Workspace("test").integrate(
             Integration.admin(modules=Integration.AdminModules().enable_mailer().enable_storage().enable_tasks())
@@ -2236,7 +2238,7 @@ class TestMailFaultHierarchy:
         assert issubclass(MailFault, Exception)
 
     def test_send_fault_inherits_mail_fault(self):
-        from aquilia.mail.faults import MailSendFault, MailFault
+        from aquilia.mail.faults import MailFault, MailSendFault
 
         assert issubclass(MailSendFault, MailFault)
 
@@ -2246,7 +2248,7 @@ class TestMailFaultHierarchy:
         assert issubclass(MailConfigFault, MailFault)
 
     def test_template_fault_inherits_mail_fault(self):
-        from aquilia.mail.faults import MailTemplateFault, MailFault
+        from aquilia.mail.faults import MailFault, MailTemplateFault
 
         assert issubclass(MailTemplateFault, MailFault)
 

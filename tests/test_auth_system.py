@@ -19,17 +19,12 @@ Tests cover:
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
-import secrets
 import time
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
-from typing import Any, Optional, Set
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
 
 # ============================================================================
 # 1. CLEARANCE SYSTEM TESTS
@@ -73,7 +68,7 @@ class TestClearance:
     """Test Clearance descriptor."""
 
     def test_default_clearance(self):
-        from aquilia.auth.clearance import Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance
 
         c = Clearance()
         assert c.level == AccessLevel.AUTHENTICATED
@@ -84,7 +79,7 @@ class TestClearance:
         assert c.audit is True
 
     def test_clearance_with_params(self):
-        from aquilia.auth.clearance import Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance
 
         c = Clearance(
             level=AccessLevel.CONFIDENTIAL,
@@ -106,7 +101,7 @@ class TestClearance:
             c.level = 99  # type: ignore
 
     def test_clearance_merge_level_override(self):
-        from aquilia.auth.clearance import Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance
 
         base = Clearance(level=AccessLevel.INTERNAL)
         override = Clearance(level=AccessLevel.PUBLIC)
@@ -203,7 +198,7 @@ class TestGrantDecorator:
     """Test @grant and @exempt decorators."""
 
     def test_grant_attaches_clearance(self):
-        from aquilia.auth.clearance import grant, AccessLevel, get_method_clearance
+        from aquilia.auth.clearance import AccessLevel, get_method_clearance, grant
 
         @grant(level=AccessLevel.INTERNAL, entitlements=["test:read"])
         async def handler(self, ctx):
@@ -215,7 +210,7 @@ class TestGrantDecorator:
         assert "test:read" in c.entitlements
 
     def test_exempt_sets_public(self):
-        from aquilia.auth.clearance import exempt, AccessLevel, get_method_clearance
+        from aquilia.auth.clearance import AccessLevel, exempt, get_method_clearance
 
         @exempt
         async def handler(self, ctx):
@@ -362,7 +357,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_public_level_no_auth_required(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.PUBLIC)
@@ -372,7 +367,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_authenticated_level_requires_identity(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.AUTHENTICATED)
@@ -383,7 +378,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_authenticated_level_with_identity(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.AUTHENTICATED)
@@ -393,7 +388,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_internal_level_requires_staff_role(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.INTERNAL)
@@ -409,7 +404,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_restricted_level_requires_admin(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.RESTRICTED)
@@ -419,7 +414,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_entitlement_check_pass(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(entitlements=["docs:read"])
@@ -430,7 +425,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_entitlement_check_fail(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(entitlements=["docs:write"])
@@ -442,7 +437,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_wildcard_entitlement(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(entitlements=["docs:*"])
@@ -452,7 +447,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_wildcard_entitlement_fail(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(entitlements=["docs:*"])
@@ -462,7 +457,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_condition_check_pass(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
 
@@ -477,7 +472,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_condition_check_fail(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
 
@@ -493,7 +488,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_async_condition(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
 
@@ -507,7 +502,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_condition_exception_treated_as_failure(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
 
@@ -522,7 +517,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_compartment_check_pass(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(compartment="tenant:{tenant_id}")
@@ -533,7 +528,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_compartment_check_fail(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(compartment="tenant:{tenant_id}")
@@ -544,7 +539,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_combined_requirements(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(
@@ -558,7 +553,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_custom_entitlement_resolver(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         def resolver(identity):
             return {"custom:special"}
@@ -571,7 +566,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_custom_role_level_map(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine(role_level_map={"vip": AccessLevel.CONFIDENTIAL})
         c = Clearance(level=AccessLevel.CONFIDENTIAL)
@@ -589,7 +584,7 @@ class TestClearanceEngine:
 
     @pytest.mark.asyncio
     async def test_verdict_message_includes_details(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(
@@ -608,7 +603,7 @@ class TestClearanceGuard:
 
     @pytest.mark.asyncio
     async def test_guard_grants_access(self):
-        from aquilia.auth.clearance import ClearanceGuard, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceGuard
 
         guard = ClearanceGuard(Clearance(level=AccessLevel.PUBLIC))
         result = await guard(request=None, ctx=None)
@@ -616,7 +611,7 @@ class TestClearanceGuard:
 
     @pytest.mark.asyncio
     async def test_guard_denies_access(self):
-        from aquilia.auth.clearance import ClearanceGuard, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceGuard
 
         guard = ClearanceGuard(Clearance(level=AccessLevel.RESTRICTED))
         ctx = MagicMock(identity=None, state={})
@@ -657,7 +652,7 @@ class TestClearanceGuard:
 
     @pytest.mark.asyncio
     async def test_guard_stores_verdict_in_state(self):
-        from aquilia.auth.clearance import ClearanceGuard, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceGuard
 
         guard = ClearanceGuard(Clearance(level=AccessLevel.PUBLIC))
         ctx = MagicMock(identity=None, state={})
@@ -665,7 +660,7 @@ class TestClearanceGuard:
         assert "clearance_verdict" in ctx.state
 
     def test_guard_for_controller_returns_self(self):
-        from aquilia.auth.clearance import ClearanceGuard, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceGuard
 
         guard = ClearanceGuard(Clearance())
         assert guard.for_controller() is guard
@@ -686,7 +681,7 @@ class TestBuildMergedClearance:
         assert build_merged_clearance(MyController, handler) is None
 
     def test_class_only(self):
-        from aquilia.auth.clearance import build_merged_clearance, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, build_merged_clearance
 
         class MyController:
             clearance = Clearance(level=AccessLevel.INTERNAL)
@@ -699,7 +694,7 @@ class TestBuildMergedClearance:
         assert merged.level == AccessLevel.INTERNAL
 
     def test_method_only(self):
-        from aquilia.auth.clearance import build_merged_clearance, Clearance, AccessLevel, grant
+        from aquilia.auth.clearance import AccessLevel, build_merged_clearance, grant
 
         class MyController:
             pass
@@ -713,7 +708,7 @@ class TestBuildMergedClearance:
         assert merged.level == AccessLevel.CONFIDENTIAL
 
     def test_class_and_method_merged(self):
-        from aquilia.auth.clearance import build_merged_clearance, Clearance, AccessLevel, grant
+        from aquilia.auth.clearance import AccessLevel, Clearance, build_merged_clearance, grant
 
         class MyController:
             clearance = Clearance(
@@ -791,6 +786,7 @@ class TestAuditEvent:
 
     def test_event_to_json(self):
         import json
+
         from aquilia.auth.audit import AuditEvent, AuditEventType, AuditSeverity
 
         event = AuditEvent(
@@ -818,10 +814,10 @@ class TestMemoryAuditStore:
     @pytest.mark.asyncio
     async def test_emit_and_query(self):
         from aquilia.auth.audit import (
-            MemoryAuditStore,
             AuditEvent,
             AuditEventType,
             AuditSeverity,
+            MemoryAuditStore,
         )
 
         store = MemoryAuditStore()
@@ -838,10 +834,10 @@ class TestMemoryAuditStore:
     @pytest.mark.asyncio
     async def test_query_by_event_type(self):
         from aquilia.auth.audit import (
-            MemoryAuditStore,
             AuditEvent,
             AuditEventType,
             AuditSeverity,
+            MemoryAuditStore,
         )
 
         store = MemoryAuditStore()
@@ -865,10 +861,10 @@ class TestMemoryAuditStore:
     @pytest.mark.asyncio
     async def test_ring_buffer_eviction(self):
         from aquilia.auth.audit import (
-            MemoryAuditStore,
             AuditEvent,
             AuditEventType,
             AuditSeverity,
+            MemoryAuditStore,
         )
 
         store = MemoryAuditStore(max_events=5)
@@ -885,10 +881,10 @@ class TestMemoryAuditStore:
     @pytest.mark.asyncio
     async def test_clear(self):
         from aquilia.auth.audit import (
-            MemoryAuditStore,
             AuditEvent,
             AuditEventType,
             AuditSeverity,
+            MemoryAuditStore,
         )
 
         store = MemoryAuditStore()
@@ -907,7 +903,7 @@ class TestAuditTrail:
 
     @pytest.mark.asyncio
     async def test_login_success(self):
-        from aquilia.auth.audit import AuditTrail, MemoryAuditStore, AuditEventType
+        from aquilia.auth.audit import AuditEventType, AuditTrail, MemoryAuditStore
 
         store = MemoryAuditStore()
         trail = AuditTrail(stores=[store])
@@ -918,7 +914,7 @@ class TestAuditTrail:
 
     @pytest.mark.asyncio
     async def test_login_failure(self):
-        from aquilia.auth.audit import AuditTrail, MemoryAuditStore, AuditEventType
+        from aquilia.auth.audit import AuditEventType, AuditTrail, MemoryAuditStore
 
         store = MemoryAuditStore()
         trail = AuditTrail(stores=[store])
@@ -940,7 +936,7 @@ class TestAuditTrail:
 
     @pytest.mark.asyncio
     async def test_clearance_evaluated(self):
-        from aquilia.auth.audit import AuditTrail, MemoryAuditStore, AuditEventType
+        from aquilia.auth.audit import AuditEventType, AuditTrail, MemoryAuditStore
 
         store = MemoryAuditStore()
         trail = AuditTrail(stores=[store])
@@ -950,7 +946,7 @@ class TestAuditTrail:
 
     @pytest.mark.asyncio
     async def test_account_locked(self):
-        from aquilia.auth.audit import AuditTrail, MemoryAuditStore, AuditSeverity
+        from aquilia.auth.audit import AuditSeverity, AuditTrail, MemoryAuditStore
 
         store = MemoryAuditStore()
         trail = AuditTrail(stores=[store])
@@ -1188,7 +1184,7 @@ class TestTokenBinder:
     """Test token binding for proof-of-possession."""
 
     def test_create_and_verify_binding(self):
-        from aquilia.auth.hardening import TokenBinder, RequestFingerprint
+        from aquilia.auth.hardening import RequestFingerprint, TokenBinder
 
         binder = TokenBinder(secret="test-secret")
         fp = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
@@ -1198,7 +1194,7 @@ class TestTokenBinder:
         assert binder.verify_binding(token, fp, binding) is True
 
     def test_binding_fails_different_token(self):
-        from aquilia.auth.hardening import TokenBinder, RequestFingerprint
+        from aquilia.auth.hardening import RequestFingerprint, TokenBinder
 
         binder = TokenBinder(secret="test-secret")
         fp = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
@@ -1207,7 +1203,7 @@ class TestTokenBinder:
         assert binder.verify_binding("token-2", fp, binding) is False
 
     def test_binding_fails_different_fingerprint(self):
-        from aquilia.auth.hardening import TokenBinder, RequestFingerprint
+        from aquilia.auth.hardening import RequestFingerprint, TokenBinder
 
         binder = TokenBinder(secret="test-secret")
         fp1 = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
@@ -1299,15 +1295,14 @@ class TestAuthManager:
 
     @pytest.fixture
     def setup_auth(self):
+        from aquilia.auth.hashing import PasswordHasher
+        from aquilia.auth.manager import AuthManager, RateLimiter
         from aquilia.auth.stores import (
-            MemoryIdentityStore,
             MemoryCredentialStore,
+            MemoryIdentityStore,
             MemoryTokenStore,
         )
-        from aquilia.auth.manager import AuthManager, RateLimiter
-        from aquilia.auth.tokens import TokenManager, KeyRing, KeyDescriptor, TokenConfig
-        from aquilia.auth.hashing import PasswordHasher
-        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
+        from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenManager
 
         identity_store = MemoryIdentityStore()
         credential_store = MemoryCredentialStore()
@@ -1402,8 +1397,8 @@ class TestTokenManager:
     """Test TokenManager token operations."""
 
     def test_token_manager_creation(self):
-        from aquilia.auth.tokens import TokenManager, KeyRing, KeyDescriptor
         from aquilia.auth.stores import MemoryTokenStore
+        from aquilia.auth.tokens import KeyDescriptor, KeyRing, TokenManager
 
         key = KeyDescriptor(
             kid="tm-key",
@@ -1469,7 +1464,7 @@ class TestABACEngine:
 
     def test_register_and_evaluate_policy(self):
         from aquilia.auth.authz import ABACEngine, AuthzContext, AuthzResult, Decision
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
         abac = ABACEngine()
 
@@ -1497,7 +1492,7 @@ class TestABACEngine:
 
     def test_deny_policy(self):
         from aquilia.auth.authz import ABACEngine, AuthzContext, AuthzResult, Decision
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
         abac = ABACEngine()
 
@@ -1528,7 +1523,7 @@ class TestAuthzEngine:
     """Test unified AuthzEngine."""
 
     def test_authz_engine_creation(self):
-        from aquilia.auth.authz import AuthzEngine, RBACEngine, ABACEngine
+        from aquilia.auth.authz import ABACEngine, AuthzEngine, RBACEngine
 
         rbac = RBACEngine()
         abac = ABACEngine()
@@ -1536,8 +1531,8 @@ class TestAuthzEngine:
         assert engine is not None
 
     def test_check_role(self):
-        from aquilia.auth.authz import AuthzEngine, RBACEngine, ABACEngine, AuthzContext
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+        from aquilia.auth.authz import ABACEngine, AuthzContext, AuthzEngine, RBACEngine
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
         rbac = RBACEngine()
         abac = ABACEngine()
@@ -1568,8 +1563,8 @@ class TestAuthzEngine:
             engine.check_role(ctx_no_role, ["superadmin"])
 
     def test_check_scope(self):
-        from aquilia.auth.authz import AuthzEngine, RBACEngine, ABACEngine, AuthzContext
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+        from aquilia.auth.authz import ABACEngine, AuthzContext, AuthzEngine, RBACEngine
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 
         rbac = RBACEngine()
         abac = ABACEngine()
@@ -1843,8 +1838,8 @@ class TestControllerClearanceWiring:
     """Test that clearance is properly wired into controller engine."""
 
     def test_engine_accepts_clearance_engine(self):
-        from aquilia.controller.engine import ControllerEngine
         from aquilia.auth.clearance import ClearanceEngine
+        from aquilia.controller.engine import ControllerEngine
 
         factory = MagicMock()
         ce = ClearanceEngine()
@@ -1857,7 +1852,7 @@ class TestControllerClearanceWiring:
         assert hasattr(ControllerEngine, "_clearance_cache")
 
     def test_extract_controller_clearance(self):
-        from aquilia.auth.clearance import extract_controller_clearance, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, extract_controller_clearance
 
         class MyController:
             clearance = Clearance(level=AccessLevel.INTERNAL)
@@ -1917,7 +1912,7 @@ class TestPolicyDSL:
         assert p.resource == "document"
 
     def test_policy_registry(self):
-        from aquilia.auth.policy import PolicyRegistry, Policy
+        from aquilia.auth.policy import Policy, PolicyRegistry
 
         class TestPolicy(Policy):
             resource = "test_item"
@@ -1929,7 +1924,7 @@ class TestPolicyDSL:
         assert found is policy_instance
 
     def test_allow_deny_helpers(self):
-        from aquilia.auth.policy import Allow, Deny, Abstain, PolicyDecision
+        from aquilia.auth.policy import Abstain, Allow, Deny, PolicyDecision
 
         allowed = Allow()
         assert allowed.decision == PolicyDecision.ALLOW
@@ -1942,7 +1937,7 @@ class TestPolicyDSL:
         assert abstained.decision == PolicyDecision.ABSTAIN
 
     def test_rule_decorator(self):
-        from aquilia.auth.policy import Policy, rule, Allow, Deny
+        from aquilia.auth.policy import Allow, Deny, Policy, rule
 
         class ItemPolicy(Policy):
             resource = "item"
@@ -1977,8 +1972,8 @@ class TestMemoryIdentityStore:
 
     @pytest.mark.asyncio
     async def test_create_and_get(self):
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
         from aquilia.auth.stores import MemoryIdentityStore
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
 
         store = MemoryIdentityStore()
         identity = Identity(
@@ -2003,8 +1998,8 @@ class TestMemoryIdentityStore:
 
     @pytest.mark.asyncio
     async def test_delete(self):
+        from aquilia.auth.core import Identity, IdentityStatus, IdentityType
         from aquilia.auth.stores import MemoryIdentityStore
-        from aquilia.auth.core import Identity, IdentityType, IdentityStatus
 
         store = MemoryIdentityStore()
         identity = Identity(
@@ -2026,8 +2021,8 @@ class TestMemoryCredentialStore:
 
     @pytest.mark.asyncio
     async def test_store_and_get_password(self):
-        from aquilia.auth.stores import MemoryCredentialStore
         from aquilia.auth.core import PasswordCredential
+        from aquilia.auth.stores import MemoryCredentialStore
 
         store = MemoryCredentialStore()
         cred = PasswordCredential(
@@ -2200,10 +2195,6 @@ class TestTopLevelExports:
             AccessLevel,
             Clearance,
             ClearanceVerdict,
-            ClearanceEngine,
-            ClearanceGuard,
-            grant,
-            exempt,
         )
 
         assert AccessLevel.PUBLIC == 0
@@ -2213,10 +2204,7 @@ class TestTopLevelExports:
     def test_audit_exports(self):
         from aquilia import (
             AuditEventType,
-            AuditSeverity,
-            AuditEvent,
             AuditTrail,
-            MemoryAuditStore,
         )
 
         assert AuditEventType.AUTH_LOGIN_SUCCESS is not None
@@ -2225,11 +2213,7 @@ class TestTopLevelExports:
     def test_hardening_exports(self):
         from aquilia import (
             CSRFProtection,
-            RequestFingerprint,
-            SecurityHeaders,
-            TokenBinder,
             constant_time_compare,
-            generate_secure_token,
         )
 
         assert CSRFProtection is not None
@@ -2237,10 +2221,8 @@ class TestTopLevelExports:
 
     def test_condition_exports(self):
         from aquilia import (
-            is_verified,
             is_owner_or_admin,
-            within_quota,
-            is_same_tenant,
+            is_verified,
         )
 
         assert callable(is_verified)
@@ -2249,14 +2231,6 @@ class TestTopLevelExports:
     def test_auth_submodule_exports(self):
         from aquilia.auth import (
             AccessLevel,
-            Clearance,
-            ClearanceEngine,
-            AuditTrail,
-            MemoryAuditStore,
-            CSRFProtection,
-            SecurityHeaders,
-            RequestFingerprint,
-            constant_time_compare,
         )
 
         assert AccessLevel.RESTRICTED == 40
@@ -2272,7 +2246,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_clearance_with_empty_identity_roles(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.INTERNAL)
@@ -2282,7 +2256,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_clearance_with_none_roles(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.AUTHENTICATED)
@@ -2292,7 +2266,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_multiple_conditions_all_must_pass(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
 
@@ -2310,7 +2284,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_entitlements_from_attributes(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(entitlements=["special:access"])
@@ -2333,7 +2307,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_audit_trail_with_failing_store(self):
-        from aquilia.auth.audit import AuditTrail, AuditStore, AuditEvent, AuditEventType, AuditSeverity
+        from aquilia.auth.audit import AuditStore, AuditTrail
 
         class FailingStore(AuditStore):
             async def emit(self, event):
@@ -2353,10 +2327,10 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_audit_query_with_time_range(self):
         from aquilia.auth.audit import (
-            MemoryAuditStore,
             AuditEvent,
             AuditEventType,
             AuditSeverity,
+            MemoryAuditStore,
         )
 
         store = MemoryAuditStore()
@@ -2389,7 +2363,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_clearance_verdict_identity_id(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance, AccessLevel
+        from aquilia.auth.clearance import AccessLevel, Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(level=AccessLevel.PUBLIC)
@@ -2399,7 +2373,7 @@ class TestEdgeCases:
 
     @pytest.mark.asyncio
     async def test_clearance_compartment_no_tenant(self):
-        from aquilia.auth.clearance import ClearanceEngine, Clearance
+        from aquilia.auth.clearance import Clearance, ClearanceEngine
 
         engine = ClearanceEngine()
         c = Clearance(compartment="org:{org_id}")

@@ -47,12 +47,11 @@ class InventorySqliteService:
         return {"sku": row["sku"], "name": row["name"], "quantity": row["quantity"]}
 
     async def reserve(self, sku: str, quantity: int) -> dict[str, Any]:
-        async with self.db.pool.acquire(readonly=False) as conn:
-            async with conn.transaction(mode="IMMEDIATE"):
-                current = await conn.fetch_val("SELECT quantity FROM inventory_items WHERE sku = ?", (sku,))
-                if current is None:
-                    raise KeyError(sku)
-                if current < quantity:
-                    raise ValueError("insufficient stock")
-                await conn.execute("UPDATE inventory_items SET quantity = quantity - ? WHERE sku = ?", (quantity, sku))
+        async with self.db.pool.acquire(readonly=False) as conn, conn.transaction(mode="IMMEDIATE"):
+            current = await conn.fetch_val("SELECT quantity FROM inventory_items WHERE sku = ?", (sku,))
+            if current is None:
+                raise KeyError(sku)
+            if current < quantity:
+                raise ValueError("insufficient stock")
+            await conn.execute("UPDATE inventory_items SET quantity = quantity - ? WHERE sku = ?", (quantity, sku))
         return await self.get_item(sku)

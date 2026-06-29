@@ -1,4 +1,5 @@
 """Tests for Server-Sent Events support."""
+
 import asyncio
 
 import pytest

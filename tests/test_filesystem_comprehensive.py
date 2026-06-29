@@ -35,81 +35,68 @@ import asyncio
 import os
 import platform
 import shutil
-import stat
-import tempfile
-import time
 from pathlib import Path
-from typing import List
 
 import pytest
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Imports — pull in everything from the public API
 # ═══════════════════════════════════════════════════════════════════════════
-
 from aquilia.filesystem import (
+    # Core types
+    AsyncFileLock,
+    # Streaming
+    AsyncFileStream,
+    AsyncPath,
+    AsyncWriteStream,
+    DirEntry,
+    DiskFullFault,
+    FileClosedFault,
+    FileExistsFault,
+    FileNotFoundFault,
+    FileStat,
+    # Service
+    FileSystem,
     # Config
     FileSystemConfig,
-    # Core types
-    AsyncFile,
-    AsyncPath,
-    FileStat,
+    # Errors
+    FileSystemFault,
+    FileSystemMetrics,
     # Pool
     FileSystemPool,
-    # Metrics
-    FileSystemMetrics,
+    IsDirectoryFault,
+    LockAcquisitionError,
+    NotDirectoryFault,
+    PathTooLongFault,
+    PathTraversalFault,
+    PermissionDeniedFault,
+    append_file,
     # File ops
     async_open,
-    read_file,
-    write_file,
-    append_file,
+    async_tempdir,
+    async_tempfile,
     copy_file,
-    move_file,
+    copy_tree,
     delete_file,
     file_exists,
     file_stat,
-    # Streaming
-    AsyncFileStream,
-    AsyncWriteStream,
-    stream_read,
-    stream_copy,
     # Directory ops
     list_dir,
-    scan_dir,
     make_dir,
+    move_file,
+    read_file,
     remove_dir,
     remove_tree,
-    copy_tree,
-    walk,
-    DirEntry,
-    # Temp files
-    AsyncTemporaryFile,
-    AsyncTemporaryDirectory,
-    async_tempfile,
-    async_tempdir,
-    # Locking
-    AsyncFileLock,
-    LockAcquisitionError,
+    sanitize_filename,
+    scan_dir,
+    stream_copy,
+    stream_read,
     # Security
     validate_path,
-    sanitize_filename,
-    # Errors
-    FileSystemFault,
-    FileNotFoundFault,
-    PermissionDeniedFault,
-    FileExistsFault,
-    IsDirectoryFault,
-    NotDirectoryFault,
-    DiskFullFault,
-    PathTraversalFault,
-    PathTooLongFault,
-    FileSystemIOFault,
-    FileClosedFault,
+    walk,
     wrap_os_error,
-    # Service
-    FileSystem,
+    write_file,
 )
-
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Fixtures
@@ -775,7 +762,7 @@ class TestWriteFile:
     async def test_write_text(self, sandbox):
         p = sandbox / "write.txt"
         n = await write_file(str(p), "Hello", sandbox=str(sandbox))
-        assert n == len("Hello".encode("utf-8"))
+        assert n == len(b"Hello")
         assert p.read_text(encoding="utf-8") == "Hello"
 
     @pytest.mark.asyncio
@@ -1592,7 +1579,7 @@ class TestFileSystemService:
         await fs.initialize()
         try:
             p = str(sandbox / "svc_text.txt")
-            await fs.write_file(p, "hello text".encode("utf-8"), sandbox=str(sandbox))
+            await fs.write_file(p, b"hello text", sandbox=str(sandbox))
             data = await fs.read_file(p, encoding="utf-8", sandbox=str(sandbox))
             assert data == "hello text"
         finally:
