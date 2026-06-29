@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aquilia is an async-native, manifest-first Python web framework (Python 3.10+). It auto-discovers modules, wires DI, and generates infrastructure (Docker/K8s). The CLI is `aq`. Current version: 1.3.0 "Spyglass".
+Aquilia is an async-native, manifest-first Python web framework (Python 3.10+). It auto-discovers modules, wires DI, and generates infrastructure (Docker/K8s). The CLI is `aq`. Current version: 1.2.0 "Kraken's Wake".
 
 ## Commands
 

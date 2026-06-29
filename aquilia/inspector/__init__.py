@@ -21,7 +21,7 @@ Public API::
         get_collector,
     )
 
-.. versionadded:: 1.3.0
+.. versionadded:: 1.2.0
 """
 
 from aquilia.inspector.collector import InspectorCollector, get_collector

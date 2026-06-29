@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] — 2026-06-29 — "Spyglass"
+## [1.2.0] — 2026-06-28 — "Kraken's Wake"
 
 ### Added
 - **Request Inspector** (`aquilia.inspector`): Full per-request execution tracing with swimlane-based timeline visualization in the admin panel.
@@ -27,14 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 15 dedicated test files covering config, trace model, collector, redaction, faults, middleware, DI listener, fault bridge, HTTP client hook, query correlation, replay/export, plugins, SSE streaming, admin UI, and workspace/server wiring.
 - **Container self-registration**: DI containers now register themselves under the `Container` token, enabling provider adapters to receive the container via dependency injection.
 - **`Container.add_diagnostic_listener()` public API**: Allows external subsystems (like the inspector) to observe dependency resolution events.
-
-### Fixed
-- **`RequestIdMiddleware` stability**: Preserves pool-assigned `request_id` from `_ctx_pool.acquire()` instead of regenerating it, ensuring consistent request IDs across middleware, DI, and logging.
-- **Defensive inspector config access**: All `get_inspector_config()` calls in `AquiliaServer` use `hasattr()` guards so mocked configs (plain dicts in tests) don't raise `AttributeError`.
-
-## [1.2.0] — 2026-06-28 — "Kraken's Wake"
-
-### Added
 - **Explicit Cross-field validation (`@ward`)**: Introduced `@ward` decorator and `collect_ward_methods()` metadata engine to register cross-field constraints.
 - **Intermediate Representation (`Sigil`)**: Added `Sigil` compilation engine to track class validation schemas, generate Draft 2020-12 JSON Schemas, execute sequential schema migrations, and generate stable structural hashes.
 - **Transforms and Pipelines (`>>`)**: Introduced chaining operators `>>` on facets to build transform pipelines using standard transformations (`strip`, `lower`, `slugify`, etc.).
@@ -49,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Zero Runtime Dependencies**: Completely migrated the Blueprints validation engine to pure-Python using only Python standard library modules.
 
 ### Fixed
+- **`RequestIdMiddleware` stability**: Preserves pool-assigned `request_id` from `_ctx_pool.acquire()` instead of regenerating it, ensuring consistent request IDs across middleware, DI, and logging.
+- **Defensive inspector config access**: All `get_inspector_config()` calls in `AquiliaServer` use `hasattr()` guards so mocked configs (plain dicts in tests) don't raise `AttributeError`.
 - **Dependency Precedence over Request Body**: Fixed parameter source classification and binding to ensure that explicit `Dep(...)` declarations (such as `param: T = Dep(callable)`) take precedence over implicit source type-based classification (such as `Blueprint subclass` → `source="body"`). Explicit dependency parameters are now correctly classified as `source="dep"` and resolved via `RequestDAG`, preventing request body payloads from overriding the dependency results.
 - **Multiple Blueprint Parameter Support**: Fixed parameter binding and validation to support multiple blueprint parameters in a single handler. Resolves all blueprint arguments from the same request body, supports async validation via `is_sealed_async` when available, and consolidates validation errors across all blueprints into a single unified `SealFault`. Also added `BlueprintContext` and `LazyServiceProxy` to enable blueprints to lazily resolve and invoke DI container services via `self.context[key]`.
 - **String Annotation Evaluation (PEP 563)**: Fixed annotation parsing inside `_safe_resolve_annotation` to prevent incorrect splitting of PEP 604 unions (e.g. `str | None`) when they are nested inside generic subscripts (like `Annotated[str | None]`). Improved resolution by attempting `eval()` within the `AutoResolveMapping` namespace before falling back, enabling robust resolution of complex pipeline operator `>>` expressions.
