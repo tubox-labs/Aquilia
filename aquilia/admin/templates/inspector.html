@@ -271,6 +271,7 @@
             flex: 1;
             display: flex;
             overflow: hidden;
+            position: relative;
         }
 
         aside {
@@ -280,6 +281,7 @@
             display: flex;
             flex-direction: column;
             background-color: var(--surface-container-lowest);
+            transition: transform 0.25s ease;
         }
 
         .trace-list-container {
@@ -293,6 +295,7 @@
             flex-direction: column;
             overflow: hidden;
             position: relative;
+            background-color: var(--background);
         }
 
         /* Request Rail */
@@ -474,6 +477,7 @@
             align-items: center;
             gap: 8px;
             flex-shrink: 0;
+            flex-wrap: wrap;
         }
 
         .copy-text-btn {
@@ -997,6 +1001,8 @@
             height: 100%;
             color: var(--on-surface-variant);
             gap: 12px;
+            padding: 24px;
+            text-align: center;
         }
 
         .empty-state svg {
@@ -1121,6 +1127,69 @@
         .checkbox-group input {
             cursor: pointer;
         }
+
+        /* Responsive Breakpoints */
+        .back-btn {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            aside {
+                width: 100% !important;
+                flex: 1;
+            }
+            .details-pane {
+                display: none !important;
+                width: 100% !important;
+            }
+            body.show-details aside {
+                display: none !important;
+            }
+            body.show-details .details-pane {
+                display: flex !important;
+            }
+            .back-btn {
+                display: inline-flex !important;
+                align-items: center;
+                height: 28px;
+                padding: 0 8px;
+                background-color: var(--surface-variant);
+                border: 1px solid var(--outline-variant);
+                border-radius: 2px;
+                color: var(--on-surface);
+                cursor: pointer;
+            }
+            .details-header {
+                flex-direction: column;
+                gap: 12px;
+                padding: 12px;
+            }
+            .details-header-actions {
+                width: 100%;
+                justify-content: flex-end;
+            }
+            .waterfall-container {
+                padding: 12px;
+            }
+            .tabs-bar {
+                padding: 0 12px;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .tab-btn {
+                padding: 0 10px;
+                flex-shrink: 0;
+            }
+            .search-wrapper {
+                width: 150px;
+            }
+            .brand h2 {
+                display: none;
+            }
+            .header-left {
+                gap: 8px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1137,7 +1206,7 @@
                     <circle cx="11" cy="11" r="8"/>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"/>
                 </svg>
-                <input id="traceSearch" class="search-input" placeholder="Filter requests..." value=""/>
+                <input id="traceSearch" class="search-input" placeholder="Filter..." value=""/>
             </label>
         </div>
         <div class="header-right">
@@ -1403,6 +1472,7 @@
                             allTraces = [];
                             selectedTraceId = null;
                             collapsedSpans.clear();
+                            document.body.classList.remove("show-details");
                             renderList();
                             renderEmptyState();
                         })
@@ -1541,7 +1611,7 @@
                 });
 
                 if (filtered.length === 0) {
-                    traceList.innerHTML = `<div class="text-center py-8 text-on-surface-variant text-body-sm">No traces found</div>`;
+                    traceList.innerHTML = `<div style="text-align: center; padding: 32px; color: var(--on-surface-variant); font-size: 12px;">No traces found</div>`;
                     return;
                 }
 
@@ -1612,6 +1682,7 @@
                     
                     item.addEventListener("click", () => {
                         selectedTraceId = t.trace_id;
+                        document.body.classList.add("show-details");
                         renderList();
                         renderDetails(t);
                     });
@@ -1643,11 +1714,17 @@
                     <div class="fade-in" style="display: flex; flex-direction: column; height: 100%;">
                         <!-- Detail Header -->
                         <div class="details-header">
-                            <div class="details-header-info">
-                                <h1 class="details-header-title">
-                                    ${trace.method} ${escapeHtml(trace.path)}
-                                </h1>
-                                <div class="details-header-badges">
+                            <div class="details-header-info" style="width: 100%;">
+                                <div style="display: flex; align-items: center; width: 100%; margin-bottom: 4px; gap: 8px;">
+                                    <button id="btnBackToList" class="back-btn">
+                                        <svg viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5;"><polyline points="15 18 9 12 15 6"/></svg>
+                                        <span style="font-size: 11px; margin-left: 2px;">Back</span>
+                                    </button>
+                                    <h1 class="details-header-title" style="flex: 1;">
+                                        ${trace.method} ${escapeHtml(trace.path)}
+                                    </h1>
+                                </div>
+                                <div class="details-header-badges" style="margin-top: 4px;">
                                     <span class="status-badge ${statusBadgeClass}">${statusName}</span>
                                     <span>${trace.duration_ms.toFixed(1)}ms total</span>
                                     <span>IP: ${trace.client_addr || '—'}
@@ -1678,7 +1755,7 @@
                         <div class="waterfall-container">
                             <h3 class="waterfall-title">
                                 <span>Execution Timeline</span>
-                                <span style="font-size:10px;text-transform:none;opacity:0.7;">Click arrow toggles to expand/collapse parent spans</span>
+                                <span style="font-size:10px;text-transform:none;opacity:0.7;">Click arrow to collapse</span>
                             </h3>
                             <div class="waterfall-box">
                                 <div class="waterfall-header-row">
@@ -1708,6 +1785,14 @@
                         </div>
                     </div>
                 `;
+
+                // Bind back button
+                const backBtn = document.getElementById("btnBackToList");
+                if (backBtn) {
+                    backBtn.addEventListener("click", () => {
+                        document.body.classList.remove("show-details");
+                    });
+                }
 
                 renderWaterfall(trace);
                 renderTabContent(trace);
@@ -1747,7 +1832,7 @@
                             headers["X-Aquilia-Allow-Replay-Mutation"] = "true";
                         }
                         const replayBtn = document.getElementById("btnReplay");
-                        replayBtn.innerHTML = `<svg class="animate-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg><span>Replaying...</span>`;
+                        replayBtn.innerHTML = `<svg class="animate-spin" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg><span>Replaying...</span>`;
                         replayBtn.disabled = true;
 
                         fetch(`${urlPrefix}/api/traces/${trace.trace_id}/replay/`, {
@@ -1902,7 +1987,7 @@
                     else if (s.lane === "external_http") laneColorClass = "bg-lane-infoblue";
                     else if (s.lane === "middleware") laneColorClass = "bg-lane-blue";
                     else if (s.lane === "dependency") laneColorClass = "bg-lane-purple";
-                    else if (s.lane === "validation") laneColorClass = "bg-lane-red"; // Use red for validation lane
+                    else if (s.lane === "validation") laneColorClass = "bg-lane-red"; 
                     else if (s.lane === "handler") laneColorClass = "bg-lane-purple";
                     else if (s.lane === "exception") laneColorClass = "bg-lane-red";
 
@@ -2044,16 +2129,16 @@
                         <!-- Metadata -->
                         <div class="content-section">
                             <h4 class="content-section-title">Metadata</h4>
-                            <div style="display: flex; gap: 16px;">
-                                <div style="flex: 1; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
+                            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                                <div style="flex: 1; min-width: 100px; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
                                     <div style="font-size: 9px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Status</div>
                                     <div style="font-size: 14px; font-weight: 600;">${trace.response.status}</div>
                                 </div>
-                                <div style="flex: 1; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
+                                <div style="flex: 1; min-width: 100px; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
                                     <div style="font-size: 9px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Size</div>
                                     <div style="font-size: 14px; font-weight: 600;">${trace.response.size_bytes} bytes</div>
                                 </div>
-                                <div style="flex: 1; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
+                                <div style="flex: 1; min-width: 150px; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
                                     <div style="font-size: 9px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Content-Type</div>
                                     <div style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(trace.response.content_type)}">${escapeHtml(trace.response.content_type)}</div>
                                 </div>
@@ -2157,5 +2242,14 @@
             }
         });
     </script>
+    <style>
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
 </body>
 </html>
