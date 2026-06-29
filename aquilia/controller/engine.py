@@ -303,26 +303,28 @@ class ControllerEngine:
                     or getattr(route_metadata, "pagination_class", None)
                     or getattr(route_metadata, "renderer_classes", None)
                 )
+                def _is_special_param(p):
+                    if p.name in ("ctx", "context", "request", "flow_ctx", "flow_context"):
+                        return True
+                    pt_name = getattr(p.type, "__name__", "")
+                    if pt_name in ("RequestCtx", "Request", "FlowContext"):
+                        return True
+                    return False
+
                 is_simple = (
                     not route.controller_metadata.pipeline
                     and not route_metadata.pipeline
                     and not has_blueprint
                     and not has_filters_or_pagination
-                    and (not params or all(p.name == "ctx" or p.source == "path" for p in params))
+                    and (not params or all(_is_special_param(p) or p.source == "path" for p in params))
                 )
                 ControllerEngine._simple_route_cache[route_id] = is_simple
 
             if is_simple:
                 # Direct call -- skip _bind_parameters, lifecycle hooks, blueprint
                 try:
-                    # Signature-aware call
-                    sig = self._get_cached_signature(handler_method)
-                    has_ctx = "ctx" in sig.parameters or "context" in sig.parameters
-
                     final_kwargs = {**path_params}
-                    if has_ctx:
-                        ctx_key = "ctx" if "ctx" in sig.parameters else "context"
-                        final_kwargs[ctx_key] = ctx
+                    self._bind_special_parameters(handler_method, request, ctx, final_kwargs)
 
                     # Run interceptors before
                     interceptors = self._get_interceptors(controller_class, route_metadata)
@@ -406,11 +408,7 @@ class ControllerEngine:
                         return short
 
                 # Signature-aware call
-                sig = self._get_cached_signature(handler_method)
-                has_ctx = "ctx" in sig.parameters or "context" in sig.parameters
-                if has_ctx:
-                    ctx_key = "ctx" if "ctx" in sig.parameters else "context"
-                    kwargs[ctx_key] = ctx
+                self._bind_special_parameters(handler_method, request, ctx, kwargs)
 
                 result = await self._execute_with_timeout(handler_method, controller_class, route_metadata, **kwargs)
 
@@ -1422,6 +1420,67 @@ class ControllerEngine:
             sig = inspect.signature(target)
             ControllerEngine._signature_cache[fid] = sig
         return sig
+
+    def _bind_special_parameters(self, handler_method: Any, request: Request, ctx: RequestCtx, kwargs: dict[str, Any]) -> None:
+        """Bind special context/request parameters based on type or name."""
+        import inspect
+        from typing import get_type_hints
+        
+        sig = self._get_cached_signature(handler_method)
+        type_hints = {}
+        try:
+            type_hints = get_type_hints(handler_method)
+        except Exception:
+            pass
+            
+        for param_name, param in sig.parameters.items():
+            if param_name in ("self", "cls"):
+                continue
+                
+            # If already bound in path_params or body, skip
+            if param_name in kwargs:
+                continue
+                
+            param_type = type_hints.get(param_name, param.annotation)
+            
+            # Check type or name for RequestCtx / FlowContext / Request
+            # 1. FlowContext
+            is_flow_ctx = (
+                param_name in ("flow_ctx", "flow_context") or
+                (hasattr(param_type, "__name__") and param_type.__name__ == "FlowContext") or
+                (isinstance(param_type, str) and "FlowContext" in param_type)
+            )
+            # 2. RequestCtx
+            is_request_ctx = (
+                param_name in ("ctx", "context") or
+                (hasattr(param_type, "__name__") and param_type.__name__ == "RequestCtx") or
+                (isinstance(param_type, str) and "RequestCtx" in param_type)
+            )
+            # 3. Request
+            is_request = (
+                param_name == "request" or
+                (hasattr(param_type, "__name__") and param_type.__name__ == "Request") or
+                (isinstance(param_type, str) and "Request" in param_type)
+            )
+            
+            if is_flow_ctx:
+                flow_ctx = request.state.get("flow_context") if hasattr(request, "state") and request.state else None
+                if flow_ctx is None:
+                    from aquilia.flow import FlowContext
+                    flow_ctx = FlowContext(
+                        request=request,
+                        container=ctx.container,
+                        identity=getattr(ctx, "identity", None),
+                        session=getattr(ctx, "session", None),
+                    )
+                    if not hasattr(request, "state") or request.state is None:
+                        request.state = {}
+                    request.state["flow_context"] = flow_ctx
+                kwargs[param_name] = flow_ctx
+            elif is_request_ctx:
+                kwargs[param_name] = ctx
+            elif is_request:
+                kwargs[param_name] = request
 
     async def _safe_call(self, func: Any, *args, **kwargs) -> Any:
         """Safely call function (sync or async)."""

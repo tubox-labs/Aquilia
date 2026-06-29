@@ -350,11 +350,17 @@ def _extract_method_params(
                 path_params.add(param_name)
 
         for param_name, param in signature.parameters.items():
-            if param_name in ("self", "cls", "ctx"):
-                # Skip self and ctx - they're injected automatically
-                continue
-
             param_type = type_hints.get(param_name, Any)
+            
+            # Skip self/cls and special injected context/request parameters
+            is_special = (
+                param_name in ("ctx", "context", "request", "flow_ctx", "flow_context") or
+                (hasattr(param_type, "__name__") and param_type.__name__ in ("RequestCtx", "Request", "FlowContext")) or
+                (isinstance(param_type, str) and any(x in param_type for x in ("RequestCtx", "Request", "FlowContext")))
+            )
+            
+            if param_name in ("self", "cls") or is_special:
+                continue
 
             # Determine source
             #

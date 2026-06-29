@@ -92,6 +92,18 @@ class RequestCtx:
         self.request_id = request_id
         self._extra: dict[str, Any] | None = None
 
+    def get_effect(self, name: str) -> Any:
+        """Get an acquired effect resource by name."""
+        if self.request is not None:
+            return self.request.get_effect(name)
+        raise KeyError(name)
+
+    def has_effect(self, name: str) -> bool:
+        """Check if an effect resource is currently acquired."""
+        if self.request is not None:
+            return self.request.has_effect(name)
+        return False
+
     # -- dynamic attribute escape hatch for plugins/middleware -------
     def __getattr__(self, name: str) -> Any:
         """Fallback for dynamic attributes stored in _extra."""
