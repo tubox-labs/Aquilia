@@ -192,7 +192,7 @@ class RequestIdMiddleware:
                 break
 
         if not request_id:
-            request_id = self._urandom(16).hex()
+            request_id = ctx.request_id or self._urandom(16).hex()
 
         request.state["request_id"] = request_id
         ctx.request_id = request_id

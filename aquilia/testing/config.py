@@ -37,6 +37,11 @@ class TestConfig:
         self._overrides = overrides
         self._merged: dict | None = None
 
+    def __getattr__(self, name: str) -> Any:
+        if self._base is not None and hasattr(self._base, name):
+            return getattr(self._base, name)
+        raise AttributeError(f"'TestConfig' object has no attribute '{name}'")
+
     # ------------------------------------------------------------------
     # Public helpers
     # ------------------------------------------------------------------

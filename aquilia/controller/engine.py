@@ -175,6 +175,7 @@ class ControllerEngine:
                 auth=request.state.get("auth"),
                 container=container,
                 state=request.state,
+                request_id=request.state.get("request_id"),
             )
             ctx_token = _set_current_request_ctx(ctx)
             try:
@@ -202,6 +203,7 @@ class ControllerEngine:
             auth=request.state.get("auth"),
             container=container,
             state=request.state,
+            request_id=request.state.get("request_id"),
         )
         ctx_token = _set_current_request_ctx(ctx)
 
@@ -882,19 +884,27 @@ class ControllerEngine:
                     if header_meta is not None:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
-                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, header_meta)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                            param_name, param.type, header_meta
+                        )
                     elif query_meta is not None:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
-                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, query_meta)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                            param_name, param.type, query_meta
+                        )
                     elif cookie_meta is not None:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
-                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, cookie_meta)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                            param_name, param.type, cookie_meta
+                        )
                     elif path_meta is not None:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
-                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, path_meta)
+                        kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                            param_name, param.type, path_meta
+                        )
                     elif body_meta is not None:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
@@ -1023,19 +1033,27 @@ class ControllerEngine:
                         if header_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
-                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, header_meta)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                                param_name, param.type, header_meta
+                            )
                         elif query_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
-                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, query_meta)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                                param_name, param.type, query_meta
+                            )
                         elif cookie_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
-                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, cookie_meta)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                                param_name, param.type, cookie_meta
+                            )
                         elif path_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
-                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(param_name, param.type, path_meta)
+                            kwargs[param_name] = await request_dag._resolve_single_sub_dep(
+                                param_name, param.type, path_meta
+                            )
                         elif body_meta is not None:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
@@ -1128,6 +1146,7 @@ class ControllerEngine:
 
         if all_blueprint_errors:
             from aquilia.blueprints.exceptions import SealFault
+
             raise SealFault(
                 message="Blueprint validation failed",
                 errors=all_blueprint_errors,
