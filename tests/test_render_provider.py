@@ -22,12 +22,9 @@ Exhaustive test coverage for the entire ``aquilia.providers.render`` package:
 
 from __future__ import annotations
 
-import hashlib
-import hmac as _hmac
 import http.client
 import io
 import json
-import os
 import platform
 import secrets
 import ssl
@@ -35,16 +32,58 @@ import struct
 import tempfile
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-from unittest.mock import MagicMock, Mock, PropertyMock, call, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+import aquilia.providers.render as render_pkg
+from aquilia.faults.domains import (
+    ProviderAPIFault,
+    ProviderAuthFault,
+    ProviderConnectionFault,
+    ProviderCredentialFault,
+    ProviderRateLimitFault,
+    ProviderTokenFault,
+)
+from aquilia.providers.render.client import (
+    _BASE_URL,
+    _DEFAULT_TIMEOUT,
+    _MAX_RETRIES,
+    _RETRY_BACKOFF,
+    _SSL_CTX,
+    _USER_AGENT,
+    RenderAPIError,
+    RenderAuthError,
+    RenderClient,
+    RenderRateLimitError,
+    _build_ssl_context,
+    _RequestResult,
+)
+from aquilia.providers.render.deployer import (
+    DeployResult,
+    RenderDeployer,
+)
+from aquilia.providers.render.store import (
+    _NONCE_SIZE,
+    _SALT_SIZE,
+    _SURP_MAGIC,
+    _SURP_VERSION,
+    _SURP_VERSION_LEGACY,
+    RenderCredentialStore,
+    _AuditLogger,
+    _compute_hmac,
+    _decrypt,
+    _derive_key,
+    _detect_cipher_suite,
+    _encrypt,
+    _generate_keystream,
+    _secure_zero,
+    _xor_encrypt,
+)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Imports under test
 # ═══════════════════════════════════════════════════════════════════════════════
-
 from aquilia.providers.render.types import (
     RenderAutoscaling,
     RenderDeploy,
@@ -58,52 +97,6 @@ from aquilia.providers.render.types import (
     RenderService,
     RenderServiceType,
 )
-from aquilia.providers.render.client import (
-    RenderClient,
-    _build_ssl_context,
-    _RequestResult,
-    _BASE_URL,
-    _USER_AGENT,
-    _DEFAULT_TIMEOUT,
-    _MAX_RETRIES,
-    _RETRY_BACKOFF,
-    _SSL_CTX,
-    RenderAPIError,
-    RenderRateLimitError,
-    RenderAuthError,
-)
-from aquilia.providers.render.store import (
-    RenderCredentialStore,
-    _derive_key,
-    _xor_encrypt,
-    _compute_hmac,
-    _SURP_MAGIC,
-    _SURP_VERSION,
-    _SURP_VERSION_LEGACY,
-    _SALT_SIZE,
-    _NONCE_SIZE,
-    _secure_zero,
-    _detect_cipher_suite,
-    _encrypt,
-    _decrypt,
-    _generate_keystream,
-    _AuditLogger,
-)
-from aquilia.providers.render.deployer import (
-    DeployResult,
-    RenderDeployer,
-)
-from aquilia.faults.domains import (
-    ProviderAPIFault,
-    ProviderAuthFault,
-    ProviderRateLimitFault,
-    ProviderTokenFault,
-    ProviderCredentialFault,
-    ProviderConnectionFault,
-)
-
-import aquilia.providers.render as render_pkg
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #  Helpers
@@ -658,9 +651,8 @@ class TestClientRequest:
     def test_auth_error_403_raises_provider_auth_fault(self):
         client = _make_client()
         err = _make_http_error(403, b'{"message": "Forbidden"}')
-        with patch("urllib.request.urlopen", side_effect=err):
-            with pytest.raises(ProviderAuthFault):
-                client._request("GET", "/services")
+        with patch("urllib.request.urlopen", side_effect=err), pytest.raises(ProviderAuthFault):
+            client._request("GET", "/services")
 
     def test_rate_limit_429_raises_rate_limit_fault(self):
         client = _make_client()
@@ -681,45 +673,40 @@ class TestClientRequest:
     def test_connection_error_raises_connection_fault(self):
         client = _make_client()
         err = _make_url_error("Connection refused")
-        with patch("urllib.request.urlopen", side_effect=err):
-            with pytest.raises(ProviderConnectionFault):
-                client._request("GET", "/test")
+        with patch("urllib.request.urlopen", side_effect=err), pytest.raises(ProviderConnectionFault):
+            client._request("GET", "/test")
 
     def test_retry_on_server_error(self):
         client = _make_client(max_retries=2)
         err500 = _make_http_error(500, b'{"message": "Internal"}')
         resp = _make_http_response(b'{"ok": true}')
-        with patch("urllib.request.urlopen", side_effect=[err500, resp]):
-            with patch("time.sleep"):
-                result = client._request("GET", "/test")
-                assert result.status == 200
+        with patch("urllib.request.urlopen", side_effect=[err500, resp]), patch("time.sleep"):
+            result = client._request("GET", "/test")
+            assert result.status == 200
 
     def test_retry_exhaustion_raises(self):
         client = _make_client(max_retries=1)
         err500 = _make_http_error(500, b'{"message": "Down"}')
-        with patch("urllib.request.urlopen", side_effect=[err500, err500]):
-            with patch("time.sleep"):
-                with pytest.raises(ProviderAPIFault):
-                    client._request("GET", "/test")
+        with patch("urllib.request.urlopen", side_effect=[err500, err500]), patch("time.sleep"):
+            with pytest.raises(ProviderAPIFault):
+                client._request("GET", "/test")
 
     def test_retry_on_connection_error(self):
         client = _make_client(max_retries=1)
         err = _make_url_error("timeout")
         resp = _make_http_response(b'{"ok": true}')
-        with patch("urllib.request.urlopen", side_effect=[err, resp]):
-            with patch("time.sleep"):
-                result = client._request("GET", "/test")
-                assert result.status == 200
+        with patch("urllib.request.urlopen", side_effect=[err, resp]), patch("time.sleep"):
+            result = client._request("GET", "/test")
+            assert result.status == 200
 
     def test_rate_limit_retry(self):
         client = _make_client(max_retries=1)
         err429 = _make_http_error(429, b"{}", headers={"retry-after": "1"})
         resp = _make_http_response(b'{"ok": true}')
-        with patch("urllib.request.urlopen", side_effect=[err429, resp]):
-            with patch("time.sleep") as sleep_mock:
-                result = client._request("GET", "/test")
-                assert result.status == 200
-                sleep_mock.assert_called_once_with(1.0)
+        with patch("urllib.request.urlopen", side_effect=[err429, resp]), patch("time.sleep") as sleep_mock:
+            result = client._request("GET", "/test")
+            assert result.status == 200
+            sleep_mock.assert_called_once_with(1.0)
 
     def test_parse_error_message_json(self):
         client = _make_client()
@@ -739,10 +726,9 @@ class TestClientRequest:
     def test_max_retries_exhausted_with_url_error(self):
         client = _make_client(max_retries=1)
         err = _make_url_error("SSL error")
-        with patch("urllib.request.urlopen", side_effect=[err, err]):
-            with patch("time.sleep"):
-                with pytest.raises(ProviderConnectionFault, match="SSL error"):
-                    client._request("GET", "/test")
+        with patch("urllib.request.urlopen", side_effect=[err, err]), patch("time.sleep"):
+            with pytest.raises(ProviderConnectionFault, match="SSL error"):
+                client._request("GET", "/test")
 
 
 class TestClientServices:
@@ -3473,3 +3459,100 @@ class TestAuditLogger:
         logger.log("clear")
         entry = json.loads((tmp_path / "audit.log").read_text(encoding="utf-8").strip())
         assert "details" not in entry
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  § 15  Render Blueprint Validation & Compatibility Tests
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRenderBlueprintValidation:
+    """Test validations, seals, nesting, and serialization on converted Render Blueprints."""
+
+    def test_invalid_port_raises_fault(self):
+        from aquilia.blueprints import SealFault
+        from aquilia.providers.render.types import RenderDeployConfig
+
+        with pytest.raises(SealFault) as exc_info:
+            RenderDeployConfig(port=-1)
+        assert "port" in exc_info.value.field_errors
+
+        with pytest.raises(SealFault) as exc_info:
+            RenderDeployConfig(port=99999)
+        assert "port" in exc_info.value.field_errors
+
+    def test_invalid_health_check_path_raises_fault(self):
+        from aquilia.blueprints import SealFault
+        from aquilia.providers.render.types import RenderDeployConfig
+
+        with pytest.raises(SealFault) as exc_info:
+            RenderDeployConfig(health_check_path="healthz")
+        assert "health_check_path" in exc_info.value.field_errors
+
+    def test_invalid_num_instances_raises_fault(self):
+        from aquilia.blueprints import SealFault
+        from aquilia.providers.render.types import RenderDeployConfig
+
+        with pytest.raises(SealFault) as exc_info:
+            RenderDeployConfig(num_instances=0)
+        assert "num_instances" in exc_info.value.field_errors
+
+    def test_invalid_auto_deploy_raises_fault(self):
+        from aquilia.blueprints import SealFault
+        from aquilia.providers.render.types import RenderDeployConfig
+
+        with pytest.raises(SealFault) as exc_info:
+            RenderDeployConfig(auto_deploy="maybe")
+        assert "auto_deploy" in exc_info.value.field_errors
+
+    def test_nested_blueprints_instantiation_and_sync(self):
+        from aquilia.providers.render.types import RenderAutoscaling, RenderDeployConfig, RenderDisk, RenderEnvVar
+
+        cfg = RenderDeployConfig(
+            service_name="testapp",
+            image="nginx",
+            env_vars=[RenderEnvVar(key="PORT", value="80")],
+            disk=RenderDisk(name="storage", mount_path="/mnt", size_gb=10),
+            autoscaling=RenderAutoscaling(enabled=True, min=2, max=5),
+        )
+
+        assert cfg.service_name == "testapp"
+        assert cfg.image == "nginx"
+        assert len(cfg.env_vars) == 1
+        assert cfg.env_vars[0].key == "PORT"
+        assert cfg.env_vars[0].value == "80"
+        assert cfg.disk.name == "storage"
+        assert cfg.disk.mount_path == "/mnt"
+        assert cfg.disk.size_gb == 10
+        assert cfg.autoscaling.enabled is True
+        assert cfg.autoscaling.min == 2
+        assert cfg.autoscaling.max == 5
+
+    def test_to_service_payload_nested_serialization(self):
+        from aquilia.providers.render.types import (
+            RenderDeployConfig,
+            RenderDisk,
+            RenderEnvVar,
+            RenderHeaderRule,
+            RenderRedirectRule,
+            RenderSecretFile,
+        )
+
+        cfg = RenderDeployConfig(
+            service_name="app",
+            image="img",
+            env_vars=[RenderEnvVar(key="K", value="v")],
+            disk=RenderDisk(name="d", mount_path="/m", size_gb=2),
+            secret_files=[RenderSecretFile(name="sf", content="sc")],
+            headers=[RenderHeaderRule(path="/*", name="X-H", value="V-H")],
+            redirect_rules=[RenderRedirectRule(source="/s", destination="/d", status_code=302)],
+        )
+
+        p = cfg.to_service_payload()
+        sd = p["serviceDetails"]
+        assert sd["envVars"][0]["key"] == "K"
+        assert sd["disk"]["name"] == "d"
+        assert sd["secretFiles"][0]["name"] == "sf"
+        assert sd["headers"][0]["name"] == "X-H"
+        assert sd["routes"][0]["source"] == "/s"
+        assert sd["routes"][0]["statusCode"] == 302

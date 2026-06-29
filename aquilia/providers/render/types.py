@@ -25,6 +25,27 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
+from aquilia.blueprints import UNSET, Blueprint, Field
+
+
+def _normalize_data(value: Any) -> Any:
+    if isinstance(value, list):
+        return [_normalize_data(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_normalize_data(item) for item in value)
+    if isinstance(value, dict):
+        return {k: _normalize_data(v) for k, v in value.items()}
+    if isinstance(value, Blueprint):
+        if value._validated_data is not None:
+            return value.validated_data
+        return {k: _normalize_data(v) for k, v in value.__dict__.items() if not k.startswith("_")}
+    if isinstance(value, Enum):
+        return value.value
+    if hasattr(value, "__dict__"):
+        return {k: _normalize_data(v) for k, v in value.__dict__.items() if not k.startswith("_")}
+    return value
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Enums
 # ═══════════════════════════════════════════════════════════════════════════
@@ -213,13 +234,54 @@ class RenderInstanceStatus(str, Enum):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@dataclass
-class RenderEnvVar:
+class RenderEnvVar(Blueprint):
     """Environment variable — plain value or generated secret."""
 
     key: str
-    value: str | None = None
-    generate_value: str | None = None
+    value: str | None = Field(allow_blank=True, allow_null=True, default=None)
+    generate_value: str | None = Field(allow_blank=True, allow_null=True, default=None)
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "key": kwargs.get("key"),
+                "value": kwargs.get("value"),
+                "generate_value": kwargs.get("generate_value"),
+            }
+            super().__init__(data=data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {"key": self.key}
@@ -230,8 +292,7 @@ class RenderEnvVar:
         return d
 
 
-@dataclass
-class RenderDisk:
+class RenderDisk(Blueprint):
     """Persistent disk attached to a Render service."""
 
     id: str | None = None
@@ -240,6 +301,51 @@ class RenderDisk:
     size_gb: int = 1
     service_id: str | None = None
     created_at: str | None = None
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "id": kwargs.get("id"),
+                "name": kwargs.get("name", "data"),
+                "mount_path": kwargs.get("mount_path", "/data"),
+                "size_gb": kwargs.get("size_gb", 1),
+                "service_id": kwargs.get("service_id"),
+                "created_at": kwargs.get("created_at"),
+            }
+            super().__init__(data=data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -259,14 +365,56 @@ class RenderDiskSnapshot:
     status: str | None = None
 
 
-@dataclass
-class RenderAutoscaling:
+class RenderAutoscaling(Blueprint):
     """Autoscaling configuration for a Render service."""
 
     enabled: bool = False
     min: int = 1
     max: int = 3
     criteria: dict[str, Any] | None = None
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "enabled": kwargs.get("enabled", False),
+                "min": kwargs.get("min", 1),
+                "max": kwargs.get("max", 3),
+                "criteria": kwargs.get("criteria"),
+            }
+            super().__init__(data=data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
 
     def to_dict(self) -> dict[str, Any]:
         d: dict[str, Any] = {
@@ -357,12 +505,52 @@ class RenderOwner:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@dataclass
-class RenderSecretFile:
+class RenderSecretFile(Blueprint):
     """Secret file mounted into a service container."""
 
-    name: str
-    content: str = ""
+    name: str = Field(allow_blank=True)
+    content: str = Field(allow_blank=True, default="")
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "name": kwargs.get("name"),
+                "content": kwargs.get("content", ""),
+            }
+            super().__init__(data=data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
 
     def to_dict(self) -> dict[str, Any]:
         return {"name": self.name, "content": self.content}
@@ -422,28 +610,113 @@ class RenderJob:
     created_at: str | None = None
 
 
-@dataclass
-class RenderHeaderRule:
+class RenderHeaderRule(Blueprint):
     """HTTP header rule for a Render service."""
 
     id: str | None = None
-    path: str = "/*"
-    name: str = ""
-    value: str = ""
+    path: str = Field(allow_blank=True, default="/*")
+    name: str = Field(allow_blank=True, default="")
+    value: str = Field(allow_blank=True, default="")
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "id": kwargs.get("id"),
+                "path": kwargs.get("path", "/*"),
+                "name": kwargs.get("name", ""),
+                "value": kwargs.get("value", ""),
+            }
+            super().__init__(data=data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
 
     def to_dict(self) -> dict[str, Any]:
         return {"path": self.path, "name": self.name, "value": self.value}
 
 
-@dataclass
-class RenderRedirectRule:
+class RenderRedirectRule(Blueprint):
     """Redirect / rewrite rule for static sites."""
 
     id: str | None = None
-    source: str = ""
-    destination: str = ""
-    type: str = "redirect"
+    source: str = Field(allow_blank=True, default="")
+    destination: str = Field(allow_blank=True, default="")
+    type: str = Field(allow_blank=True, default="redirect")
     status_code: int = 301
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "id": kwargs.get("id"),
+                "source": kwargs.get("source", ""),
+                "destination": kwargs.get("destination", ""),
+                "type": kwargs.get("type", "redirect"),
+                "status_code": kwargs.get("status_code", 301),
+            }
+            super().__init__(data=data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -770,8 +1043,7 @@ class RenderMetricsFilter:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-@dataclass
-class RenderDeployConfig:
+class RenderDeployConfig(Blueprint):
     """Complete deployment configuration for ``aq deploy render``.
 
     This is the high-level configuration object that the deployer
@@ -783,12 +1055,12 @@ class RenderDeployConfig:
     """
 
     # Service identity
-    service_name: str = ""
+    service_name: str = Field(allow_blank=True, default="")
     service_type: RenderServiceType = RenderServiceType.WEB_SERVICE
     owner_id: str | None = None
 
     # Docker image source
-    image: str = ""
+    image: str = Field(allow_blank=True, default="")
 
     # Compute configuration
     plan: RenderPlan = RenderPlan.STARTER
@@ -796,43 +1068,147 @@ class RenderDeployConfig:
 
     # Scaling
     num_instances: int = 1
-    autoscaling: RenderAutoscaling = field(default_factory=RenderAutoscaling.disabled)
+    autoscaling: RenderAutoscaling = None
 
     # Networking
     port: int = 8000
     health_check_path: str = "/_health"
 
     # Environment
-    env_vars: list[RenderEnvVar] = field(default_factory=list)
+    env_vars: list[RenderEnvVar] = None
 
     # Persistent disk (optional)
     disk: RenderDisk | None = None
 
     # Docker command override
-    docker_command: str | None = None
+    docker_command: str | None = Field(allow_blank=True, allow_null=True, default=None)
 
     # Auto-deploy on image push
-    auto_deploy: str = "no"
+    auto_deploy: str = Field(allow_blank=True, default="no")
 
     # Extended fields (v2)
-    secret_files: list[RenderSecretFile] = field(default_factory=list)
-    headers: list[RenderHeaderRule] = field(default_factory=list)
-    redirect_rules: list[RenderRedirectRule] = field(default_factory=list)
-    registry_credential_id: str | None = None
-    notify_on_fail: str | None = None  # "default", "notify", "ignore"
-    pre_deploy_command: str | None = None
-    build_command: str | None = None
-    root_dir: str | None = None
+    secret_files: list[RenderSecretFile] = None
+    headers: list[RenderHeaderRule] = None
+    redirect_rules: list[RenderRedirectRule] = None
+    registry_credential_id: str | None = Field(allow_blank=True, allow_null=True, default=None)
+    notify_on_fail: str | None = Field(allow_blank=True, allow_null=True, default=None)  # "default", "notify", "ignore"
+    pre_deploy_command: str | None = Field(allow_blank=True, allow_null=True, default=None)
+    build_command: str | None = Field(allow_blank=True, allow_null=True, default=None)
+    root_dir: str | None = Field(allow_blank=True, allow_null=True, default=None)
     env_group_ids: list[str] = field(default_factory=list)
-    project_id: str | None = None
-    environment_id: str | None = None
+    project_id: str | None = Field(allow_blank=True, allow_null=True, default=None)
+    environment_id: str | None = Field(allow_blank=True, allow_null=True, default=None)
+
+    def __init__(self, *args, **kwargs):
+        is_blueprint_init = bool(args) or any(
+            k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
+        )
+        if is_blueprint_init:
+            super().__init__(*args, **kwargs)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+        else:
+            data = {
+                "service_name": kwargs.get("service_name", ""),
+                "service_type": kwargs.get("service_type", RenderServiceType.WEB_SERVICE),
+                "owner_id": kwargs.get("owner_id"),
+                "image": kwargs.get("image", ""),
+                "plan": kwargs.get("plan", RenderPlan.STARTER),
+                "region": kwargs.get("region", "oregon"),
+                "num_instances": kwargs.get("num_instances", 1),
+                "autoscaling": kwargs.get("autoscaling") or RenderAutoscaling.disabled(),
+                "port": kwargs.get("port", 8000),
+                "health_check_path": kwargs.get("health_check_path", "/_health"),
+                "env_vars": kwargs.get("env_vars") or [],
+                "disk": kwargs.get("disk"),
+                "docker_command": kwargs.get("docker_command"),
+                "auto_deploy": kwargs.get("auto_deploy", "no"),
+                "secret_files": kwargs.get("secret_files") or [],
+                "headers": kwargs.get("headers") or [],
+                "redirect_rules": kwargs.get("redirect_rules") or [],
+                "registry_credential_id": kwargs.get("registry_credential_id"),
+                "notify_on_fail": kwargs.get("notify_on_fail"),
+                "pre_deploy_command": kwargs.get("pre_deploy_command"),
+                "build_command": kwargs.get("build_command"),
+                "root_dir": kwargs.get("root_dir"),
+                "env_group_ids": kwargs.get("env_group_ids") or [],
+                "project_id": kwargs.get("project_id"),
+                "environment_id": kwargs.get("environment_id"),
+            }
+            normalized_data = {}
+            for k, v in data.items():
+                normalized_data[k] = _normalize_data(v)
+            super().__init__(data=normalized_data)
+            self.is_sealed(raise_fault=True)
+            self._sync_dict_from_validated()
+
+    def _sync_dict_from_validated(self):
+        if self._validated_data and isinstance(self._validated_data, dict):
+            for k, v in self._validated_data.items():
+                if k == "autoscaling" and isinstance(v, dict):
+                    self.__dict__[k] = RenderAutoscaling(data=v)
+                elif k == "disk" and isinstance(v, dict):
+                    self.__dict__[k] = RenderDisk(data=v)
+                elif k == "env_vars" and isinstance(v, list):
+                    self.__dict__[k] = [RenderEnvVar(data=item) if isinstance(item, dict) else item for item in v]
+                elif k == "secret_files" and isinstance(v, list):
+                    self.__dict__[k] = [RenderSecretFile(data=item) if isinstance(item, dict) else item for item in v]
+                elif k == "headers" and isinstance(v, list):
+                    self.__dict__[k] = [RenderHeaderRule(data=item) if isinstance(item, dict) else item for item in v]
+                elif k == "redirect_rules" and isinstance(v, list):
+                    self.__dict__[k] = [RenderRedirectRule(data=item) if isinstance(item, dict) else item for item in v]
+                else:
+                    self.__dict__[k] = v
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self.__dict__:
+            return self.__dict__[name]
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            if name in self._all_facets:
+                facet = self._all_facets[name]
+                if facet.default is list or facet.default == list:
+                    return []
+                return facet.default if facet.default is not UNSET else None
+            raise
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name.startswith("_") or name in ("instance", "many", "partial", "context"):
+            super().__setattr__(name, value)
+        else:
+            if self._validated_data is not None and isinstance(self._validated_data, dict):
+                self._validated_data[name] = value
+            self.__dict__[name] = value
+
+    def seal_port(self, data):
+        port = data.get("port")
+        if port is not None:
+            if not isinstance(port, int) or not (1 <= port <= 65535):
+                self.reject("port", "Port must be a valid integer between 1 and 65535")
+
+    def seal_health_check_path(self, data):
+        path = data.get("health_check_path")
+        if path is not None and not path.startswith("/"):
+            self.reject("health_check_path", "Health check path must start with '/'")
+
+    def seal_num_instances(self, data):
+        instances = data.get("num_instances")
+        if instances is not None:
+            if not isinstance(instances, int) or instances < 1:
+                self.reject("num_instances", "Number of instances must be at least 1")
+
+    def seal_auto_deploy(self, data):
+        auto = data.get("auto_deploy")
+        if auto is not None and auto not in ("yes", "no"):
+            self.reject("auto_deploy", "auto_deploy must be either 'yes' or 'no'")
 
     def to_service_payload(self) -> dict[str, Any]:
         """Serialize to Render ``POST /v1/services`` API payload."""
         service_details: dict[str, Any] = {
             "envVars": [e.to_dict() for e in self.env_vars],
-            "plan": self.plan.value,
-            "region": self.region,
+            "plan": self.plan.value if isinstance(self.plan, Enum) else self.plan,
+            "region": self.region.value if isinstance(self.region, Enum) else self.region,
             "numInstances": self.num_instances,
             "healthCheckPath": self.health_check_path,
         }
@@ -868,7 +1244,7 @@ class RenderDeployConfig:
 
         payload: dict[str, Any] = {
             "name": self.service_name,
-            "type": self.service_type.value,
+            "type": self.service_type.value if isinstance(self.service_type, Enum) else self.service_type,
             "autoDeploy": self.auto_deploy,
             "serviceDetails": service_details,
         }
@@ -891,7 +1267,7 @@ class RenderDeployConfig:
     def to_update_payload(self) -> dict[str, Any]:
         """Serialize to Render ``PATCH /v1/services/{id}`` API payload."""
         service_details: dict[str, Any] = {
-            "plan": self.plan.value,
+            "plan": self.plan.value if isinstance(self.plan, Enum) else self.plan,
             "numInstances": self.num_instances,
             "healthCheckPath": self.health_check_path,
         }
