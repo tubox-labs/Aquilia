@@ -82,6 +82,7 @@ class MiddlewareStack:
     def __init__(self):
         self.middlewares: list[MiddlewareDescriptor] = []
         self._sorted = True  # Track if sorting is needed
+        self.traced = False
 
     def add(
         self,
@@ -123,10 +124,14 @@ class MiddlewareStack:
             self._sorted = True
 
         handler = final_handler
+        wrap_traced = getattr(self, "traced", False)
 
         # Wrap in reverse order so first middleware is outermost
         for desc in reversed(self.middlewares):
-            handler = self._wrap_middleware(desc.middleware, handler)
+            if wrap_traced:
+                handler = self._wrap_middleware_traced(desc, handler)
+            else:
+                handler = self._wrap_middleware(desc.middleware, handler)
 
         return handler
 
@@ -145,6 +150,7 @@ class MiddlewareStack:
             self._sorted = True
 
         handler = final_handler
+        wrap_traced = getattr(self, "traced", False)
 
         for desc in reversed(self.middlewares):
             # Derive class name from the middleware callable
@@ -152,7 +158,10 @@ class MiddlewareStack:
             cls_name = type(mw).__name__ if not isinstance(mw, type) else mw.__name__
             if cls_name in _FAST_SKIP_NAMES:
                 continue  # skip this middleware
-            handler = self._wrap_middleware(mw, handler)
+            if wrap_traced:
+                handler = self._wrap_middleware_traced(desc, handler)
+            else:
+                handler = self._wrap_middleware(mw, handler)
 
         return handler
 
@@ -161,6 +170,29 @@ class MiddlewareStack:
 
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
             return await middleware(request, ctx, next_handler)
+
+        return wrapped
+
+    def _wrap_middleware_traced(self, desc: MiddlewareDescriptor, next_handler: Handler) -> Handler:
+        """Wrap a handler with traced middleware execution."""
+
+        async def wrapped(request: Request, ctx: RequestCtx) -> Response:
+            from .inspector.trace import current_trace
+
+            trace = current_trace()
+            if trace is None:
+                return await desc.middleware(request, ctx, next_handler)
+            t0 = time.monotonic()
+            try:
+                return await desc.middleware(request, ctx, next_handler)
+            finally:
+                dt = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    "middleware",
+                    desc.name,
+                    start_offset_ms=(t0 - trace.started_monotonic) * 1000.0,
+                    duration_ms=dt,
+                )
 
         return wrapped
 
