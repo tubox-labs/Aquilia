@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-06-29 — "Spyglass"
+
+### Added
+- **Request Inspector** (`aquilia.inspector`): Full per-request execution tracing with swimlane-based timeline visualization in the admin panel.
+  - Core data model: `RequestTrace`, `Span`, `Lane`, `SpanStatus`, `ExceptionNode`, `ResponseSummary` with contextvar-based request-scoped traces.
+  - `InspectorMiddleware`: Captures request/response lifecycle, redacts sensitive headers and bodies, and auto-records middleware timing spans.
+  - Per-middleware timing: Wraps each registered middleware to emit individual `middleware` lane spans with class name labels.
+  - DI diagnostics listener: Bridges `Container.add_diagnostic_listener()` events into `dependency` lane spans for every `resolve_async` call.
+  - Fault bridge: Listens to `FaultEngine.on_fault` and records `exception` lane spans with full stack frames, fault codes, and fingerprints.
+  - HTTP client hook: `InspectorHTTPClientMiddleware` emits `external_http` lane spans for outbound requests with method/URL/status.
+  - Query Inspector correlation: `QueryInspector.record()` now cross-links SQL queries to the active request trace via `_CURRENT_TRACE`.
+  - Replay & Export: `build_replay_request()` reconstructs cURL-compatible request dicts; `export_traces()` / `import_traces()` support JSON round-trip.
+  - SSE streaming: `SSEStreamManager` pushes live trace events to connected admin panel clients via Server-Sent Events.
+  - Plugin API: `register_lane()` and `span_context()` allow user code to emit custom lane spans.
+  - Ring-buffer collector: `InspectorCollector` stores the last N traces (configurable via `max_traces`) with O(1) commit and lookup.
+  - Configurable redaction: Header names, body field paths, and query params are redacted before storage (customizable blocklists).
+  - Admin panel integration: Full "Request Inspector" page with waterfall timeline, request/response details, spans table, and SSE live-stream toggle.
+  - Workspace fluent API: `Workspace.inspector(enabled=True, max_traces=200)` for zero-boilerplate opt-in.
+  - `InspectorConfig.from_dict()` class method with safe defaults and production guard (`force_enable_in_prod`).
+  - 15 dedicated test files covering config, trace model, collector, redaction, faults, middleware, DI listener, fault bridge, HTTP client hook, query correlation, replay/export, plugins, SSE streaming, admin UI, and workspace/server wiring.
+- **Container self-registration**: DI containers now register themselves under the `Container` token, enabling provider adapters to receive the container via dependency injection.
+- **`Container.add_diagnostic_listener()` public API**: Allows external subsystems (like the inspector) to observe dependency resolution events.
+
+### Fixed
+- **`RequestIdMiddleware` stability**: Preserves pool-assigned `request_id` from `_ctx_pool.acquire()` instead of regenerating it, ensuring consistent request IDs across middleware, DI, and logging.
+- **Defensive inspector config access**: All `get_inspector_config()` calls in `AquiliaServer` use `hasattr()` guards so mocked configs (plain dicts in tests) don't raise `AttributeError`.
+
 ## [1.2.0] — 2026-06-28 — "Kraken's Wake"
 
 ### Added

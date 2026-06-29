@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Aquilia is an async-native, manifest-first Python web framework (Python 3.10+). It auto-discovers modules, wires DI, and generates infrastructure (Docker/K8s). The CLI is `aq`. Current version: 1.1.0.
+Aquilia is an async-native, manifest-first Python web framework (Python 3.10+). It auto-discovers modules, wires DI, and generates infrastructure (Docker/K8s). The CLI is `aq`. Current version: 1.3.0 "Spyglass".
 
 ## Commands
 
@@ -67,6 +67,7 @@ The boot sequence is: **Manifests → Aquilary → RuntimeRegistry → Controlle
 | Storage | `aquilia/storage/` | Async file storage (local, S3, GCS, Azure, SFTP) |
 | SSE | `aquilia/sse/` | Server-Sent Events streaming (`SSEResponse`, `SSEEvent`) |
 | OTel | `aquilia/otel/` | OpenTelemetry distributed tracing (`OTelConfig`, middleware) |
+| Inspector | `aquilia/inspector/` | Dev-mode per-request tracing: swimlane timeline, DI/DB/HTTP spans, SSE live stream |
 
 ### Controller Pattern
 
