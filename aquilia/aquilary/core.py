@@ -918,7 +918,6 @@ class RuntimeRegistry:
             return
 
         import importlib
-        import inspect
         import logging as _log
         from typing import Any, get_type_hints
 
@@ -987,6 +986,18 @@ class RuntimeRegistry:
                 self.di_containers[ctx.name] = Container(scope="app")
 
             container = self.di_containers[ctx.name]
+
+            # Register the container itself so providers can receive it via DI
+            try:
+                container.register(
+                    ValueProvider(
+                        value=container,
+                        token=Container,
+                        scope="app",
+                    )
+                )
+            except ValueError:
+                pass  # Already registered
 
             # Register config as a value provider
             if ctx.config_namespace:

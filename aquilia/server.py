@@ -570,8 +570,11 @@ class AquiliaServer:
         # Setup Request Inspector Middleware and listeners if enabled
         from aquilia.inspector.config import InspectorConfig
 
-        inspector_dict = self.config.get_inspector_config()
-        inspector_config = InspectorConfig(**inspector_dict)
+        if hasattr(self.config, "get_inspector_config"):
+            inspector_dict = self.config.get_inspector_config()
+        else:
+            inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
+        inspector_config = InspectorConfig.from_dict(inspector_dict)
         inspector_enabled = inspector_config.enabled
         if inspector_enabled is None:
             inspector_enabled = self._is_debug()
@@ -2226,7 +2229,10 @@ class AquiliaServer:
         and actual HTTP route serving.
         """
         # Check if inspector is enabled
-        _inspector_dict = self.config.get_inspector_config()
+        if hasattr(self.config, "get_inspector_config"):
+            _inspector_dict = self.config.get_inspector_config()
+        else:
+            _inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
         _inspector_enabled = _inspector_dict.get("enabled")
         if _inspector_enabled is None:
             _inspector_enabled = self._is_debug()
@@ -2442,7 +2448,10 @@ class AquiliaServer:
             )
 
             # Check if inspector is enabled
-            _inspector_dict = self.config.get_inspector_config()
+            if hasattr(self.config, "get_inspector_config"):
+                _inspector_dict = self.config.get_inspector_config()
+            else:
+                _inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
             _inspector_enabled = _inspector_dict.get("enabled")
             if _inspector_enabled is None:
                 _inspector_enabled = self._is_debug()
