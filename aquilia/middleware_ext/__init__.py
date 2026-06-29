@@ -37,6 +37,7 @@ from .logging import (
     StructuredLogFormatter,
 )
 from .logging import (
+    LoggingMiddleware,
     LoggingMiddleware as EnhancedLoggingMiddleware,
 )
 from .rate_limit import (
@@ -90,6 +91,7 @@ __all__ = [
     "StaticMiddleware",
     # Logging
     "EnhancedLoggingMiddleware",
+    "LoggingMiddleware",
     "CombinedLogFormatter",
     "StructuredLogFormatter",
     "DevLogFormatter",

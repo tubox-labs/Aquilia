@@ -29,13 +29,14 @@ from typing import (
 )
 
 from aquilia.faults.domains import RateLimitExceededFault
-from aquilia.request import Request
-from aquilia.response import Response
+from aquilia.middleware import Middleware
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
+    from aquilia.request import Request
+    from aquilia.response import Response
 
-Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
+Handler = Callable[["Request", "RequestCtx"], Awaitable["Response"]]
 
 
 # ─── Key extractors ──────────────────────────────────────────────────────────
@@ -305,7 +306,7 @@ class RateLimitRule:
 # ─── Rate Limit Middleware ────────────────────────────────────────────────────
 
 
-class RateLimitMiddleware:
+class RateLimitMiddleware(Middleware):
     """
     Multi-algorithm rate limiting middleware.
 

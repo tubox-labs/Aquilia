@@ -28,13 +28,14 @@ from typing import (
     TYPE_CHECKING,
 )
 
-from aquilia.request import Request
-from aquilia.response import Response
+from aquilia.middleware import Middleware
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
+    from aquilia.request import Request
+    from aquilia.response import Response
 
-Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
+Handler = Callable[["Request", "RequestCtx"], Awaitable["Response"]]
 
 # ─── Custom MIME types beyond stdlib ──────────────────────────────────────────
 _EXTRA_MIME_TYPES: dict[str, str] = {
@@ -230,7 +231,7 @@ class _LRUFileCache:
 # ─── Static File Middleware ───────────────────────────────────────────────────
 
 
-class StaticMiddleware:
+class StaticMiddleware(Middleware):
     """
     Production-grade static file serving middleware.
 

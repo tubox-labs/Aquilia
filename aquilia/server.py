@@ -33,7 +33,7 @@ from .faults.domains import (
 from .faults.engine import FaultEngine, FaultMiddleware
 from .health import HealthRegistry, HealthStatus, SubsystemStatus
 from .lifecycle import LifecycleCoordinator
-from .middleware import MiddlewareStack
+from .middleware import MiddlewareStack, Middleware
 from .middleware_ext.session_middleware import SessionMiddleware
 from .response import Response
 from .sockets.adapters import InMemoryAdapter
@@ -45,6 +45,25 @@ from .templates.di_providers import register_template_providers
 # Template Integration
 from .templates.middleware import TemplateMiddleware
 from .typing.manifest import ManifestCollection
+
+
+class ServerRequestScopeMiddleware(Middleware):
+    """Request scope middleware -- stores container refs and cleans up."""
+
+    def __init__(self, runtime):
+        self.runtime = runtime
+
+    async def __call__(self, request, ctx, next_handler):
+        request.state["di_container"] = ctx.container
+        app_name = request.state.get("app_name", "default")
+        app_container = self.runtime.di_containers.get(app_name)
+        if app_container:
+            request.state["app_container"] = app_container
+        try:
+            return await next_handler(request, ctx)
+        finally:
+            if ctx.container and hasattr(ctx.container, "shutdown"):
+                await ctx.container.shutdown()
 
 
 class AquiliaServer:
@@ -231,23 +250,8 @@ class AquiliaServer:
             name="faults",
         )
 
-        runtime_ref = self.runtime  # capture for closure
-
-        async def request_scope_mw(request, ctx, next_handler):
-            """Request scope middleware -- stores container refs and cleans up."""
-            request.state["di_container"] = ctx.container
-            app_name = request.state.get("app_name", "default")
-            app_container = runtime_ref.di_containers.get(app_name)
-            if app_container:
-                request.state["app_container"] = app_container
-            try:
-                return await next_handler(request, ctx)
-            finally:
-                if ctx.container and hasattr(ctx.container, "shutdown"):
-                    await ctx.container.shutdown()
-
         self.middleware_stack.add(
-            request_scope_mw,
+            ServerRequestScopeMiddleware(self.runtime),
             scope="global",
             priority=5,
             name="request_scope",

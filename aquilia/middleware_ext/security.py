@@ -39,13 +39,13 @@ from aquilia.faults.domains import (
     CORSViolationFault,
     CSRFViolationFault,
 )
-from aquilia.request import Request
-from aquilia.response import Response
-
+from aquilia.middleware import Middleware
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
+    from aquilia.request import Request
+    from aquilia.response import Response
 
-Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
+Handler = Callable[["Request", "RequestCtx"], Awaitable["Response"]]
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -122,7 +122,7 @@ class _OriginMatcher:
         return self._allow_all
 
 
-class CORSMiddleware:
+class CORSMiddleware(Middleware):
     """
     Full-featured CORS middleware following the Fetch Standard.
 
@@ -231,6 +231,7 @@ class CORSMiddleware:
         headers["vary"] = "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
         headers["content-length"] = "0"
 
+        from aquilia.response import Response
         return Response(b"", status=204, headers=headers)
 
     def _apply_cors_headers(self, response: Response, origin: str, allowed: bool) -> None:
@@ -422,7 +423,7 @@ class CSPPolicy:
         )
 
 
-class CSPMiddleware:
+class CSPMiddleware(Middleware):
     """
     Content-Security-Policy middleware.
 
@@ -467,7 +468,7 @@ class CSPMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class HSTSMiddleware:
+class HSTSMiddleware(Middleware):
     """
     HTTP Strict Transport Security middleware.
 
@@ -503,7 +504,7 @@ class HSTSMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class HTTPSRedirectMiddleware:
+class HTTPSRedirectMiddleware(Middleware):
     """
     Redirect HTTP requests to HTTPS.
 
@@ -546,6 +547,7 @@ class HTTPSRedirectMiddleware:
         if qs:
             redirect_url += f"?{qs}"
 
+        from aquilia.response import Response
         return Response(
             b"",
             status=self._status,
@@ -570,7 +572,7 @@ class HTTPSRedirectMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class ProxyFixMiddleware:
+class ProxyFixMiddleware(Middleware):
     """
     Fix request attributes when behind a reverse proxy.
 
@@ -677,7 +679,7 @@ class ProxyFixMiddleware:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class SecurityHeadersMiddleware:
+class SecurityHeadersMiddleware(Middleware):
     """
     Catch-all security headers middleware (like Helmet.js for Node).
 
@@ -779,7 +781,7 @@ class CSRFError(CSRFViolationFault):
         super().__init__(reason=reason, **kwargs)
 
 
-class CSRFMiddleware:
+class CSRFMiddleware(Middleware):
     """
     Production-grade CSRF (Cross-Site Request Forgery) protection middleware.
 
@@ -1059,16 +1061,8 @@ class CSRFMiddleware:
     # ── Main Handler ─────────────────────────────────────────────────────
 
     async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
-        """
-        CSRF protection middleware handler.
-
-        Flow:
-        1. Retrieve or generate CSRF token
-        2. Inject token into request.state for templates/DI
-        3. For unsafe methods: validate submitted token
-        4. Process request
-        5. Set CSRF cookie on response (double-submit fallback)
-        """
+        """CSRF protection middleware handler."""
+        from aquilia.response import Response
         # ── Step 1: Retrieve or generate token ───────────────────────────
         token = self._get_session_token(request)
         token_source = "session"

@@ -28,13 +28,14 @@ from typing import (
     Any,
 )
 
-from aquilia.request import Request
-from aquilia.response import Response
+from aquilia.middleware import Middleware
 
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
+    from aquilia.request import Request
+    from aquilia.response import Response
 
-Handler = Callable[[Request, "RequestCtx"], Awaitable[Response]]
+Handler = Callable[["Request", "RequestCtx"], Awaitable["Response"]]
 
 # ─── ANSI color codes for dev mode ────────────────────────────────────────────
 
@@ -163,7 +164,7 @@ class DevLogFormatter(_LogFormatter):
 # ─── Enhanced Logging Middleware ──────────────────────────────────────────────
 
 
-class LoggingMiddleware:
+class LoggingMiddleware(Middleware):
     """
     Enhanced HTTP access logging middleware.
 

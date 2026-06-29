@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 Session Middleware - Integrates SessionEngine with request lifecycle.
 
@@ -13,15 +15,15 @@ from typing import TYPE_CHECKING, Optional
 
 from aquilia.di import RequestCtx
 from aquilia.faults.domains import ConfigInvalidFault
-from aquilia.middleware import Handler
-from aquilia.request import Request
-from aquilia.response import Response
+from aquilia.middleware import Handler, Middleware
 
 if TYPE_CHECKING:
     from aquilia.sessions import SessionEngine
+    from aquilia.request import Request
+    from aquilia.response import Response
 
 
-class SessionMiddleware:
+class SessionMiddleware(Middleware):
     """
     Middleware that integrates SessionEngine with request lifecycle.
 
@@ -141,7 +143,7 @@ class SessionMiddleware:
         return response
 
 
-class OptionalSessionMiddleware:
+class OptionalSessionMiddleware(Middleware):
     """
     Session middleware that gracefully handles missing SessionEngine.
 

@@ -9,6 +9,8 @@ enabling request-scoped services and proper lifecycle management.
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from aquilia.middleware import Middleware
+
 
 class RequestScopeMiddleware:
     """
@@ -84,7 +86,7 @@ class RequestScopeMiddleware:
                     request_container.dispose()
 
 
-class SimplifiedRequestScopeMiddleware:
+class SimplifiedRequestScopeMiddleware(Middleware):
     """
     Simplified middleware for frameworks with request objects.
 
@@ -106,26 +108,35 @@ class SimplifiedRequestScopeMiddleware:
         """
         self.runtime = runtime
 
-    async def __call__(self, request: Any, call_next: Callable[[Any], Awaitable[Any]]) -> Any:
+    async def __call__(
+        self,
+        request: Any,
+        ctx_or_next: Any,
+        next_handler: Any = None,
+    ) -> Any:
         """
         Middleware handler for request/response pattern.
 
-        Args:
-            request: Request object with .state attribute
-            call_next: Next middleware/handler callable
-
-        Returns:
-            Response object
+        Supports both standard 3-arg (request, ctx, next_handler) and
+        legacy 2-arg (request, call_next) signatures.
         """
+        if next_handler is None:
+            # Legacy 2-arg signature: (request, call_next)
+            call_next = ctx_or_next
+            ctx = None
+        else:
+            call_next = next_handler
+            ctx = ctx_or_next
+
         # Get app name from request
-        app_name = getattr(request.state, "app_name", "default")
+        app_name = getattr(request.state, "app_name", "default") or "default"
 
         # Get app-scoped container
         app_container = self.runtime.di_containers.get(app_name)
 
         if app_container is None:
             # No DI, proceed without container
-            return await call_next(request)
+            return await (call_next(request, ctx) if ctx is not None else call_next(request))
 
         # Create request-scoped child container for proper isolation
         request_container = app_container.create_request_scope()
@@ -136,13 +147,17 @@ class SimplifiedRequestScopeMiddleware:
         if isinstance(request, RequestClass):
             await request_container.register_instance(RequestClass, request, scope="request")
 
-        # Store in request state
-        request.state.di_container = request_container
-        request.state.app_container = app_container
-        request.state.runtime = self.runtime
+        # Store in request state and context
+        if not hasattr(request, "state") or request.state is None:
+            request.state = {}
+        request.state["di_container"] = request_container
+        request.state["app_container"] = app_container
+        request.state["runtime"] = self.runtime
+        if ctx is not None:
+            ctx.container = request_container
 
         try:
-            response = await call_next(request)
+            response = await (call_next(request, ctx) if ctx is not None else call_next(request))
             return response
         finally:
             # Cleanup request-scoped container
@@ -153,7 +168,7 @@ class SimplifiedRequestScopeMiddleware:
                     request_container.dispose()
 
 
-def create_request_scope_middleware(runtime: Any) -> Callable:
+def create_request_scope_middleware(runtime: Any) -> SimplifiedRequestScopeMiddleware:
     """
     Factory function to create request scope middleware.
 
@@ -161,14 +176,6 @@ def create_request_scope_middleware(runtime: Any) -> Callable:
         runtime: RuntimeRegistry instance
 
     Returns:
-        Middleware callable
-
-    Example:
-        middleware = create_request_scope_middleware(runtime)
-        app.add_middleware(middleware)
+        Middleware instance
     """
-
-    async def middleware(request, call_next):
-        return await SimplifiedRequestScopeMiddleware(runtime)(request, call_next)
-
-    return middleware
+    return SimplifiedRequestScopeMiddleware(runtime)

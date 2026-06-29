@@ -30,7 +30,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from aquilia.middleware import Middleware
+
 if TYPE_CHECKING:
+    from ..controller.base import RequestCtx
     from ..effects import EffectRegistry
     from ..middleware import Handler
     from ..request import Request
@@ -39,7 +42,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.middleware.effects")
 
 
-class EffectMiddleware:
+class EffectMiddleware(Middleware):
     """
     ASGI middleware that manages per-request effect lifecycle.
 
@@ -71,7 +74,8 @@ class EffectMiddleware:
     async def __call__(
         self,
         request: Request,
-        handler: Handler,
+        ctx: RequestCtx,
+        next_handler: Handler,
     ) -> Response:
         """
         Middleware entry point.
@@ -83,7 +87,7 @@ class EffectMiddleware:
 
         if not required:
             # No effects needed -- pass through without overhead
-            return await handler(request)
+            return await next_handler(request, ctx)
 
         # Acquire effects
         acquired: dict[str, Any] = {}
@@ -114,7 +118,7 @@ class EffectMiddleware:
                 existing_flow_ctx.effects.update(acquired)
 
             # Execute handler
-            response = await handler(request)
+            response = await next_handler(request, ctx)
             return response
 
         except Exception:
@@ -215,7 +219,7 @@ class EffectMiddleware:
         return None
 
 
-class FlowContextMiddleware:
+class FlowContextMiddleware(Middleware):
     """
     Middleware that creates a FlowContext for each request.
 
@@ -235,14 +239,16 @@ class FlowContextMiddleware:
     async def __call__(
         self,
         request: Request,
-        handler: Handler,
+        ctx: RequestCtx,
+        next_handler: Handler,
     ) -> Response:
         from ..flow import FlowContext
 
         # Create FlowContext for this request
         flow_ctx = FlowContext(
             request=request,
-            container=getattr(request, "_container", None)
+            container=getattr(ctx, "container", None)
+            or getattr(request, "_container", None)
             or (request.state.get("container") if hasattr(request, "state") else None),
             identity=request.state.get("identity") if hasattr(request, "state") else None,
             session=request.state.get("session") if hasattr(request, "state") else None,
@@ -254,7 +260,7 @@ class FlowContextMiddleware:
         request.state["flow_context"] = flow_ctx
 
         try:
-            response = await handler(request)
+            response = await next_handler(request, ctx)
             return response
         finally:
             await flow_ctx.dispose()
