@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 320" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    </filter>
+    
+    <!-- Accent Gradients -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#fb7185" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: #070a13; rx: 12px; }
+    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    
+    /* Card Styles */
+    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
+    .card-bg:hover { stroke: #38bdf8; }
+    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
+    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    
+    /* Group Styles */
+    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
+    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
+    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; }
+    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1240" height="320" class="bg" />
+  <rect width="1238" height="318" x="1" y="1" class="border-stroke" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia Manifest and Component Wiring Architecture</text>
+  </g>
+  
+  
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="110" width="240" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="30" y="110" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="46" y="134" class="node-text-title">workspace.py</text>
+    
+    <!-- Description -->
+    <text x="46" y="152" class="node-text-desc">Defines the workspace name,</text><text x="46" y="167" class="node-text-desc">integrations, global</text><text x="46" y="182" class="node-text-desc">middleware, and modules list</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="46" y="183" width="64" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="78.0" y="193" text-anchor="middle">WORKSPACE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="240" width="240" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="30" y="240" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="46" y="264" class="node-text-title">modules/*/manifest.py</text>
+    
+    <!-- Description -->
+    <text x="46" y="282" class="node-text-desc">Declares local controllers,</text><text x="46" y="297" class="node-text-desc">services, task configurations,</text><text x="46" y="312" class="node-text-desc">and autowire directives</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="46" y="313" width="82" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="87.0" y="323" text-anchor="middle">APP MANIFEST</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="330" y="170" width="250" height="105" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="330" y="170" width="4" height="105" rx="2" fill="url(#blueGrad)" />
+    
+    <!-- Title -->
+    <text x="346" y="194" class="node-text-title">PackageScanner</text>
+    
+    <!-- Description -->
+    <text x="346" y="212" class="node-text-desc">Traverses filesystem modules</text><text x="346" y="227" class="node-text-desc">folder, parses AST metadata,</text><text x="346" y="242" class="node-text-desc">registers manifest objects</text><text x="346" y="257" class="node-text-desc">and imports target packages</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="346" y="253" width="64" height="14" fill="url(#blueGrad)" />
+    <text class="badge-text" x="378.0" y="263" text-anchor="middle">DISCOVERY</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="640" y="170" width="250" height="105" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="640" y="170" width="4" height="105" rx="2" fill="url(#violetGrad)" />
+    
+    <!-- Title -->
+    <text x="656" y="194" class="node-text-title">RuntimeRegistry</text>
+    
+    <!-- Description -->
+    <text x="656" y="212" class="node-text-desc">Compiles manifests into an</text><text x="656" y="227" class="node-text-desc">in-memory route dictionary,</text><text x="656" y="242" class="node-text-desc">dependency graph structure,</text><text x="656" y="257" class="node-text-desc">and server environment</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="656" y="253" width="58" height="14" fill="url(#violetGrad)" />
+    <text class="badge-text" x="685.0" y="263" text-anchor="middle">REGISTRY</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="950" y="170" width="250" height="105" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="950" y="170" width="4" height="105" rx="2" fill="url(#emeraldGrad)" />
+    
+    <!-- Title -->
+    <text x="966" y="194" class="node-text-title">Aquilary.from_manifests</text>
+    
+    <!-- Description -->
+    <text x="966" y="212" class="node-text-desc">Resolves manifest parameters</text><text x="966" y="227" class="node-text-desc">at boot, validates schemas,</text><text x="966" y="242" class="node-text-desc">instantiates controllers and</text><text x="966" y="257" class="node-text-desc">wires ASGI path mappings</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="966" y="253" width="64" height="14" fill="url(#emeraldGrad)" />
+    <text class="badge-text" x="998.0" y="263" text-anchor="middle">BOOTSTRAP</text>
+        
+  </g>
+<path d="M 270 155 L 300.0 155 L 300.0 220 L 330 220" class="connection-line" />
+<path d="M 270 285 L 300.0 285 L 300.0 220 L 330 220" class="connection-line" />
+<line x1="580" y1="220" x2="640" y2="220" class="connection-line" /><text x="610.0" y="212.0" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10px" font-weight="600" fill="#94a3b8">Register</text>
+<line x1="890" y1="220" x2="950" y2="220" class="connection-line" /><text x="920.0" y="212.0" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10px" font-weight="600" fill="#94a3b8">Initialize</text>
+</svg>

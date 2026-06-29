@@ -1,0 +1,405 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1430 600" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    </filter>
+    
+    <!-- Accent Gradients -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#fb7185" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: #070a13; rx: 12px; }
+    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    
+    /* Card Styles */
+    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
+    .card-bg:hover { stroke: #38bdf8; }
+    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
+    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    
+    /* Group Styles */
+    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
+    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
+    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; }
+    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1430" height="600" class="bg" />
+  <rect width="1428" height="598" x="1" y="1" class="border-stroke" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia Complete System Architecture Diagram</text>
+  </g>
+  
+  
+  <g>
+    <rect x="20" y="100" width="270" height="480" class="group-rect" />
+    <text x="35" y="92" class="group-label">1. SOURCE SCAFFOLDING</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="35" y="130" width="240" height="85" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="35" y="130" width="4" height="85" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="51" y="154" class="node-text-title">workspace.py</text>
+    
+    <!-- Description -->
+    <text x="51" y="172" class="node-text-desc">Global settings,</text><text x="51" y="187" class="node-text-desc">integrations list</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="51" y="193" width="46" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="74.0" y="203" text-anchor="middle">CONFIG</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="35" y="230" width="240" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="35" y="230" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="51" y="254" class="node-text-title">modules/*/manifest.py</text>
+    
+    <!-- Description -->
+    <text x="51" y="272" class="node-text-desc">AppManifest defines</text><text x="51" y="287" class="node-text-desc">controllers, services</text><text x="51" y="302" class="node-text-desc">and dependency rules</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="51" y="303" width="58" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="80.0" y="313" text-anchor="middle">MANIFEST</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="35" y="340" width="240" height="85" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="35" y="340" width="4" height="85" rx="2" fill="url(#blueGrad)" />
+    
+    <!-- Title -->
+    <text x="51" y="364" class="node-text-title">Controllers and Services</text>
+    
+    <!-- Description -->
+    <text x="51" y="382" class="node-text-desc">Writes controller</text><text x="51" y="397" class="node-text-desc">classes and services</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="51" y="403" width="34" height="14" fill="url(#blueGrad)" />
+    <text class="badge-text" x="68.0" y="413" text-anchor="middle">CODE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="35" y="440" width="240" height="100" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="35" y="440" width="4" height="100" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="51" y="464" class="node-text-title">PackageScanner</text>
+    
+    <!-- Description -->
+    <text x="51" y="482" class="node-text-desc">CLI / runtime scans</text><text x="51" y="497" class="node-text-desc">modules tree to</text><text x="51" y="512" class="node-text-desc">find manifest objects</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="51" y="518" width="52" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="77.0" y="528" text-anchor="middle">SCANNER</text>
+        
+  </g>
+
+  <g>
+    <rect x="310" y="100" width="480" height="480" class="group-rect" />
+    <text x="325" y="92" class="group-label">2. AQUILIA RUNTIME BOOT AND DI</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="325" y="130" width="450" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="325" y="130" width="4" height="95" rx="2" fill="url(#violetGrad)" />
+    
+    <!-- Title -->
+    <text x="341" y="154" class="node-text-title">AquiliaRuntime Lifecycle</text>
+    
+    <!-- Description -->
+    <text x="341" y="172" class="node-text-desc">Linear bootstrap orchestrator: CREATED -> CONFIGURING -></text><text x="341" y="187" class="node-text-desc">DISCOVERING -> BOOTSTRAPPING -> READY</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="341" y="203" width="70" height="14" fill="url(#violetGrad)" />
+    <text class="badge-text" x="376.0" y="213" text-anchor="middle">BOOT PHASE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="325" y="240" width="215" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="325" y="240" width="4" height="95" rx="2" fill="url(#emeraldGrad)" />
+    
+    <!-- Title -->
+    <text x="341" y="264" class="node-text-title">DI Container Scope</text>
+    
+    <!-- Description -->
+    <text x="341" y="282" class="node-text-desc">Resolves providers:</text><text x="341" y="297" class="node-text-desc">- Singleton (Global)</text><text x="341" y="312" class="node-text-desc">- App (Server instance)</text><text x="341" y="327" class="node-text-desc">- Request (Connection)</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="341" y="313" width="76" height="14" fill="url(#emeraldGrad)" />
+    <text class="badge-text" x="379.0" y="323" text-anchor="middle">DI REGISTRY</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="560" y="240" width="215" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="560" y="240" width="4" height="95" rx="2" fill="url(#emeraldGrad)" />
+    
+    <!-- Title -->
+    <text x="576" y="264" class="node-text-title">DI Diagnostics Graph</text>
+    
+    <!-- Description -->
+    <text x="576" y="282" class="node-text-desc">Dry-runs container;</text><text x="576" y="297" class="node-text-desc">test dependency cycle;</text><text x="576" y="312" class="node-text-desc">compiles request DAG</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="576" y="313" width="58" height="14" fill="url(#emeraldGrad)" />
+    <text class="badge-text" x="605.0" y="323" text-anchor="middle">DI CHECK</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="325" y="350" width="450" height="105" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="325" y="350" width="4" height="105" rx="2" fill="url(#violetGrad)" />
+    
+    <!-- Title -->
+    <text x="341" y="374" class="node-text-title">AquiliaServer (ASGI Adapter)</text>
+    
+    <!-- Description -->
+    <text x="341" y="392" class="node-text-desc">Translates ASGI lifespan/HTTP connection scopes to Request/Response;</text><text x="341" y="407" class="node-text-desc">passes request context into Middleware chain and Router</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="341" y="433" width="70" height="14" fill="url(#violetGrad)" />
+    <text class="badge-text" x="376.0" y="443" text-anchor="middle">ASGI ENTRY</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="325" y="470" width="450" height="85" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="325" y="470" width="4" height="85" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="341" y="494" class="node-text-title">RuntimeRegistry</text>
+    
+    <!-- Description -->
+    <text x="341" y="512" class="node-text-desc">Binds dynamic and compiled routes; compiles versions mapping</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="341" y="533" width="58" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="370.0" y="543" text-anchor="middle">REGISTRY</text>
+        
+  </g>
+
+  <g>
+    <rect x="810" y="100" width="600" height="480" class="group-rect" />
+    <text x="825" y="92" class="group-label">3. REQUEST PIPELINE EXECUTION</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="825" y="130" width="570" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="825" y="130" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="841" y="154" class="node-text-title">Middleware Chain</text>
+    
+    <!-- Description -->
+    <text x="841" y="172" class="node-text-desc">Runs sequentially by Priority Band:</text><text x="841" y="187" class="node-text-desc">Security (10) -> RequestId (20) -> Session (30) -> Auth (40) -> OTel (50)</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="841" y="203" width="70" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="876.0" y="213" text-anchor="middle">MIDDLEWARE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="825" y="240" width="275" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="825" y="240" width="4" height="95" rx="2" fill="url(#amberGrad)" />
+    
+    <!-- Title -->
+    <text x="841" y="264" class="node-text-title">FlowPipeline Context</text>
+    
+    <!-- Description -->
+    <text x="841" y="282" class="node-text-desc">Binds Request state,</text><text x="841" y="297" class="node-text-desc">scoped DI container,</text><text x="841" y="312" class="node-text-desc">identity, session</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="841" y="313" width="52" height="14" fill="url(#amberGrad)" />
+    <text class="badge-text" x="867.0" y="323" text-anchor="middle">CONTEXT</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1115" y="240" width="280" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="1115" y="240" width="4" height="95" rx="2" fill="url(#amberGrad)" />
+    
+    <!-- Title -->
+    <text x="1131" y="264" class="node-text-title">FlowPipeline Nodes</text>
+    
+    <!-- Description -->
+    <text x="1131" y="282" class="node-text-desc">Guards (Clearance) -></text><text x="1131" y="297" class="node-text-desc">Transforms (Validation) -></text><text x="1131" y="312" class="node-text-desc">Handler -> Hooks</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1131" y="313" width="40" height="14" fill="url(#amberGrad)" />
+    <text class="badge-text" x="1151.0" y="323" text-anchor="middle">NODES</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="825" y="350" width="570" height="105" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="825" y="350" width="4" height="105" rx="2" fill="url(#amberGrad)" />
+    
+    <!-- Title -->
+    <text x="841" y="374" class="node-text-title">EffectScope and Providers</text>
+    
+    <!-- Description -->
+    <text x="841" y="392" class="node-text-desc">Acquires/releases declared resources around handler execution:</text><text x="841" y="407" class="node-text-desc">- DB Transactions (DBTx['write']) | - Cache (Cache['user'])</text><text x="841" y="422" class="node-text-desc">- File storage (Storage['s3'])     | - Outbound HTTP client</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="841" y="433" width="52" height="14" fill="url(#amberGrad)" />
+    <text class="badge-text" x="867.0" y="443" text-anchor="middle">EFFECTS</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="825" y="470" width="275" height="85" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="825" y="470" width="4" height="85" rx="2" fill="url(#roseGrad)" />
+    
+    <!-- Title -->
+    <text x="841" y="494" class="node-text-title">Structured Faults</text>
+    
+    <!-- Description -->
+    <text x="841" y="512" class="node-text-desc">Catches exceptions;</text><text x="841" y="527" class="node-text-desc">maps to fault domain;</text><text x="841" y="542" class="node-text-desc">generates public JSON/HTML</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="841" y="533" width="46" height="14" fill="url(#roseGrad)" />
+    <text class="badge-text" x="864.0" y="543" text-anchor="middle">FAULTS</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1120" y="470" width="275" height="85" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="1120" y="470" width="4" height="85" rx="2" fill="url(#blueGrad)" />
+    
+    <!-- Title -->
+    <text x="1136" y="494" class="node-text-title">Response Delivery</text>
+    
+    <!-- Description -->
+    <text x="1136" y="512" class="node-text-desc">Appends version and</text><text x="1136" y="527" class="node-text-desc">security headers;</text><text x="1136" y="542" class="node-text-desc">returns output to ASGI</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1136" y="533" width="58" height="14" fill="url(#blueGrad)" />
+    <text class="badge-text" x="1165.0" y="543" text-anchor="middle">RESPONSE</text>
+        
+  </g>
+<line x1="275" y1="170" x2="325" y2="170" class="connection-line" />
+<line x1="275" y1="490" x2="325" y2="510" class="connection-line" />
+<line x1="432" y1="225" x2="432" y2="240" class="connection-line" />
+<line x1="432" y1="335" x2="432" y2="350" class="connection-line" />
+<path d="M 775 400 L 800.0 400 L 800.0 175 L 825 175" class="connection-line" />
+<path d="M 775 400 L 800.0 400 L 800.0 285 L 825 285" class="connection-line" />
+<line x1="1100" y1="175" x2="1115" y2="285" class="connection-line" />
+<line x1="962" y1="335" x2="962" y2="350" class="connection-line" />
+<path d="M 1110 395 L 1036.0 395 L 1036.0 510 L 962 510" class="connection-line" />
+<line x1="962" y1="455" x2="962" y2="470" class="connection-line" />
+<line x1="1100" y1="510" x2="1120" y2="510" class="connection-line" />
+</svg>

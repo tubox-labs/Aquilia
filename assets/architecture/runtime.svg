@@ -1,0 +1,195 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1350 270" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    </filter>
+    
+    <!-- Accent Gradients -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#fb7185" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: #070a13; rx: 12px; }
+    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    
+    /* Card Styles */
+    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
+    .card-bg:hover { stroke: #38bdf8; }
+    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
+    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    
+    /* Group Styles */
+    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
+    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
+    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; }
+    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1350" height="270" class="bg" />
+  <rect width="1348" height="268" x="1" y="1" class="border-stroke" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia Runtime Boot Phase Lifecycle</text>
+  </g>
+  
+  
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="140" width="190" height="90" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="30" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="46" y="164" class="node-text-title">1. CONFIGURING</text>
+    
+    <!-- Description -->
+    <text x="46" y="182" class="node-text-desc">Injects workspace root</text><text x="46" y="197" class="node-text-desc">to sys.path; loads</text><text x="46" y="212" class="node-text-desc">workspace.py config</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="46" y="208" width="40" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="66.0" y="218" text-anchor="middle">START</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="250" y="140" width="190" height="90" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="250" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="266" y="164" class="node-text-title">2. DISCOVERING</text>
+    
+    <!-- Description -->
+    <text x="266" y="182" class="node-text-desc">PackageScanner scans</text><text x="266" y="197" class="node-text-desc">modules; imports all</text><text x="266" y="212" class="node-text-desc">module manifests</text>
+    
+    <!-- Badge -->
+    
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="470" y="140" width="190" height="90" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="470" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="486" y="164" class="node-text-title">3. BOOTSTRAPPING</text>
+    
+    <!-- Description -->
+    <text x="486" y="182" class="node-text-desc">Initializes server,</text><text x="486" y="197" class="node-text-desc">DI container graph,</text><text x="486" y="212" class="node-text-desc">and registers routes</text>
+    
+    <!-- Badge -->
+    
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="690" y="140" width="190" height="90" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="690" y="140" width="4" height="90" rx="2" fill="url(#blueGrad)" />
+    
+    <!-- Title -->
+    <text x="706" y="164" class="node-text-title">4. READY / ASGI L.</text>
+    
+    <!-- Description -->
+    <text x="706" y="182" class="node-text-desc">Triggers startup hooks;</text><text x="706" y="197" class="node-text-desc">DI constructs</text><text x="706" y="212" class="node-text-desc">singleton services</text>
+    
+    <!-- Badge -->
+    
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="910" y="140" width="190" height="90" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="910" y="140" width="4" height="90" rx="2" fill="url(#emeraldGrad)" />
+    
+    <!-- Title -->
+    <text x="926" y="164" class="node-text-title">5. RUNNING</text>
+    
+    <!-- Description -->
+    <text x="926" y="182" class="node-text-desc">ASGI server starts;</text><text x="926" y="197" class="node-text-desc">handles connection</text><text x="926" y="212" class="node-text-desc">events and routes</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="926" y="208" width="46" height="14" fill="url(#emeraldGrad)" />
+    <text class="badge-text" x="949.0" y="218" text-anchor="middle">UPTIME</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1130" y="140" width="190" height="90" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="1130" y="140" width="4" height="90" rx="2" fill="url(#roseGrad)" />
+    
+    <!-- Title -->
+    <text x="1146" y="164" class="node-text-title">6. SHUTTING DOWN</text>
+    
+    <!-- Description -->
+    <text x="1146" y="182" class="node-text-desc">Triggers shutdown hooks;</text><text x="1146" y="197" class="node-text-desc">tears down DI resources,</text><text x="1146" y="212" class="node-text-desc">flushes tasks</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1146" y="208" width="34" height="14" fill="url(#roseGrad)" />
+    <text class="badge-text" x="1163.0" y="218" text-anchor="middle">STOP</text>
+        
+  </g>
+<line x1="220" y1="185" x2="250" y2="185" class="connection-line" />
+<line x1="440" y1="185" x2="470" y2="185" class="connection-line" />
+<line x1="660" y1="185" x2="690" y2="185" class="connection-line" />
+<line x1="900" y1="185" x2="910" y2="185" class="connection-line" />
+<line x1="1100" y1="185" x2="1130" y2="185" class="connection-line" />
+</svg>

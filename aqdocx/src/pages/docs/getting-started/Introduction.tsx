@@ -167,7 +167,7 @@ export function IntroductionPage() {
             <div>
               <h3 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Who is it for?</h3>
               <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Teams building data-intensive applications who want the speed of modern async Python without the fragility of micro-frameworks or the bloat of legacy monoliths.
+                Teams building production APIs who want clean architecture, auto-discovery, and built-in deployment tooling without the wiring boilerplate of microframeworks or the bloat of legacy monoliths.
               </p>
             </div>
           </div>

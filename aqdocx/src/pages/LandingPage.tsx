@@ -71,12 +71,12 @@ export function LandingPage() {
                 </motion.div>
 
                 <motion.h1 variants={itemVariants} className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 leading-tight w-full">
-                  The speed of a microframework.<br />
-                  <span className="gradient-text relative inline-block">The reliability</span> of an enterprise engine.
+                  The Python framework<br />
+                  for teams building <span className="gradient-text relative inline-block">production APIs</span>.
                 </motion.h1>
 
                 <motion.p variants={itemVariants} className={`mt-4 text-base mb-6 leading-relaxed max-w-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Stop choosing between developer velocity and production stability. Aquilia’s Manifest-First, async-native architecture removes routing and deployment boilerplate so you can build, test, and ship faster — with production manifests and ML deployment generated automatically.
+                  Write controllers and services. Aquilia discovers everything, manages its own architecture, and deploys itself. You do not touch most framework-managed files.
                 </motion.p>
 
                 <motion.div variants={itemVariants} className="space-y-2 mb-8">

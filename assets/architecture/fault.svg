@@ -1,0 +1,183 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 270" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Drop Shadow Filter -->
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    </filter>
+    
+    <!-- Accent Gradients -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" />
+      <stop offset="100%" stop-color="#a78bfa" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e11d48" />
+      <stop offset="100%" stop-color="#fb7185" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+
+    <!-- Arrow Markers -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
+    </marker>
+    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+    </marker>
+    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
+    </marker>
+  </defs>
+
+  <style>
+    .bg { fill: #070a13; rx: 12px; }
+    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    
+    /* Card Styles */
+    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
+    .card-bg:hover { stroke: #38bdf8; }
+    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
+    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    
+    /* Group Styles */
+    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
+    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
+    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; }
+    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1280" height="270" class="bg" />
+  <rect width="1278" height="268" x="1" y="1" class="border-stroke" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia Structured Fault and Exception Lifecycle</text>
+  </g>
+  
+  
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="140" width="220" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="30" y="140" width="4" height="95" rx="2" fill="url(#roseGrad)" />
+    
+    <!-- Title -->
+    <text x="46" y="164" class="node-text-title">Exception Raised</text>
+    
+    <!-- Description -->
+    <text x="46" y="182" class="node-text-desc">Uncaught runtime or</text><text x="46" y="197" class="node-text-desc">custom exception inside</text><text x="46" y="212" class="node-text-desc">controller handler</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="46" y="213" width="76" height="14" fill="url(#roseGrad)" />
+    <text class="badge-text" x="84.0" y="223" text-anchor="middle">ERROR STATE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="280" y="140" width="220" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="280" y="140" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    
+    <!-- Title -->
+    <text x="296" y="164" class="node-text-title">ExceptionMiddleware</text>
+    
+    <!-- Description -->
+    <text x="296" y="182" class="node-text-desc">Catches all failures;</text><text x="296" y="197" class="node-text-desc">initiates mapping</text><text x="296" y="212" class="node-text-desc">to structured Fault</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="296" y="213" width="76" height="14" fill="url(#slateGrad)" />
+    <text class="badge-text" x="334.0" y="223" text-anchor="middle">INTERCEPTOR</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="530" y="140" width="220" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="530" y="140" width="4" height="95" rx="2" fill="url(#violetGrad)" />
+    
+    <!-- Title -->
+    <text x="546" y="164" class="node-text-title">FaultEngine Mapping</text>
+    
+    <!-- Description -->
+    <text x="546" y="182" class="node-text-desc">Resolves Exception</text><text x="546" y="197" class="node-text-desc">domain (Security, DB,</text><text x="546" y="212" class="node-text-desc">Cache) and maps handler</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="546" y="213" width="82" height="14" fill="url(#violetGrad)" />
+    <text class="badge-text" x="587.0" y="223" text-anchor="middle">FAULT DOMAIN</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="780" y="140" width="220" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="780" y="140" width="4" height="95" rx="2" fill="url(#amberGrad)" />
+    
+    <!-- Title -->
+    <text x="796" y="164" class="node-text-title">Fault Severity</text>
+    
+    <!-- Description -->
+    <text x="796" y="182" class="node-text-desc">Checks recovery path;</text><text x="796" y="197" class="node-text-desc">logs critical alerts;</text><text x="796" y="212" class="node-text-desc">determines public disclosure</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="796" y="213" width="58" height="14" fill="url(#amberGrad)" />
+    <text class="badge-text" x="825.0" y="223" text-anchor="middle">ANALYZER</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1030" y="140" width="220" height="95" class="card-bg" />
+    
+    <!-- Accent Left Line -->
+    <rect x="1030" y="140" width="4" height="95" rx="2" fill="url(#blueGrad)" />
+    
+    <!-- Title -->
+    <text x="1046" y="164" class="node-text-title">DebugPageRenderer</text>
+    
+    <!-- Description -->
+    <text x="1046" y="182" class="node-text-desc">Generates public JSON</text><text x="1046" y="197" class="node-text-desc">or visual rich HTML</text><text x="1046" y="212" class="node-text-desc">debug template page</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1046" y="213" width="58" height="14" fill="url(#blueGrad)" />
+    <text class="badge-text" x="1075.0" y="223" text-anchor="middle">RESPONSE</text>
+        
+  </g>
+<line x1="250" y1="185" x2="280" y2="185" class="connection-error" />
+<line x1="500" y1="185" x2="530" y2="185" class="connection-error" />
+<line x1="750" y1="185" x2="780" y2="185" class="connection-error" />
+<line x1="1000" y1="185" x2="1030" y2="185" class="connection-error" />
+</svg>
