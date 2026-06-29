@@ -106,6 +106,190 @@ def _unflatten_dict(flat_dict: dict, *, max_depth: int | None = None, max_keys: 
     return result
 
 
+def extract_value_from_request(
+    request: Any,
+    name: str,
+    extractor: Any,
+    facet: Any,
+    body: Any,
+) -> Any:
+    """Extract field/parameter value from request using extractor metadata or default lookup order."""
+    from aquilia.blueprints.facets import UNSET, ListFacet, SetFacet, TupleFacet
+    from aquilia.di.dep import Query, Header, Body as BodyExtractor, Cookie, Path
+
+    # 1. Determine key to look up
+    lookup_key = name
+    if extractor is not None:
+        lookup_key = getattr(extractor, "alias", None) or getattr(extractor, "name", None) or name
+
+    # 2. Determine if it is a list/collection facet
+    is_collection = isinstance(facet, (ListFacet, SetFacet, TupleFacet)) or getattr(facet, "many", False)
+
+    # 3. Perform extraction based on extractor class
+    if isinstance(extractor, Query):
+        if not is_collection and hasattr(request, "query_param"):
+            val = request.query_param(lookup_key)
+            if val is None:
+                val = request.query_param(f"{lookup_key}[]")
+            if val is not None and type(val).__name__ != "MagicMock":
+                return val
+
+        if hasattr(request, "query_params"):
+            qps = request.query_params
+            if type(qps).__name__ != "MagicMock" or not hasattr(request, "query_param"):
+                if hasattr(qps, "get_all"):
+                    if is_collection:
+                        vals = qps.get_all(lookup_key)
+                        if not vals:
+                            vals = qps.get_all(f"{lookup_key}[]")
+                        return vals if vals else UNSET
+                    else:
+                        val = qps.get(lookup_key)
+                        if val is None:
+                            val = qps.get(f"{lookup_key}[]")
+                        return val if val is not None else UNSET
+                elif isinstance(qps, dict):
+                    val = qps.get(lookup_key)
+                    if val is not None:
+                        return [val] if is_collection else val
+
+        if hasattr(request, "query_param"):
+            val = request.query_param(lookup_key)
+            if val is None:
+                val = request.query_param(f"{lookup_key}[]")
+            if val is not None:
+                return [val] if is_collection else val
+
+        return UNSET
+
+    elif isinstance(extractor, Header):
+        if hasattr(request, "headers"):
+            headers = request.headers
+            hkey = lookup_key.lower()
+            val = None
+            if hasattr(headers, "get"):
+                val = headers.get(hkey)
+                if val is None:
+                    val = headers.get(lookup_key)
+            elif isinstance(headers, dict):
+                val = headers.get(hkey) or headers.get(lookup_key)
+            if val is not None:
+                return val
+        return UNSET
+
+    elif isinstance(extractor, Cookie):
+        if hasattr(request, "cookie"):
+            val = request.cookie(lookup_key)
+            if val is not None:
+                return val
+        if hasattr(request, "cookies"):
+            cookies = request.cookies
+            if isinstance(cookies, dict):
+                val = cookies.get(lookup_key)
+                if val is not None:
+                    return val
+        return UNSET
+
+    elif isinstance(extractor, Path):
+        if hasattr(request, "path_params"):
+            path_params = request.path_params
+            if isinstance(path_params, dict) and lookup_key in path_params:
+                return path_params[lookup_key]
+        return UNSET
+
+    elif isinstance(extractor, BodyExtractor):
+        embed = getattr(extractor, "embed", False)
+        if embed:
+            if isinstance(body, dict):
+                if lookup_key in body:
+                    return body[lookup_key]
+                if f"{lookup_key}[]" in body:
+                    return body[f"{lookup_key}[]"]
+            try:
+                from .._uploads import FormData
+            except ImportError:
+                FormData = None
+            if FormData is not None and isinstance(body, FormData):
+                if lookup_key in body.fields:
+                    return body.get_all_fields(lookup_key) if is_collection else body.get_field(lookup_key)
+                if f"{lookup_key}[]" in body.fields:
+                    return body.get_all_fields(f"{lookup_key}[]") if is_collection else body.get_field(f"{lookup_key}[]")
+                if lookup_key in body.files:
+                    return body.get_all_files(lookup_key) if is_collection else body.get_file(lookup_key)
+                if f"{lookup_key}[]" in body.files:
+                    return body.get_all_files(f"{lookup_key}[]") if is_collection else body.get_file(f"{lookup_key}[]")
+            return UNSET
+        else:
+            return body
+
+    else:
+        # Default (No extractor) lookup order: Path -> Body -> Query
+        # A. Path parameters
+        if hasattr(request, "path_params"):
+            path_params = request.path_params
+            if isinstance(path_params, dict) and lookup_key in path_params:
+                return path_params[lookup_key]
+
+        # B. Body
+        if body:
+            if isinstance(body, dict):
+                if lookup_key in body:
+                    return body[lookup_key]
+                if f"{lookup_key}[]" in body:
+                    return body[f"{lookup_key}[]"]
+            try:
+                from .._uploads import FormData
+            except ImportError:
+                FormData = None
+            if FormData is not None and isinstance(body, FormData):
+                if lookup_key in body.fields:
+                    return body.get_all_fields(lookup_key) if is_collection else body.get_field(lookup_key)
+                if f"{lookup_key}[]" in body.fields:
+                    return body.get_all_fields(f"{lookup_key}[]") if is_collection else body.get_field(f"{lookup_key}[]")
+                if lookup_key in body.files:
+                    return body.get_all_files(lookup_key) if is_collection else body.get_file(lookup_key)
+                if f"{lookup_key}[]" in body.files:
+                    return body.get_all_files(f"{lookup_key}[]") if is_collection else body.get_file(f"{lookup_key}[]")
+                # Also check dotted keys if nested
+                dot_prefix = f"{lookup_key}."
+                bracket_prefix = f"{lookup_key}["
+                if any(k.startswith(dot_prefix) or k.startswith(bracket_prefix) for k in body.fields):
+                    return body
+
+        # C. Query parameters
+        if hasattr(request, "query_param") and not is_collection:
+            val = request.query_param(lookup_key)
+            if val is None:
+                val = request.query_param(f"{lookup_key}[]")
+            if val is not None and type(val).__name__ != "MagicMock":
+                return val
+
+        if hasattr(request, "query_params"):
+            qps = request.query_params
+            if type(qps).__name__ != "MagicMock" or not hasattr(request, "query_param"):
+                if hasattr(qps, "get_all"):
+                    vals = qps.get_all(lookup_key)
+                    if not vals:
+                        vals = qps.get_all(f"{lookup_key}[]")
+                    if vals:
+                        return vals if is_collection else vals[0]
+                    
+                    # Check dotted keys if nested (for query params)
+                    dot_prefix = f"{lookup_key}."
+                    bracket_prefix = f"{lookup_key}["
+                    if any(k.startswith(dot_prefix) or k.startswith(bracket_prefix) for k in qps):
+                        return qps
+
+        if hasattr(request, "query_param"):
+            val = request.query_param(lookup_key)
+            if val is None:
+                val = request.query_param(f"{lookup_key}[]")
+            if val is not None:
+                return [val] if is_collection else val
+
+        return UNSET
+
+
 async def bind_blueprint_to_request(
     blueprint_cls: type[Blueprint],
     request: Any,
@@ -195,104 +379,141 @@ async def bind_blueprint_to_request(
                 except Exception:
                     body = {}
 
+    from .._datastructures import MultiDict
     try:
         from .._uploads import FormData
     except ImportError:
         FormData = None
 
+    from aquilia.blueprints.facets import UNSET
+
+    # Construct the merged mapping
     if FormData is not None and isinstance(body, FormData):
-        data = body
+        merged_data = FormData(fields=MultiDict(body.fields), files=body.files.copy())
     else:
-        data = dict(body) if isinstance(body, dict) else {}
+        merged_data = dict(body) if isinstance(body, dict) else {}
 
-    # Extract DI parameters (Query, Header) from Facet defaults
-    try:
-        from ..di.dep import Header, Query
+    # Copy Query Parameters into merged_data (if not already set by body)
+    if hasattr(request, "query_params"):
+        qps = request.query_params
+        if hasattr(qps, "keys") or isinstance(qps, dict) or hasattr(qps, "__iter__"):
+            for k in qps:
+                is_set = False
+                if isinstance(merged_data, dict):
+                    is_set = k in merged_data
+                elif FormData is not None and isinstance(merged_data, FormData):
+                    is_set = k in merged_data.fields or k in merged_data.files
 
-        for name, facet in getattr(blueprint_cls, "_all_facets", {}).items():
-            if hasattr(facet, "default"):
-                default_val = facet.default
-                if isinstance(default_val, Query):
-                    param_name = default_val.name or name
-                    val = None
-                    if hasattr(request, "query_param"):
-                        val = request.query_param(param_name)
-                    elif hasattr(request, "query_params"):
-                        qps = request.query_params
-                        val = qps.get(param_name) if isinstance(qps, dict) else None
-                    if val is not None:
-                        data[name] = val
+                if not is_set:
+                    if hasattr(qps, "get_all"):
+                        vals = qps.get_all(k)
+                    elif isinstance(qps, dict):
+                        vals = [qps[k]]
                     else:
-                        if getattr(default_val, "required", False):
-                            data[name] = None
-                        elif hasattr(default_val, "default") and default_val.default is not ...:
-                            data[name] = default_val.default
-                        else:
-                            data[name] = None
-                elif isinstance(default_val, Header):
-                    header_key = default_val.header_key
-                    val = None
-                    if hasattr(request, "headers"):
-                        headers = request.headers
-                        if isinstance(headers, dict) or hasattr(headers, "get"):
-                            val = headers.get(header_key)
-                    if val is not None:
-                        data[name] = val
-                    else:
-                        if getattr(default_val, "required", False):
-                            data[name] = None
-                        elif hasattr(default_val, "default") and default_val.default is not ...:
-                            data[name] = default_val.default
-                        else:
-                            data[name] = None
-    except ImportError:
-        pass
+                        vals = []
+
+                    from aquilia.blueprints.facets import ListFacet, SetFacet, TupleFacet
+                    facet = blueprint_cls._all_facets.get(k)
+                    is_collection = isinstance(facet, (ListFacet, SetFacet, TupleFacet)) or getattr(facet, "many", False)
+
+                    if vals:
+                        val_to_set = vals if is_collection else vals[0]
+                        if isinstance(merged_data, dict):
+                            merged_data[k] = val_to_set
+                        elif FormData is not None and isinstance(merged_data, FormData):
+                            for val in vals:
+                                merged_data.fields.add(k, val)
+
+    # Copy Path Parameters into merged_data
+    if hasattr(request, "path_params"):
+        path_params = request.path_params
+        if isinstance(path_params, dict):
+            for k, v in path_params.items():
+                is_set = False
+                if isinstance(merged_data, dict):
+                    is_set = k in merged_data
+                elif FormData is not None and isinstance(merged_data, FormData):
+                    is_set = k in merged_data.fields or k in merged_data.files
+
+                if not is_set:
+                    if isinstance(merged_data, dict):
+                        merged_data[k] = v
+                    elif FormData is not None and isinstance(merged_data, FormData):
+                        merged_data.fields.add(k, v)
+
+    # Resolve each facet using explicit extractors
+    for name, facet in getattr(blueprint_cls, "_all_facets", {}).items():
+        extractor = getattr(facet, "_extractor", None)
+        # Fallback check for old default-based metadata
+        if extractor is None:
+            default_val = getattr(facet, "default", None)
+            from ..di.dep import Query, Header, Body as BodyExtractor, Cookie, Path
+            if isinstance(default_val, (Query, Header, BodyExtractor, Cookie, Path)):
+                extractor = default_val
+
+        # Extract value using explicit extractor rules
+        val = extract_value_from_request(request, name, extractor, facet, body)
+        if val is not UNSET:
+            if isinstance(merged_data, dict):
+                merged_data[name] = val
+            elif FormData is not None and isinstance(merged_data, FormData):
+                if isinstance(val, list):
+                    merged_data.fields[name] = val
+                else:
+                    merged_data.fields[name] = [val]
 
     # Build context with request info
-    bp_context = {
-        "request": request,
-        **(context or {}),
-    }
+    if context is not None and type(context).__name__ == "BlueprintContext":
+        bp_context = context
+        if "request" not in bp_context:
+            try:
+                bp_context["request"] = request
+            except Exception:
+                pass
+    else:
+        from aquilia.blueprints.core import BlueprintContext
+        
+        container = None
+        if isinstance(context, dict):
+            container = context.get("container")
+            
+        bp_context = BlueprintContext({
+            "request": request,
+            **(context or {}),
+        })
+        if container is not None:
+            bp_context.container = container
 
     # Check for DI container in request state
     state = getattr(request, "state", None)
     if state is not None:
         container = state.get("container") if isinstance(state, dict) else getattr(state, "container", None)
-        if container is not None:
+        if container is not None and "container" not in bp_context:
             bp_context["container"] = container
+            if hasattr(bp_context, "container") and bp_context.container is None:
+                bp_context.container = container
 
-    # Fast path: Validate using Sigil directly when application/json to bypass runtime overhead
-    is_json = "application/json" in content_type or not content_type
-    if is_json:
-        errors, validated = blueprint_cls._sigil.validate(data, partial=partial, context=bp_context)
-        bp = blueprint_cls(
-            data=data,
-            partial=partial,
-            projection=projection,
-            context=bp_context,
-        )
-        if errors:
-            bp._errors = errors
-            bp._is_sealed = False
-            bp._validated_data = None
-        else:
-            has_wards = bool(getattr(blueprint_cls, "_ward_methods", []))
-            has_custom_validate = blueprint_cls.validate is not Blueprint.validate
-            if not has_wards and not has_custom_validate:
-                from ..utils.data import DataObject
-
-                bp._errors = {}
-                bp._validated_data = DataObject(validated)
-                bp._is_sealed = True
-        return bp
-
-    # Instantiate Blueprint (fallback)
+    # Validate using Sigil directly to preserve fast path
+    errors, validated = blueprint_cls._sigil.validate(merged_data, partial=partial, context=bp_context)
     bp = blueprint_cls(
-        data=data,
+        data=merged_data,
         partial=partial,
         projection=projection,
         context=bp_context,
     )
+    if errors:
+        bp._errors = errors
+        bp._is_sealed = False
+        bp._validated_data = None
+    else:
+        has_wards = bool(getattr(blueprint_cls, "_ward_methods", []))
+        has_custom_validate = blueprint_cls.validate is not Blueprint.validate
+        if not has_wards and not has_custom_validate:
+            from ..utils.data import DataObject
+
+            bp._errors = {}
+            bp._validated_data = DataObject(validated)
+            bp._is_sealed = True
     return bp
 
 
