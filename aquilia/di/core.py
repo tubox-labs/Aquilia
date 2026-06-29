@@ -497,6 +497,16 @@ class Container:
         token_key = self._token_to_key(token)
         return self._lookup_provider(token_key, tag) is not None
 
+    def add_diagnostic_listener(self, listener: "DiagnosticListener") -> None:
+        """Register a diagnostic listener on this container's event stream.
+
+        Request-scoped child containers share their parent's ``DIDiagnostics``
+        instance (see ``create_request_scope``), so registering once on an
+        app-level container is sufficient to observe every request scoped
+        beneath it.
+        """
+        self._diagnostics.add_listener(listener)
+
     def create_request_scope(self) -> "Container":
         """
         Create a request-scoped child container (very cheap).
