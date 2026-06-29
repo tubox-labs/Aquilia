@@ -1657,7 +1657,16 @@ class ControllerEngine:
         """
         if isinstance(result, Response):
             return result
-        elif isinstance(result, (dict, list, tuple)):
+
+        try:
+            from aquilia.sse import SSEResponse
+
+            if isinstance(result, SSEResponse):
+                return Response.sse(result._resolve_source(), status=result._status)
+        except ImportError:
+            pass
+
+        if isinstance(result, (dict, list, tuple)):
             return Response.json(result)
         elif isinstance(result, str):
             return Response(result, media_type="text/plain")
