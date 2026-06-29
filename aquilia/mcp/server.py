@@ -126,6 +126,11 @@ class AquiliaMCPServer:
     def serve_stdio(self) -> None:
         StdioTransport(self, max_request_bytes=self.config.max_request_bytes).serve()
 
+    def serve_socket(self) -> None:
+        from .transport.socket import SocketTransport
+
+        SocketTransport(self, host=self.config.host, port=self.config.port).serve()
+
 
 def _compact_text(data: dict[str, Any]) -> str:
     import json

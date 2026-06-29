@@ -17,7 +17,9 @@ class MCPConfig:
     max_results: int = 12
     max_read_bytes: int = 256_000
     max_request_bytes: int = 1_000_000
-    read_only: bool = True
+    host: str = "127.0.0.1"
+    port: int = 8765
+    transport: str = "stdio"  # "stdio" or "socket"
     server_name: str = "aquilia-mcp"
 
     def __post_init__(self) -> None:
@@ -55,7 +57,14 @@ class MCPConfig:
             raise ConfigInvalidFault(key="mcp.max_request_bytes", reason="Must be at least 1024 bytes")
 
     @classmethod
-    def from_workspace(cls, workspace: str | Path | None = None, index: str | Path | None = None) -> MCPConfig:
+    def from_workspace(
+        cls,
+        workspace: str | Path | None = None,
+        index: str | Path | None = None,
+        host: str = "127.0.0.1",
+        port: int = 8765,
+        transport: str = "stdio",
+    ) -> MCPConfig:
         root = Path(workspace) if workspace is not None else Path.cwd()
         index_path = Path(index) if index is not None else None
-        return cls(root=root, index_path=index_path)
+        return cls(root=root, index_path=index_path, host=host, port=port, transport=transport)

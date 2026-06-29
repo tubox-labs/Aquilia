@@ -36,14 +36,16 @@ class StdioTransport:
     def serve(self) -> None:
         # Print beautiful startup messages to stderr (so it doesn't corrupt stdout JSON-RPC)
         sys.stderr.write("\n")
-        sys.stderr.write("   \033[1;36m┌────────────────────────────────────────────────────────┐\033[0m\n")
-        sys.stderr.write("   \033[1;36m│\033[0m  🚀  \033[1;32mAquilia MCP Server Started\033[0m                        \033[1;36m│\033[0m\n")
-        sys.stderr.write(f"   \033[1;36m│\033[0m  📁  Workspace: \033[33m{self.server.config.root}\033[0m   \033[1;36m│\033[0m\n")
-        sys.stderr.write(f"   \033[1;36m│\033[0m  🛠️   Tools:     \033[1;35m{len(self.server.registry.list_tools())}\033[0m tools available         \033[1;36m│\033[0m\n")
-        sys.stderr.write(f"   \033[1;36m│\033[0m  📝  Prompts:   \033[1;35m{len(self.server.registry.list_prompts())}\033[0m prompts available       \033[1;36m│\033[0m\n")
-        sys.stderr.write("   \033[1;36m│\033[0m  💡  \033[36mServing over STDIO. Press Ctrl+C to stop.\033[0m         \033[1;36m│\033[0m\n")
-        sys.stderr.write("   \033[1;36m└────────────────────────────────────────────────────────┘\033[0m\n")
-        sys.stderr.write("\n")
+        sys.stderr.write("   ========================================================\n")
+        sys.stderr.write("   AQUILIA MCP SERVER STARTED\n")
+        sys.stderr.write("   ========================================================\n")
+        sys.stderr.write(f"   Workspace:  {self.server.config.root}\n")
+        sys.stderr.write(f"   Tools:      {len(self.server.registry.list_tools())} active\n")
+        sys.stderr.write(f"   Prompts:    {len(self.server.registry.list_prompts())} active\n")
+        sys.stderr.write("   Transport:  STDIO\n")
+        sys.stderr.write("   Status:     Listening for JSON-RPC frames...\n")
+        sys.stderr.write("   ========================================================\n")
+        sys.stderr.write("   Press Ctrl+C to stop.\n\n")
         sys.stderr.flush()
 
         old_sigint = None
@@ -81,8 +83,8 @@ class StdioTransport:
                 with _suppress_signal_error():
                     signal.signal(signal.SIGTERM, old_sigterm)
 
-            sys.stderr.write("\n\033[1;31m🛑 Aquilia MCP Server shutting down gracefully...\033[0m\n")
-            sys.stderr.write("\033[1;32m👋 Goodbye!\033[0m\n\n")
+            sys.stderr.write("\n   Aquilia MCP Server shutting down...\n")
+            sys.stderr.write("   Server terminated.\n\n")
             sys.stderr.flush()
 
     def handle_line(self, line: str) -> dict[str, Any] | None:
