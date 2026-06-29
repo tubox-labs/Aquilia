@@ -28,7 +28,7 @@ async def test_standalone_ui_accessible_in_debug_without_auth():
         client = TestClient(server.app)
         response = await client.get("/__aquilia__/inspector/")
         assert response.status_code == 200
-        assert b"Request Inspector" in response.body
+        assert b"Aquilia Inspector" in response.body
 
 
 @pytest.mark.asyncio
@@ -81,6 +81,6 @@ async def test_standalone_inspector_view_rendering():
 
         res = await ctrl.inspector_view(request, ctx)
         assert res.status == 200
-        assert b"Aquilia Request Inspector" in res._content
+        assert b"Aquilia Inspector" in res._content
     finally:
         ctrl_mod._secure_html_response = original_secure_html
