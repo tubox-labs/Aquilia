@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Test Generation**: Added `Blueprint.example()` for random schema-valid dictionary generation, and `Blueprint.strategy()` for Hypothesis integration.
 - **Discriminated Unions (`BlueprintUnion`)**: Support concrete type union validation (e.g. `Circle | Square`) with automated Literal or explicit `Spec.discriminator` dispatching.
 - **Form & File Uploads via Blueprints (`UploadFile` and `FormData`)**: Added first-class support for explicit and implicit file uploads and form inputs in Blueprints. Support includes single/multiple/optional file uploads, custom content types, size limits, primitive type castings, and nested blueprints for form/multipart data validation.
+- **Unified Request Input Resolution**: Centralized query parameters, cookies, path parameters, headers, and request bodies into a unified resolution layer (`extract_value_from_request`).
+- **Standardized DI Parameter Casting & New Facets**: Equipped RequestDAG and controller engine to dynamically resolve and cast parameters using `SetFacet`, `TupleFacet`, `EnumFacet`, and `BoolFacet` validation rules. Added `Cookie(...)` and `Path(...)` extraction support.
 
 ### Changed
 - **Zero Runtime Dependencies**: Completely migrated the Blueprints validation engine to pure-Python using only Python standard library modules.
