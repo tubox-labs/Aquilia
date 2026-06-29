@@ -17,8 +17,6 @@ from typing import TYPE_CHECKING, cast
 
 from .faults import Fault, FaultDomain
 from .faults.domains import HTTPFault
-from .request import Request
-from .response import Response
 from .typing.middleware import MiddlewareCallable, RequestHandler
 
 _FD_SECURITY = cast(FaultDomain, FaultDomain.SECURITY)
@@ -39,10 +37,22 @@ _FD_HTTP = cast(FaultDomain, FaultDomain.HTTP)
 
 if TYPE_CHECKING:
     from .controller.base import RequestCtx
+    from .request import Request
+    from .response import Response
 
-# Type alias for middleware - use string annotation to avoid circular import
 Handler = RequestHandler
-Middleware = MiddlewareCallable
+
+class Middleware:
+    """Base class for all framework and extension middlewares."""
+
+    async def __call__(
+        self,
+        request: Request,
+        ctx: RequestCtx,
+        next_handler: Handler,
+    ) -> Response:
+        raise NotImplementedError("Middleware must implement __call__")
+
 
 # Names of middleware that are safe to skip on the fast path.
 # Only non-essential (observability / timeout) middleware.
@@ -67,7 +77,7 @@ _FALLBACK_500_HTML = (
 class MiddlewareDescriptor:
     """Descriptor for middleware registration."""
 
-    middleware: Middleware
+    middleware: Any  # Can be a Middleware subclass or callable (for backward compatibility / function wrappers)
     scope: str  # "global", "app:name", "controller:name", "route:pattern"
     priority: int
     name: str
@@ -86,14 +96,50 @@ class MiddlewareStack:
 
     def add(
         self,
-        middleware: Middleware,
+        middleware: Any,
         scope: str = "global",
         priority: int = 50,
         name: str | None = None,
     ):
-        """Add middleware to stack."""
+        """Add middleware to stack.
+
+        Validates the middleware signature and inheritance.
+        """
+        import inspect
+
+        # 1. Validate inheritance requirements
+        if not isinstance(middleware, Middleware) and not inspect.isroutine(middleware):
+            # It's an object/instance of a class, but it does not inherit from Middleware!
+            raise TypeError(f"Middleware of type '{type(middleware).__name__}' must inherit from the 'Middleware' base class.")
+
+        # 2. Retrieve the callable function to inspect signature
+        if inspect.isroutine(middleware):
+            func = middleware
+        else:
+            func = getattr(middleware, "__call__", None)
+
+        if func is None:
+            raise TypeError(f"Middleware of type '{type(middleware).__name__}' must be callable.")
+
+        # 3. Validate signature accepts exactly three positional parameters
+        try:
+            sig = inspect.signature(func)
+            sig.bind(None, None, None)
+        except TypeError as e:
+            raise TypeError(
+                f"Middleware '{type(middleware).__name__ if not inspect.isroutine(middleware) else middleware.__name__}' "
+                f"has an invalid signature: {e}. It must accept exactly three parameters: (request, ctx, next_handler)."
+            )
+
+        # 4. Validate that the callable is a coroutine function (async def)
+        if not inspect.iscoroutinefunction(func):
+            raise TypeError(
+                f"Middleware '{type(middleware).__name__ if not inspect.isroutine(middleware) else middleware.__name__}' "
+                f"must be a coroutine function (async def)."
+            )
+
         if name is None:
-            name = middleware.__name__ if hasattr(middleware, "__name__") else "middleware"
+            name = middleware.__name__ if hasattr(middleware, "__name__") else type(middleware).__name__
 
         descriptor = MiddlewareDescriptor(
             middleware=middleware,
@@ -165,26 +211,61 @@ class MiddlewareStack:
 
         return handler
 
-    def _wrap_middleware(self, middleware: Middleware, next_handler: Handler) -> Handler:
+    def _wrap_middleware(self, middleware: Any, next_handler: Handler) -> Handler:
         """Wrap a handler with middleware."""
+        from .response import Response
 
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
-            return await middleware(request, ctx, next_handler)
+            res = await middleware(request, ctx, next_handler)
+            if res is None:
+                raise RuntimeError(
+                    f"Middleware '{type(middleware).__name__}' returned None instead of a Response object. "
+                    "Make sure the middleware is not missing a return statement or forgot to await next_handler."
+                )
+            if not isinstance(res, Response):
+                raise TypeError(
+                    f"Middleware '{type(middleware).__name__}' returned invalid type '{type(res).__name__}' "
+                    "instead of a Response object."
+                )
+            return res
 
         return wrapped
 
     def _wrap_middleware_traced(self, desc: MiddlewareDescriptor, next_handler: Handler) -> Handler:
         """Wrap a handler with traced middleware execution."""
+        from .response import Response
 
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
             from .inspector.trace import current_trace
 
             trace = current_trace()
             if trace is None:
-                return await desc.middleware(request, ctx, next_handler)
+                res = await desc.middleware(request, ctx, next_handler)
+                if res is None:
+                    raise RuntimeError(
+                        f"Middleware '{desc.name}' returned None instead of a Response object. "
+                        "Make sure the middleware is not missing a return statement or forgot to await next_handler."
+                    )
+                if not isinstance(res, Response):
+                    raise TypeError(
+                        f"Middleware '{desc.name}' returned invalid type '{type(res).__name__}' "
+                        "instead of a Response object."
+                    )
+                return res
             t0 = time.monotonic()
             try:
-                return await desc.middleware(request, ctx, next_handler)
+                res = await desc.middleware(request, ctx, next_handler)
+                if res is None:
+                    raise RuntimeError(
+                        f"Middleware '{desc.name}' returned None instead of a Response object. "
+                        "Make sure the middleware is not missing a return statement or forgot to await next_handler."
+                    )
+                if not isinstance(res, Response):
+                    raise TypeError(
+                        f"Middleware '{desc.name}' returned invalid type '{type(res).__name__}' "
+                        "instead of a Response object."
+                    )
+                return res
             finally:
                 dt = (time.monotonic() - t0) * 1000.0
                 trace.add_span(
@@ -200,7 +281,7 @@ class MiddlewareStack:
 # Default middleware implementations
 
 
-class RequestIdMiddleware:
+class RequestIdMiddleware(Middleware):
     """Adds unique request ID to each request.
 
     Uses os.urandom (16 bytes hex) which is ~4× faster than uuid.uuid4().
@@ -214,7 +295,7 @@ class RequestIdMiddleware:
 
         self._urandom = os.urandom
 
-    async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         # Scan raw ASGI headers directly (avoids building Headers object)
         request_id = None
         target = self._header_name_bytes
@@ -229,12 +310,12 @@ class RequestIdMiddleware:
         request.state["request_id"] = request_id
         ctx.request_id = request_id
 
-        response = await next(request, ctx)
+        response = await next_handler(request, ctx)
         response.headers[self.header_name] = request_id
         return response
 
 
-class ExceptionMiddleware:
+class ExceptionMiddleware(Middleware):
     """Catches exceptions and converts them to error responses.
 
     When ``debug=True`` and the request ``Accept`` header includes
@@ -267,6 +348,7 @@ class ExceptionMiddleware:
 
     def _html_response(self, body: str, status: int) -> Response:
         """Build an HTML response from rendered page string."""
+        from .response import Response
         return Response(
             content=body.encode("utf-8"),
             status=status,
@@ -316,9 +398,10 @@ class ExceptionMiddleware:
     # Main handler
     # ------------------------------------------------------------------
 
-    async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
+        from .response import Response
         try:
-            return await next(request, ctx)
+            return await next_handler(request, ctx)
 
         except PermissionError as e:
             # Forbidden -- 403
@@ -502,39 +585,7 @@ class ExceptionMiddleware:
             return Response.json({"error": "Internal server error"}, status=500)
 
 
-class LoggingMiddleware:
-    """Logs request/response with timing.
-
-    Performance (v2):
-    - Checks logger.isEnabledFor(INFO) once; skips all work if disabled.
-    - Only formats strings when actually logging.
-    - Skips per-request 'extra' dict allocation when not needed.
-    """
-
-    def __init__(self):
-        self.logger = logging.getLogger("aquilia.requests")
-        self._log_enabled: bool = True  # Updated lazily
-
-    async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
-        if not self.logger.isEnabledFor(logging.INFO):
-            return await next(request, ctx)
-
-        start = time.monotonic()
-        response = await next(request, ctx)
-        elapsed_ms = (time.monotonic() - start) * 1000.0
-
-        if elapsed_ms > 1000:
-            self.logger.warning(
-                "Slow request: %s %s took %.1fms",
-                request.method,
-                request.path,
-                elapsed_ms,
-            )
-
-        return response
-
-
-class TimeoutMiddleware:
+class TimeoutMiddleware(Middleware):
     """Enforces request timeout.
 
     Raises ``RequestTimeoutFault`` on timeout so the exception flows
@@ -545,11 +596,11 @@ class TimeoutMiddleware:
     def __init__(self, timeout_seconds: float = 30.0):
         self.timeout = timeout_seconds
 
-    async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         import asyncio
 
         try:
-            return await asyncio.wait_for(next(request, ctx), timeout=self.timeout)
+            return await asyncio.wait_for(next_handler(request, ctx), timeout=self.timeout)
         except asyncio.TimeoutError:
             from .faults.domains import RequestTimeoutFault
 
@@ -558,77 +609,7 @@ class TimeoutMiddleware:
             ) from None
 
 
-class CORSMiddleware:
-    """Handles CORS headers."""
-
-    def __init__(
-        self,
-        allow_origins: list[str] | None = None,
-        allow_methods: list[str] | None = None,
-        allow_headers: list[str] | None = None,
-        allow_credentials: bool = False,
-        max_age: int = 3600,
-    ):
-        self.allow_origins = allow_origins or ["*"]
-        self.allow_methods = allow_methods or ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
-        self.allow_headers = allow_headers or ["*"]
-        self.allow_credentials = allow_credentials
-        self.max_age = max_age
-
-    async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
-        # Handle preflight
-        if request.method == "OPTIONS":
-            return self._preflight_response(request)
-
-        # Process request
-        response = await next(request, ctx)
-
-        # Add CORS headers
-        origin = request.header("origin")
-        if origin and self._is_allowed_origin(origin):
-            response.headers["access-control-allow-origin"] = origin
-        elif "*" in self.allow_origins:
-            response.headers["access-control-allow-origin"] = "*"
-
-        if self.allow_credentials:
-            response.headers["access-control-allow-credentials"] = "true"
-
-        return response
-
-    def _is_allowed_origin(self, origin: str) -> bool:
-        """Check if origin is allowed."""
-        return "*" in self.allow_origins or origin in self.allow_origins
-
-    def _preflight_response(self, request: Request) -> Response:
-        """Handle OPTIONS preflight request.
-
-        ARCH-11: Validates ``Access-Control-Request-Method`` against the
-        configured *allow_methods* list before echoing it back.  Returns
-        403 if the requested method is not allowed.
-        """
-        requested_method = request.header("access-control-request-method")
-        if requested_method and requested_method.upper() not in (m.upper() for m in self.allow_methods):
-            return Response(b"", status=403, headers={})
-
-        headers = {
-            "access-control-allow-methods": ", ".join(self.allow_methods),
-            "access-control-allow-headers": ", ".join(self.allow_headers),
-            "access-control-max-age": str(self.max_age),
-        }
-
-        origin = request.header("origin")
-        if origin and self._is_allowed_origin(origin):
-            headers["access-control-allow-origin"] = origin
-        elif "*" in self.allow_origins:
-            headers["access-control-allow-origin"] = "*"
-
-        if self.allow_credentials:
-            headers["access-control-allow-credentials"] = "true"
-
-        return Response(b"", status=204, headers=headers)
-
-
-class CompressionMiddleware:
+class CompressionMiddleware(Middleware):
     """Compresses response bodies.
 
     Performance (v3 — scalability):
@@ -643,10 +624,10 @@ class CompressionMiddleware:
 
         self._compress = _gzip.compress  # pre-bind for speed
 
-    async def __call__(self, request: Request, ctx: RequestCtx, next: Handler) -> Response:
+    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         import asyncio as _aio
 
-        response = await next(request, ctx)
+        response = await next_handler(request, ctx)
 
         # Check if client accepts gzip
         accept_encoding = request.header("accept-encoding", "") or ""
@@ -678,3 +659,8 @@ class CompressionMiddleware:
         response.headers["vary"] = "Accept-Encoding"
 
         return response
+
+
+# Import consolidated middlewares from their canonical locations for backward compatibility
+from .middleware_ext.logging import LoggingMiddleware
+from .middleware_ext.security import CORSMiddleware
