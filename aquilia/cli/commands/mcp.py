@@ -19,7 +19,9 @@ def mcp_group() -> None:
     """Run and manage the local Aquilia MCP server."""
 
 
-def _config(workspace: str | None, index: str | None = None, host: str = "127.0.0.1", port: int = 8765, transport: str = "stdio"):
+def _config(
+    workspace: str | None, index: str | None = None, host: str = "127.0.0.1", port: int = 8765, transport: str = "stdio"
+):
     from aquilia.mcp.config import MCPConfig
 
     return MCPConfig.from_workspace(workspace or ".", index, host=host, port=port, transport=transport)
@@ -33,6 +35,7 @@ def _load_index(config, *, force: bool = False):
 
 def _paths(workspace: str | None):
     from aquilia.mcp.config import MCPConfig
+
     cfg = MCPConfig.from_workspace(workspace or ".")
     mcp_dir = cfg.root / ".aquilia" / "mcp"
     mcp_dir.mkdir(parents=True, exist_ok=True)
@@ -49,12 +52,7 @@ def _find_mcp_processes() -> list[dict[str, Any]]:
                 pid, cpu, mem, comm, args = parts
                 if "python" in comm.lower() or "python" in args.lower():
                     if "aquilia.mcp" in args or "aquilia.cli mcp serve" in args or "mcp serve" in args:
-                        processes.append({
-                            "pid": int(pid),
-                            "cpu": cpu,
-                            "mem": mem,
-                            "command": args
-                        })
+                        processes.append({"pid": int(pid), "cpu": cpu, "mem": mem, "command": args})
     except Exception:
         pass
     return processes
@@ -72,12 +70,13 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
     pid_path, log_path, config = _paths(workspace)
 
     from aquilia.mcp.config import MCPConfig
+
     config = MCPConfig(
         root=config.root,
         index_path=Path(index_path) if index_path else config.index_path,
         host=host,
         port=port,
-        transport=transport
+        transport=transport,
     )
 
     if daemon:
@@ -104,12 +103,7 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
 
         log_file = open(log_path, "a")
         proc = subprocess.Popen(
-            args,
-            stdout=log_file,
-            stderr=log_file,
-            stdin=subprocess.DEVNULL,
-            close_fds=True,
-            start_new_session=True
+            args, stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL, close_fds=True, start_new_session=True
         )
         pid_path.write_text(str(proc.pid))
 
@@ -126,6 +120,7 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
         return
 
     from aquilia.mcp.server import AquiliaMCPServer
+
     index = _load_index(config)
     server = AquiliaMCPServer(config=config, index=index)
     if transport == "stdio":
@@ -143,7 +138,9 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
 @click.pass_context
 def start(ctx, workspace: str, transport: str, host: str, port: int, index_path: str | None) -> None:
     """Start the Aquilia MCP server in the background."""
-    ctx.invoke(serve, workspace=workspace, transport=transport, host=host, port=port, index_path=index_path, daemon=True)
+    ctx.invoke(
+        serve, workspace=workspace, transport=transport, host=host, port=port, index_path=index_path, daemon=True
+    )
 
 
 @mcp_group.command("stop")
@@ -225,7 +222,7 @@ def status(workspace: str) -> None:
     click.echo("========================================================")
     click.echo(f"Workspace:    {config.root}")
     if is_running:
-        click.echo(f"Status:       Active (Running)")
+        click.echo("Status:       Active (Running)")
         click.echo(f"PID:          {pid}")
         processes = _find_mcp_processes()
         mcp_proc = next((p for p in processes if p["pid"] == pid), None)
@@ -233,10 +230,11 @@ def status(workspace: str) -> None:
             click.echo(f"CPU Usage:    {mcp_proc['cpu']}%")
             click.echo(f"Memory Usage: {mcp_proc['mem']}%")
     else:
-        click.echo(f"Status:       Inactive (Stopped)")
+        click.echo("Status:       Inactive (Stopped)")
 
     try:
         from aquilia.mcp.context.indexer import load_index
+
         index = load_index(config.index_path)
         click.echo(f"Indexed:      {len(index.sources)} source files")
         click.echo(f"Fingerprint:  {index.fingerprint}")
@@ -260,7 +258,7 @@ def logs(workspace: str, lines: int, follow: bool) -> None:
 
     if not follow:
         try:
-            with open(log_path, "r") as f:
+            with open(log_path) as f:
                 content = f.readlines()
                 for line in content[-lines:]:
                     sys.stdout.write(line)
@@ -269,7 +267,7 @@ def logs(workspace: str, lines: int, follow: bool) -> None:
         return
 
     try:
-        with open(log_path, "r") as f:
+        with open(log_path) as f:
             f.seek(0, 2)
             click.echo("--- Streaming logs (Press Ctrl+C to stop) ---")
             while True:
@@ -338,8 +336,10 @@ def inspect(workspace: str, kill_pid: int | None) -> None:
 
     try:
         from aquilia.mcp.context.indexer import load_index
+
         index = load_index(config.index_path)
         from aquilia.mcp.server import AquiliaMCPServer
+
         server = AquiliaMCPServer(config=config, index=index)
 
         click.echo(f"Schema Version:   {index.metadata.get('schema_version', 1)}")

@@ -40,6 +40,7 @@ from aquilia.faults.domains import (
     CSRFViolationFault,
 )
 from aquilia.middleware import Middleware
+
 if TYPE_CHECKING:
     from aquilia.controller.base import RequestCtx
     from aquilia.request import Request
@@ -232,6 +233,7 @@ class CORSMiddleware(Middleware):
         headers["content-length"] = "0"
 
         from aquilia.response import Response
+
         return Response(b"", status=204, headers=headers)
 
     def _apply_cors_headers(self, response: Response, origin: str, allowed: bool) -> None:
@@ -548,6 +550,7 @@ class HTTPSRedirectMiddleware(Middleware):
             redirect_url += f"?{qs}"
 
         from aquilia.response import Response
+
         return Response(
             b"",
             status=self._status,
@@ -1063,6 +1066,7 @@ class CSRFMiddleware(Middleware):
     async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         """CSRF protection middleware handler."""
         from aquilia.response import Response
+
         # ── Step 1: Retrieve or generate token ───────────────────────────
         token = self._get_session_token(request)
         token_source = "session"

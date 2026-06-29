@@ -56,6 +56,7 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from aquilia.middleware import Middleware
+
 from .lazy import clear_lazy_context, set_lazy_context
 from .locale import negotiate_locale, normalize_locale, parse_locale
 

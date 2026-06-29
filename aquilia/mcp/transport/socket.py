@@ -9,8 +9,6 @@ import sys
 import threading
 from typing import Any
 
-from ..protocol import PARSE_ERROR, error_response, fault_to_error, parse_request, success_response
-
 
 class SocketTransport:
     """Read JSON-RPC requests from a TCP socket and write responses."""
@@ -33,7 +31,7 @@ class SocketTransport:
         sys.stderr.write(f"   Workspace:  {self.server.config.root}\n")
         sys.stderr.write(f"   Tools:      {len(self.server.registry.list_tools())} active\n")
         sys.stderr.write(f"   Prompts:    {len(self.server.registry.list_prompts())} active\n")
-        sys.stderr.write(f"   Transport:  SOCKET (TCP)\n")
+        sys.stderr.write("   Transport:  SOCKET (TCP)\n")
         sys.stderr.write(f"   Address:    {self.host}:{self.port}\n")
         sys.stderr.write("   Status:     Listening for connections...\n")
         sys.stderr.write("   ========================================================\n")
@@ -76,9 +74,9 @@ class SocketTransport:
                         self.clients.add(client_sock)
                     thread = threading.Thread(target=self._handle_client, args=(client_sock,), daemon=True)
                     thread.start()
-                except socket.timeout:
+                except TimeoutError:
                     continue
-                except (socket.error, ValueError):
+                except (OSError, ValueError):
                     break
         except (KeyboardInterrupt, SystemExit):
             self._stopping = True
@@ -120,6 +118,7 @@ class SocketTransport:
 
     def _handle_client(self, client_sock: socket.socket) -> None:
         from .stdio import StdioTransport
+
         stdio_helper = StdioTransport(self.server)
 
         buffer = ""

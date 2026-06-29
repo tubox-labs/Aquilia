@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, cast
 
 from .faults import Fault, FaultDomain
 from .faults.domains import HTTPFault
-from .typing.middleware import MiddlewareCallable, RequestHandler
+from .typing.middleware import RequestHandler
 
 _FD_SECURITY = cast(FaultDomain, FaultDomain.SECURITY)
 _FD_IO = cast(FaultDomain, FaultDomain.IO)
@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from .response import Response
 
 Handler = RequestHandler
+
 
 class Middleware:
     """Base class for all framework and extension middlewares."""
@@ -110,7 +111,9 @@ class MiddlewareStack:
         # 1. Validate inheritance requirements
         if not isinstance(middleware, Middleware) and not inspect.isroutine(middleware):
             # It's an object/instance of a class, but it does not inherit from Middleware!
-            raise TypeError(f"Middleware of type '{type(middleware).__name__}' must inherit from the 'Middleware' base class.")
+            raise TypeError(
+                f"Middleware of type '{type(middleware).__name__}' must inherit from the 'Middleware' base class."
+            )
 
         # 2. Retrieve the callable function to inspect signature
         if inspect.isroutine(middleware):
@@ -349,6 +352,7 @@ class ExceptionMiddleware(Middleware):
     def _html_response(self, body: str, status: int) -> Response:
         """Build an HTML response from rendered page string."""
         from .response import Response
+
         return Response(
             content=body.encode("utf-8"),
             status=status,
@@ -400,6 +404,7 @@ class ExceptionMiddleware(Middleware):
 
     async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response:
         from .response import Response
+
         try:
             return await next_handler(request, ctx)
 
@@ -662,5 +667,6 @@ class CompressionMiddleware(Middleware):
 
 
 # Import consolidated middlewares from their canonical locations for backward compatibility
-from .middleware_ext.logging import LoggingMiddleware
-from .middleware_ext.security import CORSMiddleware
+from .middleware_ext.logging import LoggingMiddleware  # noqa: F401
+from .middleware_ext.security import CORSMiddleware  # noqa: F401
+

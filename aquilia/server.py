@@ -33,7 +33,7 @@ from .faults.domains import (
 from .faults.engine import FaultEngine, FaultMiddleware
 from .health import HealthRegistry, HealthStatus, SubsystemStatus
 from .lifecycle import LifecycleCoordinator
-from .middleware import MiddlewareStack, Middleware
+from .middleware import Middleware, MiddlewareStack
 from .middleware_ext.session_middleware import SessionMiddleware
 from .response import Response
 from .sockets.adapters import InMemoryAdapter
@@ -1012,6 +1012,7 @@ class AquiliaServer:
             registry = getattr(self, "_effect_registry", None)
             if registry is None:
                 from .effects import EffectRegistry
+
                 base_container = self._get_base_container()
                 try:
                     registry = base_container.resolve(EffectRegistry)
@@ -3535,8 +3536,8 @@ class AquiliaServer:
 
                 # Auto-register core default effect providers if integrated and not explicitly registered
                 try:
-                    from .effects import DBTxProvider, CacheProvider, TaskQueueProvider, StorageProvider
-                    
+                    from .effects import CacheProvider, DBTxProvider, StorageProvider, TaskQueueProvider
+
                     db_config = self.config.get_database_config()
                     if db_config and db_config.get("url"):
                         if "DBTx" not in effect_registry.providers:

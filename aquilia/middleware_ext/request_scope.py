@@ -6,7 +6,7 @@ It creates a child container with request scope for each incoming request,
 enabling request-scoped services and proper lifecycle management.
 """
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import Any
 
 from aquilia.middleware import Middleware

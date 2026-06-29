@@ -56,4 +56,3 @@ def iter_source_files(root: Path) -> list[Path]:
     root = resolve_repository_root(root)
     files = [path for path in root.rglob("*") if path.is_file() and _include_file(root, path)]
     return sorted(files, key=lambda p: p.relative_to(root).as_posix())
-

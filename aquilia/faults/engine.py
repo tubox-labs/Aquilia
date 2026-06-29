@@ -21,7 +21,6 @@ from contextvars import ContextVar
 from typing import Any
 
 from ..middleware import Middleware
-
 from .core import (
     Escalate,
     Fault,

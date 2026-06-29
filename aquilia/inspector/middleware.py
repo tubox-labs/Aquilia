@@ -4,9 +4,9 @@ import time
 from typing import Any
 
 from aquilia.controller.base import RequestCtx
+from aquilia.middleware import Middleware
 from aquilia.request import Request
 from aquilia.response import Response
-from aquilia.middleware import Middleware
 from aquilia.typing.middleware import RequestHandler
 
 from .collector import get_collector

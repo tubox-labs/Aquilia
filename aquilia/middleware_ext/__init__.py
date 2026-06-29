@@ -34,10 +34,10 @@ from .effect_middleware import (
 from .logging import (
     CombinedLogFormatter,
     DevLogFormatter,
+    LoggingMiddleware,
     StructuredLogFormatter,
 )
 from .logging import (
-    LoggingMiddleware,
     LoggingMiddleware as EnhancedLoggingMiddleware,
 )
 from .rate_limit import (

@@ -11,16 +11,16 @@ This middleware orchestrates the complete session lifecycle:
 """
 
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 from aquilia.di import RequestCtx
 from aquilia.faults.domains import ConfigInvalidFault
 from aquilia.middleware import Handler, Middleware
 
 if TYPE_CHECKING:
-    from aquilia.sessions import SessionEngine
     from aquilia.request import Request
     from aquilia.response import Response
+    from aquilia.sessions import SessionEngine
 
 
 class SessionMiddleware(Middleware):
@@ -50,7 +50,7 @@ class SessionMiddleware(Middleware):
         >>> app.middleware_stack.add(middleware, priority=15)
     """
 
-    def __init__(self, session_engine: "SessionEngine"):
+    def __init__(self, session_engine: SessionEngine):
         """
         Initialize session middleware.
 
@@ -153,7 +153,7 @@ class OptionalSessionMiddleware(Middleware):
     Use this when sessions are opt-in per app/route.
     """
 
-    def __init__(self, session_engine: Optional["SessionEngine"] = None):
+    def __init__(self, session_engine: SessionEngine | None = None):
         """
         Initialize optional session middleware.
 
@@ -180,7 +180,7 @@ class OptionalSessionMiddleware(Middleware):
 
 
 def create_session_middleware(
-    session_engine: Optional["SessionEngine"] = None,
+    session_engine: SessionEngine | None = None,
     optional: bool = False,
 ) -> SessionMiddleware | OptionalSessionMiddleware:
     """

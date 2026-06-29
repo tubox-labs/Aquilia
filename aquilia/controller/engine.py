@@ -303,6 +303,7 @@ class ControllerEngine:
                     or getattr(route_metadata, "pagination_class", None)
                     or getattr(route_metadata, "renderer_classes", None)
                 )
+
                 def _is_special_param(p):
                     if p.name in ("ctx", "context", "request", "flow_ctx", "flow_context"):
                         return True
@@ -1421,52 +1422,54 @@ class ControllerEngine:
             ControllerEngine._signature_cache[fid] = sig
         return sig
 
-    def _bind_special_parameters(self, handler_method: Any, request: Request, ctx: RequestCtx, kwargs: dict[str, Any]) -> None:
+    def _bind_special_parameters(
+        self, handler_method: Any, request: Request, ctx: RequestCtx, kwargs: dict[str, Any]
+    ) -> None:
         """Bind special context/request parameters based on type or name."""
-        import inspect
         from typing import get_type_hints
-        
+
         sig = self._get_cached_signature(handler_method)
         type_hints = {}
         try:
             type_hints = get_type_hints(handler_method)
         except Exception:
             pass
-            
+
         for param_name, param in sig.parameters.items():
             if param_name in ("self", "cls"):
                 continue
-                
+
             # If already bound in path_params or body, skip
             if param_name in kwargs:
                 continue
-                
+
             param_type = type_hints.get(param_name, param.annotation)
-            
+
             # Check type or name for RequestCtx / FlowContext / Request
             # 1. FlowContext
             is_flow_ctx = (
-                param_name in ("flow_ctx", "flow_context") or
-                (hasattr(param_type, "__name__") and param_type.__name__ == "FlowContext") or
-                (isinstance(param_type, str) and "FlowContext" in param_type)
+                param_name in ("flow_ctx", "flow_context")
+                or (hasattr(param_type, "__name__") and param_type.__name__ == "FlowContext")
+                or (isinstance(param_type, str) and "FlowContext" in param_type)
             )
             # 2. RequestCtx
             is_request_ctx = (
-                param_name in ("ctx", "context") or
-                (hasattr(param_type, "__name__") and param_type.__name__ == "RequestCtx") or
-                (isinstance(param_type, str) and "RequestCtx" in param_type)
+                param_name in ("ctx", "context")
+                or (hasattr(param_type, "__name__") and param_type.__name__ == "RequestCtx")
+                or (isinstance(param_type, str) and "RequestCtx" in param_type)
             )
             # 3. Request
             is_request = (
-                param_name == "request" or
-                (hasattr(param_type, "__name__") and param_type.__name__ == "Request") or
-                (isinstance(param_type, str) and "Request" in param_type)
+                param_name == "request"
+                or (hasattr(param_type, "__name__") and param_type.__name__ == "Request")
+                or (isinstance(param_type, str) and "Request" in param_type)
             )
-            
+
             if is_flow_ctx:
                 flow_ctx = request.state.get("flow_context") if hasattr(request, "state") and request.state else None
                 if flow_ctx is None:
                     from aquilia.flow import FlowContext
+
                     flow_ctx = FlowContext(
                         request=request,
                         container=ctx.container,

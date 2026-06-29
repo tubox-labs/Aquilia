@@ -14,6 +14,7 @@ Injects common variables into template context:
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
+
 from aquilia.middleware import Middleware
 
 if TYPE_CHECKING:

@@ -16,13 +16,14 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, cast
 
+from aquilia.middleware import Middleware
+
 from .errors import (
     InvalidVersionError,
     MissingVersionError,
     UnsupportedVersionError,
     VersionSunsetError,
 )
-from aquilia.middleware import Middleware
 from .strategy import VersionStrategy
 
 if TYPE_CHECKING:
