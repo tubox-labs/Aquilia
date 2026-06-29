@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 # ============================================================================
 
 
-class AquilAuthMiddleware:
+class AquilAuthMiddleware(Middleware):
     """
     Unified middleware for Auth + Sessions + DI integration.
 
@@ -342,7 +342,7 @@ class OptionalAuthMiddleware(AquilAuthMiddleware):
 # ============================================================================
 
 
-class SessionMiddleware:
+class SessionMiddleware(Middleware):
     """
     Session-only middleware without authentication.
 
@@ -410,7 +410,7 @@ class SessionMiddleware:
 # ============================================================================
 
 
-class FaultHandlerMiddleware:
+class FaultHandlerMiddleware(Middleware):
     """
     Middleware for handling faults with FaultEngine.
 
@@ -492,7 +492,7 @@ class FaultHandlerMiddleware:
 # ============================================================================
 
 
-class EnhancedRequestScopeMiddleware:
+class EnhancedRequestScopeMiddleware(Middleware):
     """
     Enhanced request scope middleware with better integration.
 

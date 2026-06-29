@@ -22,6 +22,7 @@ import os
 import time
 from typing import TYPE_CHECKING, Any
 
+from aquilia.middleware import Middleware
 from aquilia.response import Response
 
 if TYPE_CHECKING:
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.cache.middleware")
 
 
-class CacheMiddleware:
+class CacheMiddleware(Middleware):
     """
     HTTP response caching middleware.
 

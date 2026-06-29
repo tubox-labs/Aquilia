@@ -6,6 +6,7 @@ from typing import Any
 from aquilia.controller.base import RequestCtx
 from aquilia.request import Request
 from aquilia.response import Response
+from aquilia.middleware import Middleware
 from aquilia.typing.middleware import RequestHandler
 
 from .collector import get_collector
@@ -136,7 +137,7 @@ def _exception_to_node(exc: Exception) -> ExceptionNode:
     )
 
 
-class InspectorMiddleware:
+class InspectorMiddleware(Middleware):
     def __init__(self, config: InspectorConfig):
         self._config = config
         self._collector = get_collector(config)

@@ -20,6 +20,8 @@ from collections.abc import Callable
 from contextvars import ContextVar
 from typing import Any
 
+from ..middleware import Middleware
+
 from .core import (
     Escalate,
     Fault,
@@ -434,7 +436,7 @@ def get_default_engine() -> FaultEngine:
     return _default_engine
 
 
-class FaultMiddleware:
+class FaultMiddleware(Middleware):
     """
     Middleware that bridges the FaultEngine with the request/response lifecycle.
 

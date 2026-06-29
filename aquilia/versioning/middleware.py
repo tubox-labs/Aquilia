@@ -22,6 +22,7 @@ from .errors import (
     UnsupportedVersionError,
     VersionSunsetError,
 )
+from aquilia.middleware import Middleware
 from .strategy import VersionStrategy
 
 if TYPE_CHECKING:
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("aquilia.versioning")
 
 
-class VersionMiddleware:
+class VersionMiddleware(Middleware):
     """
     Middleware that resolves API version for every request.
 
