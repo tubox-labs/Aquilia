@@ -167,6 +167,14 @@ class QueryInspector:
         Returns:
             The created QueryRecord
         """
+        if not request_id:
+            try:
+                from aquilia.inspector.trace import current_trace_id
+
+                request_id = current_trace_id() or ""
+            except ImportError:
+                pass
+
         self._counter += 1
 
         # Determine operation type
