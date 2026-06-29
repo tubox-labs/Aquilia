@@ -58,6 +58,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dynamic Middleware Setup**: Fixed instantiation of dynamically configured middlewares in `AquiliaServer._instantiate_middleware` by auto-injecting the `EffectRegistry` for `EffectMiddleware` and `FlowContextMiddleware`.
 - **Type-Aware Parameter Injection**: Extended parameter binding in `ControllerEngine` to dynamically detect and inject `RequestCtx`, `Request`, and `FlowContext` parameters based on their type annotation, regardless of the parameter name (e.g. `req: RequestCtx` or `ctx: FlowContext` are now correctly injected). Excluded special parameters from static route query/path metadata compile passes.
 - **Bidirectional Effect Context Fallback**: Updated `FlowContext` and `RequestCtx` to automatically fall back to and copy pre-acquired request-level effects in their constructor and effect resolution methods, ensuring compatibility when accessed from handler methods decorated with `@requires`.
+- **Render deployment runtime**: Added `"runtime": "image"` in the Render API service creation and update payloads for Docker-image-backed services to resolve `[PROVIDER_API_ERROR] [400] invalid runtime` failures.
+- **Removed backup code**: Deleted the deprecated `render_backup_phase10` provider directory.
 
 ## [1.1.2] — 2026-06-12 — "Crimson Gale"
 

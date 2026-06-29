@@ -401,9 +401,10 @@ class TestRenderDeployConfig:
         assert sd["region"] == "oregon"
         assert sd["numInstances"] == 2
         assert sd["healthCheckPath"] == "/_health"
+        assert sd["runtime"] == "image"
         assert len(sd["envVars"]) == 1
         assert sd["envVars"][0]["key"] == "FOO"
-        assert sd["image"]["imagePath"] == "ghcr.io/org/myapp:latest"
+        assert p["image"]["imagePath"] == "ghcr.io/org/myapp:latest"
 
     def test_to_service_payload_with_disk(self):
         cfg = self._basic_config(disk=RenderDisk(name="db", mount_path="/db", size_gb=5))
@@ -432,6 +433,7 @@ class TestRenderDeployConfig:
         sd = p["serviceDetails"]
         assert sd["plan"] == "standard"
         assert sd["numInstances"] == 2
+        assert sd["runtime"] == "image"
         # update doesn't include ownerId or envVars
         assert "ownerId" not in p
         assert "envVars" not in sd
@@ -439,7 +441,7 @@ class TestRenderDeployConfig:
     def test_to_update_payload_with_image(self):
         cfg = self._basic_config()
         p = cfg.to_update_payload()
-        assert p["serviceDetails"]["image"]["imagePath"] == "ghcr.io/org/myapp:latest"
+        assert p["image"]["imagePath"] == "ghcr.io/org/myapp:latest"
 
     def test_from_workspace_context_minimal(self):
         wctx = {"name": "demo", "port": 3000, "workers": 2}
@@ -2806,7 +2808,7 @@ class TestEnhancedDeployConfig:
             registry_credential_id="reg-123",
         )
         p = cfg.to_service_payload()
-        assert p["serviceDetails"]["image"]["registryCredentialId"] == "reg-123"
+        assert p["image"]["registryCredentialId"] == "reg-123"
 
     def test_service_payload_with_pre_deploy_command(self):
         cfg = RenderDeployConfig(

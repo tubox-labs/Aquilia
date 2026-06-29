@@ -1214,12 +1214,7 @@ class RenderDeployConfig(Blueprint):
         }
 
         if self.image:
-            img_payload: dict[str, Any] = {"imagePath": self.image}
-            if self.owner_id:
-                img_payload["ownerId"] = self.owner_id
-            if self.registry_credential_id:
-                img_payload["registryCredentialId"] = self.registry_credential_id
-            service_details["image"] = img_payload
+            service_details["runtime"] = "image"
 
         if self.docker_command:
             service_details["dockerCommand"] = self.docker_command
@@ -1249,6 +1244,12 @@ class RenderDeployConfig(Blueprint):
             "serviceDetails": service_details,
         }
 
+        if self.image:
+            img_payload: dict[str, Any] = {"imagePath": self.image}
+            if self.registry_credential_id:
+                img_payload["registryCredentialId"] = self.registry_credential_id
+            payload["image"] = img_payload
+
         if self.owner_id:
             payload["ownerId"] = self.owner_id
         if self.root_dir:
@@ -1273,10 +1274,7 @@ class RenderDeployConfig(Blueprint):
         }
 
         if self.image:
-            img_payload: dict[str, Any] = {"imagePath": self.image}
-            if self.registry_credential_id:
-                img_payload["registryCredentialId"] = self.registry_credential_id
-            service_details["image"] = img_payload
+            service_details["runtime"] = "image"
 
         if self.docker_command:
             service_details["dockerCommand"] = self.docker_command
@@ -1292,6 +1290,13 @@ class RenderDeployConfig(Blueprint):
             "autoDeploy": self.auto_deploy,
             "serviceDetails": service_details,
         }
+
+        if self.image:
+            img_payload: dict[str, Any] = {"imagePath": self.image}
+            if self.registry_credential_id:
+                img_payload["registryCredentialId"] = self.registry_credential_id
+            payload["image"] = img_payload
+
         if self.root_dir:
             payload["rootDir"] = self.root_dir
         if self.notify_on_fail:
