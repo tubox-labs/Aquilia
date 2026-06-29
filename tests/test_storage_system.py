@@ -1887,6 +1887,21 @@ class TestIntegrationStorage:
         mem_entry = next(b for b in backends if b["alias"] == "mem")
         assert mem_entry["max_size"] == 1024
 
+    def test_storage_config_instances_without_explicit_alias(self):
+        result = Integration.storage(
+            default="local",
+            backends={
+                "local": LocalConfig(root="./uploads"),
+                "mem": MemoryConfig(max_size=1024),
+            },
+        )
+        backends = result["backends"]
+        assert len(backends) == 2
+        local_entry = next(b for b in backends if b["alias"] == "local")
+        assert local_entry["root"] == "./uploads"
+        mem_entry = next(b for b in backends if b["alias"] == "mem")
+        assert mem_entry["max_size"] == 1024
+
     def test_no_backends(self):
         result = Integration.storage()
         assert result["backends"] == []

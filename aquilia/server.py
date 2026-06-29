@@ -3558,12 +3558,25 @@ class AquiliaServer:
                             effect_registry.register("queue", TaskQueueProvider(task_manager=self._task_manager))
 
                     storage_config = self.config.get_storage_config()
-                    if storage_config and storage_config.get("backends", {}).get("local", {}).get("root"):
-                        root_path = storage_config["backends"]["local"]["root"]
+                    local_root = None
+                    if storage_config:
+                        backends = storage_config.get("backends")
+                        if isinstance(backends, list):
+                            for b in backends:
+                                if isinstance(b, dict) and (b.get("backend") == "local" or b.get("alias") == "local"):
+                                    local_root = b.get("root")
+                                    if local_root:
+                                        break
+                        elif isinstance(backends, dict):
+                            local_cfg = backends.get("local")
+                            if isinstance(local_cfg, dict):
+                                local_root = local_cfg.get("root")
+
+                    if local_root:
                         if "Storage" not in effect_registry.providers:
-                            effect_registry.register("Storage", StorageProvider(root_path))
+                            effect_registry.register("Storage", StorageProvider(local_root))
                         if "storage" not in effect_registry.providers:
-                            effect_registry.register("storage", StorageProvider(root_path))
+                            effect_registry.register("storage", StorageProvider(local_root))
                 except Exception as auto_reg_err:
                     self.logger.warning(f"Failed to auto-register core default effect providers: {auto_reg_err}")
 

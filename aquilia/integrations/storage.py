@@ -36,7 +36,8 @@ class StorageIntegration:
                 entry = dict(cfg)
             else:
                 entry = {"backend": str(cfg)}
-            entry.setdefault("alias", alias)
+            if entry.get("alias") in (None, "default"):
+                entry["alias"] = alias
             if alias == self.default:
                 entry["default"] = True
             backend_list.append(entry)
