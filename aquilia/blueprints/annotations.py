@@ -61,12 +61,12 @@ from .facets import (
     FormDataFacet,
     IntFacet,
     ListFacet,
-    SetFacet,
-    TupleFacet,
     LiteralFacet,
     PolymorphicFacet,
+    SetFacet,
     TextFacet,
     TimeFacet,
+    TupleFacet,
     UploadFileFacet,
     URLFacet,
     UUIDFacet,
@@ -779,8 +779,9 @@ def _build_facet_from_annotation(
     field_spec: Field | None,
     class_default: Any,
 ) -> Facet | None:
-    from ..di.dep import Query, Header, Body, Cookie, Path
     from typing import Annotated
+
+    from ..di.dep import Body, Cookie, Header, Path, Query
 
     extractor = None
     if get_origin(annotation) is Annotated:

@@ -35,11 +35,11 @@ from .decorators import (
 )
 from .dep import (
     Body,
+    Cookie,
     Dep,
     Header,
-    Query,
-    Cookie,
     Path,
+    Query,
 )
 from .errors import (
     AmbiguousProviderError,

@@ -201,7 +201,8 @@ class RequestDAG:
     async def _resolve_single_sub_dep(self, pname: str, ptype: type, sub_dep: Any) -> Any:
         """Resolve a single sub-dependency parameter."""
         # Check for Header/Query/Body/Cookie/Path extractors first
-        from aquilia.di.dep import Query, Header, Body, Cookie, Path
+        from aquilia.di.dep import Body, Cookie, Header, Path, Query
+
         if self._request is not None:
             if isinstance(sub_dep, (Query, Header, Body, Cookie, Path)):
                 return await self._resolve_extracted_parameter(pname, ptype, sub_dep)
@@ -239,6 +240,7 @@ class RequestDAG:
             return bp
 
         from aquilia.di.dep import Body
+
         body = None
         if isinstance(sub_dep, Body) or sub_dep is None:
             body = await self._extract_body_value(None)
@@ -247,10 +249,10 @@ class RequestDAG:
     def _resolve_extracted_parameter_sync(self, pname: str, ptype: type, sub_dep: Any, body: Any = None) -> Any:
         """Synchronously resolve, cast, and validate parameter using unified Facet pipeline."""
         from aquilia.blueprints.annotations import _build_facet_from_annotation
+        from aquilia.blueprints.exceptions import CastFault
         from aquilia.blueprints.facets import UNSET
         from aquilia.blueprints.integration import extract_value_from_request
         from aquilia.faults.domains import BadRequestFault
-        from aquilia.blueprints.exceptions import CastFault
 
         facet = _build_facet_from_annotation(
             name=pname,

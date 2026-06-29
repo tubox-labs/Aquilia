@@ -46,7 +46,7 @@ class ExceptionNode:
     message: str
     fault_code: str | None
     fault_domain: str | None
-    fingerprint: str | None       # cross-links aquilia.admin.error_tracker.ErrorRecord.fingerprint
+    fingerprint: str | None  # cross-links aquilia.admin.error_tracker.ErrorRecord.fingerprint
     stack_frames: list[dict[str, Any]]
 
 
@@ -55,7 +55,7 @@ class ResponseSummary:
     status: int
     size_bytes: int
     content_type: str
-    preview: str | None           # redacted, truncated to config.max_body_bytes
+    preview: str | None  # redacted, truncated to config.max_body_bytes
 
 
 @dataclass(slots=True)
@@ -64,12 +64,12 @@ class RequestTrace:
     method: str
     path: str
     route_pattern: str | None
-    started_at: float                 # time.time() wall clock, for display
-    started_monotonic: float          # time.monotonic(), for duration math
+    started_at: float  # time.time() wall clock, for display
+    started_monotonic: float  # time.monotonic(), for duration math
     finished_monotonic: float | None = None
     status_code: int | None = None
-    request_headers: dict[str, str] = field(default_factory=dict)   # pre-redacted
-    request_body_preview: str | None = None                          # pre-redacted, size-capped
+    request_headers: dict[str, str] = field(default_factory=dict)  # pre-redacted
+    request_body_preview: str | None = None  # pre-redacted, size-capped
     query_params: dict[str, list[str]] = field(default_factory=dict)
     path_params: dict[str, Any] = field(default_factory=dict)
     client_addr: str | None = None
@@ -130,13 +130,17 @@ class RequestTrace:
                 "fault_domain": self.exception.fault_domain,
                 "fingerprint": self.exception.fingerprint,
                 "stack_frames": self.exception.stack_frames,
-            } if self.exception else None,
+            }
+            if self.exception
+            else None,
             "response": {
                 "status": self.response.status,
                 "size_bytes": self.response.size_bytes,
                 "content_type": self.response.content_type,
                 "preview": self.response.preview,
-            } if self.response else None,
+            }
+            if self.response
+            else None,
             "app_name": self.app_name,
         }
 

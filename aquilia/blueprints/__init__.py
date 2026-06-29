@@ -79,14 +79,14 @@ from .facets import (
     JSONFacet,
     # Structured
     ListFacet,
-    SetFacet,
-    TupleFacet,
     LiteralFacet,
     ReadOnly,
+    SetFacet,
     SlugFacet,
     # Text
     TextFacet,
     TimeFacet,
+    TupleFacet,
     UploadFileFacet,
     URLFacet,
     UUIDFacet,

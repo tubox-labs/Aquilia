@@ -274,6 +274,7 @@ class Cookie:
         if value is None:
             if self.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"Missing required cookie: {cookie_name}",
                     detail=f"Missing required cookie: {cookie_name}",
@@ -308,6 +309,7 @@ class Path:
         if value is None:
             if self.required:
                 from ..faults.domains import BadRequestFault
+
                 raise BadRequestFault(
                     message=f"Missing required path parameter: {param_name}",
                     detail=f"Missing required path parameter: {param_name}",

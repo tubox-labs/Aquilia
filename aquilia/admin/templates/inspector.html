@@ -1,698 +1,2161 @@
-{% extends "base.html" %}
-{% block title %}Request Inspector{% endblock %}
-{% block breadcrumb %}Request Inspector{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Aquilia Inspector</title>
+    <style>
+        :root {
+            --surface: #0b1326;
+            --surface-dim: #0b1326;
+            --surface-bright: #31394d;
+            --surface-container-lowest: #060e20;
+            --surface-container-low: #131b2e;
+            --surface-container: #171f33;
+            --surface-container-high: #222a3d;
+            --surface-container-highest: #2d3449;
+            --on-surface: #dae2fd;
+            --on-surface-variant: #bccbb9;
+            --inverse-surface: #dae2fd;
+            --inverse-on-surface: #283044;
+            --outline: #869585;
+            --outline-variant: #3d4a3d;
+            --surface-tint: #4ae176;
+            --primary: #4be277;
+            --on-primary: #003915;
+            --primary-container: #22c55e;
+            --on-primary-container: #004b1e;
+            --inverse-primary: #006e2f;
+            --secondary: #adc6ff;
+            --on-secondary: #002e6a;
+            --secondary-container: #0566d9;
+            --on-secondary-container: #e6ecff;
+            --tertiary: #50dcc9;
+            --on-tertiary: #003731;
+            --tertiary-container: #27c0ae;
+            --on-tertiary-container: #004941;
+            --error: #ffb4ab;
+            --on-error: #690005;
+            --error-container: #93000a;
+            --on-error-container: #ffdad6;
+            --primary-fixed: #6bff8f;
+            --primary-fixed-dim: #4ae176;
+            --on-primary-fixed: #002109;
+            --on-primary-fixed-variant: #005321;
+            --secondary-fixed: #d8e2ff;
+            --secondary-fixed-dim: #adc6ff;
+            --on-secondary-fixed: #001a42;
+            --on-secondary-fixed-variant: #004395;
+            --tertiary-fixed: #71f8e4;
+            --tertiary-fixed-dim: #4fdbc8;
+            --on-tertiary-fixed: #00201c;
+            --on-tertiary-fixed-variant: #005048;
+            --background: #0b1326;
+            --on-background: #dae2fd;
+            --surface-variant: #2d3449;
 
-{% block content %}
-<style>
-/* Reset container padding for full height layout */
-.admin-content {
-    padding: 0 !important;
-    margin: 0 !important;
-}
+            --rail-green: #22c55e;
+            --rail-orange: #f97316;
+            --rail-red: #ef4444;
+            --badge-post: #3b82f6;
+            --badge-get: #10b981;
+            
+            --lane-gray: #475569;
+            --lane-blue: #3b82f6;
+            --lane-purple: #8b5cf6;
+            --lane-teal: #14b8a6;
+            --lane-infoblue: #0ea5e9;
+        }
 
-.aq-inspector-container {
-    display: flex;
-    height: calc(100vh - 64px); /* assuming header height is 64px */
-    background: #0f172a;
-    color: #e2e8f0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    overflow: hidden;
-}
+        .theme-ocean {
+            --background: #081622;
+            --surface: #0a1f30;
+            --surface-container-lowest: #05121c;
+            --surface-container-low: #0c273c;
+            --surface-container: #10324c;
+            --surface-container-high: #154264;
+            --surface-container-highest: #1c527b;
+            --surface-variant: #1e5c8a;
+            --outline-variant: #236c9f;
+            --on-surface: #e0f2fe;
+            --on-surface-variant: #a5f3fc;
+            --primary: #06b6d4;
+            --primary-container: #0891b2;
+            --secondary: #38bdf8;
+        }
 
-/* Sidebar styling */
-.aq-inspector-sidebar {
-    width: 35%;
-    border-right: 1px solid #334155;
-    display: flex;
-    flex-direction: flex-col;
-    height: 100%;
-    background: #1e293b;
-    box-sizing: border-box;
-}
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-.aq-inspector-sidebar-header {
-    padding: 16px;
-    border-bottom: 1px solid #334155;
-}
+        body {
+            background-color: var(--background);
+            color: var(--on-surface);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
 
-.aq-inspector-search {
-    width: 100%;
-    background: #0f172a;
-    border: 1px solid #475569;
-    border-radius: 6px;
-    padding: 8px 12px;
-    color: #f8fafc;
-    font-size: 0.875rem;
-    outline: none;
-    box-sizing: border-box;
-}
+        code, pre {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
+        }
 
-.aq-inspector-search:focus {
-    border-color: #3b82f6;
-}
+        /* High density scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--surface-variant); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--outline); }
 
-.aq-inspector-trace-list {
-    flex: 1;
-    overflow-y: auto;
-    padding: 8px 0;
-}
+        /* TopNav */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--surface-variant);
+            padding: 0 16px;
+            height: 48px;
+            flex-shrink: 0;
+            background-color: var(--surface-container-lowest);
+        }
 
-.aq-inspector-trace-item {
-    padding: 12px 16px;
-    border-bottom: 1px solid #334155;
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
 
-.aq-inspector-trace-item:hover {
-    background: #334155;
-}
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            font-size: 14px;
+        }
 
-.aq-inspector-trace-item.active {
-    background: #1e40af;
-}
+        .brand img {
+            height: 20px;
+            width: auto;
+            object-fit: contain;
+        }
 
-.aq-inspector-method-badge {
-    padding: 3px 8px;
-    border-radius: 4px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    margin-right: 8px;
-    display: inline-block;
-}
+        .search-wrapper {
+            display: flex;
+            align-items: center;
+            background-color: var(--surface-container);
+            border: 1px solid var(--surface-variant);
+            border-radius: 2px;
+            height: 28px;
+            width: 240px;
+            padding: 0 8px;
+            transition: border-color 0.15s ease;
+        }
 
-.aq-inspector-method-GET { background: #0e7490; color: #cffafe; }
-.aq-inspector-method-POST { background: #15803d; color: #dcfce7; }
-.aq-inspector-method-PUT { background: #b45309; color: #fef3c7; }
-.aq-inspector-method-DELETE { background: #b91c1c; color: #fee2e2; }
-.aq-inspector-method-PATCH { background: #7c3aed; color: #f3e8ff; }
+        .search-wrapper:focus-within {
+            border-color: var(--primary);
+        }
 
-.aq-inspector-path {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #f1f5f9;
-    word-break: break-all;
-}
+        .search-wrapper svg {
+            color: var(--on-surface-variant);
+            width: 14px;
+            height: 14px;
+            margin-right: 6px;
+        }
 
-.aq-inspector-trace-meta {
-    font-size: 0.75rem;
-    color: #94a3b8;
-    margin-top: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
+        .search-input {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--on-surface);
+            font-size: 12px;
+            width: 100%;
+        }
 
-.aq-inspector-status-success { color: #4ade80; }
-.aq-inspector-status-error { color: #f87171; }
+        .search-input::placeholder {
+            color: var(--on-surface-variant);
+        }
 
-/* Details Panel */
-.aq-inspector-details {
-    width: 65%;
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow-y: auto;
-    background: #0f172a;
-    box-sizing: border-box;
-}
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-.aq-inspector-empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    color: #64748b;
-    gap: 16px;
-}
+        /* Stream Indicator Badge */
+        .stream-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--on-surface-variant);
+            cursor: pointer;
+            padding: 4px 8px;
+            background-color: var(--surface-container);
+            border: 1px solid var(--surface-variant);
+            border-radius: 2px;
+            user-select: none;
+            transition: background-color 0.15s ease;
+        }
+        .stream-status-badge:hover {
+            background-color: var(--surface-container-high);
+        }
+        .stream-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--rail-green);
+        }
+        .stream-dot.live {
+            animation: pulse-dot 1.2s infinite;
+        }
+        .stream-dot.paused {
+            background-color: var(--rail-orange);
+            animation: none;
+        }
+        @keyframes pulse-dot {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.15); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
 
-.aq-inspector-empty-state i {
-    font-size: 3rem;
-}
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            height: 28px;
+            padding: 0 12px;
+            background-color: var(--surface-variant);
+            border: 1px solid var(--outline-variant);
+            color: var(--on-surface);
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: background-color 0.15s ease, transform 0.1s ease;
+        }
 
-.aq-inspector-details-header {
-    padding: 24px;
-    border-bottom: 1px solid #334155;
-    background: #1e293b;
-}
+        .btn:hover {
+            background-color: var(--surface-container-high);
+        }
+        .btn:active {
+            transform: scale(0.97);
+        }
 
-.aq-inspector-details-title-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
+        .btn svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+        }
 
-.aq-inspector-details-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-}
+        .btn-primary {
+            background-color: var(--primary);
+            border-color: var(--primary-container);
+            color: var(--on-primary);
+        }
+        .btn-primary:hover {
+            background-color: var(--primary-fixed-dim);
+        }
 
-.aq-inspector-toolbar {
-    display: flex;
-    gap: 8px;
-    margin-top: 16px;
-}
+        /* Main layout */
+        main {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
 
-.aq-inspector-btn {
-    background: #334155;
-    border: 1px solid #475569;
-    color: #e2e8f0;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: background 0.2s;
-}
+        aside {
+            width: 320px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--surface-variant);
+            display: flex;
+            flex-direction: column;
+            background-color: var(--surface-container-lowest);
+        }
 
-.aq-inspector-btn:hover {
-    background: #475569;
-}
+        .trace-list-container {
+            flex: 1;
+            overflow-y: auto;
+        }
 
-.aq-inspector-btn-primary {
-    background: #2563eb;
-    border-color: #3b82f6;
-}
+        .details-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
 
-.aq-inspector-btn-primary:hover {
-    background: #1d4ed8;
-}
+        /* Request Rail */
+        .rail-row {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            border-bottom: 1px solid var(--surface-container-highest);
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            position: relative;
+        }
 
-.aq-inspector-details-body {
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-}
+        .rail-row:hover {
+            background-color: var(--surface-container-low);
+        }
 
-.aq-inspector-card {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 8px;
-    padding: 16px;
-}
+        .rail-row.selected {
+            background-color: var(--surface-container);
+            border-left: 4px solid var(--primary);
+            padding-left: 8px;
+        }
 
-.aq-inspector-card-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 12px;
-}
+        .rail-row-indicator {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+        }
 
-/* Metadata lists */
-.aq-inspector-meta-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
-}
+        .indicator-green { background-color: var(--rail-green); }
+        .indicator-orange { background-color: var(--rail-orange); }
+        .indicator-red { background-color: var(--rail-red); }
 
-.aq-inspector-meta-item {
-    font-size: 0.8125rem;
-}
+        .rail-row-content {
+            flex: 1;
+            min-width: 0;
+        }
 
-.aq-inspector-meta-label {
-    color: #94a3b8;
-    font-weight: 500;
-    margin-bottom: 2px;
-}
+        .rail-row-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            gap: 8px;
+        }
 
-.aq-inspector-meta-value {
-    color: #f1f5f9;
-    font-family: monospace;
-}
+        .rail-row-meta {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
 
-/* Waterfall CSS */
-.aq-inspector-waterfall-table {
-    width: 100%;
-    border-collapse: collapse;
-}
+        .badge {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+            font-size: 10px;
+            font-weight: 600;
+            padding: 1px 4px;
+            border-radius: 2px;
+        }
 
-.aq-inspector-waterfall-row {
-    border-bottom: 1px solid #334155;
-}
+        .badge-get { color: var(--badge-get); background-color: rgba(16, 185, 129, 0.1); }
+        .badge-post { color: var(--badge-post); background-color: rgba(59, 130, 246, 0.1); }
+        .badge-delete { color: #f87171; background-color: rgba(239, 68, 68, 0.1); }
+        .badge-put-patch { color: #fbbf24; background-color: rgba(245, 158, 11, 0.1); }
 
-.aq-inspector-waterfall-row:last-child {
-    border-bottom: none;
-}
+        .path-text {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+            font-size: 11px;
+            color: var(--on-surface);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
 
-.aq-inspector-waterfall-cell-label {
-    width: 30%;
-    padding: 8px 12px 8px 0;
-    font-size: 0.8125rem;
-    vertical-align: middle;
-}
+        /* Search highlights */
+        .highlight {
+            background-color: rgba(75, 226, 119, 0.25);
+            color: #ffffff;
+            border-radius: 1px;
+        }
 
-.aq-inspector-waterfall-lane-badge {
-    font-size: 0.6875rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    padding: 2px 6px;
-    border-radius: 4px;
-    display: inline-block;
-    margin-bottom: 4px;
-}
+        .status-text {
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+            font-size: 11px;
+            font-weight: 500;
+        }
 
-.aq-inspector-lane-REQUEST { background: rgba(6,182,212,0.15); color: #06b6d4; }
-.aq-inspector-lane-MIDDLEWARE { background: rgba(59,130,246,0.15); color: #3b82f6; }
-.aq-inspector-lane-CONTROLLER { background: rgba(99,102,241,0.15); color: #6366f1; }
-.aq-inspector-lane-DEPENDENCY { background: rgba(139,92,246,0.15); color: #8b5cf6; }
-.aq-inspector-lane-DATABASE { background: rgba(245,158,11,0.15); color: #f59e0b; }
-.aq-inspector-lane-EXTERNAL_HTTP { background: rgba(16,185,129,0.15); color: #10b981; }
-.aq-inspector-lane-EXCEPTION { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .status-success { color: var(--rail-green); }
+        .status-error { color: var(--rail-red); }
 
-.aq-inspector-waterfall-label {
-    color: #f1f5f9;
-    word-break: break-all;
-    font-family: monospace;
-    font-size: 0.78125rem;
-}
+        .rail-row-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 4px;
+        }
 
-.aq-inspector-waterfall-cell-bar {
-    width: 70%;
-    position: relative;
-    padding: 8px 0;
-}
+        .time-duration {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 10px;
+            color: var(--on-surface-variant);
+        }
 
-.aq-inspector-waterfall-bar-track {
-    height: 12px;
-    background: #1e293b;
-    border-radius: 6px;
-    position: relative;
-    width: 100%;
-}
+        .duration-bar-bg {
+            width: 64px;
+            height: 4px;
+            background-color: var(--surface-variant);
+            border-radius: 2px;
+            overflow: hidden;
+        }
 
-.aq-inspector-waterfall-bar {
-    height: 100%;
-    border-radius: 6px;
-    position: absolute;
-    min-width: 3px;
-    transition: width 0.3s, left 0.3s;
-}
+        .duration-bar {
+            height: 100%;
+            border-radius: 2px;
+        }
 
-.aq-inspector-bar-REQUEST { background: #06b6d4; }
-.aq-inspector-bar-MIDDLEWARE { background: #3b82f6; }
-.aq-inspector-bar-CONTROLLER { background: #6366f1; }
-.aq-inspector-bar-DEPENDENCY { background: #8b5cf6; }
-.aq-inspector-bar-DATABASE { background: #f59e0b; }
-.aq-inspector-bar-EXTERNAL_HTTP { background: #10b981; }
-.aq-inspector-bar-EXCEPTION { background: #ef4444; }
+        .bar-green { background-color: var(--rail-green); }
+        .bar-orange { background-color: var(--rail-orange); }
+        .bar-red { background-color: var(--rail-red); }
+        .bar-blue { background-color: var(--lane-blue); }
 
-.aq-inspector-waterfall-bar-tooltip {
-    font-size: 0.6875rem;
-    color: #94a3b8;
-    position: absolute;
-    top: -16px;
-    white-space: nowrap;
-    transform: translateX(-50%);
-}
+        /* Details Header */
+        .details-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--surface-variant);
+            background-color: rgba(23, 31, 51, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+            flex-shrink: 0;
+        }
 
-/* Dictionary list representation */
-.aq-inspector-dict-list {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
+        .details-header-info {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
 
-.aq-inspector-dict-item {
-    display: flex;
-    font-size: 0.8125rem;
-    border-bottom: 1px solid #1e293b;
-    padding: 6px 0;
-}
+        .details-header-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--on-surface);
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+            word-break: break-all;
+        }
 
-.aq-inspector-dict-item:last-child {
-    border-bottom: none;
-}
+        .details-header-badges {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--on-surface-variant);
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
 
-.aq-inspector-dict-key {
-    width: 30%;
-    color: #94a3b8;
-    font-weight: 500;
-    word-break: break-all;
-}
+        .status-badge {
+            border-radius: 2px;
+            padding: 1px 6px;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1px solid transparent;
+        }
 
-.aq-inspector-dict-value {
-    width: 70%;
-    color: #f1f5f9;
-    font-family: monospace;
-    word-break: break-all;
-}
+        .status-badge-success { background-color: rgba(34, 197, 94, 0.1); color: var(--rail-green); border-color: rgba(34, 197, 94, 0.2); }
+        .status-badge-error { background-color: rgba(239, 68, 68, 0.1); color: var(--rail-red); border-color: rgba(239, 68, 68, 0.2); }
+        .status-badge-warn { background-color: rgba(249, 115, 22, 0.1); color: var(--rail-orange); border-color: rgba(249, 115, 22, 0.2); }
 
-.aq-inspector-code-block {
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 6px;
-    padding: 12px;
-    font-family: monospace;
-    font-size: 0.8125rem;
-    color: #38bdf8;
-    overflow-x: auto;
-    white-space: pre-wrap;
-    word-break: break-all;
-}
-</style>
+        .details-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
 
-<div class="aq-inspector-container">
-    <!-- Sidebar -->
-    <div class="aq-inspector-sidebar">
-        <div class="aq-inspector-sidebar-header">
-            <input type="text" class="aq-inspector-search" id="traceSearch" placeholder="Filter traces (path, method)..." />
+        .copy-text-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--secondary);
+            font-size: 10px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            margin-left: 4px;
+            vertical-align: middle;
+            opacity: 0.7;
+        }
+        .copy-text-btn:hover {
+            opacity: 1;
+            color: var(--primary);
+        }
+        .copy-text-btn svg {
+            width: 10px;
+            height: 10px;
+            stroke-width: 2.5;
+            fill: none;
+            stroke: currentColor;
+        }
+
+        /* Waterfall Timeline */
+        .waterfall-container {
+            padding: 16px;
+            border-bottom: 1px solid var(--surface-variant);
+            flex-shrink: 0;
+        }
+
+        .waterfall-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--on-surface-variant);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .waterfall-box {
+            border: 1px solid var(--surface-variant);
+            border-radius: 2px;
+            background-color: var(--surface-container-lowest);
+            overflow: hidden;
+            font-size: 11px;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
+
+        .waterfall-header-row {
+            display: flex;
+            background-color: var(--surface);
+            height: 28px;
+            align-items: center;
+            padding: 0 8px;
+            border-bottom: 1px solid var(--surface-variant);
+            color: var(--on-surface-variant);
+        }
+
+        .waterfall-header-op {
+            width: 33.333%;
+            border-right: 1px solid var(--surface-variant);
+            padding-right: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .waterfall-header-timeline {
+            flex: 1;
+            position: relative;
+            height: 100%;
+        }
+
+        .waterfall-grid {
+            background-image: linear-gradient(to right, var(--surface-variant) 1px, transparent 1px);
+            background-size: 10% 100%;
+        }
+
+        .waterfall-header-timeline-max {
+            position: absolute;
+            right: 4px;
+            top: 6px;
+            font-size: 9px;
+        }
+
+        .waterfall-lanes {
+            display: flex;
+            flex-direction: column;
+            padding: 4px 0;
+            max-height: 156px;
+            overflow-y: auto;
+        }
+
+        .waterfall-lane {
+            display: flex;
+            align-items: center;
+            height: 24px;
+            padding: 0 8px;
+            transition: background-color 0.15s ease, opacity 0.2s ease, height 0.2s ease;
+            overflow: hidden;
+        }
+
+        .waterfall-lane.collapsed-hidden {
+            height: 0;
+            padding: 0 8px;
+            border: none;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .waterfall-lane:hover {
+            background-color: var(--surface-container);
+        }
+
+        .waterfall-lane-op {
+            width: 33.333%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding-right: 8px;
+            color: var(--on-surface-variant);
+            display: flex;
+            align-items: center;
+        }
+
+        .waterfall-lane-timeline {
+            flex: 1;
+            height: 100%;
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .waterfall-span-bar {
+            height: 8px;
+            border-radius: 2px;
+            position: absolute;
+            transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bg-lane-gray { background-color: var(--lane-gray); }
+        .bg-lane-blue { background-color: var(--lane-blue); }
+        .bg-lane-purple { background-color: var(--lane-purple); }
+        .bg-lane-teal { background-color: var(--lane-teal); }
+        .bg-lane-infoblue { background-color: var(--lane-infoblue); }
+        .bg-lane-red { background-color: var(--rail-red); }
+
+        .waterfall-lane-duration {
+            font-size: 9px;
+            color: var(--on-surface-variant);
+            margin-left: auto;
+            padding-right: 4px;
+        }
+
+        /* Tree Collapser Indicator */
+        .tree-collapser {
+            cursor: pointer;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            color: var(--on-surface-variant);
+            margin-right: 2px;
+            border-radius: 2px;
+            transition: background-color 0.15s ease, color 0.15s ease;
+        }
+        .tree-collapser:hover {
+            background-color: var(--surface-variant);
+            color: var(--on-surface);
+        }
+        .tree-collapser svg {
+            width: 8px;
+            height: 8px;
+            fill: currentColor;
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tree-collapser.collapsed svg {
+            transform: rotate(-90deg);
+        }
+
+        /* Tabs */
+        .tabs-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .tabs-bar {
+            display: flex;
+            border-bottom: 1px solid var(--surface-variant);
+            background-color: var(--surface-container-lowest);
+            padding: 0 16px;
+            flex-shrink: 0;
+        }
+
+        .tab-btn {
+            height: 36px;
+            padding: 0 16px;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--on-surface-variant);
+            border: none;
+            background: transparent;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        .tab-btn:hover {
+            color: var(--on-surface);
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .tab-btn.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .tab-badge {
+            margin-left: 6px;
+            font-size: 9px;
+            background-color: var(--surface-variant);
+            color: var(--on-surface);
+            padding: 1px 5px;
+            border-radius: 10px;
+        }
+
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            background-color: var(--surface);
+        }
+
+        .content-section {
+            margin-bottom: 24px;
+        }
+
+        .content-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--on-surface-variant);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        /* Tables */
+        .data-table-container {
+            background-color: var(--surface-container-lowest);
+            border: 1px solid var(--surface-variant);
+            border-radius: 2px;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            text-align: left;
+        }
+
+        .data-table tr {
+            border-bottom: 1px solid rgba(61, 74, 61, 0.35);
+        }
+
+        .data-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover {
+            background-color: rgba(34, 42, 61, 0.2);
+        }
+
+        .data-table td {
+            padding: 8px 12px;
+            vertical-align: top;
+        }
+
+        .data-table td.key-col {
+            color: var(--secondary-fixed-dim);
+            white-space: nowrap;
+            width: 25%;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
+
+        .data-table td.val-col {
+            color: var(--on-surface);
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
+
+        .data-table td.val-redacted {
+            color: rgba(218, 226, 253, 0.6);
+            font-style: italic;
+        }
+
+        /* Preformatted blocks */
+        .code-block-container {
+            position: relative;
+            border: 1px solid var(--surface-variant);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .code-block-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: var(--surface-container-lowest);
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--surface-variant);
+        }
+
+        .code-block-lang {
+            font-size: 11px;
+            color: var(--on-surface-variant);
+            text-transform: uppercase;
+        }
+
+        .code-block-copy {
+            background: transparent;
+            border: none;
+            color: var(--secondary);
+            font-size: 11px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+
+        .code-block-copy:hover {
+            color: var(--primary);
+        }
+
+        .code-block {
+            background-color: var(--surface-container-lowest);
+            padding: 12px;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--on-surface);
+        }
+
+        /* Syntax highlighting */
+        .json-key { color: #818cf8; }
+        .json-string { color: #34d399; }
+        .json-number { color: #fbbf24; }
+        .json-boolean { color: #f87171; }
+        .json-null { color: #9ca3af; }
+
+        .sql-keyword { color: #f472b6; font-weight: bold; }
+        .sql-string { color: #34d399; }
+        .sql-number { color: #fbbf24; }
+
+        /* Database SQL Queries Cards */
+        .db-query-card {
+            border: 1px solid var(--surface-variant);
+            background-color: var(--surface-container-lowest);
+            border-radius: 2px;
+            padding: 12px;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .db-query-card:hover {
+            border-color: var(--outline-variant);
+        }
+
+        .db-query-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 11px;
+            margin-bottom: 8px;
+        }
+
+        .db-query-index {
+            color: var(--lane-teal);
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .db-query-duration {
+            color: var(--lane-teal);
+            font-weight: 600;
+        }
+
+        .db-query-code {
+            background-color: rgba(11, 19, 38, 0.4);
+            padding: 8px;
+            border: 1px solid rgba(61, 74, 61, 0.3);
+            border-radius: 2px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-all;
+            color: var(--on-surface);
+        }
+
+        /* Dependencies Cards */
+        .dep-card {
+            border: 1px solid var(--surface-variant);
+            background-color: var(--surface-container-lowest);
+            border-radius: 2px;
+            padding: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .dep-card-info {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .dep-lane-badge {
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-weight: 700;
+            text-transform: uppercase;
+            display: inline-block;
+            border: 1px solid transparent;
+        }
+
+        .badge-external { background-color: rgba(14, 165, 233, 0.1); color: var(--lane-infoblue); border-color: rgba(14, 165, 233, 0.2); }
+        .badge-dep { background-color: rgba(139, 92, 246, 0.1); color: var(--lane-purple); border-color: rgba(139, 92, 246, 0.2); }
+        .badge-validation { background-color: rgba(249, 115, 22, 0.1); color: var(--rail-orange); border-color: rgba(249, 115, 22, 0.2); }
+
+        .dep-label {
+            font-size: 13px;
+            margin-top: 8px;
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
+
+        .dep-duration {
+            font-size: 12px;
+            color: var(--on-surface-variant);
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
+
+        /* Exception Card */
+        .err-card {
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background-color: rgba(239, 68, 68, 0.05);
+            border-radius: 2px;
+            padding: 16px;
+        }
+
+        .err-header-badge {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: var(--rail-red);
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 2px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .err-title {
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--rail-red);
+            margin-top: 8px;
+            word-break: break-all;
+            font-family: ui-monospace, SFMono-Regular, "SF Mono", monospace;
+        }
+
+        .err-meta {
+            font-size: 11px;
+            color: rgba(218, 226, 253, 0.8);
+            margin-top: 4px;
+        }
+
+        .err-stack-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--on-surface-variant);
+            margin-top: 16px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .err-stack {
+            background-color: var(--surface-container-lowest);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: 2px;
+            padding: 12px;
+            font-size: 12px;
+            color: #fca5a5;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* Empty states */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--on-surface-variant);
+            gap: 12px;
+        }
+
+        .empty-state svg {
+            width: 32px;
+            height: 32px;
+            opacity: 0.4;
+            color: var(--outline);
+        }
+
+        .empty-state p {
+            font-size: 13px;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-in {
+            animation: fadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* Modals and Overlays */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(6, 14, 32, 0.7);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+        .modal-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-card {
+            background-color: var(--surface);
+            border: 1px solid var(--surface-variant);
+            border-radius: 4px;
+            width: 420px;
+            max-width: 90%;
+            overflow: hidden;
+            transform: scale(0.95);
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .modal-overlay.open .modal-card {
+            transform: scale(1);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background-color: var(--surface-container-lowest);
+            border-bottom: 1px solid var(--surface-variant);
+        }
+        .modal-header h3 {
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--on-surface-variant);
+            cursor: pointer;
+        }
+        .modal-close:hover {
+            color: var(--on-surface);
+        }
+        .modal-close svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+        }
+        .modal-body {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--on-surface-variant);
+        }
+        .form-select, .form-input {
+            background-color: var(--surface-container);
+            border: 1px solid var(--surface-variant);
+            color: var(--on-surface);
+            height: 32px;
+            padding: 0 8px;
+            font-size: 12px;
+            outline: none;
+            border-radius: 2px;
+            width: 100%;
+        }
+        .form-select:focus, .form-input:focus {
+            border-color: var(--primary);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--on-surface-variant);
+        }
+        .checkbox-group input {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <!-- TopNav -->
+    <header>
+        <div class="header-left">
+            <div class="brand">
+                <img src="/static/logo.png" alt="Aquilia Logo"/>
+                <h2>Aquilia Inspector</h2>
+            </div>
+            <!-- Global Search/Filter -->
+            <label class="search-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input id="traceSearch" class="search-input" placeholder="Filter requests..." value=""/>
+            </label>
         </div>
-        <div class="aq-inspector-trace-list" id="traceList">
-            <!-- Dynamically populated -->
+        <div class="header-right">
+            <!-- Stream Switch -->
+            <div id="toggleStream" class="stream-status-badge" title="Click to Pause/Resume live stream">
+                <div id="streamDot" class="stream-dot live"></div>
+                <span id="streamStatusText">LIVE</span>
+            </div>
+            <button id="btnClearAll" class="btn">
+                <span>Clear</span>
+            </button>
+            <button id="btnSettings" class="btn" title="Open Inspector Settings">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main>
+        <!-- Left Pane: Request Rail -->
+        <aside>
+            <div id="traceList" class="trace-list-container">
+                <!-- Dynamically populated -->
+            </div>
+        </aside>
+
+        <!-- Right Pane: Detail View -->
+        <section id="traceDetails" class="details-pane">
+            <div class="empty-state">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <p>Select a request trace from the list to view its timeline and details.</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Custom Modal/Dialog Box (Replaces default alerts/confirms) -->
+    <div id="customDialog" class="modal-overlay">
+        <div class="modal-card" style="width: 380px;">
+            <div class="modal-header">
+                <h3 id="dialogTitle">Notification</h3>
+                <button id="btnDialogClose" class="modal-close">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body" style="gap: 12px;">
+                <p id="dialogMessage" style="font-size: 13px; color: var(--on-surface); line-height: 1.5;"></p>
+                <div id="dialogActions" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px;">
+                    <button id="btnDialogCancel" class="btn" style="height: 30px;">Cancel</button>
+                    <button id="btnDialogConfirm" class="btn btn-primary" style="height: 30px;">OK</button>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Details -->
-    <div class="aq-inspector-details" id="traceDetails">
-        <div class="aq-inspector-empty-state">
-            <i class="icon-eye"></i>
-            <p>Select a request trace from the list to view its timeline and details.</p>
+    <!-- Settings Panel Modal -->
+    <div id="settingsModal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>Inspector Settings</h3>
+                <button id="btnSettingsClose" class="modal-close">
+                    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="themeSelect">Theme Preset</label>
+                    <select id="themeSelect" class="form-select">
+                        <option value="default">Spyglass Dark</option>
+                        <option value="ocean">Ocean Blue Dark</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="limitInput">Max Traces in UI</label>
+                    <input id="limitInput" type="number" class="form-input" min="10" max="1000" value="100"/>
+                </div>
+                <label class="checkbox-group">
+                    <input id="autoscrollCheck" type="checkbox" checked/>
+                    <span>Auto-scroll to newest trace</span>
+                </label>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-    const traceList = document.getElementById("traceList");
-    const traceDetails = document.getElementById("traceDetails");
-    const traceSearch = document.getElementById("traceSearch");
-    
-    let allTraces = [];
-    let selectedTraceId = null;
+    <script nonce="__CSP_NONCE__">
+        document.addEventListener("DOMContentLoaded", () => {
+            const urlPrefix = "{{ url_prefix|default('/__aquilia__/inspector') }}";
+            const traceList = document.getElementById("traceList");
+            const traceDetails = document.getElementById("traceDetails");
+            const traceSearch = document.getElementById("traceSearch");
+            const btnClearAll = document.getElementById("btnClearAll");
+            const btnSettings = document.getElementById("btnSettings");
+            const btnSettingsClose = document.getElementById("btnSettingsClose");
+            const settingsModal = document.getElementById("settingsModal");
+            const toggleStream = document.getElementById("toggleStream");
+            const streamDot = document.getElementById("streamDot");
+            const streamStatusText = document.getElementById("streamStatusText");
 
-    // Load initial traces
-    fetchTraces();
+            // Form bindings
+            const themeSelect = document.getElementById("themeSelect");
+            const limitInput = document.getElementById("limitInput");
+            const autoscrollCheck = document.getElementById("autoscrollCheck");
 
-    // SSE EventSource setup
-    const eventSource = new EventSource("{{ url_prefix|default('/admin') }}/inspector/stream/");
-    eventSource.addEventListener("trace", (e) => {
-        try {
-            const trace = JSON.parse(e.data);
-            // Prepend new trace
-            allTraces.unshift(trace);
-            renderList();
-        } catch (err) {
-            console.error("Failed to parse live trace event", err);
-        }
-    });
+            // Custom Dialog components
+            const customDialog = document.getElementById("customDialog");
+            const dialogTitle = document.getElementById("dialogTitle");
+            const dialogMessage = document.getElementById("dialogMessage");
+            const btnDialogCancel = document.getElementById("btnDialogCancel");
+            const btnDialogConfirm = document.getElementById("btnDialogConfirm");
+            const btnDialogClose = document.getElementById("btnDialogClose");
 
-    traceSearch.addEventListener("input", () => {
-        renderList();
-    });
+            let allTraces = [];
+            let selectedTraceId = null;
+            let activeTab = "request";
+            let isStreamPaused = false;
+            let collapsedSpans = new Set(); 
 
-    function fetchTraces() {
-        fetch("{{ url_prefix|default('/admin') }}/inspector/api/traces/")
-            .then(res => res.json())
-            .then(data => {
-                allTraces = data;
-                renderList();
-            })
-            .catch(err => console.error("Failed to fetch traces", err));
-    }
+            // Local settings
+            let settings = {
+                theme: localStorage.getItem("aq_inspector_theme") || "default",
+                maxTraces: parseInt(localStorage.getItem("aq_inspector_max")) || 100,
+                autoscroll: localStorage.getItem("aq_inspector_scroll") !== "false"
+            };
 
-    function renderList() {
-        const query = traceSearch.value.toLowerCase().trim();
-        traceList.innerHTML = "";
+            // Apply loaded settings
+            applySettings();
 
-        const filtered = allTraces.filter(t => {
-            return t.path.toLowerCase().includes(query) || t.method.toLowerCase().includes(query);
-        });
+            // Load initial traces
+            fetchTraces();
 
-        if (filtered.length === 0) {
-            traceList.innerHTML = `<div style="text-align:center;padding:24px;color:#64748b;">No traces found</div>`;
-            return;
-        }
-
-        filtered.forEach(t => {
-            const item = document.createElement("div");
-            item.className = `aq-inspector-trace-item ${selectedTraceId === t.trace_id ? 'active' : ''}`;
-            item.dataset.traceId = t.trace_id;
-
-            const isSuccess = t.status_code && t.status_code < 400;
-            const timeStr = new Date(t.started_at * 1000).toLocaleTimeString();
-            const duration = t.duration_ms ? t.duration_ms.toFixed(1) + "ms" : "in progress";
-
-            item.innerHTML = `
-                <div>
-                    <div>
-                        <span class="aq-inspector-method-badge aq-inspector-method-${t.method}">${t.method}</span>
-                        <span class="aq-inspector-path">${t.path}</span>
-                    </div>
-                    <div class="aq-inspector-trace-meta">
-                        <span class="${isSuccess ? 'aq-inspector-status-success' : 'aq-inspector-status-error'}">
-                            ${t.status_code || '—'}
-                        </span>
-                        <span>•</span>
-                        <span>${duration}</span>
-                        <span>•</span>
-                        <span>${timeStr}</span>
-                    </div>
-                </div>
-                <i class="icon-chevron-right" style="opacity:0.3;"></i>
-            `;
-
-            item.addEventListener("click", () => {
-                selectedTraceId = t.trace_id;
-                document.querySelectorAll(".aq-inspector-trace-item").forEach(el => el.classList.remove("active"));
-                item.classList.add("active");
-                renderDetails(t);
-            });
-
-            traceList.appendChild(item);
-        });
-    }
-
-    function renderDetails(trace) {
-        // Build metadata lists
-        let queryParamsHtml = "<em>None</em>";
-        if (trace.query_params && Object.keys(trace.query_params).length > 0) {
-            queryParamsHtml = `<ul class="aq-inspector-dict-list">`;
-            for (const [k, v] of Object.entries(trace.query_params)) {
-                queryParamsHtml += `
-                    <li class="aq-inspector-dict-item">
-                        <span class="aq-inspector-dict-key">${escapeHtml(k)}</span>
-                        <span class="aq-inspector-dict-value">${escapeHtml(JSON.stringify(v))}</span>
-                    </li>`;
-            }
-            queryParamsHtml += `</ul>`;
-        }
-
-        let headersHtml = "<em>None</em>";
-        if (trace.request_headers && Object.keys(trace.request_headers).length > 0) {
-            headersHtml = `<ul class="aq-inspector-dict-list">`;
-            for (const [k, v] of Object.entries(trace.request_headers)) {
-                headersHtml += `
-                    <li class="aq-inspector-dict-item">
-                        <span class="aq-inspector-dict-key">${escapeHtml(k)}</span>
-                        <span class="aq-inspector-dict-value">${escapeHtml(v)}</span>
-                    </li>`;
-            }
-            headersHtml += `</ul>`;
-        }
-
-        // Waterfall Spans
-        let spansHtml = "";
-        const totalDuration = trace.duration_ms || 1.0;
-        if (trace.spans && trace.spans.length > 0) {
-            trace.spans.forEach(s => {
-                const leftPct = (s.start_offset_ms / totalDuration) * 100;
-                const widthPct = (s.duration_ms / totalDuration) * 100;
-                
-                spansHtml += `
-                    <tr class="aq-inspector-waterfall-row">
-                        <td class="aq-inspector-waterfall-cell-label">
-                            <span class="aq-inspector-waterfall-lane-badge aq-inspector-lane-${s.lane}">${s.lane}</span>
-                            <div class="aq-inspector-waterfall-label">${escapeHtml(s.label)}</div>
-                        </td>
-                        <td class="aq-inspector-waterfall-cell-bar">
-                            <div class="aq-inspector-waterfall-bar-track">
-                                <div class="aq-inspector-waterfall-bar aq-inspector-bar-${s.lane}" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;"></div>
-                                <div class="aq-inspector-waterfall-bar-tooltip" style="left:${(leftPct + widthPct/2).toFixed(2)}%;">${s.duration_ms.toFixed(1)}ms</div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            });
-        } else {
-            spansHtml = `<tr><td colspan="2" style="text-align:center;padding:24px;color:#64748b;">No spans recorded.</td></tr>`;
-        }
-
-        // Exceptions card
-        let exceptionHtml = "";
-        if (trace.exception) {
-            exceptionHtml = `
-                <div class="aq-inspector-card" style="border-color:#ef4444;background:rgba(239,68,68,0.05);">
-                    <div class="aq-inspector-card-title" style="color:#f87171;">Exception Occurred</div>
-                    <div style="font-weight:700;font-size:0.9375rem;color:#fca5a5;">${escapeHtml(trace.exception.exception_type)}: ${escapeHtml(trace.exception.message)}</div>
-                    <div style="font-size:0.75rem;color:#fca5a5;margin:4px 0 12px 0;">Code: ${escapeHtml(trace.exception.fault_code)} • Domain: ${escapeHtml(trace.exception.fault_domain)}</div>
-                    <div class="aq-inspector-card-title" style="font-size:0.75rem;margin-bottom:6px;">Stack Trace</div>
-                    <pre class="aq-inspector-code-block" style="border-color:#b91c1c;color:#fca5a5;">${trace.exception.stack_frames.map(f => `File "${f.filename}", line ${f.lineno}, in ${f.name}`).join("\n")}</pre>
-                </div>
-            `;
-        }
-
-        // Response summary
-        let responseHtml = "";
-        if (trace.response) {
-            responseHtml = `
-                <div class="aq-inspector-card">
-                    <div class="aq-inspector-card-title">Response Summary</div>
-                    <div class="aq-inspector-meta-grid" style="margin-bottom:12px;">
-                        <div class="aq-inspector-meta-item">
-                            <div class="aq-inspector-meta-label">Status</div>
-                            <div class="aq-inspector-meta-value ${trace.response.status < 400 ? 'aq-inspector-status-success' : 'aq-inspector-status-error'}">${trace.response.status}</div>
-                        </div>
-                        <div class="aq-inspector-meta-item">
-                            <div class="aq-inspector-meta-label">Size</div>
-                            <div class="aq-inspector-meta-value">${trace.response.size_bytes} bytes</div>
-                        </div>
-                    </div>
-                    ${trace.response.preview ? `
-                        <div class="aq-inspector-card-title" style="font-size:0.75rem;margin-bottom:6px;">Body Preview</div>
-                        <pre class="aq-inspector-code-block">${escapeHtml(trace.response.preview)}</pre>
-                    ` : ''}
-                </div>
-            `;
-        }
-
-        // Render everything
-        traceDetails.innerHTML = `
-            <div class="aq-inspector-details-header">
-                <div class="aq-inspector-details-title-row">
-                    <div class="aq-inspector-details-title">
-                        <span class="aq-inspector-method-badge aq-inspector-method-${trace.method}">${trace.method}</span>
-                        <span class="aq-inspector-path">${escapeHtml(trace.path)}</span>
-                    </div>
-                    <div style="font-size:1.125rem;font-weight:700;color:#f1f5f9;">
-                        ${trace.duration_ms.toFixed(1)}ms
-                    </div>
-                </div>
-                <div class="aq-inspector-trace-meta" style="margin-top:8px;">
-                    <span class="aq-inspector-status-success">${trace.status_code || '—'}</span>
-                    <span>•</span>
-                    <span>Trace ID: <span style="font-family:monospace;">${trace.trace_id}</span></span>
-                    <span>•</span>
-                    <span>Client IP: ${trace.client_addr || '—'}</span>
-                </div>
-                <div class="aq-inspector-toolbar">
-                    <button class="aq-inspector-btn aq-inspector-btn-primary" id="btnReplay"><i class="icon-play"></i> Replay Request</button>
-                    <button class="aq-inspector-btn" id="btnExportJson"><i class="icon-download"></i> Raw JSON</button>
-                    <button class="aq-inspector-btn" id="btnExportCurl"><i class="icon-terminal"></i> Copy cURL</button>
-                </div>
-            </div>
-
-            <div class="aq-inspector-details-body">
-                ${exceptionHtml}
-
-                <!-- Waterfall -->
-                <div class="aq-inspector-card">
-                    <div class="aq-inspector-card-title">Timeline Waterfall</div>
-                    <table class="aq-inspector-waterfall-table">
-                        <tbody>
-                            ${spansHtml}
-                        </tbody>
-                    </table>
-                </div>
-
-                ${responseHtml}
-
-                <!-- Headers / Query Params -->
-                <div class="aq-inspector-card">
-                    <div class="aq-inspector-card-title">Query Parameters</div>
-                    ${queryParamsHtml}
-                </div>
-
-                <div class="aq-inspector-card">
-                    <div class="aq-inspector-card-title">Request Headers</div>
-                    ${headersHtml}
-                </div>
-
-                ${trace.request_body_preview ? `
-                    <div class="aq-inspector-card">
-                        <div class="aq-inspector-card-title">Request Body Preview</div>
-                        <pre class="aq-inspector-code-block">${escapeHtml(trace.request_body_preview)}</pre>
-                    </div>
-                ` : ''}
-            </div>
-        `;
-
-        // Bind toolbar events
-        document.getElementById("btnReplay").addEventListener("click", () => {
-            const mutate = !["GET", "HEAD", "OPTIONS"].includes(trace.method);
-            let confirmMsg = "Are you sure you want to replay this request?";
-            if (mutate) {
-                confirmMsg = "Warning: This is a mutating request (POST/PUT/PATCH/DELETE). Replaying will execute it against the live server. Do you want to proceed?";
-            }
-            if (confirm(confirmMsg)) {
-                const headers = {};
-                if (mutate) {
-                    headers["X-Aquilia-Allow-Replay-Mutation"] = "true";
+            // Background Refresher (Fail-safe poll fallback every 4 seconds)
+            setInterval(() => {
+                if (!isStreamPaused) {
+                    fetchTracesSilently();
                 }
-                fetch(`{{ url_prefix|default('/admin') }}/inspector/api/traces/${trace.trace_id}/replay/`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        ...headers
+            }, 4000);
+
+            // Custom Dialog functions
+            function showAlert(message, title = "Notification") {
+                dialogTitle.innerText = title;
+                dialogMessage.innerText = message;
+                btnDialogCancel.style.display = "none";
+                btnDialogConfirm.innerText = "OK";
+                btnDialogConfirm.onclick = () => {
+                    customDialog.classList.remove("open");
+                };
+                btnDialogClose.onclick = () => {
+                    customDialog.classList.remove("open");
+                };
+                customDialog.classList.add("open");
+            }
+
+            function showConfirm(message, callback, title = "Confirmation") {
+                dialogTitle.innerText = title;
+                dialogMessage.innerText = message;
+                btnDialogCancel.style.display = "inline-flex";
+                btnDialogConfirm.innerText = "Proceed";
+                btnDialogConfirm.onclick = () => {
+                    customDialog.classList.remove("open");
+                    if (callback) callback();
+                };
+                btnDialogCancel.onclick = () => {
+                    customDialog.classList.remove("open");
+                };
+                btnDialogClose.onclick = () => {
+                    customDialog.classList.remove("open");
+                };
+                customDialog.classList.add("open");
+            }
+
+            // Syntax highlighting functions
+            function highlightJson(jsonStr) {
+                if (!jsonStr) return "";
+                try {
+                    const obj = JSON.parse(jsonStr);
+                    jsonStr = JSON.stringify(obj, null, 2);
+                } catch (e) {}
+
+                let escaped = escapeHtml(jsonStr);
+                return escaped.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, function (match) {
+                    let cls = 'number';
+                    if (/^"/.test(match)) {
+                        if (/:$/.test(match)) {
+                            cls = 'key';
+                        } else {
+                            cls = 'string';
+                        }
+                    } else if (/true|false/.test(match)) {
+                        cls = 'boolean';
+                    } else if (/null/.test(match)) {
+                        cls = 'null';
                     }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    alert(`Replay completed. Status code: ${data.status}`);
-                    fetchTraces();
-                })
-                .catch(err => alert(`Replay failed: ${err.message}`));
+                    return '<span class="json-' + cls + '">' + match + '</span>';
+                });
             }
-        });
 
-        document.getElementById("btnExportJson").addEventListener("click", () => {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(trace, null, 2));
-            const dlAnchor = document.createElement('a');
-            dlAnchor.setAttribute("href", dataStr);
-            dlAnchor.setAttribute("download", `trace-${trace.trace_id}.json`);
-            document.body.appendChild(dlAnchor);
-            dlAnchor.click();
-            dlAnchor.remove();
-        });
+            function highlightSql(sqlStr) {
+                if (!sqlStr) return "";
+                let escaped = escapeHtml(sqlStr);
+                const keywords = [
+                    "SELECT", "FROM", "WHERE", "INSERT", "UPDATE", "DELETE", "JOIN", 
+                    "INNER", "LEFT", "RIGHT", "OUTER", "ON", "AND", "OR", "LIMIT", 
+                    "OFFSET", "GROUP BY", "ORDER BY", "HAVING", "CREATE", "DROP", "ALTER",
+                    "TABLE", "INTO", "VALUES", "SET", "AS", "IN", "IS", "NULL", "NOT"
+                ];
+                const regex = new RegExp('\\b(' + keywords.join('|') + ')\\b', 'gi');
+                return escaped.replace(regex, '<span class="sql-keyword">$1</span>')
+                              .replace(/'([^']*)'/g, '<span class="sql-string">\'$1\'</span>')
+                              .replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>');
+            }
 
-        document.getElementById("btnExportCurl").addEventListener("click", () => {
-            // Build curl command
-            let cmd = `curl -X ${trace.method} "${window.location.origin}${trace.path}"`;
-            if (trace.request_headers) {
-                for (const [k, v] of Object.entries(trace.request_headers)) {
-                    cmd += ` -H "${k}: ${v}"`;
+            // Toggle stream pause
+            toggleStream.addEventListener("click", () => {
+                isStreamPaused = !isStreamPaused;
+                if (isStreamPaused) {
+                    streamDot.className = "stream-dot paused";
+                    streamStatusText.innerText = "PAUSED";
+                    toggleStream.title = "Live stream paused. Click to Resume.";
+                } else {
+                    streamDot.className = "stream-dot live";
+                    streamStatusText.innerText = "LIVE";
+                    toggleStream.title = "Live stream active. Click to Pause.";
+                    fetchTraces();
+                }
+            });
+
+            // Settings modal triggers
+            btnSettings.addEventListener("click", () => {
+                settingsModal.classList.add("open");
+            });
+            btnSettingsClose.addEventListener("click", () => {
+                settingsModal.classList.remove("open");
+            });
+            settingsModal.addEventListener("click", (e) => {
+                if (e.target === settingsModal) {
+                    settingsModal.classList.remove("open");
+                }
+            });
+
+            themeSelect.addEventListener("change", () => {
+                settings.theme = themeSelect.value;
+                localStorage.setItem("aq_inspector_theme", settings.theme);
+                applySettings();
+            });
+            limitInput.addEventListener("change", () => {
+                settings.maxTraces = Math.max(10, Math.min(1000, parseInt(limitInput.value) || 100));
+                localStorage.setItem("aq_inspector_max", settings.maxTraces);
+            });
+            autoscrollCheck.addEventListener("change", () => {
+                settings.autoscroll = autoscrollCheck.checked;
+                localStorage.setItem("aq_inspector_scroll", settings.autoscroll);
+            });
+
+            // Clear traces listener
+            btnClearAll.addEventListener("click", () => {
+                showConfirm("Are you sure you want to clear all traces?", () => {
+                    fetch(urlPrefix + "/api/clear/", { method: "POST" })
+                        .then(res => res.json())
+                        .then(data => {
+                            allTraces = [];
+                            selectedTraceId = null;
+                            collapsedSpans.clear();
+                            renderList();
+                            renderEmptyState();
+                        })
+                        .catch(err => showAlert("Failed to clear traces: " + err.message, "Error"));
+                }, "Clear Traces");
+            });
+
+            // SSE EventSource setup
+            const eventSource = new EventSource(urlPrefix + "/stream/");
+            eventSource.addEventListener("trace", (e) => {
+                if (isStreamPaused) return;
+                try {
+                    const trace = JSON.parse(e.data);
+                    processIncomingTrace(trace);
+                } catch (err) {
+                    console.error("Failed to parse live trace event", err);
+                }
+            });
+
+            traceSearch.addEventListener("input", () => {
+                renderList();
+            });
+
+            function processIncomingTrace(trace) {
+                const idx = allTraces.findIndex(t => t.trace_id === trace.trace_id);
+                if (idx > -1) {
+                    allTraces[idx] = trace;
+                } else {
+                    allTraces.unshift(trace);
+                    if (allTraces.length > settings.maxTraces) {
+                        allTraces.pop();
+                    }
+                }
+                renderList();
+                if (selectedTraceId === trace.trace_id) {
+                    renderDetails(trace);
+                }
+                if (settings.autoscroll && idx === -1) {
+                    traceList.scrollTop = 0;
                 }
             }
-            if (trace.request_body_preview) {
-                cmd += ` -d '${trace.request_body_preview.replace(/'/g, "'\\''")}'`;
-            }
-            navigator.clipboard.writeText(cmd).then(() => {
-                alert("cURL command copied to clipboard!");
-            });
-        });
-    }
 
-    function escapeHtml(str) {
-        if (!str) return "";
-        return String(str)
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;")
-            .replace(/"/g, "&quot;")
-            .replace(/'/g, "&#039;");
-    }
-});
-</script>
-{% endblock %}
+            function applySettings() {
+                if (settings.theme === "ocean") {
+                    document.body.classList.add("theme-ocean");
+                } else {
+                    document.body.classList.remove("theme-ocean");
+                }
+                themeSelect.value = settings.theme;
+                limitInput.value = settings.maxTraces;
+                autoscrollCheck.checked = settings.autoscroll;
+            }
+
+            function fetchTraces() {
+                fetch(urlPrefix + "/api/traces/")
+                    .then(res => res.json())
+                    .then(data => {
+                        allTraces = data.slice(0, settings.maxTraces);
+                        renderList();
+                        if (!selectedTraceId && allTraces.length > 0) {
+                            selectedTraceId = allTraces[0].trace_id;
+                            renderDetails(allTraces[0]);
+                            renderList();
+                        }
+                    })
+                    .catch(err => console.error("Failed to fetch traces", err));
+            }
+
+            function fetchTracesSilently() {
+                fetch(urlPrefix + "/api/traces/")
+                    .then(res => res.json())
+                    .then(data => {
+                        const capData = data.slice(0, settings.maxTraces);
+                        // Deep compare basic updates
+                        let changed = false;
+                        if (capData.length !== allTraces.length) {
+                            changed = true;
+                        } else {
+                            for (let i = 0; i < capData.length; i++) {
+                                if (capData[i].trace_id !== allTraces[i].trace_id || capData[i].spans.length !== allTraces[i].spans.length) {
+                                    changed = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (changed) {
+                            allTraces = capData;
+                            renderList();
+                            const current = allTraces.find(t => t.trace_id === selectedTraceId);
+                            if (current) {
+                                renderDetails(current);
+                            }
+                        }
+                    })
+                    .catch(err => console.error("Silent sync failed", err));
+            }
+
+            function getRelativeTime(timestamp) {
+                const diff = Math.floor(Date.now() / 1000 - timestamp);
+                if (diff < 5) return "just now";
+                if (diff < 60) return `${diff}s ago`;
+                if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+                if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+                return `${Math.floor(diff / 86400)}d ago`;
+            }
+
+            function renderEmptyState() {
+                traceDetails.innerHTML = `
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="20" x2="18" y2="10"/>
+                            <line x1="12" y1="20" x2="12" y2="4"/>
+                            <line x1="6" y1="20" x2="6" y2="14"/>
+                        </svg>
+                        <p>Select a request trace from the list to view its timeline and details.</p>
+                    </div>
+                `;
+            }
+
+            function highlightText(text, searchVal) {
+                if (!searchVal) return escapeHtml(text);
+                const escapedSearch = searchVal.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const regex = new RegExp(`(${escapedSearch})`, 'gi');
+                return escapeHtml(text).replace(regex, '<span class="highlight">$1</span>');
+            }
+
+            function renderList() {
+                const query = traceSearch.value.toLowerCase().trim();
+                traceList.innerHTML = "";
+
+                const filtered = allTraces.filter(t => {
+                    return t.path.toLowerCase().includes(query) || 
+                           t.method.toLowerCase().includes(query) || 
+                           (t.status_code && String(t.status_code).includes(query));
+                });
+
+                if (filtered.length === 0) {
+                    traceList.innerHTML = `<div class="text-center py-8 text-on-surface-variant text-body-sm">No traces found</div>`;
+                    return;
+                }
+
+                const maxDuration = Math.max(...allTraces.map(t => t.duration_ms || 1), 1);
+
+                filtered.forEach(t => {
+                    const isSelected = selectedTraceId === t.trace_id;
+                    const item = document.createElement("div");
+                    item.className = `rail-row ${isSelected ? 'selected' : ''}`;
+                    
+                    let indicatorColor = 'indicator-green';
+                    if (t.status_code >= 500 || t.exception) {
+                        indicatorColor = 'indicator-red';
+                    } else if (t.status_code >= 400) {
+                        indicatorColor = 'indicator-orange';
+                    }
+                    
+                    let badgeStyle = 'text-gray-400 bg-gray-400/10';
+                    if (t.method === 'GET') {
+                        badgeStyle = 'badge-get';
+                    } else if (t.method === 'POST') {
+                        badgeStyle = 'badge-post';
+                    } else if (t.method === 'DELETE') {
+                        badgeStyle = 'badge-delete';
+                    } else if (['PUT', 'PATCH'].includes(t.method)) {
+                        badgeStyle = 'badge-put-patch';
+                    }
+                    
+                    let barColor = 'bar-green';
+                    if (t.status_code >= 500 || t.exception) {
+                        barColor = 'bar-red';
+                    } else if (t.duration_ms >= 500) {
+                        barColor = 'bar-orange';
+                    } else if (t.method === 'POST') {
+                        barColor = 'bar-blue';
+                    }
+                    
+                    const widthPct = Math.max(2, Math.min(100, (t.duration_ms / maxDuration) * 100));
+                    const durationStr = t.duration_ms ? `${t.duration_ms.toFixed(0)}ms` : "pending";
+                    const timeStr = getRelativeTime(t.started_at);
+                    const statusText = t.status_code || "—";
+                    const statusColorClass = t.status_code >= 400 ? 'status-error' : 'status-success';
+
+                    const highlightedPath = highlightText(t.path, query);
+
+                    item.innerHTML = `
+                        ${isSelected ? '' : `<div class="rail-row-indicator ${indicatorColor}"></div>`}
+                        <div class="rail-row-content">
+                            <div class="rail-row-header">
+                                <div class="rail-row-meta">
+                                    <span class="badge ${badgeStyle}">${t.method}</span>
+                                    <span class="path-text">${highlightedPath}</span>
+                                </div>
+                                <span class="status-text ${statusColorClass}">${statusText}</span>
+                            </div>
+                            <div class="rail-row-footer">
+                                <div class="time-duration">
+                                    <span>${durationStr}</span>
+                                    <span>•</span>
+                                    <span>${timeStr}</span>
+                                </div>
+                                <div class="duration-bar-bg">
+                                    <div class="duration-bar ${barColor}" style="width: ${widthPct.toFixed(0)}%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    item.addEventListener("click", () => {
+                        selectedTraceId = t.trace_id;
+                        renderList();
+                        renderDetails(t);
+                    });
+
+                    traceList.appendChild(item);
+                });
+            }
+
+            function renderDetails(trace) {
+                const dbCount = trace.spans.filter(s => s.lane === 'database').length;
+                const depCount = trace.spans.filter(s => ['external_http', 'dependency', 'validation', 'effect'].includes(s.lane)).length;
+                const hasException = !!trace.exception;
+
+                if (activeTab === "exception" && !hasException) {
+                    activeTab = "request";
+                }
+
+                let statusBadgeClass = 'status-badge-success';
+                let statusName = `${trace.status_code || 200} OK`;
+                if (trace.status_code >= 500 || trace.exception) {
+                    statusBadgeClass = 'status-badge-error';
+                    statusName = `${trace.status_code || 500} Server Error`;
+                } else if (trace.status_code >= 400) {
+                    statusBadgeClass = 'status-badge-warn';
+                    statusName = `${trace.status_code} Client Error`;
+                }
+
+                traceDetails.innerHTML = `
+                    <div class="fade-in" style="display: flex; flex-direction: column; height: 100%;">
+                        <!-- Detail Header -->
+                        <div class="details-header">
+                            <div class="details-header-info">
+                                <h1 class="details-header-title">
+                                    ${trace.method} ${escapeHtml(trace.path)}
+                                </h1>
+                                <div class="details-header-badges">
+                                    <span class="status-badge ${statusBadgeClass}">${statusName}</span>
+                                    <span>${trace.duration_ms.toFixed(1)}ms total</span>
+                                    <span>IP: ${trace.client_addr || '—'}
+                                        ${trace.client_addr ? `<button class="copy-text-btn" data-action="copy-ip" data-value="${trace.client_addr}" title="Copy IP"><svg viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>` : ''}
+                                    </span>
+                                    <span>ID: ${trace.trace_id}
+                                        <button class="copy-text-btn" data-action="copy-trace-id" data-value="${trace.trace_id}" title="Copy Trace ID"><svg viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="details-header-actions">
+                                <button id="btnReplay" class="btn">
+                                    <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                                    <span>Replay</span>
+                                </button>
+                                <button id="btnCurl" class="btn">
+                                    <svg viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                                    <span>cURL</span>
+                                </button>
+                                <button id="btnJson" class="btn">
+                                    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                                    <span>JSON</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Waterfall Section -->
+                        <div class="waterfall-container">
+                            <h3 class="waterfall-title">
+                                <span>Execution Timeline</span>
+                                <span style="font-size:10px;text-transform:none;opacity:0.7;">Click arrow toggles to expand/collapse parent spans</span>
+                            </h3>
+                            <div class="waterfall-box">
+                                <div class="waterfall-header-row">
+                                    <div class="waterfall-header-op">Operation</div>
+                                    <div class="waterfall-header-timeline waterfall-grid">
+                                        <span class="waterfall-header-timeline-max">${trace.duration_ms.toFixed(1)}ms</span>
+                                    </div>
+                                </div>
+                                <div id="waterfallLanes" class="waterfall-lanes">
+                                    <!-- Generated Dynamically -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tabs Section -->
+                        <div class="tabs-container">
+                            <div class="tabs-bar">
+                                <button data-tab="request" class="tab-btn ${activeTab === 'request' ? 'active' : ''}">Request</button>
+                                <button data-tab="response" class="tab-btn ${activeTab === 'response' ? 'active' : ''}">Response</button>
+                                <button data-tab="database" class="tab-btn ${activeTab === 'database' ? 'active' : ''}">Database <span class="tab-badge">${dbCount}</span></button>
+                                <button data-tab="dependencies" class="tab-btn ${activeTab === 'dependencies' ? 'active' : ''}">Dependencies <span class="tab-badge">${depCount}</span></button>
+                                <button data-tab="exception" class="tab-btn ${!hasException ? 'disabled' : ''} ${activeTab === 'exception' ? 'active' : ''}" ${!hasException ? 'disabled' : ''}>Exception</button>
+                            </div>
+                            <div id="tabContent" class="tab-content fade-in">
+                                <!-- Tab Content -->
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                renderWaterfall(trace);
+                renderTabContent(trace);
+
+                // Bind tab triggers
+                document.querySelectorAll(".tab-btn").forEach(btn => {
+                    btn.addEventListener("click", () => {
+                        const tab = btn.dataset.tab;
+                        if (tab === "exception" && !hasException) return;
+                        activeTab = tab;
+                        
+                        document.querySelectorAll(".tab-btn").forEach(el => {
+                            el.classList.remove("active");
+                        });
+                        btn.classList.add("active");
+
+                        // Apply smooth fade-in class on content swap
+                        const tabContent = document.getElementById("tabContent");
+                        tabContent.classList.remove("fade-in");
+                        void tabContent.offsetWidth; 
+                        tabContent.classList.add("fade-in");
+
+                        renderTabContent(trace);
+                    });
+                });
+
+                // Bind actions
+                document.getElementById("btnReplay").addEventListener("click", () => {
+                    const mutate = !["GET", "HEAD", "OPTIONS"].includes(trace.method);
+                    let confirmMsg = "Are you sure you want to replay this request?";
+                    if (mutate) {
+                        confirmMsg = "Warning: This is a mutating request (POST/PUT/PATCH/DELETE). Replaying will execute it against the live server. Do you want to proceed?";
+                    }
+                    showConfirm(confirmMsg, () => {
+                        const headers = {};
+                        if (mutate) {
+                            headers["X-Aquilia-Allow-Replay-Mutation"] = "true";
+                        }
+                        const replayBtn = document.getElementById("btnReplay");
+                        replayBtn.innerHTML = `<svg class="animate-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg><span>Replaying...</span>`;
+                        replayBtn.disabled = true;
+
+                        fetch(`${urlPrefix}/api/traces/${trace.trace_id}/replay/`, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                ...headers
+                            }
+                        })
+                        .then(res => {
+                            if (!res.ok) {
+                                return res.json().then(
+                                    data => { throw new Error(typeof data.error === 'object' ? JSON.stringify(data.error) : (data.error || 'Server error')); },
+                                    () => { throw new Error(`HTTP ${res.status}`); }
+                                );
+                            }
+                            return res.json();
+                        })
+                        .then(data => {
+                            showAlert(`Replay completed successfully. Status code: ${data.status}`, "Success");
+                            fetchTraces();
+                        })
+                        .catch(err => {
+                            showAlert(`Replay failed: ${err.message}`, "Error");
+                        })
+                        .finally(() => {
+                            replayBtn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg><span>Replay</span>`;
+                            replayBtn.disabled = false;
+                        });
+                    }, "Replay Request");
+                });
+
+                document.getElementById("btnCurl").addEventListener("click", () => {
+                    let cmd = `curl -X ${trace.method} "${window.location.origin}${trace.path}"`;
+                    if (trace.request_headers) {
+                        for (const [k, v] of Object.entries(trace.request_headers)) {
+                            cmd += ` -H "${k}: ${v}"`;
+                        }
+                    }
+                    if (trace.request_body_preview) {
+                        cmd += ` -d '${trace.request_body_preview.replace(/'/g, "'\\''")}'`;
+                    }
+                    navigator.clipboard.writeText(cmd).then(() => {
+                        showAlert("cURL command copied to clipboard!", "Copied");
+                    });
+                });
+
+                document.getElementById("btnJson").addEventListener("click", () => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(trace, null, 2));
+                    const dlAnchor = document.createElement('a');
+                    dlAnchor.setAttribute("href", dataStr);
+                    dlAnchor.setAttribute("download", `trace-${trace.trace_id}.json`);
+                    document.body.appendChild(dlAnchor);
+                    dlAnchor.click();
+                    dlAnchor.remove();
+                });
+            }
+
+            // CSP-compliant event delegation on trace details click
+            traceDetails.addEventListener("click", (e) => {
+                const target = e.target.closest("[data-action]");
+                if (!target) return;
+
+                const action = target.dataset.action;
+                if (action === "copy-ip" || action === "copy-trace-id") {
+                    const val = target.dataset.value;
+                    navigator.clipboard.writeText(val).then(() => {
+                        showAlert("Copied to clipboard!", "Success");
+                    });
+                } else if (action === "copy-req-body") {
+                    const code = document.getElementById("reqBodyPre").innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        showAlert("Request body copied!", "Success");
+                    });
+                } else if (action === "copy-resp-body") {
+                    const code = document.getElementById("respBodyPre").innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        showAlert("Response body copied!", "Success");
+                    });
+                } else if (action === "copy-sql") {
+                    const idx = target.dataset.index;
+                    const code = document.getElementById(`sqlCode_${idx}`).innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        showAlert("SQL query copied!", "Success");
+                    });
+                } else if (action === "toggle-span") {
+                    const spanId = target.dataset.spanId;
+                    if (collapsedSpans.has(spanId)) {
+                        collapsedSpans.delete(spanId);
+                    } else {
+                        collapsedSpans.add(spanId);
+                    }
+                    const trace = allTraces.find(t => t.trace_id === selectedTraceId);
+                    if (trace) renderWaterfall(trace);
+                }
+            });
+
+            function renderWaterfall(trace) {
+                const lanesContainer = document.getElementById("waterfallLanes");
+                lanesContainer.innerHTML = "";
+
+                if (!trace.spans || trace.spans.length === 0) {
+                    lanesContainer.innerHTML = `<div style="text-align: center; padding: 12px; opacity: 0.5;">No spans recorded.</div>`;
+                    return;
+                }
+
+                const totalDuration = trace.duration_ms || 1.0;
+                
+                const spanDepth = {};
+                trace.spans.forEach(s => {
+                    let depth = 0;
+                    let pId = s.parent_id;
+                    while (pId) {
+                        const parent = trace.spans.find(parentSpan => parentSpan.id === pId);
+                        if (parent) {
+                            depth++;
+                            pId = parent.parent_id;
+                        } else {
+                            break;
+                        }
+                    }
+                    spanDepth[s.id] = depth;
+                });
+
+                const parentIds = new Set();
+                trace.spans.forEach(s => {
+                    if (s.parent_id) {
+                        parentIds.add(s.parent_id);
+                    }
+                });
+
+                const hiddenSpans = new Set();
+                trace.spans.forEach(s => {
+                    let pId = s.parent_id;
+                    while (pId) {
+                        if (collapsedSpans.has(pId)) {
+                            hiddenSpans.add(s.id);
+                            break;
+                        }
+                        const parent = trace.spans.find(parentSpan => parentSpan.id === pId);
+                        pId = parent ? parent.parent_id : null;
+                    }
+                });
+
+                trace.spans.forEach(s => {
+                    const isHidden = hiddenSpans.has(s.id);
+                    const leftPct = (s.start_offset_ms / totalDuration) * 100;
+                    const widthPct = (s.duration_ms / totalDuration) * 100;
+                    
+                    let laneColorClass = "bg-lane-gray";
+                    if (s.lane === "database") laneColorClass = "bg-lane-teal";
+                    else if (s.lane === "external_http") laneColorClass = "bg-lane-infoblue";
+                    else if (s.lane === "middleware") laneColorClass = "bg-lane-blue";
+                    else if (s.lane === "dependency") laneColorClass = "bg-lane-purple";
+                    else if (s.lane === "validation") laneColorClass = "bg-lane-red"; // Use red for validation lane
+                    else if (s.lane === "handler") laneColorClass = "bg-lane-purple";
+                    else if (s.lane === "exception") laneColorClass = "bg-lane-red";
+
+                    const depth = spanDepth[s.id] || 0;
+                    const indentStyle = `padding-left: ${8 + depth * 12}px;`;
+                    
+                    let collapserHtml = "";
+                    if (parentIds.has(s.id)) {
+                        const isCollapsed = collapsedSpans.has(s.id);
+                        collapserHtml = `
+                            <span class="tree-collapser ${isCollapsed ? 'collapsed' : ''}" data-action="toggle-span" data-span-id="${s.id}">
+                                <svg viewBox="0 0 24 24"><polygon points="6,9 12,15 18,9"/></svg>
+                            </span>
+                        `;
+                    } else if (depth > 0) {
+                        collapserHtml = `<span style="opacity: 0.3; margin-right: 4px; font-family: monospace;">└</span>`;
+                    }
+
+                    const row = document.createElement("div");
+                    row.className = `waterfall-lane ${isHidden ? 'collapsed-hidden' : ''}`;
+                    row.innerHTML = `
+                        <div class="waterfall-lane-op" style="${indentStyle}" title="${escapeHtml(s.label)}">
+                            ${collapserHtml}
+                            <span class="truncate">${escapeHtml(s.label)}</span>
+                        </div>
+                        <div class="waterfall-lane-timeline">
+                            <div class="waterfall-span-bar ${laneColorClass}" style="left:${leftPct.toFixed(2)}%; width:${Math.max(0.5, widthPct).toFixed(2)}%;"></div>
+                            <span class="waterfall-lane-duration">${s.duration_ms.toFixed(1)}ms</span>
+                        </div>
+                    `;
+                    lanesContainer.appendChild(row);
+                });
+            }
+
+            function renderTabContent(trace) {
+                const tabContent = document.getElementById("tabContent");
+                tabContent.innerHTML = "";
+
+                if (activeTab === "request") {
+                    // Headers
+                    let headersRows = "";
+                    if (trace.request_headers && Object.keys(trace.request_headers).length > 0) {
+                        for (const [k, v] of Object.entries(trace.request_headers)) {
+                            const isSensitive = ["authorization", "cookie", "set-cookie", "x-api-key", "x-auth-token"].includes(k.toLowerCase());
+                            const valClass = isSensitive ? "val-redacted" : "";
+                            headersRows += `
+                                <tr>
+                                    <td class="key-col">${escapeHtml(k)}</td>
+                                    <td class="val-col ${valClass}">${escapeHtml(v)}</td>
+                                </tr>
+                            `;
+                        }
+                    } else {
+                        headersRows = `<tr><td colspan="2" style="text-align: center; opacity: 0.5;">No request headers captured.</td></tr>`;
+                    }
+
+                    // Query Params
+                    let queryRows = "";
+                    if (trace.query_params && Object.keys(trace.query_params).length > 0) {
+                        for (const [k, v] of Object.entries(trace.query_params)) {
+                            queryRows += `
+                                <tr>
+                                    <td class="key-col">${escapeHtml(k)}</td>
+                                    <td class="val-col">${escapeHtml(JSON.stringify(v))}</td>
+                                </tr>
+                            `;
+                        }
+                    }
+
+                    // Request Body
+                    let bodyBlock = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No request body captured.</div>`;
+                    if (trace.request_body_preview) {
+                        bodyBlock = `
+                            <div class="code-block-container">
+                                <div class="code-block-header">
+                                    <span class="code-block-lang">application/json</span>
+                                    <button data-action="copy-req-body" class="code-block-copy">Copy</button>
+                                </div>
+                                <pre class="code-block"><code id="reqBodyPre">${highlightJson(trace.request_body_preview)}</code></pre>
+                            </div>
+                        `;
+                    }
+
+                    tabContent.innerHTML = `
+                        <!-- Headers -->
+                        <div class="content-section">
+                            <h4 class="content-section-title">Headers</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <tbody>
+                                        ${headersRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Query Parameters -->
+                        <div class="content-section">
+                            <h4 class="content-section-title">Query Parameters</h4>
+                            ${queryRows ? `
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <tbody>
+                                        ${queryRows}
+                                    </tbody>
+                                </table>
+                            </div>
+                            ` : `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No query parameters provided.</div>`}
+                        </div>
+
+                        <!-- Body -->
+                        <div class="content-section">
+                            <h4 class="content-section-title">Request Body</h4>
+                            ${bodyBlock}
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "response") {
+                    if (!trace.response) {
+                        tabContent.innerHTML = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No response captured yet (pending).</div>`;
+                        return;
+                    }
+
+                    let bodyBlock = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No response body captured.</div>`;
+                    if (trace.response.preview) {
+                        bodyBlock = `
+                            <div class="code-block-container">
+                                <div class="code-block-header">
+                                    <span class="code-block-lang">Response Preview</span>
+                                    <button data-action="copy-resp-body" class="code-block-copy">Copy</button>
+                                </div>
+                                <pre class="code-block"><code id="respBodyPre">${highlightJson(trace.response.preview)}</code></pre>
+                            </div>
+                        `;
+                    }
+
+                    tabContent.innerHTML = `
+                        <!-- Metadata -->
+                        <div class="content-section">
+                            <h4 class="content-section-title">Metadata</h4>
+                            <div style="display: flex; gap: 16px;">
+                                <div style="flex: 1; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
+                                    <div style="font-size: 9px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Status</div>
+                                    <div style="font-size: 14px; font-weight: 600;">${trace.response.status}</div>
+                                </div>
+                                <div style="flex: 1; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
+                                    <div style="font-size: 9px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Size</div>
+                                    <div style="font-size: 14px; font-weight: 600;">${trace.response.size_bytes} bytes</div>
+                                </div>
+                                <div style="flex: 1; background-color: var(--surface-container-lowest); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-family: monospace;">
+                                    <div style="font-size: 9px; color: var(--on-surface-variant); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">Content-Type</div>
+                                    <div style="font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(trace.response.content_type)}">${escapeHtml(trace.response.content_type)}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Body -->
+                        <div class="content-section">
+                            <h4 class="content-section-title">Response Body</h4>
+                            ${bodyBlock}
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "database") {
+                    const dbSpans = trace.spans.filter(s => s.lane === 'database');
+                    if (dbSpans.length === 0) {
+                        tabContent.innerHTML = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No database queries recorded for this trace.</div>`;
+                        return;
+                    }
+
+                    let listHtml = `<div>`;
+                    dbSpans.forEach((s, idx) => {
+                        listHtml += `
+                            <div class="db-query-card">
+                                <div class="db-query-meta">
+                                    <span class="db-query-index">SQL Query #${idx + 1}</span>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <span class="db-query-duration">${s.duration_ms.toFixed(1)}ms</span>
+                                        <button data-action="copy-sql" data-index="${idx}" class="code-block-copy">Copy</button>
+                                    </div>
+                                </div>
+                                <pre id="sqlCode_${idx}" class="db-query-code">${highlightSql(s.label)}</pre>
+                            </div>
+                        `;
+                    });
+                    listHtml += `</div>`;
+                    tabContent.innerHTML = listHtml;
+                }
+
+                else if (activeTab === "dependencies") {
+                    const depSpans = trace.spans.filter(s => ['external_http', 'dependency', 'validation', 'effect', 'handler'].includes(s.lane));
+                    if (depSpans.length === 0) {
+                        tabContent.innerHTML = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No external dependency calls recorded.</div>`;
+                        return;
+                    }
+
+                    let listHtml = `<div>`;
+                    depSpans.forEach((s, idx) => {
+                        let laneBadgeColor = 'badge-dep';
+                        if (s.lane === 'external_http') laneBadgeColor = 'badge-external';
+                        else if (s.lane === 'validation') laneBadgeColor = 'badge-validation';
+                        
+                        listHtml += `
+                            <div class="dep-card">
+                                <div class="dep-card-info">
+                                    <span class="dep-lane-badge ${laneBadgeColor}">${s.lane}</span>
+                                    <div class="dep-label">${escapeHtml(s.label)}</div>
+                                    ${s.detail && Object.keys(s.detail).length > 0 ? `
+                                        <pre style="background: rgba(11, 19, 38, 0.3); border: 1px solid var(--surface-variant); padding: 8px; border-radius: 2px; font-size: 11px; margin-top: 8px; overflow-x: auto; color: var(--on-surface-variant); font-family: monospace;">${highlightJson(JSON.stringify(s.detail))}</pre>
+                                    ` : ''}
+                                </div>
+                                <div class="dep-duration">${s.duration_ms.toFixed(1)}ms</div>
+                            </div>
+                        `;
+                    });
+                    listHtml += `</div>`;
+                    tabContent.innerHTML = listHtml;
+                }
+
+                else if (activeTab === "exception") {
+                    if (!trace.exception) {
+                        tabContent.innerHTML = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No exceptions occurred.</div>`;
+                        return;
+                    }
+
+                    const stack = trace.exception.stack_frames.map(f => `File "${f.filename}", line ${f.lineno}, in ${f.name}\n  ${f.line || ''}`).join("\n");
+
+                    tabContent.innerHTML = `
+                        <div class="err-card">
+                            <span class="err-header-badge">Exception Occurred</span>
+                            <h3 class="err-title">${escapeHtml(trace.exception.exception_type)}: ${escapeHtml(trace.exception.message)}</h3>
+                            <div class="err-meta">
+                                Domain: ${escapeHtml(trace.exception.fault_domain || 'None')} • Code: ${escapeHtml(trace.exception.fault_code || 'None')}
+                            </div>
+                            <h4 class="err-stack-title">Stack Frame Traceback</h4>
+                            <pre class="err-stack">${escapeHtml(stack)}</pre>
+                        </div>
+                    `;
+                }
+            }
+
+            function escapeHtml(str) {
+                if (!str) return "";
+                return String(str)
+                    .replace(/&/g, "&amp;")
+                    .replace(/</g, "&lt;")
+                    .replace(/>/g, "&gt;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/'/g, "&#039;");
+            }
+        });
+    </script>
+</body>
+</html>
