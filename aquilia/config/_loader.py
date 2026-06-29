@@ -300,7 +300,7 @@ class ConfigLoader:
         and also processes AQ_ prefixed vars into config_data.
         """
         try:
-            from aquilia.dotenv import load_dotenv
+            from aquilia.dotenv import dotenv_values, load_dotenv
         except ImportError:
             # Fallback to old implementation if dotenv not available
             log.warning("Native dotenv module not available, using fallback")
@@ -324,7 +324,8 @@ class ConfigLoader:
             return
 
         # Use native dotenv loader - this populates os.environ with ALL variables
-        loaded = load_dotenv(path, override=False)
+        load_dotenv(path, override=False)
+        loaded = dotenv_values(path)
 
         # Also process AQ_ prefixed vars into config_data
         for key, value in loaded.items():
