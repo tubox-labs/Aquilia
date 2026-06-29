@@ -58,6 +58,7 @@ class AdminModules:
     containers: bool = False
     pods: bool = False
     query_inspector: bool = False
+    inspector: bool = False
     tasks: bool = False
     errors: bool = False
     testing: bool = False
@@ -190,6 +191,14 @@ class AdminModules:
 
     def disable_query_inspector(self) -> AdminModules:
         self.query_inspector = False
+        return self
+
+    def enable_inspector(self) -> AdminModules:
+        self.inspector = True
+        return self
+
+    def disable_inspector(self) -> AdminModules:
+        self.inspector = False
         return self
 
     def enable_tasks(self) -> AdminModules:

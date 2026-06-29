@@ -1,0 +1,698 @@
+{% extends "base.html" %}
+{% block title %}Request Inspector{% endblock %}
+{% block breadcrumb %}Request Inspector{% endblock %}
+
+{% block content %}
+<style>
+/* Reset container padding for full height layout */
+.admin-content {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.aq-inspector-container {
+    display: flex;
+    height: calc(100vh - 64px); /* assuming header height is 64px */
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+}
+
+/* Sidebar styling */
+.aq-inspector-sidebar {
+    width: 35%;
+    border-right: 1px solid #334155;
+    display: flex;
+    flex-direction: flex-col;
+    height: 100%;
+    background: #1e293b;
+    box-sizing: border-box;
+}
+
+.aq-inspector-sidebar-header {
+    padding: 16px;
+    border-bottom: 1px solid #334155;
+}
+
+.aq-inspector-search {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid #475569;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #f8fafc;
+    font-size: 0.875rem;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.aq-inspector-search:focus {
+    border-color: #3b82f6;
+}
+
+.aq-inspector-trace-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.aq-inspector-trace-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #334155;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.aq-inspector-trace-item:hover {
+    background: #334155;
+}
+
+.aq-inspector-trace-item.active {
+    background: #1e40af;
+}
+
+.aq-inspector-method-badge {
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-right: 8px;
+    display: inline-block;
+}
+
+.aq-inspector-method-GET { background: #0e7490; color: #cffafe; }
+.aq-inspector-method-POST { background: #15803d; color: #dcfce7; }
+.aq-inspector-method-PUT { background: #b45309; color: #fef3c7; }
+.aq-inspector-method-DELETE { background: #b91c1c; color: #fee2e2; }
+.aq-inspector-method-PATCH { background: #7c3aed; color: #f3e8ff; }
+
+.aq-inspector-path {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #f1f5f9;
+    word-break: break-all;
+}
+
+.aq-inspector-trace-meta {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.aq-inspector-status-success { color: #4ade80; }
+.aq-inspector-status-error { color: #f87171; }
+
+/* Details Panel */
+.aq-inspector-details {
+    width: 65%;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    background: #0f172a;
+    box-sizing: border-box;
+}
+
+.aq-inspector-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #64748b;
+    gap: 16px;
+}
+
+.aq-inspector-empty-state i {
+    font-size: 3rem;
+}
+
+.aq-inspector-details-header {
+    padding: 24px;
+    border-bottom: 1px solid #334155;
+    background: #1e293b;
+}
+
+.aq-inspector-details-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.aq-inspector-details-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+}
+
+.aq-inspector-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.aq-inspector-btn {
+    background: #334155;
+    border: 1px solid #475569;
+    color: #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.2s;
+}
+
+.aq-inspector-btn:hover {
+    background: #475569;
+}
+
+.aq-inspector-btn-primary {
+    background: #2563eb;
+    border-color: #3b82f6;
+}
+
+.aq-inspector-btn-primary:hover {
+    background: #1d4ed8;
+}
+
+.aq-inspector-details-body {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.aq-inspector-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.aq-inspector-card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+}
+
+/* Metadata lists */
+.aq-inspector-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.aq-inspector-meta-item {
+    font-size: 0.8125rem;
+}
+
+.aq-inspector-meta-label {
+    color: #94a3b8;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.aq-inspector-meta-value {
+    color: #f1f5f9;
+    font-family: monospace;
+}
+
+/* Waterfall CSS */
+.aq-inspector-waterfall-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.aq-inspector-waterfall-row {
+    border-bottom: 1px solid #334155;
+}
+
+.aq-inspector-waterfall-row:last-child {
+    border-bottom: none;
+}
+
+.aq-inspector-waterfall-cell-label {
+    width: 30%;
+    padding: 8px 12px 8px 0;
+    font-size: 0.8125rem;
+    vertical-align: middle;
+}
+
+.aq-inspector-waterfall-lane-badge {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-bottom: 4px;
+}
+
+.aq-inspector-lane-REQUEST { background: rgba(6,182,212,0.15); color: #06b6d4; }
+.aq-inspector-lane-MIDDLEWARE { background: rgba(59,130,246,0.15); color: #3b82f6; }
+.aq-inspector-lane-CONTROLLER { background: rgba(99,102,241,0.15); color: #6366f1; }
+.aq-inspector-lane-DEPENDENCY { background: rgba(139,92,246,0.15); color: #8b5cf6; }
+.aq-inspector-lane-DATABASE { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.aq-inspector-lane-EXTERNAL_HTTP { background: rgba(16,185,129,0.15); color: #10b981; }
+.aq-inspector-lane-EXCEPTION { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+.aq-inspector-waterfall-label {
+    color: #f1f5f9;
+    word-break: break-all;
+    font-family: monospace;
+    font-size: 0.78125rem;
+}
+
+.aq-inspector-waterfall-cell-bar {
+    width: 70%;
+    position: relative;
+    padding: 8px 0;
+}
+
+.aq-inspector-waterfall-bar-track {
+    height: 12px;
+    background: #1e293b;
+    border-radius: 6px;
+    position: relative;
+    width: 100%;
+}
+
+.aq-inspector-waterfall-bar {
+    height: 100%;
+    border-radius: 6px;
+    position: absolute;
+    min-width: 3px;
+    transition: width 0.3s, left 0.3s;
+}
+
+.aq-inspector-bar-REQUEST { background: #06b6d4; }
+.aq-inspector-bar-MIDDLEWARE { background: #3b82f6; }
+.aq-inspector-bar-CONTROLLER { background: #6366f1; }
+.aq-inspector-bar-DEPENDENCY { background: #8b5cf6; }
+.aq-inspector-bar-DATABASE { background: #f59e0b; }
+.aq-inspector-bar-EXTERNAL_HTTP { background: #10b981; }
+.aq-inspector-bar-EXCEPTION { background: #ef4444; }
+
+.aq-inspector-waterfall-bar-tooltip {
+    font-size: 0.6875rem;
+    color: #94a3b8;
+    position: absolute;
+    top: -16px;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+/* Dictionary list representation */
+.aq-inspector-dict-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.aq-inspector-dict-item {
+    display: flex;
+    font-size: 0.8125rem;
+    border-bottom: 1px solid #1e293b;
+    padding: 6px 0;
+}
+
+.aq-inspector-dict-item:last-child {
+    border-bottom: none;
+}
+
+.aq-inspector-dict-key {
+    width: 30%;
+    color: #94a3b8;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.aq-inspector-dict-value {
+    width: 70%;
+    color: #f1f5f9;
+    font-family: monospace;
+    word-break: break-all;
+}
+
+.aq-inspector-code-block {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: monospace;
+    font-size: 0.8125rem;
+    color: #38bdf8;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+</style>
+
+<div class="aq-inspector-container">
+    <!-- Sidebar -->
+    <div class="aq-inspector-sidebar">
+        <div class="aq-inspector-sidebar-header">
+            <input type="text" class="aq-inspector-search" id="traceSearch" placeholder="Filter traces (path, method)..." />
+        </div>
+        <div class="aq-inspector-trace-list" id="traceList">
+            <!-- Dynamically populated -->
+        </div>
+    </div>
+
+    <!-- Details -->
+    <div class="aq-inspector-details" id="traceDetails">
+        <div class="aq-inspector-empty-state">
+            <i class="icon-eye"></i>
+            <p>Select a request trace from the list to view its timeline and details.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const traceList = document.getElementById("traceList");
+    const traceDetails = document.getElementById("traceDetails");
+    const traceSearch = document.getElementById("traceSearch");
+    
+    let allTraces = [];
+    let selectedTraceId = null;
+
+    // Load initial traces
+    fetchTraces();
+
+    // SSE EventSource setup
+    const eventSource = new EventSource("{{ url_prefix|default('/admin') }}/inspector/stream/");
+    eventSource.addEventListener("trace", (e) => {
+        try {
+            const trace = JSON.parse(e.data);
+            // Prepend new trace
+            allTraces.unshift(trace);
+            renderList();
+        } catch (err) {
+            console.error("Failed to parse live trace event", err);
+        }
+    });
+
+    traceSearch.addEventListener("input", () => {
+        renderList();
+    });
+
+    function fetchTraces() {
+        fetch("{{ url_prefix|default('/admin') }}/inspector/api/traces/")
+            .then(res => res.json())
+            .then(data => {
+                allTraces = data;
+                renderList();
+            })
+            .catch(err => console.error("Failed to fetch traces", err));
+    }
+
+    function renderList() {
+        const query = traceSearch.value.toLowerCase().trim();
+        traceList.innerHTML = "";
+
+        const filtered = allTraces.filter(t => {
+            return t.path.toLowerCase().includes(query) || t.method.toLowerCase().includes(query);
+        });
+
+        if (filtered.length === 0) {
+            traceList.innerHTML = `<div style="text-align:center;padding:24px;color:#64748b;">No traces found</div>`;
+            return;
+        }
+
+        filtered.forEach(t => {
+            const item = document.createElement("div");
+            item.className = `aq-inspector-trace-item ${selectedTraceId === t.trace_id ? 'active' : ''}`;
+            item.dataset.traceId = t.trace_id;
+
+            const isSuccess = t.status_code && t.status_code < 400;
+            const timeStr = new Date(t.started_at * 1000).toLocaleTimeString();
+            const duration = t.duration_ms ? t.duration_ms.toFixed(1) + "ms" : "in progress";
+
+            item.innerHTML = `
+                <div>
+                    <div>
+                        <span class="aq-inspector-method-badge aq-inspector-method-${t.method}">${t.method}</span>
+                        <span class="aq-inspector-path">${t.path}</span>
+                    </div>
+                    <div class="aq-inspector-trace-meta">
+                        <span class="${isSuccess ? 'aq-inspector-status-success' : 'aq-inspector-status-error'}">
+                            ${t.status_code || '—'}
+                        </span>
+                        <span>•</span>
+                        <span>${duration}</span>
+                        <span>•</span>
+                        <span>${timeStr}</span>
+                    </div>
+                </div>
+                <i class="icon-chevron-right" style="opacity:0.3;"></i>
+            `;
+
+            item.addEventListener("click", () => {
+                selectedTraceId = t.trace_id;
+                document.querySelectorAll(".aq-inspector-trace-item").forEach(el => el.classList.remove("active"));
+                item.classList.add("active");
+                renderDetails(t);
+            });
+
+            traceList.appendChild(item);
+        });
+    }
+
+    function renderDetails(trace) {
+        // Build metadata lists
+        let queryParamsHtml = "<em>None</em>";
+        if (trace.query_params && Object.keys(trace.query_params).length > 0) {
+            queryParamsHtml = `<ul class="aq-inspector-dict-list">`;
+            for (const [k, v] of Object.entries(trace.query_params)) {
+                queryParamsHtml += `
+                    <li class="aq-inspector-dict-item">
+                        <span class="aq-inspector-dict-key">${escapeHtml(k)}</span>
+                        <span class="aq-inspector-dict-value">${escapeHtml(JSON.stringify(v))}</span>
+                    </li>`;
+            }
+            queryParamsHtml += `</ul>`;
+        }
+
+        let headersHtml = "<em>None</em>";
+        if (trace.request_headers && Object.keys(trace.request_headers).length > 0) {
+            headersHtml = `<ul class="aq-inspector-dict-list">`;
+            for (const [k, v] of Object.entries(trace.request_headers)) {
+                headersHtml += `
+                    <li class="aq-inspector-dict-item">
+                        <span class="aq-inspector-dict-key">${escapeHtml(k)}</span>
+                        <span class="aq-inspector-dict-value">${escapeHtml(v)}</span>
+                    </li>`;
+            }
+            headersHtml += `</ul>`;
+        }
+
+        // Waterfall Spans
+        let spansHtml = "";
+        const totalDuration = trace.duration_ms || 1.0;
+        if (trace.spans && trace.spans.length > 0) {
+            trace.spans.forEach(s => {
+                const leftPct = (s.start_offset_ms / totalDuration) * 100;
+                const widthPct = (s.duration_ms / totalDuration) * 100;
+                
+                spansHtml += `
+                    <tr class="aq-inspector-waterfall-row">
+                        <td class="aq-inspector-waterfall-cell-label">
+                            <span class="aq-inspector-waterfall-lane-badge aq-inspector-lane-${s.lane}">${s.lane}</span>
+                            <div class="aq-inspector-waterfall-label">${escapeHtml(s.label)}</div>
+                        </td>
+                        <td class="aq-inspector-waterfall-cell-bar">
+                            <div class="aq-inspector-waterfall-bar-track">
+                                <div class="aq-inspector-waterfall-bar aq-inspector-bar-${s.lane}" style="left:${leftPct.toFixed(2)}%;width:${widthPct.toFixed(2)}%;"></div>
+                                <div class="aq-inspector-waterfall-bar-tooltip" style="left:${(leftPct + widthPct/2).toFixed(2)}%;">${s.duration_ms.toFixed(1)}ms</div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        } else {
+            spansHtml = `<tr><td colspan="2" style="text-align:center;padding:24px;color:#64748b;">No spans recorded.</td></tr>`;
+        }
+
+        // Exceptions card
+        let exceptionHtml = "";
+        if (trace.exception) {
+            exceptionHtml = `
+                <div class="aq-inspector-card" style="border-color:#ef4444;background:rgba(239,68,68,0.05);">
+                    <div class="aq-inspector-card-title" style="color:#f87171;">Exception Occurred</div>
+                    <div style="font-weight:700;font-size:0.9375rem;color:#fca5a5;">${escapeHtml(trace.exception.exception_type)}: ${escapeHtml(trace.exception.message)}</div>
+                    <div style="font-size:0.75rem;color:#fca5a5;margin:4px 0 12px 0;">Code: ${escapeHtml(trace.exception.fault_code)} • Domain: ${escapeHtml(trace.exception.fault_domain)}</div>
+                    <div class="aq-inspector-card-title" style="font-size:0.75rem;margin-bottom:6px;">Stack Trace</div>
+                    <pre class="aq-inspector-code-block" style="border-color:#b91c1c;color:#fca5a5;">${trace.exception.stack_frames.map(f => `File "${f.filename}", line ${f.lineno}, in ${f.name}`).join("\n")}</pre>
+                </div>
+            `;
+        }
+
+        // Response summary
+        let responseHtml = "";
+        if (trace.response) {
+            responseHtml = `
+                <div class="aq-inspector-card">
+                    <div class="aq-inspector-card-title">Response Summary</div>
+                    <div class="aq-inspector-meta-grid" style="margin-bottom:12px;">
+                        <div class="aq-inspector-meta-item">
+                            <div class="aq-inspector-meta-label">Status</div>
+                            <div class="aq-inspector-meta-value ${trace.response.status < 400 ? 'aq-inspector-status-success' : 'aq-inspector-status-error'}">${trace.response.status}</div>
+                        </div>
+                        <div class="aq-inspector-meta-item">
+                            <div class="aq-inspector-meta-label">Size</div>
+                            <div class="aq-inspector-meta-value">${trace.response.size_bytes} bytes</div>
+                        </div>
+                    </div>
+                    ${trace.response.preview ? `
+                        <div class="aq-inspector-card-title" style="font-size:0.75rem;margin-bottom:6px;">Body Preview</div>
+                        <pre class="aq-inspector-code-block">${escapeHtml(trace.response.preview)}</pre>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Render everything
+        traceDetails.innerHTML = `
+            <div class="aq-inspector-details-header">
+                <div class="aq-inspector-details-title-row">
+                    <div class="aq-inspector-details-title">
+                        <span class="aq-inspector-method-badge aq-inspector-method-${trace.method}">${trace.method}</span>
+                        <span class="aq-inspector-path">${escapeHtml(trace.path)}</span>
+                    </div>
+                    <div style="font-size:1.125rem;font-weight:700;color:#f1f5f9;">
+                        ${trace.duration_ms.toFixed(1)}ms
+                    </div>
+                </div>
+                <div class="aq-inspector-trace-meta" style="margin-top:8px;">
+                    <span class="aq-inspector-status-success">${trace.status_code || '—'}</span>
+                    <span>•</span>
+                    <span>Trace ID: <span style="font-family:monospace;">${trace.trace_id}</span></span>
+                    <span>•</span>
+                    <span>Client IP: ${trace.client_addr || '—'}</span>
+                </div>
+                <div class="aq-inspector-toolbar">
+                    <button class="aq-inspector-btn aq-inspector-btn-primary" id="btnReplay"><i class="icon-play"></i> Replay Request</button>
+                    <button class="aq-inspector-btn" id="btnExportJson"><i class="icon-download"></i> Raw JSON</button>
+                    <button class="aq-inspector-btn" id="btnExportCurl"><i class="icon-terminal"></i> Copy cURL</button>
+                </div>
+            </div>
+
+            <div class="aq-inspector-details-body">
+                ${exceptionHtml}
+
+                <!-- Waterfall -->
+                <div class="aq-inspector-card">
+                    <div class="aq-inspector-card-title">Timeline Waterfall</div>
+                    <table class="aq-inspector-waterfall-table">
+                        <tbody>
+                            ${spansHtml}
+                        </tbody>
+                    </table>
+                </div>
+
+                ${responseHtml}
+
+                <!-- Headers / Query Params -->
+                <div class="aq-inspector-card">
+                    <div class="aq-inspector-card-title">Query Parameters</div>
+                    ${queryParamsHtml}
+                </div>
+
+                <div class="aq-inspector-card">
+                    <div class="aq-inspector-card-title">Request Headers</div>
+                    ${headersHtml}
+                </div>
+
+                ${trace.request_body_preview ? `
+                    <div class="aq-inspector-card">
+                        <div class="aq-inspector-card-title">Request Body Preview</div>
+                        <pre class="aq-inspector-code-block">${escapeHtml(trace.request_body_preview)}</pre>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        // Bind toolbar events
+        document.getElementById("btnReplay").addEventListener("click", () => {
+            const mutate = !["GET", "HEAD", "OPTIONS"].includes(trace.method);
+            let confirmMsg = "Are you sure you want to replay this request?";
+            if (mutate) {
+                confirmMsg = "Warning: This is a mutating request (POST/PUT/PATCH/DELETE). Replaying will execute it against the live server. Do you want to proceed?";
+            }
+            if (confirm(confirmMsg)) {
+                const headers = {};
+                if (mutate) {
+                    headers["X-Aquilia-Allow-Replay-Mutation"] = "true";
+                }
+                fetch(`{{ url_prefix|default('/admin') }}/inspector/api/traces/${trace.trace_id}/replay/`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        ...headers
+                    }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    alert(`Replay completed. Status code: ${data.status}`);
+                    fetchTraces();
+                })
+                .catch(err => alert(`Replay failed: ${err.message}`));
+            }
+        });
+
+        document.getElementById("btnExportJson").addEventListener("click", () => {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(trace, null, 2));
+            const dlAnchor = document.createElement('a');
+            dlAnchor.setAttribute("href", dataStr);
+            dlAnchor.setAttribute("download", `trace-${trace.trace_id}.json`);
+            document.body.appendChild(dlAnchor);
+            dlAnchor.click();
+            dlAnchor.remove();
+        });
+
+        document.getElementById("btnExportCurl").addEventListener("click", () => {
+            // Build curl command
+            let cmd = `curl -X ${trace.method} "${window.location.origin}${trace.path}"`;
+            if (trace.request_headers) {
+                for (const [k, v] of Object.entries(trace.request_headers)) {
+                    cmd += ` -H "${k}: ${v}"`;
+                }
+            }
+            if (trace.request_body_preview) {
+                cmd += ` -d '${trace.request_body_preview.replace(/'/g, "'\\''")}'`;
+            }
+            navigator.clipboard.writeText(cmd).then(() => {
+                alert("cURL command copied to clipboard!");
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+});
+</script>
+{% endblock %}

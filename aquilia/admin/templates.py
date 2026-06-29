@@ -1690,3 +1690,28 @@ def _fallback_audit(entries: list, app_list: list, identity_name: str = "Admin",
     return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
 <meta charset="UTF-8"><title>Audit Log -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
 <body><div style="padding:24px"><h1>Audit Log</h1><p>{total} entries</p></div></body></html>"""
+
+
+def render_inspector_page(
+    app_list: list[dict[str, Any]] | None = None,
+    identity_name: str = "Admin",
+    identity_avatar: str = "",
+    *,
+    site_title: str = "Aquilia Admin",
+    url_prefix: str = "/admin",
+) -> str:
+    """Render the request inspector page."""
+    if _HAS_JINJA2:
+        return _render_template(
+            "inspector.html",
+            app_list=app_list or [],
+            active_page="inspector",
+            identity_name=identity_name,
+            identity_avatar=identity_avatar,
+            site_title=site_title,
+            url_prefix=url_prefix,
+            page_title="Request Inspector",
+        )
+    return f"""<!DOCTYPE html><html lang="en" data-theme="dark"><head>
+<meta charset="UTF-8"><title>Request Inspector -- Aquilia Admin</title><style>{_FALLBACK_CSS}</style></head>
+<body><div style="padding:24px"><h1>Request Inspector</h1><p>Request Inspector (install Jinja2 for full UI)</p></div></body></html>"""

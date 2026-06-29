@@ -2225,11 +2225,22 @@ class AquiliaServer:
         This is the critical bridge between ``Workspace.integrate(Integration.admin(...))``
         and actual HTTP route serving.
         """
-        admin_config = self.config.get("integrations", {}).get("admin", {})
-        if not admin_config:
-            return
+        # Check if inspector is enabled
+        _inspector_dict = self.config.get_inspector_config()
+        _inspector_enabled = _inspector_dict.get("enabled")
+        if _inspector_enabled is None:
+            _inspector_enabled = self._is_debug()
+        if _inspector_dict.get("force_enable_in_prod"):
+            _inspector_enabled = True
 
-        url_prefix = admin_config.get("url_prefix", "/admin").rstrip("/")
+        admin_config = self.config.get("integrations", {}).get("admin")
+        if admin_config is None:
+            if not _inspector_enabled:
+                return
+            admin_config = {}
+
+        url_prefix = admin_config.get("url_prefix", "/admin") or "/admin"
+        url_prefix = url_prefix.rstrip("/")
         site_title = admin_config.get("site_title", "Aquilia Admin")
         auto_discover = admin_config.get("auto_discover", True)
 
@@ -2250,6 +2261,7 @@ class AquiliaServer:
             site.title = site_title
             site.url_prefix = url_prefix
             site.admin_config = parsed_config
+            site.config = self.config
 
             # Wire the config into the audit log so it can filter actions
             site.audit_log.admin_config = parsed_config
@@ -2428,6 +2440,64 @@ class AquiliaServer:
                     ("GET", f"{url_prefix}/query-inspector/api/", "query_inspector_api", ctrl.query_inspector_api),
                 ]
             )
+
+            # Check if inspector is enabled
+            _inspector_dict = self.config.get_inspector_config()
+            _inspector_enabled = _inspector_dict.get("enabled")
+            if _inspector_enabled is None:
+                _inspector_enabled = self._is_debug()
+            if _inspector_dict.get("force_enable_in_prod"):
+                _inspector_enabled = True
+
+            if _inspector_enabled:
+                has_admin_integration = self.config.get("integrations", {}).get("admin") is not None
+                if has_admin_integration:
+                    admin_routes.extend(
+                        [
+                            ("GET", f"{url_prefix}/inspector/", "inspector_view", ctrl.inspector_view),
+                            (
+                                "GET",
+                                f"{url_prefix}/inspector/api/traces/",
+                                "inspector_traces_api",
+                                ctrl.inspector_traces_api,
+                            ),
+                            (
+                                "POST",
+                                f"{url_prefix}/inspector/api/traces/{{trace_id}}/replay/",
+                                "inspector_replay_api",
+                                ctrl.inspector_replay_api,
+                            ),
+                            (
+                                "GET",
+                                f"{url_prefix}/inspector/stream/",
+                                "inspector_stream_api",
+                                ctrl.inspector_stream_api,
+                            ),
+                        ]
+                    )
+                admin_routes.extend(
+                    [
+                        ("GET", "/__aquilia__/inspector/", "inspector_view_standalone", ctrl.inspector_view),
+                        (
+                            "GET",
+                            "/__aquilia__/inspector/api/traces/",
+                            "inspector_traces_api_standalone",
+                            ctrl.inspector_traces_api,
+                        ),
+                        (
+                            "POST",
+                            "/__aquilia__/inspector/api/traces/{{trace_id}}/replay/",
+                            "inspector_replay_api_standalone",
+                            ctrl.inspector_replay_api,
+                        ),
+                        (
+                            "GET",
+                            "/__aquilia__/inspector/stream/",
+                            "inspector_stream_api_standalone",
+                            ctrl.inspector_stream_api,
+                        ),
+                    ]
+                )
             admin_routes.extend(
                 [
                     ("GET", f"{url_prefix}/tasks/", "tasks_view", ctrl.tasks_view),
