@@ -226,7 +226,6 @@ def _detect_workspace_db_url() -> str:
 class AquiliaGroup(click.Group):
     """Click group subclass with branded help output."""
 
-    # Command categories for grouped display
     _CATEGORIES = {
         "Scaffold": ["init", "add", "generate"],
         "Develop": ["run", "validate", "compile", "test", "discover", "doctor"],
@@ -234,7 +233,7 @@ class AquiliaGroup(click.Group):
         "Database": ["db"],
         "Admin": ["admin"],
         "Inspect": ["inspect", "manifest", "analytics"],
-        "Subsystems": ["ws", "cache", "mail", "i18n", "mcp"],
+        "Subsystems": ["ws", "cache", "mail", "i18n", "mcp", "di"],
         "Deploy": ["deploy-gen", "artifact"],
         "Migration": ["migrate"],
     }
@@ -3851,6 +3850,142 @@ def admin_audit(ctx, limit: int, action: str | None, user: str | None):
                 if entry.error_message:
                     click.echo(f"           {error(entry.error_message)}")
         click.echo()
+
+
+# ============================================================================
+# Dependency Injection commands
+# ============================================================================
+
+
+@cli.group(cls=AquiliaGroup)
+def di():
+    """Dependency Injection management commands."""
+    pass
+
+
+@di.command("check")
+@click.option("--settings", required=True, type=click.Path(exists=True), help="Path to settings file")
+@click.option("--no-cross-app-check", is_flag=True, help="Skip cross-app dependency validation")
+@click.option("--quiet", is_flag=True, help="Suppress suggestions")
+@click.option("--verbose", is_flag=True, help="Show detailed errors")
+@click.pass_context
+def di_check(ctx, settings: str, no_cross_app_check: bool, quiet: bool, verbose: bool):
+    """
+    Validate DI configuration (static analysis).
+
+    Checks:
+    - All providers resolvable
+    - No cycles (unless allow_lazy)
+    - No scope violations
+    - Cross-app dependencies declared
+    """
+    from types import SimpleNamespace
+
+    from aquilia.di.cli import cmd_di_check
+
+    args = SimpleNamespace(
+        settings=settings,
+        no_cross_app_check=no_cross_app_check,
+        quiet=quiet,
+        verbose=verbose,
+    )
+    sys.exit(cmd_di_check(args))
+
+
+@di.command("tree")
+@click.option("--settings", required=True, type=click.Path(exists=True), help="Path to settings file")
+@click.option("--root", help="Root provider token to start tree from")
+@click.option("--out", help="Output file path")
+@click.option("--verbose", is_flag=True, help="Show detailed errors")
+@click.pass_context
+def di_tree(ctx, settings: str, root: str | None, out: str | None, verbose: bool):
+    """
+    Show dependency tree.
+
+    Displays provider dependencies as a tree.
+    """
+    from types import SimpleNamespace
+
+    from aquilia.di.cli import cmd_di_tree
+
+    args = SimpleNamespace(
+        settings=settings,
+        root=root,
+        out=out,
+        verbose=verbose,
+    )
+    sys.exit(cmd_di_tree(args))
+
+
+@di.command("graph")
+@click.option("--settings", required=True, type=click.Path(exists=True), help="Path to settings file")
+@click.option("--out", required=True, help="Output DOT file path")
+@click.option("--verbose", is_flag=True, help="Show detailed errors")
+@click.pass_context
+def di_graph(ctx, settings: str, out: str, verbose: bool):
+    """
+    Export dependency graph as DOT.
+
+    Useful for visualization with `dot -Tpng graph.dot -o graph.png`.
+    """
+    from types import SimpleNamespace
+
+    from aquilia.di.cli import cmd_di_graph
+
+    args = SimpleNamespace(
+        settings=settings,
+        out=out,
+        verbose=verbose,
+    )
+    sys.exit(cmd_di_graph(args))
+
+
+@di.command("profile")
+@click.option("--settings", required=True, type=click.Path(exists=True), help="Path to settings file")
+@click.option("--bench", default="resolve", help="Benchmark to run (resolve, pool_acquire)")
+@click.option("--runs", type=int, default=1000, help="Number of iterations")
+@click.option("--verbose", is_flag=True, help="Show detailed errors")
+@click.pass_context
+def di_profile(ctx, settings: str, bench: str, runs: int, verbose: bool):
+    """
+    Benchmark DI performance.
+
+    Measures cold build time, resolve latency, etc.
+    """
+    from types import SimpleNamespace
+
+    from aquilia.di.cli import cmd_di_profile
+
+    args = SimpleNamespace(
+        settings=settings,
+        bench=bench,
+        runs=runs,
+        verbose=verbose,
+    )
+    sys.exit(cmd_di_profile(args))
+
+
+@di.command("manifest")
+@click.option("--settings", required=True, type=click.Path(exists=True), help="Path to settings file")
+@click.option("--out", default="di_manifest.json", help="Output manifest file path")
+@click.option("--verbose", is_flag=True, help="Show detailed errors")
+@click.pass_context
+def di_manifest(ctx, settings: str, out: str, verbose: bool):
+    """
+    Generate di_manifest.json for LSP.
+
+    Contains provider metadata for IDE features.
+    """
+    from types import SimpleNamespace
+
+    from aquilia.di.cli import cmd_di_manifest
+
+    args = SimpleNamespace(
+        settings=settings,
+        out=out,
+        verbose=verbose,
+    )
+    sys.exit(cmd_di_manifest(args))
 
 
 def main():

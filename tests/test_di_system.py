@@ -21,55 +21,27 @@ Covers:
 import asyncio
 import logging
 import time
-from typing import Annotated, Optional
-from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import dataclass
+from typing import Annotated
+from unittest.mock import MagicMock
 
 import pytest
 
+from aquilia.di.compat import (
+    RequestCtx,
+    clear_request_container,
+    get_request_container,
+    set_request_container,
+)
+
 # ── DI imports ───────────────────────────────────────────────────────
 from aquilia.di.core import (
+    _CACHE_SENTINEL,
     Container,
     Provider,
     ProviderMeta,
-    Registry,
     ResolveCtx,
-    _CACHE_SENTINEL,
     _NullLifecycle,
 )
-from aquilia.di.providers import (
-    AliasProvider,
-    BlueprintProvider,
-    ClassProvider,
-    FactoryProvider,
-    LazyProxyProvider,
-    PoolProvider,
-    ScopedProvider,
-    ValueProvider,
-    _LazyProxy,
-)
-from aquilia.di.lifecycle import (
-    DisposalStrategy,
-    Lifecycle,
-    LifecycleContext,
-    LifecycleHook,
-)
-from aquilia.di.graph import DependencyGraph
-from aquilia.di.scopes import (
-    SCOPES,
-    Scope,
-    ScopeValidator,
-    ServiceScope,
-)
-from aquilia.di.dep import (
-    Body,
-    Dep,
-    Header,
-    Query,
-    _unpack_annotation,
-    _extract_dep_from_annotation,
-)
-from aquilia.di.request_dag import RequestDAG
 from aquilia.di.decorators import (
     Inject,
     auto_inject,
@@ -78,17 +50,19 @@ from aquilia.di.decorators import (
     provides,
     service,
 )
-from aquilia.di.testing import (
-    MockProvider,
-    TestRegistry,
-    override_container,
+from aquilia.di.dep import (
+    Body,
+    Dep,
+    Header,
+    Query,
+    _extract_dep_from_annotation,
+    _unpack_annotation,
 )
 from aquilia.di.diagnostics import (
     ConsoleDiagnosticListener,
     DIDiagnostics,
     DIEvent,
     DIEventType,
-    _DiagnosticMeasure,
 )
 from aquilia.di.errors import (
     AmbiguousProviderError,
@@ -101,13 +75,32 @@ from aquilia.di.errors import (
     ProviderNotFoundError,
     ScopeViolationError,
 )
-from aquilia.di.compat import (
-    RequestCtx,
-    clear_request_container,
-    get_request_container,
-    set_request_container,
+from aquilia.di.graph import DependencyGraph
+from aquilia.di.lifecycle import (
+    DisposalStrategy,
+    Lifecycle,
+    LifecycleContext,
 )
-
+from aquilia.di.providers import (
+    AliasProvider,
+    ClassProvider,
+    FactoryProvider,
+    LazyProxyProvider,
+    PoolProvider,
+    ScopedProvider,
+    ValueProvider,
+    _LazyProxy,
+)
+from aquilia.di.request_dag import RequestDAG
+from aquilia.di.scopes import (
+    SCOPES,
+    ScopeValidator,
+    ServiceScope,
+)
+from aquilia.di.testing import (
+    MockProvider,
+    override_container,
+)
 
 # ═══════════════════════════════════════════════════════════════════════
 # Helpers & Fixtures
@@ -144,7 +137,7 @@ class DummyServiceWithDep:
 class DummyServiceOptional:
     """Service with optional dep."""
 
-    def __init__(self, repo: DummyRepo, cache: Optional[str] = None):
+    def __init__(self, repo: DummyRepo, cache: str | None = None):
         self.repo = repo
         self.cache = cache
 
@@ -1400,7 +1393,7 @@ class TestDecorators:
 
     async def test_auto_inject(self):
         """auto_inject resolves missing params from request container."""
-        from aquilia.di.compat import set_request_container, clear_request_container
+        from aquilia.di.compat import clear_request_container, set_request_container
 
         container = Container(scope="request")
         container.register(ValueProvider("injected_db", str))
@@ -1575,9 +1568,8 @@ class TestDiagnostics:
 
         diag.add_listener(Listener())
 
-        with pytest.raises(ValueError):
-            with diag.measure(DIEventType.RESOLUTION_START, token="Z"):
-                raise ValueError("fail")
+        with pytest.raises(ValueError), diag.measure(DIEventType.RESOLUTION_START, token="Z"):
+            raise ValueError("fail")
 
         assert len(events) == 1
         assert events[0].type == DIEventType.RESOLUTION_FAILURE
@@ -2071,3 +2063,69 @@ async def _async_append(lst, value):
 
 async def _async_noop():
     pass
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# CLI Commands Integration Tests
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestDICLIIntegration:
+    """Test CLI commands for DI system."""
+
+    def test_di_help_subcommands(self):
+        from click.testing import CliRunner
+
+        from aquilia.cli.__main__ import cli
+
+        runner = CliRunner()
+        result = runner.invoke(cli, ["di", "--help"])
+        assert result.exit_code == 0
+        assert "check" in result.output
+        assert "tree" in result.output
+        assert "graph" in result.output
+        assert "profile" in result.output
+        assert "manifest" in result.output
+
+    def test_di_commands_execution(self, tmp_path):
+        from pathlib import Path
+
+        from click.testing import CliRunner
+
+        from aquilia.cli.__main__ import cli
+
+        runner = CliRunner()
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            # Create files to satisfy workspace requirements & dummy settings
+            Path("workspace.py").write_text("# Aquilia Workspace\n", encoding="utf-8")
+            Path("settings.py").write_text("AQ_APPS = []\n", encoding="utf-8")
+            Path("config").mkdir()
+            Path("config/app.py").write_text("class AppConfig: pass\n", encoding="utf-8")
+
+            # 1. Test check
+            result = runner.invoke(cli, ["di", "check", "--settings", "settings.py"])
+            assert result.exit_code == 0
+            assert "Checking DI configuration..." in result.output
+            assert "DI configuration is valid!" in result.output
+
+            # 2. Test tree
+            result = runner.invoke(cli, ["di", "tree", "--settings", "settings.py"])
+            assert result.exit_code == 0
+            assert "Dependency Tree" in result.output
+
+            # 3. Test graph
+            result = runner.invoke(cli, ["di", "graph", "--settings", "settings.py", "--out", "graph.dot"])
+            assert result.exit_code == 0
+            assert "Exporting dependency graph..." in result.output
+            assert Path("graph.dot").exists()
+
+            # 4. Test profile
+            result = runner.invoke(cli, ["di", "profile", "--settings", "settings.py", "--runs", "5"])
+            assert result.exit_code == 0
+            assert "Profiling DI performance..." in result.output
+
+            # 5. Test manifest
+            result = runner.invoke(cli, ["di", "manifest", "--settings", "settings.py", "--out", "di_manifest.json"])
+            assert result.exit_code == 0
+            assert "Generating di_manifest.json..." in result.output
+            assert Path("di_manifest.json").exists()
