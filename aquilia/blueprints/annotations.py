@@ -61,6 +61,8 @@ from .facets import (
     FormDataFacet,
     IntFacet,
     ListFacet,
+    SetFacet,
+    TupleFacet,
     LiteralFacet,
     PolymorphicFacet,
     TextFacet,
@@ -95,6 +97,8 @@ ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
     uuid.UUID: UUIDFacet,
     dict: DictFacet,
     list: ListFacet,
+    set: SetFacet,
+    tuple: TupleFacet,
     bytes: TextFacet,
     UploadFile: UploadFileFacet,
     FormData: FormDataFacet,
@@ -752,15 +756,18 @@ def _unwrap_optional(annotation: Any) -> tuple[Any, bool]:
 
 def _resolve_list_child(annotation: Any) -> tuple[bool, Any]:
     """
-    Check if annotation is list[T] and extract T.
+    Check if annotation is list[T], set[T], or tuple[T, ...] and extract T.
 
     Returns:
         (is_list, child_type) -- child_type is None if not parameterised.
     """
     origin = get_origin(annotation)
-    if origin is list:
+    if origin in (list, set, tuple):
         args = get_args(annotation)
         if args:
+            # Handle tuple[str, ...] (second arg is Ellipsis)
+            if len(args) == 2 and args[1] is Ellipsis:
+                return True, args[0]
             return True, args[0]
         return True, None
     return False, None
@@ -772,18 +779,44 @@ def _build_facet_from_annotation(
     field_spec: Field | None,
     class_default: Any,
 ) -> Facet | None:
-    """
-    Build a Facet instance from a type annotation and optional Field spec.
+    from ..di.dep import Query, Header, Body, Cookie, Path
+    from typing import Annotated
 
-    Args:
-        name:          Field name.
-        annotation:    The resolved type annotation.
-        field_spec:    Field() descriptor (if provided as default value).
-        class_default: The raw class-level default (may be Field, UNSET, or a value).
+    extractor = None
+    if get_origin(annotation) is Annotated:
+        args = get_args(annotation)
+        for meta in args[1:]:
+            if isinstance(meta, (Query, Header, Body, Cookie, Path)):
+                extractor = meta
+                break
 
-    Returns:
-        A configured Facet instance, or None if unrecognised.
-    """
+    if extractor is None:
+        if isinstance(class_default, (Query, Header, Body, Cookie, Path)):
+            extractor = class_default
+        elif field_spec is not None and isinstance(field_spec.default, (Query, Header, Body, Cookie, Path)):
+            extractor = field_spec.default
+
+    facet = _build_facet_from_annotation_raw(name, annotation, field_spec, class_default)
+    if facet is None:
+        return None
+
+    if extractor is not None:
+        facet._extractor = extractor
+        if facet.default is UNSET and getattr(extractor, "default", UNSET) not in (UNSET, ...):
+            facet.default = extractor.default
+            facet.required = False
+        if getattr(extractor, "required", False):
+            facet.required = True
+
+    return facet
+
+
+def _build_facet_from_annotation_raw(
+    name: str,
+    annotation: Any,
+    field_spec: Field | None,
+    class_default: Any,
+) -> Facet | None:
     # Support Annotated metadata
     from typing import Annotated
 
@@ -1019,7 +1052,12 @@ def _build_facet_from_annotation(
                 class_default=UNSET,
             )
 
-        return ListFacet(child=child_facet, **list_kwargs)
+        if origin is set:
+            return SetFacet(child=child_facet, **list_kwargs)
+        elif origin is tuple:
+            return TupleFacet(child=child_facet, **list_kwargs)
+        else:
+            return ListFacet(child=child_facet, **list_kwargs)
 
     # ── dict ─────────────────────────────────────────────────────────
     if inner_type is dict or get_origin(inner_type) is dict:

@@ -38,6 +38,8 @@ from .dep import (
     Dep,
     Header,
     Query,
+    Cookie,
+    Path,
 )
 from .errors import (
     AmbiguousProviderError,
@@ -125,6 +127,8 @@ __all__ = [
     "Dep",
     "Header",
     "Query",
+    "Cookie",
+    "Path",
     "Body",
     "RequestDAG",
     # Legacy

@@ -210,9 +210,10 @@ class Query:
             return page
     """
 
-    name: str
+    name: str | None = None
     default: Any = None
     required: bool = False
+    alias: str | None = None
     _di_requires_coercion: bool = field(default=True, init=False, repr=False)
 
     def resolve(self, context: dict[str, Any]) -> Any:
@@ -221,11 +222,12 @@ class Query:
         if request is None:
             return self.default
 
+        param_name = self.alias or self.name or ""
         if hasattr(request, "query_param"):
-            value = request.query_param(self.name)
+            value = request.query_param(param_name)
         elif hasattr(request, "query_params"):
             qps = request.query_params
-            value = qps.get(self.name) if isinstance(qps, dict) else None
+            value = qps.get(param_name) if isinstance(qps, dict) else None
         else:
             value = None
 
@@ -234,8 +236,81 @@ class Query:
                 from ..faults.domains import BadRequestFault
 
                 raise BadRequestFault(
-                    message=f"Missing required query parameter: {self.name}",
-                    detail=f"Missing required query parameter: {self.name}",
+                    message=f"Missing required query parameter: {param_name}",
+                    detail=f"Missing required query parameter: {param_name}",
+                )
+            return self.default
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class Cookie:
+    """Extract a cookie value from the current request.
+
+    Usage::
+
+        session_id: Annotated[str, Cookie()]
+    """
+
+    name: str | None = None
+    default: Any = None
+    required: bool = False
+    alias: str | None = None
+    _di_requires_coercion: bool = field(default=True, init=False, repr=False)
+
+    def resolve(self, context: dict[str, Any]) -> Any:
+        request = context.get("request")
+        if request is None:
+            return self.default
+        cookie_name = self.alias or self.name or ""
+        if hasattr(request, "cookie"):
+            value = request.cookie(cookie_name)
+        elif hasattr(request, "cookies"):
+            cookies = request.cookies
+            value = cookies.get(cookie_name) if isinstance(cookies, dict) else None
+        else:
+            value = None
+
+        if value is None:
+            if self.required:
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"Missing required cookie: {cookie_name}",
+                    detail=f"Missing required cookie: {cookie_name}",
+                )
+            return self.default
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class Path:
+    """Extract a path/route parameter from the current request.
+
+    Usage::
+
+        id: Annotated[int, Path()]
+    """
+
+    name: str | None = None
+    default: Any = None
+    required: bool = True
+    alias: str | None = None
+    _di_requires_coercion: bool = field(default=True, init=False, repr=False)
+
+    def resolve(self, context: dict[str, Any]) -> Any:
+        request = context.get("request")
+        if request is None:
+            return self.default
+        param_name = self.alias or self.name or ""
+        value = None
+        if hasattr(request, "path_params"):
+            value = request.path_params.get(param_name)
+        if value is None:
+            if self.required:
+                from ..faults.domains import BadRequestFault
+                raise BadRequestFault(
+                    message=f"Missing required path parameter: {param_name}",
+                    detail=f"Missing required path parameter: {param_name}",
                 )
             return self.default
         return value
@@ -305,8 +380,8 @@ def _unpack_annotation(annotation: Any) -> tuple[type, Any]:
                             tag=getattr(meta, "tag", None),
                         ),
                     )
-                # Header/Query/Body are handled by RequestDAG
-                if isinstance(meta, (Header, Query, Body)):
+                # Header/Query/Body/Cookie/Path are handled by RequestDAG
+                if isinstance(meta, (Header, Query, Body, Cookie, Path)):
                     return (base_type, meta)
             return (base_type, None)
     except ImportError:
@@ -375,6 +450,40 @@ def _extract_query(annotation: Any) -> Query | None:
         if origin is Annotated:
             for meta in get_args(annotation)[1:]:
                 if isinstance(meta, Query):
+                    return meta
+    except ImportError:
+        pass
+    return None
+
+
+def _extract_cookie(annotation: Any) -> Cookie | None:
+    """Extract a Cookie from an Annotated type."""
+    origin = get_origin(annotation)
+    if origin is None:
+        return None
+    try:
+        from typing import Annotated
+
+        if origin is Annotated:
+            for meta in get_args(annotation)[1:]:
+                if isinstance(meta, Cookie):
+                    return meta
+    except ImportError:
+        pass
+    return None
+
+
+def _extract_path(annotation: Any) -> Path | None:
+    """Extract a Path from an Annotated type."""
+    origin = get_origin(annotation)
+    if origin is None:
+        return None
+    try:
+        from typing import Annotated
+
+        if origin is Annotated:
+            for meta in get_args(annotation)[1:]:
+                if isinstance(meta, Path):
                     return meta
     except ImportError:
         pass
