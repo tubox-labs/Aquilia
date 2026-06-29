@@ -58,8 +58,6 @@ class AdminModules:
     containers: bool = False
     pods: bool = False
     query_inspector: bool = False
-    inspector: bool = False
-    request_inspector: bool = False
     tasks: bool = False
     errors: bool = False
     testing: bool = False
@@ -194,26 +192,6 @@ class AdminModules:
         self.query_inspector = False
         return self
 
-    def enable_inspector(self) -> AdminModules:
-        self.inspector = True
-        self.request_inspector = True
-        return self
-
-    def disable_inspector(self) -> AdminModules:
-        self.inspector = False
-        self.request_inspector = False
-        return self
-
-    def enable_request_inspector(self) -> AdminModules:
-        self.inspector = True
-        self.request_inspector = True
-        return self
-
-    def disable_request_inspector(self) -> AdminModules:
-        self.inspector = False
-        self.request_inspector = False
-        return self
-
     def enable_tasks(self) -> AdminModules:
         self.tasks = True
         return self
@@ -289,9 +267,7 @@ class AdminModules:
         return self
 
     def to_dict(self) -> dict[str, bool]:
-        d = {f.name: getattr(self, f.name) for f in dc_fields(self)}
-        d["inspector"] = d.get("inspector", False) or d.get("request_inspector", False)
-        return d
+        return {f.name: getattr(self, f.name) for f in dc_fields(self)}
 
     def __repr__(self) -> str:
         enabled = [k for k, v in self.to_dict().items() if v]

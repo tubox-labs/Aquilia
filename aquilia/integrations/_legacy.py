@@ -1355,7 +1355,6 @@ class Integration:
             "_containers",
             "_pods",
             "_query_inspector",
-            "_inspector",
             "_tasks",
             "_errors",
             "_testing",
@@ -1380,7 +1379,6 @@ class Integration:
             self._containers: bool = False  # disabled by default
             self._pods: bool = False  # disabled by default
             self._query_inspector: bool = False  # disabled by default
-            self._inspector: bool = False  # disabled by default
             self._tasks: bool = False  # disabled by default
             self._errors: bool = False  # disabled by default
             self._testing: bool = False  # disabled by default
@@ -1396,9 +1394,6 @@ class Integration:
                     clean_k = clean_k[7:]
                 if not clean_k.startswith("_"):
                     clean_k = f"_{clean_k}"
-                # Map request_inspector to _inspector
-                if clean_k == "_request_inspector":
-                    clean_k = "_inspector"
                 if hasattr(self, clean_k):
                     setattr(self, clean_k, bool(v))
 
@@ -1545,43 +1540,6 @@ class Integration:
             self._query_inspector = False
             return self
 
-        # ── Request Inspector (disabled by default) ──
-        def enable_inspector(self) -> Integration.AdminModules:
-            """Show the Request Inspector page. Disabled by default -- opt in."""
-            self._inspector = True
-            return self
-
-        def disable_inspector(self) -> Integration.AdminModules:
-            """Hide the Request Inspector page."""
-            self._inspector = False
-            return self
-
-        def enable_request_inspector(self) -> Integration.AdminModules:
-            """Show the Request Inspector page. Disabled by default -- opt in."""
-            self._inspector = True
-            return self
-
-        def disable_request_inspector(self) -> Integration.AdminModules:
-            """Hide the Request Inspector page."""
-            self._inspector = False
-            return self
-
-        @property
-        def request_inspector(self) -> bool:
-            return self._inspector
-
-        @request_inspector.setter
-        def request_inspector(self, value: bool) -> None:
-            self._inspector = value
-
-        @property
-        def inspector(self) -> bool:
-            return self._inspector
-
-        @inspector.setter
-        def inspector(self, value: bool) -> None:
-            self._inspector = value
-
         # ── Background Tasks (disabled by default) ──
         def enable_tasks(self) -> Integration.AdminModules:
             """Show the Background Tasks page. Disabled by default -- opt in."""
@@ -1699,7 +1657,6 @@ class Integration:
                 "containers": self._containers,
                 "pods": self._pods,
                 "query_inspector": self._query_inspector,
-                "inspector": self._inspector,
                 "tasks": self._tasks,
                 "errors": self._errors,
                 "testing": self._testing,
@@ -2809,8 +2766,6 @@ class Integration:
         audit_log_searches: bool | None = None,
         enable_api_keys: bool | None = None,
         enable_preferences: bool | None = None,
-        enable_inspector: bool | None = None,
-        enable_request_inspector: bool | None = None,
         audit_excluded_actions: list[str] | None = None,
         monitoring_metrics: list[str] | None = None,
         monitoring_refresh_interval: int | None = None,
@@ -2895,15 +2850,6 @@ class Integration:
             mod_dict = modules.to_dict()
         else:
             # Build from legacy flat params (defaults: monitoring & audit OFF)
-            # Resolve inspector from flat options
-            flat_inspector = False
-            if enable_inspector is not None:
-                flat_inspector = enable_inspector
-            elif enable_request_inspector is not None:
-                flat_inspector = enable_request_inspector
-            else:
-                flat_inspector = kwargs.pop("enable_inspector", kwargs.pop("enable_request_inspector", False))
-
             mod_dict = {
                 "dashboard": enable_dashboard if enable_dashboard is not None else True,
                 "orm": enable_orm if enable_orm is not None else True,
@@ -2918,7 +2864,6 @@ class Integration:
                 "containers": enable_containers if enable_containers is not None else False,
                 "pods": enable_pods if enable_pods is not None else False,
                 "query_inspector": kwargs.pop("enable_query_inspector", False),
-                "inspector": flat_inspector,
                 "tasks": kwargs.pop("enable_tasks", False),
                 "errors": kwargs.pop("enable_errors", False),
                 "testing": kwargs.pop("enable_testing", False),
