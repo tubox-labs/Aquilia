@@ -175,6 +175,25 @@ class QueryInspector:
             except ImportError:
                 pass
 
+        try:
+            import time
+
+            from aquilia.inspector.trace import Lane, SpanStatus, current_trace
+
+            trace = current_trace()
+            if trace is not None:
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                trace.add_span(
+                    lane=Lane.DATABASE,
+                    label=sql,
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"model": model or "", "rows": rows_affected},
+                )
+        except Exception:
+            pass
+
         self._counter += 1
 
         # Determine operation type

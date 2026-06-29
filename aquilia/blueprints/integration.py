@@ -115,7 +115,8 @@ def extract_value_from_request(
 ) -> Any:
     """Extract field/parameter value from request using extractor metadata or default lookup order."""
     from aquilia.blueprints.facets import UNSET, ListFacet, SetFacet, TupleFacet
-    from aquilia.di.dep import Query, Header, Body as BodyExtractor, Cookie, Path
+    from aquilia.di.dep import Body as BodyExtractor
+    from aquilia.di.dep import Cookie, Header, Path, Query
 
     # 1. Determine key to look up
     lookup_key = name
@@ -213,7 +214,9 @@ def extract_value_from_request(
                 if lookup_key in body.fields:
                     return body.get_all_fields(lookup_key) if is_collection else body.get_field(lookup_key)
                 if f"{lookup_key}[]" in body.fields:
-                    return body.get_all_fields(f"{lookup_key}[]") if is_collection else body.get_field(f"{lookup_key}[]")
+                    return (
+                        body.get_all_fields(f"{lookup_key}[]") if is_collection else body.get_field(f"{lookup_key}[]")
+                    )
                 if lookup_key in body.files:
                     return body.get_all_files(lookup_key) if is_collection else body.get_file(lookup_key)
                 if f"{lookup_key}[]" in body.files:
@@ -245,7 +248,9 @@ def extract_value_from_request(
                 if lookup_key in body.fields:
                     return body.get_all_fields(lookup_key) if is_collection else body.get_field(lookup_key)
                 if f"{lookup_key}[]" in body.fields:
-                    return body.get_all_fields(f"{lookup_key}[]") if is_collection else body.get_field(f"{lookup_key}[]")
+                    return (
+                        body.get_all_fields(f"{lookup_key}[]") if is_collection else body.get_field(f"{lookup_key}[]")
+                    )
                 if lookup_key in body.files:
                     return body.get_all_files(lookup_key) if is_collection else body.get_file(lookup_key)
                 if f"{lookup_key}[]" in body.files:
@@ -273,7 +278,7 @@ def extract_value_from_request(
                         vals = qps.get_all(f"{lookup_key}[]")
                     if vals:
                         return vals if is_collection else vals[0]
-                    
+
                     # Check dotted keys if nested (for query params)
                     dot_prefix = f"{lookup_key}."
                     bracket_prefix = f"{lookup_key}["
@@ -314,6 +319,10 @@ async def bind_blueprint_to_request(
     Returns:
         A validated Blueprint instance (is_sealed() has been called)
     """
+    import time
+
+    t0 = time.monotonic()
+
     # ── Security: Body size check ────────────────────────────────────
     max_body = MAX_BODY_SIZE
     if context and context.get("max_body_size"):
@@ -380,6 +389,7 @@ async def bind_blueprint_to_request(
                     body = {}
 
     from .._datastructures import MultiDict
+
     try:
         from .._uploads import FormData
     except ImportError:
@@ -413,8 +423,11 @@ async def bind_blueprint_to_request(
                         vals = []
 
                     from aquilia.blueprints.facets import ListFacet, SetFacet, TupleFacet
+
                     facet = blueprint_cls._all_facets.get(k)
-                    is_collection = isinstance(facet, (ListFacet, SetFacet, TupleFacet)) or getattr(facet, "many", False)
+                    is_collection = isinstance(facet, (ListFacet, SetFacet, TupleFacet)) or getattr(
+                        facet, "many", False
+                    )
 
                     if vals:
                         val_to_set = vals if is_collection else vals[0]
@@ -447,7 +460,9 @@ async def bind_blueprint_to_request(
         # Fallback check for old default-based metadata
         if extractor is None:
             default_val = getattr(facet, "default", None)
-            from ..di.dep import Query, Header, Body as BodyExtractor, Cookie, Path
+            from ..di.dep import Body as BodyExtractor
+            from ..di.dep import Cookie, Header, Path, Query
+
             if isinstance(default_val, (Query, Header, BodyExtractor, Cookie, Path)):
                 extractor = default_val
 
@@ -472,15 +487,17 @@ async def bind_blueprint_to_request(
                 pass
     else:
         from aquilia.blueprints.core import BlueprintContext
-        
+
         container = None
         if isinstance(context, dict):
             container = context.get("container")
-            
-        bp_context = BlueprintContext({
-            "request": request,
-            **(context or {}),
-        })
+
+        bp_context = BlueprintContext(
+            {
+                "request": request,
+                **(context or {}),
+            }
+        )
         if container is not None:
             bp_context.container = container
 
@@ -514,6 +531,24 @@ async def bind_blueprint_to_request(
             bp._errors = {}
             bp._validated_data = DataObject(validated)
             bp._is_sealed = True
+
+    try:
+        from aquilia.inspector.trace import Lane, SpanStatus, current_trace
+
+        trace = current_trace()
+        if trace is not None:
+            dt = (time.monotonic() - t0) * 1000.0
+            trace.add_span(
+                lane=Lane.VALIDATION,
+                label=f"Validate {blueprint_cls.__name__}",
+                start_offset_ms=(t0 - trace.started_monotonic) * 1000.0,
+                duration_ms=dt,
+                status=SpanStatus.ERROR if bp.errors else SpanStatus.OK,
+                detail={"blueprint": blueprint_cls.__name__, "errors": bp.errors or {}},
+            )
+    except Exception:
+        pass
+
     return bp
 
 

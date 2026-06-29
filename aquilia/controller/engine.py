@@ -1580,26 +1580,57 @@ class ControllerEngine:
 
         timeout = route_timeout if route_timeout is not None else class_timeout
 
-        if timeout and timeout > 0:
-            try:
-                return await asyncio.wait_for(
-                    self._safe_call(handler, **kwargs),
-                    timeout=timeout,
-                )
-            except asyncio.TimeoutError:
-                # SEC-CTRL-13: Use structured fault instead of raw TimeoutError
-                from ..faults.domains import FlowCancelledFault
+        import time
 
-                raise FlowCancelledFault(
-                    reason=f"timeout ({timeout}s)",
-                    metadata={
-                        "controller": controller_class.__name__,
-                        "handler": getattr(handler, "__name__", str(handler)),
-                        "timeout": timeout,
-                    },
+        from aquilia.inspector.trace import Lane, SpanStatus, current_trace
+
+        trace = current_trace()
+        t0 = time.monotonic()
+
+        try:
+            if timeout and timeout > 0:
+                try:
+                    res = await asyncio.wait_for(
+                        self._safe_call(handler, **kwargs),
+                        timeout=timeout,
+                    )
+                except asyncio.TimeoutError:
+                    # SEC-CTRL-13: Use structured fault instead of raw TimeoutError
+                    from ..faults.domains import FlowCancelledFault
+
+                    raise FlowCancelledFault(
+                        reason=f"timeout ({timeout}s)",
+                        metadata={
+                            "controller": controller_class.__name__,
+                            "handler": getattr(handler, "__name__", str(handler)),
+                            "timeout": timeout,
+                        },
+                    )
+            else:
+                res = await self._safe_call(handler, **kwargs)
+
+            if trace is not None:
+                dt = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    lane=Lane.HANDLER,
+                    label=f"{controller_class.__name__}.{getattr(handler, '__name__', str(handler))}",
+                    start_offset_ms=(t0 - trace.started_monotonic) * 1000.0,
+                    duration_ms=dt,
+                    status=SpanStatus.OK,
                 )
-        else:
-            return await self._safe_call(handler, **kwargs)
+            return res
+        except Exception as exc:
+            if trace is not None:
+                dt = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    lane=Lane.HANDLER,
+                    label=f"{controller_class.__name__}.{getattr(handler, '__name__', str(handler))}",
+                    start_offset_ms=(t0 - trace.started_monotonic) * 1000.0,
+                    duration_ms=dt,
+                    status=SpanStatus.ERROR,
+                    detail={"error": str(exc)},
+                )
+            raise
 
     # ── Cache Management ─────────────────────────────────────────────
 

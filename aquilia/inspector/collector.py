@@ -11,6 +11,10 @@ class InspectorCollector:
         self._by_id: dict[str, RequestTrace] = {}  # kept in sync; bounded by deque eviction
         self._config = config
         self._subscribers: list[Callable[[RequestTrace], None]] = []  # for SSE, see stream.py
+        from .stream import SSEStreamManager
+
+        self.stream_manager = SSEStreamManager()
+        self.subscribe(self.stream_manager.publish_trace)
 
     def commit(self, trace: RequestTrace) -> None:
         # Check if deque is at capacity before appending
