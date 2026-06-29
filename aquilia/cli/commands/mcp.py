@@ -81,6 +81,10 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
     )
 
     if daemon:
+        if transport == "stdio":
+            raise click.UsageError(
+                "Daemon mode (--daemon) is not supported for STDIO transport. Use '--transport socket' to run in the background."
+            )
         if pid_path.exists():
             try:
                 pid = int(pid_path.read_text().strip())
