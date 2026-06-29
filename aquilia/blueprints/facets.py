@@ -791,8 +791,11 @@ class BoolFacet(Facet):
             if lower in self._FALSE_VALUES:
                 return False
         if isinstance(value, (int, float)):
-            return bool(value)
-        raise CastFault(self.name or "<unbound>", f"Expected boolean, got {type(value).__name__}")
+            if value == 1:
+                return True
+            if value == 0:
+                return False
+        raise CastFault(self.name or "<unbound>", f"Expected boolean, got {value!r}")
 
 
 # ── Date/Time Facets ─────────────────────────────────────────────────────
@@ -865,8 +868,11 @@ class DateTimeFacet(Facet):
         if isinstance(value, datetime):
             return value
         if isinstance(value, str):
+            val_str = value.strip()
+            if val_str.endswith("Z"):
+                val_str = val_str[:-1] + "+00:00"
             try:
-                return datetime.fromisoformat(value)
+                return datetime.fromisoformat(val_str)
             except ValueError:
                 pass
         raise CastFault(self.name or "<unbound>", "Expected ISO 8601 datetime")
@@ -895,16 +901,22 @@ class DurationFacet(Facet):
         if isinstance(value, (int, float)):
             return timedelta(seconds=value)
         if isinstance(value, str):
-            # Parse "HH:MM:SS" or total seconds
+            val_str = value.strip()
+            sign = 1
+            if val_str.startswith("-"):
+                sign = -1
+                val_str = val_str[1:]
+            elif val_str.startswith("+"):
+                val_str = val_str[1:]
             try:
-                return timedelta(seconds=float(value))
+                return timedelta(seconds=sign * float(val_str))
             except ValueError:
                 pass
-            parts = value.split(":")
+            parts = val_str.split(":")
             if len(parts) == 3:
                 try:
                     h, m, s = int(parts[0]), int(parts[1]), float(parts[2])
-                    return timedelta(hours=h, minutes=m, seconds=s)
+                    return timedelta(hours=sign * h, minutes=sign * m, seconds=sign * s)
                 except (ValueError, TypeError):
                     pass
         raise CastFault(self.name or "<unbound>", "Expected duration (seconds or HH:MM:SS)")
@@ -985,6 +997,139 @@ class ListFacet(Facet):
         return result
 
     def seal(self, value: list) -> list:
+        if self.min_items is not None and len(value) < self.min_items:
+            raise CastFault(self.name or "<unbound>", f"Must have at least {self.min_items} items")
+        if self.max_items is not None and len(value) > self.max_items:
+            raise CastFault(self.name or "<unbound>", f"Must have at most {self.max_items} items")
+        if self.child is not None:
+            for i, item in enumerate(value):
+                try:
+                    self.child.seal(item)
+                except CastFault as exc:
+                    raise CastFault(f"{self.name or '<unbound>'}[{i}]", str(exc)) from exc
+        return super().seal(value)
+
+    def mold(self, value: Any) -> list | None:
+        if value is None:
+            return None
+        if self.child is not None:
+            return [self.child.mold(item) for item in value]
+        return list(value)
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        if self.child is not None:
+            schema["items"] = self.child.to_schema()
+        if self.min_items is not None:
+            schema["minItems"] = self.min_items
+        if self.max_items is not None:
+            schema["maxItems"] = self.max_items
+        return schema
+
+
+class SetFacet(Facet):
+    """Set/unique array facet with optional child facet."""
+
+    _type_name = "array"
+
+    def __init__(
+        self,
+        *,
+        child: Facet | None = None,
+        min_items: int | None = None,
+        max_items: int | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.child = child
+        self.min_items = min_items
+        self.max_items = max_items
+
+    def cast(self, value: Any) -> set:
+        if not isinstance(value, (list, tuple, set)):
+            raise CastFault(self.name or "<unbound>", f"Expected collection, got {type(value).__name__}")
+        result = set(value)
+        if self.child is not None:
+            cast_items = set()
+            for item in result:
+                try:
+                    cast_items.add(self.child.cast(item))
+                except CastFault as exc:
+                    raise CastFault(
+                        f"{self.name or '<unbound>'}[*]",
+                        str(exc),
+                    ) from exc
+            result = cast_items
+        return result
+
+    def seal(self, value: set) -> set:
+        if self.min_items is not None and len(value) < self.min_items:
+            raise CastFault(self.name or "<unbound>", f"Must have at least {self.min_items} items")
+        if self.max_items is not None and len(value) > self.max_items:
+            raise CastFault(self.name or "<unbound>", f"Must have at most {self.max_items} items")
+        if self.child is not None:
+            for item in value:
+                try:
+                    self.child.seal(item)
+                except CastFault as exc:
+                    raise CastFault(f"{self.name or '<unbound>'}[*]", str(exc)) from exc
+        return super().seal(value)
+
+    def mold(self, value: Any) -> list | None:
+        if value is None:
+            return None
+        if self.child is not None:
+            return [self.child.mold(item) for item in value]
+        return list(value)
+
+    def to_schema(self) -> dict[str, Any]:
+        schema = super().to_schema()
+        schema["uniqueItems"] = True
+        if self.child is not None:
+            schema["items"] = self.child.to_schema()
+        if self.min_items is not None:
+            schema["minItems"] = self.min_items
+        if self.max_items is not None:
+            schema["maxItems"] = self.max_items
+        return schema
+
+
+class TupleFacet(Facet):
+    """Tuple array facet with optional child facet."""
+
+    _type_name = "array"
+
+    def __init__(
+        self,
+        *,
+        child: Facet | None = None,
+        min_items: int | None = None,
+        max_items: int | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.child = child
+        self.min_items = min_items
+        self.max_items = max_items
+
+    def cast(self, value: Any) -> tuple:
+        if not isinstance(value, (list, tuple, set)):
+            raise CastFault(self.name or "<unbound>", f"Expected collection, got {type(value).__name__}")
+        result = tuple(value)
+        if self.child is not None:
+            cast_items = []
+            for i, item in enumerate(result):
+                try:
+                    cast_items.append(self.child.cast(item))
+                except CastFault as exc:
+                    raise CastFault(
+                        f"{self.name or '<unbound>'}[{i}]",
+                        str(exc),
+                    ) from exc
+            result = tuple(cast_items)
+        return result
+
+    def seal(self, value: tuple) -> tuple:
         if self.min_items is not None and len(value) < self.min_items:
             raise CastFault(self.name or "<unbound>", f"Must have at least {self.min_items} items")
         if self.max_items is not None and len(value) > self.max_items:
@@ -1246,8 +1391,21 @@ class EnumFacet(Facet):
             return None
         if isinstance(value, self.enum_class):
             return value
+
+        coerced_value = value
+        if issubclass(self.enum_class, int):
+            try:
+                coerced_value = int(value)
+            except (ValueError, TypeError):
+                pass
+        elif issubclass(self.enum_class, str):
+            try:
+                coerced_value = str(value)
+            except (ValueError, TypeError):
+                pass
+
         try:
-            return self.enum_class(value)
+            return self.enum_class(coerced_value)
         except ValueError:
             pass
         if isinstance(value, str) and value in self.enum_class.__members__:

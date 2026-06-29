@@ -79,6 +79,8 @@ from .facets import (
     JSONFacet,
     # Structured
     ListFacet,
+    SetFacet,
+    TupleFacet,
     LiteralFacet,
     ReadOnly,
     SlugFacet,
@@ -134,6 +136,8 @@ __all__ = [
     "DurationFacet",
     "UUIDFacet",
     "ListFacet",
+    "SetFacet",
+    "TupleFacet",
     "DictFacet",
     "JSONFacet",
     "FileFacet",
