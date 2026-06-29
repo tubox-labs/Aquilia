@@ -371,10 +371,14 @@ class ASGIAdapter:
             request.state["app_name"] = getattr(controller_match.route, "app_name", None)
             request.state["route_pattern"] = getattr(controller_match.route, "full_path", None)
             request.state["path_params"] = controller_match.params
+            request.state["route_metadata"] = getattr(controller_match.route, "route_metadata", None)
+            request.state["controller_class"] = getattr(controller_match.route, "controller_class", None)
         else:
             request.state["app_name"] = None
             request.state["route_pattern"] = None
             request.state["path_params"] = {}
+            request.state["route_metadata"] = None
+            request.state["controller_class"] = None
 
         # ── Execute cached middleware chain ──
         metrics = get_engine_metrics()
