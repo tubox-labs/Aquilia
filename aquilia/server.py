@@ -1100,6 +1100,7 @@ class AquiliaServer:
                     "url_segment_index",
                     0,
                 ),
+                url_position=versioning_config.get("url_position") or versioning_config.get("position") or "before",
                 strip_version_from_path=versioning_config.get(
                     "strip_version_from_path",
                     True,

@@ -2938,3 +2938,25 @@ class TestVersioningPerformanceStress:
         req2 = Request(scope2, lambda: None)
         assert resolver.resolve(req2) == "2"
         assert resolver.strip_version_from_path(req2.path) == "/brief/article"
+
+    def test_workspace_level_url_position_after(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        from aquilia.server import AquiliaServer
+
+        server = AquiliaServer(aquilary_registry=MagicMock())
+        server.runtime = SimpleNamespace(meta=SimpleNamespace(app_contexts=[]), di_containers={})
+
+        versioning_config = {
+            "enabled": True,
+            "strategy": "url",
+            "versions": ["1.0", "2.0"],
+            "url_position": "after",
+            "default_version": "1.0",
+        }
+        server.config = {"versioning": versioning_config}
+
+        server._setup_versioning()
+        assert server._version_strategy is not None
+        assert server._version_strategy._config.url_position == "after"
