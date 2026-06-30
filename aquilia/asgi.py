@@ -237,6 +237,7 @@ class ASGIAdapter:
             return path_for_match, None
 
         from aquilia.versioning.errors import VersionError
+
         try:
             api_version = strategy.resolve(request)
         except VersionError:
@@ -308,12 +309,14 @@ class ASGIAdapter:
         # Pre-resolve version/path so URL strategy routes (e.g. /v2/users)
         # can match before middleware chain execution.
         from aquilia.versioning.errors import VersionError
+
         try:
             route_path, _api_version = self._resolve_route_inputs(request, path)
         except VersionError as exc:
             strategy = getattr(self.server, "_version_strategy", None)
             if strategy is not None:
                 from aquilia.versioning.middleware import build_version_error_response
+
                 response = build_version_error_response(strategy, request, exc)
                 await response.send_asgi(send, request)
                 return

@@ -249,13 +249,14 @@ class ControllerRouter:
                 for route, params, query in hits:
                     if self._version_matches(route, api_version):
                         matching_hits.append((route, params, query))
-                
+
                 if len(matching_hits) > 1:
                     from ..faults import RoutingFault
+
                     raise RoutingFault(
                         "ROUTE_CONFLICT",
                         f"Found multiple matching routes for path {norm_path!r} and version {api_version!r}: "
-                        f"{[h[0].controller_class.__name__ + '.' + h[0].route_metadata.handler_name for h in matching_hits]}"
+                        f"{[h[0].controller_class.__name__ + '.' + h[0].route_metadata.handler_name for h in matching_hits]}",
                     )
                 if len(matching_hits) == 1:
                     hit = matching_hits[0]
@@ -334,10 +335,11 @@ class ControllerRouter:
 
             if len(matching_matches) > 1:
                 from ..faults import RoutingFault
+
                 raise RoutingFault(
                     "ROUTE_CONFLICT",
                     f"Found multiple matching dynamic routes for path {path!r} and version {api_version!r}: "
-                    f"{[m.route.controller_class.__name__ + '.' + m.route.route_metadata.handler_name for m in matching_matches]}"
+                    f"{[m.route.controller_class.__name__ + '.' + m.route.route_metadata.handler_name for m in matching_matches]}",
                 )
             if len(matching_matches) == 1:
                 return matching_matches[0]
@@ -371,6 +373,7 @@ class ControllerRouter:
                 return True
             try:
                 from aquilia.versioning.core import ApiVersion as _AV
+
                 api_parsed = _AV.parse(str(api_version)) if not isinstance(api_version, _AV) else api_version
                 return bound_version == api_parsed
             except Exception:
@@ -481,10 +484,11 @@ class ControllerRouter:
 
         if len(matching_routes) > 1:
             from ..faults import RoutingFault
+
             raise RoutingFault(
                 "ROUTE_CONFLICT",
                 f"Found multiple matching trie routes for path {path!r} and version {api_version!r}: "
-                f"{[r.controller_class.__name__ + '.' + r.route_metadata.handler_name for r in matching_routes]}"
+                f"{[r.controller_class.__name__ + '.' + r.route_metadata.handler_name for r in matching_routes]}",
             )
 
         route = matching_routes[0]

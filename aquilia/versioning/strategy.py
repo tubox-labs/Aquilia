@@ -520,6 +520,7 @@ class VersionStrategy:
         Compose this with the compiler's EXISTING join (module + controller
         + route) — don't reimplement that join here."""
         from ..utils.urls import join_paths
+
         pos = position or self._config.url_position
         segment = "/" + self.build_url_segment(version)
         return join_paths(module_prefix, segment) if pos == "after" else join_paths(segment, module_prefix)

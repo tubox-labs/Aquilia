@@ -1473,10 +1473,11 @@ class TestIntegrationVersioning:
         assert config["sunset_policy"] is not None
 
     def test_server_setup_with_sunset_policy_instance(self):
-        from aquilia.integrations import Integration
-        from aquilia.versioning.sunset import SunsetPolicy
-        from aquilia.server import AquiliaServer
         from unittest.mock import MagicMock
+
+        from aquilia.integrations import Integration
+        from aquilia.server import AquiliaServer
+        from aquilia.versioning.sunset import SunsetPolicy
 
         server = MagicMock(spec=AquiliaServer)
         server.middleware_stack = MagicMock()
@@ -1486,12 +1487,8 @@ class TestIntegrationVersioning:
                 strategy="url",
                 versions=["1.0"],
                 default_version="1.0",
-                channels={
-                    "stable": "1.0"
-                },
-                sunset_policy=SunsetPolicy(
-                    warn_header=True
-                )
+                channels={"stable": "1.0"},
+                sunset_policy=SunsetPolicy(warn_header=True),
             )
         }
 
@@ -1504,9 +1501,9 @@ class TestIntegrationVersioning:
         assert server._version_strategy._config.sunset_policy.warn_header is True
 
     def test_server_setup_with_sunset_policy_dict(self):
-        from aquilia.integrations import Integration
-        from aquilia.server import AquiliaServer
         from unittest.mock import MagicMock
+
+        from aquilia.server import AquiliaServer
 
         server = MagicMock(spec=AquiliaServer)
         server.middleware_stack = MagicMock()
@@ -1520,7 +1517,7 @@ class TestIntegrationVersioning:
                 "sunset_policy": {
                     "warn_header": False,
                     "grace_period_days": 45,
-                }
+                },
             }
         }
 
@@ -1740,7 +1737,6 @@ class TestASGIPreRoutingVersioning:
         paths like /users, rather than collapsing /users onto a versioned /v1/users route).
         """
         from aquilia.response import Response
-        from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         strategy = VersionStrategy(
@@ -1888,9 +1884,10 @@ class TestBugA_UnversionedPathRejection:
         )
         assert strategy.is_structural_url_versioning is True
 
+        from types import SimpleNamespace
+
         from aquilia.asgi import ASGIAdapter
         from aquilia.middleware import MiddlewareStack
-        from types import SimpleNamespace
 
         router = MagicMock()
         engine = MagicMock()
@@ -1919,9 +1916,10 @@ class TestBugA_UnversionedPathRejection:
             )
         )
 
+        from types import SimpleNamespace
+
         from aquilia.asgi import ASGIAdapter
         from aquilia.middleware import MiddlewareStack
-        from types import SimpleNamespace
 
         router = MagicMock()
         engine = MagicMock()
@@ -1971,9 +1969,10 @@ class TestBugB_ScopeImmutability:
             )
         )
 
+        from types import SimpleNamespace
+
         from aquilia.asgi import ASGIAdapter
         from aquilia.middleware import MiddlewareStack
-        from types import SimpleNamespace
 
         router = MagicMock()
         engine = MagicMock()
@@ -2034,6 +2033,7 @@ class TestBugB_ScopeImmutability:
 
         async def next_handler(r, c):
             from aquilia.response import Response
+
             return Response.json({"ok": True})
 
         await mw(req, ctx, next_handler)
@@ -2193,6 +2193,7 @@ class TestSunsetPerVersionCounters:
 
     def test_independent_counters_for_different_versions(self):
         from datetime import datetime, timezone
+
         from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.sunset import (
             SunsetEnforcer,
@@ -2226,6 +2227,7 @@ class TestSunsetPerVersionCounters:
 
     def test_gradual_rejection_independently_applied(self):
         from datetime import datetime, timezone
+
         from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.sunset import (
             SunsetEnforcer,
@@ -2270,9 +2272,7 @@ class TestStructuralBaking:
             async def list(self, ctx):
                 pass
 
-        strategy = VersionStrategy(
-            VersionConfig(strategy="url", versions=["1.0"], default_version="1.0")
-        )
+        strategy = VersionStrategy(VersionConfig(strategy="url", versions=["1.0"], default_version="1.0"))
 
         compiler = ControllerCompiler()
         compiled = compiler.compile_controller(Users, version_strategy=strategy)
@@ -2286,7 +2286,6 @@ class TestStructuralBaking:
         from aquilia.controller.base import Controller
         from aquilia.controller.compiler import ControllerCompiler
         from aquilia.controller.decorators import GET
-        from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         class Users(Controller):
@@ -2297,9 +2296,7 @@ class TestStructuralBaking:
             async def list(self, ctx):
                 pass
 
-        strategy = VersionStrategy(
-            VersionConfig(strategy="url", versions=["1.0", "2.0"], default_version="1.0")
-        )
+        strategy = VersionStrategy(VersionConfig(strategy="url", versions=["1.0", "2.0"], default_version="1.0"))
 
         compiler = ControllerCompiler()
         compiled = compiler.compile_controller(Users, version_strategy=strategy)
@@ -2327,9 +2324,7 @@ class TestStructuralBaking:
             async def check(self, ctx):
                 pass
 
-        strategy = VersionStrategy(
-            VersionConfig(strategy="url", versions=["1.0"], default_version="1.0")
-        )
+        strategy = VersionStrategy(VersionConfig(strategy="url", versions=["1.0"], default_version="1.0"))
 
         compiler = ControllerCompiler()
         compiled = compiler.compile_controller(Health, version_strategy=strategy)
@@ -2353,9 +2348,7 @@ class TestStructuralBaking:
             async def index(self, ctx):
                 pass
 
-        strategy = VersionStrategy(
-            VersionConfig(strategy="url", versions=["1.0"], default_version="1.0")
-        )
+        strategy = VersionStrategy(VersionConfig(strategy="url", versions=["1.0"], default_version="1.0"))
 
         compiler = ControllerCompiler()
         compiled = compiler.compile_controller(Misc, version_strategy=strategy)
@@ -2392,7 +2385,6 @@ class TestRouterBoundVersionMatching:
     def test_no_bound_version_falls_through_to_metadata(self):
         """When bound_version is None, the method falls through to version_metadata checks."""
         from aquilia.controller.router import ControllerRouter
-        from aquilia.versioning.core import VERSION_NEUTRAL
 
         route = MagicMock()
         route.bound_version = None
@@ -2401,6 +2393,7 @@ class TestRouterBoundVersionMatching:
         route.controller_metadata.version = None
 
         from aquilia.versioning.core import ApiVersion
+
         assert ControllerRouter._version_matches(route, ApiVersion(1, 0)) is True
 
 
@@ -2411,7 +2404,6 @@ class TestASGIVersionErrorEarlyReturn:
     @pytest.mark.asyncio
     async def test_missing_version_returns_400(self):
         """URL strategy with require_version=True and no version in path → 400."""
-        from aquilia.response import Response
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
 
         strategy = VersionStrategy(
@@ -2424,9 +2416,10 @@ class TestASGIVersionErrorEarlyReturn:
             )
         )
 
+        from types import SimpleNamespace
+
         from aquilia.asgi import ASGIAdapter
         from aquilia.middleware import MiddlewareStack
-        from types import SimpleNamespace
 
         router = MagicMock()
         engine = MagicMock()
@@ -2464,4 +2457,3 @@ class TestASGIVersionErrorEarlyReturn:
         start = messages[0]
         assert start["type"] == "http.response.start"
         assert start["status"] in (400, 404)
-

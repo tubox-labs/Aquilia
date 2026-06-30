@@ -137,18 +137,23 @@ class ControllerCompiler:
                         compiled_routes.append(compiled_route)
                     else:
                         versions_to_compile = []
-                        if constraint[0] == "none" and module_versioning and module_versioning.get("auto_version_unmarked", False):
+                        if (
+                            constraint[0] == "none"
+                            and module_versioning
+                            and module_versioning.get("auto_version_unmarked", False)
+                        ):
                             versions_to_compile = list(version_strategy.graph.active_versions)
                         elif constraint[0] != "none":
                             versions_to_compile = self._expand_versions(constraint, version_strategy)
                             if not versions_to_compile and constraint[0] == "range":
                                 import logging
+
                                 logger = logging.getLogger("aquilia.controller.compiler")
                                 logger.warning(
                                     f"Range constraint {constraint[1]} for route {route_meta.handler_name} in "
                                     f"{controller_class.__name__} expanded to empty active versions list."
                                 )
-                        
+
                         if not versions_to_compile and constraint[0] == "none":
                             # Compile once, unprefixed
                             compiled_route = self._compile_route(
@@ -388,10 +393,10 @@ class ControllerCompiler:
             ("none", None)
         """
         from aquilia.versioning.core import VERSION_NEUTRAL
-        
+
         handler = getattr(controller_class, route_metadata.handler_name, None)
         version_meta = getattr(handler, "__version_metadata__", None) if handler else None
-        
+
         if version_meta is not None:
             if version_meta.get("neutral") is True:
                 return "neutral", None
@@ -405,7 +410,7 @@ class ControllerCompiler:
                 versions_str = [str(v) for v in versions if v is not VERSION_NEUTRAL]
                 if versions_str:
                     return "set", frozenset(versions_str)
-                    
+
         if route_metadata.version is not None:
             v = route_metadata.version
             if v is VERSION_NEUTRAL:
@@ -414,7 +419,7 @@ class ControllerCompiler:
                 versions_str = [str(x) for x in v if x is not VERSION_NEUTRAL]
                 return "set", frozenset(versions_str)
             return "set", frozenset([str(v)])
-            
+
         if controller_metadata.version is not None:
             v = controller_metadata.version
             if v is VERSION_NEUTRAL:
@@ -423,7 +428,7 @@ class ControllerCompiler:
                 versions_str = [str(x) for x in v if x is not VERSION_NEUTRAL]
                 return "set", frozenset(versions_str)
             return "set", frozenset([str(v)])
-            
+
         return "none", None
 
     def _versions_overlap(self, c1: tuple[str, Any], c2: tuple[str, Any]) -> bool:
@@ -431,28 +436,29 @@ class ControllerCompiler:
         kind2, payload2 = c2
         if kind1 in ("none", "neutral") or kind2 in ("none", "neutral"):
             return True
-            
+
         from aquilia.versioning.parser import SemanticVersionParser
+
         parser = SemanticVersionParser()
-        
+
         def as_set(c):
             kind, payload = c
             if kind == "set":
                 return {parser.parse(v) for v in payload}
             return None
-            
+
         if kind1 == "set" and kind2 == "set":
             return bool(as_set(c1) & as_set(c2))
-            
+
         # Range <-> Set
         if (kind1 == "range" and kind2 == "set") or (kind1 == "set" and kind2 == "range"):
             rng = payload1 if kind1 == "range" else payload2
             st = payload2 if kind2 == "set" else payload1
-            
+
             min_v, max_v = rng
             parsed_min = parser.parse(min_v) if min_v else None
             parsed_max = parser.parse(max_v) if max_v else None
-            
+
             parsed_set = {parser.parse(v) for v in st}
             for v in parsed_set:
                 if parsed_min and v < parsed_min:
@@ -461,46 +467,46 @@ class ControllerCompiler:
                     continue
                 return True
             return False
-            
+
         # Range <-> Range
         if kind1 == "range" and kind2 == "range":
             min1, max1 = payload1
             min2, max2 = payload2
-            
+
             parsed_min1 = parser.parse(min1) if min1 else None
             parsed_max1 = parser.parse(max1) if max1 else None
             parsed_min2 = parser.parse(min2) if min2 else None
             parsed_max2 = parser.parse(max2) if max2 else None
-            
+
             if parsed_min1 is None:
                 intersect_start = parsed_min2
             elif parsed_min2 is None:
                 intersect_start = parsed_min1
             else:
                 intersect_start = max(parsed_min1, parsed_min2)
-                
+
             if parsed_max1 is None:
                 intersect_end = parsed_max2
             elif parsed_max2 is None:
                 intersect_end = parsed_max1
             else:
                 intersect_end = min(parsed_max1, parsed_max2)
-                
+
             if intersect_start is None or intersect_end is None:
                 return True
-                
+
             return intersect_start < intersect_end
-            
+
         return True
 
     def _expand_versions(self, constraint: tuple[str, Any], version_strategy: Any) -> list[Any]:
         kind, payload = constraint
         if kind == "none" or kind == "neutral":
             return []
-            
+
         active_versions = version_strategy.graph.active_versions
         parser = version_strategy.parser
-        
+
         matched = []
         if kind == "set":
             parsed_set = {parser.parse(v) for v in payload}
@@ -522,8 +528,12 @@ class ControllerCompiler:
     def _routes_conflict(self, route1: CompiledRoute, route2: CompiledRoute) -> bool:
         """Check if two routes conflict (ambiguous matching)."""
         # Check version overlap first
-        c1 = self._extract_version_constraint(route1.controller_class, route1.controller_metadata, route1.route_metadata)
-        c2 = self._extract_version_constraint(route2.controller_class, route2.controller_metadata, route2.route_metadata)
+        c1 = self._extract_version_constraint(
+            route1.controller_class, route1.controller_metadata, route1.route_metadata
+        )
+        c2 = self._extract_version_constraint(
+            route2.controller_class, route2.controller_metadata, route2.route_metadata
+        )
         if not self._versions_overlap(c1, c2):
             return False
 
