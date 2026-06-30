@@ -252,7 +252,7 @@ def _empty_manifest() -> AppManifest:
     """Create a bare-minimum manifest for testing."""
     return AppManifest(
         name="test_app",
-        version="0.0.1-test",
+        version="0.0.1",
         controllers=[],
         services=[],
     )
