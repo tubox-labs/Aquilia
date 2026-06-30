@@ -49,31 +49,7 @@ from .aquilary import (
     RuntimeRegistry,
 )
 
-# ============================================================================
-# Artifact System
-# ============================================================================
-from .artifacts import (
-    Artifact,
-    ArtifactBuilder,
-    ArtifactEnvelope,
-    ArtifactIntegrity,
-    ArtifactKind,
-    ArtifactProvenance,
-    ArtifactReader,
-    ArtifactStore,
-    BundleArtifact,
-    CodeArtifact,
-    ConfigArtifact,
-    DIGraphArtifact,
-    FilesystemArtifactStore,
-    MemoryArtifactStore,
-    MigrationArtifact,
-    ModelArtifact,
-    RegistryArtifact,
-    RouteArtifact,
-    TemplateArtifact,
-    register_artifact_kind,
-)
+
 from .auth import AdminGuard, VerifiedEmailGuard, authenticated
 
 # Audit Trail
@@ -1507,27 +1483,7 @@ __all__ = [
     "get_database",
     "set_database",
     "DatabaseError",
-    # Artifacts
-    "Artifact",
-    "ArtifactEnvelope",
-    "ArtifactKind",
-    "ArtifactProvenance",
-    "ArtifactIntegrity",
-    "register_artifact_kind",
-    "ArtifactBuilder",
-    "ArtifactStore",
-    "MemoryArtifactStore",
-    "FilesystemArtifactStore",
-    "ArtifactReader",
-    "CodeArtifact",
-    "ModelArtifact",
-    "ConfigArtifact",
-    "TemplateArtifact",
-    "MigrationArtifact",
-    "RegistryArtifact",
-    "RouteArtifact",
-    "DIGraphArtifact",
-    "BundleArtifact",
+
     # Testing Framework
     "TestClient",
     "TestServer",

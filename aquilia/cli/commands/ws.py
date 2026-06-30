@@ -16,22 +16,71 @@ import sys
 from pathlib import Path
 
 
+def _get_websocket_metadata() -> dict:
+    import importlib
+    import sys
+    from aquilia.cli.commands.inspect import _ensure_workspace_root, _get_workspace_modules, _load_manifest_instance
+    from aquilia.sockets.compile import SocketCompiler
+    
+    workspace_root = _ensure_workspace_root()
+    modules = _get_workspace_modules(workspace_root)
+    
+    ws_abs = str(workspace_root.resolve())
+    if ws_abs not in sys.path:
+        sys.path.insert(0, ws_abs)
+        
+    compiler = SocketCompiler()
+    
+    for module_name in modules:
+        manifest = _load_manifest_instance(workspace_root, module_name)
+        if not manifest:
+            continue
+        socket_controllers = getattr(manifest, "socket_controllers", []) or []
+        for ctrl_ref in socket_controllers:
+            if isinstance(ctrl_ref, str) and ":" in ctrl_ref:
+                try:
+                    mod_path, cls_name = ctrl_ref.rsplit(":", 1)
+                    mod = importlib.import_module(mod_path)
+                    cls = getattr(mod, cls_name)
+                    compiler.compile_controller(cls)
+                except Exception as e:
+                    print(f"Warning: Could not compile controller '{ctrl_ref}': {e}")
+                    
+    return {
+        "version": "1.0.0",
+        "type": "websockets",
+        "controllers": [
+            {
+                "class_name": c.class_name,
+                "module_path": c.module_path,
+                "namespace": c.namespace,
+                "path_pattern": c.path_pattern,
+                "events": [
+                    {
+                        "event": e.event,
+                        "handler_name": e.handler_name,
+                        "schema": e.schema,
+                        "ack": e.ack,
+                        "handler_type": e.handler_type,
+                    }
+                    for e in c.events
+                ],
+                "guards": c.guards,
+                "config": c.config,
+            }
+            for c in compiler.controllers
+        ],
+        "namespaces": compiler.namespaces,
+    }
+
+
 def cmd_ws_inspect(args: dict):
     """
-    Inspect compiled WebSocket namespaces.
+    Inspect WebSocket namespaces from live workspace.
 
-    Usage: aq ws inspect [--artifacts-dir artifacts]
+    Usage: aq ws inspect
     """
-    artifacts_dir = Path(args.get("artifacts_dir", "artifacts"))
-    ws_surp = artifacts_dir / "ws.surp"
-
-    if not ws_surp.exists():
-        print(f"Error: {ws_surp} not found. Run 'aq compile' first.")
-        sys.exit(1)
-
-    import surp
-
-    data = surp.decode_from_file(str(ws_surp))
+    data = _get_websocket_metadata()
 
     print(f"WebSocket Namespaces ({len(data['controllers'])} controllers)\n")
 
@@ -252,13 +301,12 @@ def cmd_ws_kick(args: dict):
 
 def cmd_ws_gen_client(args: dict):
     """
-    Generate TypeScript client SDK from artifacts.
+    Generate TypeScript client SDK from workspace socket controllers.
 
     Usage: aq ws gen-client --lang ts --out clients/chat.ts
     """
     lang = args.get("lang", "ts")
     output_path = args.get("out")
-    artifacts_dir = Path(args.get("artifacts_dir", "artifacts"))
 
     if lang != "ts":
         print(f"Error: Language {lang} not supported (only 'ts' currently)")
@@ -268,15 +316,7 @@ def cmd_ws_gen_client(args: dict):
         print("Error: --out is required")
         sys.exit(1)
 
-    ws_surp = artifacts_dir / "ws.surp"
-
-    if not ws_surp.exists():
-        print(f"Error: {ws_surp} not found. Run 'aq compile' first.")
-        sys.exit(1)
-
-    import surp
-
-    data = surp.decode_from_file(str(ws_surp))
+    data = _get_websocket_metadata()
 
     # Generate TypeScript client
     output = Path(output_path)

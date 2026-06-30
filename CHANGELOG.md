@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified Request Input Resolution**: Centralized query parameters, cookies, path parameters, headers, and request bodies into a unified resolution layer (`extract_value_from_request`).
 - **Standardized DI Parameter Casting & New Facets**: Equipped RequestDAG and controller engine to dynamically resolve and cast parameters using `SetFacet`, `TupleFacet`, `EnumFacet`, and `BoolFacet` validation rules. Added `Cookie(...)` and `Path(...)` extraction support.
 
+### Removed
+- **Artifact System**:
+  - Entirely removed the redundant `aquilia.artifacts` module (`core`, `builder`, `reader`, `kinds`, `store`).
+  - Removed `compile` and `freeze` commands from the CLI as the core ASGI server runtime is manifest-driven and does not require pre-compiled artifacts.
+  - Rewrote `aq ws inspect` and `aq ws gen-client` to statically introspect workspace socket controllers in real-time in memory instead of relying on compiled `ws.surp` artifact files.
+
 ### Changed
 - **Scaffolding Integration API migration**:
   - Updated workspace generator to generate templates utilizing the new type-safe, validated integrations API (`aquilia/integrations/*`) instead of the legacy `Integration` config helper.

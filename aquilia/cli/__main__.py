@@ -7,11 +7,9 @@ Commands:
     add      - Add module to workspace
     generate - Generate controllers and services
     validate - Static validation of manifests
-    compile  - Compile manifests to artifacts
     run      - Development server with hot-reload
     serve    - Production server
-    freeze   - Freeze generated artifacts
-    inspect  - Query compiled artifacts
+    inspect  - Live workspace introspection
     migrate  - Convert legacy projects
     doctor   - Diagnose workspace issues
     version  - Show version information
@@ -228,13 +226,13 @@ class AquiliaGroup(click.Group):
 
     _CATEGORIES = {
         "Scaffold": ["init", "add", "generate"],
-        "Develop": ["run", "validate", "compile", "test", "discover", "doctor"],
-        "Production": ["serve", "freeze"],
+        "Develop": ["run", "validate", "test", "discover", "doctor"],
+        "Production": ["serve"],
         "Database": ["db"],
         "Admin": ["admin"],
         "Inspect": ["inspect", "manifest", "analytics"],
         "Subsystems": ["ws", "cache", "mail", "i18n", "mcp", "di"],
-        "Deploy": ["deploy-gen", "artifact"],
+        "Deploy": ["deploy-gen"],
         "Migration": ["migrate"],
     }
 
@@ -952,40 +950,7 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool):
         sys.exit(1)
 
 
-@cli.command("compile")
-@click.option("--watch", is_flag=True, help="Watch for changes")
-@click.option("--output", type=click.Path(), help="Output directory")
-@click.pass_context
-def compile(ctx, watch: bool, output: str | None):
-    """
-    Compile manifests to artifacts.
 
-    Examples:
-      aq compile
-      aq compile --watch
-      aq compile --output=dist/
-    """
-    from .commands.compile import compile_workspace
-
-    try:
-        artifacts = compile_workspace(
-            output_dir=output,
-            watch=watch,
-            verbose=ctx.obj["verbose"],
-        )
-
-        if not ctx.obj["quiet"]:
-            click.echo()
-            success(f"  {_CHECK} Compilation complete")
-            click.echo()
-            section("Artifacts")
-            kv("Count", str(len(artifacts)))
-            for artifact in artifacts:
-                tree_item(str(artifact))
-
-    except Exception as e:
-        error(f"  {_CROSS} Compilation failed: {e}")
-        sys.exit(1)
 
 
 @cli.command("run")
@@ -1101,36 +1066,7 @@ def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout
         sys.exit(1)
 
 
-@cli.command("freeze")
-@click.option("--output", type=click.Path(), help="Output directory")
-@click.option("--sign", is_flag=True, help="Sign artifacts")
-@click.pass_context
-def freeze(ctx, output: str | None, sign: bool):
-    """
-    Freeze generated artifacts for production integrity checks.
 
-    Examples:
-      aq freeze
-      aq freeze --output=dist/
-      aq freeze --sign
-    """
-    from .commands.freeze import freeze_artifacts
-
-    try:
-        fingerprint = freeze_artifacts(
-            output_dir=output,
-            sign=sign,
-            verbose=ctx.obj["verbose"],
-        )
-
-        if not ctx.obj["quiet"]:
-            click.echo()
-            success(f"  {_CHECK} Artifacts frozen")
-            kv("Fingerprint", fingerprint)
-
-    except Exception as e:
-        error(f"  {_CROSS} Freeze failed: {e}")
-        sys.exit(1)
 
 
 @cli.group(cls=AquiliaGroup)
@@ -1180,7 +1116,7 @@ def manifest_update(ctx, module: str, check: bool, freeze: bool):
 
 @cli.group(cls=AquiliaGroup)
 def inspect():
-    """Inspect compiled artifacts."""
+    """Inspect live workspace manifests and config."""
     pass
 
 
@@ -1358,14 +1294,13 @@ def ws():
 
 
 @ws.command("inspect")
-@click.option("--artifacts-dir", type=click.Path(), default="artifacts", help="Artifacts directory")
 @click.pass_context
-def ws_inspect(ctx, artifacts_dir: str):
-    """Inspect compiled WebSocket namespaces."""
+def ws_inspect(ctx):
+    """Inspect WebSocket namespaces."""
     from .commands.ws import cmd_ws_inspect
 
     try:
-        cmd_ws_inspect({"artifacts_dir": artifacts_dir})
+        cmd_ws_inspect({})
     except Exception as e:
         error(f"  {_CROSS} WS inspect failed: {e}")
         sys.exit(1)
@@ -1391,14 +1326,13 @@ def ws_broadcast(ctx, namespace: str, room: str | None, event: str, payload: str
 @ws.command("gen-client")
 @click.option("--lang", default="ts", help="Language (ts)")
 @click.option("--out", required=True, help="Output file")
-@click.option("--artifacts-dir", type=click.Path(), default="artifacts", help="Artifacts directory")
 @click.pass_context
-def ws_gen_client(ctx, lang: str, out: str, artifacts_dir: str):
-    """Generate TypeScript client SDK from compiled WebSocket artifacts."""
+def ws_gen_client(ctx, lang: str, out: str):
+    """Generate TypeScript client SDK from workspace socket controllers."""
     from .commands.ws import cmd_ws_gen_client
 
     try:
-        cmd_ws_gen_client({"lang": lang, "out": out, "artifacts_dir": artifacts_dir})
+        cmd_ws_gen_client({"lang": lang, "out": out})
     except Exception as e:
         error(f"  {_CROSS} WS gen-client failed: {e}")
         sys.exit(1)
@@ -2095,13 +2029,7 @@ def db_status(ctx, database_url: str | None):
         sys.exit(1)
 
 
-# ============================================================================
-# Artifact commands
-# ============================================================================
 
-from .commands.artifacts import artifact_group
-
-cli.add_command(artifact_group)
 
 
 # ============================================================================
