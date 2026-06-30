@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Manifest-Level API Versioning Override**:
   - Replaced the legacy workspace-level `Module().versioning()` builder API with a first-class manifest-level `AppManifest.versioning` property configured directly in `manifest.py`.
-  - Introduced `AppVersioningConfig` dataclass to expose a structured, comprehensive configuration API for per-module overrides (e.g., `position`, `enabled`, `auto_version_unmarked`, `sunset_policy`).
-  - Updated `VersionStrategy` and `VersionMiddleware` to load manifest-level versioning overrides and fall back to workspace-level `Integration.versioning()` configurations when no explicit manifest override is defined.
+  - Introduced `AppVersioningConfig` dataclass and a convenience `versioning()` helper to expose a structured, comprehensive configuration API supporting full strategy overrides (e.g., `strategy`, `versions`, `header_name`, `url_prefix`, `default_version`, `require_version`, `sunset_policy`, etc.) for self-independent module versioning.
+  - Updated `VersionStrategy` and `VersionMiddleware` to dynamically instantiate and apply local `VersionStrategy` overrides per-module based on longest prefix matched request paths, falling back to workspace-level configurations.
   - Implemented extensive unit, integration, and O(k) matching performance stress tests to verify correctness of overriding rules and matching latency under load.
 - **Request Inspector** (`aquilia.inspector`): Full per-request execution tracing with swimlane-based timeline visualization in the admin panel.
   - Core data model: `RequestTrace`, `Span`, `Lane`, `SpanStatus`, `ExceptionNode`, `ResponseSummary` with contextvar-based request-scoped traces.
