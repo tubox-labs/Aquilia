@@ -364,7 +364,8 @@ class Q:
         self._order_clauses: list[str] = []
         self._limit_val: int | None = None
         self._offset_val: int | None = None
-        self._db = QuerySetDatabaseWrapper(db, model_cls.__name__)
+        model_name = getattr(model_cls, "__name__", None) or str(model_cls)
+        self._db = QuerySetDatabaseWrapper(db, model_name)
         self._db_alias: str | None = None
         self._annotations: dict[str, Any] = {}
         self._group_by: list[str] = []
