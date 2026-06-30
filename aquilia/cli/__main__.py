@@ -397,26 +397,21 @@ def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, y
             features = multi_select(
                 "Include",
                 [
-                    ("Dockerfile", "Container deployment", True),
-                    ("docker-compose", "Multi-container orchestration", True),
-                    ("Makefile", "Build automation targets", True),
                     ("README", "Project documentation", True),
                     (".gitignore", "Git ignore rules", True),
                     ("tests", "Test directory with conftest", True),
                 ],
             )
 
-            include_docker = "Dockerfile" in features or "docker-compose" in features
-            include_makefile = "Makefile" in features
             include_readme = "README" in features
             include_gitignore = ".gitignore" in features
             include_tests = "tests" in features
         else:
-            include_docker = False
-            include_makefile = False
             include_readme = False
             include_gitignore = True
             include_tests = True
+        include_docker = False
+        include_makefile = False
 
         # 5. License
         license_choice = select(
@@ -437,8 +432,6 @@ def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, y
                 ("Name", name),
                 ("Template", template or "none"),
                 ("Mode", "minimal" if minimal else "full"),
-                ("Docker", "yes" if include_docker else "no"),
-                ("Makefile", "yes" if include_makefile else "no"),
                 ("README", "yes" if include_readme else "no"),
                 ("Tests", "yes" if include_tests else "no"),
                 ("License", include_license or "none"),
@@ -499,7 +492,6 @@ def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, y
             tree_item("workspace.py", depth=0)
             tree_item("starter.py", depth=0)
             tree_item(".env.example", depth=0)
-            tree_item(".editorconfig", depth=0)
             if include_gitignore:
                 tree_item(".gitignore", depth=0)
             tree_item("requirements.txt", depth=0)
@@ -507,12 +499,6 @@ def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, y
                 tree_item("tests/", depth=0)
                 tree_item("conftest.py", depth=1)
                 tree_item("test_smoke.py", depth=1, last=True)
-            if not minimal:
-                if include_makefile:
-                    tree_item("Makefile", depth=0)
-                if include_docker:
-                    tree_item("Dockerfile", depth=0)
-                    tree_item("docker-compose.yml", depth=0)
             if include_license:
                 tree_item("LICENSE", depth=0, last=True)
             click.echo()
@@ -523,7 +509,7 @@ def init_workspace(ctx, name: str | None, minimal: bool, template: str | None, y
                     "cp .env.example .env",
                     "pip install -r requirements.txt",
                     "aq add module <module_name>",
-                    "make run" if include_makefile else "aq run",
+                    "aq run",
                 ]
             )
 

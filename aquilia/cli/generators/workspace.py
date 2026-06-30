@@ -45,51 +45,19 @@ class WorkspaceGenerator:
         # Create starter page
         self._create_starter_page()
 
-        # Template files (--template flag or full mode)
-        if self.template:
-            self._create_template_files()
-
         # Create additional files (industry-standard project structure)
         if self.include_gitignore:
             self._create_gitignore()
         self._create_env_example()
-        self._create_editorconfig()
         self._create_requirements()
         if self.include_tests:
             self._create_tests_dir()
-        if not self.minimal:
-            if self.include_readme:
-                self._create_readme()
-            if self.include_makefile:
-                self._create_makefile()
-            if self.include_docker:
-                self._create_deployment_files()
         if self.include_license:
             self._create_license_file()
-
-        # Create starter locale files (i18n readiness)
-        self._create_locale_files()
 
     def _create_directories(self) -> None:
         """Create workspace directories."""
         dirs = ["modules"]
-
-        if not self.minimal:
-            dirs.extend(["artifacts"])
-
-        # Always create locales directory for i18n readiness
-        dirs.extend(["locales", "locales/en"])
-
-        if self.template:
-            dirs.extend(
-                [
-                    "templates",
-                    "templates/includes",
-                    "assets",
-                    "assets/css",
-                    "assets/js",
-                ]
-            )
 
         for dir_name in dirs:
             (self.path / dir_name).mkdir(parents=True, exist_ok=True)
@@ -334,12 +302,13 @@ class WorkspaceGenerator:
                 if mod_name in ast_results:
                     result = ast_results[mod_name]
                     # AST engine provides more accurate classification
-                    controllers_list = [c.name for c in result.controllers] or manifest_controllers_list
-                    services_list = [c.name for c in result.services] or manifest_services_list
-                    guards_list = [c.name for c in result.guards] or manifest_guards_list
-                    pipes_list = [c.name for c in result.pipes] or manifest_pipes_list
-                    interceptors_list = [c.name for c in result.interceptors] or manifest_interceptors_list
-                    socket_controllers_list = manifest_socket_controllers_list  # AST engine doesn't scan sockets yet
+                    controllers_list = [c.import_path for c in result.controllers] or manifest_controllers_list
+                    services_list = [c.import_path for c in result.services] or manifest_services_list
+                    guards_list = [c.import_path for c in result.guards] or manifest_guards_list
+                    pipes_list = [c.import_path for c in result.pipes] or manifest_pipes_list
+                    interceptors_list = [c.import_path for c in result.interceptors] or manifest_interceptors_list
+                    socket_controllers_list = [c.import_path for c in result.socket_controllers] or manifest_socket_controllers_list
+                    middleware_list = [c.import_path for c in result.middleware] or manifest_middleware_list
                 else:
                     # Fallback: try EnhancedDiscovery
                     services_list = manifest_services_list
@@ -348,6 +317,7 @@ class WorkspaceGenerator:
                     guards_list = manifest_guards_list
                     pipes_list = manifest_pipes_list
                     interceptors_list = manifest_interceptors_list
+                    middleware_list = manifest_middleware_list
 
                     if discovery:
                         try:
@@ -358,12 +328,12 @@ class WorkspaceGenerator:
                                 discovered_controllers, discovered_services = result
                                 discovered_sockets = []
 
-                            services_list = discovered_services if discovered_services else manifest_services_list
+                            services_list = [s["path"] if isinstance(s, dict) else s for s in discovered_services] if discovered_services else manifest_services_list
                             controllers_list = (
-                                discovered_controllers if discovered_controllers else manifest_controllers_list
+                                [c["path"] if isinstance(c, dict) else c for c in discovered_controllers] if discovered_controllers else manifest_controllers_list
                             )
                             socket_controllers_list = (
-                                discovered_sockets if discovered_sockets else manifest_socket_controllers_list
+                                [s["path"] if isinstance(s, dict) else s for s in discovered_sockets] if discovered_sockets else manifest_socket_controllers_list
                             )
                         except Exception:
                             pass
@@ -372,7 +342,7 @@ class WorkspaceGenerator:
                 has_services = len(services_list) > 0
                 has_controllers = len(controllers_list) > 0
                 has_sockets = len(socket_controllers_list) > 0
-                has_middleware = len(manifest_middleware_list) > 0
+                has_middleware = len(middleware_list) > 0
                 has_guards = len(guards_list) > 0
                 has_pipes = len(pipes_list) > 0
                 has_interceptors = len(interceptors_list) > 0
@@ -397,7 +367,7 @@ class WorkspaceGenerator:
                     "services_list": services_list,
                     "controllers_list": controllers_list,
                     "socket_controllers_list": socket_controllers_list,
-                    "middleware_list": manifest_middleware_list,
+                    "middleware_list": middleware_list,
                     "guards_list": guards_list,
                     "pipes_list": pipes_list,
                     "interceptors_list": interceptors_list,
@@ -405,7 +375,7 @@ class WorkspaceGenerator:
                     "services_count": len(services_list),
                     "controllers_count": len(controllers_list),
                     "socket_controllers_count": len(socket_controllers_list),
-                    "middleware_count": len(manifest_middleware_list),
+                    "middleware_count": len(middleware_list),
                     "guards_count": len(guards_list),
                     "pipes_count": len(pipes_list),
                     "interceptors_count": len(interceptors_list),

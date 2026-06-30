@@ -38,6 +38,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Standardized DI Parameter Casting & New Facets**: Equipped RequestDAG and controller engine to dynamically resolve and cast parameters using `SetFacet`, `TupleFacet`, `EnumFacet`, and `BoolFacet` validation rules. Added `Cookie(...)` and `Path(...)` extraction support.
 
 ### Changed
+- **Boilerplate reduction and scaffolding cleanup**:
+  - Removed generation of redundant files (`Makefile`, `.editorconfig`, `Dockerfile`, `docker-compose.yml`) from default workspace scaffolding.
+  - Eliminated automatic generation of empty directories (`locales`, `templates`, `assets`, `artifacts`) to keep new workspaces lightweight.
+  - Switched generated module controllers to automatically use input validation blueprints instead of parsing bodies with raw `ctx.json()`.
 - **Zero Runtime Dependencies**: Completely migrated the Blueprints validation engine to pure-Python using only Python standard library modules.
 - **Deep Performance Optimizations**:
   - Implemented lazy nested wrapping in `DataObject` to eagerly wrap items only when accessed, caching the result.
@@ -56,6 +60,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Fixed controller instantiation in the execution engine to support and correctly utilize `instantiation_mode = "singleton"`.
 
 ### Fixed
+- **Discovery system improvements**:
+  - Aligned static `ASTClassifier` predicates and suffix checks with runtime `PackageScanner` to ensure consistent discovery of controllers and services.
+  - Implemented complete middleware auto-discovery supporting classes inheriting from `aquilia.middleware.Middleware`.
+  - Fixed sync engine and `_compute_import_path` namespace preservation to retain the full dotted parent package prefix (e.g. `modules.users.controllers:UsersController`) when updating `manifest.py`.
+  - Added safe standard imports relative to workspace root in database model registration to prevent duplicate model class loading and class identity conflicts.
+  - Refactored `WorkspaceGenerator` discovery merge phase to preserve full namespaced dotted paths instead of class names.
+  - Added static auto-discovery support for socket controllers.
 - **Windows compatibility fixes**:
   - Replaced unix-specific `ProcessLookupError` exception handling with generic `OSError` in the `mcp` CLI commands, allowing the background daemon lifecycle to run correctly on Windows.
   - Handled missing `signal.SIGKILL` gracefully in process termination routines on Windows.
