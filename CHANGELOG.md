@@ -36,6 +36,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Form & File Uploads via Blueprints (`UploadFile` and `FormData`)**: Added first-class support for explicit and implicit file uploads and form inputs in Blueprints. Support includes single/multiple/optional file uploads, custom content types, size limits, primitive type castings, and nested blueprints for form/multipart data validation.
 - **Unified Request Input Resolution**: Centralized query parameters, cookies, path parameters, headers, and request bodies into a unified resolution layer (`extract_value_from_request`).
 - **Standardized DI Parameter Casting & New Facets**: Equipped RequestDAG and controller engine to dynamically resolve and cast parameters using `SetFacet`, `TupleFacet`, `EnumFacet`, and `BoolFacet` validation rules. Added `Cookie(...)` and `Path(...)` extraction support.
+- **Click-based Aquilary CLI commands**: Added the `aquilary` CLI group under the `aq` main tool, providing native `validate`, `inspect`, `freeze`, `graph`, and `run` subcommands.
+- **Aquilary CLI test coverage**: Added automated test coverage for the Click-based aquilary commands in `tests/test_aquilary_cli.py`.
 
 ### Removed
 - **Artifact System**:
@@ -97,6 +99,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bidirectional Effect Context Fallback**: Updated `FlowContext` and `RequestCtx` to automatically fall back to and copy pre-acquired request-level effects in their constructor and effect resolution methods, ensuring compatibility when accessed from handler methods decorated with `@requires`.
 - **Render deployment runtime**: Added `"runtime": "image"` in the Render API service creation and update payloads for Docker-image-backed services to resolve `[PROVIDER_API_ERROR] [400] invalid runtime` failures.
 - **Removed backup code**: Deleted the deprecated `render_backup_phase10` provider directory.
+- **Robust backwards-compatible `RegistryFault`**: Modified the `RegistryFault` constructor to gracefully handle legacy calls using `name` and positional formatting, avoiding `TypeError` exceptions.
+- **Fingerprint generation in CLI**: Fixed the fingerprint generation crash in `validate` and `doctor` commands that attempted to call `FingerprintGenerator.generate` as a class method without required arguments.
+- **Instantiated manifest loading**: Enhanced manifest loading to support instantiated `AppManifest` definitions in python files, resolving failures to load module configs.
+- **Frozen manifest serialization**: Resolved type serialization errors when freezing complex middleware and service list items, and enabled `_register_services` to handle dictionary config items loaded from frozen manifests.
+- **CLI imports reliability**: Injected the workspace root into `sys.path` within `aquilary` CLI handlers, preventing `No module named 'modules'` exceptions during import operations.
 
 ## [1.1.2] — 2026-06-12 — "Crimson Gale"
 
