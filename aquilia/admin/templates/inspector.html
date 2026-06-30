@@ -698,6 +698,7 @@
         }
 
         .tab-content {
+            display: block !important;
             flex: 1;
             overflow-y: auto;
             padding: 16px;
@@ -2098,7 +2099,8 @@
                 }
 
                 else if (activeTab === "database") {
-                    const dbSpans = trace.spans.filter(s => s.lane === 'database');
+                    const spans = trace.spans || [];
+                    const dbSpans = spans.filter(s => s.lane === 'database');
                     if (dbSpans.length === 0) {
                         tabContent.innerHTML = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No database queries recorded for this trace.</div>`;
                         return;
@@ -2142,7 +2144,8 @@
                 }
 
                 else if (activeTab === "dependencies") {
-                    const depSpans = trace.spans.filter(s => ['external_http', 'dependency', 'validation', 'effect', 'handler'].includes(s.lane));
+                    const spans = trace.spans || [];
+                    const depSpans = spans.filter(s => ['external_http', 'dependency', 'validation', 'effect', 'handler'].includes(s.lane));
                     if (depSpans.length === 0) {
                         tabContent.innerHTML = `<div style="text-align: center; padding: 12px; border: 1px dashed var(--surface-variant); border-radius: 2px; opacity: 0.5;">No external dependency calls recorded.</div>`;
                         return;
@@ -2177,7 +2180,8 @@
                         return;
                     }
 
-                    const stack = trace.exception.stack_frames.map(f => `File "${f.filename}", line ${f.lineno}, in ${f.name}\n  ${f.line || ''}`).join("\n");
+                    const frames = trace.exception.stack_frames || [];
+                    const stack = frames.map(f => `File "${f.filename}", line ${f.lineno}, in ${f.name}\n  ${f.line || ''}`).join("\n");
 
                     tabContent.innerHTML = `
                         <div class="err-card">
