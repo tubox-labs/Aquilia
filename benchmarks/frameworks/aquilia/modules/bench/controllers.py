@@ -17,6 +17,7 @@ from .services import TopService
 class BenchmarkController(Controller):
     prefix = ""
     tags = ["benchmark"]
+    instantiation_mode = "singleton"
 
     def __init__(self, top: TopService, db: AquiliaDatabase):
         self.top = top

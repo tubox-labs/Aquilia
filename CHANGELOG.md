@@ -39,8 +39,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Zero Runtime Dependencies**: Completely migrated the Blueprints validation engine to pure-Python using only Python standard library modules.
+- **Deep Performance Optimizations**:
+  - Implemented lazy nested wrapping in `DataObject` to eagerly wrap items only when accessed, caching the result.
+  - Extracted dynamically-compiled wrapper classes in `wrap_callable_attribute` to module scope.
+  - Cached compiled regexes, sigil validations, and pre-loaded types at module-level in `sigil.py`.
+  - Replaced manual sigil validation in request blueprint binding with direct `bp.is_sealed` lookup and validation caching.
+  - Made SQLite `Row` inherit from `dict` and return rows directly from the adapter with zero conversion loops.
+  - Cached the query inspector instance globally to prevent dynamic imports and lookups on every query.
+  - Passed and reused `ResolveCtx` inside `resolve_async` to avoid redundant context allocations.
+  - Leveraged fast `orjson` parsing directly on raw bytes inside `Request.json` when available.
+  - Inspected coroutines once at decoration time in `@cached` and `@invalidate` decorators, removing reflection overhead.
+  - Cached split parts of dotted sources in `Facet.extract`.
+  - Added direct class check fast-path (`res.__class__ is Response`) inside middleware dispatch to bypass `isinstance` overhead.
+  - Optimized DI container registration inside the ASGI pipeline (`asgi.py`) to run synchronously and direct-cache the Request instance, avoiding async registration.
+  - Redefined `Headers` to eagerly decode and index raw connection byte keys and values to strings, removing lookup overhead.
+  - Fixed controller instantiation in the execution engine to support and correctly utilize `instantiation_mode = "singleton"`.
 
 ### Fixed
+- **Windows compatibility fixes**:
+  - Replaced unix-specific `ProcessLookupError` exception handling with generic `OSError` in the `mcp` CLI commands, allowing the background daemon lifecycle to run correctly on Windows.
+  - Handled missing `signal.SIGKILL` gracefully in process termination routines on Windows.
 - **`RequestIdMiddleware` stability**: Preserves pool-assigned `request_id` from `_ctx_pool.acquire()` instead of regenerating it, ensuring consistent request IDs across middleware, DI, and logging.
 - **Defensive inspector config access**: All `get_inspector_config()` calls in `AquiliaServer` use `hasattr()` guards so mocked configs (plain dicts in tests) don't raise `AttributeError`.
 - **Dependency Precedence over Request Body**: Fixed parameter source classification and binding to ensure that explicit `Dep(...)` declarations (such as `param: T = Dep(callable)`) take precedence over implicit source type-based classification (such as `Blueprint subclass` → `source="body"`). Explicit dependency parameters are now correctly classified as `source="dep"` and resolved via `RequestDAG`, preventing request body payloads from overriding the dependency results.
