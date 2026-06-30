@@ -201,6 +201,17 @@ class Signal:
         Returns:
             List of return values from receivers
         """
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         results = []
         for ref, filter_sender, _ in self._receivers:
             receiver = self._resolve_ref(ref)
@@ -220,12 +231,50 @@ class Signal:
                     f"Signal '{self.name}' receiver {receiver.__name__} raised {exc.__class__.__name__}: {exc}"
                 )
                 results.append(exc)
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                receiver_names = []
+                for ref, filter_sender, _ in self._receivers:
+                    r = self._resolve_ref(ref)
+                    if r is not _DeadRef and (filter_sender is None or sender is filter_sender):
+                        receiver_names.append(r.__name__ if hasattr(r, "__name__") else str(r))
+                trace.add_span(
+                    lane=Lane.SIGNALS,
+                    label=f"Signal: {self.name} (from {sender.__name__ if hasattr(sender, '__name__') else str(sender)})",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "signal": self.name,
+                        "sender": sender.__name__ if hasattr(sender, "__name__") else str(sender),
+                        "receivers": receiver_names,
+                    },
+                )
+            except Exception:
+                pass
+
         return results
 
     def send_sync(self, sender: type, **kwargs) -> list[Any]:
         """
         Fire the signal synchronously (for sync receivers only).
         """
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         results = []
         for ref, filter_sender, _ in self._receivers:
             receiver = self._resolve_ref(ref)
@@ -244,6 +293,34 @@ class Signal:
                     f"Signal '{self.name}' receiver {receiver.__name__} raised {exc.__class__.__name__}: {exc}"
                 )
                 results.append(exc)
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                receiver_names = []
+                for ref, filter_sender, _ in self._receivers:
+                    r = self._resolve_ref(ref)
+                    if r is not _DeadRef and (filter_sender is None or sender is filter_sender):
+                        if not inspect.iscoroutinefunction(r):
+                            receiver_names.append(r.__name__ if hasattr(r, "__name__") else str(r))
+                trace.add_span(
+                    lane=Lane.SIGNALS,
+                    label=f"Signal: {self.name} (from {sender.__name__ if hasattr(sender, '__name__') else str(sender)})",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "signal": self.name,
+                        "sender": sender.__name__ if hasattr(sender, "__name__") else str(sender),
+                        "receivers": receiver_names,
+                    },
+                )
+            except Exception:
+                pass
+
         return results
 
     async def robust_send(self, sender: type, **kwargs) -> list[Any]:
@@ -253,6 +330,17 @@ class Signal:
         Unlike send(), this does NOT stop on exceptions -- every receiver
         runs regardless. Returns list of (receiver, response_or_exception).
         """
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         results = []
         for ref, filter_sender, _ in self._receivers:
             receiver = self._resolve_ref(ref)
@@ -271,6 +359,33 @@ class Signal:
                     f"Signal '{self.name}' receiver {receiver.__name__} raised {exc.__class__.__name__}: {exc}"
                 )
                 results.append((receiver, exc))
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                receiver_names = []
+                for ref, filter_sender, _ in self._receivers:
+                    r = self._resolve_ref(ref)
+                    if r is not _DeadRef and (filter_sender is None or sender is filter_sender):
+                        receiver_names.append(r.__name__ if hasattr(r, "__name__") else str(r))
+                trace.add_span(
+                    lane=Lane.SIGNALS,
+                    label=f"Signal: {self.name} (from {sender.__name__ if hasattr(sender, '__name__') else str(sender)})",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "signal": self.name,
+                        "sender": sender.__name__ if hasattr(sender, "__name__") else str(sender),
+                        "receivers": receiver_names,
+                    },
+                )
+            except Exception:
+                pass
+
         return results
 
     @property

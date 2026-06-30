@@ -338,38 +338,75 @@ class StaticMiddleware(Middleware):
         if request.method not in ("GET", "HEAD"):
             return await next_handler(request, ctx)
 
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
+        response = None
         result = self._trie.lookup(request.path)
-        if result is None:
-            return await next_handler(request, ctx)
+        if result is not None:
+            directory, relative_path = result
+            if not relative_path:
+                if self._index_file:
+                    relative_path = self._index_file
+                else:
+                    relative_path = None
 
-        directory, relative_path = result
-        if not relative_path:
-            if self._index_file:
-                relative_path = self._index_file
-            else:
-                return await next_handler(request, ctx)
+            if relative_path:
+                # Try the primary directory first
+                response = self._serve_file(request, directory, relative_path)
+                if response is None:
+                    # Search fallback directories (module static dirs).
+                    # Determine which prefix matched so we can look up its fallbacks.
+                    matched_prefix = self._matched_prefix(request.path)
+                    if matched_prefix and matched_prefix in self._fallback_dirs:
+                        for fallback_dir in self._fallback_dirs[matched_prefix]:
+                            response = self._serve_file(request, fallback_dir, relative_path)
+                            if response is not None:
+                                break
 
-        # Try the primary directory first
-        response = self._serve_file(request, directory, relative_path)
-        if response is not None:
-            return response
+                    # HTML5 history API fallback
+                    if response is None and self._html5_history and self._index_file:
+                        response = self._serve_file(request, directory, self._index_file)
 
-        # Search fallback directories (module static dirs).
-        # Determine which prefix matched so we can look up its fallbacks.
-        matched_prefix = self._matched_prefix(request.path)
-        if matched_prefix and matched_prefix in self._fallback_dirs:
-            for fallback_dir in self._fallback_dirs[matched_prefix]:
-                response = self._serve_file(request, fallback_dir, relative_path)
-                if response is not None:
-                    return response
+        if response is None:
+            response = await next_handler(request, ctx)
 
-        # HTML5 history API fallback
-        if self._html5_history and self._index_file:
-            response = self._serve_file(request, directory, self._index_file)
-            if response is not None:
-                return response
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
 
-        return await next_handler(request, ctx)
+                # Check status
+                status = SpanStatus.OK
+                if response is None or response.status >= 400:
+                    status = SpanStatus.ERROR
+
+                trace.add_span(
+                    lane=Lane.STATIC,
+                    label=f"Static file: {request.path}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=status,
+                    detail={
+                        "path": request.path,
+                        "served": result is not None,
+                        "status_code": response.status if response else 404,
+                    },
+                )
+            except Exception:
+                pass
+
+        return response
 
     def _matched_prefix(self, path: str) -> str | None:
         """Return the URL prefix that matched *path*, or None."""

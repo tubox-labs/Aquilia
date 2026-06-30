@@ -19,6 +19,12 @@ class Lane(str, Enum):
     HANDLER = "handler"
     SERIALIZE = "serialize"
     EXCEPTION = "exception"
+    VERSIONS = "versions"
+    SETTINGS = "settings"
+    STATIC = "static"
+    TEMPLATES = "templates"
+    CACHE = "cache"
+    SIGNALS = "signals"
 
 
 class SpanStatus(str, Enum):

@@ -178,11 +178,25 @@ class CacheService:
         ns = namespace or self._default_namespace
         full_key = self._key_builder.build(ns, key, self._key_prefix)
 
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
+        hit = False
         try:
             entry = await self._backend.get(full_key)
             if entry is None:
-                return default
-            return entry.value
+                res = default
+            else:
+                hit = True
+                res = entry.value
         except Exception as e:
             logger.warning(f"Cache GET failed for key '{key}': {e}")
             self._emit_fault(
@@ -192,7 +206,26 @@ class CacheService:
                     reason=str(e),
                 )
             )
-            return default
+            res = default
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    lane=Lane.CACHE,
+                    label=f"Cache GET: {key}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"key": key, "namespace": ns, "hit": hit},
+                )
+            except Exception:
+                pass
+
+        return res
 
     async def set(
         self,
@@ -219,6 +252,17 @@ class CacheService:
         # Apply TTL jitter to prevent thundering herd
         effective_ttl = self._config.apply_jitter(effective_ttl)
 
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         try:
             await self._backend.set(
                 full_key,
@@ -237,17 +281,96 @@ class CacheService:
                 )
             )
 
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    lane=Lane.CACHE,
+                    label=f"Cache SET: {key}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"key": key, "namespace": ns, "ttl": effective_ttl, "tags": list(tags)},
+                )
+            except Exception:
+                pass
+
     async def delete(self, key: str, namespace: str | None = None) -> bool:
         """Delete a value from cache."""
         ns = namespace or self._default_namespace
         full_key = self._key_builder.build(ns, key, self._key_prefix)
-        return await self._backend.delete(full_key)
+
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
+        res = await self._backend.delete(full_key)
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    lane=Lane.CACHE,
+                    label=f"Cache DELETE: {key}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"key": key, "namespace": ns, "result": res},
+                )
+            except Exception:
+                pass
+
+        return res
 
     async def exists(self, key: str, namespace: str | None = None) -> bool:
         """Check if key exists in cache."""
         ns = namespace or self._default_namespace
         full_key = self._key_builder.build(ns, key, self._key_prefix)
-        return await self._backend.exists(full_key)
+
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
+        res = await self._backend.exists(full_key)
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                trace.add_span(
+                    lane=Lane.CACHE,
+                    label=f"Cache EXISTS: {key}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"key": key, "namespace": ns, "result": res},
+                )
+            except Exception:
+                pass
+
+        return res
 
     # ── Advanced Operations ──────────────────────────────────────────
 

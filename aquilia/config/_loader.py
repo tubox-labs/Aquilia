@@ -395,6 +395,17 @@ class ConfigLoader:
 
     def get(self, path: str, default: Any = None) -> Any:
         """Get config value by dot-separated path."""
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         parts = path.split(".")
         current = self.config_data
 
@@ -402,7 +413,31 @@ class ConfigLoader:
             if isinstance(current, dict) and part in current:
                 current = current[part]
             else:
-                return default
+                current = default
+                break
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                
+                # Eagerly redact sensitive values
+                val_rep = repr(current)
+                if any(k in path.lower() for k in ("secret", "password", "key", "token", "signature")):
+                    val_rep = "***REDACTED***"
+
+                trace.add_span(
+                    lane=Lane.SETTINGS,
+                    label=f"Access config: {path}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"path": path, "value": val_rep},
+                )
+            except Exception:
+                pass
 
         return current
 

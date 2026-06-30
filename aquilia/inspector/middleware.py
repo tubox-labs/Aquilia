@@ -168,6 +168,24 @@ class InspectorMiddleware(Middleware):
 
         token = _set_current_trace(trace)
         try:
+            import sys
+            from aquilia import __version__
+            from aquilia.inspector.trace import Lane, SpanStatus
+            trace.add_span(
+                lane=Lane.VERSIONS,
+                label="Resolve Framework Versions",
+                start_offset_ms=0.0,
+                duration_ms=0.1,
+                status=SpanStatus.OK,
+                detail={
+                    "aquilia": __version__,
+                    "python": sys.version,
+                }
+            )
+        except Exception:
+            pass
+
+        try:
             response = await next_handler(request, ctx)
             trace.status_code = response.status
             trace.response = _summarize_response(response, self._config)

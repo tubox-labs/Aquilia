@@ -199,6 +199,17 @@ class TemplateEngine:
             TemplateNotFound: If template doesn't exist
             TemplateSyntaxError: If template has syntax errors
         """
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         # Build template context
         template_context = create_template_context(
             user_context=dict(context) if context else None, request_ctx=request_ctx
@@ -210,6 +221,24 @@ class TemplateEngine:
         # Render async
         rendered = await template.render_async(**template_context.to_dict())
 
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                keys = list(context.keys()) if context else []
+                trace.add_span(
+                    lane=Lane.TEMPLATES,
+                    label=f"Render template: {template_name}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"template_name": template_name, "context_keys": keys},
+                )
+            except Exception:
+                pass
+
         return rendered
 
     def render_sync(
@@ -220,6 +249,17 @@ class TemplateEngine:
 
         Use only when async not available. Prefer async render().
         """
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         # Build template context
         template_context = create_template_context(
             user_context=dict(context) if context else None, request_ctx=request_ctx
@@ -229,7 +269,27 @@ class TemplateEngine:
         template = self.get_template(template_name)
 
         # Render sync
-        return template.render(**template_context.to_dict())
+        rendered = template.render(**template_context.to_dict())
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+                keys = list(context.keys()) if context else []
+                trace.add_span(
+                    lane=Lane.TEMPLATES,
+                    label=f"Render template: {template_name}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={"template_name": template_name, "context_keys": keys},
+                )
+            except Exception:
+                pass
+
+        return rendered
 
     async def stream(
         self, template_name: str, context: Mapping[str, Any] | None = None, request_ctx: Optional["RequestCtx"] = None

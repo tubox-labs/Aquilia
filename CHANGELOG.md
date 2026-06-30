@@ -138,6 +138,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented `ToolbarInjectionMiddleware` to inject a collapsed debugging toolbar tab and panel shell into qualifying HTML responses.
   - Lazily hydrates debugging panels (Timer, SQL, Request, Response, Headers) on the client side using embedded JSON trace data to avoid server-side template rendering overhead.
   - Implemented eligibility filters (content-type, response type, redirect skipping, and path exclusion) to ensure robust toolbar injection.
+- **Request Inspector Lane Expansion**:
+  - Expanded `Lane` enum with `VERSIONS`, `SETTINGS`, `STATIC`, `TEMPLATES`, `CACHE`, and `SIGNALS` lanes.
+  - Wired versions collection dynamically into the trace initialization.
+  - Wired settings lookup instrumentation inside `ConfigLoader.get`.
+  - Wired template rendering instrumentation inside `TemplateEngine.render` and `render_sync`.
+  - Wired cache backend request timing and hit/miss reporting inside `CacheService` methods.
+  - Wired model signals dispatch tracing inside `Signal.send`, `send_sync`, and `robust_send`.
+  - Wired static file serving telemetry inside `StaticMiddleware.__call__`.
+
 
 
 
