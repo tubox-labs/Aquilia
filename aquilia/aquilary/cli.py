@@ -30,6 +30,7 @@ def load_config(config_path: str | None) -> Any:
 
     try:
         from aquilia.config import ConfigLoader
+
         return ConfigLoader.load(paths=[str(path)])
     except Exception:
         # Fallback to manual loading

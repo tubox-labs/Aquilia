@@ -85,7 +85,6 @@ class DiscoveryResult:
         return [c for c in self.components if c.kind == ComponentKind.SOCKET_CONTROLLER]
 
 
-
 @dataclass
 class SyncAction:
     """Describes a change to make to a manifest file."""
@@ -237,7 +236,11 @@ class ASTClassifier:
         decorators = set(self._extract_decorator_names(node))
 
         # Check base classes (highest priority)
-        if bases & self.SOCKET_CONTROLLER_BASES or node.name.endswith("SocketController") or decorators & self.SOCKET_CONTROLLER_DECORATORS:
+        if (
+            bases & self.SOCKET_CONTROLLER_BASES
+            or node.name.endswith("SocketController")
+            or decorators & self.SOCKET_CONTROLLER_DECORATORS
+        ):
             return ComponentKind.SOCKET_CONTROLLER
         if bases & self.CONTROLLER_BASES or node.name.endswith("Controller"):
             return ComponentKind.CONTROLLER
@@ -523,7 +526,7 @@ class ManifestWriter:
             old_item = item_match.group(0)
             quote = old_item[0]  # keep the same quote char
             new_item = f"{quote}{import_path}{quote}"
-            new_list_content = list_content[:item_match.start()] + new_item + list_content[item_match.end():]
+            new_list_content = list_content[: item_match.start()] + new_item + list_content[item_match.end() :]
             return source[:start_pos] + new_list_content + source[end_pos:]
 
         closing_bracket_pos = match.end(2)

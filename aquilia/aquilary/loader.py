@@ -258,11 +258,7 @@ class ManifestLoader:
             manifest_cls = getattr(module, "manifest", None)
             if manifest_cls is None:
                 for name, obj in vars(module).items():
-                    if (
-                        hasattr(obj, "name")
-                        and hasattr(obj, "version")
-                        and not name.startswith("_")
-                    ):
+                    if hasattr(obj, "name") and hasattr(obj, "version") and not name.startswith("_"):
                         manifest_cls = obj
                         break
 

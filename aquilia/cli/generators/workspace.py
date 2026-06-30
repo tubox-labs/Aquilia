@@ -307,7 +307,9 @@ class WorkspaceGenerator:
                     guards_list = [c.import_path for c in result.guards] or manifest_guards_list
                     pipes_list = [c.import_path for c in result.pipes] or manifest_pipes_list
                     interceptors_list = [c.import_path for c in result.interceptors] or manifest_interceptors_list
-                    socket_controllers_list = [c.import_path for c in result.socket_controllers] or manifest_socket_controllers_list
+                    socket_controllers_list = [
+                        c.import_path for c in result.socket_controllers
+                    ] or manifest_socket_controllers_list
                     middleware_list = [c.import_path for c in result.middleware] or manifest_middleware_list
                 else:
                     # Fallback: try EnhancedDiscovery
@@ -328,12 +330,20 @@ class WorkspaceGenerator:
                                 discovered_controllers, discovered_services = result
                                 discovered_sockets = []
 
-                            services_list = [s["path"] if isinstance(s, dict) else s for s in discovered_services] if discovered_services else manifest_services_list
+                            services_list = (
+                                [s["path"] if isinstance(s, dict) else s for s in discovered_services]
+                                if discovered_services
+                                else manifest_services_list
+                            )
                             controllers_list = (
-                                [c["path"] if isinstance(c, dict) else c for c in discovered_controllers] if discovered_controllers else manifest_controllers_list
+                                [c["path"] if isinstance(c, dict) else c for c in discovered_controllers]
+                                if discovered_controllers
+                                else manifest_controllers_list
                             )
                             socket_controllers_list = (
-                                [s["path"] if isinstance(s, dict) else s for s in discovered_sockets] if discovered_sockets else manifest_socket_controllers_list
+                                [s["path"] if isinstance(s, dict) else s for s in discovered_sockets]
+                                if discovered_sockets
+                                else manifest_socket_controllers_list
                             )
                         except Exception:
                             pass

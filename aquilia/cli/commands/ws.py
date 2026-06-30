@@ -21,16 +21,16 @@ def _get_websocket_metadata() -> dict:
     import sys
     from aquilia.cli.commands.inspect import _ensure_workspace_root, _get_workspace_modules, _load_manifest_instance
     from aquilia.sockets.compile import SocketCompiler
-    
+
     workspace_root = _ensure_workspace_root()
     modules = _get_workspace_modules(workspace_root)
-    
+
     ws_abs = str(workspace_root.resolve())
     if ws_abs not in sys.path:
         sys.path.insert(0, ws_abs)
-        
+
     compiler = SocketCompiler()
-    
+
     for module_name in modules:
         manifest = _load_manifest_instance(workspace_root, module_name)
         if not manifest:
@@ -45,7 +45,7 @@ def _get_websocket_metadata() -> dict:
                     compiler.compile_controller(cls)
                 except Exception as e:
                     print(f"Warning: Could not compile controller '{ctrl_ref}': {e}")
-                    
+
     return {
         "version": "1.0.0",
         "type": "websockets",

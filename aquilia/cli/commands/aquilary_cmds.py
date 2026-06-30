@@ -21,6 +21,7 @@ def ensure_sys_path():
     """Ensure current working directory is in sys.path for workspace imports."""
     import sys
     import os
+
     cwd = os.getcwd()
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
@@ -40,6 +41,7 @@ def load_config(config_path: Optional[str]) -> Any:
     # 1. Try loading via ConfigLoader
     try:
         from aquilia.config import ConfigLoader
+
         return ConfigLoader.load(paths=[str(path)])
     except Exception:
         pass
@@ -109,7 +111,9 @@ def run_validate(manifests: List[str], config_path: Optional[str], mode: str, au
         sys.exit(1)
 
 
-def run_inspect(manifests: List[str], config_path: Optional[str], mode: str, autodiscover: bool, json_path: Optional[str]) -> None:
+def run_inspect(
+    manifests: List[str], config_path: Optional[str], mode: str, autodiscover: bool, json_path: Optional[str]
+) -> None:
     """Inspect registry diagnostics."""
     click.echo("Inspecting registry...")
 
@@ -183,7 +187,9 @@ def run_freeze(manifests: List[str], config_path: Optional[str], output_path: st
 
         click.echo("\nUsage in production:")
         click.echo(f"   1. Commit {output_path} to version control")
-        click.echo(f"   2. Deploy with: aq aquilary run --frozen {output_path} --config {config_path or '<config_file>'}")
+        click.echo(
+            f"   2. Deploy with: aq aquilary run --frozen {output_path} --config {config_path or '<config_file>'}"
+        )
         click.echo(f"   3. Verify fingerprint matches: {registry.fingerprint}")
 
     except Exception as e:
@@ -191,7 +197,9 @@ def run_freeze(manifests: List[str], config_path: Optional[str], output_path: st
         sys.exit(1)
 
 
-def run_graph(manifests: List[str], config_path: Optional[str], mode: str, output_path: Optional[str], autodiscover: bool) -> None:
+def run_graph(
+    manifests: List[str], config_path: Optional[str], mode: str, output_path: Optional[str], autodiscover: bool
+) -> None:
     """Visualize dependency graph."""
     click.echo("Generating dependency graph...")
 
@@ -231,7 +239,9 @@ def run_graph(manifests: List[str], config_path: Optional[str], mode: str, outpu
         sys.exit(1)
 
 
-def run_app_registry(frozen_path: Optional[str], manifests: List[str], config_path: str, mode: str, autodiscover: bool) -> None:
+def run_app_registry(
+    frozen_path: Optional[str], manifests: List[str], config_path: str, mode: str, autodiscover: bool
+) -> None:
     """Run application registry setup."""
     click.echo("Starting application...")
 

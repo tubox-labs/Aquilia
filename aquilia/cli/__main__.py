@@ -950,9 +950,6 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool):
         sys.exit(1)
 
 
-
-
-
 @cli.command("run")
 @click.option("--mode", type=click.Choice(["dev", "test"]), default="dev", help="Runtime mode")
 @click.option("--port", type=int, default=None, help="Server port (default: from workspace.py AquilaConfig, or 8000)")
@@ -1064,9 +1061,6 @@ def serve(ctx, workers, bind, use_gunicorn: bool, timeout: int, graceful_timeout
     except Exception as e:
         error(f"  {_CROSS} Server error: {e}")
         sys.exit(1)
-
-
-
 
 
 @cli.group(cls=AquiliaGroup)
@@ -2027,9 +2021,6 @@ def db_status(ctx, database_url: str | None):
     except Exception as e:
         error(f"  {_CROSS} status failed: {e}")
         sys.exit(1)
-
-
-
 
 
 # ============================================================================

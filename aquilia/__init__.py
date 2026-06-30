@@ -1483,7 +1483,6 @@ __all__ = [
     "get_database",
     "set_database",
     "DatabaseError",
-
     # Testing Framework
     "TestClient",
     "TestServer",

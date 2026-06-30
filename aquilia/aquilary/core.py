@@ -201,8 +201,10 @@ class AquilaryRegistry:
                     "controllers": ctx.controllers,
                     "services": [
                         (
-                            s.to_dict() if hasattr(s, "to_dict")
-                            else {"class_path": s, "scope": "app", "aliases": [], "config": {}} if isinstance(s, str)
+                            s.to_dict()
+                            if hasattr(s, "to_dict")
+                            else {"class_path": s, "scope": "app", "aliases": [], "config": {}}
+                            if isinstance(s, str)
                             else s
                         )
                         for s in ctx.services
@@ -211,17 +213,23 @@ class AquilaryRegistry:
                     "middlewares": [
                         {
                             "path": (
-                                m.class_path if hasattr(m, "class_path")
-                                else m.get("class_path") or m.get("path") if isinstance(m, dict)
-                                else m[0] if isinstance(m, (list, tuple)) and len(m) >= 2
+                                m.class_path
+                                if hasattr(m, "class_path")
+                                else m.get("class_path") or m.get("path")
+                                if isinstance(m, dict)
+                                else m[0]
+                                if isinstance(m, (list, tuple)) and len(m) >= 2
                                 else str(m)
                             ),
                             "kwargs": (
-                                (m.config or {}) if hasattr(m, "config")
-                                else m.get("config") or m.get("kwargs") or {} if isinstance(m, dict)
-                                else m[1] if isinstance(m, (list, tuple)) and len(m) >= 2
+                                (m.config or {})
+                                if hasattr(m, "config")
+                                else m.get("config") or m.get("kwargs") or {}
+                                if isinstance(m, dict)
+                                else m[1]
+                                if isinstance(m, (list, tuple)) and len(m) >= 2
                                 else {}
-                            )
+                            ),
                         }
                         for m in ctx.middlewares
                     ],
@@ -531,6 +539,7 @@ class RuntimeRegistry:
             # 1. Discover Controllers (Recursive)
             try:
                 from aquilia.controller import Controller
+
                 controllers = scanner.scan_package(
                     base_package,
                     predicate=lambda cls: cls.__name__.endswith("Controller") or issubclass(cls, Controller),
@@ -571,7 +580,9 @@ class RuntimeRegistry:
                 # Scan for classes with @Socket decorator (__socket_metadata__ attribute)
                 socket_controllers = scanner.scan_package(
                     base_package,
-                    predicate=lambda cls: hasattr(cls, "__socket_metadata__") or cls.__name__.endswith("SocketController"),
+                    predicate=lambda cls: (
+                        hasattr(cls, "__socket_metadata__") or cls.__name__.endswith("SocketController")
+                    ),
                     recursive=True,
                     max_depth=5,
                     use_cache=False,
@@ -612,6 +623,7 @@ class RuntimeRegistry:
             try:
                 from aquilia.middleware import Middleware
                 from aquilia.manifest import MiddlewareConfig
+
                 middlewares = scanner.scan_package(
                     base_package,
                     predicate=lambda cls: cls.__name__.endswith("Middleware") or issubclass(cls, Middleware),
@@ -644,7 +656,6 @@ class RuntimeRegistry:
                             ctx.manifest.middleware.append(mw_cfg)
             except Exception:
                 pass
-
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
@@ -834,6 +845,7 @@ class RuntimeRegistry:
         try:
             if module_name.startswith("_aquilia_models_"):
                 import importlib.util
+
                 spec = importlib.util.spec_from_file_location(module_name, str(file_path))
                 if spec is None or spec.loader is None:
                     return []
@@ -1110,13 +1122,20 @@ class RuntimeRegistry:
                         factory_func = getattr(importlib.import_module(fmod), fname)
 
                         scope = (
-                            scope if scope != "app" and scope is not None
-                            else (service_item.get("scope") if isinstance(service_item, dict) else getattr(service_item, "scope", None)) or getattr(factory_func, "__di_scope__", "app")
+                            scope
+                            if scope != "app" and scope is not None
+                            else (
+                                service_item.get("scope")
+                                if isinstance(service_item, dict)
+                                else getattr(service_item, "scope", None)
+                            )
+                            or getattr(factory_func, "__di_scope__", "app")
                         )
                         tag = (
-                            (service_item.get("tag") if isinstance(service_item, dict) else getattr(service_item, "tag", None))
-                            or getattr(factory_func, "__di_tag__", None)
-                        )
+                            service_item.get("tag")
+                            if isinstance(service_item, dict)
+                            else getattr(service_item, "tag", None)
+                        ) or getattr(factory_func, "__di_tag__", None)
 
                         from aquilia.di.providers import FactoryProvider
 

@@ -401,6 +401,7 @@ def _check_pipeline(
     # Fingerprint
     try:
         from aquilia.aquilary.core import Aquilary
+
         registry = Aquilary.from_manifests(
             manifests=loaded_manifests,
             config=_config,
