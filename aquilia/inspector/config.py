@@ -4,7 +4,7 @@ from typing import Any
 
 @dataclass(slots=True)
 class InspectorConfig:
-    enabled: bool | None = None  # None = "follow debug mode" (see server._is_inspector_enabled)
+    enabled: bool | None = None
     force_enable_in_prod: bool = False  # second, explicit opt-in required outside dev — see §5.2
     max_traces: int = 200
     max_body_bytes: int = 65_536

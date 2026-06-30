@@ -116,11 +116,7 @@ async def test_di_parameter_casting_and_extractors():
     qps.add("pair", "2.5")
     qps.add("status", "ACTIVE")
 
-    req = MockRequest(
-        query_params=qps,
-        path_params={"id": "999"},
-        cookies={"session_id": "token-123"}
-    )
+    req = MockRequest(query_params=qps, path_params={"id": "999"}, cookies={"session_id": "token-123"})
 
     compiler = ControllerEngine(ControllerFactory())
     meta = extract_controller_metadata(TestController, "test:Controller")

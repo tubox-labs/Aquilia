@@ -181,8 +181,10 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            from aquilia.inspector.trace import current_trace
             import time
+
+            from aquilia.inspector.trace import current_trace
+
             trace = current_trace()
             if trace is not None:
                 t0 = time.monotonic()
@@ -210,8 +212,10 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                from aquilia.inspector.trace import Lane, SpanStatus
                 import time
+
+                from aquilia.inspector.trace import Lane, SpanStatus
+
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
                 duration_ms = (time.monotonic() - t0) * 1000.0
                 trace.add_span(
@@ -255,8 +259,10 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            from aquilia.inspector.trace import current_trace
             import time
+
+            from aquilia.inspector.trace import current_trace
+
             trace = current_trace()
             if trace is not None:
                 t0 = time.monotonic()
@@ -283,8 +289,10 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                from aquilia.inspector.trace import Lane, SpanStatus
                 import time
+
+                from aquilia.inspector.trace import Lane, SpanStatus
+
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
                 duration_ms = (time.monotonic() - t0) * 1000.0
                 trace.add_span(
@@ -306,8 +314,10 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            from aquilia.inspector.trace import current_trace
             import time
+
+            from aquilia.inspector.trace import current_trace
+
             trace = current_trace()
             if trace is not None:
                 t0 = time.monotonic()
@@ -318,8 +328,10 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                from aquilia.inspector.trace import Lane, SpanStatus
                 import time
+
+                from aquilia.inspector.trace import Lane, SpanStatus
+
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
                 duration_ms = (time.monotonic() - t0) * 1000.0
                 trace.add_span(
@@ -343,8 +355,10 @@ class CacheService:
         t0 = None
         trace = None
         try:
-            from aquilia.inspector.trace import current_trace
             import time
+
+            from aquilia.inspector.trace import current_trace
+
             trace = current_trace()
             if trace is not None:
                 t0 = time.monotonic()
@@ -355,8 +369,10 @@ class CacheService:
 
         if trace is not None and t0 is not None:
             try:
-                from aquilia.inspector.trace import Lane, SpanStatus
                 import time
+
+                from aquilia.inspector.trace import Lane, SpanStatus
+
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
                 duration_ms = (time.monotonic() - t0) * 1000.0
                 trace.add_span(

@@ -4027,8 +4027,14 @@ class AdminController(Controller):
     def _is_inspector_enabled(self) -> bool:
         from aquilia.inspector.config import get_inspector_config
 
+        has_config = False
+        if hasattr(self.site.config, "has_subsystem"):
+            has_config = self.site.config.has_subsystem("inspector")
+
         try:
             config = get_inspector_config(self.site.config)
+            if hasattr(self.site.config, "has_subsystem") and not has_config:
+                return False
             enabled = config.enabled
             if enabled is None:
                 enabled = self._is_debug()

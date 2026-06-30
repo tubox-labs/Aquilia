@@ -337,8 +337,10 @@ class MailService:
         t0 = None
         trace = None
         try:
-            from aquilia.inspector.trace import current_trace
             import time
+
+            from aquilia.inspector.trace import current_trace
+
             trace = current_trace()
             if trace is not None:
                 t0 = time.monotonic()
@@ -364,8 +366,10 @@ class MailService:
 
         if trace is not None and t0 is not None:
             try:
-                from aquilia.inspector.trace import Lane, SpanStatus
                 import time
+
+                from aquilia.inspector.trace import Lane, SpanStatus
+
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
                 duration_ms = (time.monotonic() - t0) * 1000.0
 
@@ -381,7 +385,9 @@ class MailService:
                         "from": envelope.from_email,
                         "to": list(envelope.to),
                         "cc": list(envelope.cc),
-                        "status": str(envelope.status.value) if hasattr(envelope.status, "value") else str(envelope.status),
+                        "status": str(envelope.status.value)
+                        if hasattr(envelope.status, "value")
+                        else str(envelope.status),
                     },
                 )
             except Exception:

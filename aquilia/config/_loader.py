@@ -546,6 +546,15 @@ class ConfigLoader:
         """Export all config as dictionary."""
         return self.config_data.copy()
 
+    def has_subsystem(self, name: str) -> bool:
+        """Check if a subsystem is explicitly configured in user config data."""
+        if name in self.config_data:
+            return True
+        integrations = self.config_data.get("integrations")
+        if isinstance(integrations, dict) and name in integrations:
+            return True
+        return False
+
     def get_subsystem_config(self, name: str, defaults: dict) -> dict:
         """Generic subsystem config reader with standard merge pattern."""
         user_config = self.get(name, {}) or self.get(f"integrations.{name}", {})

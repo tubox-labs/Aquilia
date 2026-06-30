@@ -96,12 +96,7 @@ def test_import_path_namespace_preservation(tmp_path):
     controller_file.write_text("class UsersController:\n    pass")
 
     engine = AutoDiscoveryEngine(modules_dir)
-    import_path = engine._compute_import_path(
-        controller_file,
-        user_module,
-        "users",
-        "UsersController"
-    )
+    import_path = engine._compute_import_path(controller_file, user_module, "users", "UsersController")
 
     # Expected namespaced format: parent_folder.module.file:Class
     expected = f"{modules_dir.name}.users.controllers:UsersController"
@@ -114,12 +109,13 @@ def test_manifest_differ_declared_namespaces():
 
     # Component to test
     from aquilia.discovery.engine import ClassifiedComponent
+
     comp = ClassifiedComponent(
         name="UsersController",
         kind=ComponentKind.CONTROLLER,
         file_path=Path("modules/users/controllers.py"),
         line=1,
-        import_path="modules.users.controllers:UsersController"
+        import_path="modules.users.controllers:UsersController",
     )
 
     # Test cases: incorrect or incomplete namespaces should trigger a sync
@@ -194,13 +190,10 @@ class AuthMiddleware(Middleware):
 """)
 
     # Load app context and run autodiscovery
-    manifest = AppManifest(
-        name="auth",
-        version="1.0.0",
-        middleware=[]
-    )
+    manifest = AppManifest(name="auth", version="1.0.0", middleware=[])
 
     import sys
+
     sys.path.insert(0, str(tmp_path))
     try:
         ctx = AppContext(
@@ -216,6 +209,7 @@ class AuthMiddleware(Middleware):
         )
 
         from aquilia.aquilary.core import AquilaryRegistry, RegistryMode
+
         registry_meta = AquilaryRegistry(
             app_contexts=[ctx],
             fingerprint="fake",
@@ -223,11 +217,12 @@ class AuthMiddleware(Middleware):
             dependency_graph={},
             route_index={},
             validation_report={},
-            config=None
+            config=None,
         )
 
         # Instantiate Registry
         from aquilia.aquilary.core import RuntimeRegistry
+
         registry = RuntimeRegistry(registry_meta, None)
 
         # Override workspace root resolver

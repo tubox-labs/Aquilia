@@ -1,4 +1,3 @@
-from collections import deque
 from collections.abc import Callable
 
 from .config import InspectorConfig
@@ -9,6 +8,7 @@ class InspectorCollector:
     def __init__(self, config: InspectorConfig):
         self._config = config
         from .store import MemoryTraceStore, SQLiteTraceStore
+
         if config.store == "sqlite":
             self.store = SQLiteTraceStore(config)
         else:

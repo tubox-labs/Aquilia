@@ -26,7 +26,9 @@ def test_cli_mcp_daemon_lifecycle(mcp_repo):
     runner = CliRunner()
 
     # Start background daemon on port 28765
-    result = runner.invoke(cli, ["mcp", "start", "--workspace", str(mcp_repo), "--port", "28765"], catch_exceptions=False)
+    result = runner.invoke(
+        cli, ["mcp", "start", "--workspace", str(mcp_repo), "--port", "28765"], catch_exceptions=False
+    )
     assert result.exit_code == 0, result.output
     assert "STARTED IN BACKGROUND" in result.output
 
@@ -39,7 +41,9 @@ def test_cli_mcp_daemon_lifecycle(mcp_repo):
         except Exception as e:
             log_file = mcp_repo / ".aquilia" / "mcp" / "server.log"
             if log_file.exists():
-                print(f"\n--- SERVER LOG ON FAILURE ({' '.join(args)}) ---\n{log_file.read_text(encoding='utf-8', errors='replace')}\n------------------")
+                print(
+                    f"\n--- SERVER LOG ON FAILURE ({' '.join(args)}) ---\n{log_file.read_text(encoding='utf-8', errors='replace')}\n------------------"
+                )
             raise e
 
     # Check status
@@ -53,6 +57,3 @@ def test_cli_mcp_daemon_lifecycle(mcp_repo):
     # Stop background daemon
     result = run_check(["mcp", "stop", "--workspace", str(mcp_repo)])
     assert "stopped successfully" in result.output
-
-
-

@@ -374,10 +374,15 @@ class AquiliaDatabase:
 
                 # Run EXPLAIN in background if slow
                 if sql.strip().upper().startswith("SELECT"):
-                    slow_threshold = config.slow_request_threshold_ms / 10.0 if hasattr(config, "slow_request_threshold_ms") else 50.0
+                    slow_threshold = (
+                        config.slow_request_threshold_ms / 10.0
+                        if hasattr(config, "slow_request_threshold_ms")
+                        else 50.0
+                    )
                     is_slow = duration_ms >= slow_threshold
                     if is_slow and db is not None:
                         import asyncio
+
                         asyncio.create_task(db._run_explain_plan(sql, params, span))
                 return
         except Exception:

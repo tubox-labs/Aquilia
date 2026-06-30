@@ -57,6 +57,7 @@ def test_db_cli_enhanced_workflow(temp_workspace):
     # Generate migrations for CliTestProduct
     # We monkeypatch model discovery to return only our CliTestProduct
     import aquilia.cli.commands.model_cmds as model_cmds
+
     original_discover = model_cmds._discover_models
     model_cmds._discover_models = lambda **kwargs: [CliTestProduct]
 
@@ -129,7 +130,7 @@ def test_db_cli_enhanced_workflow(temp_workspace):
         seed_content = (
             "async def seed(db):\n"
             "    await db.execute(\n"
-            "        'INSERT INTO \"cli_test_products\" (\"name\", \"price\") VALUES (?, ?)',\n"
+            '        \'INSERT INTO "cli_test_products" ("name", "price") VALUES (?, ?)\',\n'
             "        ['Widget', 100]\n"
             "    )\n"
         )
@@ -182,7 +183,7 @@ def test_db_cli_enhanced_workflow(temp_workspace):
             db = AquiliaDatabase(db_url)
             await db.connect()
             try:
-                await db.execute('INSERT INTO "cli_test_products" ("name", "price") VALUES (?, ?)', ['Widget', 100])
+                await db.execute('INSERT INTO "cli_test_products" ("name", "price") VALUES (?, ?)', ["Widget", 100])
             finally:
                 await db.disconnect()
 
@@ -223,7 +224,7 @@ def test_db_cli_enhanced_workflow(temp_workspace):
             db = AquiliaDatabase(db_url)
             await db.connect()
             try:
-                await db.execute('INSERT INTO "cli_test_products" ("name", "price") VALUES (?, ?)', ['Gadget', 200])
+                await db.execute('INSERT INTO "cli_test_products" ("name", "price") VALUES (?, ?)', ["Gadget", 200])
             finally:
                 await db.disconnect()
 

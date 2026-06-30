@@ -35,4 +35,3 @@ def test_config_explicit():
     # Note: the key in InspectorConfig is redact_body_keys, which maps to redact_body_keys
     # In explicit config we can also test it filters extra keys
     assert cfg.max_body_bytes == 1024
-

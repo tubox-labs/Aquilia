@@ -14,7 +14,6 @@ These tests verify:
   10. All integration types importable from aquilia top-level
 """
 
-
 import pytest
 
 # ============================================================================

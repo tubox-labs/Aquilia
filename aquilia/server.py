@@ -579,11 +579,18 @@ class AquiliaServer:
         else:
             inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
         inspector_config = InspectorConfig.from_dict(inspector_dict)
-        inspector_enabled = inspector_config.enabled
-        if inspector_enabled is None:
-            inspector_enabled = self._is_debug()
-        if inspector_config.force_enable_in_prod:
-            inspector_enabled = True
+        inspector_has_config = False
+        if hasattr(self.config, "has_subsystem"):
+            inspector_has_config = self.config.has_subsystem("inspector")
+
+        if not inspector_has_config:
+            inspector_enabled = False
+        else:
+            inspector_enabled = inspector_config.enabled
+            if inspector_enabled is None:
+                inspector_enabled = self._is_debug()
+            if inspector_config.force_enable_in_prod:
+                inspector_enabled = True
 
         if inspector_enabled:
             from aquilia.inspector.middleware import InspectorMiddleware
@@ -2520,15 +2527,23 @@ class AquiliaServer:
             )
 
             # Check if inspector is enabled
+            _inspector_has_config = False
+            if hasattr(self.config, "has_subsystem"):
+                _inspector_has_config = self.config.has_subsystem("inspector")
+
             if hasattr(self.config, "get_inspector_config"):
                 _inspector_dict = self.config.get_inspector_config()
             else:
                 _inspector_dict = self.config.get("inspector", {}) if hasattr(self.config, "get") else {}
-            _inspector_enabled = _inspector_dict.get("enabled")
-            if _inspector_enabled is None:
-                _inspector_enabled = self._is_debug()
-            if _inspector_dict.get("force_enable_in_prod"):
-                _inspector_enabled = True
+
+            if not _inspector_has_config:
+                _inspector_enabled = False
+            else:
+                _inspector_enabled = _inspector_dict.get("enabled")
+                if _inspector_enabled is None:
+                    _inspector_enabled = self._is_debug()
+                if _inspector_dict.get("force_enable_in_prod"):
+                    _inspector_enabled = True
 
             if _inspector_enabled:
                 admin_routes.extend(
