@@ -410,6 +410,27 @@ class DatabaseConfig:
 
 
 @dataclass
+class AppVersioningConfig:
+    """Module-level versioning override configuration."""
+
+    enabled: bool = True
+    position: str | None = None  # 'before' or 'after'
+    auto_version_unmarked: bool = False
+    sunset_policy: Any | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize to dictionary."""
+        config: dict[str, Any] = {
+            "enabled": self.enabled,
+            "position": self.position,
+            "auto_version_unmarked": self.auto_version_unmarked,
+        }
+        if self.sunset_policy is not None:
+            config["sunset_policy"] = self.sunset_policy
+        return config
+
+
+@dataclass
 class AppManifest:
     """
     Production-grade application manifest for complete app configuration.
@@ -487,6 +508,7 @@ class AppManifest:
 
     # Metadata
     tags: list[str] = field(default_factory=list)
+    versioning: AppVersioningConfig | dict[str, Any] | None = None
     config_schema: dict[str, Any] | None = None  # JSON Schema for validation
 
     # v2: Auto-discovery control

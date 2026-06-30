@@ -1156,6 +1156,20 @@ class AquiliaServer:
             # Build central strategy orchestrator
             strategy = VersionStrategy(config)
             strategy._workspace_modules = getattr(self, "_workspace_modules", {})
+
+            # Extract manifest-level versioning overrides
+            module_overrides = {}
+            if hasattr(self, "runtime") and self.runtime and hasattr(self.runtime, "meta") and self.runtime.meta:
+                for app_ctx in getattr(self.runtime.meta, "app_contexts", []):
+                    if app_ctx.manifest and hasattr(app_ctx.manifest, "versioning"):
+                        mv_raw = app_ctx.manifest.versioning
+                        if mv_raw is not None:
+                            if hasattr(mv_raw, "to_dict"):
+                                module_overrides[app_ctx.name] = mv_raw.to_dict()
+                            elif isinstance(mv_raw, dict):
+                                module_overrides[app_ctx.name] = mv_raw
+            strategy._module_versioning_overrides = module_overrides
+
             self._version_strategy = strategy
 
             # Register versioning middleware at priority 5
@@ -2000,7 +2014,15 @@ class AquiliaServer:
                     route_prefix = app_ctx.route_prefix
 
                     # Compile controller
-                    module_versioning = self._workspace_modules.get(app_ctx.name, {}).get("versioning")
+                    module_versioning = None
+                    if app_ctx.manifest and hasattr(app_ctx.manifest, "versioning"):
+                        mv_raw = app_ctx.manifest.versioning
+                        if mv_raw is not None:
+                            if hasattr(mv_raw, "to_dict"):
+                                module_versioning = mv_raw.to_dict()
+                            elif isinstance(mv_raw, dict):
+                                module_versioning = mv_raw
+
                     compiled = self.controller_compiler.compile_controller(
                         controller_class,
                         base_prefix=route_prefix,

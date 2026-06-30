@@ -171,12 +171,20 @@ class VersionMiddleware(Middleware):
                 route = getattr(match, "route", None)
                 app_name = getattr(route, "app_name", None)
 
-            if app_name and hasattr(self._strategy, "_workspace_modules"):
-                module_config = self._strategy._workspace_modules.get(app_name)
-                if isinstance(module_config, dict):
-                    versioning_opts = module_config.get("versioning")
-                    if isinstance(versioning_opts, dict):
-                        module_sunset_policy = versioning_opts.get("sunset_policy")
+            if app_name:
+                # 1. Try manifest-level override first
+                if hasattr(self._strategy, "_module_versioning_overrides"):
+                    module_versioning = self._strategy._module_versioning_overrides.get(app_name)
+                    if isinstance(module_versioning, dict):
+                        module_sunset_policy = module_versioning.get("sunset_policy")
+
+                # 2. Fallback to workspace-level override
+                if module_sunset_policy is None and hasattr(self._strategy, "_workspace_modules"):
+                    module_config = self._strategy._workspace_modules.get(app_name)
+                    if isinstance(module_config, dict):
+                        versioning_opts = module_config.get("versioning")
+                        if isinstance(versioning_opts, dict):
+                            module_sunset_policy = versioning_opts.get("sunset_policy")
 
             path = request.path if hasattr(request, "path") else "/"
             is_neutral = False

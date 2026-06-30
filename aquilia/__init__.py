@@ -571,7 +571,14 @@ from .mail.service import MailService
 # ============================================================================
 # Core Framework
 # ============================================================================
-from .manifest import AppManifest, BackgroundTaskConfig, ComponentKind, ComponentRef, DatabaseConfig
+from .manifest import (
+    AppManifest,
+    AppVersioningConfig,
+    BackgroundTaskConfig,
+    ComponentKind,
+    ComponentRef,
+    DatabaseConfig,
+)
 
 # ============================================================================
 # Middleware System
