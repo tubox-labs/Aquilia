@@ -1179,6 +1179,7 @@ class AquiliaServer:
                                         merged_dict[k] = v
 
                                 from .versioning.strategy import VersionConfig, VersionStrategy
+
                                 local_cfg = VersionConfig(**merged_dict)
                                 local_strat = VersionStrategy(local_cfg)
                                 module_strategies[app_ctx.name] = local_strat

@@ -234,15 +234,16 @@ class ASGIAdapter:
 
         # 1. Retrieve all app contexts
         app_contexts = []
-        if hasattr(self.server, "runtime") and self.server.runtime and hasattr(self.server.runtime, "meta") and self.server.runtime.meta:
+        if (
+            hasattr(self.server, "runtime")
+            and self.server.runtime
+            and hasattr(self.server.runtime, "meta")
+            and self.server.runtime.meta
+        ):
             app_contexts = getattr(self.server.runtime.meta, "app_contexts", [])
 
         # 2. Sort app contexts by route_prefix length descending to do longest prefix matching
-        sorted_contexts = sorted(
-            app_contexts,
-            key=lambda ctx: len(ctx.route_prefix or ""),
-            reverse=True
-        )
+        sorted_contexts = sorted(app_contexts, key=lambda ctx: len(ctx.route_prefix or ""), reverse=True)
 
         matched_context = None
         matched_strategy = strategy
@@ -278,7 +279,9 @@ class ASGIAdapter:
                     if isinstance(stripped, str):
                         norm_stripped = stripped.rstrip("/")
                         norm_prefix = route_prefix.rstrip("/")
-                        if route_prefix and (norm_stripped == norm_prefix or norm_stripped.startswith(norm_prefix + "/")):
+                        if route_prefix and (
+                            norm_stripped == norm_prefix or norm_stripped.startswith(norm_prefix + "/")
+                        ):
                             # Matches this structural url module!
                             # Structural versioning matches `/v1/...` directly in the trie router,
                             # so we return raw_path and None as version.
@@ -294,7 +297,9 @@ class ASGIAdapter:
                 # Non-structural URL or other strategy (header, query, etc.)
                 norm_raw_path = raw_path.rstrip("/")
                 norm_prefix = route_prefix.rstrip("/")
-                is_module_path = route_prefix and (norm_raw_path == norm_prefix or norm_raw_path.startswith(norm_prefix + "/"))
+                is_module_path = route_prefix and (
+                    norm_raw_path == norm_prefix or norm_raw_path.startswith(norm_prefix + "/")
+                )
 
                 try:
                     # Let's try to resolve version and strip it under this module's strategy
