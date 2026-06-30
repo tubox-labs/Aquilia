@@ -108,14 +108,28 @@ class URLPathResolver(BaseVersionResolver):
     def strip_from_path(self) -> bool:
         return self._strip_from_path
 
+    def _find_version_segment_index(self, path: str) -> int | None:
+        segments = [s for s in path.strip("/").split("/") if s]
+        if not segments:
+            return None
+        # 1. Try the configured segment index first
+        if 0 <= self._segment_index < len(segments):
+            if self._pattern.match(segments[self._segment_index]):
+                return self._segment_index
+        # 2. Otherwise scan all segments
+        for idx, segment in enumerate(segments):
+            if self._pattern.match(segment):
+                return idx
+        return None
+
     def resolve(self, request: Request) -> str | None:
         path = request.path if hasattr(request, "path") else "/"
         segments = [s for s in path.strip("/").split("/") if s]
-
-        if len(segments) <= self._segment_index:
+        idx = self._find_version_segment_index(path)
+        if idx is None or len(segments) <= idx:
             return None
 
-        segment = segments[self._segment_index]
+        segment = segments[idx]
         match = self._pattern.match(segment)
         if match:
             return match.group(1)
@@ -124,15 +138,13 @@ class URLPathResolver(BaseVersionResolver):
     def strip_version_from_path(self, path: str) -> str:
         """Remove the version segment from the path."""
         segments = [s for s in path.strip("/").split("/") if s]
-        if len(segments) <= self._segment_index:
+        idx = self._find_version_segment_index(path)
+        if idx is None or len(segments) <= idx:
             return path
 
-        segment = segments[self._segment_index]
-        if self._pattern.match(segment):
-            segments.pop(self._segment_index)
-            stripped = "/" + "/".join(segments)
-            return stripped if stripped != "/" or path == "/" else stripped
-        return path
+        segments.pop(idx)
+        stripped = "/" + "/".join(segments)
+        return stripped if stripped != "/" or path == "/" else stripped
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -2820,21 +2820,18 @@ class TestVersioningPerformanceStress:
 
     @pytest.mark.asyncio
     async def test_manifest_independent_module_versioning_strategy(self):
-        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
-        from aquilia.manifest import AppManifest, AppVersioningConfig
-        from aquilia.asgi import ASGIAdapter
-        from aquilia.middleware import MiddlewareStack
-        from aquilia.controller import Controller, GET
-        from aquilia.controller.compiler import ControllerCompiler
-        from aquilia.controller.router import ControllerRouter
         from types import SimpleNamespace
 
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.controller import GET, Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.router import ControllerRouter
+        from aquilia.manifest import AppManifest, AppVersioningConfig
+        from aquilia.middleware import MiddlewareStack
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
         # Global config is url-path strategy
-        global_config = VersionConfig(
-            strategy="url",
-            versions=["1.0", "2.0"],
-            default_version="1.0"
-        )
+        global_config = VersionConfig(strategy="url", versions=["1.0", "2.0"], default_version="1.0")
         strategy = VersionStrategy(global_config)
 
         # Module A overrides to header strategy
@@ -2842,11 +2839,8 @@ class TestVersioningPerformanceStress:
             name="module_a",
             version="1.0.0",
             versioning=AppVersioningConfig(
-                strategy="header",
-                header_name="X-Custom-Module-Version",
-                versions=["1.5", "2.5"],
-                default_version="1.5"
-            )
+                strategy="header", header_name="X-Custom-Module-Version", versions=["1.5", "2.5"], default_version="1.5"
+            ),
         )
 
         class ControllerA(Controller):
@@ -2879,10 +2873,7 @@ class TestVersioningPerformanceStress:
         strategy._module_strategies = {"module_a": local_strat}
 
         compiled_a = compiler.compile_controller(
-            ControllerA,
-            base_prefix="/api/module-a",
-            version_strategy=strategy,
-            module_versioning=mv_dict
+            ControllerA, base_prefix="/api/module-a", version_strategy=strategy, module_versioning=mv_dict
         )
         for r in compiled_a.routes:
             r.app_name = "module_a"
@@ -2891,20 +2882,15 @@ class TestVersioningPerformanceStress:
 
         server = SimpleNamespace(
             _version_strategy=strategy,
-            runtime=SimpleNamespace(
-                meta=SimpleNamespace(
-                    app_contexts=[app_ctx_a]
-                ),
-                di_containers={}
-            ),
-            middleware_stack=MiddlewareStack()
+            runtime=SimpleNamespace(meta=SimpleNamespace(app_contexts=[app_ctx_a]), di_containers={}),
+            middleware_stack=MiddlewareStack(),
         )
 
         adapter = ASGIAdapter(
             controller_router=router,
             controller_engine=SimpleNamespace(),
             middleware_stack=MiddlewareStack(),
-            server=server
+            server=server,
         )
 
         # Request Module A with X-Custom-Module-Version header
@@ -2913,16 +2899,42 @@ class TestVersioningPerformanceStress:
             "method": "GET",
             "path": "/api/module-a/resource/",
             "query_string": b"",
-            "headers": [(b"x-custom-module-version", b"2.5")]
+            "headers": [(b"x-custom-module-version", b"2.5")],
         }
 
         from aquilia.request import Request
+
         request_obj = Request(scope, lambda: None)
-        path_for_match, resolved_version = adapter._resolve_route_inputs(
-            request_obj,
-            "/api/module-a/resource/"
-        )
+        path_for_match, resolved_version = adapter._resolve_route_inputs(request_obj, "/api/module-a/resource/")
 
         assert path_for_match == "/api/module-a/resource/"
         assert resolved_version is not None
         assert str(resolved_version) == "2.5"
+
+    def test_url_position_after_automatic_segment_detection(self):
+        from aquilia.request import Request
+        from aquilia.versioning.resolvers import URLPathResolver
+
+        resolver = URLPathResolver(segment_index=0, prefix="v", strip_from_path=True)
+
+        # 1. Test position "after": version is at index 1
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/brief/v1/article",
+            "headers": [],
+        }
+        req = Request(scope, lambda: None)
+        assert resolver.resolve(req) == "1"
+        assert resolver.strip_version_from_path(req.path) == "/brief/article"
+
+        # 2. Test position "before": version is at index 0
+        scope2 = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v2/brief/article",
+            "headers": [],
+        }
+        req2 = Request(scope2, lambda: None)
+        assert resolver.resolve(req2) == "2"
+        assert resolver.strip_version_from_path(req2.path) == "/brief/article"
