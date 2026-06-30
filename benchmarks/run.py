@@ -47,12 +47,14 @@ SCENARIOS = [
     "middleware_10",
 ]
 
+
 def kill_port_8100():
     try:
         cmd = "kill -9 $(lsof -t -i:8100) 2>/dev/null || true"
         subprocess.run(cmd, shell=True)
     except Exception:
         pass
+
 
 def wait_for_server(url: str, timeout: float = 8.0) -> bool:
     start_time = time.time()
@@ -64,6 +66,7 @@ def wait_for_server(url: str, timeout: float = 8.0) -> bool:
         except Exception:
             time.sleep(0.1)
     return False
+
 
 def run_scenario(scenario: str, framework: str, duration: str, concurrency: int) -> dict | None:
     url = "http://127.0.0.1:8100"
@@ -112,15 +115,24 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
         url += f"/{scenario}"
 
     # Setup oha arguments
-    oha_cmd = [
-        "oha",
-        "-z", duration,
-        "-c", str(concurrency),
-        "-m", method,
-        "--no-tui",
-        "--output-format", "json",
-        "-o", str(OHA_RESULTS),
-    ] + extra_args + [url]
+    oha_cmd = (
+        [
+            "oha",
+            "-z",
+            duration,
+            "-c",
+            str(concurrency),
+            "-m",
+            method,
+            "--no-tui",
+            "--output-format",
+            "json",
+            "-o",
+            str(OHA_RESULTS),
+        ]
+        + extra_args
+        + [url]
+    )
 
     # Run oha
     print(f"  -> Testing {scenario} endpoint...")
@@ -131,12 +143,12 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
 
     # Parse JSON results
     try:
-        with open(OHA_RESULTS, "r") as f:
+        with open(OHA_RESULTS) as f:
             metrics = json.load(f)
-        
+
         summary = metrics.get("summary", {})
         latency = metrics.get("latencyPercentiles", {})
-        
+
         # Calculate stats
         qps = summary.get("requestsPerSec", 0.0)
         avg_ms = (summary.get("average") or 0.0) * 1000.0
@@ -144,7 +156,7 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
         p95_ms = (latency.get("p95") or 0.0) * 1000.0
         p99_ms = (latency.get("p99") or 0.0) * 1000.0
         success_rate = summary.get("successRate", 0.0) * 100.0
-        
+
         return {
             "qps": qps,
             "avg_ms": avg_ms,
@@ -156,6 +168,7 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
     except Exception as exc:
         print(f"     [ERROR] Failed to parse oha output: {exc}")
         return None
+
 
 def main():
     parser = argparse.ArgumentParser(description="Professional Framework Benchmarking Platform")
@@ -194,8 +207,10 @@ def main():
     # Iterate frameworks
     for fw in target_frameworks:
         app_target = FRAMEWORKS[fw]
-        print(f"\n========================================\nBENCHMARKING: {fw}\n========================================")
-        
+        print(
+            f"\n========================================\nBENCHMARKING: {fw}\n========================================"
+        )
+
         # We need to run scenarios that might require different middleware stacks
         # Group scenarios by middleware layers they require
         scenario_groups = {
@@ -214,7 +229,7 @@ def main():
         for layers, scs in scenario_groups.items():
             if not scs:
                 continue
-                
+
             kill_port_8100()
             time.sleep(0.5)
 
@@ -222,25 +237,31 @@ def main():
             env = os.environ.copy()
             env["PYTHONPATH"] = str(WORKSPACE_ROOT)
             env["MIDDLEWARE_LAYERS"] = str(layers)
-            
+
             # Start Uvicorn process
             cmd = [
-                "uv", "run", "uvicorn",
+                "uv",
+                "run",
+                "uvicorn",
                 app_target,
-                "--host", "127.0.0.1",
-                "--port", "8100",
-                "--workers", "1",
-                "--log-level", "warning"
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8100",
+                "--workers",
+                "1",
+                "--log-level",
+                "warning",
             ]
             print(f"-> Starting {fw} server with {layers} middleware layers...")
             server_proc = subprocess.Popen(cmd, env=env, cwd=str(WORKSPACE_ROOT))
-            
+
             try:
                 # Wait for boot
                 if not wait_for_server("http://127.0.0.1:8100/health"):
                     print(f"   [ERROR] Server for {fw} failed to respond to health checks.")
                     continue
-                
+
                 # Run scenarios
                 for sc in scs:
                     metrics = run_scenario(sc, fw, args.duration, args.concurrency)
@@ -262,44 +283,63 @@ def main():
             path.unlink()
 
     # Run startup benchmarks using hyperfine
-    print("\n========================================\nRUNNING COLD STARTUP BENCHMARKS\n========================================")
+    print(
+        "\n========================================\nRUNNING COLD STARTUP BENCHMARKS\n========================================"
+    )
     startup_script = BENCH_DIR / "startup" / "startup_bench.py"
     subprocess.run(["uv", "run", "python3", str(startup_script)], check=True)
-    
+
     # Read startup results
     startup_results = {}
     startup_json = BENCH_DIR / "startup" / "formatted_results.json"
     if startup_json.exists():
-        with open(startup_json, "r") as f:
+        with open(startup_json) as f:
             startup_results = json.load(f)
 
     # Write Markdown Report
     report_path = WORKSPACE_ROOT / args.output
-    write_report(report_path, target_frameworks, target_scenarios, run_results, startup_results, args.duration, args.concurrency)
+    write_report(
+        report_path, target_frameworks, target_scenarios, run_results, startup_results, args.duration, args.concurrency
+    )
     print(f"\nBenchmarking complete! Report written to: {report_path}")
 
-def write_report(path: Path, frameworks: list[str], scenarios: list[str], run_results: dict, startup_results: dict, duration: str, concurrency: int):
+
+def write_report(
+    path: Path,
+    frameworks: list[str],
+    scenarios: list[str],
+    run_results: dict,
+    startup_results: dict,
+    duration: str,
+    concurrency: int,
+):
     with open(path, "w") as f:
         f.write("# Aquilia Professional Web Framework Benchmarks\n\n")
-        f.write("This document presents the objective, reproducible, and statistically valid benchmarks comparing the performance characteristics of Aquilia against major Python web frameworks.\n\n")
-        
+        f.write(
+            "This document presents the objective, reproducible, and statistically valid benchmarks comparing the performance characteristics of Aquilia against major Python web frameworks.\n\n"
+        )
+
         f.write("## Benchmark Parameters\n")
-        f.write(f"- **Load Testing Utility**: `oha` (Rust-based HTTP/1.1 load generator)\n")
+        f.write("- **Load Testing Utility**: `oha` (Rust-based HTTP/1.1 load generator)\n")
         f.write(f"- **Concurrency Level**: `{concurrency}` simultaneous connections\n")
         f.write(f"- **Duration**: `{duration}` per endpoint run\n")
-        f.write(f"- **Server Environment**: Python 3.13 served via Uvicorn (Single worker thread)\n")
-        f.write(f"- **Database Engine**: SQLite 3 (Standard 10,000-row TechEmpower Schema)\n\n")
+        f.write("- **Server Environment**: Python 3.13 served via Uvicorn (Single worker thread)\n")
+        f.write("- **Database Engine**: SQLite 3 (Standard 10,000-row TechEmpower Schema)\n\n")
 
         # 1. Cold Startup / Boot Performance
         if startup_results:
             f.write("## 1. Cold Startup & Importing Overhead\n")
-            f.write("Measures the pure framework importing and initialization time. Fast cold start times are critical for Serverless deployments and developer container boot-ups.\n\n")
+            f.write(
+                "Measures the pure framework importing and initialization time. Fast cold start times are critical for Serverless deployments and developer container boot-ups.\n\n"
+            )
             f.write("| Rank | Framework | Mean Startup (ms) | StdDev (ms) | Min (ms) | Max (ms) |\n")
             f.write("| :--- | :--- | :--- | :--- | :--- | :--- |\n")
-            
+
             sorted_startup = sorted(startup_results.items(), key=lambda x: x[1]["mean"])
             for rank, (fw, stats) in enumerate(sorted_startup, 1):
-                f.write(f"| {rank} | {fw} | {stats['mean']:.2f}ms | ±{stats['stddev']:.2f}ms | {stats['min']:.2f}ms | {stats['max']:.2f}ms |\n")
+                f.write(
+                    f"| {rank} | {fw} | {stats['mean']:.2f}ms | ±{stats['stddev']:.2f}ms | {stats['min']:.2f}ms | {stats['max']:.2f}ms |\n"
+                )
             f.write("\n")
 
         # 2. Scenario Comparison Tables
@@ -328,26 +368,32 @@ def write_report(path: Path, frameworks: list[str], scenarios: list[str], run_re
                 "middleware_5": "GET `/plaintext` with 5 stacked custom middleware layers.",
                 "middleware_10": "GET `/plaintext` with 10 stacked custom middleware layers.",
             }.get(sc, "")
-            
+
             f.write(f"{desc}\n\n")
-            f.write("| Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |\n")
+            f.write(
+                "| Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |\n"
+            )
             f.write("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n")
-            
+
             # Sort frameworks by QPS descending
             sc_results = []
             for fw in frameworks:
                 if sc in run_results[fw]:
                     sc_results.append((fw, run_results[fw][sc]))
-                    
+
             sorted_sc = sorted(sc_results, key=lambda x: x[1]["qps"], reverse=True)
             for rank, (fw, m) in enumerate(sorted_sc, 1):
-                f.write(f"| {rank} | {fw} | {m['qps']:.2f} req/s | {m['avg_ms']:.2f} ms | {m['p50_ms']:.2f} ms | {m['p95_ms']:.2f} ms | {m['success_rate']:.1f}% |\n")
+                f.write(
+                    f"| {rank} | {fw} | {m['qps']:.2f} req/s | {m['avg_ms']:.2f} ms | {m['p50_ms']:.2f} ms | {m['p95_ms']:.2f} ms | {m['success_rate']:.1f}% |\n"
+                )
             f.write("\n")
 
         # 3. Dynamic Chart data or Summary
         f.write("## 3. Key Performance Insights\n")
         f.write("### Middleware Scaling Cost\n")
-        f.write("This table summarizes how throughput scales as middleware layers are stacked (0 -> 5 -> 10 layers).\n\n")
+        f.write(
+            "This table summarizes how throughput scales as middleware layers are stacked (0 -> 5 -> 10 layers).\n\n"
+        )
         f.write("| Framework | 0 Layers QPS | 5 Layers QPS | 10 Layers QPS | Overhead (10 vs 0) |\n")
         f.write("| :--- | :--- | :--- | :--- | :--- |\n")
         for fw in frameworks:
@@ -357,6 +403,7 @@ def write_report(path: Path, frameworks: list[str], scenarios: list[str], run_re
             overhead = ((q0 - q10) / q0 * 100) if q0 > 0 else 0.0
             f.write(f"| {fw} | {q0:.2f} | {q5:.2f} | {q10:.2f} | {overhead:.1f}% decrease |\n")
         f.write("\n")
+
 
 if __name__ == "__main__":
     main()

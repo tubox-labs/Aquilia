@@ -2,17 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import random
-from pathlib import Path
-from typing import Any
 
 from aquilia import GET, POST, Controller, RequestCtx, Response
-from aquilia.db import AquiliaDatabase
 from aquilia.controller.validation import validate_body
+from aquilia.db import AquiliaDatabase
+from benchmarks.frameworks.shared import LARGE_PAYLOAD, UserProfileBlueprint, jinja_env
 
-from benchmarks.frameworks.shared import (
-    LARGE_PAYLOAD, UserProfileBlueprint, jinja_env
-)
 from .services import TopService
+
 
 class BenchmarkController(Controller):
     prefix = ""
@@ -85,7 +82,7 @@ class BenchmarkController(Controller):
     async def fortunes(self, ctx: RequestCtx):
         rows = await self.db.fetch_all("SELECT id, message FROM fortune")
         fortunes_list = [{"id": r["id"], "message": r["message"]} for r in rows]
-        
+
         fortunes_list.append({"id": 0, "message": "Additional fortune added at runtime."})
         fortunes_list.sort(key=lambda x: x["message"])
 
@@ -151,10 +148,11 @@ class BenchmarkController(Controller):
     async def response_stream(self, ctx: RequestCtx):
         async def chunk_stream():
             for idx in range(32):
-                yield f"chunk-{idx:03d}:{'x'*1000}\n"
+                yield f"chunk-{idx:03d}:{'x' * 1000}\n"
                 await asyncio.sleep(0)
 
         return Response.stream(chunk_stream(), media_type="application/octet-stream")
+
 
 # Define filler helper to register 500 routes
 def _build_filler_handler(slot: int):
@@ -163,6 +161,7 @@ def _build_filler_handler(slot: int):
 
     _filler.__name__ = f"route_filler_{slot}"
     return GET(f"/route/filler/r{slot}")(_filler)
+
 
 for _slot in range(500):
     setattr(BenchmarkController, f"route_filler_{_slot}", _build_filler_handler(_slot))

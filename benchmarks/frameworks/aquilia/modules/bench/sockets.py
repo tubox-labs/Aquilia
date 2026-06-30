@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from aquilia import Event, Socket, SocketController
 
+
 @Socket("/ws/echo")
 class BenchmarkSocket(SocketController):
     @Event("ping", ack=True)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+
 class PathNoopMiddleware:
     """No-op middleware layer used to benchmark middleware stack cost in Aquilia."""
 

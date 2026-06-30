@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import random
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List
+from typing import Any
+
 from jinja2 import Environment, FileSystemLoader
 
 # Paths
@@ -17,36 +17,40 @@ TEMPLATES_DIR = TECHEMPOWER_DIR / "templates"
 
 DATASETS_DIR.mkdir(parents=True, exist_ok=True)
 
+
 # 1. Deterministic Large JSON Payload (approx 100KB-1MB based on records)
 def build_large_payload(records: int = 500) -> dict[str, Any]:
     random.seed(42)
     items = []
     for idx in range(records):
-        items.append({
-            "id": idx,
-            "uuid": f"uuid-{idx:04d}",
-            "name": f"record-item-name-{idx}",
-            "active": idx % 2 == 0,
-            "score": round((idx * 3.14159) % 100, 4),
-            "tags": [f"tag-{idx % 7}", f"category-{idx % 13}", "framework-benchmark"],
-            "details": {
-                "owner": f"owner-user-{idx % 23}",
-                "cluster": f"us-east-1{chr(97 + (idx % 3))}",
-                "specs": {
-                    "cpu_cores": [2, 4, 8, 16][idx % 4],
-                    "memory_gb": [4, 8, 16, 32, 64][idx % 5],
-                    "storage_tb": round((idx * 0.123) % 4, 2),
-                    "backups_enabled": idx % 3 != 0
-                }
+        items.append(
+            {
+                "id": idx,
+                "uuid": f"uuid-{idx:04d}",
+                "name": f"record-item-name-{idx}",
+                "active": idx % 2 == 0,
+                "score": round((idx * 3.14159) % 100, 4),
+                "tags": [f"tag-{idx % 7}", f"category-{idx % 13}", "framework-benchmark"],
+                "details": {
+                    "owner": f"owner-user-{idx % 23}",
+                    "cluster": f"us-east-1{chr(97 + (idx % 3))}",
+                    "specs": {
+                        "cpu_cores": [2, 4, 8, 16][idx % 4],
+                        "memory_gb": [4, 8, 16, 32, 64][idx % 5],
+                        "storage_tb": round((idx * 0.123) % 4, 2),
+                        "backups_enabled": idx % 3 != 0,
+                    },
+                },
             }
-        })
+        )
     return {
         "ok": True,
         "payload_type": "large-benchmark-dataset",
         "record_count": records,
         "timestamp": "2026-06-29T23:50:00Z",
-        "items": items
+        "items": items,
     }
+
 
 LARGE_PAYLOAD = build_large_payload(500)
 LARGE_PAYLOAD_BYTES = json.dumps(LARGE_PAYLOAD).encode("utf-8")
@@ -59,7 +63,10 @@ if not LARGE_JSON_PATH.exists():
 # Ensure sample.txt is written to disk
 SAMPLE_TEXT_PATH = DATASETS_DIR / "sample.txt"
 if not SAMPLE_TEXT_PATH.exists():
-    SAMPLE_TEXT_PATH.write_text("Hello, this is a sample text file used for comparative framework file response benchmarks.\n" * 50, encoding="utf-8")
+    SAMPLE_TEXT_PATH.write_text(
+        "Hello, this is a sample text file used for comparative framework file response benchmarks.\n" * 50,
+        encoding="utf-8",
+    )
 
 
 # 2. Database Connection Helpers (Async SQLite)
@@ -73,8 +80,10 @@ class AsyncConnectionContext:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.conn.close()
 
+
 async def get_db_connection():
     import aiosqlite
+
     conn = await aiosqlite.connect(str(DB_PATH))
     conn.row_factory = aiosqlite.Row
     return AsyncConnectionContext(conn)
@@ -89,16 +98,18 @@ jinja_env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)), autoescape=
 # A. Pydantic (FastAPI / Starlette etc.)
 from pydantic import BaseModel, Field
 
+
 class AddressModel(BaseModel):
     street: str = Field(min_length=1)
     city: str = Field(min_length=1)
     zipcode: str = Field(min_length=5, max_length=10)
 
+
 class UserProfileModel(BaseModel):
     username: str = Field(min_length=3, max_length=50)
     email: str = Field(min_length=3)
     age: int = Field(ge=0, le=120)
-    tags: List[str]
+    tags: list[str]
     address: AddressModel
 
 
@@ -117,12 +128,13 @@ class AddressDataclass:
         if not self.zipcode or not (5 <= len(self.zipcode) <= 10):
             raise ValueError("Zipcode must be 5-10 chars")
 
+
 @dataclass
 class UserProfileDataclass:
     username: str
     email: str
     age: int
-    tags: List[str]
+    tags: list[str]
     address: AddressDataclass
 
     def validate(self):
@@ -142,27 +154,28 @@ class UserProfileDataclass:
         addr = AddressDataclass(
             street=str(addr_data.get("street", "")),
             city=str(addr_data.get("city", "")),
-            zipcode=str(addr_data.get("zipcode", ""))
+            zipcode=str(addr_data.get("zipcode", "")),
         )
         obj = cls(
             username=str(data.get("username", "")),
             email=str(data.get("email", "")),
             age=int(data.get("age", 0)),
             tags=[str(t) for t in data.get("tags", [])],
-            address=addr
+            address=addr,
         )
         obj.validate()
         return obj
 
 
 # C. Aquilia Blueprint (Aquilia native)
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints import NestedBlueprintFacet
+from aquilia.blueprints import Blueprint, NestedBlueprintFacet
+
 
 class AddressBlueprint(Blueprint):
     street: str
     city: str
     zipcode: str
+
 
 class UserProfileBlueprint(Blueprint):
     username: str
@@ -179,11 +192,7 @@ VALIDATION_INPUT = {
     "email": "user@benchmark.com",
     "age": 30,
     "tags": ["speed", "concurrency", "validation"],
-    "address": {
-        "street": "123 Framework Boulevard",
-        "city": "API Town",
-        "zipcode": "10001"
-    }
+    "address": {"street": "123 Framework Boulevard", "city": "API Town", "zipcode": "10001"},
 }
 VALIDATION_INPUT_BYTES = json.dumps(VALIDATION_INPUT).encode("utf-8")
 

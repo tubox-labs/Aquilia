@@ -2,14 +2,15 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+
 from aquilia import AquilaConfig, Module, Workspace
 from aquilia.integrations import (
     DiIntegration,
     FaultHandlingIntegration,
     MiddlewareChain,
     RoutingIntegration,
-    DatabaseIntegration,
 )
+
 
 class BenchEnv(AquilaConfig):
     env = "prod"
@@ -19,6 +20,7 @@ class BenchEnv(AquilaConfig):
         port = 8100
         workers = 1
         reload = False
+
 
 # Path to the techempower SQLite database relative to this file
 DB_FILE = Path(__file__).resolve().parents[2] / "techempower" / "techempower.db"
@@ -32,11 +34,7 @@ middleware_chain = (
 # Dynamically stack middleware layers to benchmark overhead
 layers_count = int(os.environ.get("MIDDLEWARE_LAYERS", "0"))
 for i in range(layers_count):
-    middleware_chain.use(
-        "benchmarks.frameworks.aquilia.middleware.PathNoopMiddleware",
-        priority=20 + i,
-        layer_id=i
-    )
+    middleware_chain.use("benchmarks.frameworks.aquilia.middleware.PathNoopMiddleware", priority=20 + i, layer_id=i)
 
 workspace = (
     Workspace(
@@ -46,20 +44,11 @@ workspace = (
     )
     .env_config(BenchEnv)
     .middleware(middleware_chain)
-    .module(
-        Module("bench", version="1.0.0", description="Benchmark module")
-        .route_prefix("/")
-        .tags("benchmark")
-    )
+    .module(Module("bench", version="1.0.0", description="Benchmark module").route_prefix("/").tags("benchmark"))
     .integrate(DiIntegration(auto_wire=True))
     .integrate(RoutingIntegration(strict_matching=True))
     .integrate(FaultHandlingIntegration(default_strategy="propagate"))
-    .database(
-        url=f"sqlite:///{DB_FILE.resolve()}",
-        auto_connect=True,
-        auto_create=False,
-        auto_migrate=False
-    )
+    .database(url=f"sqlite:///{DB_FILE.resolve()}", auto_connect=True, auto_create=False, auto_migrate=False)
 )
 
 __all__ = ["workspace"]

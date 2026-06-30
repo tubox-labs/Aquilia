@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import sqlite3
 import random
+import sqlite3
 from pathlib import Path
 
 DB_PATH = Path(__file__).resolve().parent / "techempower.db"
+
 
 def init_db(db_path: Path = DB_PATH):
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -51,13 +52,14 @@ def init_db(db_path: Path = DB_PATH):
         (9, "Do, or do not. There is no try."),
         (10, "May the Force be with you."),
         (11, "Live long and prosper."),
-        (12, "To be or not to be, that is the question.")
+        (12, "To be or not to be, that is the question."),
     ]
     cursor.executemany("INSERT INTO fortune (id, message) VALUES (?, ?)", fortunes)
 
     conn.commit()
     conn.close()
     print(f"Database initialized at {db_path}")
+
 
 if __name__ == "__main__":
     init_db()
