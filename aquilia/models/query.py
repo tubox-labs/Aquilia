@@ -260,6 +260,29 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
 # ── Q (QuerySet) -- Immutable, Chainable, Async-Terminal ─────────────────────
 
 
+class QuerySetDatabaseWrapper:
+    def __init__(self, db: Any, model_name: str):
+        self._wrapped_db = db
+        self._model_name = model_name
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._wrapped_db, name)
+        if callable(attr) and name in ("execute", "fetch_all", "fetch_one", "fetch_val"):
+
+            async def wrapped(*args, **kwargs):
+                from aquilia.db.engine import current_model_var
+
+                token = current_model_var.set(self._model_name)
+                try:
+                    kwargs["model"] = self._model_name
+                    return await attr(*args, **kwargs)
+                finally:
+                    current_model_var.reset(token)
+
+            return wrapped
+        return attr
+
+
 class Q:
     """
     Aquilia QuerySet -- chainable, immutable, async-terminal query builder.
@@ -341,7 +364,7 @@ class Q:
         self._order_clauses: list[str] = []
         self._limit_val: int | None = None
         self._offset_val: int | None = None
-        self._db = db
+        self._db = QuerySetDatabaseWrapper(db, model_cls.__name__)
         self._db_alias: str | None = None
         self._annotations: dict[str, Any] = {}
         self._group_by: list[str] = []

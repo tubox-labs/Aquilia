@@ -11,7 +11,7 @@ from aquilia.typing.middleware import RequestHandler
 
 from .collector import get_collector
 from .config import InspectorConfig
-from .redaction import redact_body, redact_headers
+from .redaction import redact_body, redact_body_keys_recursive, redact_headers
 from .trace import (
     ExceptionNode,
     RequestTrace,
@@ -154,7 +154,10 @@ class InspectorMiddleware(Middleware):
             started_at=time.time(),
             started_monotonic=time.monotonic(),
             request_headers=redact_headers(dict(request.headers), self._config),
-            query_params={k: v for k, v in request.query_params.items()},
+            query_params=redact_body_keys_recursive(
+                {k: v for k, v in request.query_params.items()},
+                self._config.redact_body_keys,
+            ),
             path_params=dict(request.state.get("path_params") or {}),
             app_name=request.state.get("app_name"),
             client_addr=_safe_client_addr(request) if self._config.capture_client_addr else None,

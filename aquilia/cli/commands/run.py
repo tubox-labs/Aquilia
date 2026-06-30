@@ -841,27 +841,24 @@ def run_dev_server(
     validation_errors = _validate_workspace_config(workspace_root, verbose)
     if validation_errors:
         import click
-        click.secho("\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True)
+
+        click.secho(
+            "\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True
+        )
         for error in validation_errors:
             if "Import error" in error:
                 parts = error.split(": ", 1)
                 prefix = parts[0] + ": " if len(parts) > 1 else error
                 detail = parts[1] if len(parts) > 1 else ""
                 click.echo(
-                    click.style("    - ", fg="red", bold=True) +
-                    click.style(prefix, fg="yellow", bold=True) +
-                    click.style(detail, fg="white")
+                    click.style("    - ", fg="red", bold=True)
+                    + click.style(prefix, fg="yellow", bold=True)
+                    + click.style(detail, fg="white")
                 )
             elif "not found" in error or "Cannot read" in error:
-                click.echo(
-                    click.style("    - ", fg="red", bold=True) +
-                    click.style(error, fg="red")
-                )
+                click.echo(click.style("    - ", fg="red", bold=True) + click.style(error, fg="red"))
             else:
-                click.echo(
-                    click.style("    - ", fg="red", bold=True) +
-                    click.style(error, fg="white")
-                )
+                click.echo(click.style("    - ", fg="red", bold=True) + click.style(error, fg="white"))
         click.echo()
         return
 

@@ -309,7 +309,10 @@ class Model(metaclass=ModelMeta):
             from ..db.engine import get_database
 
             db = get_database()
-        return db
+
+        from .query import QuerySetDatabaseWrapper
+
+        return QuerySetDatabaseWrapper(db, cls.__name__)
 
     # ── CRUD API ─────────────────────────────────────────────────────
 

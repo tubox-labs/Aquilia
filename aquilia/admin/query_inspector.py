@@ -18,7 +18,10 @@ import traceback
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from aquilia.inspector.trace import RequestTrace
 
 
 @dataclass
@@ -48,10 +51,17 @@ class QueryRecord:
         return hashlib.sha256(data.encode()).hexdigest()[:12]
 
     def to_dict(self) -> dict[str, Any]:
+        from aquilia.inspector.collector import _COLLECTOR
+        from aquilia.inspector.config import InspectorConfig
+        from aquilia.inspector.redaction import redact_body_keys_recursive
+
+        config = _COLLECTOR._config if _COLLECTOR is not None else InspectorConfig()
+        redacted_params = redact_body_keys_recursive(self.params, config.redact_body_keys) if self.params else None
+
         return {
             "id": self.id,
             "sql": self.sql,
-            "params": repr(self.params) if self.params else None,
+            "params": repr(redacted_params) if redacted_params else None,
             "duration_ms": round(self.duration_ms, 3),
             "rows_affected": self.rows_affected,
             "timestamp": self.timestamp.isoformat(),
@@ -152,6 +162,8 @@ class QueryInspector:
         rows_affected: int = 0,
         model: str = "",
         request_id: str = "",
+        source: str = "",
+        stack_summary: str = "",
     ) -> QueryRecord:
         """
         Record a query execution.
@@ -163,9 +175,8 @@ class QueryInspector:
             rows_affected: Number of rows affected/returned
             model: ORM model name
             request_id: Current request ID for N+1 grouping
-
-        Returns:
-            The created QueryRecord
+            source: Calling code location (file:line)
+            stack_summary: Abbreviated stack trace
         """
         if not request_id:
             try:
@@ -174,25 +185,6 @@ class QueryInspector:
                 request_id = current_trace_id() or ""
             except ImportError:
                 pass
-
-        try:
-            import time
-
-            from aquilia.inspector.trace import Lane, SpanStatus, current_trace
-
-            trace = current_trace()
-            if trace is not None:
-                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
-                trace.add_span(
-                    lane=Lane.DATABASE,
-                    label=sql,
-                    start_offset_ms=max(0.0, now_offset - duration_ms),
-                    duration_ms=duration_ms,
-                    status=SpanStatus.OK,
-                    detail={"model": model or "", "rows": rows_affected},
-                )
-        except Exception:
-            pass
 
         self._counter += 1
 
@@ -213,23 +205,24 @@ class QueryInspector:
 
         is_slow = duration_ms >= self._slow_threshold
 
-        # Extract calling location from stack
-        source = ""
-        stack_summary = ""
-        try:
-            frames = traceback.extract_stack()
-            # Walk up to find the first non-aquilia frame
-            for frame in reversed(frames[:-1]):
-                if "/aquilia/" not in frame.filename and "site-packages" not in frame.filename:
+        # Extract calling location from stack if not provided
+        if not source or not stack_summary:
+            try:
+                frames = traceback.extract_stack()
+                # Walk up to find the first non-aquilia frame
+                for frame in reversed(frames[:-1]):
+                    if "/aquilia/" not in frame.filename and "site-packages" not in frame.filename:
+                        if not source:
+                            source = f"{frame.filename}:{frame.lineno}"
+                        if not stack_summary:
+                            stack_summary = f"{frame.name}() at {frame.filename}:{frame.lineno}"
+                        break
+                if not source and len(frames) > 2:
+                    frame = frames[-3]
                     source = f"{frame.filename}:{frame.lineno}"
                     stack_summary = f"{frame.name}() at {frame.filename}:{frame.lineno}"
-                    break
-            if not source and len(frames) > 2:
-                frame = frames[-3]
-                source = f"{frame.filename}:{frame.lineno}"
-                stack_summary = f"{frame.name}() at {frame.filename}:{frame.lineno}"
-        except Exception:
-            pass
+            except Exception:
+                pass
 
         record = QueryRecord(
             id=f"q-{self._counter:06d}",
@@ -362,6 +355,50 @@ class QueryInspector:
             "slow_query_list": [q.to_dict() for q in self.get_slow_queries(20)],
             "n1_list": [d.to_dict() for d in n1_list],
         }
+
+    def _calculate_fingerprint(self, sql: str, model: str) -> str:
+        data = f"{sql}:{model}"
+        return hashlib.sha256(data.encode()).hexdigest()[:12]
+
+    def on_trace_committed(self, trace: RequestTrace) -> None:
+        """Process a completed RequestTrace to extract and record all database queries."""
+        db_spans = [s for s in trace.spans if s.lane == "database"]
+        if not db_spans:
+            return
+
+        for span in db_spans:
+            sql = span.label
+            detail = span.detail or {}
+            params = detail.get("params")
+            duration_ms = span.duration_ms
+            rows_affected = detail.get("rows", 0)
+            model = detail.get("model", "")
+            source = span.source or ""
+            stack_summary = detail.get("stack_summary", "")
+
+            self.record(
+                sql=sql,
+                params=params,
+                duration_ms=duration_ms,
+                rows_affected=rows_affected,
+                model=model,
+                request_id=trace.trace_id,
+                source=source,
+                stack_summary=stack_summary,
+            )
+
+        # Detect N+1 patterns for this request
+        n1_issues = self.detect_n_plus_one(request_id=trace.trace_id)
+        if n1_issues:
+            # Set trace-level n_plus_one issues
+            trace.n_plus_one = n1_issues
+            # Mark matching spans
+            for issue in n1_issues:
+                for span in db_spans:
+                    fp = self._calculate_fingerprint(span.label, span.detail.get("model", ""))
+                    issue_fp = self._calculate_fingerprint(issue.pattern_sql, issue.model)
+                    if fp == issue_fp:
+                        span.detail["n_plus_one"] = True
 
     def clear(self) -> None:
         """Clear all recorded queries."""

@@ -37,7 +37,13 @@ logger = logging.getLogger("aquilia.db")
 DatabaseError = DatabaseConnectionFault
 
 # Sanitize savepoint names to prevent SQL injection
+import re
+
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+from contextvars import ContextVar
+
+current_model_var: ContextVar[str] = ContextVar("current_model", default="")
 
 _inspector_checked = False
 _inspector_instance = None
@@ -309,8 +315,65 @@ class AquiliaDatabase:
         params: Any,
         duration_ms: float,
         rows_affected: int = 0,
+        model: str = "",
     ) -> None:
-        """Record a query in the admin QueryInspector (if available)."""
+        """Record a database query span in the active trace, or fallback to direct QueryInspector."""
+        try:
+            import time
+            import traceback
+
+            from aquilia.inspector.trace import Lane, SpanStatus, current_trace
+
+            trace = current_trace()
+            if trace is not None:
+                if not model:
+                    model = current_model_var.get()
+
+                # Extract stack trace source and summary
+                source = ""
+                stack_summary = ""
+                try:
+                    frames = traceback.extract_stack()
+                    for frame in reversed(frames[:-1]):
+                        if "/aquilia/" not in frame.filename and "site-packages" not in frame.filename:
+                            source = f"{frame.filename}:{frame.lineno}"
+                            stack_summary = f"{frame.name}() at {frame.filename}:{frame.lineno}"
+                            break
+                    if not source and len(frames) > 2:
+                        frame = frames[-3]
+                        source = f"{frame.filename}:{frame.lineno}"
+                        stack_summary = f"{frame.name}() at {frame.filename}:{frame.lineno}"
+                except Exception:
+                    pass
+
+                # Get collector config for param redaction
+                from aquilia.inspector.collector import _COLLECTOR
+                from aquilia.inspector.config import InspectorConfig
+                from aquilia.inspector.redaction import redact_body_keys_recursive
+
+                config = _COLLECTOR._config if _COLLECTOR is not None else InspectorConfig()
+                redacted_params = redact_body_keys_recursive(params, config.redact_body_keys) if params else None
+
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                trace.add_span(
+                    lane=Lane.DATABASE,
+                    label=sql,
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "model": model or "",
+                        "rows": rows_affected,
+                        "params": redacted_params,
+                        "stack_summary": stack_summary,
+                    },
+                    source=source,
+                )
+                return
+        except Exception:
+            pass
+
+        # Fallback to direct QueryInspector recording when out of request trace
         global _inspector_checked, _inspector_instance
         if not _inspector_checked:
             try:
@@ -323,24 +386,33 @@ class AquiliaDatabase:
 
         if _inspector_instance is not None:
             try:
+                if not model:
+                    model = current_model_var.get()
                 _inspector_instance.record(
                     sql=sql,
                     params=params,
                     duration_ms=duration_ms,
                     rows_affected=rows_affected,
+                    model=model,
                 )
             except Exception:
                 pass
 
     # ── Query execution ──────────────────────────────────────────────
 
-    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
+    async def execute(
+        self,
+        sql: str,
+        params: Sequence[Any] | None = None,
+        model: str = "",
+    ) -> Any:
         """
         Execute a SQL statement.
 
         Args:
             sql: SQL query with ? placeholders (auto-adapted per backend)
             params: Parameter values
+            model: Optional ORM model name
 
         Returns:
             Cursor-like object (exposes lastrowid, rowcount)
@@ -362,6 +434,7 @@ class AquiliaDatabase:
                 params,
                 _dur,
                 rows_affected=getattr(result, "rowcount", 0),
+                model=model,
             )
             return result
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
@@ -374,7 +447,12 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]]) -> None:
+    async def execute_many(
+        self,
+        sql: str,
+        params_list: Sequence[Sequence[Any]],
+        model: str = "",
+    ) -> None:
         """Execute a SQL statement with multiple parameter sets."""
         await self.ensure_connected()
         try:
@@ -390,13 +468,19 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
+    async def fetch_all(
+        self,
+        sql: str,
+        params: Sequence[Any] | None = None,
+        model: str = "",
+    ) -> list[dict[str, Any]]:
         """
         Execute query and return all rows as dicts.
 
         Args:
             sql: SELECT query with ? placeholders
             params: Parameter values
+            model: Optional ORM model name
 
         Returns:
             List of row dicts
@@ -413,7 +497,7 @@ class AquiliaDatabase:
             _t0 = time.perf_counter()
             rows = await self._adapter.fetch_all(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
-            self._notify_inspector(sql, params, _dur, rows_affected=len(rows))
+            self._notify_inspector(sql, params, _dur, rows_affected=len(rows), model=model)
             return rows
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
@@ -425,7 +509,12 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
+    async def fetch_one(
+        self,
+        sql: str,
+        params: Sequence[Any] | None = None,
+        model: str = "",
+    ) -> dict[str, Any] | None:
         """
         Execute query and return first row as dict, or None.
 
@@ -441,7 +530,7 @@ class AquiliaDatabase:
             _t0 = time.perf_counter()
             row = await self._adapter.fetch_one(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
-            self._notify_inspector(sql, params, _dur, rows_affected=1 if row else 0)
+            self._notify_inspector(sql, params, _dur, rows_affected=1 if row else 0, model=model)
             return row
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
@@ -453,7 +542,12 @@ class AquiliaDatabase:
                 metadata={"sql": sql[:200]},
             ) from exc
 
-    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
+    async def fetch_val(
+        self,
+        sql: str,
+        params: Sequence[Any] | None = None,
+        model: str = "",
+    ) -> Any:
         """
         Execute query and return scalar value from first row, first column.
 
@@ -469,7 +563,7 @@ class AquiliaDatabase:
             _t0 = time.perf_counter()
             val = await self._adapter.fetch_val(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
-            self._notify_inspector(sql, params, _dur, rows_affected=1 if val is not None else 0)
+            self._notify_inspector(sql, params, _dur, rows_affected=1 if val is not None else 0, model=model)
             return val
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise

@@ -28,8 +28,9 @@ def redact_body_keys_recursive(data: Any, redact_keys: frozenset[str]) -> Any:
             else:
                 new_dict[k] = redact_body_keys_recursive(v, redact_keys)
         return new_dict
-    elif isinstance(data, list):
-        return [redact_body_keys_recursive(item, redact_keys) for item in data]
+    elif isinstance(data, (list, tuple)):
+        redacted_items = [redact_body_keys_recursive(item, redact_keys) for item in data]
+        return tuple(redacted_items) if isinstance(data, tuple) else redacted_items
     return data
 
 

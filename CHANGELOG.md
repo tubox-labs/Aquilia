@@ -127,6 +127,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Frozen manifest serialization**: Resolved type serialization errors when freezing complex middleware and service list items, and enabled `_register_services` to handle dictionary config items loaded from frozen manifests.
 - **CLI imports reliability**: Injected the workspace root into `sys.path` within `aquilary` CLI handlers, preventing `No module named 'modules'` exceptions during import operations.
 - **Dependency Graph cycle detection fix**: Fixed a silent failure in `aquilia.aquilary.graph.DependencyGraph` where self-loop cycles (a module depending on itself) were not detected by Tarjan's algorithm, resulting in empty or incomplete topological load orders. Added length-matching verification in `topological_sort` and self-loop detection in `find_cycle` to raise `DependencyCycleError` robustly.
+- **Request Inspector Correctness & Unification**:
+  - Unified `QueryInspector` to subscribe to `InspectorCollector` trace completion events instead of being called directly from the database engine, avoiding circular dependencies and coupling.
+  - Fixed query parameter redaction in `InspectorMiddleware` to run incoming query params through a redaction pass.
+  - Fixed SQL bind parameters redaction by adding support for tuples/lists recursion in `redact_body_keys_recursive` and applying it to query records.
+  - Synced default configuration options for `redact_headers` and `redact_body_keys` between `InspectorConfig` and `ConfigLoader`.
+  - Added `"signature"` to the default body keys redaction blocklist.
+  - Fixed ORM model names not being threaded to SQL spans in `db/engine.py` by introducing `current_model_var` and wrapping database connections in `QuerySetDatabaseWrapper`.
+
 
 ## [1.1.2] — 2026-06-12 — "Crimson Gale"
 

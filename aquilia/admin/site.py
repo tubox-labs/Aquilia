@@ -7130,14 +7130,16 @@ class AdminSite:
 
         # ── Snapshot query inspector BEFORE the update ───────────────
         _captured_queries: list = []
+        _trace = None
+        _num_spans_before = 0
         try:
-            from .query_inspector import get_query_inspector
+            from aquilia.inspector.trace import current_trace
 
-            _inspector = get_query_inspector()
-            _qi_before = _inspector._counter
+            _trace = current_trace()
+            if _trace is not None:
+                _num_spans_before = len(_trace.spans)
         except Exception:
-            _inspector = None
-            _qi_before = 0
+            pass
 
         if update_data:
             try:
@@ -7148,13 +7150,32 @@ class AdminSite:
                 raise AdminValidationFault(str(e))
 
         # ── Snapshot query inspector AFTER and capture delta ─────────
-        if _inspector is not None:
+        if _trace is not None:
             try:
-                _qi_after = _inspector._counter
-                if _qi_after > _qi_before:
-                    all_queries = list(_inspector._queries)
-                    # Grab only the queries that were recorded during this update
-                    _captured_queries = [q.to_dict() for q in all_queries if q.id > f"q-{_qi_before:06d}"]
+                db_spans = [s for s in _trace.spans[_num_spans_before:] if s.lane == "database"]
+                _captured_queries = []
+                for idx, s in enumerate(db_spans):
+                    q_id = f"q-{_num_spans_before + idx + 1:06d}"
+                    # Ensure params are represented safely/redacted
+                    raw_params = s.detail.get("params")
+                    _captured_queries.append(
+                        {
+                            "id": q_id,
+                            "sql": s.label,
+                            "params": repr(raw_params) if raw_params else None,
+                            "duration_ms": round(s.duration_ms, 3),
+                            "rows_affected": s.detail.get("rows", 0),
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "explain_plan": s.detail.get("explain_plan", ""),
+                            "source": s.source or "",
+                            "model": s.detail.get("model", ""),
+                            "operation": s.label.strip().split()[0].upper() if s.label else "SELECT",
+                            "is_slow": s.duration_ms >= 100.0,
+                            "stack_summary": s.detail.get("stack_summary", ""),
+                            "fingerprint": "",
+                            "request_id": _trace.trace_id,
+                        }
+                    )
             except Exception:
                 pass
 

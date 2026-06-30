@@ -15,6 +15,12 @@ class InspectorCollector:
 
         self.stream_manager = SSEStreamManager()
         self.subscribe(self.stream_manager.publish_trace)
+        try:
+            from aquilia.admin.query_inspector import get_query_inspector
+
+            self.subscribe(get_query_inspector().on_trace_committed)
+        except ImportError:
+            pass
 
     def commit(self, trace: RequestTrace) -> None:
         # Check if deque is at capacity before appending

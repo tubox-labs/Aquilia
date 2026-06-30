@@ -36,6 +36,7 @@ class InspectorConfig:
                 "credit_card",
                 "card_number",
                 "cvv",
+                "signature",
             }
         )
     )

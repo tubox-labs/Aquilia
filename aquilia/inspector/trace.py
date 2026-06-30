@@ -77,6 +77,7 @@ class RequestTrace:
     exception: ExceptionNode | None = None
     response: ResponseSummary | None = None
     app_name: str | None = None
+    n_plus_one: list[Any] = field(default_factory=list)
 
     @property
     def duration_ms(self) -> float:
@@ -142,6 +143,7 @@ class RequestTrace:
             if self.response
             else None,
             "app_name": self.app_name,
+            "n_plus_one": [d.to_dict() if hasattr(d, "to_dict") else d for d in self.n_plus_one],
         }
 
 
