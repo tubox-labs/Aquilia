@@ -46,6 +46,7 @@ class InspectorConfig:
     admin_page_enabled: bool = True  # whether the admin panel surfaces it (independent of standalone mount)
     replay_enabled: bool = True
     live_stream_enabled: bool = True
+    toolbar_enabled: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "InspectorConfig":
@@ -84,6 +85,7 @@ class InspectorConfig:
             "admin_page_enabled": self.admin_page_enabled,
             "replay_enabled": self.replay_enabled,
             "live_stream_enabled": self.live_stream_enabled,
+            "toolbar_enabled": self.toolbar_enabled,
         }
 
 

@@ -1,28 +1,26 @@
 from __future__ import annotations
 
-import os
-import shutil
-import pytest
-import datetime
 import asyncio
+import shutil
 from pathlib import Path
-import click
-from click.testing import CliRunner
 
+import pytest
+
+from aquilia.cli.commands.model_cmds import (
+    cmd_check,
+    cmd_diff,
+    cmd_flush,
+    cmd_history,
+    cmd_makemigrations,
+    cmd_migrate,
+    cmd_reset,
+    cmd_rollback,
+    cmd_seed,
+)
 from aquilia.db import AquiliaDatabase
 from aquilia.models.base import Model
 from aquilia.models.fields_module import CharField, IntegerField
-from aquilia.cli.commands.model_cmds import (
-    cmd_history,
-    cmd_rollback,
-    cmd_check,
-    cmd_diff,
-    cmd_seed,
-    cmd_reset,
-    cmd_flush,
-    cmd_makemigrations,
-    cmd_migrate,
-)
+
 
 # Define a simple test model class
 class CliTestProduct(Model):

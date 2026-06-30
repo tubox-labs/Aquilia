@@ -859,5 +859,6 @@ class ConfigLoader:
                 "admin_page_enabled": True,
                 "replay_enabled": True,
                 "live_stream_enabled": True,
+                "toolbar_enabled": None,
             },
         )

@@ -1,18 +1,19 @@
-import pytest
 import datetime
 from decimal import Decimal
 from enum import Enum, IntEnum
 from typing import Annotated
+
+import pytest
+
+from aquilia._datastructures import MultiDict
 from aquilia.blueprints import Blueprint
-from aquilia.di import Container
-from aquilia.di.dep import Query, Header, Cookie, Path
-from aquilia.di.request_dag import RequestDAG
+from aquilia.blueprints.integration import bind_blueprint_to_request
+from aquilia.controller import GET, Controller
 from aquilia.controller.engine import ControllerEngine
 from aquilia.controller.factory import ControllerFactory
 from aquilia.controller.metadata import extract_controller_metadata
-from aquilia.controller import Controller, GET
-from aquilia.blueprints.integration import bind_blueprint_to_request
-from aquilia._datastructures import MultiDict
+from aquilia.di import Container
+from aquilia.di.dep import Cookie, Path, Query
 
 
 class StatusEnum(Enum):
@@ -67,7 +68,7 @@ async def test_blueprint_from_query_params():
 
     req = MockRequest(query_params=qps)
     bp = await bind_blueprint_to_request(SearchBlueprint, req)
-    
+
     assert bp.is_sealed() is True
     assert bp.title == "Aquilia Unified"
     assert bp.tags == ["python", "di"]

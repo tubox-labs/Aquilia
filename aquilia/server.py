@@ -587,12 +587,20 @@ class AquiliaServer:
 
         if inspector_enabled:
             from aquilia.inspector.middleware import InspectorMiddleware
+            from aquilia.inspector.toolbar import ToolbarInjectionMiddleware
 
             self.middleware_stack.add(
                 InspectorMiddleware(inspector_config),
                 scope="global",
                 priority=11,
                 name="inspector",
+            )
+
+            self.middleware_stack.add(
+                ToolbarInjectionMiddleware(inspector_config),
+                scope="global",
+                priority=12,
+                name="inspector_toolbar",
             )
 
             from aquilia.inspector.di_listener import InspectorDiagnosticListener

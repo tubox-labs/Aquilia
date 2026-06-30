@@ -1,9 +1,11 @@
 from unittest.mock import MagicMock
+
 import pytest
+
+from aquilia.di import RequestCtx
 from aquilia.middleware import Middleware, MiddlewareStack
 from aquilia.request import Request
 from aquilia.response import Response
-from aquilia.di import RequestCtx
 
 
 # 1. Test Base class inheritance
@@ -68,16 +70,16 @@ async def test_runtime_safeguard_none_return():
             return None
 
     stack.add(BrokenChainMiddleware(), name="broken")
-    
+
     async def final_handler(request, ctx):
         return Response(b"ok")
 
     handler = stack.build_handler(final_handler)
-    
+
     # Executing the handler should raise RuntimeError
     req = MagicMock(spec=Request)
     ctx = MagicMock(spec=RequestCtx)
-    
+
     with pytest.raises(RuntimeError, match="returned None instead of a Response object"):
         await handler(req, ctx)
 
@@ -92,15 +94,15 @@ async def test_runtime_safeguard_invalid_type_return():
             return "not a response object"
 
     stack.add(InvalidReturnMiddleware(), name="invalid")
-    
+
     async def final_handler(request, ctx):
         return Response(b"ok")
 
     handler = stack.build_handler(final_handler)
-    
+
     req = MagicMock(spec=Request)
     ctx = MagicMock(spec=RequestCtx)
-    
+
     with pytest.raises(TypeError, match="returned invalid type 'str' instead of a Response object"):
         await handler(req, ctx)
 
@@ -134,10 +136,10 @@ async def test_execution_order_and_propagation():
         return Response(b"ok")
 
     handler = stack.build_handler(final_handler)
-    
+
     req = MagicMock(spec=Request)
     ctx = MagicMock(spec=RequestCtx)
-    
+
     res = await handler(req, ctx)
     assert res._content == b"ok"
     # mw1 (priority 10) runs before mw2 (priority 20)

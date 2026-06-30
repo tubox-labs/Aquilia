@@ -24,12 +24,12 @@ def test_cli_mcp_subdirectory_resolution(mcp_repo):
 
 def test_cli_mcp_daemon_lifecycle(mcp_repo):
     runner = CliRunner()
-    
+
     # Start background daemon on port 28765
     result = runner.invoke(cli, ["mcp", "start", "--workspace", str(mcp_repo), "--port", "28765"], catch_exceptions=False)
     assert result.exit_code == 0, result.output
     assert "STARTED IN BACKGROUND" in result.output
-    
+
     # Helper to print log on failure
     def run_check(args):
         try:
@@ -45,11 +45,11 @@ def test_cli_mcp_daemon_lifecycle(mcp_repo):
     # Check status
     result = run_check(["mcp", "status", "--workspace", str(mcp_repo)])
     assert "Active (Running)" in result.output
-    
+
     # Inspect
     result = run_check(["mcp", "inspect", "--workspace", str(mcp_repo)])
     assert "RUNNING AQUILIA MCP PROCESSES" in result.output
-    
+
     # Stop background daemon
     result = run_check(["mcp", "stop", "--workspace", str(mcp_repo)])
     assert "stopped successfully" in result.output

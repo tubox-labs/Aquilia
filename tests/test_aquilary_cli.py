@@ -3,6 +3,7 @@ Tests for the Click-based aquilary CLI integration.
 """
 
 from click.testing import CliRunner
+
 from aquilia.cli.__main__ import cli
 
 
