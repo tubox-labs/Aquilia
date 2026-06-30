@@ -577,6 +577,7 @@
 
         .waterfall-lane-op {
             width: 33.333%;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
@@ -584,6 +585,14 @@
             color: var(--on-surface-variant);
             display: flex;
             align-items: center;
+        }
+
+        .truncate {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+            flex: 1;
         }
 
         .waterfall-lane-timeline {
