@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import math
 from pathlib import Path
 
 # Paths
@@ -8,76 +9,86 @@ ASSETS_DIR = BASE_DIR / "assets" / "architecture"
 # Ensure output directory exists
 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
+def get_arrowhead(x1, y1, x2, y2, L=10, W=5):
+    """Calculates an SVG path for an arrowhead pointing from (x1, y1) to (x2, y2)."""
+    dx = x2 - x1
+    dy = y2 - y1
+    d = math.sqrt(dx*dx + dy*dy)
+    if d == 0:
+        return ""
+    ux = dx / d
+    uy = dy / d
+    px = -uy
+    py = ux
+    
+    x_arrow1 = x2 - L * ux + W * px
+    y_arrow1 = y2 - L * uy + W * py
+    x_arrow2 = x2 - L * ux - W * px
+    y_arrow2 = y2 - L * uy - W * py
+    
+    return f"M {x2} {y2} L {x_arrow1} {y_arrow1} L {x_arrow2} {y_arrow2} Z"
+
 # Helper function to generate SVG wrapper
 def get_svg_wrapper(width, height, title, content):
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
   <defs>
-    <!-- Drop Shadow Filter -->
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
     </filter>
     
-    <!-- Accent Gradients -->
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
     <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0ea5e9" />
-      <stop offset="100%" stop-color="#38bdf8" />
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
     </linearGradient>
     <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#34d399" />
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
     </linearGradient>
     <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed" />
-      <stop offset="100%" stop-color="#a78bfa" />
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
     </linearGradient>
     <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="100%" stop-color="#fb7185" />
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
     </linearGradient>
     <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#475569" />
-      <stop offset="100%" stop-color="#64748b" />
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
     </linearGradient>
     <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
     </linearGradient>
-
-    <!-- Arrow Markers -->
-    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
-    </marker>
-    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
-    </marker>
-    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
-    </marker>
   </defs>
 
   <style>
-    .bg {{ fill: #070a13; rx: 12px; }}
-    .border-stroke {{ stroke: #1e293b; stroke-width: 1.5; fill: none; }}
-    .title {{ font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }}
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg {{ fill: #f9fafb; rx: 12px; }}
+    .border-stroke {{ stroke: #cbd5e1; stroke-width: 1.5; fill: none; }}
+    .title {{ font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }}
     
     /* Card Styles */
-    .card-bg {{ fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }}
-    .card-bg:hover {{ stroke: #38bdf8; }}
-    .node-text-title {{ font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }}
-    .node-text-desc {{ font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }}
+    .card-bg {{ stroke: #1e293b; stroke-width: 2; rx: 6px; }}
+    .node-text-title {{ font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }}
+    .node-text-desc {{ font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }}
     
     /* Group Styles */
-    .group-rect {{ rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }}
-    .group-label {{ font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }}
+    .group-rect {{ rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }}
+    .group-label {{ font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }}
     
     /* Connection lines */
-    .connection-line {{ fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }}
-    .connection-dashed {{ fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }}
-    .connection-error {{ fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }}
+    .connection-line {{ fill: none; stroke: #1e293b; stroke-width: 2.2; }}
+    .connection-dashed {{ fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }}
+    .connection-error {{ fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }}
     
     /* Badges */
-    .badge-rect {{ rx: 4px; }}
-    .badge-text {{ font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }}
+    .badge-rect {{ rx: 4px; fill: #334155; }}
+    .badge-text {{ font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }}
   </style>
 
   <rect width="{width}" height="{height}" class="bg" />
@@ -92,12 +103,17 @@ def get_svg_wrapper(width, height, title, content):
 </svg>"""
 
 def create_node(x, y, w, h, title, desc, gradient="slateGrad", meta=""):
+    title = title.replace("&", "&amp;")
+    desc = desc.replace("&", "&amp;")
+    meta = meta.replace("&", "&amp;")
     badge_html = ""
     if meta:
-        badge_w = len(meta) * 6 + 10
+        badge_w = len(meta) * 6 + 12
+        bx = x + w - badge_w - 16
+        by = y + 14
         badge_html = f"""
-    <rect class="badge-rect" x="{x + 16}" y="{y + h - 22}" width="{badge_w}" height="14" fill="url(#{gradient})" />
-    <text class="badge-text" x="{x + 16 + badge_w/2}" y="{y + h - 12}" text-anchor="middle">{meta}</text>
+    <rect class="badge-rect" x="{bx}" y="{by}" width="{badge_w}" height="14" />
+    <text class="badge-text" x="{bx + badge_w/2}" y="{by + 10}" text-anchor="middle">{meta}</text>
         """
     desc_y_start = y + 42
     desc_lines = desc.split("\n")
@@ -108,10 +124,7 @@ def create_node(x, y, w, h, title, desc, gradient="slateGrad", meta=""):
     return f"""
   <g>
     <!-- Card Body -->
-    <rect x="{x}" y="{y}" width="{w}" height="{h}" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="{x}" y="{y}" width="4" height="{h}" rx="2" fill="url(#{gradient})" />
+    <rect x="{x}" y="{y}" width="{w}" height="{h}" class="card-bg" fill="url(#{gradient})" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="{x + 16}" y="{y + 24}" class="node-text-title">{title}</text>
@@ -124,23 +137,36 @@ def create_node(x, y, w, h, title, desc, gradient="slateGrad", meta=""):
   </g>"""
 
 def create_group(x, y, w, h, label):
+    label = label.replace("&", "&amp;")
     return f"""
   <g>
-    <rect x="{x}" y="{y}" width="{w}" height="{h}" class="group-rect" />
+    <rect x="{x}" y="{y}" width="{w}" height="{h}" class="group-rect" filter="url(#handdrawn)" />
     <text x="{x + 15}" y="{y - 8}" class="group-label">{label.upper()}</text>
   </g>"""
 
 def draw_arrow(x1, y1, x2, y2, label="", style="connection-line"):
+    label = label.replace("&", "&amp;")
     label_html = ""
     if label:
         lx = (x1 + x2) / 2
         ly = (y1 + y2) / 2 - 8
-        label_html = f'<text x="{lx}" y="{ly}" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10px" font-weight="600" fill="#94a3b8">{label}</text>'
+        label_html = f'<text x="{lx}" y="{ly}" text-anchor="middle" font-family="\'Architects Daughter\', \'Comic Sans MS\', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">{label}</text>'
     
+    fill_color = "#1e293b"
+    if "muted" in style or "dashed" in style:
+        fill_color = "#475569"
+    elif "error" in style:
+        fill_color = "#e11d48"
+        
     if abs(x1 - x2) > 40 and abs(y1 - y2) > 40:
-        return f'<path d="M {x1} {y1} L {(x1+x2)/2} {y1} L {(x1+x2)/2} {y2} L {x2} {y2}" class="{style}" />{label_html}'
-    
-    return f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" class="{style}" />{label_html}'
+        arrow_head_path = get_arrowhead((x1+x2)/2, y2, x2, y2)
+        line_path = f'<path d="M {x1} {y1} L {(x1+x2)/2} {y1} L {(x1+x2)/2} {y2} L {x2} {y2}" class="{style}" filter="url(#handdrawn)" />'
+    else:
+        arrow_head_path = get_arrowhead(x1, y1, x2, y2)
+        line_path = f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" class="{style}" filter="url(#handdrawn)" />'
+        
+    arrow_head_svg = f'<path d="{arrow_head_path}" fill="{fill_color}" stroke="{fill_color}" stroke-width="1" filter="url(#handdrawn)" />'
+    return f"{line_path}{arrow_head_svg}{label_html}"
 
 
 # 1. High-Level Architecture
@@ -373,17 +399,30 @@ with open(ASSETS_DIR / "versioning.svg", "w") as f:
 
 # 11. Lifecycle Architecture
 lifecycle_content = "\n".join([
-    create_node(30, 140, 240, 95, "ASGI Startup (Lifespan)", "Invoked by ASGI server;\nloads AppManifest;\nstarts boot orchestration", "blueGrad", "STARTUP"),
-    create_node(310, 140, 240, 95, "Subsystem Init (Lifecycle)", "Initializes DB connections,\nCache backends, Storage,\nOTel tracer, Task workers", "slateGrad", "INITIALIZATION"),
-    create_node(590, 140, 240, 95, "Request Context Hooks", "Executes pre-request hooks;\nbinds context; resolves\nrequest-scoped DI graphs", "slateGrad", "RUNTIME WORK"),
-    create_node(870, 140, 240, 95, "ASGI Shutdown (Lifespan)", "Invoked on server stop;\ntriggers cleanup hooks;\nfinalizes service pools", "roseGrad", "SHUTDOWN"),
+    create_group(15, 75, 1315, 165, "Startup and Orchestration Flow"),
+    create_node(30, 100, 280, 120, "1. ASGI Lifespan Startup", "Uvicorn triggers 'lifespan.startup'\nInit LifecycleCoordinator\nEmits STARTING event", "blueGrad", "ASGI START"),
+    create_node(360, 100, 280, 120, "2. Runtime Discovery", "Loads global workspace.py config\nPackageScanner imports manifests\nRegisters AppContexts dynamically", "slateGrad", "DISCOVERY"),
+    create_node(690, 100, 280, 120, "3. DI Graph & Wiring", "Builds dependency container\nTopological sort of apps\nChecks for cyclic dependencies", "slateGrad", "DI CONTAINER"),
+    create_node(1020, 100, 280, 120, "4. App Initialization", "Runs global on_startup hook\nStarts app DI containers\nRuns app-level startup hooks", "emeraldGrad", "READY"),
 
-    draw_arrow(270, 185, 310, 185),
-    draw_arrow(550, 185, 590, 185),
-    draw_arrow(830, 185, 870, 185)
+    create_group(15, 255, 1315, 165, "Uptime and Teardown Flow"),
+    create_node(1020, 280, 280, 120, "5. Request Lifecycle", "Resolves request-scoped DI\nExecutes pre-request hooks\nFlowPipeline runs route actions", "amberGrad", "TRANSIENT"),
+    create_node(690, 280, 280, 120, "6. Lifespan Shutdown", "Uvicorn triggers 'lifespan.shutdown'\nCoordinator enters STOPPING\nEmits STOPPING event", "roseGrad", "SHUTDOWN"),
+    create_node(360, 280, 280, 120, "7. App Shutdown Hooks", "Runs app on_shutdown in reverse\nTears down app DI containers\nRuns global on_shutdown", "roseGrad", "CLEANUP"),
+    create_node(30, 280, 280, 120, "8. Server Stopped", "Tears down global resources\nFlushes background tasks\nSends lifespan.shutdown.complete", "roseGrad", "STOPPED"),
+
+    draw_arrow(310, 160, 360, 160),
+    draw_arrow(640, 160, 690, 160),
+    draw_arrow(970, 160, 1020, 160),
+    
+    draw_arrow(1160, 220, 1160, 280, "Uptime / HTTP Sockets"),
+    
+    draw_arrow(1020, 340, 970, 340),
+    draw_arrow(690, 340, 640, 340),
+    draw_arrow(360, 340, 310, 340)
 ])
 with open(ASSETS_DIR / "lifecycle.svg", "w") as f:
-    f.write(get_svg_wrapper(1140, 270, "Aquilia Lifespan and Hook Orchestration", lifecycle_content))
+    f.write(get_svg_wrapper(1360, 480, "Aquilia Lifespan and Hook Orchestration Flow", lifecycle_content))
 
 
 # 12. Complete System Architecture

@@ -1,162 +1,223 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1140 270" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1360 480" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
   <defs>
-    <!-- Drop Shadow Filter -->
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
     </filter>
     
-    <!-- Accent Gradients -->
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
     <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0ea5e9" />
-      <stop offset="100%" stop-color="#38bdf8" />
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
     </linearGradient>
     <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#34d399" />
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
     </linearGradient>
     <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed" />
-      <stop offset="100%" stop-color="#a78bfa" />
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
     </linearGradient>
     <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="100%" stop-color="#fb7185" />
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
     </linearGradient>
     <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#475569" />
-      <stop offset="100%" stop-color="#64748b" />
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
     </linearGradient>
     <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
     </linearGradient>
-
-    <!-- Arrow Markers -->
-    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
-    </marker>
-    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
-    </marker>
-    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
-    </marker>
   </defs>
 
   <style>
-    .bg { fill: #070a13; rx: 12px; }
-    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
-    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg { fill: #f9fafb; rx: 12px; }
+    .border-stroke { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
+    .title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }
     
     /* Card Styles */
-    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
-    .card-bg:hover { stroke: #38bdf8; }
-    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
-    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .card-bg { stroke: #1e293b; stroke-width: 2; rx: 6px; }
+    .node-text-title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .node-text-desc { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }
     
     /* Group Styles */
-    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
-    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    .group-rect { rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }
+    .group-label { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }
     
     /* Connection lines */
-    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
-    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
-    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    .connection-line { fill: none; stroke: #1e293b; stroke-width: 2.2; }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }
+    .connection-error { fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }
     
     /* Badges */
-    .badge-rect { rx: 4px; }
-    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+    .badge-rect { rx: 4px; fill: #334155; }
+    .badge-text { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
   </style>
 
-  <rect width="1140" height="270" class="bg" />
-  <rect width="1138" height="268" x="1" y="1" class="border-stroke" />
+  <rect width="1360" height="480" class="bg" />
+  <rect width="1358" height="478" x="1" y="1" class="border-stroke" />
   
   <!-- Title and Subtitle Block -->
   <g transform="translate(30, 40)">
-    <text x="0" y="0" class="title">Aquilia Lifespan and Hook Orchestration</text>
+    <text x="0" y="0" class="title">Aquilia Lifespan and Hook Orchestration Flow</text>
   </g>
   
   
   <g>
+    <rect x="15" y="75" width="1315" height="165" class="group-rect" filter="url(#handdrawn)" />
+    <text x="30" y="67" class="group-label">STARTUP AND ORCHESTRATION FLOW</text>
+  </g>
+
+  <g>
     <!-- Card Body -->
-    <rect x="30" y="140" width="240" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="30" y="140" width="4" height="95" rx="2" fill="url(#blueGrad)" />
+    <rect x="30" y="100" width="280" height="120" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
-    <text x="46" y="164" class="node-text-title">ASGI Startup (Lifespan)</text>
+    <text x="46" y="124" class="node-text-title">1. ASGI Lifespan Startup</text>
     
     <!-- Description -->
-    <text x="46" y="182" class="node-text-desc">Invoked by ASGI server;</text><text x="46" y="197" class="node-text-desc">loads AppManifest;</text><text x="46" y="212" class="node-text-desc">starts boot orchestration</text>
+    <text x="46" y="142" class="node-text-desc">Uvicorn triggers 'lifespan.startup'</text><text x="46" y="157" class="node-text-desc">Init LifecycleCoordinator</text><text x="46" y="172" class="node-text-desc">Emits STARTING event</text>
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="46" y="213" width="52" height="14" fill="url(#blueGrad)" />
-    <text class="badge-text" x="72.0" y="223" text-anchor="middle">STARTUP</text>
+    <rect class="badge-rect" x="222" y="114" width="72" height="14" />
+    <text class="badge-text" x="258.0" y="124" text-anchor="middle">ASGI START</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="310" y="140" width="240" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="310" y="140" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    <rect x="360" y="100" width="280" height="120" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
-    <text x="326" y="164" class="node-text-title">Subsystem Init (Lifecycle)</text>
+    <text x="376" y="124" class="node-text-title">2. Runtime Discovery</text>
     
     <!-- Description -->
-    <text x="326" y="182" class="node-text-desc">Initializes DB connections,</text><text x="326" y="197" class="node-text-desc">Cache backends, Storage,</text><text x="326" y="212" class="node-text-desc">OTel tracer, Task workers</text>
+    <text x="376" y="142" class="node-text-desc">Loads global workspace.py config</text><text x="376" y="157" class="node-text-desc">PackageScanner imports manifests</text><text x="376" y="172" class="node-text-desc">Registers AppContexts dynamically</text>
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="326" y="213" width="94" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="373.0" y="223" text-anchor="middle">INITIALIZATION</text>
+    <rect class="badge-rect" x="558" y="114" width="66" height="14" />
+    <text class="badge-text" x="591.0" y="124" text-anchor="middle">DISCOVERY</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="590" y="140" width="240" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="590" y="140" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    <rect x="690" y="100" width="280" height="120" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
-    <text x="606" y="164" class="node-text-title">Request Context Hooks</text>
+    <text x="706" y="124" class="node-text-title">3. DI Graph &amp; Wiring</text>
     
     <!-- Description -->
-    <text x="606" y="182" class="node-text-desc">Executes pre-request hooks;</text><text x="606" y="197" class="node-text-desc">binds context; resolves</text><text x="606" y="212" class="node-text-desc">request-scoped DI graphs</text>
+    <text x="706" y="142" class="node-text-desc">Builds dependency container</text><text x="706" y="157" class="node-text-desc">Topological sort of apps</text><text x="706" y="172" class="node-text-desc">Checks for cyclic dependencies</text>
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="606" y="213" width="82" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="647.0" y="223" text-anchor="middle">RUNTIME WORK</text>
+    <rect class="badge-rect" x="870" y="114" width="84" height="14" />
+    <text class="badge-text" x="912.0" y="124" text-anchor="middle">DI CONTAINER</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="870" y="140" width="240" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="870" y="140" width="4" height="95" rx="2" fill="url(#roseGrad)" />
+    <rect x="1020" y="100" width="280" height="120" class="card-bg" fill="url(#emeraldGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
-    <text x="886" y="164" class="node-text-title">ASGI Shutdown (Lifespan)</text>
+    <text x="1036" y="124" class="node-text-title">4. App Initialization</text>
     
     <!-- Description -->
-    <text x="886" y="182" class="node-text-desc">Invoked on server stop;</text><text x="886" y="197" class="node-text-desc">triggers cleanup hooks;</text><text x="886" y="212" class="node-text-desc">finalizes service pools</text>
+    <text x="1036" y="142" class="node-text-desc">Runs global on_startup hook</text><text x="1036" y="157" class="node-text-desc">Starts app DI containers</text><text x="1036" y="172" class="node-text-desc">Runs app-level startup hooks</text>
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="886" y="213" width="58" height="14" fill="url(#roseGrad)" />
-    <text class="badge-text" x="915.0" y="223" text-anchor="middle">SHUTDOWN</text>
+    <rect class="badge-rect" x="1242" y="114" width="42" height="14" />
+    <text class="badge-text" x="1263.0" y="124" text-anchor="middle">READY</text>
         
   </g>
-<line x1="270" y1="185" x2="310" y2="185" class="connection-line" />
-<line x1="550" y1="185" x2="590" y2="185" class="connection-line" />
-<line x1="830" y1="185" x2="870" y2="185" class="connection-line" />
+
+  <g>
+    <rect x="15" y="255" width="1315" height="165" class="group-rect" filter="url(#handdrawn)" />
+    <text x="30" y="247" class="group-label">UPTIME AND TEARDOWN FLOW</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1020" y="280" width="280" height="120" class="card-bg" fill="url(#amberGrad)" filter="url(#handdrawn)" />
+    
+    <!-- Title -->
+    <text x="1036" y="304" class="node-text-title">5. Request Lifecycle</text>
+    
+    <!-- Description -->
+    <text x="1036" y="322" class="node-text-desc">Resolves request-scoped DI</text><text x="1036" y="337" class="node-text-desc">Executes pre-request hooks</text><text x="1036" y="352" class="node-text-desc">FlowPipeline runs route actions</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1218" y="294" width="66" height="14" />
+    <text class="badge-text" x="1251.0" y="304" text-anchor="middle">TRANSIENT</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="690" y="280" width="280" height="120" class="card-bg" fill="url(#roseGrad)" filter="url(#handdrawn)" />
+    
+    <!-- Title -->
+    <text x="706" y="304" class="node-text-title">6. Lifespan Shutdown</text>
+    
+    <!-- Description -->
+    <text x="706" y="322" class="node-text-desc">Uvicorn triggers 'lifespan.shutdown'</text><text x="706" y="337" class="node-text-desc">Coordinator enters STOPPING</text><text x="706" y="352" class="node-text-desc">Emits STOPPING event</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="894" y="294" width="60" height="14" />
+    <text class="badge-text" x="924.0" y="304" text-anchor="middle">SHUTDOWN</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="360" y="280" width="280" height="120" class="card-bg" fill="url(#roseGrad)" filter="url(#handdrawn)" />
+    
+    <!-- Title -->
+    <text x="376" y="304" class="node-text-title">7. App Shutdown Hooks</text>
+    
+    <!-- Description -->
+    <text x="376" y="322" class="node-text-desc">Runs app on_shutdown in reverse</text><text x="376" y="337" class="node-text-desc">Tears down app DI containers</text><text x="376" y="352" class="node-text-desc">Runs global on_shutdown</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="570" y="294" width="54" height="14" />
+    <text class="badge-text" x="597.0" y="304" text-anchor="middle">CLEANUP</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="280" width="280" height="120" class="card-bg" fill="url(#roseGrad)" filter="url(#handdrawn)" />
+    
+    <!-- Title -->
+    <text x="46" y="304" class="node-text-title">8. Server Stopped</text>
+    
+    <!-- Description -->
+    <text x="46" y="322" class="node-text-desc">Tears down global resources</text><text x="46" y="337" class="node-text-desc">Flushes background tasks</text><text x="46" y="352" class="node-text-desc">Sends lifespan.shutdown.complete</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="240" y="294" width="54" height="14" />
+    <text class="badge-text" x="267.0" y="304" text-anchor="middle">STOPPED</text>
+        
+  </g>
+<line x1="310" y1="160" x2="360" y2="160" class="connection-line" filter="url(#handdrawn)" /><path d="M 360 160 L 350.0 165.0 L 350.0 155.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="640" y1="160" x2="690" y2="160" class="connection-line" filter="url(#handdrawn)" /><path d="M 690 160 L 680.0 165.0 L 680.0 155.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="970" y1="160" x2="1020" y2="160" class="connection-line" filter="url(#handdrawn)" /><path d="M 1020 160 L 1010.0 165.0 L 1010.0 155.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="1160" y1="220" x2="1160" y2="280" class="connection-line" filter="url(#handdrawn)" /><path d="M 1160 280 L 1155.0 270.0 L 1165.0 270.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" /><text x="1160.0" y="242.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Uptime / HTTP Sockets</text>
+<line x1="1020" y1="340" x2="970" y2="340" class="connection-line" filter="url(#handdrawn)" /><path d="M 970 340 L 980.0 335.0 L 980.0 345.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="690" y1="340" x2="640" y2="340" class="connection-line" filter="url(#handdrawn)" /><path d="M 640 340 L 650.0 335.0 L 650.0 345.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="360" y1="340" x2="310" y2="340" class="connection-line" filter="url(#handdrawn)" /><path d="M 310 340 L 320.0 335.0 L 320.0 345.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
 </svg>

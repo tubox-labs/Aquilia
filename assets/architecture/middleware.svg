@@ -1,71 +1,62 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 330" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
   <defs>
-    <!-- Drop Shadow Filter -->
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
     </filter>
     
-    <!-- Accent Gradients -->
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
     <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0ea5e9" />
-      <stop offset="100%" stop-color="#38bdf8" />
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
     </linearGradient>
     <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#34d399" />
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
     </linearGradient>
     <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed" />
-      <stop offset="100%" stop-color="#a78bfa" />
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
     </linearGradient>
     <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="100%" stop-color="#fb7185" />
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
     </linearGradient>
     <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#475569" />
-      <stop offset="100%" stop-color="#64748b" />
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
     </linearGradient>
     <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
     </linearGradient>
-
-    <!-- Arrow Markers -->
-    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
-    </marker>
-    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
-    </marker>
-    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
-    </marker>
   </defs>
 
   <style>
-    .bg { fill: #070a13; rx: 12px; }
-    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
-    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg { fill: #f9fafb; rx: 12px; }
+    .border-stroke { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
+    .title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }
     
     /* Card Styles */
-    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
-    .card-bg:hover { stroke: #38bdf8; }
-    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
-    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .card-bg { stroke: #1e293b; stroke-width: 2; rx: 6px; }
+    .node-text-title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .node-text-desc { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }
     
     /* Group Styles */
-    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
-    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    .group-rect { rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }
+    .group-label { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }
     
     /* Connection lines */
-    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
-    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
-    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    .connection-line { fill: none; stroke: #1e293b; stroke-width: 2.2; }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }
+    .connection-error { fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }
     
     /* Badges */
-    .badge-rect { rx: 4px; }
-    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+    .badge-rect { rx: 4px; fill: #334155; }
+    .badge-text { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
   </style>
 
   <rect width="1460" height="330" class="bg" />
@@ -79,10 +70,7 @@
   
   <g>
     <!-- Card Body -->
-    <rect x="20" y="160" width="150" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="20" y="160" width="4" height="90" rx="2" fill="url(#blueGrad)" />
+    <rect x="20" y="160" width="150" height="90" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="36" y="184" class="node-text-title">ASGI Request</text>
@@ -92,22 +80,19 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="36" y="228" width="58" height="14" fill="url(#blueGrad)" />
-    <text class="badge-text" x="65.0" y="238" text-anchor="middle">INCOMING</text>
+    <rect class="badge-rect" x="94" y="174" width="60" height="14" />
+    <text class="badge-text" x="124.0" y="184" text-anchor="middle">INCOMING</text>
         
   </g>
 
   <g>
-    <rect x="190" y="100" width="900" height="200" class="group-rect" />
+    <rect x="190" y="100" width="900" height="200" class="group-rect" filter="url(#handdrawn)" />
     <text x="205" y="92" class="group-label">MIDDLEWARE EXECUTION PIPELINE</text>
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="205" y="140" width="160" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="205" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    <rect x="205" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="221" y="164" class="node-text-title">CORS / CSP Guard</text>
@@ -117,17 +102,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="221" y="208" width="52" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="247.0" y="218" text-anchor="middle">PRIO 10</text>
+    <rect class="badge-rect" x="295" y="154" width="54" height="14" />
+    <text class="badge-text" x="322.0" y="164" text-anchor="middle">PRIO 10</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="380" y="140" width="160" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="380" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    <rect x="380" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="396" y="164" class="node-text-title">Request ID</text>
@@ -137,17 +119,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="396" y="208" width="52" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="422.0" y="218" text-anchor="middle">PRIO 20</text>
+    <rect class="badge-rect" x="470" y="154" width="54" height="14" />
+    <text class="badge-text" x="497.0" y="164" text-anchor="middle">PRIO 20</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="555" y="140" width="160" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="555" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    <rect x="555" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="571" y="164" class="node-text-title">Session Manager</text>
@@ -157,17 +136,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="571" y="208" width="52" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="597.0" y="218" text-anchor="middle">PRIO 30</text>
+    <rect class="badge-rect" x="645" y="154" width="54" height="14" />
+    <text class="badge-text" x="672.0" y="164" text-anchor="middle">PRIO 30</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="730" y="140" width="160" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="730" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    <rect x="730" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="746" y="164" class="node-text-title">Auth Guard</text>
@@ -177,17 +153,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="746" y="208" width="52" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="772.0" y="218" text-anchor="middle">PRIO 40</text>
+    <rect class="badge-rect" x="820" y="154" width="54" height="14" />
+    <text class="badge-text" x="847.0" y="164" text-anchor="middle">PRIO 40</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="905" y="140" width="160" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="905" y="140" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    <rect x="905" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="921" y="164" class="node-text-title">Telemetry Tracer</text>
@@ -197,17 +170,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="921" y="208" width="52" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="947.0" y="218" text-anchor="middle">PRIO 50</text>
+    <rect class="badge-rect" x="995" y="154" width="54" height="14" />
+    <text class="badge-text" x="1022.0" y="164" text-anchor="middle">PRIO 50</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="1110" y="160" width="160" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="1110" y="160" width="4" height="90" rx="2" fill="url(#emeraldGrad)" />
+    <rect x="1110" y="160" width="160" height="90" class="card-bg" fill="url(#emeraldGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="1126" y="184" class="node-text-title">Controller Router</text>
@@ -217,17 +187,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="1126" y="228" width="70" height="14" fill="url(#emeraldGrad)" />
-    <text class="badge-text" x="1161.0" y="238" text-anchor="middle">CONTROLLER</text>
+    <rect class="badge-rect" x="1182" y="174" width="72" height="14" />
+    <text class="badge-text" x="1218.0" y="184" text-anchor="middle">CONTROLLER</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="1290" y="160" width="150" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="1290" y="160" width="4" height="90" rx="2" fill="url(#blueGrad)" />
+    <rect x="1290" y="160" width="150" height="90" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="1306" y="184" class="node-text-title">ASGI Response</text>
@@ -237,21 +204,21 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="1306" y="228" width="58" height="14" fill="url(#blueGrad)" />
-    <text class="badge-text" x="1335.0" y="238" text-anchor="middle">OUTGOING</text>
+    <rect class="badge-rect" x="1364" y="174" width="60" height="14" />
+    <text class="badge-text" x="1394.0" y="184" text-anchor="middle">OUTGOING</text>
         
   </g>
-<line x1="170" y1="185" x2="205" y2="185" class="connection-line" />
-<line x1="365" y1="185" x2="380" y2="185" class="connection-line" />
-<line x1="540" y1="185" x2="555" y2="185" class="connection-line" />
-<line x1="715" y1="185" x2="730" y2="185" class="connection-line" />
-<line x1="890" y1="185" x2="905" y2="185" class="connection-line" />
-<line x1="1065" y1="185" x2="1110" y2="185" class="connection-line" />
-<line x1="1270" y1="185" x2="1290" y2="185" class="connection-line" />
-<line x1="1110" y1="225" x2="1065" y2="225" class="connection-dashed" />
-<line x1="905" y1="225" x2="890" y2="225" class="connection-dashed" />
-<line x1="730" y1="225" x2="715" y2="225" class="connection-dashed" />
-<line x1="555" y1="225" x2="540" y2="225" class="connection-dashed" />
-<line x1="380" y1="225" x2="365" y2="225" class="connection-dashed" />
-<line x1="205" y1="225" x2="170" y2="225" class="connection-dashed" />
+<line x1="170" y1="185" x2="205" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 205 185 L 195.0 190.0 L 195.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="365" y1="185" x2="380" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 380 185 L 370.0 190.0 L 370.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="540" y1="185" x2="555" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 555 185 L 545.0 190.0 L 545.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="715" y1="185" x2="730" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 730 185 L 720.0 190.0 L 720.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="890" y1="185" x2="905" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 905 185 L 895.0 190.0 L 895.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="1065" y1="185" x2="1110" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 1110 185 L 1100.0 190.0 L 1100.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="1270" y1="185" x2="1290" y2="185" class="connection-line" filter="url(#handdrawn)" /><path d="M 1290 185 L 1280.0 190.0 L 1280.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="1110" y1="225" x2="1065" y2="225" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 1065 225 L 1075.0 220.0 L 1075.0 230.0 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="905" y1="225" x2="890" y2="225" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 890 225 L 900.0 220.0 L 900.0 230.0 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="730" y1="225" x2="715" y2="225" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 715 225 L 725.0 220.0 L 725.0 230.0 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="555" y1="225" x2="540" y2="225" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 540 225 L 550.0 220.0 L 550.0 230.0 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="380" y1="225" x2="365" y2="225" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 365 225 L 375.0 220.0 L 375.0 230.0 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="205" y1="225" x2="170" y2="225" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 170 225 L 180.0 220.0 L 180.0 230.0 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" />
 </svg>

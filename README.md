@@ -17,6 +17,16 @@ Aquilia is the Python framework for teams building production APIs. Write contro
 
 You do not touch most framework-managed files. Write your controllers and services. Run `aq serve`. Aquilia handles routing, discovery, dependency injection, manifests, runtime orchestration, Docker integration, deployment tooling, and application wiring automatically.
 
+***
+
+## Architecture
+
+Decouple your application code from runtime orchestration. The system is split into three main components: developer space, framework engine, and infrastructure templates.
+
+![Aquilia High-Level System Architecture](assets/architecture/high_level.svg)
+
+***
+
 ### Who is it for?
 Aquilia is built for backend engineers and product teams who have outgrown the ad-hoc patterns of small web libraries. If you are tired of writing routing boilerplate, manually stitching dependency trees, wrestling with ASGI lifespans, or maintaining custom Dockerfiles, Aquilia provides a clean, self-organizing architecture.
 
@@ -251,14 +261,6 @@ Aquiliary is the central app registry. It maps endpoints, validates route overla
 
 ### Lifecycle System
 The lifecycle manager runs hooks during application startup, runtime requests, and application shutdown, ensuring database pools and cache clients are properly closed.
-
-***
-
-## Architecture
-
-Decouple your application code from runtime orchestration. The system is split into three main components: developer space, framework engine, and infrastructure templates.
-
-![Aquilia High-Level System Architecture](assets/architecture/high_level.svg)
 
 ***
 

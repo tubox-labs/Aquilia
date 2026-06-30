@@ -1,71 +1,62 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 600" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
   <defs>
-    <!-- Drop Shadow Filter -->
-    <filter id="shadow" x="-5%" y="-5%" width="110%" height="115%">
-      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#020617" flood-opacity="0.5"/>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
     </filter>
     
-    <!-- Accent Gradients -->
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
     <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0ea5e9" />
-      <stop offset="100%" stop-color="#38bdf8" />
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
     </linearGradient>
     <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#059669" />
-      <stop offset="100%" stop-color="#34d399" />
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
     </linearGradient>
     <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#7c3aed" />
-      <stop offset="100%" stop-color="#a78bfa" />
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
     </linearGradient>
     <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e11d48" />
-      <stop offset="100%" stop-color="#fb7185" />
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
     </linearGradient>
     <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#475569" />
-      <stop offset="100%" stop-color="#64748b" />
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
     </linearGradient>
     <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#d97706" />
-      <stop offset="100%" stop-color="#f59e0b" />
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
     </linearGradient>
-
-    <!-- Arrow Markers -->
-    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#38bdf8"/>
-    </marker>
-    <marker id="arrowMuted" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
-    </marker>
-    <marker id="arrowRose" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#fb7185"/>
-    </marker>
   </defs>
 
   <style>
-    .bg { fill: #070a13; rx: 12px; }
-    .border-stroke { stroke: #1e293b; stroke-width: 1.5; fill: none; }
-    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 20px; font-weight: 800; fill: #f8fafc; letter-spacing: -0.02em; }
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg { fill: #f9fafb; rx: 12px; }
+    .border-stroke { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
+    .title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }
     
     /* Card Styles */
-    .card-bg { fill: #0f172a; stroke: #1e293b; stroke-width: 1.5; rx: 8px; filter: url(#shadow); transition: stroke 0.2s ease; }
-    .card-bg:hover { stroke: #38bdf8; }
-    .node-text-title { font-family: system-ui, -apple-system, sans-serif; font-size: 13px; font-weight: 700; fill: #f1f5f9; }
-    .node-text-desc { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .card-bg { stroke: #1e293b; stroke-width: 2; rx: 6px; }
+    .node-text-title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .node-text-desc { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }
     
     /* Group Styles */
-    .group-rect { rx: 12px; fill: #090d16; stroke: #1e293b; stroke-dasharray: 6 6; stroke-width: 1.5; }
-    .group-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 700; fill: #475569; letter-spacing: 0.08em; }
+    .group-rect { rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }
+    .group-label { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }
     
     /* Connection lines */
-    .connection-line { fill: none; stroke: #38bdf8; stroke-width: 1.8; marker-end: url(#arrow); }
-    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.5; stroke-dasharray: 4 4; marker-end: url(#arrowMuted); }
-    .connection-error { fill: none; stroke: #fb7185; stroke-width: 1.8; stroke-dasharray: 3 3; marker-end: url(#arrowRose); }
+    .connection-line { fill: none; stroke: #1e293b; stroke-width: 2.2; }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }
+    .connection-error { fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }
     
     /* Badges */
-    .badge-rect { rx: 4px; }
-    .badge-text { font-family: system-ui, -apple-system, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+    .badge-rect { rx: 4px; fill: #334155; }
+    .badge-text { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
   </style>
 
   <rect width="1100" height="600" class="bg" />
@@ -78,16 +69,13 @@
   
   
   <g>
-    <rect x="20" y="90" width="260" height="480" class="group-rect" />
+    <rect x="20" y="90" width="260" height="480" class="group-rect" filter="url(#handdrawn)" />
     <text x="35" y="82" class="group-label">DEVELOPMENT AND CLI SOURCE</text>
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="40" y="120" width="220" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="40" y="120" width="4" height="90" rx="2" fill="url(#slateGrad)" />
+    <rect x="40" y="120" width="220" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="56" y="144" class="node-text-title">Developer Code</text>
@@ -97,17 +85,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="56" y="188" width="40" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="76.0" y="198" text-anchor="middle">INPUT</text>
+    <rect class="badge-rect" x="202" y="134" width="42" height="14" />
+    <text class="badge-text" x="223.0" y="144" text-anchor="middle">INPUT</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="40" y="250" width="220" height="90" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="40" y="250" width="4" height="90" rx="2" fill="url(#blueGrad)" />
+    <rect x="40" y="250" width="220" height="90" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="56" y="274" class="node-text-title">Aquilia CLI (aq)</text>
@@ -117,17 +102,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="56" y="318" width="28" height="14" fill="url(#blueGrad)" />
-    <text class="badge-text" x="70.0" y="328" text-anchor="middle">CLI</text>
+    <rect class="badge-rect" x="214" y="264" width="30" height="14" />
+    <text class="badge-text" x="229.0" y="274" text-anchor="middle">CLI</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="40" y="380" width="220" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="40" y="380" width="4" height="95" rx="2" fill="url(#slateGrad)" />
+    <rect x="40" y="380" width="220" height="95" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="56" y="404" class="node-text-title">Package Scanner</text>
@@ -137,22 +119,19 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="56" y="453" width="64" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="88.0" y="463" text-anchor="middle">DISCOVERY</text>
+    <rect class="badge-rect" x="178" y="394" width="66" height="14" />
+    <text class="badge-text" x="211.0" y="404" text-anchor="middle">DISCOVERY</text>
         
   </g>
 
   <g>
-    <rect x="310" y="90" width="500" height="480" class="group-rect" />
+    <rect x="310" y="90" width="500" height="480" class="group-rect" filter="url(#handdrawn)" />
     <text x="325" y="82" class="group-label">AQUILIA ENGINE (ASGI RUNTIME)</text>
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="330" y="120" width="220" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="330" y="120" width="4" height="95" rx="2" fill="url(#violetGrad)" />
+    <rect x="330" y="120" width="220" height="95" class="card-bg" fill="url(#violetGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="346" y="144" class="node-text-title">AquiliaRuntime</text>
@@ -162,17 +141,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="346" y="193" width="64" height="14" fill="url(#violetGrad)" />
-    <text class="badge-text" x="378.0" y="203" text-anchor="middle">LIFECYCLE</text>
+    <rect class="badge-rect" x="468" y="134" width="66" height="14" />
+    <text class="badge-text" x="501.0" y="144" text-anchor="middle">LIFECYCLE</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="570" y="120" width="220" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="570" y="120" width="4" height="95" rx="2" fill="url(#violetGrad)" />
+    <rect x="570" y="120" width="220" height="95" class="card-bg" fill="url(#violetGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="586" y="144" class="node-text-title">AquiliaServer</text>
@@ -182,17 +158,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="586" y="193" width="76" height="14" fill="url(#violetGrad)" />
-    <text class="badge-text" x="624.0" y="203" text-anchor="middle">CORE SERVER</text>
+    <rect class="badge-rect" x="696" y="134" width="78" height="14" />
+    <text class="badge-text" x="735.0" y="144" text-anchor="middle">CORE SERVER</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="330" y="270" width="220" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="330" y="270" width="4" height="95" rx="2" fill="url(#emeraldGrad)" />
+    <rect x="330" y="270" width="220" height="95" class="card-bg" fill="url(#emeraldGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="346" y="294" class="node-text-title">DI Container</text>
@@ -202,17 +175,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="346" y="343" width="82" height="14" fill="url(#emeraldGrad)" />
-    <text class="badge-text" x="387.0" y="353" text-anchor="middle">DI CONTAINER</text>
+    <rect class="badge-rect" x="450" y="284" width="84" height="14" />
+    <text class="badge-text" x="492.0" y="294" text-anchor="middle">DI CONTAINER</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="570" y="270" width="220" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="570" y="270" width="4" height="95" rx="2" fill="url(#amberGrad)" />
+    <rect x="570" y="270" width="220" height="95" class="card-bg" fill="url(#amberGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="586" y="294" class="node-text-title">Flow Pipeline</text>
@@ -222,17 +192,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="586" y="343" width="58" height="14" fill="url(#amberGrad)" />
-    <text class="badge-text" x="615.0" y="353" text-anchor="middle">PIPELINE</text>
+    <rect class="badge-rect" x="714" y="284" width="60" height="14" />
+    <text class="badge-text" x="744.0" y="294" text-anchor="middle">PIPELINE</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="330" y="410" width="460" height="135" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="330" y="410" width="4" height="135" rx="2" fill="url(#slateGrad)" />
+    <rect x="330" y="410" width="460" height="135" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="346" y="434" class="node-text-title">Subsystem Integrations</text>
@@ -242,22 +209,19 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="346" y="523" width="58" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="375.0" y="533" text-anchor="middle">SERVICES</text>
+    <rect class="badge-rect" x="714" y="424" width="60" height="14" />
+    <text class="badge-text" x="744.0" y="434" text-anchor="middle">SERVICES</text>
         
   </g>
 
   <g>
-    <rect x="840" y="90" width="240" height="480" class="group-rect" />
+    <rect x="840" y="90" width="240" height="480" class="group-rect" filter="url(#handdrawn)" />
     <text x="855" y="82" class="group-label">PRODUCTION INFRASTRUCTURE</text>
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="850" y="120" width="220" height="85" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="850" y="120" width="4" height="85" rx="2" fill="url(#slateGrad)" />
+    <rect x="850" y="120" width="220" height="85" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="866" y="144" class="node-text-title">Docker Integration</text>
@@ -267,17 +231,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="866" y="183" width="40" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="886.0" y="193" text-anchor="middle">INFRA</text>
+    <rect class="badge-rect" x="1012" y="134" width="42" height="14" />
+    <text class="badge-text" x="1033.0" y="144" text-anchor="middle">INFRA</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="850" y="240" width="220" height="85" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="850" y="240" width="4" height="85" rx="2" fill="url(#slateGrad)" />
+    <rect x="850" y="240" width="220" height="85" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="866" y="264" class="node-text-title">Compose Config</text>
@@ -287,17 +248,14 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="866" y="303" width="52" height="14" fill="url(#slateGrad)" />
-    <text class="badge-text" x="892.0" y="313" text-anchor="middle">COMPOSE</text>
+    <rect class="badge-rect" x="1000" y="254" width="54" height="14" />
+    <text class="badge-text" x="1027.0" y="264" text-anchor="middle">COMPOSE</text>
         
   </g>
 
   <g>
     <!-- Card Body -->
-    <rect x="850" y="360" width="220" height="95" class="card-bg" />
-    
-    <!-- Accent Left Line -->
-    <rect x="850" y="360" width="4" height="95" rx="2" fill="url(#blueGrad)" />
+    <rect x="850" y="360" width="220" height="95" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" />
     
     <!-- Title -->
     <text x="866" y="384" class="node-text-title">Render Provider</text>
@@ -307,22 +265,22 @@
     
     <!-- Badge -->
     
-    <rect class="badge-rect" x="866" y="433" width="70" height="14" fill="url(#blueGrad)" />
-    <text class="badge-text" x="901.0" y="443" text-anchor="middle">DEPLOYMENT</text>
+    <rect class="badge-rect" x="982" y="374" width="72" height="14" />
+    <text class="badge-text" x="1018.0" y="384" text-anchor="middle">DEPLOYMENT</text>
         
   </g>
-<line x1="260" y1="165" x2="330" y2="165" class="connection-line" /><text x="295.0" y="157.0" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10px" font-weight="600" fill="#94a3b8">Config and Code</text>
-<line x1="150" y1="210" x2="150" y2="250" class="connection-line" />
-<path d="M 260 295 L 295.0 295 L 295.0 165 L 330 165" class="connection-line" />
-<line x1="150" y1="340" x2="150" y2="380" class="connection-line" />
-<line x1="260" y1="425" x2="330" y2="455" class="connection-dashed" /><text x="295.0" y="432.0" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10px" font-weight="600" fill="#94a3b8">Register modules</text>
-<line x1="550" y1="165" x2="570" y2="165" class="connection-line" />
-<line x1="440" y1="215" x2="440" y2="270" class="connection-line" />
-<line x1="680" y1="215" x2="680" y2="270" class="connection-line" />
-<line x1="550" y1="315" x2="570" y2="315" class="connection-line" /><text x="560.0" y="307.0" text-anchor="middle" font-family="system-ui, sans-serif" font-size="10px" font-weight="600" fill="#94a3b8">Injects</text>
-<line x1="440" y1="365" x2="440" y2="410" class="connection-line" />
-<line x1="680" y1="365" x2="680" y2="410" class="connection-line" />
-<path d="M 790 475 L 820.0 475 L 820.0 410 L 850 410" class="connection-line" />
-<line x1="790" y1="165" x2="850" y2="165" class="connection-line" />
-<line x1="790" y1="280" x2="850" y2="280" class="connection-line" />
+<line x1="260" y1="165" x2="330" y2="165" class="connection-line" filter="url(#handdrawn)" /><path d="M 330 165 L 320.0 170.0 L 320.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" /><text x="295.0" y="157.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Config and Code</text>
+<line x1="150" y1="210" x2="150" y2="250" class="connection-line" filter="url(#handdrawn)" /><path d="M 150 250 L 145.0 240.0 L 155.0 240.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 260 295 L 295.0 295 L 295.0 165 L 330 165" class="connection-line" filter="url(#handdrawn)" /><path d="M 330 165 L 320.0 170.0 L 320.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="150" y1="340" x2="150" y2="380" class="connection-line" filter="url(#handdrawn)" /><path d="M 150 380 L 145.0 370.0 L 155.0 370.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="260" y1="425" x2="330" y2="455" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 330 455 L 318.8389532069236 455.6565321642986 L 322.77814619271527 446.465081864118 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" /><text x="295.0" y="432.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Register modules</text>
+<line x1="550" y1="165" x2="570" y2="165" class="connection-line" filter="url(#handdrawn)" /><path d="M 570 165 L 560.0 170.0 L 560.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="440" y1="215" x2="440" y2="270" class="connection-line" filter="url(#handdrawn)" /><path d="M 440 270 L 435.0 260.0 L 445.0 260.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="680" y1="215" x2="680" y2="270" class="connection-line" filter="url(#handdrawn)" /><path d="M 680 270 L 675.0 260.0 L 685.0 260.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="550" y1="315" x2="570" y2="315" class="connection-line" filter="url(#handdrawn)" /><path d="M 570 315 L 560.0 320.0 L 560.0 310.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" /><text x="560.0" y="307.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Injects</text>
+<line x1="440" y1="365" x2="440" y2="410" class="connection-line" filter="url(#handdrawn)" /><path d="M 440 410 L 435.0 400.0 L 445.0 400.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="680" y1="365" x2="680" y2="410" class="connection-line" filter="url(#handdrawn)" /><path d="M 680 410 L 675.0 400.0 L 685.0 400.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 790 475 L 820.0 475 L 820.0 410 L 850 410" class="connection-line" filter="url(#handdrawn)" /><path d="M 850 410 L 840.0 415.0 L 840.0 405.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="790" y1="165" x2="850" y2="165" class="connection-line" filter="url(#handdrawn)" /><path d="M 850 165 L 840.0 170.0 L 840.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="790" y1="280" x2="850" y2="280" class="connection-line" filter="url(#handdrawn)" /><path d="M 850 280 L 840.0 285.0 L 840.0 275.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
 </svg>
