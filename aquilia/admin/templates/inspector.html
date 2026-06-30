@@ -1635,8 +1635,9 @@
             }
 
             function renderDetails(trace) {
-                const dbCount = trace.spans.filter(s => s.lane === 'database').length;
-                const depCount = trace.spans.filter(s => ['external_http', 'dependency', 'validation', 'effect'].includes(s.lane)).length;
+                const spans = trace.spans || [];
+                const dbCount = spans.filter(s => s.lane === 'database').length;
+                const depCount = spans.filter(s => ['external_http', 'dependency', 'validation', 'effect'].includes(s.lane)).length;
                 const hasException = !!trace.exception;
 
                 if (activeTab === "exception" && !hasException) {
@@ -1669,7 +1670,7 @@
                                 </div>
                                 <div class="details-header-badges" style="margin-top: 4px;">
                                     <span class="status-badge ${statusBadgeClass}">${statusName}</span>
-                                    <span>${trace.duration_ms.toFixed(1)}ms total</span>
+                                    <span>${(trace.duration_ms || 0).toFixed(1)}ms total</span>
                                     <span>IP: ${trace.client_addr || '—'}
                                         ${trace.client_addr ? `<button class="copy-text-btn" data-action="copy-ip" data-value="${trace.client_addr}" title="Copy IP"><svg viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>` : ''}
                                     </span>
@@ -1704,7 +1705,7 @@
                                 <div class="waterfall-header-row">
                                     <div class="waterfall-header-op">Operation</div>
                                     <div class="waterfall-header-timeline waterfall-grid">
-                                        <span class="waterfall-header-timeline-max">${trace.duration_ms.toFixed(1)}ms</span>
+                                        <span class="waterfall-header-timeline-max">${(trace.duration_ms || 0).toFixed(1)}ms</span>
                                     </div>
                                 </div>
                                 <div id="waterfallLanes" class="waterfall-lanes">
@@ -2106,7 +2107,7 @@
                     let listHtml = `<div>`;
                     dbSpans.forEach((s, idx) => {
                         const n1Patterns = trace.n_plus_one || [];
-                        const isN1 = n1Patterns.some(p => p.pattern_sql === s.label || s.label.includes(p.pattern_sql));
+                        const isN1 = n1Patterns.some(p => p && p.pattern_sql && s.label && (p.pattern_sql === s.label || s.label.includes(p.pattern_sql)));
                         let n1Badge = "";
                         if (isN1) {
                             n1Badge = `<span class="badge-n1" style="background-color: var(--rail-orange); color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px;">N+1 Warning</span>`;
