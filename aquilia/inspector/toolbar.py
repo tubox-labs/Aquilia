@@ -289,6 +289,12 @@ __CSS_DESIGN_TOKENS__
         gap: 4px;
         height: 100%;
         align-items: center;
+        overflow-x: auto;
+        white-space: nowrap;
+        max-width: calc(100% - 150px);
+    }
+    .aq-tabs::-webkit-scrollbar {
+        display: none;
     }
 
     .aq-tab-btn {
@@ -460,9 +466,18 @@ __CSS_DESIGN_TOKENS__
             <div class="aq-tabs">
                 <button class="aq-tab-btn active" data-tab="timer">Timer</button>
                 <button class="aq-tab-btn" data-tab="sql">SQL (__SQL_COUNT__)</button>
+                <button class="aq-tab-btn" data-tab="versions">Versions</button>
+                <button class="aq-tab-btn" data-tab="settings">Settings</button>
+                <button class="aq-tab-btn" data-tab="templates">Templates</button>
+                <button class="aq-tab-btn" data-tab="cache">Cache</button>
+                <button class="aq-tab-btn" data-tab="signals">Signals</button>
+                <button class="aq-tab-btn" data-tab="static">Static</button>
                 <button class="aq-tab-btn" data-tab="request">Request</button>
                 <button class="aq-tab-btn" data-tab="response">Response</button>
                 <button class="aq-tab-btn" data-tab="headers">Headers</button>
+                <button class="aq-tab-btn" data-tab="tasks">Tasks</button>
+                <button class="aq-tab-btn" data-tab="sockets">Sockets</button>
+                <button class="aq-tab-btn" data-tab="mail">Mail</button>
                 <button class="aq-tab-btn" data-tab="redirects" id="aq-redirect-btn" style="display: none;">Redirects (<span id="aq-redirect-count">0</span>)</button>
             </div>
             <button class="aq-close-btn" id="aq-close-btn">&times;</button>
@@ -593,6 +608,24 @@ __CSS_DESIGN_TOKENS__
             renderHeaders();
         } else if (tabName === "redirects") {
             renderRedirects();
+        } else if (tabName === "versions") {
+            renderVersions();
+        } else if (tabName === "settings") {
+            renderSettings();
+        } else if (tabName === "templates") {
+            renderTemplates();
+        } else if (tabName === "cache") {
+            renderCache();
+        } else if (tabName === "signals") {
+            renderSignals();
+        } else if (tabName === "static") {
+            renderStatic();
+        } else if (tabName === "tasks") {
+            renderTasks();
+        } else if (tabName === "sockets") {
+            renderSockets();
+        } else if (tabName === "mail") {
+            renderMail();
         }
     }
 
@@ -831,6 +864,303 @@ __CSS_DESIGN_TOKENS__
                 </tbody>
             </table>
         `;
+        content.innerHTML = html;
+    }
+
+    function renderVersions() {
+        const verSpans = (traceData.spans || []).filter(s => s.lane === 'versions');
+        let rows = "";
+        verSpans.forEach(s => {
+            const detail = s.detail || {};
+            for (const [k, v] of Object.entries(detail)) {
+                rows += `
+                    <tr>
+                        <td style="font-weight: bold; width: 200px;">${escapeHtml(k)}</td>
+                        <td>${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</td>
+                    </tr>
+                `;
+            }
+        });
+        if (!rows) {
+            rows = `<tr><td colspan="2" style="text-align: center; color: var(--aq-text-muted);">No version details recorded.</td></tr>`;
+        }
+        content.innerHTML = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Library/Framework</th>
+                        <th>Version</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function renderSettings() {
+        const setSpans = (traceData.spans || []).filter(s => s.lane === 'settings');
+        let rows = "";
+        setSpans.forEach(s => {
+            const detail = s.detail || {};
+            rows += `
+                <tr>
+                    <td class="aq-mono" style="font-weight: bold; width: 250px;">${escapeHtml(detail.path || s.label)}</td>
+                    <td class="aq-mono">${escapeHtml(detail.value || '')}</td>
+                </tr>
+            `;
+        });
+        if (!rows) {
+            rows = `<tr><td colspan="2" style="text-align: center; color: var(--aq-text-muted);">No settings lookups recorded.</td></tr>`;
+        }
+        content.innerHTML = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Path</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function renderTemplates() {
+        const tmplSpans = (traceData.spans || []).filter(s => s.lane === 'templates');
+        if (tmplSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No template renders recorded.</div>`;
+            return;
+        }
+        let html = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Template Name</th>
+                        <th>Duration</th>
+                        <th>Context Keys</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        tmplSpans.forEach(s => {
+            const detail = s.detail || {};
+            const keys = Array.isArray(detail.context_keys) ? detail.context_keys.join(", ") : "";
+            html += `
+                <tr>
+                    <td style="font-weight: 600;">${escapeHtml(detail.template_name || s.label)}</td>
+                    <td>${s.duration_ms.toFixed(2)} ms</td>
+                    <td style="color: var(--aq-text-secondary); font-size: 11px;">${escapeHtml(keys || 'None')}</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        content.innerHTML = html;
+    }
+
+    function renderCache() {
+        const cacheSpans = (traceData.spans || []).filter(s => s.lane === 'cache');
+        if (cacheSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No cache operations recorded.</div>`;
+            return;
+        }
+        let hits = 0, misses = 0;
+        let rows = "";
+        cacheSpans.forEach(s => {
+            const detail = s.detail || {};
+            const op = detail.op || s.label || "";
+            const hit = detail.hit;
+            if (hit === true) hits++;
+            else if (hit === false) misses++;
+            
+            let statusBadge = "";
+            if (hit === true) statusBadge = `<span class="aq-tab-badge aq-status-success">HIT</span>`;
+            else if (hit === false) statusBadge = `<span class="aq-tab-badge aq-status-error">MISS</span>`;
+
+            rows += `
+                <tr>
+                    <td class="aq-mono">${escapeHtml(op)}</td>
+                    <td class="aq-mono">${escapeHtml(detail.key || '')}</td>
+                    <td>${statusBadge}</td>
+                    <td>${s.duration_ms.toFixed(2)} ms</td>
+                </tr>
+            `;
+        });
+
+        content.innerHTML = `
+            <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                <div style="flex: 1; border: 1px solid var(--aq-border); padding: 8px; border-radius: 4px; background: var(--aq-bg-surface);">
+                    <div style="font-size: 9px; text-transform: uppercase; color: var(--aq-text-muted); font-weight: bold; margin-bottom: 2px;">Hits</div>
+                    <div style="font-size: 16px; font-weight: bold; color: var(--aq-success);">${hits}</div>
+                </div>
+                <div style="flex: 1; border: 1px solid var(--aq-border); padding: 8px; border-radius: 4px; background: var(--aq-bg-surface);">
+                    <div style="font-size: 9px; text-transform: uppercase; color: var(--aq-text-muted); font-weight: bold; margin-bottom: 2px;">Misses</div>
+                    <div style="font-size: 16px; font-weight: bold; color: var(--aq-danger);">${misses}</div>
+                </div>
+            </div>
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Operation</th>
+                        <th>Key</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function renderSignals() {
+        const sigSpans = (traceData.spans || []).filter(s => s.lane === 'signals');
+        if (sigSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No signals triggered during this request.</div>`;
+            return;
+        }
+        let html = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Signal</th>
+                        <th>Sender</th>
+                        <th style="text-align: center;">Receivers</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        sigSpans.forEach(s => {
+            const detail = s.detail || {};
+            html += `
+                <tr>
+                    <td class="aq-mono" style="font-weight: 600;">${escapeHtml(detail.signal || s.label)}</td>
+                    <td class="aq-mono">${escapeHtml(detail.sender || '')}</td>
+                    <td style="text-align: center;">${detail.receivers_count || 0}</td>
+                    <td>${s.duration_ms.toFixed(2)} ms</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        content.innerHTML = html;
+    }
+
+    function renderStatic() {
+        const staticSpans = (traceData.spans || []).filter(s => s.lane === 'static');
+        if (staticSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No static file resolution recorded.</div>`;
+            return;
+        }
+        let html = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Requested Path</th>
+                        <th>Resolved Physical Path</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        staticSpans.forEach(s => {
+            const detail = s.detail || {};
+            html += `
+                <tr>
+                    <td class="aq-mono">${escapeHtml(detail.path || s.label)}</td>
+                    <td>${escapeHtml(detail.resolved_path || 'Not Found')}</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        content.innerHTML = html;
+    }
+
+    function renderTasks() {
+        const taskSpans = (traceData.spans || []).filter(s => s.lane === 'tasks');
+        if (taskSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No background tasks enqueued during this request.</div>`;
+            return;
+        }
+        let html = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Task Name</th>
+                        <th>Task ID</th>
+                        <th>Queue</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        taskSpans.forEach(s => {
+            const detail = s.detail || {};
+            html += `
+                <tr>
+                    <td class="aq-mono" style="font-weight: 600;">${escapeHtml(detail.task_name || s.label)}</td>
+                    <td class="aq-mono">${escapeHtml(detail.task_id || '')}</td>
+                    <td>${escapeHtml(detail.queue || 'default')}</td>
+                    <td>${s.duration_ms.toFixed(2)} ms</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        content.innerHTML = html;
+    }
+
+    function renderSockets() {
+        const sockSpans = (traceData.spans || []).filter(s => s.lane === 'sockets');
+        if (sockSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No WebSocket events recorded.</div>`;
+            return;
+        }
+        let html = `
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th>Event</th>
+                        <th>Message Type</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        sockSpans.forEach(s => {
+            const detail = s.detail || {};
+            html += `
+                <tr>
+                    <td class="aq-mono">${escapeHtml(detail.event || s.label)}</td>
+                    <td>${escapeHtml(detail.message_type || '—')}</td>
+                    <td>${s.duration_ms.toFixed(2)} ms</td>
+                </tr>
+            `;
+        });
+        html += `</tbody></table>`;
+        content.innerHTML = html;
+    }
+
+    function renderMail() {
+        const mailSpans = (traceData.spans || []).filter(s => s.lane === 'mail');
+        if (mailSpans.length === 0) {
+            content.innerHTML = `<div style="color: var(--aq-text-muted);">No emails sent during this request.</div>`;
+            return;
+        }
+        let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        mailSpans.forEach(s => {
+            const detail = s.detail || {};
+            html += `
+                <div style="border: 1px solid var(--aq-border); padding: 10px; border-radius: 4px; background: var(--aq-bg-surface);">
+                    <div style="font-weight: bold; margin-bottom: 2px;">Subject: ${escapeHtml(detail.subject || s.label)}</div>
+                    <div style="font-size: 11px; color: var(--aq-text-secondary); margin-bottom: 4px;">To: ${escapeHtml(detail.to || '')}</div>
+                    <div class="aq-code-block">${escapeHtml(detail.body || '')}</div>
+                </div>
+            `;
+        });
+        html += '</div>';
         content.innerHTML = html;
     }
 })();
