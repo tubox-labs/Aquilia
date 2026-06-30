@@ -145,31 +145,38 @@ class VersionMiddleware(Middleware):
             return build_version_error_response(self._strategy, request, pending_error)
 
         version = self._resolved_version_for(request)
+        if version is None and "_pre_resolved_api_version" in request.state:
+            version = request.state["_pre_resolved_api_version"]
+
         routing_ran = STATE_CONTROLLER_MATCH in request.state
 
+        # Retrieve app_name if routing ran
+        app_name = None
+        match = request.state.get(STATE_CONTROLLER_MATCH)
+        if match is not None:
+            route = getattr(match, "route", None)
+            app_name = getattr(route, "app_name", None)
+
+        local_strat = self._strategy
+        if app_name and hasattr(self._strategy, "_module_strategies"):
+            local_strat = self._strategy._module_strategies.get(app_name, self._strategy)
+
         if version is None:
-            if not self._strategy.is_structural_url_versioning or not routing_ran:
+            if not local_strat.is_structural_url_versioning or not routing_ran:
                 try:
-                    version = self._strategy.resolve(request, check_sunset=False)
+                    version = local_strat.resolve(request, check_sunset=False)
                     request.state[STATE_RESOLVED_VERSION] = version
                 except VersionError as e:
-                    return build_version_error_response(self._strategy, request, e)
+                    return build_version_error_response(local_strat, request, e)
 
         module_sunset_policy = None
         if version is not None:
             request.state["api_version"] = version
             request.state["api_version_str"] = str(version)
             ctx.state["api_version"] = version
-            if not self._strategy.is_structural_url_versioning:
+            if not local_strat.is_structural_url_versioning:
                 if "_original_path" not in request.state:
                     request.state["_original_path"] = request.path
-
-            # Retrieve module-level sunset policy override
-            app_name = None
-            match = request.state.get(STATE_CONTROLLER_MATCH)
-            if match is not None:
-                route = getattr(match, "route", None)
-                app_name = getattr(route, "app_name", None)
 
             if app_name:
                 # 1. Try manifest-level override first
@@ -188,18 +195,18 @@ class VersionMiddleware(Middleware):
 
             path = request.path if hasattr(request, "path") else "/"
             is_neutral = False
-            if hasattr(self._strategy, "is_neutral_path"):
-                is_neutral = self._strategy.is_neutral_path(path)
+            if hasattr(local_strat, "is_neutral_path"):
+                is_neutral = local_strat.is_neutral_path(path)
 
             if not is_neutral:
                 try:
-                    self._strategy.check_sunset(version, sunset_policy=module_sunset_policy)
+                    local_strat.check_sunset(version, sunset_policy=module_sunset_policy)
                 except VersionSunsetError as e:
-                    return build_version_error_response(self._strategy, request, e)
+                    return build_version_error_response(local_strat, request, e)
 
         response = cast("Response", await next_handler(request, ctx))
 
         if version is not None:
-            for key, value in self._strategy.get_response_headers(version, sunset_policy=module_sunset_policy).items():
+            for key, value in local_strat.get_response_headers(version, sunset_policy=module_sunset_policy).items():
                 response.headers[key] = value
         return response

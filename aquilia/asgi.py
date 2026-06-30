@@ -232,29 +232,115 @@ class ASGIAdapter:
         if strategy is None:
             return path_for_match, api_version
 
-        # Skip resolution entirely for structural URL versioning
-        if strategy.is_structural_url_versioning:
-            return path_for_match, None
+        # 1. Retrieve all app contexts
+        app_contexts = []
+        if hasattr(self.server, "runtime") and self.server.runtime and hasattr(self.server.runtime, "meta") and self.server.runtime.meta:
+            app_contexts = getattr(self.server.runtime.meta, "app_contexts", [])
+
+        # 2. Sort app contexts by route_prefix length descending to do longest prefix matching
+        sorted_contexts = sorted(
+            app_contexts,
+            key=lambda ctx: len(ctx.route_prefix or ""),
+            reverse=True
+        )
+
+        matched_context = None
+        matched_strategy = strategy
+        matched_stripped_path = path_for_match
+        matched_version = None
 
         from aquilia.versioning.errors import VersionError
 
-        try:
-            api_version = strategy.resolve(request, check_sunset=False)
-        except VersionError:
-            # Re-raise version errors so handle_http can handle them early
-            raise
-        except Exception:
-            api_version = None
+        for app_ctx in sorted_contexts:
+            app_name = app_ctx.name
+            route_prefix = app_ctx.route_prefix or ""
+
+            # Check if versioning is explicitly disabled for this module
+            module_overrides = getattr(strategy, "_module_versioning_overrides", {})
+            module_conf = module_overrides.get(app_name)
+            if isinstance(module_conf, dict) and not module_conf.get("enabled", True):
+                norm_path = raw_path.rstrip("/")
+                norm_prefix = route_prefix.rstrip("/")
+                if route_prefix and (norm_path == norm_prefix or norm_path.startswith(norm_prefix + "/")):
+                    # It's an unversioned module, so no version matches.
+                    return raw_path, None
+
+            # Get the VersionStrategy for this module
+            module_strategies = getattr(strategy, "_module_strategies", {})
+            local_strat = module_strategies.get(app_name, strategy)
+
+            if local_strat.is_structural_url_versioning:
+                # Structural URL versioning does not require early resolution
+                # but we check if the raw path or matching path format matches this module
+                try:
+                    v = local_strat.resolve(request, check_sunset=False)
+                    stripped = local_strat.strip_version_from_path(request)
+                    if isinstance(stripped, str):
+                        norm_stripped = stripped.rstrip("/")
+                        norm_prefix = route_prefix.rstrip("/")
+                        if route_prefix and (norm_stripped == norm_prefix or norm_stripped.startswith(norm_prefix + "/")):
+                            # Matches this structural url module!
+                            # Structural versioning matches `/v1/...` directly in the trie router,
+                            # so we return raw_path and None as version.
+                            return raw_path, None
+                except VersionError:
+                    norm_raw_path = raw_path.rstrip("/")
+                    norm_prefix = route_prefix.rstrip("/")
+                    if route_prefix and (norm_raw_path == norm_prefix or norm_raw_path.startswith(norm_prefix + "/")):
+                        raise
+                except Exception:
+                    pass
+            else:
+                # Non-structural URL or other strategy (header, query, etc.)
+                norm_raw_path = raw_path.rstrip("/")
+                norm_prefix = route_prefix.rstrip("/")
+                is_module_path = route_prefix and (norm_raw_path == norm_prefix or norm_raw_path.startswith(norm_prefix + "/"))
+
+                try:
+                    # Let's try to resolve version and strip it under this module's strategy
+                    v = local_strat.resolve(request, check_sunset=False)
+                    stripped = local_strat.strip_version_from_path(request)
+                    match_path = stripped if isinstance(stripped, str) else raw_path
+                    norm_stripped = match_path.rstrip("/")
+                    norm_prefix = route_prefix.rstrip("/")
+                    if route_prefix and (norm_stripped == norm_prefix or norm_stripped.startswith(norm_prefix + "/")):
+                        # We matched this module!
+                        matched_context = app_ctx
+                        matched_strategy = local_strat
+                        matched_stripped_path = match_path
+                        matched_version = v
+                        break
+                except VersionError:
+                    if is_module_path:
+                        raise
+                except Exception:
+                    pass
+
+        if matched_context is not None:
+            api_version = matched_version
+            path_for_match = matched_stripped_path
+        else:
+            # Fallback to the global/workspace strategy
+            if strategy.is_structural_url_versioning:
+                return path_for_match, None
+            try:
+                api_version = strategy.resolve(request, check_sunset=False)
+            except VersionError:
+                raise
+            except Exception:
+                api_version = None
+
+            if api_version is not None:
+                try:
+                    stripped = strategy.strip_version_from_path(request)
+                    if isinstance(stripped, str):
+                        path_for_match = stripped
+                except Exception:
+                    pass
 
         if api_version is not None:
             request.state["_pre_resolved_api_version"] = api_version
-            try:
-                stripped = strategy.strip_version_from_path(request)
-                if isinstance(stripped, str):
-                    path_for_match = stripped
-                    request.state["_routing_path"] = path_for_match
-            except Exception:
-                pass
+            request.state["_routing_path"] = path_for_match
 
         return path_for_match, api_version
 

@@ -1159,16 +1159,32 @@ class AquiliaServer:
 
             # Extract manifest-level versioning overrides
             module_overrides = {}
+            module_strategies = {}
             if hasattr(self, "runtime") and self.runtime and hasattr(self.runtime, "meta") and self.runtime.meta:
                 for app_ctx in getattr(self.runtime.meta, "app_contexts", []):
                     if app_ctx.manifest and hasattr(app_ctx.manifest, "versioning"):
                         mv_raw = app_ctx.manifest.versioning
                         if mv_raw is not None:
-                            if hasattr(mv_raw, "to_dict"):
-                                module_overrides[app_ctx.name] = mv_raw.to_dict()
-                            elif isinstance(mv_raw, dict):
-                                module_overrides[app_ctx.name] = mv_raw
+                            mv_dict = mv_raw.to_dict() if hasattr(mv_raw, "to_dict") else dict(mv_raw)
+                            module_overrides[app_ctx.name] = mv_dict
+
+                            # If versioning is enabled for this module, merge and build a local VersionStrategy
+                            if mv_dict.get("enabled", True):
+                                merged_dict = config.to_dict()
+                                if "position" in mv_dict and mv_dict["position"] is not None:
+                                    mv_dict["url_position"] = mv_dict["position"]
+
+                                for k, v in mv_dict.items():
+                                    if v is not None and k not in ("enabled", "auto_version_unmarked", "position"):
+                                        merged_dict[k] = v
+
+                                from .versioning.strategy import VersionConfig, VersionStrategy
+                                local_cfg = VersionConfig(**merged_dict)
+                                local_strat = VersionStrategy(local_cfg)
+                                module_strategies[app_ctx.name] = local_strat
+
             strategy._module_versioning_overrides = module_overrides
+            strategy._module_strategies = module_strategies
 
             self._version_strategy = strategy
 
