@@ -11,7 +11,7 @@ class _DummyRouter:
     def match_sync(self, path, method, api_version=None):
         return None
 
-    def get_allowed_methods(self, path):
+    def get_allowed_methods(self, path, *args, **kwargs):
         return []
 
 
