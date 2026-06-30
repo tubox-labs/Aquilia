@@ -3,7 +3,7 @@
   <h1>Aquilia</h1>
   <p><strong>The Python framework for teams building production APIs. Write controllers and services. Aquilia discovers everything, manages its own architecture, and deploys itself.</strong></p>
 
-  [![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://aquilia.tubox.cloud)
+  [![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](https://aquilia.tubox.cloud)
   [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
   [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
   [![Tests](https://img.shields.io/badge/tests-5085%20passing-brightgreen.svg)](#-testing)
