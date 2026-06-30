@@ -76,54 +76,74 @@ class SQLiteTraceStore(TraceStore):
         return conn
 
     def _init_db(self) -> None:
-        with self._get_connection() as conn:
-            conn.execute(
-                """
-                CREATE TABLE IF NOT EXISTS traces (
-                    trace_id TEXT PRIMARY KEY,
-                    timestamp REAL,
-                    data TEXT
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS traces (
+                        trace_id TEXT PRIMARY KEY,
+                        timestamp REAL,
+                        data TEXT
+                    )
+                    """
                 )
-                """
-            )
-            conn.commit()
+                conn.commit()
+        finally:
+            conn.close()
 
     def save(self, trace: RequestTrace) -> None:
         serialized = json.dumps(trace.to_dict())
-        with self._get_connection() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO traces (trace_id, timestamp, data) VALUES (?, ?, ?)",
-                (trace.trace_id, trace.started_at, serialized),
-            )
-            # Enforce capacity limit
-            conn.execute(
-                """
-                DELETE FROM traces WHERE trace_id NOT IN (
-                    SELECT trace_id FROM traces ORDER BY timestamp DESC LIMIT ?
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute(
+                    "INSERT OR REPLACE INTO traces (trace_id, timestamp, data) VALUES (?, ?, ?)",
+                    (trace.trace_id, trace.started_at, serialized),
                 )
-                """,
-                (self._max_traces,),
-            )
-            conn.commit()
+                # Enforce capacity limit
+                conn.execute(
+                    """
+                    DELETE FROM traces WHERE trace_id NOT IN (
+                        SELECT trace_id FROM traces ORDER BY timestamp DESC LIMIT ?
+                    )
+                    """,
+                    (self._max_traces,),
+                )
+                conn.commit()
+        finally:
+            conn.close()
 
     def get(self, trace_id: str) -> RequestTrace | None:
-        with self._get_connection() as conn:
-            cursor = conn.execute("SELECT data FROM traces WHERE trace_id = ?", (trace_id,))
-            row = cursor.fetchone()
-            if row is None:
-                return None
-            return self._reconstruct_trace(json.loads(row["data"]))
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute("SELECT data FROM traces WHERE trace_id = ?", (trace_id,))
+                row = cursor.fetchone()
+                if row is None:
+                    return None
+                return self._reconstruct_trace(json.loads(row["data"]))
+        finally:
+            conn.close()
 
     def list_recent(self, limit: int = 100) -> list[RequestTrace]:
-        with self._get_connection() as conn:
-            cursor = conn.execute("SELECT data FROM traces ORDER BY timestamp DESC LIMIT ?", (limit,))
-            rows = cursor.fetchall()
-            return [self._reconstruct_trace(json.loads(row["data"])) for row in rows]
+        conn = self._get_connection()
+        try:
+            with conn:
+                cursor = conn.execute("SELECT data FROM traces ORDER BY timestamp DESC LIMIT ?", (limit,))
+                rows = cursor.fetchall()
+                return [self._reconstruct_trace(json.loads(row["data"])) for row in rows]
+        finally:
+            conn.close()
 
     def clear(self) -> None:
-        with self._get_connection() as conn:
-            conn.execute("DELETE FROM traces")
-            conn.commit()
+        conn = self._get_connection()
+        try:
+            with conn:
+                conn.execute("DELETE FROM traces")
+                conn.commit()
+        finally:
+            conn.close()
 
     def _reconstruct_trace(self, data: dict[str, Any]) -> RequestTrace:
         spans_data = data.get("spans", [])
