@@ -657,6 +657,8 @@
             background-color: var(--surface-container-lowest);
             padding: 0 16px;
             flex-shrink: 0;
+            overflow-x: auto;
+            white-space: nowrap;
         }
 
         .tab-btn {
@@ -1639,6 +1641,15 @@
                 const spans = trace.spans || [];
                 const dbCount = spans.filter(s => s.lane === 'database').length;
                 const depCount = spans.filter(s => ['external_http', 'dependency', 'validation', 'effect'].includes(s.lane)).length;
+                const verCount = spans.filter(s => s.lane === 'versions').length;
+                const setCount = spans.filter(s => s.lane === 'settings').length;
+                const tmplCount = spans.filter(s => s.lane === 'templates').length;
+                const cacheCount = spans.filter(s => s.lane === 'cache').length;
+                const sigCount = spans.filter(s => s.lane === 'signals').length;
+                const staticCount = spans.filter(s => s.lane === 'static').length;
+                const taskCount = spans.filter(s => s.lane === 'tasks').length;
+                const sockCount = spans.filter(s => s.lane === 'sockets').length;
+                const mailCount = spans.filter(s => s.lane === 'mail').length;
                 const hasException = !!trace.exception;
 
                 if (activeTab === "exception" && !hasException) {
@@ -1720,8 +1731,17 @@
                             <div class="tabs-bar">
                                 <button data-tab="request" class="tab-btn ${activeTab === 'request' ? 'active' : ''}">Request</button>
                                 <button data-tab="response" class="tab-btn ${activeTab === 'response' ? 'active' : ''}">Response</button>
+                                <button data-tab="versions" class="tab-btn ${activeTab === 'versions' ? 'active' : ''}">Versions <span class="tab-badge">${verCount}</span></button>
+                                <button data-tab="settings" class="tab-btn ${activeTab === 'settings' ? 'active' : ''}">Settings <span class="tab-badge">${setCount}</span></button>
                                 <button data-tab="database" class="tab-btn ${activeTab === 'database' ? 'active' : ''}">Database <span class="tab-badge">${dbCount}</span></button>
+                                <button data-tab="templates" class="tab-btn ${activeTab === 'templates' ? 'active' : ''}">Templates <span class="tab-badge">${tmplCount}</span></button>
+                                <button data-tab="cache" class="tab-btn ${activeTab === 'cache' ? 'active' : ''}">Cache <span class="tab-badge">${cacheCount}</span></button>
+                                <button data-tab="signals" class="tab-btn ${activeTab === 'signals' ? 'active' : ''}">Signals <span class="tab-badge">${sigCount}</span></button>
+                                <button data-tab="static" class="tab-btn ${activeTab === 'static' ? 'active' : ''}">Static <span class="tab-badge">${staticCount}</span></button>
                                 <button data-tab="dependencies" class="tab-btn ${activeTab === 'dependencies' ? 'active' : ''}">Dependencies <span class="tab-badge">${depCount}</span></button>
+                                <button data-tab="tasks" class="tab-btn ${activeTab === 'tasks' ? 'active' : ''}">Tasks <span class="tab-badge">${taskCount}</span></button>
+                                <button data-tab="sockets" class="tab-btn ${activeTab === 'sockets' ? 'active' : ''}">Sockets <span class="tab-badge">${sockCount}</span></button>
+                                <button data-tab="mail" class="tab-btn ${activeTab === 'mail' ? 'active' : ''}">Mail <span class="tab-badge">${mailCount}</span></button>
                                 <button data-tab="exception" class="tab-btn ${!hasException ? 'disabled' : ''} ${activeTab === 'exception' ? 'active' : ''}" ${!hasException ? 'disabled' : ''}>Exception</button>
                             </div>
                             <div id="tabContent" class="tab-content fade-in">
@@ -1935,6 +1955,15 @@
                     else if (s.lane === "validation") laneColorClass = "bg-lane-red"; 
                     else if (s.lane === "handler") laneColorClass = "bg-lane-purple";
                     else if (s.lane === "exception") laneColorClass = "bg-lane-red";
+                    else if (s.lane === "versions") laneColorClass = "bg-lane-blue";
+                    else if (s.lane === "settings") laneColorClass = "bg-lane-teal";
+                    else if (s.lane === "templates") laneColorClass = "bg-lane-purple";
+                    else if (s.lane === "cache") laneColorClass = "bg-lane-infoblue";
+                    else if (s.lane === "signals") laneColorClass = "bg-lane-gray";
+                    else if (s.lane === "static") laneColorClass = "bg-lane-gray";
+                    else if (s.lane === "tasks") laneColorClass = "bg-lane-purple";
+                    else if (s.lane === "sockets") laneColorClass = "bg-lane-teal";
+                    else if (s.lane === "mail") laneColorClass = "bg-lane-blue";
 
                     const depth = spanDepth[s.id] || 0;
                     const indentStyle = `padding-left: ${8 + depth * 12}px;`;
@@ -2098,6 +2127,72 @@
                     `;
                 }
 
+                else if (activeTab === "versions") {
+                    const verSpans = (trace.spans || []).filter(s => s.lane === 'versions');
+                    let rows = "";
+                    verSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        for (const [k, v] of Object.entries(detail)) {
+                            rows += `
+                                <tr>
+                                    <td class="key-col" style="font-weight: bold; width: 200px;">${escapeHtml(k)}</td>
+                                    <td class="val-col">${escapeHtml(typeof v === 'object' ? JSON.stringify(v) : v)}</td>
+                                </tr>
+                            `;
+                        }
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="2" style="text-align: center; opacity: 0.5;">No version details recorded.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Framework & Environment Versions</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "settings") {
+                    const setSpans = (trace.spans || []).filter(s => s.lane === 'settings');
+                    let rows = "";
+                    setSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        rows += `
+                            <tr>
+                                <td class="key-col" style="font-weight: bold; font-family: monospace; width: 250px;">${escapeHtml(detail.path || s.label)}</td>
+                                <td class="val-col" style="font-family: monospace;">${escapeHtml(detail.value || '')}</td>
+                            </tr>
+                        `;
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="2" style="text-align: center; opacity: 0.5;">No settings lookups recorded.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Resolved Settings & Configuration Lookups</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Path</th>
+                                            <th>Resolved Value</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
                 else if (activeTab === "database") {
                     const spans = trace.spans || [];
                     const dbSpans = spans.filter(s => s.lane === 'database');
@@ -2172,6 +2267,264 @@
                     });
                     listHtml += `</div>`;
                     tabContent.innerHTML = listHtml;
+                }
+
+                else if (activeTab === "templates") {
+                    const tmplSpans = (trace.spans || []).filter(s => s.lane === 'templates');
+                    let rows = "";
+                    tmplSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        const keys = Array.isArray(detail.context_keys) ? detail.context_keys.join(", ") : "";
+                        rows += `
+                            <div class="db-query-card" style="margin-bottom: 12px; padding: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--surface-container-high); border-radius: var(--radius-xs);">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 6px;">
+                                    <span>${escapeHtml(detail.template_name || s.label)}</span>
+                                    <span style="color: var(--primary);">${s.duration_ms.toFixed(1)}ms</span>
+                                </div>
+                                <div style="font-size: 11px; color: var(--on-surface-variant);">
+                                    <strong>Context Keys:</strong> ${escapeHtml(keys || 'None')}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Template Renders</h4>
+                            ${rows || '<div style="text-align: center; padding: 12px; opacity: 0.5;">No template rendering recorded.</div>'}
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "cache") {
+                    const cacheSpans = (trace.spans || []).filter(s => s.lane === 'cache');
+                    let rows = "";
+                    let hits = 0, misses = 0;
+                    cacheSpans.forEach((s, idx) => {
+                        const detail = s.detail || {};
+                        const op = detail.op || s.label || "";
+                        const hit = detail.hit;
+                        if (hit === true) hits++;
+                        else if (hit === false) misses++;
+                        
+                        let hitBadge = "";
+                        if (hit === true) hitBadge = `<span style="background: rgba(34, 197, 94, 0.15); color: var(--success); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 8px;">HIT</span>`;
+                        else if (hit === false) hitBadge = `<span style="background: rgba(239, 68, 68, 0.15); color: var(--error); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-left: 8px;">MISS</span>`;
+
+                        rows += `
+                            <tr>
+                                <td style="font-family: monospace;">${escapeHtml(op)}</td>
+                                <td style="font-family: monospace;">${escapeHtml(detail.key || '')}</td>
+                                <td>${hitBadge}</td>
+                                <td style="font-family: monospace; text-align: right;">${s.duration_ms.toFixed(1)}ms</td>
+                            </tr>
+                        `;
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="4" style="text-align: center; opacity: 0.5;">No cache operations recorded.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Cache Operations Summary</h4>
+                            <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                                <div style="flex: 1; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--surface-container-high); padding: 12px; border-radius: var(--radius-xs);">
+                                    <div style="font-size: 9px; text-transform: uppercase; color: var(--on-surface-variant); font-weight: bold; margin-bottom: 4px;">Hits</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: var(--success);">${hits}</div>
+                                </div>
+                                <div style="flex: 1; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--surface-container-high); padding: 12px; border-radius: var(--radius-xs);">
+                                    <div style="font-size: 9px; text-transform: uppercase; color: var(--on-surface-variant); font-weight: bold; margin-bottom: 4px;">Misses</div>
+                                    <div style="font-size: 20px; font-weight: bold; color: var(--error);">${misses}</div>
+                                </div>
+                            </div>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Operation</th>
+                                            <th>Key</th>
+                                            <th>Status</th>
+                                            <th style="text-align: right;">Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "signals") {
+                    const sigSpans = (trace.spans || []).filter(s => s.lane === 'signals');
+                    let rows = "";
+                    sigSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        rows += `
+                            <tr>
+                                <td style="font-family: monospace; font-weight: bold;">${escapeHtml(detail.signal || s.label)}</td>
+                                <td style="font-family: monospace;">${escapeHtml(detail.sender || '')}</td>
+                                <td style="text-align: center;">${detail.receivers_count || 0}</td>
+                                <td style="text-align: right;">${s.duration_ms.toFixed(1)}ms</td>
+                            </tr>
+                        `;
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="4" style="text-align: center; opacity: 0.5;">No signal dispatches recorded.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Signal Dispatches</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Signal</th>
+                                            <th>Sender</th>
+                                            <th style="text-align: center;">Receivers</th>
+                                            <th style="text-align: right;">Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "static") {
+                    const staticSpans = (trace.spans || []).filter(s => s.lane === 'static');
+                    let rows = "";
+                    staticSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        rows += `
+                            <tr>
+                                <td style="font-family: monospace;">${escapeHtml(detail.path || s.label)}</td>
+                                <td>${escapeHtml(detail.resolved_path || 'Not Found')}</td>
+                            </tr>
+                        `;
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="2" style="text-align: center; opacity: 0.5;">No static file resolutions recorded.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Static File Resolutions</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Relative Path</th>
+                                            <th>Resolved Physical Path</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "tasks") {
+                    const taskSpans = (trace.spans || []).filter(s => s.lane === 'tasks');
+                    let rows = "";
+                    taskSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        rows += `
+                            <tr>
+                                <td style="font-family: monospace; font-weight: bold;">${escapeHtml(detail.task_name || s.label)}</td>
+                                <td style="font-family: monospace;">${escapeHtml(detail.task_id || '')}</td>
+                                <td style="text-align: center;">${escapeHtml(detail.queue || 'default')}</td>
+                                <td style="text-align: right;">${s.duration_ms.toFixed(1)}ms</td>
+                            </tr>
+                        `;
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="4" style="text-align: center; opacity: 0.5;">No background tasks enqueued during this request.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Background Tasks Enqueued</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Task Name</th>
+                                            <th>Task ID</th>
+                                            <th style="text-align: center;">Queue</th>
+                                            <th style="text-align: right;">Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "sockets") {
+                    const sockSpans = (trace.spans || []).filter(s => s.lane === 'sockets');
+                    let rows = "";
+                    sockSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        rows += `
+                            <tr>
+                                <td style="font-family: monospace;">${escapeHtml(detail.event || s.label)}</td>
+                                <td>${escapeHtml(detail.message_type || '—')}</td>
+                                <td style="text-align: right;">${s.duration_ms.toFixed(1)}ms</td>
+                            </tr>
+                        `;
+                    });
+                    if (!rows) {
+                        rows = `<tr><td colspan="3" style="text-align: center; opacity: 0.5;">No WebSocket events recorded.</td></tr>`;
+                    }
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">WebSocket Events</h4>
+                            <div class="data-table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Event</th>
+                                            <th>Message Type</th>
+                                            <th style="text-align: right;">Duration</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                else if (activeTab === "mail") {
+                    const mailSpans = (trace.spans || []).filter(s => s.lane === 'mail');
+                    let rows = "";
+                    mailSpans.forEach(s => {
+                        const detail = s.detail || {};
+                        rows += `
+                            <div class="db-query-card" style="margin-bottom: 12px; padding: 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--surface-container-high); border-radius: var(--radius-xs);">
+                                <div style="font-size: 12px; font-weight: bold; margin-bottom: 4px;">Subject: ${escapeHtml(detail.subject || s.label)}</div>
+                                <div style="font-size: 11px; color: var(--on-surface-variant); margin-bottom: 4px;">
+                                    <strong>To:</strong> ${escapeHtml(detail.to || '')}
+                                </div>
+                                <pre style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 2px; font-size: 11px; margin-top: 6px; white-space: pre-wrap; font-family: monospace;">${escapeHtml(detail.body || '')}</pre>
+                            </div>
+                        `;
+                    });
+                    tabContent.innerHTML = `
+                        <div class="content-section">
+                            <h4 class="content-section-title">Sent Emails</h4>
+                            ${rows || '<div style="text-align: center; padding: 12px; opacity: 0.5;">No emails sent during this request.</div>'}
+                        </div>
+                    `;
                 }
 
                 else if (activeTab === "exception") {
