@@ -1999,9 +1999,12 @@ class AquiliaServer:
                     route_prefix = app_ctx.route_prefix
 
                     # Compile controller
+                    module_versioning = self._workspace_modules.get(app_ctx.name, {}).get("versioning")
                     compiled = self.controller_compiler.compile_controller(
                         controller_class,
                         base_prefix=route_prefix,
+                        version_strategy=self._version_strategy,
+                        module_versioning=module_versioning,
                     )
 
                     # Inject app context info for DI resolution

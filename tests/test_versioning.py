@@ -1188,7 +1188,7 @@ class TestVersionMiddleware:
     async def test_url_path_stripping(self):
         from aquilia.versioning.middleware import VersionMiddleware
 
-        strategy = self._build_strategy(strategy="url")
+        strategy = self._build_strategy(strategy="url", negotiation_mode="compatible")
         mw = VersionMiddleware(strategy)
 
         req = _make_request(path="/v2/users")
@@ -1597,6 +1597,7 @@ class TestEndToEnd:
             strategy="url",
             versions=["1.0", "2.0"],
             default_version="1.0",
+            negotiation_mode="compatible",
         )
         strategy = VersionStrategy(config)
         mw = VersionMiddleware(strategy)
@@ -1699,6 +1700,7 @@ class TestASGIPreRoutingVersioning:
                 strategy="url",
                 versions=["1.0", "2.0"],
                 default_version="1.0",
+                negotiation_mode="compatible",
             )
         )
         adapter, router, engine = self._build_adapter(strategy)
@@ -1731,6 +1733,12 @@ class TestASGIPreRoutingVersioning:
 
     @pytest.mark.asyncio
     async def test_url_strategy_uses_default_version_for_unversioned_path(self):
+        """
+        Under the corrected URL strategy, an unprefixed path (no version segment)
+        is not silently treated as the default version. Thus, the resolved
+        api_version should be None (which allows routing to look up exact compiled
+        paths like /users, rather than collapsing /users onto a versioned /v1/users route).
+        """
         from aquilia.response import Response
         from aquilia.versioning.core import ApiVersion
         from aquilia.versioning.strategy import VersionConfig, VersionStrategy
@@ -1768,7 +1776,7 @@ class TestASGIPreRoutingVersioning:
         path, method, version = match_calls[0]
         assert path == "/users"
         assert method == "GET"
-        assert version == ApiVersion(1, 0)
+        assert version is None
 
     @pytest.mark.asyncio
     async def test_url_strategy_preserves_dynamic_segments_after_strip(self):
@@ -1781,6 +1789,7 @@ class TestASGIPreRoutingVersioning:
                 strategy="url",
                 versions=["1.0", "2.0"],
                 default_version="1.0",
+                negotiation_mode="compatible",
             )
         )
         adapter, router, engine = self._build_adapter(strategy)
@@ -1850,3 +1859,609 @@ class TestASGIPreRoutingVersioning:
         assert path == "/v9/auth"
         assert method == "GET"
         assert version is None
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  14. REGRESSION TESTS — Versioning Bug Fixes (fix/versioning-url-strategy)
+# ════════════════════════════════════════════════════════════════════════════
+
+
+class TestBugA_UnversionedPathRejection:
+    """Bug A: Unprefixed paths must NOT silently match the default version.
+
+    Under structural URL versioning (strategy='url', negotiation_mode='exact'),
+    an unversioned path like ``/users`` must not be treated as ``/v1/users``.
+    The router sees the literal path; if no route is compiled for ``/users``
+    (only ``/v1/users`` exists), it correctly 404s.
+    """
+
+    def test_structural_url_strategy_skips_resolve(self):
+        """In structural mode, _resolve_route_inputs returns (raw_path, None)."""
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+        assert strategy.is_structural_url_versioning is True
+
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+        from types import SimpleNamespace
+
+        router = MagicMock()
+        engine = MagicMock()
+        server = SimpleNamespace(_version_strategy=strategy)
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=MiddlewareStack(),
+            server=server,
+        )
+
+        req = _make_request(path="/users")
+        path, version = adapter._resolve_route_inputs(req, "/users")
+        assert path == "/users", "Path must not be rewritten"
+        assert version is None, "Version must be None in structural mode"
+
+    def test_structural_url_strategy_leaves_versioned_path_intact(self):
+        """In structural mode, /v2/users is passed to the router as-is."""
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+        from types import SimpleNamespace
+
+        router = MagicMock()
+        engine = MagicMock()
+        server = SimpleNamespace(_version_strategy=strategy)
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=MiddlewareStack(),
+            server=server,
+        )
+
+        req = _make_request(path="/v2/users")
+        path, version = adapter._resolve_route_inputs(req, "/v2/users")
+        assert path == "/v2/users", "Structural mode must not strip path"
+        assert version is None
+
+    def test_expose_unversioned_alias_disables_structural_mode(self):
+        """When expose_unversioned_alias=True, structural mode is off."""
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0"],
+                default_version="1.0",
+                expose_unversioned_alias=True,
+            )
+        )
+        assert strategy.is_structural_url_versioning is False
+
+
+class TestBugB_ScopeImmutability:
+    """Bug B: ASGI scope['path'] must never be mutated by versioning."""
+
+    @pytest.mark.asyncio
+    async def test_scope_path_unchanged_after_url_resolution(self):
+        """The original scope dict is never modified by version resolution."""
+        from aquilia.response import Response
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+                negotiation_mode="compatible",
+            )
+        )
+
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+        from types import SimpleNamespace
+
+        router = MagicMock()
+        engine = MagicMock()
+        server = SimpleNamespace(_version_strategy=strategy)
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=MiddlewareStack(),
+            server=server,
+        )
+
+        router.match_sync.return_value = _DummyMatch()
+        router.get_allowed_methods.return_value = []
+        engine.execute = AsyncMock(return_value=Response.json({"ok": True}))
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v2/users",
+            "query_string": b"",
+            "headers": [],
+        }
+        original_path = scope["path"]
+
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(msg):
+            messages.append(msg)
+
+        await adapter.handle_http(scope, receive, send)
+
+        assert scope["path"] == original_path, (
+            "scope['path'] must not be mutated — external logging/tracing depends on it"
+        )
+
+    @pytest.mark.asyncio
+    async def test_middleware_does_not_write_scope(self):
+        """VersionMiddleware must not touch request.scope['path']."""
+        from aquilia.versioning.middleware import VersionMiddleware
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+                negotiation_mode="compatible",
+            )
+        )
+        mw = VersionMiddleware(strategy)
+
+        req = _make_request(path="/v2/users")
+        ctx = MagicMock()
+        scope_path_before = req.scope["path"]
+
+        async def next_handler(r, c):
+            from aquilia.response import Response
+            return Response.json({"ok": True})
+
+        await mw(req, ctx, next_handler)
+        assert req.scope["path"] == scope_path_before
+
+
+class TestBugC_VersionDisjointRoutes:
+    """Bug C: Routes for different versions must not trigger false conflicts."""
+
+    def test_disjoint_version_routes_no_conflict(self):
+        """Two routes with the same base path but different bound_versions
+        are NOT conflicts when compiled structurally."""
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        class UsersV1(Controller):
+            prefix = "/users"
+            version = "1.0"
+
+            @GET("/")
+            async def list(self, ctx):
+                return {"v": "1"}
+
+        class UsersV2(Controller):
+            prefix = "/users"
+            version = "2.0"
+
+            @GET("/")
+            async def list(self, ctx):
+                return {"v": "2"}
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+
+        compiler = ControllerCompiler()
+        c1 = compiler.compile_controller(UsersV1, version_strategy=strategy)
+        c2 = compiler.compile_controller(UsersV2, version_strategy=strategy)
+
+        # Routes get different prefixes (/v1/users/ vs /v2/users/)
+        paths = {r.full_path for r in c1.routes + c2.routes}
+        assert "/v1/users/" in paths
+        assert "/v2/users/" in paths
+
+        # No conflicts
+        conflicts = compiler.validate_route_tree([c1, c2])
+        assert conflicts == [], f"Unexpected conflicts: {conflicts}"
+
+    def test_same_version_routes_still_conflict(self):
+        """Two controllers with the same version and path DO conflict."""
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+
+        class UsersA(Controller):
+            prefix = "/users"
+
+            @GET("/")
+            async def list(self, ctx):
+                pass
+
+        class UsersB(Controller):
+            prefix = "/users"
+
+            @GET("/")
+            async def list(self, ctx):
+                pass
+
+        compiler = ControllerCompiler()
+        c1 = compiler.compile_controller(UsersA)
+        c2 = compiler.compile_controller(UsersB)
+
+        conflicts = compiler.validate_route_tree([c1, c2])
+        assert len(conflicts) > 0
+
+
+class TestBugD_UrlPositionConfiguration:
+    """Bug D: url_position='after' must place version segment after the module prefix."""
+
+    def test_before_position(self):
+        """url_position='before' → /v1/api/users."""
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0"],
+                default_version="1.0",
+                url_position="before",
+            )
+        )
+        result = strategy.build_version_prefix("/api", ApiVersion(1, 0))
+        assert result == "/v1/api", f"Expected /v1/api, got {result}"
+
+    def test_after_position(self):
+        """url_position='after' → /api/v1."""
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0"],
+                default_version="1.0",
+                url_position="after",
+            )
+        )
+        result = strategy.build_version_prefix("/api", ApiVersion(1, 0))
+        assert result == "/api/v1", f"Expected /api/v1, got {result}"
+
+    def test_module_position_override_in_compiler(self):
+        """Per-module position override threads through the compiler."""
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        class Items(Controller):
+            prefix = "/items"
+            version = "1.0"
+
+            @GET("/")
+            async def list(self, ctx):
+                pass
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0"],
+                default_version="1.0",
+                url_position="before",
+            )
+        )
+        compiler = ControllerCompiler()
+
+        # With module_versioning overriding position to 'after':
+        compiled = compiler.compile_controller(
+            Items,
+            base_prefix="/api",
+            version_strategy=strategy,
+            module_versioning={"enabled": True, "position": "after"},
+        )
+
+        paths = [r.full_path for r in compiled.routes]
+        assert any("/api/v1" in p for p in paths), f"Expected after-position path, got {paths}"
+
+
+class TestSunsetPerVersionCounters:
+    """Sunset rejection counter must be per-version, not globally shared."""
+
+    def test_independent_counters_for_different_versions(self):
+        from datetime import datetime, timezone
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import (
+            SunsetEnforcer,
+            SunsetPolicy,
+            SunsetRegistry,
+        )
+
+        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        registry = SunsetRegistry()
+        v1 = ApiVersion(1, 0)
+        v2 = ApiVersion(2, 0)
+        registry.register(v1, sunset_at=past)
+        registry.register(v2, sunset_at=past)
+
+        policy = SunsetPolicy(
+            enforce_sunset=True,
+            gradual_rejection_percent=50,
+        )
+        enforcer = SunsetEnforcer(policy, registry)
+
+        # Hammer v1 ten times
+        v1_results = [enforcer.check(v1) for _ in range(10)]
+        # Hammer v2 once
+        v2_results = [enforcer.check(v2)]
+
+        # v1 counter should be at 10, v2 counter should be at 1
+        assert v1 in enforcer._rejection_counters
+        assert v2 in enforcer._rejection_counters
+        assert enforcer._rejection_counters[v1] == 10
+        assert enforcer._rejection_counters[v2] == 1
+
+    def test_gradual_rejection_independently_applied(self):
+        from datetime import datetime, timezone
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.sunset import (
+            SunsetEnforcer,
+            SunsetPolicy,
+            SunsetRegistry,
+        )
+
+        past = datetime(2020, 1, 1, tzinfo=timezone.utc)
+        registry = SunsetRegistry()
+        v1 = ApiVersion(1, 0)
+        v2 = ApiVersion(2, 0)
+        registry.register(v1, sunset_at=past)
+        registry.register(v2, sunset_at=past)
+
+        policy = SunsetPolicy(enforce_sunset=True, gradual_rejection_percent=50)
+        enforcer = SunsetEnforcer(policy, registry)
+
+        # Run v1 through 99 requests to advance its counter
+        for _ in range(99):
+            enforcer.check(v1)
+
+        # Now check v2 — its counter should be at 1 (not 100)
+        result = enforcer.check(v2)
+        assert enforcer._rejection_counters[v2] == 1
+
+
+class TestStructuralBaking:
+    """Compiler structural baking: one CompiledRoute per active version."""
+
+    def test_single_version_bakes_one_route(self):
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        class Users(Controller):
+            prefix = "/users"
+            version = "1.0"
+
+            @GET("/")
+            async def list(self, ctx):
+                pass
+
+        strategy = VersionStrategy(
+            VersionConfig(strategy="url", versions=["1.0"], default_version="1.0")
+        )
+
+        compiler = ControllerCompiler()
+        compiled = compiler.compile_controller(Users, version_strategy=strategy)
+
+        assert len(compiled.routes) == 1
+        r = compiled.routes[0]
+        assert r.full_path == "/v1/users/"
+        assert r.bound_version == ApiVersion(1, 0)
+
+    def test_multi_version_bakes_multiple_routes(self):
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        class Users(Controller):
+            prefix = "/users"
+            version = "1.0"
+
+            @GET("/", version=["1.0", "2.0"])
+            async def list(self, ctx):
+                pass
+
+        strategy = VersionStrategy(
+            VersionConfig(strategy="url", versions=["1.0", "2.0"], default_version="1.0")
+        )
+
+        compiler = ControllerCompiler()
+        compiled = compiler.compile_controller(Users, version_strategy=strategy)
+
+        paths = sorted([r.full_path for r in compiled.routes])
+        assert "/v1/users/" in paths
+        assert "/v2/users/" in paths
+        assert len(compiled.routes) == 2
+
+        for r in compiled.routes:
+            assert r.bound_version is not None
+
+    def test_version_neutral_skips_baking(self):
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.core import VERSION_NEUTRAL
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        class Health(Controller):
+            prefix = "/health"
+            version = VERSION_NEUTRAL
+
+            @GET("/")
+            async def check(self, ctx):
+                pass
+
+        strategy = VersionStrategy(
+            VersionConfig(strategy="url", versions=["1.0"], default_version="1.0")
+        )
+
+        compiler = ControllerCompiler()
+        compiled = compiler.compile_controller(Health, version_strategy=strategy)
+
+        assert len(compiled.routes) == 1
+        r = compiled.routes[0]
+        assert r.full_path == "/health/"
+        assert r.bound_version is None
+
+    def test_no_version_annotation_compiles_unprefixed(self):
+        """A controller with no version annotation compiles to its plain prefix."""
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        class Misc(Controller):
+            prefix = "/misc"
+
+            @GET("/")
+            async def index(self, ctx):
+                pass
+
+        strategy = VersionStrategy(
+            VersionConfig(strategy="url", versions=["1.0"], default_version="1.0")
+        )
+
+        compiler = ControllerCompiler()
+        compiled = compiler.compile_controller(Misc, version_strategy=strategy)
+
+        assert len(compiled.routes) == 1
+        r = compiled.routes[0]
+        assert r.full_path == "/misc/"
+        assert r.bound_version is None
+
+
+class TestRouterBoundVersionMatching:
+    """Router _version_matches honours bound_version on CompiledRoute."""
+
+    def test_bound_version_matches_exact(self):
+        from aquilia.controller.router import ControllerRouter
+        from aquilia.versioning.core import ApiVersion
+
+        route = MagicMock()
+        route.bound_version = ApiVersion(2, 0)
+
+        assert ControllerRouter._version_matches(route, ApiVersion(2, 0)) is True
+        assert ControllerRouter._version_matches(route, ApiVersion(1, 0)) is False
+
+    def test_bound_version_with_none_api_version_matches(self):
+        """When api_version is None (versioning disabled), bound routes still match."""
+        from aquilia.controller.router import ControllerRouter
+        from aquilia.versioning.core import ApiVersion
+
+        route = MagicMock()
+        route.bound_version = ApiVersion(1, 0)
+
+        assert ControllerRouter._version_matches(route, None) is True
+
+    def test_no_bound_version_falls_through_to_metadata(self):
+        """When bound_version is None, the method falls through to version_metadata checks."""
+        from aquilia.controller.router import ControllerRouter
+        from aquilia.versioning.core import VERSION_NEUTRAL
+
+        route = MagicMock()
+        route.bound_version = None
+        route.version_metadata = {"neutral": True}
+        route.controller_metadata = MagicMock()
+        route.controller_metadata.version = None
+
+        from aquilia.versioning.core import ApiVersion
+        assert ControllerRouter._version_matches(route, ApiVersion(1, 0)) is True
+
+
+class TestASGIVersionErrorEarlyReturn:
+    """Version errors raised during pre-routing resolution must return
+    a proper error response immediately, not crash the pipeline."""
+
+    @pytest.mark.asyncio
+    async def test_missing_version_returns_400(self):
+        """URL strategy with require_version=True and no version in path → 400."""
+        from aquilia.response import Response
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0"],
+                default_version="1.0",
+                require_version=True,
+                negotiation_mode="compatible",
+            )
+        )
+
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+        from types import SimpleNamespace
+
+        router = MagicMock()
+        engine = MagicMock()
+        server = SimpleNamespace(_version_strategy=strategy)
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=MiddlewareStack(),
+            server=server,
+        )
+
+        router.match_sync.return_value = None
+        router.get_allowed_methods.return_value = []
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/users",
+            "query_string": b"",
+            "headers": [],
+        }
+
+        messages = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send(msg):
+            messages.append(msg)
+
+        await adapter.handle_http(scope, receive, send)
+
+        # Should have sent an error response, not crashed
+        assert len(messages) >= 1
+        start = messages[0]
+        assert start["type"] == "http.response.start"
+        assert start["status"] in (400, 404)
+

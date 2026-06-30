@@ -83,6 +83,7 @@ class ModuleConfig:
     database: dict[str, Any] | None = None
 
     auto_discover: bool = True
+    versioning: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result: dict[str, Any] = {
@@ -101,6 +102,8 @@ class ModuleConfig:
         }
         if self.database:
             result["database"] = self.database
+        if self.versioning:
+            result["versioning"] = self.versioning
         return result
 
 
@@ -314,6 +317,22 @@ class Module:
                 "migrations_dir": migrations_dir,
                 **kwargs,
             }
+        return self
+
+    def versioning(
+        self,
+        enabled: bool = True,
+        position: str | None = None,
+        auto_version_unmarked: bool | None = None,
+    ) -> Module:
+        """
+        Per-module override of URL versioning.
+        """
+        self._config.versioning = {
+            "enabled": enabled,
+            "position": position,
+            "auto_version_unmarked": auto_version_unmarked,
+        }
         return self
 
     def build(self) -> ModuleConfig:

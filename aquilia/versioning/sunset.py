@@ -205,7 +205,7 @@ class SunsetEnforcer:
     ) -> None:
         self._policy = policy
         self._registry = registry
-        self._rejection_counter = 0  # For gradual sunset
+        self._rejection_counters: dict[ApiVersion, int] = {}  # For gradual sunset, per version
 
     def check(self, version: ApiVersion) -> dict[str, Any] | None:
         """
@@ -235,8 +235,9 @@ class SunsetEnforcer:
         if status == VersionStatus.SUNSET and self._policy.enforce_sunset:
             # Gradual rejection
             if self._policy.gradual_rejection_percent > 0:
-                self._rejection_counter += 1
-                if (self._rejection_counter % 100) >= self._policy.gradual_rejection_percent:
+                count = self._rejection_counters.get(version, 0) + 1
+                self._rejection_counters[version] = count
+                if (count % 100) >= self._policy.gradual_rejection_percent:
                     return None  # Allow this request
 
             return {

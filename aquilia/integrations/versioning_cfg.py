@@ -34,6 +34,8 @@ class VersioningIntegration:
     url_prefix: str = "v"
     url_segment_index: int = 0
     strip_version_from_path: bool = True
+    url_position: str = "before"
+    expose_unversioned_alias: bool = False
     media_type_param: str = "version"
     channels: dict[str, str] = field(default_factory=dict)
     channel_header: str = "X-API-Channel"
@@ -68,6 +70,8 @@ class VersioningIntegration:
             "url_prefix": self.url_prefix,
             "url_segment_index": self.url_segment_index,
             "strip_version_from_path": self.strip_version_from_path,
+            "url_position": self.url_position,
+            "expose_unversioned_alias": self.expose_unversioned_alias,
             "media_type_param": self.media_type_param,
             "channels": dict(self.channels),
             "channel_header": self.channel_header,

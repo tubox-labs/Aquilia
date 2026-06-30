@@ -1,29 +1,16 @@
 """
-Aquilia Versioning — Version Middleware
-
-Injects the resolved API version into the ``RequestCtx`` on every
-request. Also adds version response headers.
-
-This middleware integrates with the ``VersionStrategy`` to:
-1. Resolve the version from the request
-2. Strip the version segment from the URL (if URL path versioning)
-3. Store the version in ``request.state["api_version"]``
-4. Add response headers (``X-API-Version``, ``Deprecation``, etc.)
+versioning/middleware.py — VersionMiddleware never mutates request.scope.
+Routing has already happened by the time this middleware runs (asgi.py
+resolves + matches before the middleware chain starts), so there is
+nothing left for a path rewrite to do here, and rewriting scope["path"]
+in place corrupts whatever the ASGI server / outer instrumentation
+observes for this request.
 """
-
 from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING, Any, cast
-
 from aquilia.middleware import Middleware
-
-from .errors import (
-    InvalidVersionError,
-    MissingVersionError,
-    UnsupportedVersionError,
-    VersionSunsetError,
-)
+from .errors import InvalidVersionError, MissingVersionError, UnsupportedVersionError, VersionError, VersionSunsetError
 from .strategy import VersionStrategy
 
 if TYPE_CHECKING:
@@ -33,193 +20,117 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("aquilia.versioning")
 
+STATE_RESOLVED_VERSION = "_pre_resolved_api_version"
+STATE_RESOLUTION_ERROR = "_version_resolution_error"
+STATE_CONTROLLER_MATCH = "_controller_match"
+
+def _wants_html(request: "Request") -> bool:
+    try:
+        accept = (request.header("accept") or "").lower()
+    except Exception:
+        accept = ""
+    if "text/html" in accept:
+        return True
+    try:
+        user_agent = (request.header("user-agent") or "").lower()
+    except Exception:
+        user_agent = ""
+    try:
+        fetch_dest = (request.header("sec-fetch-dest") or "").lower()
+    except Exception:
+        fetch_dest = ""
+    browser_hint = "mozilla" in user_agent or fetch_dest == "document"
+    wildcard_accept = not accept or "*/*" in accept
+    return browser_hint and wildcard_accept
+
+def _aquilia_version() -> str:
+    try:
+        from aquilia import __version__
+        return str(__version__)
+    except Exception:
+        return ""
+
+def _version_error_response(request, *, status, error_code, message, detail, headers=None):
+    from ..response import Response as Resp
+    if _wants_html(request):
+        from ..debug import render_version_error_page
+        html_body = render_version_error_page(status_code=status, error_code=error_code, message=message,
+                                                detail=message, request=request, metadata=detail,
+                                                aquilia_version=_aquilia_version())
+        merged = {"content-type": "text/html; charset=utf-8"}
+        if headers:
+            merged.update(headers)
+        return Resp(content=html_body.encode("utf-8"), status=status, headers=merged)
+    return Resp.json({"error": error_code, "message": message, "detail": detail}, status=status, headers=headers)
+
+def build_version_error_response(strategy: VersionStrategy, request, exc: VersionError):
+    """Single source of truth for VersionError -> HTTP Response, shared by
+    asgi.py's fast pre-routing path and this middleware's mid-pipeline path
+    so the two never drift."""
+    if isinstance(exc, MissingVersionError):
+        return _version_error_response(request, status=400, error_code=exc.code, message=str(exc.message), detail=exc.metadata)
+    if isinstance(exc, InvalidVersionError):
+        return _version_error_response(request, status=400, error_code=exc.code, message=str(exc.message), detail={"raw_version": exc.raw_version})
+    if isinstance(exc, UnsupportedVersionError):
+        return _version_error_response(request, status=400, error_code=exc.code, message=str(exc.message),
+                                        detail={"requested": str(exc.version), "supported": [str(v) for v in exc.supported]})
+    if isinstance(exc, VersionSunsetError):
+        headers = strategy.get_response_headers(exc.version)
+        return _version_error_response(request, status=410, error_code=exc.code, message=str(exc.message),
+                                        detail={"version": str(exc.version), "successor": str(exc.successor) if exc.successor else None,
+                                                "migration_url": exc.migration_url}, headers=headers)
+    return _version_error_response(request, status=400, error_code=getattr(exc, "code", "API_VERSION_ERROR"),
+                                    message=str(getattr(exc, "message", exc)), detail=getattr(exc, "metadata", {}) or {})
 
 class VersionMiddleware(Middleware):
-    """
-    Middleware that resolves API version for every request.
-
-    Integrates with Aquilia's middleware stack::
-
-        middleware_stack.add(
-            VersionMiddleware(strategy),
-            scope="global",
-            priority=8,  # Before auth but after faults
-            name="versioning",
-        )
-
-    After this middleware runs, the resolved version is available via:
-    - ``request.state["api_version"]`` → ``ApiVersion`` instance
-    - ``ctx.state["api_version"]`` → same
-    - ``request.state["api_version_raw"]`` → raw string from request
-    """
-
     def __init__(self, strategy: VersionStrategy) -> None:
         self._strategy = strategy
 
-    @staticmethod
-    def _wants_html(request: Request) -> bool:
-        """Return True when request likely expects an HTML page."""
-        try:
-            accept = (request.header("accept") or "").lower()
-        except Exception:
-            accept = ""
+    def _resolved_version_for(self, request):
+        cached = request.state.get(STATE_RESOLVED_VERSION)
+        if cached is not None:
+            return cached
+        if self._strategy.is_structural_url_versioning:
+            match = request.state.get(STATE_CONTROLLER_MATCH)
+            if match is not None:
+                route = getattr(match, "route", None)
+                bound_version = getattr(route, "bound_version", None)
+                if bound_version is not None:
+                    return bound_version
+        return None
 
-        # Direct browser navigations typically include text/html.
-        if "text/html" in accept:
-            return True
+    async def __call__(self, request, ctx, next_handler):
+        pending_error = request.state.get(STATE_RESOLUTION_ERROR)
+        if isinstance(pending_error, VersionError):
+            return build_version_error_response(self._strategy, request, pending_error)
 
-        # Browsers can send wildcard accept depending on request context.
-        # Gate this path on browser-ish headers so API clients with */*
-        # still receive structured JSON.
-        try:
-            user_agent = (request.header("user-agent") or "").lower()
-        except Exception:
-            user_agent = ""
-        try:
-            fetch_dest = (request.header("sec-fetch-dest") or "").lower()
-        except Exception:
-            fetch_dest = ""
+        version = self._resolved_version_for(request)
+        routing_ran = STATE_CONTROLLER_MATCH in request.state
 
-        browser_hint = "mozilla" in user_agent or fetch_dest == "document"
-        wildcard_accept = not accept or "*/*" in accept
-        return browser_hint and wildcard_accept
+        if version is None:
+            if not self._strategy.is_structural_url_versioning or not routing_ran:
+                try:
+                    version = self._strategy.resolve(request)
+                    request.state[STATE_RESOLVED_VERSION] = version
+                except VersionError as e:
+                    return build_version_error_response(self._strategy, request, e)
 
-    @staticmethod
-    def _aquilia_version() -> str:
-        try:
-            from aquilia import __version__
-
-            return str(__version__)
-        except Exception:
-            return ""
-
-    def _version_error_response(
-        self,
-        request: Request,
-        *,
-        status: int,
-        error_code: str,
-        message: str,
-        detail: dict[str, Any],
-        headers: dict[str, str] | None = None,
-    ) -> Response:
-        from ..response import Response as Resp
-
-        if self._wants_html(request):
-            from ..debug import render_version_error_page
-
-            html_body = render_version_error_page(
-                status_code=status,
-                error_code=error_code,
-                message=message,
-                detail=message,
-                request=request,
-                metadata=detail,
-                aquilia_version=self._aquilia_version(),
-            )
-            merged_headers: dict[str, str] = {"content-type": "text/html; charset=utf-8"}
-            if headers:
-                merged_headers.update(headers)
-            return Resp(
-                content=html_body.encode("utf-8"),
-                status=status,
-                headers=merged_headers,
-            )
-
-        return Resp.json(
-            {
-                "error": error_code,
-                "message": message,
-                "detail": detail,
-            },
-            status=status,
-            headers=headers,
-        )
-
-    async def __call__(
-        self,
-        request: Request,
-        ctx: RequestCtx,
-        next_handler: Any,
-    ) -> Response:
-        """
-        Middleware handler.
-
-        Resolves version, stores it, strips URL if needed,
-        then passes to next middleware/handler.
-        """
-        from ..response import Response as Resp
-
-        try:
-            # Resolve version
-            version = self._strategy.resolve(request)
-
-            # Store in request state
+        if version is not None:
             request.state["api_version"] = version
             request.state["api_version_str"] = str(version)
+            ctx.state["api_version"] = version
+            if not self._strategy.is_structural_url_versioning:
+                if "_original_path" not in request.state:
+                    request.state["_original_path"] = request.path
+            if self._strategy.is_structural_url_versioning:
+                try:
+                    self._strategy.check_sunset(version)
+                except VersionSunsetError as e:
+                    return build_version_error_response(self._strategy, request, e)
 
-            # Strip version from URL path if using URL versioning
-            stripped_path = self._strategy.strip_version_from_path(request)
-            if stripped_path is not None:
-                request.state["_original_path"] = request.path
-                # Update the request path for routing
-                if hasattr(request, "_path"):
-                    request._path = stripped_path
-                elif hasattr(request, "scope") and isinstance(request.scope, dict):
-                    request.scope["path"] = stripped_path
+        response = cast("Response", await next_handler(request, ctx))
 
-        except MissingVersionError as e:
-            return self._version_error_response(
-                request,
-                status=400,
-                error_code=e.code,
-                message=str(e.message),
-                detail=e.metadata,
-            )
-
-        except InvalidVersionError as e:
-            return self._version_error_response(
-                request,
-                status=400,
-                error_code=e.code,
-                message=str(e.message),
-                detail={"raw_version": e.raw_version},
-            )
-
-        except UnsupportedVersionError as e:
-            return self._version_error_response(
-                request,
-                status=400,
-                error_code=e.code,
-                message=str(e.message),
-                detail={
-                    "requested": str(e.version),
-                    "supported": [str(v) for v in e.supported],
-                },
-            )
-
-        except VersionSunsetError as e:
-            headers = self._strategy.get_response_headers(e.version)
-            return self._version_error_response(
-                request,
-                status=410,
-                error_code=e.code,
-                message=str(e.message),
-                detail={
-                    "version": str(e.version),
-                    "successor": str(e.successor) if e.successor else None,
-                    "migration_url": e.migration_url,
-                },
-                headers=headers,
-            )
-
-        # Continue to next middleware/handler
-        response = cast(Resp, await next_handler(request, ctx))
-
-        # Add version response headers
-        if version:
-            version_headers = self._strategy.get_response_headers(version)
-            for key, value in version_headers.items():
+        if version is not None:
+            for key, value in self._strategy.get_response_headers(version).items():
                 response.headers[key] = value
-
         return response

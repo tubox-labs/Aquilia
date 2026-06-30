@@ -83,6 +83,8 @@ class VersionConfig:
     url_prefix: str = "v"
     url_segment_index: int = 0
     strip_version_from_path: bool = True
+    url_position: str = "before"
+    expose_unversioned_alias: bool = False
 
     # Media type resolver config
     media_type_param: str = "version"
@@ -129,6 +131,8 @@ class VersionConfig:
             "channels": self.channels,
             "negotiation_mode": self.negotiation_mode,
             "neutral_paths": self.neutral_paths,
+            "url_position": self.url_position,
+            "expose_unversioned_alias": self.expose_unversioned_alias,
         }
 
 
@@ -344,12 +348,19 @@ class VersionStrategy:
 
         # Step 3: Handle missing version
         if raw_version is None:
+            if self._config.strategy.lower() == "url" and not self._config.expose_unversioned_alias:
+                # URL-path versioning means the version IS part of the route's
+                # address. A path with no recognizable version segment is not
+                # "the client forgot to specify a version" (the graceful-default
+                # case that's correct for header/query strategies) — it is
+                # simply not the address of any versioned route. Falling back
+                # to default_version here is what causes every versioned route
+                # to be reachable both with and without its prefix.
+                raise MissingVersionError(strategies=[self._resolver.name])
             if self._default_version:
                 return self._default_version
             if self._config.require_version:
-                raise MissingVersionError(
-                    strategies=[self._resolver.name],
-                )
+                raise MissingVersionError(strategies=[self._resolver.name])
             # Use latest as ultimate fallback
             latest = self._graph.latest
             if latest:
@@ -485,6 +496,46 @@ class VersionStrategy:
     @property
     def default_version(self) -> ApiVersion | None:
         return self._default_version
+
+    @property
+    def is_structural_url_versioning(self) -> bool:
+        """True when strategy='url' and negotiation_mode='exact' — versions
+        are resolved purely from the literal compiled route path, so
+        routing needs zero per-request parsing."""
+        return (
+            self._config.strategy.lower() == "url"
+            and self._config.negotiation_mode == "exact"
+            and not self._config.expose_unversioned_alias
+        )
+
+    def build_url_segment(self, version: ApiVersion) -> str:
+        """'v1' or 'v2.1', honoring config.url_prefix."""
+        if version.minor:
+            return f"{self._config.url_prefix}{version.major}.{version.minor}"
+        return f"{self._config.url_prefix}{version.major}"
+
+    def build_version_prefix(self, module_prefix: str, version: ApiVersion, position: str | None = None) -> str:
+        """Splice a concrete version's segment into a module prefix.
+        'before': /v1/api   'after': /api/v1
+        Compose this with the compiler's EXISTING join (module + controller
+        + route) — don't reimplement that join here."""
+        from ..utils.urls import join_paths
+        pos = position or self._config.url_position
+        segment = "/" + self.build_url_segment(version)
+        return join_paths(module_prefix, segment) if pos == "after" else join_paths(segment, module_prefix)
+
+    def check_sunset(self, version: ApiVersion) -> None:
+        """Run sunset enforcement for an already-known concrete version
+        without re-running resolve()'s parsing/negotiation. Needed because
+        structural-mode routes never call resolve() at all (4.3/4.5)."""
+        rejection = self._sunset_enforcer.check(version)
+        if rejection:
+            raise VersionSunsetError(
+                version=version,
+                sunset_date=rejection.get("sunset_date"),
+                migration_url=rejection.get("migration_url"),
+                successor=rejection.get("successor"),
+            )
 
     def is_neutral_path(self, path: str) -> bool:
         """Check if a path is version-neutral."""

@@ -50,7 +50,7 @@ class _TrieNode:
         "param_child",
         "param_name",
         "param_castor",
-        "route",
+        "routes",
         "query_params",
     )
 
@@ -59,7 +59,7 @@ class _TrieNode:
         self.param_child: _TrieNode | None = None  # single param child
         self.param_name: str | None = None
         self.param_castor: Any | None = None  # type-cast function for param
-        self.route: CompiledRoute | None = None
+        self.routes: list[CompiledRoute] = []
         self.query_params: dict | None = None  # query param meta (for terminal nodes)
 
 
@@ -120,7 +120,7 @@ class ControllerRouter:
             # Sort by specificity (descending) so most specific routes win
             routes.sort(key=lambda r: r.specificity, reverse=True)
 
-            static_map: dict[str, tuple[CompiledRoute, dict, dict]] = {}
+            static_map: dict[str, list[tuple[CompiledRoute, dict, dict]]] = {}
             dynamic_list: list[tuple[Any, CompiledRoute, list[str]]] = []
             trie_root = _TrieNode()
 
@@ -135,7 +135,9 @@ class ControllerRouter:
                     # Pure static route -- O(1) lookup
                     # Normalize: strip trailing slash
                     path = route.full_path.rstrip("/") or "/"
-                    static_map[path] = (route, _EMPTY_DICT, _EMPTY_DICT)
+                    if path not in static_map:
+                        static_map[path] = []
+                    static_map[path].append((route, _EMPTY_DICT, _EMPTY_DICT))
                 else:
                     # ── Try to insert into segment trie ──
                     inserted = self._trie_insert(trie_root, route, cp)
@@ -205,7 +207,7 @@ class ControllerRouter:
                 node = node.children[seg]
 
         # Terminal node
-        node.route = route
+        node.routes.append(route)
         node.query_params = cp.query if cp.query else None
         return True
 
@@ -241,22 +243,40 @@ class ControllerRouter:
         # ── Tier 1: Static O(1) lookup ──
         static_map = self._static_routes.get(method)
         if static_map:
-            hit = static_map.get(norm_path)
-            if hit is not None and self._version_matches(hit[0], api_version):
-                return ControllerRouteMatch(route=hit[0], params=hit[1], query=hit[2])
+            hits = static_map.get(norm_path)
+            if hits is not None:
+                matching_hits = []
+                for route, params, query in hits:
+                    if self._version_matches(route, api_version):
+                        matching_hits.append((route, params, query))
+                
+                if len(matching_hits) > 1:
+                    from ..faults import RoutingFault
+                    raise RoutingFault(
+                        "ROUTE_CONFLICT",
+                        f"Found multiple matching routes for path {norm_path!r} and version {api_version!r}: "
+                        f"{[h[0].controller_class.__name__ + '.' + h[0].route_metadata.handler_name for h in matching_hits]}"
+                    )
+                if len(matching_hits) == 1:
+                    hit = matching_hits[0]
+                    return ControllerRouteMatch(route=hit[0], params=hit[1], query=hit[2])
 
         # ── Tier 2: Trie O(k) segment walk ──
         trie_root = self._tries.get(method)
         if trie_root is not None:
-            trie_result = self._trie_match(trie_root, norm_path, query_params)
-            if trie_result is not None and self._version_matches(trie_result.route, api_version):
+            trie_result = self._trie_match(trie_root, norm_path, query_params, api_version)
+            if trie_result is not None:
                 return trie_result
 
         # ── Tier 3: Regex O(n) fallback ──
         dynamic_list = self._dynamic_routes.get(method)
         if dynamic_list:
             qp = query_params or _EMPTY_QUERY
+            matching_matches = []
             for cp, route, param_names in dynamic_list:
+                if not self._version_matches(route, api_version):
+                    continue
+
                 m = cp.compiled_re.match(path)
                 if m is None:
                     continue
@@ -310,7 +330,17 @@ class ControllerRouter:
                 if not valid:
                     continue
 
-                return ControllerRouteMatch(route=route, params=params, query=query)
+                matching_matches.append(ControllerRouteMatch(route=route, params=params, query=query))
+
+            if len(matching_matches) > 1:
+                from ..faults import RoutingFault
+                raise RoutingFault(
+                    "ROUTE_CONFLICT",
+                    f"Found multiple matching dynamic routes for path {path!r} and version {api_version!r}: "
+                    f"{[m.route.controller_class.__name__ + '.' + m.route.route_metadata.handler_name for m in matching_matches]}"
+                )
+            if len(matching_matches) == 1:
+                return matching_matches[0]
 
         return None
 
@@ -334,6 +364,18 @@ class ControllerRouter:
         This check runs **after** a path/method match succeeds, so it never
         affects latency for unversioned apps.
         """
+        # If the route is structurally bound to a version, check it.
+        bound_version = getattr(route, "bound_version", None)
+        if bound_version is not None:
+            if api_version is None:
+                return True
+            try:
+                from aquilia.versioning.core import ApiVersion as _AV
+                api_parsed = _AV.parse(str(api_version)) if not isinstance(api_version, _AV) else api_version
+                return bound_version == api_parsed
+            except Exception:
+                return str(api_version) == str(bound_version)
+
         if api_version is None:
             return True  # versioning not active
 
@@ -392,11 +434,12 @@ class ControllerRouter:
         except Exception:
             return str(api_version) == str(ctrl_version)
 
-    @staticmethod
     def _trie_match(
+        self,
         root: _TrieNode,
         path: str,
         query_params: dict[str, str] | None,
+        api_version: Any | None,
     ) -> ControllerRouteMatch | None:
         """Walk the segment trie to match a path in O(k) time."""
         segments = path.strip("/").split("/") if path != "/" else []
@@ -428,14 +471,31 @@ class ControllerRouter:
             return None
 
         # Check terminal
-        if node.route is None:
+        if not node.routes:
             return None
+
+        # Filter routes by version
+        matching_routes = [r for r in node.routes if self._version_matches(r, api_version)]
+        if not matching_routes:
+            return None
+
+        if len(matching_routes) > 1:
+            from ..faults import RoutingFault
+            raise RoutingFault(
+                "ROUTE_CONFLICT",
+                f"Found multiple matching trie routes for path {path!r} and version {api_version!r}: "
+                f"{[r.controller_class.__name__ + '.' + r.route_metadata.handler_name for r in matching_routes]}"
+            )
+
+        route = matching_routes[0]
 
         # Validate & extract query params if the route requires them
         query: dict[str, Any] = {}
-        if node.query_params:
+        cp = route.compiled_pattern
+        route_query_params = cp.query if cp.query else None
+        if route_query_params:
             qp = query_params or _EMPTY_QUERY
-            for qname, qparam in node.query_params.items():
+            for qname, qparam in route_query_params.items():
                 if qname in qp:
                     try:
                         qval = qparam.castor(qp[qname])
@@ -455,7 +515,7 @@ class ControllerRouter:
                     return None
 
         return ControllerRouteMatch(
-            route=node.route,
+            route=route,
             params=params,
             query=query,
         )
