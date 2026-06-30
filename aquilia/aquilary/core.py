@@ -621,8 +621,8 @@ class RuntimeRegistry:
 
             # 6. Discover Middleware (Recursive)
             try:
-                from aquilia.middleware import Middleware
                 from aquilia.manifest import MiddlewareConfig
+                from aquilia.middleware import Middleware
 
                 middlewares = scanner.scan_package(
                     base_package,
@@ -639,13 +639,14 @@ class RuntimeRegistry:
                     # Check if already registered
                     already_registered = False
                     for mw in ctx.middlewares:
-                        if isinstance(mw, str) and mw == path:
-                            already_registered = True
-                            break
-                        elif isinstance(mw, dict) and (mw.get("class_path") == path or mw.get("path") == path):
-                            already_registered = True
-                            break
-                        elif hasattr(mw, "class_path") and mw.class_path == path:
+                        if (
+                            isinstance(mw, str)
+                            and mw == path
+                            or isinstance(mw, dict)
+                            and (mw.get("class_path") == path or mw.get("path") == path)
+                            or hasattr(mw, "class_path")
+                            and mw.class_path == path
+                        ):
                             already_registered = True
                             break
 
@@ -818,8 +819,8 @@ class RuntimeRegistry:
 
         Returns a list of Model subclass classes found in the module.
         """
-        from pathlib import Path
         import importlib
+        from pathlib import Path
 
         try:
             from aquilia.models.base import Model

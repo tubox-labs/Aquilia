@@ -19,6 +19,7 @@ from pathlib import Path
 def _get_websocket_metadata() -> dict:
     import importlib
     import sys
+
     from aquilia.cli.commands.inspect import _ensure_workspace_root, _get_workspace_modules, _load_manifest_instance
     from aquilia.sockets.compile import SocketCompiler
 

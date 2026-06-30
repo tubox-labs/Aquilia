@@ -349,7 +349,7 @@ def _check_pipeline(
 
     try:
         from aquilia.aquilary.core import RegistryMode
-        from aquilia.aquilary.fingerprint import FingerprintGenerator
+        from aquilia.aquilary.fingerprint import FingerprintGenerator  # noqa: F401
         from aquilia.aquilary.graph import DependencyGraph
         from aquilia.aquilary.validator import RegistryValidator
     except ImportError:

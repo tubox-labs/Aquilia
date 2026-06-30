@@ -2,32 +2,32 @@
 Aquilary CLI commands implementation for Click integration.
 """
 
-import sys
-import json
 import importlib.util
+import json
+import sys
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
+
 import click
 
 from aquilia.aquilary import (
     Aquilary,
-    ManifestValidationError,
     DependencyGraph,
+    ManifestValidationError,
 )
-from aquilia.aquilary.core import RegistryMode
 
 
 def ensure_sys_path():
     """Ensure current working directory is in sys.path for workspace imports."""
-    import sys
     import os
+    import sys
 
     cwd = os.getcwd()
     if cwd not in sys.path:
         sys.path.insert(0, cwd)
 
 
-def load_config(config_path: Optional[str]) -> Any:
+def load_config(config_path: str | None) -> Any:
     """Load config from Python file."""
     ensure_sys_path()
     if not config_path:
@@ -68,7 +68,7 @@ def load_config(config_path: Optional[str]) -> Any:
         sys.exit(1)
 
 
-def run_validate(manifests: List[str], config_path: Optional[str], mode: str, autodiscover: bool) -> None:
+def run_validate(manifests: list[str], config_path: str | None, mode: str, autodiscover: bool) -> None:
     """Validate manifests."""
     click.echo(f"Validating manifests in mode: {mode}")
     if manifests:
@@ -112,7 +112,7 @@ def run_validate(manifests: List[str], config_path: Optional[str], mode: str, au
 
 
 def run_inspect(
-    manifests: List[str], config_path: Optional[str], mode: str, autodiscover: bool, json_path: Optional[str]
+    manifests: list[str], config_path: str | None, mode: str, autodiscover: bool, json_path: str | None
 ) -> None:
     """Inspect registry diagnostics."""
     click.echo("Inspecting registry...")
@@ -160,7 +160,7 @@ def run_inspect(
         sys.exit(1)
 
 
-def run_freeze(manifests: List[str], config_path: Optional[str], output_path: str, autodiscover: bool) -> None:
+def run_freeze(manifests: list[str], config_path: str | None, output_path: str, autodiscover: bool) -> None:
     """Freeze registry for deployment."""
     click.echo("Freezing manifest...")
 
@@ -198,7 +198,7 @@ def run_freeze(manifests: List[str], config_path: Optional[str], output_path: st
 
 
 def run_graph(
-    manifests: List[str], config_path: Optional[str], mode: str, output_path: Optional[str], autodiscover: bool
+    manifests: list[str], config_path: str | None, mode: str, output_path: str | None, autodiscover: bool
 ) -> None:
     """Visualize dependency graph."""
     click.echo("Generating dependency graph...")
@@ -240,7 +240,7 @@ def run_graph(
 
 
 def run_app_registry(
-    frozen_path: Optional[str], manifests: List[str], config_path: str, mode: str, autodiscover: bool
+    frozen_path: str | None, manifests: list[str], config_path: str, mode: str, autodiscover: bool
 ) -> None:
     """Run application registry setup."""
     click.echo("Starting application...")

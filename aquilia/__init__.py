@@ -48,8 +48,6 @@ from .aquilary import (
     RouteConflictError,
     RuntimeRegistry,
 )
-
-
 from .auth import AdminGuard, VerifiedEmailGuard, authenticated
 
 # Audit Trail
