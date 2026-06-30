@@ -1036,3 +1036,660 @@ def _sql_type_to_field(col_type: str, notnull: int, default_val: str | None) -> 
         return "JSONField", ", ".join(args)
     else:
         return "CharField", "max_length=255" + (", " + ", ".join(args) if args else "")
+
+
+# ── New Database Commands ───────────────────────────────────────────────────
+
+
+def cmd_history(
+    database_url: str = "sqlite:///db.sqlite3",
+    migrations_dir: str = "migrations",
+    verbose: bool = False,
+) -> list[dict]:
+    """Show migration history with application timestamps and checksums."""
+    from aquilia.db import AquiliaDatabase
+    from aquilia.models.migration_runner import MigrationRunner
+
+    async def _run():
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        try:
+            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
+            records = await runner.get_applied_records()
+            if not records:
+                click.echo(click.style("No migrations have been applied yet.", fg="yellow"))
+                return []
+
+            click.echo(click.style("Migration History:", fg="cyan", bold=True))
+            click.echo(f"{'Revision':<18} | {'Slug':<40} | {'Applied At':<25} | {'Checksum':<10}")
+            click.echo("-" * 101)
+            for rec in records:
+                applied_str = str(rec.applied_at)[:19] if rec.applied_at else "Unknown"
+                click.echo(f"{rec.revision:<18} | {rec.slug:<40} | {applied_str:<25} | {rec.checksum:<10}")
+            return [
+                {
+                    "revision": rec.revision,
+                    "slug": rec.slug,
+                    "checksum": rec.checksum,
+                    "applied_at": str(rec.applied_at),
+                }
+                for rec in records
+            ]
+        finally:
+            await db.disconnect()
+
+    return asyncio.run(_run())
+
+
+def parse_timestamp(ts_str: str) -> datetime.datetime:
+    import datetime
+
+    for fmt in (
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S.%f",
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M:%S.%f",
+        "%Y-%m-%d",
+    ):
+        try:
+            return datetime.datetime.strptime(ts_str, fmt).replace(tzinfo=datetime.timezone.utc)
+        except ValueError:
+            continue
+    raise ValueError(f"Could not parse timestamp: {ts_str}")
+
+
+def normalize_db_timestamp(ts: Any) -> datetime.datetime:
+    import datetime
+
+    if isinstance(ts, datetime.datetime):
+        if ts.tzinfo is None:
+            return ts.replace(tzinfo=datetime.timezone.utc)
+        return ts.astimezone(datetime.timezone.utc)
+    if isinstance(ts, str):
+        cleaned = ts.replace("Z", "").replace(" ", "T")
+        for fmt in (
+            "%Y-%m-%dT%H:%M:%S.%f",
+            "%Y-%m-%dT%H:%M:%S",
+            "%Y-%m-%d",
+        ):
+            try:
+                return datetime.datetime.strptime(cleaned, fmt).replace(tzinfo=datetime.timezone.utc)
+            except ValueError:
+                continue
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def cmd_rollback(
+    database_url: str = "sqlite:///db.sqlite3",
+    migrations_dir: str = "migrations",
+    target: str | None = None,
+    step: int | None = None,
+    timestamp: str | None = None,
+    fake: bool = False,
+    plan: bool = False,
+    verbose: bool = False,
+) -> list[str]:
+    """Rollback migrations by target, step count, or timestamp."""
+    from aquilia.db import AquiliaDatabase
+    from aquilia.models.migration_runner import MigrationRunner
+
+    async def _run() -> list[str]:
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        try:
+            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
+            applied = await runner.get_applied()
+
+            if not applied:
+                click.echo(click.style("No applied migrations found to rollback.", fg="yellow"))
+                return []
+
+            final_target = None
+
+            if target is not None:
+                final_target = target
+            elif step is not None:
+                if step <= 0:
+                    raise click.ClickException("Step count must be greater than 0.")
+                if step >= len(applied):
+                    final_target = "zero"
+                else:
+                    final_target = applied[len(applied) - step - 1]
+            elif timestamp is not None:
+                try:
+                    target_time = parse_timestamp(timestamp)
+                except ValueError as e:
+                    raise click.ClickException(str(e))
+
+                applied_records = await runner.get_applied_records()
+                final_target = "zero"
+                for rec in applied_records:
+                    rec_time = normalize_db_timestamp(rec.applied_at)
+                    if rec_time <= target_time:
+                        final_target = rec.revision
+            else:
+                # Default rollback of 1 step
+                if len(applied) == 1:
+                    final_target = "zero"
+                else:
+                    final_target = applied[-2]
+
+            if final_target is None:
+                raise click.ClickException("Could not determine rollback target.")
+
+            if plan:
+                click.echo(click.style(f"-- Rollback Plan to target: '{final_target}' (dry-run):", fg="cyan"))
+                if final_target == "zero":
+                    to_rollback = list(reversed(applied))
+                else:
+                    if final_target not in applied:
+                        raise click.ClickException(f"Target '{final_target}' is not in applied migrations.")
+                    idx = applied.index(final_target)
+                    to_rollback = list(reversed(applied[idx + 1 :]))
+
+                if not to_rollback:
+                    click.echo("No migrations would be rolled back.")
+                    return []
+
+                for rev in to_rollback:
+                    click.echo(f"  - Would rollback migration: {rev}")
+                    path = runner._find_migration_file(rev)
+                    if path:
+                        try:
+                            from aquilia.models.migration_runner import (
+                                _build_migration_from_module,
+                                _load_migration_module,
+                            )
+
+                            module = _load_migration_module(path, rev)
+                            if hasattr(module, "operations"):
+                                migration_obj = _build_migration_from_module(module)
+                                stmts = migration_obj.compile_downgrade(db.dialect)
+                                for sql in stmts:
+                                    click.echo(click.style(f"      {sql}", dim=True))
+                        except Exception:
+                            pass
+                return []
+
+            # Perform rollback
+            revs = await runner.migrate(target=final_target, fake=fake)
+            action = "Faked rollback of" if fake else "Rolled back"
+            if revs:
+                click.echo(click.style(f"{action} {len(revs)} migration(s) to target '{final_target}'", fg="green"))
+            else:
+                click.echo(click.style("Nothing to rollback.", fg="yellow"))
+            return revs
+        finally:
+            await db.disconnect()
+
+    return asyncio.run(_run())
+
+
+def cmd_check(
+    database_url: str = "sqlite:///db.sqlite3",
+    migrations_dir: str = "migrations",
+    verbose: bool = False,
+) -> bool:
+    """Validate migration integrity, naming conventions, and checksums."""
+    from aquilia.db import AquiliaDatabase
+    from aquilia.models.migration_runner import MigrationRunner, _extract_revision
+
+    async def _run() -> bool:
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        try:
+            runner = MigrationRunner(db, migrations_dir, dialect=db.dialect)
+            click.echo(click.style("Checking migration system health...", fg="cyan", bold=True))
+
+            mdir = Path(migrations_dir)
+            if not mdir.exists():
+                click.echo(click.style("  [OK] No migrations directory exists yet.", fg="green"))
+                return True
+
+            migration_files = sorted(mdir.glob("*.py"))
+            invalid_names = []
+            rev_map = {}
+            for path in migration_files:
+                if path.name.startswith("__"):
+                    continue
+                rev = _extract_revision(path)
+                if not rev:
+                    invalid_names.append(path.name)
+                else:
+                    if rev in rev_map:
+                        rev_map[rev].append(path.name)
+                    else:
+                        rev_map[rev] = [path.name]
+
+            passed = True
+            if invalid_names:
+                click.secho(
+                    "  [ERROR] Invalid migration naming format (should be YYYYMMDD_HHMMSS_slug.py):",
+                    fg="red",
+                    bold=True,
+                )
+                for name in invalid_names:
+                    click.echo(f"    - {name}")
+                passed = False
+            else:
+                click.echo(click.style("  [OK] Migration file naming conventions look good.", fg="green"))
+
+            duplicates = {rev: files for rev, files in rev_map.items() if len(files) > 1}
+            if duplicates:
+                click.secho("  [ERROR] Conflicting/duplicate migration revisions found:", fg="red", bold=True)
+                for rev, files in duplicates.items():
+                    click.echo(f"    - Revision {rev} is defined in multiple files: {', '.join(files)}")
+                passed = False
+            else:
+                click.echo(click.style("  [OK] No revision conflicts detected.", fg="green"))
+
+            mismatches = await runner.verify_checksums()
+            if mismatches:
+                click.secho("  [ERROR] Migration integrity/checksum verification failed:", fg="red", bold=True)
+                for m in mismatches:
+                    click.echo(f"    - Revision {m['revision']}: {m['reason']}")
+                passed = False
+            else:
+                click.echo(click.style("  [OK] All applied migration checksums verified successfully.", fg="green"))
+
+            if passed:
+                click.secho("\nMigration health check PASSED.", fg="green", bold=True)
+            else:
+                click.secho(
+                    "\nMigration health check FAILED. Please resolve the issues highlighted above.", fg="red", bold=True
+                )
+            return passed
+        finally:
+            await db.disconnect()
+
+    return asyncio.run(_run())
+
+
+def _serialize_snapshot_model_to_lines(model_name: str, model_data: dict) -> list[str]:
+    """Serialize snapshot model metadata to a list of Python class lines for diffing."""
+    lines = []
+    table = model_data.get("table", "")
+    lines.append(f"class {model_name}(Model):")
+    lines.append(f"    # Table: {table}")
+
+    # Fields
+    fields = model_data.get("fields", {})
+    # Sort fields alphabetically with 'id' first
+    sorted_fields = sorted(fields.keys(), key=lambda k: (0 if k == "id" else 1, k))
+    for fld_name in sorted_fields:
+        fld = fields[fld_name]
+        fld_cls = fld.get("field_class", "Field")
+        details = []
+        if fld.get("primary_key"):
+            details.append("primary_key=True")
+        if fld.get("max_length"):
+            details.append(f"max_length={fld['max_length']}")
+        if fld.get("nullable"):
+            details.append("nullable=True")
+        if fld.get("unique"):
+            details.append("unique=True")
+
+        default = fld.get("default")
+        if default is not None:
+            details.append(f"default={repr(default)}")
+
+        if fld.get("references"):
+            ref = fld["references"]
+            details.append(f"to='{ref.get('model')}'")
+
+        lines.append(f"    {fld_name} = {fld_cls}({', '.join(details)})")
+
+    # Indexes
+    indexes = model_data.get("indexes", [])
+    for idx in sorted(indexes, key=lambda i: i.get("name", "")):
+        uniq_str = ", unique=True" if idx.get("unique") else ""
+        cols = ", ".join(repr(c) for c in idx.get("columns", []))
+        lines.append(f"    # Index: {idx['name']} on [{cols}]{uniq_str}")
+
+    return lines
+
+
+def cmd_diff(
+    database_url: str = "sqlite:///db.sqlite3",
+    migrations_dir: str = "migrations",
+    compare: str = "models",
+    verbose: bool = False,
+) -> bool:
+    """Compare database vs code models or database vs migration snapshot."""
+    from aquilia.db import AquiliaDatabase
+    from aquilia.models.schema_snapshot import (
+        compute_diff,
+        create_snapshot,
+        create_snapshot_from_db,
+        load_snapshot,
+    )
+
+    models = _discover_models(verbose=verbose, ignore_errors=True)
+
+    async def _run() -> bool:
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        try:
+            click.echo(click.style(f"Computing schema diff ({compare} vs database)...", fg="cyan"))
+            db_snapshot = await create_snapshot_from_db(db, model_classes=models)
+
+            if compare == "models":
+                if not models:
+                    click.secho("No models found in the workspace code to compare.", fg="yellow")
+                    return False
+                target_snapshot = create_snapshot(models)
+            else:
+                snap_path = Path(migrations_dir) / "schema_snapshot.surp"
+                if not snap_path.exists():
+                    click.secho(f"No schema snapshot file found at {snap_path}.", fg="yellow")
+                    return False
+                target_snapshot = load_snapshot(snap_path)
+                if not target_snapshot:
+                    click.secho("Could not load schema snapshot.", fg="red")
+                    return False
+
+            diff = compute_diff(db_snapshot, target_snapshot)
+
+            if not diff.has_changes:
+                click.secho("Database and schema are completely in sync! No drift detected.", fg="green", bold=True)
+                return True
+
+            click.secho("Drift/Diff detected between database and schema:\n", fg="yellow", bold=True)
+
+            click.echo(click.style("--- database (active)", fg="red", bold=True))
+            click.echo(click.style("+++ schema (target)", fg="green", bold=True))
+            click.echo()
+
+            import difflib
+
+            # Print added models
+            if diff.added_models:
+                for m in diff.added_models:
+                    new_lines = _serialize_snapshot_model_to_lines(m, target_snapshot["models"][m])
+                    diff_lines = list(
+                        difflib.unified_diff([], new_lines, n=1000, fromfile="database", tofile="schema", lineterm="")
+                    )
+                    for line in diff_lines[3:]:
+                        if line.startswith("+"):
+                            click.echo(click.style(line, fg="green"))
+                        elif line.startswith("-"):
+                            click.echo(click.style(line, fg="red"))
+                        else:
+                            click.echo(click.style(line, fg="white"))
+                    click.echo()
+
+            # Print removed models
+            if diff.removed_models:
+                for m in diff.removed_models:
+                    old_lines = _serialize_snapshot_model_to_lines(m, db_snapshot["models"][m])
+                    diff_lines = list(
+                        difflib.unified_diff(old_lines, [], n=1000, fromfile="database", tofile="schema", lineterm="")
+                    )
+                    for line in diff_lines[3:]:
+                        if line.startswith("+"):
+                            click.echo(click.style(line, fg="green"))
+                        elif line.startswith("-"):
+                            click.echo(click.style(line, fg="red"))
+                        else:
+                            click.echo(click.style(line, fg="white"))
+                    click.echo()
+
+            # Print renamed models
+            if diff.renamed_models:
+                for old, new in diff.renamed_models:
+                    old_lines = _serialize_snapshot_model_to_lines(old, db_snapshot["models"][old])
+                    new_lines = _serialize_snapshot_model_to_lines(new, target_snapshot["models"][new])
+                    diff_lines = list(
+                        difflib.unified_diff(
+                            old_lines, new_lines, n=1000, fromfile="database", tofile="schema", lineterm=""
+                        )
+                    )
+                    for line in diff_lines[3:]:
+                        if line.startswith("+"):
+                            click.echo(click.style(line, fg="green"))
+                        elif line.startswith("-"):
+                            click.echo(click.style(line, fg="red"))
+                        else:
+                            click.echo(click.style(line, fg="white"))
+                    click.echo()
+
+            # Print altered models
+            if diff.altered_models:
+                for m in diff.altered_models:
+                    old_lines = _serialize_snapshot_model_to_lines(m, db_snapshot["models"][m])
+                    new_lines = _serialize_snapshot_model_to_lines(m, target_snapshot["models"][m])
+                    diff_lines = list(
+                        difflib.unified_diff(
+                            old_lines, new_lines, n=1000, fromfile="database", tofile="schema", lineterm=""
+                        )
+                    )
+                    for line in diff_lines[3:]:
+                        if line.startswith("+"):
+                            click.echo(click.style(line, fg="green"))
+                        elif line.startswith("-"):
+                            click.echo(click.style(line, fg="red"))
+                        else:
+                            click.echo(click.style(line, fg="white"))
+                    click.echo()
+
+            return False
+        finally:
+            await db.disconnect()
+
+    return asyncio.run(_run())
+
+
+def cmd_seed(
+    database_url: str = "sqlite:///db.sqlite3",
+    seed_file: str | None = None,
+    verbose: bool = False,
+) -> None:
+    """Seed the database using a Python script."""
+    import importlib.util
+    import inspect
+
+    from aquilia.db import AquiliaDatabase, set_database
+    from aquilia.models.base import ModelRegistry
+
+    seed_path = None
+    if seed_file:
+        p = Path(seed_file)
+        if p.is_file():
+            seed_path = p
+    else:
+        for candidate in ("seeds.py", "db/seeds.py"):
+            p = Path.cwd() / candidate
+            if p.is_file():
+                seed_path = p
+                break
+
+    if not seed_path:
+        click.echo("No seed script found. Creating template seeds.py at workspace root...")
+        template = (
+            '"""\nAquilia Database Seeds.\n"""\n\n'
+            "import asyncio\n"
+            "# from modules.products.models import Product\n\n"
+            "async def seed(db):\n"
+            '    """Write database seeding logic here."""\n'
+            '    click_echo = __import__("click").echo\n'
+            '    click_echo("Seeding database...")\n'
+            "    # Example:\n"
+            '    # await Product.create(name="Gizmo", price=9.99)\n'
+            '    click_echo("Seeding completed successfully!")\n'
+        )
+        Path("seeds.py").write_text(template, encoding="utf-8")
+        click.secho("Created template seeds.py. Edit it to define seeds, then run `aq db seed`.", fg="green")
+        return
+
+    click.echo(f"Running seed script: {seed_path}")
+
+    async def _run():
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        set_database(db)
+
+        try:
+            ModelRegistry.set_database(db)
+        except Exception:
+            pass
+        _discover_models(verbose=verbose, ignore_errors=True)
+
+        try:
+            spec = importlib.util.spec_from_file_location("aquilia_seeds", seed_path)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+
+                func = getattr(mod, "seed", getattr(mod, "run", None))
+                if func is None:
+                    raise click.ClickException("Seed file must define a `seed(db)` or `run(db)` function.")
+
+                if inspect.iscoroutinefunction(func):
+                    await func(db)
+                else:
+                    func(db)
+                click.secho("Seeding complete.", fg="green", bold=True)
+            else:
+                raise click.ClickException(f"Failed to load seed file: {seed_path}")
+        except Exception as e:
+            import traceback
+
+            click.secho(f"Error during seeding:\n{traceback.format_exc()}", fg="red")
+            raise click.ClickException(f"Seeding failed: {e}")
+        finally:
+            await db.disconnect()
+
+    asyncio.run(_run())
+
+
+def cmd_reset(
+    database_url: str = "sqlite:///db.sqlite3",
+    migrations_dir: str = "migrations",
+    verbose: bool = False,
+    yes: bool = False,
+) -> None:
+    """Reset the database: drop all tables and re-apply all migrations."""
+    if not yes:
+        click.confirm(
+            click.style(
+                "WARNING: This will drop ALL tables in the database. Are you sure?",
+                fg="red",
+                bold=True,
+            ),
+            abort=True,
+        )
+
+    from aquilia.db import AquiliaDatabase
+    from aquilia.models.migration_runner import MigrationRunner
+
+    async def _run():
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        try:
+            dialect = db.dialect
+            tables = await db.get_tables()
+            tables = [t for t in tables if not t.startswith("sqlite_")]
+
+            if tables:
+                click.echo(f"Dropping {len(tables)} table(s)...")
+                async with db.transaction():
+                    if dialect == "sqlite":
+                        await db.execute("PRAGMA foreign_keys = OFF;")
+                    elif dialect == "mysql":
+                        await db.execute("SET FOREIGN_KEY_CHECKS = 0;")
+
+                    for table in tables:
+                        if verbose:
+                            click.echo(f"  Dropping table: {table}")
+                        if dialect == "postgresql":
+                            await db.execute(f'DROP TABLE "{table}" CASCADE;')
+                        else:
+                            await db.execute(f'DROP TABLE "{table}";')
+
+                    if dialect == "sqlite":
+                        await db.execute("PRAGMA foreign_keys = ON;")
+                    elif dialect == "mysql":
+                        await db.execute("SET FOREIGN_KEY_CHECKS = 1;")
+                click.secho("All tables dropped successfully.", fg="green")
+            else:
+                click.echo("No tables found to drop.")
+
+            click.echo("Re-applying all migrations...")
+            runner = MigrationRunner(db, migrations_dir, dialect=dialect)
+            revs = await runner.migrate()
+            click.secho(f"Applied {len(revs)} migration(s). Database reset complete.", fg="green", bold=True)
+        finally:
+            await db.disconnect()
+
+    asyncio.run(_run())
+
+
+def cmd_flush(
+    database_url: str = "sqlite:///db.sqlite3",
+    verbose: bool = False,
+    yes: bool = False,
+) -> None:
+    """Flush all data from tables (excluding tracking tables) without dropping schema."""
+    if not yes:
+        click.confirm(
+            click.style(
+                "WARNING: This will delete ALL data in all tables. The schema will be kept. Are you sure?",
+                fg="red",
+                bold=True,
+            ),
+            abort=True,
+        )
+
+    from aquilia.db import AquiliaDatabase
+
+    async def _run():
+        db = AquiliaDatabase(database_url)
+        await db.connect()
+        try:
+            dialect = db.dialect
+            tables = await db.get_tables()
+            tables = [t for t in tables if not t.startswith("sqlite_") and t != "aquilia_migrations"]
+
+            if not tables:
+                click.echo("No user tables found to flush.")
+                return
+
+            click.echo(f"Flushing data from {len(tables)} table(s)...")
+
+            if dialect == "sqlite":
+                async with db.transaction():
+                    await db.execute("PRAGMA foreign_keys = OFF;")
+                    for table in tables:
+                        if verbose:
+                            click.echo(f"  Truncating (delete) table: {table}")
+                        await db.execute(f'DELETE FROM "{table}";')
+                        try:
+                            await db.execute("DELETE FROM sqlite_sequence WHERE name = ?", [table])
+                        except Exception:
+                            pass
+                    await db.execute("PRAGMA foreign_keys = ON;")
+            elif dialect == "postgresql":
+                table_list = ", ".join(f'"{t}"' for t in tables)
+                if verbose:
+                    click.echo(f"  Truncating tables with cascade: {table_list}")
+                await db.execute(f"TRUNCATE TABLE {table_list} RESTART IDENTITY CASCADE;")
+            elif dialect == "mysql":
+                async with db.transaction():
+                    await db.execute("SET FOREIGN_KEY_CHECKS = 0;")
+                    for table in tables:
+                        if verbose:
+                            click.echo(f"  Truncating table: {table}")
+                        await db.execute(f'TRUNCATE TABLE "{table}";')
+                    await db.execute("SET FOREIGN_KEY_CHECKS = 1;")
+            else:
+                async with db.transaction():
+                    for table in tables:
+                        if verbose:
+                            click.echo(f"  Deleting from table: {table}")
+                        await db.execute(f'DELETE FROM "{table}";')
+
+            click.secho("Database flushed successfully.", fg="green", bold=True)
+        finally:
+            await db.disconnect()
+
+    asyncio.run(_run())
