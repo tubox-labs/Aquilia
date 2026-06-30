@@ -101,6 +101,7 @@ class ClassProvider:
                 dep_token,
                 tag=dep_tag,
                 optional=dep_info.get("optional", False),
+                ctx=ctx,
             )
             resolved_deps[dep_name] = resolved
 
@@ -272,6 +273,7 @@ class FactoryProvider:
                 dep_info["token"],
                 tag=dep_info.get("tag"),
                 optional=dep_info.get("optional", False),
+                ctx=ctx,
             )
             resolved_deps[dep_name] = resolved
 
@@ -552,6 +554,7 @@ class AliasProvider:
         return await ctx.container.resolve_async(
             self._target_token,
             tag=self._target_tag,
+            ctx=ctx,
         )
 
     async def shutdown(self) -> None:

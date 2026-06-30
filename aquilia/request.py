@@ -17,7 +17,15 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import ipaddress
-import json as stdlib_json
+
+# Try to import fastest json library
+try:
+    import orjson as fast_json
+except ImportError:
+    try:
+        import ujson as fast_json
+    except ImportError:
+        import json as fast_json
 import tempfile
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
@@ -919,11 +927,11 @@ class Request:
 
         # Parse JSON
         try:
-            text = body_bytes.decode("utf-8")
-            self._json = stdlib_json.loads(text)
-        except UnicodeDecodeError as e:
-            raise InvalidJSON(f"Invalid UTF-8 in JSON payload: {e}")
-        except stdlib_json.JSONDecodeError as e:
+            if fast_json.__name__ == "orjson":
+                self._json = fast_json.loads(body_bytes)
+            else:
+                self._json = fast_json.loads(body_bytes.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError, TypeError) as e:
             raise InvalidJSON(f"Invalid JSON: {e}")
 
         # Check depth

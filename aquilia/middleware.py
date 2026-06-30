@@ -220,17 +220,17 @@ class MiddlewareStack:
 
         async def wrapped(request: Request, ctx: RequestCtx) -> Response:
             res = await middleware(request, ctx, next_handler)
+            if res.__class__ is Response or isinstance(res, Response):
+                return res
             if res is None:
                 raise RuntimeError(
                     f"Middleware '{type(middleware).__name__}' returned None instead of a Response object. "
                     "Make sure the middleware is not missing a return statement or forgot to await next_handler."
                 )
-            if not isinstance(res, Response):
-                raise TypeError(
-                    f"Middleware '{type(middleware).__name__}' returned invalid type '{type(res).__name__}' "
-                    "instead of a Response object."
-                )
-            return res
+            raise TypeError(
+                f"Middleware '{type(middleware).__name__}' returned invalid type '{type(res).__name__}' "
+                "instead of a Response object."
+            )
 
         return wrapped
 
@@ -244,31 +244,31 @@ class MiddlewareStack:
             trace = current_trace()
             if trace is None:
                 res = await desc.middleware(request, ctx, next_handler)
+                if res.__class__ is Response or isinstance(res, Response):
+                    return res
                 if res is None:
                     raise RuntimeError(
                         f"Middleware '{desc.name}' returned None instead of a Response object. "
                         "Make sure the middleware is not missing a return statement or forgot to await next_handler."
                     )
-                if not isinstance(res, Response):
-                    raise TypeError(
-                        f"Middleware '{desc.name}' returned invalid type '{type(res).__name__}' "
-                        "instead of a Response object."
-                    )
-                return res
+                raise TypeError(
+                    f"Middleware '{desc.name}' returned invalid type '{type(res).__name__}' "
+                    "instead of a Response object."
+                )
             t0 = time.monotonic()
             try:
                 res = await desc.middleware(request, ctx, next_handler)
+                if res.__class__ is Response or isinstance(res, Response):
+                    return res
                 if res is None:
                     raise RuntimeError(
                         f"Middleware '{desc.name}' returned None instead of a Response object. "
                         "Make sure the middleware is not missing a return statement or forgot to await next_handler."
                     )
-                if not isinstance(res, Response):
-                    raise TypeError(
-                        f"Middleware '{desc.name}' returned invalid type '{type(res).__name__}' "
-                        "instead of a Response object."
-                    )
-                return res
+                raise TypeError(
+                    f"Middleware '{desc.name}' returned invalid type '{type(res).__name__}' "
+                    "instead of a Response object."
+                )
             finally:
                 dt = (time.monotonic() - t0) * 1000.0
                 trace.add_span(

@@ -97,6 +97,8 @@ def cached(
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        is_async = inspect.iscoroutinefunction(func)
+
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Try to get cache service from first arg (controller self)
@@ -104,11 +106,11 @@ def cached(
 
             if cache_service is None:
                 # No cache available -- just call the function
-                return await _call_func(func, args, kwargs)
+                return await func(*args, **kwargs) if is_async else func(*args, **kwargs)
 
             # Check unless condition
             if unless and unless(*args, **kwargs):
-                return await _call_func(func, args, kwargs)
+                return await func(*args, **kwargs) if is_async else func(*args, **kwargs)
 
             # Build cache key
             if key:
@@ -131,7 +133,7 @@ def cached(
                 return cached_value
 
             # Cache miss -- compute
-            result = await _call_func(func, args, kwargs)
+            result = await func(*args, **kwargs) if is_async else func(*args, **kwargs)
 
             # Check condition before caching
             should_cache = True
@@ -205,10 +207,12 @@ def invalidate(
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        is_async = inspect.iscoroutinefunction(func)
+
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
             # Execute the function first
-            result = await _call_func(func, args, kwargs)
+            result = await func(*args, **kwargs) if is_async else func(*args, **kwargs)
 
             # Then invalidate
             cache_service = _resolve_cache_service(args)
@@ -263,10 +267,3 @@ def _resolve_cache_service(args: tuple):
         return _default_cache_service
 
     return None
-
-
-async def _call_func(func, args, kwargs):
-    """Call a sync or async function."""
-    if inspect.iscoroutinefunction(func):
-        return await func(*args, **kwargs)
-    return func(*args, **kwargs)

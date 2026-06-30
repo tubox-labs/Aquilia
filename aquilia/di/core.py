@@ -375,6 +375,7 @@ class Container:
         *,
         tag: str | None = None,
         optional: bool = False,
+        ctx: ResolveCtx | None = None,
     ) -> T:
         """
         Async resolve (primary resolution path).
@@ -418,7 +419,7 @@ class Container:
         if self._parent and provider.meta.scope in ("singleton", "app"):
             parent_provider = self._parent._providers.get(cache_key)
             if parent_provider is provider:
-                return await self._parent.resolve_async(token, tag=tag, optional=optional)
+                return await self._parent.resolve_async(token, tag=tag, optional=optional, ctx=ctx)
 
         # ── SEC-DI-04: Scope validation — detect captive dependency ──
         # Prevent request/ephemeral scoped providers from being cached
@@ -436,8 +437,13 @@ class Container:
                 self._scope,
             )
 
-        # Create resolution context
-        ctx = ResolveCtx(container=self)
+        # Create or reuse resolution context
+        if ctx is None:
+            ctx = ResolveCtx(container=self)
+        if ctx.in_cycle(cache_key):
+            from .errors import DependencyCycleError
+
+            raise DependencyCycleError(cycle=ctx.get_trace() + [cache_key])
         ctx.push(cache_key)
 
         try:
