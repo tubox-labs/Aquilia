@@ -84,7 +84,42 @@ class WorkspaceGenerator:
         items = re.findall(r'"([^"]+)"', list_content)
         return items if items else default
 
-    def generate_workspace_module_config(self, discovered_modules: dict) -> str:
+    def _extract_existing_module_blocks(self, content: str) -> dict[str, str]:
+        """
+        Parses the existing workspace.py content to extract the exact source block
+        for each declared module.
+        Returns a dict mapping module_name -> full .module(...) code block string.
+        """
+        import re
+
+        blocks = {}
+        lines = content.split("\n")
+
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.lstrip()
+
+            # Look for lines starting with ".module(Module("
+            match = re.match(r"\.module\(Module\(\s*[\"\']([^\"\']+)[\"\']", stripped)
+            if match:
+                module_name = match.group(1)
+                paren_depth = 0
+                block_lines = []
+                while i < len(lines):
+                    current_line = lines[i]
+                    block_lines.append(current_line)
+                    paren_depth += current_line.count("(") - current_line.count(")")
+                    i += 1
+                    if paren_depth <= 0:
+                        break
+                # We have the full block
+                blocks[module_name] = "\n".join(block_lines)
+            else:
+                i += 1
+        return blocks
+
+    def generate_workspace_module_config(self, discovered_modules: dict, existing_blocks: dict | None = None) -> str:
         """
         Generate workspace module configuration as pointers to per-module manifests.
 
@@ -95,13 +130,21 @@ class WorkspaceGenerator:
 
         Args:
             discovered_modules: Dictionary of discovered module data
+            existing_blocks: Optional dictionary of existing module config blocks to preserve
 
         Returns:
             String containing workspace module configuration (pointers only)
         """
+        if existing_blocks is None:
+            existing_blocks = {}
         lines = []
 
         for mod_name, mod_data in discovered_modules.items():
+            # If this module already has a manual configuration block, preserve it
+            if mod_name in existing_blocks:
+                lines.append(existing_blocks[mod_name])
+                continue
+
             # Generate module configuration -- pointer only
             version = mod_data.get("version", "0.1.0")
             description = mod_data.get("description", f"{mod_name.capitalize()} module")
@@ -148,8 +191,11 @@ class WorkspaceGenerator:
 
         content = workspace_path.read_text(encoding="utf-8")
 
-        # Generate new module configuration
-        new_config = self.generate_workspace_module_config(discovered_modules)
+        # Extract existing module blocks to preserve them
+        existing_blocks = self._extract_existing_module_blocks(content)
+
+        # Generate new module configuration, preserving existing configs
+        new_config = self.generate_workspace_module_config(discovered_modules, existing_blocks)
 
         import re
 

@@ -2457,3 +2457,44 @@ class TestASGIVersionErrorEarlyReturn:
         start = messages[0]
         assert start["type"] == "http.response.start"
         assert start["status"] in (400, 404)
+
+
+class TestWorkspaceAutoDiscoveryPreservation:
+    """Test that auto-discovery does not remove manual configurations in workspace.py."""
+
+    def test_update_workspace_config_preserves_custom_chaining(self, tmp_path):
+        from aquilia.cli.generators.workspace import WorkspaceGenerator
+
+        workspace_py = tmp_path / "workspace.py"
+        workspace_py.write_text(
+            """
+from aquilia import Workspace, Module
+
+workspace = (
+    Workspace("test_ws")
+    .module(Module("brief", version="0.1.0", description="Brief module")
+        .route_prefix("/brief")
+        .tags("brief")
+        .versioning(position='after'))
+    # ---- Integrations ----------------------------------------------------
+)
+""",
+            encoding="utf-8",
+        )
+
+        generator = WorkspaceGenerator("test_ws", tmp_path)
+        discovered = {
+            "brief": {
+                "name": "brief",
+                "version": "0.1.0",
+                "description": "Brief module",
+                "route_prefix": "/brief",
+                "tags": ["brief"],
+            }
+        }
+
+        generator.update_workspace_config(workspace_py, discovered)
+
+        updated_content = workspace_py.read_text(encoding="utf-8")
+        assert ".versioning(position='after')" in updated_content
+        assert '.route_prefix("/brief")' in updated_content
