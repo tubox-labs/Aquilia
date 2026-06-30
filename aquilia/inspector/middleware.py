@@ -166,33 +166,73 @@ class InspectorMiddleware(Middleware):
         if self._config.capture_request_body and _is_capturable_method(request.method):
             trace.request_body_preview = await _safe_body_preview(request, self._config)
 
-        token = _set_current_trace(trace)
+        # OpenTelemetry correlation
         try:
-            import sys
-            from aquilia import __version__
-            from aquilia.inspector.trace import Lane, SpanStatus
-            trace.add_span(
-                lane=Lane.VERSIONS,
-                label="Resolve Framework Versions",
-                start_offset_ms=0.0,
-                duration_ms=0.1,
-                status=SpanStatus.OK,
-                detail={
-                    "aquilia": __version__,
-                    "python": sys.version,
-                }
-            )
+            from opentelemetry import trace as otel_trace
+            current_otel_span = otel_trace.get_current_span()
+            if current_otel_span and current_otel_span.get_span_context().is_valid:
+                span_context = current_otel_span.get_span_context()
+                trace.otel_trace_id = f"{span_context.trace_id:032x}"
+                trace.otel_span_id = f"{span_context.span_id:016x}"
         except Exception:
             pass
 
+        token = _set_current_trace(trace)
         try:
-            response = await next_handler(request, ctx)
-            trace.status_code = response.status
-            trace.response = _summarize_response(response, self._config)
-            return response
-        except Exception as exc:
-            trace.exception = trace.exception or _exception_to_node(exc)
-            raise
+            try:
+                import sys
+                from aquilia import __version__
+                from aquilia.inspector.trace import Lane, SpanStatus
+                trace.add_span(
+                    lane=Lane.VERSIONS,
+                    label="Resolve Framework Versions",
+                    start_offset_ms=0.0,
+                    duration_ms=0.1,
+                    status=SpanStatus.OK,
+                    detail={
+                        "aquilia": __version__,
+                        "python": sys.version,
+                    }
+                )
+            except Exception:
+                pass
+
+            profile_enabled = False
+            try:
+                if request.headers.get("x-profile") == "true" or request.query_params.get("profile") == "true":
+                    profile_enabled = True
+            except Exception:
+                pass
+
+            if profile_enabled:
+                import cProfile
+                import pstats
+                import io
+                pr = cProfile.Profile()
+                pr.enable()
+                try:
+                    response = await next_handler(request, ctx)
+                    trace.status_code = response.status
+                    trace.response = _summarize_response(response, self._config)
+                    return response
+                except Exception as exc:
+                    trace.exception = trace.exception or _exception_to_node(exc)
+                    raise
+                finally:
+                    pr.disable()
+                    s = io.StringIO()
+                    ps = pstats.Stats(pr, stream=s).sort_stats(pstats.SortKey.CUMULATIVE)
+                    ps.print_stats(100)
+                    trace.profile_stats = s.getvalue()
+            else:
+                try:
+                    response = await next_handler(request, ctx)
+                    trace.status_code = response.status
+                    trace.response = _summarize_response(response, self._config)
+                    return response
+                except Exception as exc:
+                    trace.exception = trace.exception or _exception_to_node(exc)
+                    raise
         finally:
             try:
                 from aquilia.inspector.trace import Lane, SpanStatus

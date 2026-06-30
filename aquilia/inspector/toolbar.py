@@ -41,6 +41,25 @@ class ToolbarInjectionMiddleware(Middleware):
         # Proceed with request pipeline
         response = await next_handler(request, ctx)
 
+        # Do not inject on redirects, but intercept to save trace history in cookie
+        if 300 <= response.status < 400:
+            trace = current_trace()
+            if trace is not None:
+                try:
+                    cookie_val = request.cookies.get("aq_redirect_traces", "")
+                    trace_ids = [tid for tid in cookie_val.split(",") if tid]
+                    trace_ids.append(trace.trace_id)
+                    response.set_cookie(
+                        "aq_redirect_traces",
+                        ",".join(trace_ids),
+                        max_age=60,
+                        path="/",
+                        httponly=True,
+                    )
+                except Exception:
+                    pass
+            return response
+
         # Verify response eligibility
         content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
         if content_type != "text/html":
@@ -51,13 +70,26 @@ class ToolbarInjectionMiddleware(Middleware):
         if _is_stream_content(response._content):
             return response
 
-        # Do not inject on redirects (handled by History panel/redirect-folding in Phase 4)
-        if 300 <= response.status < 400:
-            return response
-
         trace = current_trace()
         if trace is None:
             return response
+
+        # Read and clear the redirect trace cookie
+        redirect_traces = []
+        try:
+            cookie_val = request.cookies.get("aq_redirect_traces", "")
+            if cookie_val:
+                from .collector import get_collector
+                collector = get_collector(self._config)
+                trace_ids = [tid for tid in cookie_val.split(",") if tid]
+                for tid in trace_ids:
+                    redirect_trace = collector.get(tid)
+                    if redirect_trace is not None:
+                        redirect_traces.append(redirect_trace.to_dict())
+                # Delete the cookie by setting max_age=0 on response
+                response.delete_cookie("aq_redirect_traces", path="/")
+        except Exception:
+            pass
 
         # Measure injection overhead
         t0 = time.perf_counter()
@@ -90,7 +122,11 @@ class ToolbarInjectionMiddleware(Middleware):
         elif status_code >= 300:
             status_class = "aq-status-warning"
 
-        trace_data = json.dumps(trace.to_dict())
+        payload = {
+            "trace": trace.to_dict(),
+            "redirect_history": redirect_traces,
+        }
+        trace_data = json.dumps(payload)
 
         # Splice HTML
         toolbar_html = _TOOLBAR_TEMPLATE.replace("__TRACE_JSON__", trace_data)
@@ -420,6 +456,7 @@ _TOOLBAR_TEMPLATE = """
                 <button class="aq-tab-btn" data-tab="request">Request</button>
                 <button class="aq-tab-btn" data-tab="response">Response</button>
                 <button class="aq-tab-btn" data-tab="headers">Headers</button>
+                <button class="aq-tab-btn" data-tab="redirects" id="aq-redirect-btn" style="display: none;">Redirects (<span id="aq-redirect-count">0</span>)</button>
             </div>
             <button class="aq-close-btn" id="aq-close-btn">&times;</button>
         </div>
@@ -440,10 +477,25 @@ _TOOLBAR_TEMPLATE = """
     const tabButtons = document.querySelectorAll(".aq-tab-btn");
 
     let traceData = {};
+    let redirectHistory = [];
     try {
-        traceData = JSON.parse(document.getElementById("aq-toolbar-data").textContent);
+        const parsed = JSON.parse(document.getElementById("aq-toolbar-data").textContent);
+        if (parsed.trace) {
+            traceData = parsed.trace;
+            redirectHistory = parsed.redirect_history || [];
+        } else {
+            traceData = parsed;
+        }
     } catch(e) {
         console.error("Aquilia Inspector failed to parse trace JSON data:", e);
+    }
+
+    if (redirectHistory && redirectHistory.length > 0) {
+        const redirBtn = document.getElementById("aq-redirect-btn");
+        if (redirBtn) {
+            redirBtn.style.display = "inline-flex";
+            document.getElementById("aq-redirect-count").textContent = redirectHistory.length;
+        }
     }
 
     // Toggle visibility
@@ -532,6 +584,8 @@ _TOOLBAR_TEMPLATE = """
             renderResponse();
         } else if (tabName === "headers") {
             renderHeaders();
+        } else if (tabName === "redirects") {
+            renderRedirects();
         }
     }
 
@@ -727,6 +781,49 @@ _TOOLBAR_TEMPLATE = """
             </div>
         `;
 
+        content.innerHTML = html;
+    }
+
+    function renderRedirects() {
+        if (!redirectHistory || redirectHistory.length === 0) {
+            content.innerHTML = '<div style="color: var(--aq-text-muted);">No redirect history.</div>';
+            return;
+        }
+
+        let html = `
+            <div style="margin-bottom: 12px; color: var(--aq-text-muted); font-size: 12px;">
+                The following requests resulted in redirects before landing on this page:
+            </div>
+            <table class="aq-table">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">Method</th>
+                        <th>Path</th>
+                        <th style="width: 80px;">Status</th>
+                        <th style="width: 100px;">Duration</th>
+                        <th style="width: 100px;">SQL Queries</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        redirectHistory.forEach(r => {
+            const sqlCount = (r.spans || []).filter(s => s.lane === "database").length;
+            html += `
+                <tr>
+                    <td style="font-weight: 600;">${escapeHtml(r.method)}</td>
+                    <td>${escapeHtml(r.path)}</td>
+                    <td><span class="aq-tab-badge aq-status-warning">${escapeHtml(r.status_code)}</span></td>
+                    <td>${r.duration_ms ? r.duration_ms.toFixed(1) : "0.0"} ms</td>
+                    <td>${sqlCount}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
         content.innerHTML = html;
     }
 })();

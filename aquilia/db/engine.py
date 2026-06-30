@@ -316,6 +316,7 @@ class AquiliaDatabase:
         duration_ms: float,
         rows_affected: int = 0,
         model: str = "",
+        db: AquiliaDatabase | None = None,
     ) -> None:
         """Record a database query span in the active trace, or fallback to direct QueryInspector."""
         try:
@@ -355,7 +356,7 @@ class AquiliaDatabase:
                 redacted_params = redact_body_keys_recursive(params, config.redact_body_keys) if params else None
 
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
-                trace.add_span(
+                span = trace.add_span(
                     lane=Lane.DATABASE,
                     label=sql,
                     start_offset_ms=max(0.0, now_offset - duration_ms),
@@ -366,9 +367,18 @@ class AquiliaDatabase:
                         "rows": rows_affected,
                         "params": redacted_params,
                         "stack_summary": stack_summary,
+                        "explain_plan": "",
                     },
                     source=source,
                 )
+
+                # Run EXPLAIN in background if slow
+                if sql.strip().upper().startswith("SELECT"):
+                    slow_threshold = config.slow_request_threshold_ms / 10.0 if hasattr(config, "slow_request_threshold_ms") else 50.0
+                    is_slow = duration_ms >= slow_threshold
+                    if is_slow and db is not None:
+                        import asyncio
+                        asyncio.create_task(db._run_explain_plan(sql, params, span))
                 return
         except Exception:
             pass
@@ -397,6 +407,24 @@ class AquiliaDatabase:
                 )
             except Exception:
                 pass
+
+    async def _run_explain_plan(self, sql: str, params: Any, span: Any) -> None:
+        try:
+            dialect = self.dialect
+            if dialect == "sqlite":
+                explain_sql = f"EXPLAIN QUERY PLAN {sql}"
+            elif dialect == "postgresql":
+                explain_sql = f"EXPLAIN (FORMAT TEXT) {sql}"
+            elif dialect == "mysql":
+                explain_sql = f"EXPLAIN {sql}"
+            else:
+                explain_sql = f"EXPLAIN {sql}"
+
+            rows = await self._adapter.fetch_all(explain_sql, params)
+            plan = "\n".join(str(row) for row in rows)
+            span.detail["explain_plan"] = plan
+        except Exception:
+            pass
 
     # ── Query execution ──────────────────────────────────────────────
 
@@ -435,6 +463,7 @@ class AquiliaDatabase:
                 _dur,
                 rows_affected=getattr(result, "rowcount", 0),
                 model=model,
+                db=self,
             )
             return result
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
@@ -497,7 +526,7 @@ class AquiliaDatabase:
             _t0 = time.perf_counter()
             rows = await self._adapter.fetch_all(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
-            self._notify_inspector(sql, params, _dur, rows_affected=len(rows), model=model)
+            self._notify_inspector(sql, params, _dur, rows_affected=len(rows), model=model, db=self)
             return rows
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
@@ -530,7 +559,7 @@ class AquiliaDatabase:
             _t0 = time.perf_counter()
             row = await self._adapter.fetch_one(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
-            self._notify_inspector(sql, params, _dur, rows_affected=1 if row else 0, model=model)
+            self._notify_inspector(sql, params, _dur, rows_affected=1 if row else 0, model=model, db=self)
             return row
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise
@@ -563,7 +592,7 @@ class AquiliaDatabase:
             _t0 = time.perf_counter()
             val = await self._adapter.fetch_val(sql, params)
             _dur = (time.perf_counter() - _t0) * 1000
-            self._notify_inspector(sql, params, _dur, rows_affected=1 if val is not None else 0, model=model)
+            self._notify_inspector(sql, params, _dur, rows_affected=1 if val is not None else 0, model=model, db=self)
             return val
         except (DatabaseConnectionFault, QueryFault, SchemaFault):
             raise

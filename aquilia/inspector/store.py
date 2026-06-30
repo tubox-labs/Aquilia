@@ -184,4 +184,7 @@ class SQLiteTraceStore(TraceStore):
             response=response,
             app_name=data.get("app_name"),
             n_plus_one=data.get("n_plus_one", []),
+            profile_stats=data.get("profile_stats"),
+            otel_trace_id=data.get("otel_trace_id"),
+            otel_span_id=data.get("otel_span_id"),
         )

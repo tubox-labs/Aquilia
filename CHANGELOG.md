@@ -154,6 +154,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Wired WebSocket broadcast and publish_room message tracing in `SocketController` to log `Lane.SOCKETS` events.
   - Wired outbound email envelope metadata logging in `MailService.send_message` under `Lane.MAIL`.
   - Capture active session ID, user ID, clearance levels, roles, and request locale dynamically inside the middleware request-response loop under `auth` and `i18n` trace spans.
+- **Request Inspector Advanced Capabilities (EXPLAIN, cProfile, Redirects, OTel)**:
+  - Wired background query plan logging (`EXPLAIN`) for database queries exceeding the slow threshold.
+  - Implemented single-flight request profiling using standard library `cProfile` and `pstats` when `X-Profile: true` header or `?profile=true` query parameter is supplied.
+  - Implemented client-side cookie redirect folding to capture redirect history and display it inside a clean "Redirects" panel on the injected toolbar.
+  - Correlated request trace IDs with OpenTelemetry trace and span contexts when active.
+
 
 
 
