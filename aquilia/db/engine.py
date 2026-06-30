@@ -39,6 +39,9 @@ DatabaseError = DatabaseConnectionFault
 # Sanitize savepoint names to prevent SQL injection
 _SP_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+_inspector_checked = False
+_inspector_instance = None
+
 
 def _sanitize_savepoint(name: str) -> str:
     """Validate savepoint names -- only alphanumeric + underscore allowed."""
@@ -308,18 +311,26 @@ class AquiliaDatabase:
         rows_affected: int = 0,
     ) -> None:
         """Record a query in the admin QueryInspector (if available)."""
-        try:
-            from aquilia.admin.query_inspector import get_query_inspector
+        global _inspector_checked, _inspector_instance
+        if not _inspector_checked:
+            try:
+                from aquilia.admin.query_inspector import get_query_inspector
 
-            inspector = get_query_inspector()
-            inspector.record(
-                sql=sql,
-                params=params,
-                duration_ms=duration_ms,
-                rows_affected=rows_affected,
-            )
-        except Exception:  # pragma: no cover
-            pass  # Never let inspector errors break the DB engine
+                _inspector_instance = get_query_inspector()
+            except Exception:
+                _inspector_instance = None
+            _inspector_checked = True
+
+        if _inspector_instance is not None:
+            try:
+                _inspector_instance.record(
+                    sql=sql,
+                    params=params,
+                    duration_ms=duration_ms,
+                    rows_affected=rows_affected,
+                )
+            except Exception:
+                pass
 
     # ── Query execution ──────────────────────────────────────────────
 

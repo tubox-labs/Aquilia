@@ -23,7 +23,6 @@ from typing import Any
 
 from aquilia.sqlite import (
     ConnectionPool,
-    Row,
     SqliteMetrics,
     SqlitePoolConfig,
     create_pool,
@@ -141,16 +140,7 @@ class SQLiteAdapter(DatabaseAdapter):
             rows = await self._writer_conn.fetch_all(sql, params)
         else:
             rows = await self._pool.fetch_all(sql, params)
-        # Convert Row objects to dicts for backward compatibility
-        result = []
-        for row in rows:
-            if isinstance(row, Row):
-                result.append(row.to_dict())
-            elif hasattr(row, "keys"):
-                result.append(dict(row))
-            else:
-                result.append(row)  # type: ignore[arg-type]
-        return result
+        return rows
 
     async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
         if not self._connected or self._pool is None:
@@ -162,13 +152,7 @@ class SQLiteAdapter(DatabaseAdapter):
             row = await self._writer_conn.fetch_one(sql, params)
         else:
             row = await self._pool.fetch_one(sql, params)
-        if row is None:
-            return None
-        if isinstance(row, Row):
-            return row.to_dict()
-        if hasattr(row, "keys"):
-            return dict(row)
-        return None
+        return row
 
     async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
         if not self._connected or self._pool is None:

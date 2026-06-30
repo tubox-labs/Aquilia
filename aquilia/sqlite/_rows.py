@@ -16,52 +16,56 @@ from typing import Any
 __all__ = ["Row", "row_factory"]
 
 
-class Row:
+class Row(dict):
     """
-    Immutable row object returned by query methods.
+    Immutable row object returned by query methods that also acts as a dict.
 
     Supports dict-like access (by column name), index access (by position),
     and attribute access for convenience.
-
-    Usage::
-
-        row = Row(("id", "name", "email"), (1, "Alice", "alice@example.com"))
-        row["name"]   # "Alice"
-        row.name      # "Alice"
-        row[0]        # 1
-        dict(row)     # {"id": 1, "name": "Alice", "email": "alice@example.com"}
     """
 
-    __slots__ = ("_keys", "_values", "_index")
+    __slots__ = ("_keys", "_values")
 
     def __init__(self, keys: tuple[str, ...], values: tuple[Any, ...]) -> None:
+        super().__init__(zip(keys, values))
         object.__setattr__(self, "_keys", keys)
         object.__setattr__(self, "_values", values)
-        object.__setattr__(self, "_index", {k: i for i, k in enumerate(keys)})
 
     # ── Dict-like access ─────────────────────────────────────────────
 
     def __getitem__(self, key: str | int) -> Any:
         if isinstance(key, int):
             return self._values[key]
-        try:
-            return self._values[self._index[key]]
-        except KeyError:
-            raise KeyError(f"No column named {key!r}") from None
-
-    def __contains__(self, key: str) -> bool:
-        return key in self._index
+        return super().__getitem__(key)
 
     # ── Attribute access ─────────────────────────────────────────────
 
     def __getattr__(self, name: str) -> Any:
         try:
-            return self._values[self._index[name]]
+            return self[name]
         except KeyError:
             raise AttributeError(f"'Row' object has no attribute {name!r}") from None
 
     def __setattr__(self, name: str, value: Any) -> None:
         raise AttributeError("Row objects are immutable")
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        raise TypeError("Row objects are immutable")
+
+    def __delitem__(self, key: Any) -> None:
+        raise TypeError("Row objects are immutable")
+
+    def pop(self, key: Any, *args: Any) -> Any:
+        raise TypeError("Row objects are immutable")
+
+    def popitem(self) -> Any:
+        raise TypeError("Row objects are immutable")
+
+    def clear(self) -> None:
+        raise TypeError("Row objects are immutable")
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("Row objects are immutable")
 
     # ── Collection interface ─────────────────────────────────────────
 
@@ -79,14 +83,7 @@ class Row:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to a plain dictionary."""
-        return dict(zip(self._keys, self._values, strict=False))
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get a value by column name with a default."""
-        idx = self._index.get(key)
-        if idx is None:
-            return default
-        return self._values[idx]
+        return dict(self)
 
     # ── Dunder protocols ─────────────────────────────────────────────
 
@@ -100,7 +97,7 @@ class Row:
         if isinstance(other, Row):
             return self._keys == other._keys and self._values == other._values
         if isinstance(other, dict):
-            return self.to_dict() == other
+            return dict(self) == other
         return NotImplemented
 
     def __hash__(self) -> int:
