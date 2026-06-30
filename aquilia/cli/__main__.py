@@ -221,6 +221,57 @@ def _detect_workspace_db_url() -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
+def _upgrade_command_tree(cmd: click.Command) -> None:
+    """Recursively upgrade a click command tree to Aquilia Command/Group subclasses."""
+    if isinstance(cmd, click.Group):
+        if not isinstance(cmd, AquiliaGroup):
+            cmd.__class__ = AquiliaGroup
+        if hasattr(cmd, "commands"):
+            for sub_cmd in cmd.commands.values():
+                _upgrade_command_tree(sub_cmd)
+    elif isinstance(cmd, click.Command):
+        if not isinstance(cmd, AquiliaCommand):
+            cmd.__class__ = AquiliaCommand
+
+
+class AquiliaCommand(click.Command):
+    """Click command subclass with custom option styling."""
+
+    def __init__(self, *args, **kwargs):
+        context_settings = kwargs.setdefault("context_settings", {})
+        if "--no-color" not in sys.argv:
+            context_settings.setdefault("color", True)
+        super().__init__(*args, **kwargs)
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        """Override to force color context unless --no-color is specified."""
+        ctx = super().make_context(info_name, args, parent=parent, **extra)
+        if "--no-color" not in sys.argv:
+            ctx.color = True
+        return ctx
+
+    def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Format options with custom color styling."""
+        opts = []
+        for param in self.get_params(ctx):
+            rv = param.get_help_record(ctx)
+            if rv is not None:
+                opt_str, help_str = rv
+                styled_opt = click.style(opt_str, fg="green", bold=True)
+                styled_help = click.style(help_str, fg="white")
+                opts.append((styled_opt, styled_help))
+
+        if opts:
+            with formatter.section(click.style("Options", fg="cyan", bold=True)):
+                formatter.write_dl(opts)
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Override to force color unless --no-color is specified."""
+        if "--no-color" not in sys.argv:
+            formatter.color = True
+        super().format_help(ctx, formatter)
+
+
 class AquiliaGroup(click.Group):
     """Click group subclass with branded help output."""
 
@@ -236,8 +287,54 @@ class AquiliaGroup(click.Group):
         "Migration": ["migrate"],
     }
 
+    def __init__(self, *args, **kwargs):
+        context_settings = kwargs.setdefault("context_settings", {})
+        if "--no-color" not in sys.argv:
+            context_settings.setdefault("color", True)
+        super().__init__(*args, **kwargs)
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        """Override to force color context unless --no-color is specified."""
+        ctx = super().make_context(info_name, args, parent=parent, **extra)
+        if "--no-color" not in sys.argv:
+            ctx.color = True
+        return ctx
+
+    def command(self, *args, **kwargs):
+        kwargs.setdefault("cls", AquiliaCommand)
+        return super().command(*args, **kwargs)
+
+    def group(self, *args, **kwargs):
+        kwargs.setdefault("cls", AquiliaGroup)
+        return super().group(*args, **kwargs)
+
+    def add_command(self, cmd: click.Command, name: str | None = None) -> None:
+        """Ensure all added commands and subgroups use custom styled classes."""
+        _upgrade_command_tree(cmd)
+        super().add_command(cmd, name=name)
+
+    def format_options(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Format options with custom color styling."""
+        opts = []
+        for param in self.get_params(ctx):
+            rv = param.get_help_record(ctx)
+            if rv is not None:
+                opt_str, help_str = rv
+                styled_opt = click.style(opt_str, fg="green", bold=True)
+                styled_help = click.style(help_str, fg="white")
+                opts.append((styled_opt, styled_help))
+
+        if opts:
+            with formatter.section(click.style("Options", fg="cyan", bold=True)):
+                formatter.write_dl(opts)
+
+        # Ensure subcommands are formatted too
+        self.format_commands(ctx, formatter)
+
     def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
         """Override to add Aquilia branding to the top-level help."""
+        if "--no-color" not in sys.argv:
+            formatter.color = True
         # Only show the full banner for the root group
         if ctx.parent is None:
             banner("Aquilia", subtitle=f'v{__version__}  "{RELEASE_NAME}"  {_CHECK}  manifest-driven framework CLI')
@@ -2020,6 +2117,236 @@ def db_status(ctx, database_url: str | None):
         )
     except Exception as e:
         error(f"  {_CROSS} status failed: {e}")
+        sys.exit(1)
+
+
+@db.command("history")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.pass_context
+def db_history(ctx, migrations_dir: str, database_url: str | None):
+    """
+    Show migration history with application timestamps and checksums.
+
+    Examples:
+      aq db history
+      aq db history --migrations-dir=db/migrations
+    """
+    from .commands.model_cmds import cmd_history
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        cmd_history(
+            database_url=database_url,
+            migrations_dir=migrations_dir,
+            verbose=ctx.obj["verbose"],
+        )
+    except Exception as e:
+        error(f"  {_CROSS} history failed: {e}")
+        sys.exit(1)
+
+
+@db.command("rollback")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--target", type=str, default=None, help="Target revision to rollback to")
+@click.option("--step", type=int, default=None, help="Number of migrations to rollback")
+@click.option("--timestamp", type=str, default=None, help="Rollback to a specific timestamp/datetime")
+@click.option("--fake", is_flag=True, help="Mark migrations as rolled back without running SQL")
+@click.option("--plan", is_flag=True, help="Preview SQL without executing (dry-run)")
+@click.pass_context
+def db_rollback(
+    ctx,
+    migrations_dir: str,
+    database_url: str | None,
+    target: str | None,
+    step: int | None,
+    timestamp: str | None,
+    fake: bool,
+    plan: bool,
+):
+    """
+    Rollback migrations by target, step count, or timestamp.
+
+    Examples:
+      aq db rollback --step 1
+      aq db rollback --target=20260217_210454
+      aq db rollback --timestamp="2026-06-30 12:00:00"
+    """
+    from .commands.model_cmds import cmd_rollback
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        cmd_rollback(
+            database_url=database_url,
+            migrations_dir=migrations_dir,
+            target=target,
+            step=step,
+            timestamp=timestamp,
+            fake=fake,
+            plan=plan,
+            verbose=ctx.obj["verbose"],
+        )
+    except Exception as e:
+        error(f"  {_CROSS} rollback failed: {e}")
+        sys.exit(1)
+
+
+@db.command("check")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.pass_context
+def db_check(ctx, migrations_dir: str, database_url: str | None):
+    """
+    Validate migration integrity, naming conventions, and checksums.
+
+    Examples:
+      aq db check
+    """
+    from .commands.model_cmds import cmd_check
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        passed = cmd_check(
+            database_url=database_url,
+            migrations_dir=migrations_dir,
+            verbose=ctx.obj["verbose"],
+        )
+        if not passed:
+            sys.exit(1)
+    except Exception as e:
+        error(f"  {_CROSS} check failed: {e}")
+        sys.exit(1)
+
+
+@db.command("diff")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option(
+    "--compare",
+    type=click.Choice(["models", "migrations"]),
+    default="models",
+    help="Target schema source: models (code, default) or migrations snapshot",
+)
+@click.pass_context
+def db_diff(ctx, migrations_dir: str, database_url: str | None, compare: str):
+    """
+    Compare database vs code models or database vs migration snapshot.
+
+    Detects drift or unapplied code changes.
+
+    Examples:
+      aq db diff
+      aq db diff --compare=migrations
+    """
+    from .commands.model_cmds import cmd_diff
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        in_sync = cmd_diff(
+            database_url=database_url,
+            migrations_dir=migrations_dir,
+            compare=compare,
+            verbose=ctx.obj["verbose"],
+        )
+        if not in_sync:
+            sys.exit(1)
+    except Exception as e:
+        error(f"  {_CROSS} diff failed: {e}")
+        sys.exit(1)
+
+
+@db.command("seed")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--file", "seed_file", type=click.Path(), default=None, help="Specific seed script path")
+@click.pass_context
+def db_seed(ctx, database_url: str | None, seed_file: str | None):
+    """
+    Seed the database using a Python script.
+
+    Examples:
+      aq db seed
+      aq db seed --file=db/custom_seeds.py
+    """
+    from .commands.model_cmds import cmd_seed
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        cmd_seed(
+            database_url=database_url,
+            seed_file=seed_file,
+            verbose=ctx.obj["verbose"],
+        )
+    except Exception as e:
+        error(f"  {_CROSS} seed failed: {e}")
+        sys.exit(1)
+
+
+@db.command("reset")
+@click.option("--migrations-dir", type=click.Path(), default="migrations", help="Migrations directory")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--yes", "-y", is_flag=True, help="Confirm reset without prompting")
+@click.pass_context
+def db_reset(ctx, migrations_dir: str, database_url: str | None, yes: bool):
+    """
+    Reset the database: drop all tables and re-apply all migrations.
+
+    Examples:
+      aq db reset
+      aq db reset -y
+    """
+    from .commands.model_cmds import cmd_reset
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        cmd_reset(
+            database_url=database_url,
+            migrations_dir=migrations_dir,
+            verbose=ctx.obj["verbose"],
+            yes=yes,
+        )
+    except Exception as e:
+        error(f"  {_CROSS} reset failed: {e}")
+        sys.exit(1)
+
+
+@db.command("flush")
+@click.option("--database-url", type=str, default=None, help="Database URL (auto-detected from workspace.py)")
+@click.option("--yes", "-y", is_flag=True, help="Confirm flush without prompting")
+@click.pass_context
+def db_flush(ctx, database_url: str | None, yes: bool):
+    """
+    Flush all data from tables (excluding tracking tables) without dropping schema.
+
+    Examples:
+      aq db flush
+      aq db flush -y
+    """
+    from .commands.model_cmds import cmd_flush
+
+    if database_url is None:
+        database_url = _detect_workspace_db_url()
+
+    try:
+        cmd_flush(
+            database_url=database_url,
+            verbose=ctx.obj["verbose"],
+            yes=yes,
+        )
+    except Exception as e:
+        error(f"  {_CROSS} flush failed: {e}")
         sys.exit(1)
 
 
