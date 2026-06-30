@@ -4,67 +4,42 @@
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title>Aquilia Inspector</title>
+    {% include "partials/css.html" %}
     <style>
         :root {
-            --surface: #0b1326;
-            --surface-dim: #0b1326;
-            --surface-bright: #31394d;
-            --surface-container-lowest: #060e20;
-            --surface-container-low: #131b2e;
-            --surface-container: #171f33;
-            --surface-container-high: #222a3d;
-            --surface-container-highest: #2d3449;
-            --on-surface: #dae2fd;
-            --on-surface-variant: #bccbb9;
-            --inverse-surface: #dae2fd;
-            --inverse-on-surface: #283044;
-            --outline: #869585;
-            --outline-variant: #3d4a3d;
-            --surface-tint: #4ae176;
-            --primary: #4be277;
-            --on-primary: #003915;
-            --primary-container: #22c55e;
-            --on-primary-container: #004b1e;
-            --inverse-primary: #006e2f;
-            --secondary: #adc6ff;
-            --on-secondary: #002e6a;
-            --secondary-container: #0566d9;
-            --on-secondary-container: #e6ecff;
-            --tertiary: #50dcc9;
-            --on-tertiary: #003731;
-            --tertiary-container: #27c0ae;
-            --on-tertiary-container: #004941;
-            --error: #ffb4ab;
-            --on-error: #690005;
-            --error-container: #93000a;
-            --on-error-container: #ffdad6;
-            --primary-fixed: #6bff8f;
-            --primary-fixed-dim: #4ae176;
-            --on-primary-fixed: #002109;
-            --on-primary-fixed-variant: #005321;
-            --secondary-fixed: #d8e2ff;
-            --secondary-fixed-dim: #adc6ff;
-            --on-secondary-fixed: #001a42;
-            --on-secondary-fixed-variant: #004395;
-            --tertiary-fixed: #71f8e4;
-            --tertiary-fixed-dim: #4fdbc8;
-            --on-tertiary-fixed: #00201c;
-            --on-tertiary-fixed-variant: #005048;
-            --background: #0b1326;
-            --on-background: #dae2fd;
-            --surface-variant: #2d3449;
+            /* Map to partials/css.html design tokens */
+            --background: var(--bg-body);
+            --surface: var(--bg-sidebar);
+            --surface-dim: var(--bg-sidebar);
+            --surface-bright: var(--bg-surface-hover);
+            --surface-container-lowest: var(--bg-body);
+            --surface-container-low: var(--bg-sidebar);
+            --surface-container: var(--bg-glass);
+            --surface-container-high: var(--border-color);
+            --surface-container-highest: var(--border-subtle);
+            --on-surface: var(--text-primary);
+            --on-surface-variant: var(--text-secondary);
+            --outline: var(--border-color);
+            --outline-variant: var(--border-subtle);
+            --primary: var(--accent);
+            --secondary: var(--text-secondary);
+            --error: var(--danger);
+            --on-error: var(--text-primary);
+            --error-container: var(--danger-subtle);
+            --warning: var(--warning);
+            --success: var(--success);
 
-            --rail-green: #22c55e;
-            --rail-orange: #f97316;
-            --rail-red: #ef4444;
-            --badge-post: #3b82f6;
-            --badge-get: #10b981;
-            
-            --lane-gray: #475569;
-            --lane-blue: #3b82f6;
-            --lane-purple: #8b5cf6;
-            --lane-teal: #14b8a6;
-            --lane-infoblue: #0ea5e9;
+            --rail-green: var(--success);
+            --rail-orange: var(--warning);
+            --rail-red: var(--danger);
+            --badge-post: var(--info);
+            --badge-get: var(--success);
+
+            --lane-gray: var(--text-muted);
+            --lane-blue: var(--info);
+            --lane-purple: var(--purple);
+            --lane-teal: var(--accent);
+            --lane-infoblue: var(--info);
         }
 
         .theme-ocean {
@@ -2129,16 +2104,34 @@
 
                     let listHtml = `<div>`;
                     dbSpans.forEach((s, idx) => {
+                        const n1Patterns = trace.n_plus_one || [];
+                        const isN1 = n1Patterns.some(p => p.pattern_sql === s.label || s.label.includes(p.pattern_sql));
+                        let n1Badge = "";
+                        if (isN1) {
+                            n1Badge = `<span class="badge-n1" style="background-color: var(--rail-orange); color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-left: 8px;">N+1 Warning</span>`;
+                        }
+
+                        let explainHtml = "";
+                        if (s.detail && s.detail.explain_plan) {
+                            explainHtml = `
+                                <div class="db-query-explain" style="margin-top: 8px; padding: 8px; background: rgba(255, 255, 255, 0.05); border-left: 3px solid var(--primary); font-family: var(--font-mono); font-size: 11px; overflow-x: auto; white-space: pre-wrap; border-radius: var(--radius-xs);">
+                                    <strong>EXPLAIN Plan:</strong><br/>
+                                    ${escapeHtml(s.detail.explain_plan)}
+                                </div>
+                            `;
+                        }
+
                         listHtml += `
                             <div class="db-query-card">
                                 <div class="db-query-meta">
-                                    <span class="db-query-index">SQL Query #${idx + 1}</span>
+                                    <span class="db-query-index">SQL Query #${idx + 1}${n1Badge}</span>
                                     <div style="display: flex; gap: 8px; align-items: center;">
                                         <span class="db-query-duration">${s.duration_ms.toFixed(1)}ms</span>
                                         <button data-action="copy-sql" data-index="${idx}" class="code-block-copy">Copy</button>
                                     </div>
                                 </div>
                                 <pre id="sqlCode_${idx}" class="db-query-code">${highlightSql(s.label)}</pre>
+                                ${explainHtml}
                             </div>
                         `;
                     });
