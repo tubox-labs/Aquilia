@@ -366,6 +366,24 @@ class ControllerRouter:
         This check runs **after** a path/method match succeeds, so it never
         affects latency for unversioned apps.
         """
+        try:
+            from aquilia.versioning.core import VERSION_MISSING as _VM
+            from aquilia.versioning.core import VERSION_NEUTRAL as _VN
+        except ImportError:
+            _VM = None
+            _VN = None
+
+        if api_version is _VM:
+            # A version was expected/active, but none was provided by the request.
+            # Only match version-neutral or completely unversioned routes.
+            vm = getattr(route, "version_metadata", None)
+            if vm is not None:
+                return bool(vm.get("neutral"))
+            ctrl_version = getattr(route.controller_metadata, "version", None)
+            if ctrl_version is None or ctrl_version is _VN:
+                return True
+            return False
+
         # If the route is structurally bound to a version, check it.
         bound_version = getattr(route, "bound_version", None)
         if bound_version is not None:

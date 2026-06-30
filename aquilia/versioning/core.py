@@ -53,6 +53,9 @@ Use for health checks, docs, etc."""
 VERSION_ANY = _VersionSentinel("VERSION_ANY")
 """Matches any version during resolution. Used internally for fallback."""
 
+VERSION_MISSING = _VersionSentinel("VERSION_MISSING")
+"""Sentinel marker when a version is expected but not provided."""
+
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  VersionStatus — lifecycle state machine

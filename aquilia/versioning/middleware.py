@@ -148,6 +148,14 @@ class VersionMiddleware(Middleware):
         if version is None and "_pre_resolved_api_version" in request.state:
             version = request.state["_pre_resolved_api_version"]
 
+        try:
+            from .core import VERSION_MISSING as _VM
+        except ImportError:
+            _VM = None
+
+        if version is _VM:
+            version = None
+
         routing_ran = STATE_CONTROLLER_MATCH in request.state
 
         # Retrieve app_name if routing ran

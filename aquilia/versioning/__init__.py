@@ -81,6 +81,7 @@ Usage:
 # ── Core types ───────────────────────────────────────────────────────────
 from .core import (
     VERSION_ANY,
+    VERSION_MISSING,
     VERSION_NEUTRAL,
     ApiVersion,
     VersionChannel,
@@ -141,6 +142,7 @@ __all__ = [
     "VersionStatus",
     "VERSION_NEUTRAL",
     "VERSION_ANY",
+    "VERSION_MISSING",
     # Resolvers
     "BaseVersionResolver",
     "URLPathResolver",

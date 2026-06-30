@@ -353,10 +353,10 @@ class VersionStrategy:
                 # address. A path with no recognizable version segment is not
                 # "the client forgot to specify a version" (the graceful-default
                 # case that's correct for header/query strategies) — it is
-                # simply not the address of any versioned route. Falling back
-                # to default_version here is what causes every versioned route
-                # to be reachable both with and without its prefix.
-                raise MissingVersionError(strategies=[self._resolver.name])
+                # simply not the address of any versioned route.
+                from aquilia.versioning.core import VERSION_MISSING
+
+                return VERSION_MISSING
             if self._default_version:
                 return self._default_version
             if self._config.require_version:

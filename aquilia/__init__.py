@@ -805,6 +805,7 @@ from .templates import (
 # ============================================================================
 from .versioning import (
     VERSION_ANY,
+    VERSION_MISSING,
     VERSION_NEUTRAL,
     ApiVersion,
     ChannelResolver,
@@ -1070,6 +1071,7 @@ __all__ = [
     "VersionStatus",
     "VERSION_NEUTRAL",
     "VERSION_ANY",
+    "VERSION_MISSING",
     "VersionStrategy",
     "VersionConfig",
     "VersionMiddleware",

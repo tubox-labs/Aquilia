@@ -2419,15 +2419,21 @@ class TestASGIVersionErrorEarlyReturn:
         from types import SimpleNamespace
 
         from aquilia.asgi import ASGIAdapter
+        from aquilia.faults import ResponseMapper
+        from aquilia.faults.engine import FaultEngine, FaultMiddleware
         from aquilia.middleware import MiddlewareStack
 
         router = MagicMock()
         engine = MagicMock()
         server = SimpleNamespace(_version_strategy=strategy)
+        stack = MiddlewareStack()
+        fault_engine = FaultEngine()
+        fault_engine.register_global(ResponseMapper())
+        stack.add(FaultMiddleware(fault_engine))
         adapter = ASGIAdapter(
             controller_router=router,
             controller_engine=engine,
-            middleware_stack=MiddlewareStack(),
+            middleware_stack=stack,
             server=server,
         )
 
@@ -2960,3 +2966,97 @@ class TestVersioningPerformanceStress:
         server._setup_versioning()
         assert server._version_strategy is not None
         assert server._version_strategy._config.url_position == "after"
+
+
+class TestVersioningUrlMissingFix:
+    """Tests verifying the correct handling of missing version prefix under URL strategy.
+
+    Unversioned paths that do not exist must return 404 instead of 400 Bad Request.
+    """
+
+    @pytest.mark.asyncio
+    async def test_missing_version_url_strategy_returns_404(self):
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.faults import ResponseMapper
+        from aquilia.faults.engine import FaultEngine, FaultMiddleware
+        from aquilia.middleware import MiddlewareStack
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+                require_version=True,
+                negotiation_mode="compatible",
+                expose_unversioned_alias=False,
+            )
+        )
+
+        router = MagicMock()
+        engine = MagicMock()
+        server = SimpleNamespace(_version_strategy=strategy)
+        server.runtime = SimpleNamespace(meta=SimpleNamespace(app_contexts=[]), di_containers={})
+
+        stack = MiddlewareStack()
+        fault_engine = FaultEngine()
+        fault_engine.register_global(ResponseMapper())
+        stack.add(FaultMiddleware(fault_engine))
+
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=stack,
+            server=server,
+        )
+
+        router.match_sync.return_value = None
+        router.get_allowed_methods.return_value = []
+
+        async def make_send(msg_list):
+            async def _send(msg):
+                msg_list.append(msg)
+
+            return _send
+
+        # Scenario 1: GET /users (no prefix) -> 404
+        scope1 = {
+            "type": "http",
+            "method": "GET",
+            "path": "/users",
+            "query_string": b"",
+            "headers": [(b"accept", b"application/json")],
+        }
+        messages1 = []
+        await adapter.handle_http(scope1, lambda: None, await make_send(messages1))
+        assert len(messages1) >= 1
+        assert messages1[0]["status"] == 404
+
+        # Scenario 2: GET /random -> 404
+        scope2 = {
+            "type": "http",
+            "method": "GET",
+            "path": "/random",
+            "query_string": b"",
+            "headers": [(b"accept", b"application/json")],
+        }
+        messages2 = []
+        await adapter.handle_http(scope2, lambda: None, await make_send(messages2))
+        assert len(messages2) >= 1
+        assert messages2[0]["status"] == 404
+
+        # Scenario 3: GET /v1/random -> 404
+        scope3 = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v1/random",
+            "query_string": b"",
+            "headers": [(b"accept", b"application/json")],
+        }
+        messages3 = []
+        await adapter.handle_http(scope3, lambda: None, await make_send(messages3))
+        assert len(messages3) >= 1
+        assert messages3[0]["status"] == 404
