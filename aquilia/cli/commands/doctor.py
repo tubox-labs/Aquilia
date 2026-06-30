@@ -400,8 +400,13 @@ def _check_pipeline(
 
     # Fingerprint
     try:
-        fp = FingerprintGenerator.generate(loaded_manifests)
-        fp_str = fp if isinstance(fp, str) else str(fp)
+        from aquilia.aquilary.core import Aquilary
+        registry = Aquilary.from_manifests(
+            manifests=loaded_manifests,
+            config=_config,
+            mode=RegistryMode.DEV,
+        )
+        fp_str = registry.fingerprint
         report.add("Pipeline", f"Registry fingerprint: {fp_str[:24]}", True)
     except Exception as e:
         report.warn(f"Could not generate fingerprint: {e}")

@@ -297,9 +297,14 @@ def validate_workspace(
     # ── Phase 4: Fingerprint (strict only) ──
     if strict and loaded_manifests and not faults:
         try:
-            from aquilia.aquilary.fingerprint import FingerprintGenerator
+            from aquilia.aquilary.core import Aquilary
 
-            fp = FingerprintGenerator.generate(loaded_manifests)
+            registry = Aquilary.from_manifests(
+                manifests=loaded_manifests,
+                config=_config,
+                mode="prod" if strict else "dev",
+            )
+            fp = registry.fingerprint
             fingerprint = fp
             if verbose:
                 print(f"  Registry fingerprint: {fp}")
