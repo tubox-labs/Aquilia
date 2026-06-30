@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.2.0] — 2026-06-28 — "Kraken's Wake"
 
 ### Added
+- **Database CLI Enhancements**:
+  - Added `aq db history` subcommand to display a chronological list of applied migrations with timestamps, slugs, and checksum signatures.
+  - Added `aq db rollback` subcommand supporting step-based (`--step`), timestamp-based (`--timestamp`), and zero-target rollbacks with dry-run planning (`--plan`).
+  - Added `aq db check` subcommand to perform diagnostic validation of migration naming conventions, duplicate revision detection, and checksum verification.
+  - Added `aq db diff` subcommand to run schema drift checks comparing the active database against code models (`--compare models`) or migration snapshots (`--compare migrations`). Formatted output as a unified, code-level Git-style diff representation.
+  - Added `aq db seed` subcommand to load and run Python database seed scripts (`seeds.py`).
+  - Added `aq db reset` subcommand to safely drop all tables (disabling FKs) and migrate the schema from scratch.
+  - Added `aq db flush` subcommand to truncate data rows across all user tables (disabling FKs) without modifying the schema.
+- **Click CLI Help Custom Colorization**:
+  - Overrode options formatting across the entire CLI using `AquiliaCommand` and `AquiliaGroup` subclasses. Formats option flags in bold green, help text in white, and headers in bold cyan.
+  - Forced colorization contexts globally unless `--no-color` is specified, ensuring options are colored even when CLI output is captured or piped.
+  - Implemented a recursive `_upgrade_command_tree` utility inside command registration to automatically apply color options to all subgroups and nested subcommands.
 - **Manifest-Level API Versioning Override**:
   - Replaced the legacy workspace-level `Module().versioning()` builder API with a first-class manifest-level `AppManifest.versioning` property configured directly in `manifest.py`.
   - Introduced `AppVersioningConfig` dataclass and a convenience `versioning()` helper to expose a structured, comprehensive configuration API supporting full strategy overrides (e.g., `strategy`, `versions`, `header_name`, `url_prefix`, `default_version`, `require_version`, `sunset_policy`, etc.) for self-independent module versioning.
@@ -53,6 +65,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rewrote `aq ws inspect` and `aq ws gen-client` to statically introspect workspace socket controllers in real-time in memory instead of relying on compiled `ws.surp` artifact files.
 
 ### Changed
+- **Database Introspection and Migration Rollback**:
+  - Enhanced `create_snapshot_from_db` to map tables back to namespaced codebase model class names, resolve field `max_length` constraints from sql column types using regex, and align serialization constraints with codebase model snapshots.
+  - Upgraded `MigrationRunner` rollback execution to support target revision `"zero"`, reverting all applied migrations in chronological order.
 - **Scaffolding Integration API migration**:
   - Updated workspace generator to generate templates utilizing the new type-safe, validated integrations API (`aquilia/integrations/*`) instead of the legacy `Integration` config helper.
 - **Boilerplate reduction and scaffolding cleanup**:
