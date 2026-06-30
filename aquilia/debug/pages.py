@@ -1219,50 +1219,6 @@ def render_welcome_page(*, aquilia_version: str = "", system_info: dict[str, Any
                  </div>
             </div>
         </div>
-
-        <!-- Features Grid -->
-        <div class="feature-grid">
-            <div class="feature-card">
-                <div class="feature-icon">{_icon("zap", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Async Native</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Built on ASGI for high-performance concurrent request handling with zero overhead.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon" style="color:var(--tx-info);border-color:rgba(59,130,246,0.2);background:rgba(59,130,246,0.1)">{_icon("shield", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">AquilAuth</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Integrated OAuth2, OIDC, RBAC/ABAC authorization, and cryptographic session management.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon" style="color:var(--tx-warning);border-color:rgba(245,158,11,0.2);background:rgba(245,158,11,0.1)">{_icon("box", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Modular Registry</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Aquilary manifest system for dependency resolution and simplified app composition.</p>
-            </div>
-            <div class="feature-card">
-                 <div class="feature-icon" style="color:#a855f7;border-color:rgba(168,85,247,0.2);background:rgba(168,85,247,0.1)">{_icon("activity", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Fault Domains</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Structured error handling with Typed Faults and automated recovery patterns.</p>
-            </div>
-             <div class="feature-card">
-                 <div class="feature-icon" style="color:#ec4899;border-color:rgba(236,72,153,0.2);background:rgba(236,72,153,0.1)">{_icon("server-crash", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Smart Caching</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Multi-backend caching service with cache-aside, write-through, and stampede protection.</p>
-            </div>
-             <div class="feature-card">
-                 <div class="feature-icon" style="color:#14b8a6;border-color:rgba(20,184,166,0.2);background:rgba(20,184,166,0.1)">{_icon("terminal", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">CLI Tooling</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Powerful `aq` CLI for scaffolding workspaces, modules, and running dev servers.</p>
-            </div>
-            <div class="feature-card">
-                 <div class="feature-icon" style="color:#f43f5e;border-color:rgba(244,63,94,0.2);background:rgba(244,63,94,0.1)">{_icon("cpu", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Aquilia CLI</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Powerful `aq` CLI with workspace management, dev server, and infrastructure generation.</p>
-            </div>
-            <div class="feature-card">
-                 <div class="feature-icon" style="color:#8b5cf6;border-color:rgba(139,92,246,0.2);background:rgba(139,92,246,0.1)">{_icon("layout", "icon icon-lg")}</div>
-                <h3 style="margin-bottom:8px;">Blueprints</h3>
-                <p style="color:var(--tx-text-muted);font-size:14px;">Schema-driven architecture with strict contracts and automated validation.</p>
-            </div>
-        </div>
     </main>
     <script>{_BASE_JS}</script>
 </body>
