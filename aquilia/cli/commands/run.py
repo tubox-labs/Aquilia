@@ -840,10 +840,29 @@ def run_dev_server(
     print("  Validating workspace configuration...")
     validation_errors = _validate_workspace_config(workspace_root, verbose)
     if validation_errors:
-        print("\n  Workspace validation failed! Fix these issues before starting the server:\n")
+        import click
+        click.secho("\n  Workspace validation failed! Fix these issues before starting the server:\n", fg="red", bold=True)
         for error in validation_errors:
-            print(f"    - {error}")
-        print()
+            if "Import error" in error:
+                parts = error.split(": ", 1)
+                prefix = parts[0] + ": " if len(parts) > 1 else error
+                detail = parts[1] if len(parts) > 1 else ""
+                click.echo(
+                    click.style("    - ", fg="red", bold=True) +
+                    click.style(prefix, fg="yellow", bold=True) +
+                    click.style(detail, fg="white")
+                )
+            elif "not found" in error or "Cannot read" in error:
+                click.echo(
+                    click.style("    - ", fg="red", bold=True) +
+                    click.style(error, fg="red")
+                )
+            else:
+                click.echo(
+                    click.style("    - ", fg="red", bold=True) +
+                    click.style(error, fg="white")
+                )
+        click.echo()
         return
 
     # Strategy 1: Check for workspace configuration (workspace.py) and auto-create app

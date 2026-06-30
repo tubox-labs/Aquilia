@@ -179,11 +179,12 @@ class LifecycleCoordinator:
                 await di_container.startup()
 
             # Call startup hook
-            hook = ctx.on_startup
-            if inspect.iscoroutinefunction(hook):
-                await hook(config_ns, di_container)
-            else:
-                hook(config_ns, di_container)
+            hook = self._resolve_hook(ctx.on_startup)
+            if hook:
+                if inspect.iscoroutinefunction(hook):
+                    await hook(config_ns, di_container)
+                else:
+                    hook(config_ns, di_container)
 
             self.started_apps.append(app_name)
             self._emit_event(LifecycleEvent(LifecyclePhase.STARTING, app_name=app_name, message=f"{app_name} started"))
@@ -246,11 +247,12 @@ class LifecycleCoordinator:
             di_container = self.runtime.di_containers.get(app_name)
 
             # Call shutdown hook
-            hook = ctx.on_shutdown
-            if inspect.iscoroutinefunction(hook):
-                await hook(config_ns, di_container)
-            else:
-                hook(config_ns, di_container)
+            hook = self._resolve_hook(ctx.on_shutdown)
+            if hook:
+                if inspect.iscoroutinefunction(hook):
+                    await hook(config_ns, di_container)
+                else:
+                    hook(config_ns, di_container)
 
             self._emit_event(LifecycleEvent(LifecyclePhase.STOPPING, app_name=app_name, message=f"{app_name} stopped"))
 
