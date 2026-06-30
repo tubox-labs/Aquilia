@@ -2474,8 +2474,8 @@ workspace = (
     Workspace("test_ws")
     .module(Module("brief", version="0.1.0", description="Brief module")
         .route_prefix("/brief")
-        .tags("brief")
-        .versioning(position='after'))
+        .tags("brief", "custom")
+        .depends_on("auth"))
     # ---- Integrations ----------------------------------------------------
 )
 """,
@@ -2496,7 +2496,8 @@ workspace = (
         generator.update_workspace_config(workspace_py, discovered)
 
         updated_content = workspace_py.read_text(encoding="utf-8")
-        assert ".versioning(position='after')" in updated_content
+        assert '.tags("brief", "custom")' in updated_content
+        assert '.depends_on("auth")' in updated_content
         assert '.route_prefix("/brief")' in updated_content
 
 
@@ -2538,24 +2539,24 @@ class TestModuleLevelSunsetPolicy:
         # Override the enforcer registry so it uses our registry
         strategy._sunset_enforcer._registry = registry
 
-        # Define module configs:
+        # Define manifest-level versioning overrides:
         # 'brief' module: overrides sunset policy to warn-only (enforce_sunset=False)
-        # 'other' module: uses global defaults (rejection)
-        strategy._workspace_modules = {
+        strategy._module_versioning_overrides = {
             "brief": {
-                "versioning": {
-                    "enabled": True,
-                    "sunset_policy": SunsetPolicy(
-                        enforce_sunset=False,
-                        warn_header=True,
-                    ),
-                }
-            },
+                "enabled": True,
+                "sunset_policy": SunsetPolicy(
+                    enforce_sunset=False,
+                    warn_header=True,
+                ),
+            }
+        }
+        # 'other' module: fallback workspace-level configs (uses default/no override, so rejection happens)
+        strategy._workspace_modules = {
             "other": {
                 "versioning": {
                     "enabled": True,
                 }
-            },
+            }
         }
 
         from aquilia.versioning.middleware import VersionMiddleware
@@ -2637,3 +2638,182 @@ class TestModuleLevelSunsetPolicy:
         start_other = messages_other[0]
         assert start_other["type"] == "http.response.start"
         assert start_other["status"] == 410
+
+
+class TestManifestLevelVersioningConfig:
+    """Brutal tests verifying manifest-level overrides (enabled, position, auto_version_unmarked)."""
+
+    def test_app_versioning_config_serialization(self):
+        from aquilia.manifest import AppVersioningConfig
+        from aquilia.versioning.sunset import SunsetPolicy
+
+        policy = SunsetPolicy(warn_header=True)
+        config = AppVersioningConfig(
+            enabled=True,
+            position="after",
+            auto_version_unmarked=True,
+            sunset_policy=policy,
+        )
+        dct = config.to_dict()
+        assert dct["enabled"] is True
+        assert dct["position"] == "after"
+        assert dct["auto_version_unmarked"] is True
+        assert dct["sunset_policy"] == policy
+
+    def test_manifest_override_disabled_versioning(self):
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        # Global URL versioning is active
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+
+        class MyController(Controller):
+            prefix = "/items"
+
+            @GET("/")
+            def get_items(self):
+                return "items"
+
+        compiler = ControllerCompiler()
+
+        # 1. When module versioning override has enabled=False
+        module_versioning = {"enabled": False}
+        compiled = compiler.compile_controller(
+            MyController,
+            base_prefix="/api",
+            version_strategy=strategy,
+            module_versioning=module_versioning,
+        )
+        # Should NOT compile versioned routes (only standard unversioned route)
+        assert len(compiled.routes) == 1
+        assert compiled.routes[0].full_path == "/api/items/"
+        assert compiled.routes[0].bound_version is None
+
+    def test_manifest_override_auto_version_unmarked(self):
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+
+        class MyController(Controller):
+            prefix = "/items"
+
+            @GET("/")
+            def get_items(self):
+                return "items"
+
+        compiler = ControllerCompiler()
+
+        # 2. When auto_version_unmarked=True is set on module level
+        module_versioning = {"enabled": True, "auto_version_unmarked": True}
+        compiled = compiler.compile_controller(
+            MyController,
+            base_prefix="/api",
+            version_strategy=strategy,
+            module_versioning=module_versioning,
+        )
+        # Should generate versioned routes for unmarked route
+        versioned_paths = [r.full_path for r in compiled.routes if r.bound_version is not None]
+        assert len(versioned_paths) == 2
+        assert "/v1/api/items/" in versioned_paths
+        assert "/v2/api/items/" in versioned_paths
+
+
+class TestVersioningPerformanceStress:
+    """Stress tests measuring route compilation and trie matching performance under load."""
+
+    def test_trie_matching_stress_under_load(self):
+        import time
+
+        from aquilia.controller.base import Controller
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.decorators import GET
+        from aquilia.controller.router import ControllerRouter
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+
+        router = ControllerRouter()
+        compiler = ControllerCompiler()
+
+        # Build strategy
+        strategy = VersionStrategy(
+            VersionConfig(
+                strategy="url",
+                versions=["1.0", "2.0"],
+                default_version="1.0",
+            )
+        )
+
+        # Register 200 routes representing A and B modules
+        for i in range(100):
+            # We can define Controller class dynamically
+            attrs_a = {
+                "prefix": f"/resource-{i}",
+                "get_item": GET("/")(lambda self: "ok"),
+            }
+            ctrl_a = type(f"ControllerA_{i}", (Controller,), attrs_a)
+
+            # Module A uses default URL position (before)
+            compiled_a = compiler.compile_controller(
+                ctrl_a,
+                base_prefix="/api/module-a",
+                version_strategy=strategy,
+                module_versioning={"enabled": True, "auto_version_unmarked": True},
+            )
+            for r in compiled_a.routes:
+                r.app_name = "module_a"
+            router.add_controller(compiled_a)
+
+            # Module B overrides position to "after"
+            attrs_b = {
+                "prefix": f"/resource-{i}",
+                "get_item": GET("/")(lambda self: "ok"),
+            }
+            ctrl_b = type(f"ControllerB_{i}", (Controller,), attrs_b)
+
+            compiled_b = compiler.compile_controller(
+                ctrl_b,
+                base_prefix="/api/module-b",
+                version_strategy=strategy,
+                module_versioning={"enabled": True, "position": "after", "auto_version_unmarked": True},
+            )
+            for r in compiled_b.routes:
+                r.app_name = "module_b"
+            router.add_controller(compiled_b)
+
+        router.initialize()
+
+        # Stress test: perform 5000 lookups to verify O(k) performance
+        start_time = time.perf_counter()
+
+        for k in range(25):
+            for i in range(100):
+                # Look up module A route
+                match_a = router.match_sync(f"/v1/api/module-a/resource-{i}/", "GET", ApiVersion(1, 0))
+                assert match_a is not None
+                assert match_a.route.app_name == "module_a"
+
+                # Look up module B route
+                match_b = router.match_sync(f"/api/module-b/v2/resource-{i}/", "GET", ApiVersion(2, 0))
+                assert match_b is not None
+                assert match_b.route.app_name == "module_b"
+
+        duration = time.perf_counter() - start_time
+        # Trie matching should be extremely fast (under 250ms for 5000 lookups)
+        assert duration < 0.25, f"Stress test took too long: {duration:.3f}s"
