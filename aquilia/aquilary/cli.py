@@ -28,22 +28,26 @@ def load_config(config_path: str | None) -> Any:
         print(f"Config file not found: {config_path}")
         sys.exit(1)
 
-    # Import config module
-    spec = importlib.util.spec_from_file_location("config", path)
-    if spec is None or spec.loader is None:
-        print(f"Cannot load config from {config_path}")
+    try:
+        from aquilia.config import ConfigLoader
+        return ConfigLoader.load(paths=[str(path)])
+    except Exception:
+        # Fallback to manual loading
+        spec = importlib.util.spec_from_file_location("config", path)
+        if spec is None or spec.loader is None:
+            print(f"Cannot load config from {config_path}")
+            sys.exit(1)
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        # Find Config class
+        for name, obj in vars(module).items():
+            if isinstance(obj, type) and name == "Config":
+                return obj()
+
+        print(f"No Config class found in {config_path}")
         sys.exit(1)
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-
-    # Find Config class
-    for name, obj in vars(module).items():
-        if isinstance(obj, type) and name == "Config":
-            return obj()
-
-    print(f"No Config class found in {config_path}")
-    sys.exit(1)
 
 
 def cmd_validate(args: argparse.Namespace) -> None:

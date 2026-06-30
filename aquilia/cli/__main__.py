@@ -3902,6 +3902,105 @@ def di_manifest(ctx, settings: str, out: str, verbose: bool):
     sys.exit(cmd_di_manifest(args))
 
 
+# ============================================================================
+# Aquilary Registry Commands
+# ============================================================================
+
+
+@cli.group(cls=AquiliaGroup)
+def aquilary():
+    """Manifest-driven App Registry management commands."""
+    pass
+
+
+@aquilary.command("validate")
+@click.argument("manifests", nargs=-1, required=False)
+@click.option("--config", help="Config file path")
+@click.option("--mode", type=click.Choice(["dev", "prod", "test"]), default="prod", help="Registry mode")
+@click.option("--autodiscover", is_flag=True, help="Auto-discover manifests in modules/ and apps/")
+@click.pass_context
+def aquilary_validate(ctx, manifests, config, mode, autodiscover):
+    """
+    Validate application manifests.
+
+    Verifies manifest structure, types, dependency cycles, and route conflicts.
+    """
+    from .commands.aquilary_cmds import run_validate
+
+    run_validate(manifests, config, mode, autodiscover)
+
+
+@aquilary.command("inspect")
+@click.option("--manifest", "-m", "manifests", multiple=True, help="Manifest file or directory")
+@click.option("--config", help="Config file path")
+@click.option("--mode", type=click.Choice(["dev", "prod", "test"]), default="dev", help="Registry mode")
+@click.option("--autodiscover", is_flag=True, help="Auto-discover manifests")
+@click.option("--json", "json_path", help="Export diagnostics to JSON file")
+@click.pass_context
+def aquilary_inspect(ctx, manifests, config, mode, autodiscover, json_path):
+    """
+    Inspect registry diagnostics.
+
+    Displays summary of apps, versions, load order, dependency graph, and route registry.
+    """
+    from .commands.aquilary_cmds import run_inspect
+
+    run_inspect(manifests, config, mode, autodiscover, json_path)
+
+
+@aquilary.command("freeze")
+@click.option("--manifest", "-m", "manifests", multiple=True, help="Manifest file or directory")
+@click.option("--config", help="Config file path")
+@click.option("--output", default="frozen_manifest.json", help="Output file path")
+@click.option("--autodiscover", is_flag=True, help="Auto-discover manifests")
+@click.pass_context
+def aquilary_freeze(ctx, manifests, config, output, autodiscover):
+    """
+    Freeze manifest for deployment.
+
+    Generates a deterministic configuration fingerprint for reproducible builds.
+    """
+    from .commands.aquilary_cmds import run_freeze
+
+    run_freeze(manifests, config, output, autodiscover)
+
+
+@aquilary.command("graph")
+@click.option("--manifest", "-m", "manifests", multiple=True, help="Manifest file or directory")
+@click.option("--config", help="Config file path")
+@click.option("--mode", type=click.Choice(["dev", "prod", "test"]), default="dev", help="Registry mode")
+@click.option("--output", help="Output DOT file path")
+@click.option("--autodiscover", is_flag=True, help="Auto-discover manifests")
+@click.pass_context
+def aquilary_graph(ctx, manifests, config, mode, output, autodiscover):
+    """
+    Visualize dependency graph.
+
+    Generates parallel loading layers and exports DOT representation for Graphviz.
+    """
+    from .commands.aquilary_cmds import run_graph
+
+    run_graph(manifests, config, mode, output, autodiscover)
+
+
+@aquilary.command("run")
+@click.option("--frozen", help="Frozen manifest file path")
+@click.option("--manifest", "-m", "manifests", multiple=True, help="Manifest file or directory")
+@click.option("--config", required=True, help="Config file path")
+@click.option("--mode", type=click.Choice(["dev", "prod", "test"]), default="prod", help="Registry mode")
+@click.option("--autodiscover", is_flag=True, help="Auto-discover manifests")
+@click.pass_context
+def aquilary_run(ctx, frozen, manifests, config, mode, autodiscover):
+    """
+    Run application with registry bootstrapper.
+
+    Initializes dependency injection containers and compiles routes.
+    """
+    from .commands.aquilary_cmds import run_app_registry
+
+    run_app_registry(frozen, manifests, config, mode, autodiscover)
+
+
 def main():
     """Entry point for `aq` command."""
     cli(obj={})
