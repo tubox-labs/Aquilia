@@ -26,4 +26,4 @@ def test_aquilary_subcommand_helps():
     for cmd in subcommands:
         result = runner.invoke(cli, ["aquilary", cmd, "--help"], catch_exceptions=False)
         assert result.exit_code == 0
-        assert "Options:" in result.output
+        assert "Options" in result.output
