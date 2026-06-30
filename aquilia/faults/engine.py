@@ -472,6 +472,17 @@ class FaultMiddleware(Middleware):
                             {"error": "Internal server error"},
                             status=500,
                         )
+                    try:
+                        from .default_handlers import HTTPResponse
+
+                        if isinstance(result.response, HTTPResponse):
+                            return Response.json(
+                                result.response.body,
+                                status=result.response.status_code,
+                                headers=result.response.headers,
+                            )
+                    except ImportError:
+                        pass
                     return Response.json(result.response)
 
                 raise e
