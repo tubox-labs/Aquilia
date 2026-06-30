@@ -1155,6 +1155,7 @@ class AquiliaServer:
 
             # Build central strategy orchestrator
             strategy = VersionStrategy(config)
+            strategy._workspace_modules = getattr(self, "_workspace_modules", {})
             self._version_strategy = strategy
 
             # Register versioning middleware at priority 5

@@ -239,7 +239,7 @@ class ASGIAdapter:
         from aquilia.versioning.errors import VersionError
 
         try:
-            api_version = strategy.resolve(request)
+            api_version = strategy.resolve(request, check_sunset=False)
         except VersionError:
             # Re-raise version errors so handle_http can handle them early
             raise

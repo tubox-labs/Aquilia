@@ -207,7 +207,7 @@ class SunsetEnforcer:
         self._registry = registry
         self._rejection_counters: dict[ApiVersion, int] = {}  # For gradual sunset, per version
 
-    def check(self, version: ApiVersion) -> dict[str, Any] | None:
+    def check(self, version: ApiVersion, sunset_policy: SunsetPolicy | None = None) -> dict[str, Any] | None:
         """
         Check if a version is sunset/retired and should be rejected.
 
@@ -220,29 +220,30 @@ class SunsetEnforcer:
             return None
 
         status = entry.effective_status
+        policy = sunset_policy or self._policy
 
         # RETIRED → always reject
-        if status == VersionStatus.RETIRED and self._policy.enforce_retired:
+        if status == VersionStatus.RETIRED and policy.enforce_retired:
             return {
                 "code": "API_VERSION_RETIRED",
-                "message": self._policy.sunset_message,
+                "message": policy.sunset_message,
                 "version": str(version),
                 "successor": str(entry.successor) if entry.successor else None,
                 "migration_url": entry.migration_url,
             }
 
         # SUNSET → reject based on policy
-        if status == VersionStatus.SUNSET and self._policy.enforce_sunset:
+        if status == VersionStatus.SUNSET and policy.enforce_sunset:
             # Gradual rejection
-            if self._policy.gradual_rejection_percent > 0:
+            if policy.gradual_rejection_percent > 0:
                 count = self._rejection_counters.get(version, 0) + 1
                 self._rejection_counters[version] = count
-                if (count % 100) >= self._policy.gradual_rejection_percent:
+                if (count % 100) >= policy.gradual_rejection_percent:
                     return None  # Allow this request
 
             return {
                 "code": "API_VERSION_SUNSET",
-                "message": self._policy.sunset_message,
+                "message": policy.sunset_message,
                 "version": str(version),
                 "successor": str(entry.successor) if entry.successor else None,
                 "migration_url": entry.migration_url,
@@ -250,7 +251,7 @@ class SunsetEnforcer:
 
         return None
 
-    def get_headers(self, version: ApiVersion) -> dict[str, str]:
+    def get_headers(self, version: ApiVersion, sunset_policy: SunsetPolicy | None = None) -> dict[str, str]:
         """
         Get deprecation/sunset response headers for a version.
 
@@ -259,7 +260,8 @@ class SunsetEnforcer:
         - ``Sunset``: ISO 8601 date when version will be/was sunset
         - ``Link``: Migration guide URL with ``rel="deprecation"``
         """
-        if not self._policy.warn_header:
+        policy = sunset_policy or self._policy
+        if not policy.warn_header:
             return {}
 
         entry = self._registry.get(version)
@@ -280,8 +282,8 @@ class SunsetEnforcer:
 
             # Link header with migration guide
             migration_url = entry.migration_url
-            if not migration_url and self._policy.migration_url_template:
-                migration_url = self._policy.migration_url_template.replace("{version}", str(version))
+            if not migration_url and policy.migration_url_template:
+                migration_url = policy.migration_url_template.replace("{version}", str(version))
             if migration_url:
                 headers["Link"] = f'<{migration_url}>; rel="deprecation"'
 

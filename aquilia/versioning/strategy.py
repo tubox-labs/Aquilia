@@ -305,7 +305,7 @@ class VersionStrategy:
 
     # ── Request resolution (hot path) ─────────────────────────────────
 
-    def resolve(self, request: Request) -> ApiVersion:
+    def resolve(self, request: Request, check_sunset: bool = True) -> ApiVersion:
         """
         Resolve API version from request.
 
@@ -385,18 +385,19 @@ class VersionStrategy:
             ) from exc
 
         # Step 6: Sunset check
-        rejection = self._sunset_enforcer.check(version)
-        if rejection:
-            raise VersionSunsetError(
-                version=version,
-                sunset_date=rejection.get("sunset_date"),
-                migration_url=rejection.get("migration_url"),
-                successor=rejection.get("successor"),
-            )
+        if check_sunset:
+            rejection = self._sunset_enforcer.check(version)
+            if rejection:
+                raise VersionSunsetError(
+                    version=version,
+                    sunset_date=rejection.get("sunset_date"),
+                    migration_url=rejection.get("migration_url"),
+                    successor=rejection.get("successor"),
+                )
 
         return version
 
-    def get_response_headers(self, version: ApiVersion) -> dict[str, str]:
+    def get_response_headers(self, version: ApiVersion, sunset_policy: SunsetPolicy | None = None) -> dict[str, str]:
         """
         Get response headers to add for this version.
 
@@ -418,7 +419,7 @@ class VersionStrategy:
                 headers[self._config.supported_versions_header] = ", ".join(str(v) for v in active)
 
         # Sunset headers
-        sunset_headers = self._sunset_enforcer.get_headers(version)
+        sunset_headers = self._sunset_enforcer.get_headers(version, sunset_policy)
         headers.update(sunset_headers)
 
         return headers
@@ -525,11 +526,11 @@ class VersionStrategy:
         segment = "/" + self.build_url_segment(version)
         return join_paths(module_prefix, segment) if pos == "after" else join_paths(segment, module_prefix)
 
-    def check_sunset(self, version: ApiVersion) -> None:
+    def check_sunset(self, version: ApiVersion, sunset_policy: SunsetPolicy | None = None) -> None:
         """Run sunset enforcement for an already-known concrete version
         without re-running resolve()'s parsing/negotiation. Needed because
         structural-mode routes never call resolve() at all (4.3/4.5)."""
-        rejection = self._sunset_enforcer.check(version)
+        rejection = self._sunset_enforcer.check(version, sunset_policy)
         if rejection:
             raise VersionSunsetError(
                 version=version,

@@ -2498,3 +2498,142 @@ workspace = (
         updated_content = workspace_py.read_text(encoding="utf-8")
         assert ".versioning(position='after')" in updated_content
         assert '.route_prefix("/brief")' in updated_content
+
+
+class TestModuleLevelSunsetPolicy:
+    """Test that module-level sunset policy overrides are correctly respected."""
+
+    @pytest.mark.asyncio
+    async def test_module_sunset_policy_override(self):
+        from datetime import datetime, timezone
+        from types import SimpleNamespace
+
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+        from aquilia.response import Response
+        from aquilia.versioning.core import ApiVersion
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+        from aquilia.versioning.sunset import SunsetPolicy, SunsetRegistry
+
+        # Setup SunsetRegistry with a sunset version (1.0)
+        registry = SunsetRegistry()
+        v1 = ApiVersion(1, 0)
+        registry.register(v1, sunset_at=datetime(2020, 1, 1, tzinfo=timezone.utc))
+
+        # Global policy: enforce sunset (reject)
+        global_policy = SunsetPolicy(
+            enforce_sunset=True,
+            warn_header=True,
+        )
+
+        config = VersionConfig(
+            strategy="url",
+            versions=["1.0", "2.0"],
+            default_version="1.0",
+            negotiation_mode="compatible",
+            sunset_policy=global_policy,
+        )
+
+        strategy = VersionStrategy(config)
+        # Override the enforcer registry so it uses our registry
+        strategy._sunset_enforcer._registry = registry
+
+        # Define module configs:
+        # 'brief' module: overrides sunset policy to warn-only (enforce_sunset=False)
+        # 'other' module: uses global defaults (rejection)
+        strategy._workspace_modules = {
+            "brief": {
+                "versioning": {
+                    "enabled": True,
+                    "sunset_policy": SunsetPolicy(
+                        enforce_sunset=False,
+                        warn_header=True,
+                    ),
+                }
+            },
+            "other": {
+                "versioning": {
+                    "enabled": True,
+                }
+            },
+        }
+
+        from aquilia.versioning.middleware import VersionMiddleware
+
+        router = MagicMock()
+        engine = MagicMock()
+        server = SimpleNamespace(_version_strategy=strategy)
+
+        stack = MiddlewareStack()
+        stack.add(VersionMiddleware(strategy))
+
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=engine,
+            middleware_stack=stack,
+            server=server,
+        )
+
+        # Mock route matching
+        route_brief = MagicMock()
+        route_brief.app_name = "brief"
+        match_brief = MagicMock()
+        match_brief.route = route_brief
+
+        route_other = MagicMock()
+        route_other.app_name = "other"
+        match_other = MagicMock()
+        match_other.route = route_other
+
+        router.match_sync.side_effect = lambda path, method, api_version: (
+            match_brief if "brief" in path else match_other
+        )
+        router.get_allowed_methods.return_value = []
+        engine.execute = AsyncMock(return_value=Response.json({"ok": True}))
+
+        # 1. Request brief module with sunset version 1.0 (should succeed with warning headers)
+        scope_brief = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v1/brief/users",
+            "query_string": b"",
+            "headers": [],
+        }
+        messages_brief = []
+
+        async def receive():
+            return {"type": "http.request", "body": b"", "more_body": False}
+
+        async def send_brief(msg):
+            messages_brief.append(msg)
+
+        await adapter.handle_http(scope_brief, receive, send_brief)
+
+        # Ensure response was allowed (200 OK) and has Sunset headers
+        assert len(messages_brief) >= 1
+        start_brief = messages_brief[0]
+        assert start_brief["type"] == "http.response.start"
+        assert start_brief["status"] == 200
+        headers_dict = {k.decode().lower(): v.decode() for k, v in start_brief["headers"]}
+        assert "sunset" in headers_dict
+
+        # 2. Request other module with sunset version 1.0 (should be rejected with 410)
+        scope_other = {
+            "type": "http",
+            "method": "GET",
+            "path": "/v1/other/users",
+            "query_string": b"",
+            "headers": [],
+        }
+        messages_other = []
+
+        async def send_other(msg):
+            messages_other.append(msg)
+
+        await adapter.handle_http(scope_other, receive, send_other)
+
+        # Ensure response was rejected (410 Gone)
+        assert len(messages_other) >= 1
+        start_other = messages_other[0]
+        assert start_other["type"] == "http.response.start"
+        assert start_other["status"] == 410

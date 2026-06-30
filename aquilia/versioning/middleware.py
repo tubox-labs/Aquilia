@@ -150,11 +150,12 @@ class VersionMiddleware(Middleware):
         if version is None:
             if not self._strategy.is_structural_url_versioning or not routing_ran:
                 try:
-                    version = self._strategy.resolve(request)
+                    version = self._strategy.resolve(request, check_sunset=False)
                     request.state[STATE_RESOLVED_VERSION] = version
                 except VersionError as e:
                     return build_version_error_response(self._strategy, request, e)
 
+        module_sunset_policy = None
         if version is not None:
             request.state["api_version"] = version
             request.state["api_version_str"] = str(version)
@@ -162,15 +163,35 @@ class VersionMiddleware(Middleware):
             if not self._strategy.is_structural_url_versioning:
                 if "_original_path" not in request.state:
                     request.state["_original_path"] = request.path
-            if self._strategy.is_structural_url_versioning:
+
+            # Retrieve module-level sunset policy override
+            app_name = None
+            match = request.state.get(STATE_CONTROLLER_MATCH)
+            if match is not None:
+                route = getattr(match, "route", None)
+                app_name = getattr(route, "app_name", None)
+
+            if app_name and hasattr(self._strategy, "_workspace_modules"):
+                module_config = self._strategy._workspace_modules.get(app_name)
+                if isinstance(module_config, dict):
+                    versioning_opts = module_config.get("versioning")
+                    if isinstance(versioning_opts, dict):
+                        module_sunset_policy = versioning_opts.get("sunset_policy")
+
+            path = request.path if hasattr(request, "path") else "/"
+            is_neutral = False
+            if hasattr(self._strategy, "is_neutral_path"):
+                is_neutral = self._strategy.is_neutral_path(path)
+
+            if not is_neutral:
                 try:
-                    self._strategy.check_sunset(version)
+                    self._strategy.check_sunset(version, sunset_policy=module_sunset_policy)
                 except VersionSunsetError as e:
                     return build_version_error_response(self._strategy, request, e)
 
         response = cast("Response", await next_handler(request, ctx))
 
         if version is not None:
-            for key, value in self._strategy.get_response_headers(version).items():
+            for key, value in self._strategy.get_response_headers(version, sunset_policy=module_sunset_policy).items():
                 response.headers[key] = value
         return response

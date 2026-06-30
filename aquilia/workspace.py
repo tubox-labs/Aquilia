@@ -324,6 +324,7 @@ class Module:
         enabled: bool = True,
         position: str | None = None,
         auto_version_unmarked: bool | None = None,
+        sunset_policy: Any | None = None,
     ) -> Module:
         """
         Per-module override of URL versioning.
@@ -332,6 +333,7 @@ class Module:
             "enabled": enabled,
             "position": position,
             "auto_version_unmarked": auto_version_unmarked,
+            "sunset_policy": sunset_policy,
         }
         return self
 
