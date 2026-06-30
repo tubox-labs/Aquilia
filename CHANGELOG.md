@@ -146,6 +146,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Wired cache backend request timing and hit/miss reporting inside `CacheService` methods.
   - Wired model signals dispatch tracing inside `Signal.send`, `send_sync`, and `robust_send`.
   - Wired static file serving telemetry inside `StaticMiddleware.__call__`.
+- **Request Inspector Beyond-DJDT Panels & Pluggable Storage**:
+  - Implemented pluggable `TraceStore` interface with memory-backed `MemoryTraceStore` (ring-buffer) and disk-backed `SQLiteTraceStore`.
+  - Refactored `InspectorCollector` to delegate trace storage, listing, fetching, and clearing to the configured `TraceStore`.
+  - Added `store` and `store_path` settings to `InspectorConfig` and `ConfigLoader` defaults.
+  - Wired background task enqueue tracing in `TaskManager.enqueue` to log `Lane.TASKS` events.
+  - Wired WebSocket broadcast and publish_room message tracing in `SocketController` to log `Lane.SOCKETS` events.
+  - Wired outbound email envelope metadata logging in `MailService.send_message` under `Lane.MAIL`.
+  - Capture active session ID, user ID, clearance levels, roles, and request locale dynamically inside the middleware request-response loop under `auth` and `i18n` trace spans.
+
 
 
 

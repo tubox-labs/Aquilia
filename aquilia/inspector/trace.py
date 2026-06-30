@@ -25,6 +25,9 @@ class Lane(str, Enum):
     TEMPLATES = "templates"
     CACHE = "cache"
     SIGNALS = "signals"
+    MAIL = "mail"
+    TASKS = "tasks"
+    SOCKETS = "sockets"
 
 
 class SpanStatus(str, Enum):

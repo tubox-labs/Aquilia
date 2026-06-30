@@ -194,6 +194,47 @@ class InspectorMiddleware(Middleware):
             trace.exception = trace.exception or _exception_to_node(exc)
             raise
         finally:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                session = request.state.get("session")
+                identity = request.state.get("identity")
+                if session is not None or identity is not None:
+                    detail = {}
+                    if session is not None:
+                        detail["session_id"] = str(session.id) if hasattr(session, "id") else str(session)
+                        detail["session_scope"] = str(session.scope.value) if hasattr(session, "scope") and hasattr(session.scope, "value") else str(getattr(session, "scope", ""))
+                    if identity is not None:
+                        detail["user_id"] = getattr(identity, "id", None)
+                        detail["identity_type"] = getattr(identity, "type", None)
+                        detail["clearance"] = identity.get_attribute("clearance") if hasattr(identity, "get_attribute") else None
+                        detail["roles"] = identity.get_attribute("roles", []) if hasattr(identity, "get_attribute") else []
+                    
+                    trace.add_span(
+                        lane="auth",
+                        label="Authenticate Request",
+                        start_offset_ms=0.0,
+                        duration_ms=0.1,
+                        status=SpanStatus.OK,
+                        detail=detail,
+                    )
+            except Exception:
+                pass
+
+            try:
+                from aquilia.inspector.trace import SpanStatus
+                locale = request.state.get("locale")
+                if locale is not None:
+                    trace.add_span(
+                        lane="i18n",
+                        label="Resolve Locale",
+                        start_offset_ms=0.0,
+                        duration_ms=0.1,
+                        status=SpanStatus.OK,
+                        detail={"locale": locale},
+                    )
+            except Exception:
+                pass
+
             trace.finished_monotonic = time.monotonic()
             _reset_current_trace(token)
             self._collector.commit(trace)

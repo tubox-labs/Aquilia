@@ -272,3 +272,180 @@ async def test_static_lane_recorded():
         assert span.detail["status_code"] == 200
     finally:
         _reset_current_trace(token)
+
+
+@pytest.mark.asyncio
+async def test_mail_lane_recorded():
+    from aquilia.mail.service import MailService
+
+    trace = RequestTrace(
+        trace_id="req-mail",
+        method="GET",
+        path="/index",
+        route_pattern=None,
+        started_at=1.0,
+        started_monotonic=1.0,
+    )
+    token = _set_current_trace(trace)
+
+    try:
+        config = MagicMock()
+        config.default_from = "sender@example.com"
+        config.subject_prefix = "[TEST] "
+        config.preview_mode = True
+
+        service = MailService(config=config)
+
+        # Mock EmailMessage
+        msg = MagicMock()
+        envelope = MagicMock()
+        envelope.id = "env-123"
+        envelope.subject = "Hello World"
+        envelope.from_email = "sender@example.com"
+        envelope.to = ["rcpt@example.com"]
+        envelope.cc = []
+        envelope.status.value = "sent"
+        msg.build_envelope = MagicMock(return_value=(envelope, []))
+
+        res_id = await service.send_message(msg)
+        assert res_id == "env-123"
+
+        mail_spans = [s for s in trace.spans if s.lane == Lane.MAIL]
+        assert len(mail_spans) == 1
+        span = mail_spans[0]
+        assert span.label == "Outbound Email: [TEST] Hello World"
+        assert span.detail["envelope_id"] == "env-123"
+        assert span.detail["to"] == ["rcpt@example.com"]
+    finally:
+        _reset_current_trace(token)
+
+
+@pytest.mark.asyncio
+async def test_tasks_lane_recorded():
+    from aquilia.tasks.engine import TaskManager
+
+    trace = RequestTrace(
+        trace_id="req-tasks",
+        method="GET",
+        path="/index",
+        route_pattern=None,
+        started_at=1.0,
+        started_monotonic=1.0,
+    )
+    token = _set_current_trace(trace)
+
+    try:
+        backend = MagicMock()
+        backend.push = AsyncMock()
+
+        manager = TaskManager(backend=backend)
+
+        def dummy_task():
+            pass
+
+        dummy_task.__module__ = "dummy"
+        dummy_task.__qualname__ = "dummy_task"
+
+        job_id = await manager.enqueue(dummy_task, 1, 2, queue="default")
+        assert job_id is not None
+
+        task_spans = [s for s in trace.spans if s.lane == Lane.TASKS]
+        assert len(task_spans) == 1
+        span = task_spans[0]
+        assert "dummy_task" in span.label
+        assert span.detail["queue"] == "default"
+        assert span.detail["args"] == [1, 2]
+    finally:
+        _reset_current_trace(token)
+
+
+@pytest.mark.asyncio
+async def test_sockets_lane_recorded():
+    from aquilia.sockets.controller import SocketController
+
+    trace = RequestTrace(
+        trace_id="req-sockets",
+        method="GET",
+        path="/index",
+        route_pattern=None,
+        started_at=1.0,
+        started_monotonic=1.0,
+    )
+    token = _set_current_trace(trace)
+
+    try:
+        controller = SocketController()
+        controller.namespace = "/chat"
+        controller.adapter = MagicMock()
+        controller.adapter.publish = AsyncMock()
+        controller.adapter.broadcast = AsyncMock()
+
+        await controller.publish_room("room1", "chat_msg", {"text": "hello"})
+        await controller.broadcast("announcement", {"text": "welcome"})
+
+        socket_spans = [s for s in trace.spans if s.lane == Lane.SOCKETS]
+        assert len(socket_spans) == 2
+
+        assert "WS Publish Room: room1" in socket_spans[0].label
+        assert socket_spans[0].detail["event"] == "chat_msg"
+
+        assert "WS Broadcast: announcement" in socket_spans[1].label
+        assert socket_spans[1].detail["event"] == "announcement"
+    finally:
+        _reset_current_trace(token)
+
+
+@pytest.mark.asyncio
+async def test_middleware_auth_locale_captured():
+    config = InspectorConfig(enabled=True)
+    middleware = InspectorMiddleware(config)
+
+    request = Request(
+        scope={
+            "type": "http",
+            "method": "GET",
+            "path": "/index",
+            "headers": [],
+        },
+        receive=None,
+    )
+    # Set session, identity, locale in request state
+    mock_session = MagicMock()
+    mock_session.id = "sess_12345"
+    mock_session.scope.value = "user"
+
+    mock_identity = MagicMock()
+    mock_identity.id = "user_99"
+    mock_identity.type = "user"
+    mock_identity.get_attribute = MagicMock(side_effect=lambda k, d=None: "level3" if k == "clearance" else ["admin"])
+
+    request.state["session"] = mock_session
+    request.state["identity"] = mock_identity
+    request.state["locale"] = "fr-CA"
+
+    ctx = RequestCtx(request=request, request_id="req-metadata")
+
+    async def next_handler(req, context):
+        return Response(b"ok")
+
+    await middleware(request, ctx, next_handler)
+
+    from aquilia.inspector.collector import get_collector
+
+    trace = get_collector(config).get("req-metadata")
+    assert trace is not None
+
+    # Check Auth span
+    auth_spans = [s for s in trace.spans if s.lane == "auth"]
+    assert len(auth_spans) == 1
+    auth_span = auth_spans[0]
+    assert auth_span.detail["session_id"] == "sess_12345"
+    assert auth_span.detail["user_id"] == "user_99"
+    assert auth_span.detail["clearance"] == "level3"
+    assert auth_span.detail["roles"] == ["admin"]
+
+    # Check Locale span
+    locale_spans = [s for s in trace.spans if s.lane == "i18n"]
+    assert len(locale_spans) == 1
+    locale_span = locale_spans[0]
+    assert locale_span.detail["locale"] == "fr-CA"

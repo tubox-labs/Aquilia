@@ -334,6 +334,16 @@ class MailService:
         Returns:
             envelope_id
         """
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
 
         envelope, blobs = message.build_envelope(
             default_from=self.config.default_from,
@@ -346,11 +356,38 @@ class MailService:
         # In preview mode, just log -- don't actually send
         if self.config.preview_mode:
             envelope.status = EnvelopeStatus.SENT
-            return envelope.id
+            res_id = envelope.id
+        else:
+            # Direct dispatch (synchronous send for now; PR5 adds queue + dispatcher)
+            await self._dispatch_direct(envelope)
+            res_id = envelope.id
 
-        # Direct dispatch (synchronous send for now; PR5 adds queue + dispatcher)
-        await self._dispatch_direct(envelope)
-        return envelope.id
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+
+                trace.add_span(
+                    lane=Lane.MAIL,
+                    label=f"Outbound Email: {envelope.subject}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "envelope_id": envelope.id,
+                        "subject": envelope.subject,
+                        "from": envelope.from_email,
+                        "to": list(envelope.to),
+                        "cc": list(envelope.cc),
+                        "status": str(envelope.status.value) if hasattr(envelope.status, "value") else str(envelope.status),
+                    },
+                )
+            except Exception:
+                pass
+
+        return res_id
 
     async def _dispatch_direct(self, envelope: MailEnvelope) -> None:
         """

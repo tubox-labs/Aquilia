@@ -47,6 +47,8 @@ class InspectorConfig:
     replay_enabled: bool = True
     live_stream_enabled: bool = True
     toolbar_enabled: bool | None = None
+    store: str = "memory"
+    store_path: str = ":memory:"
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "InspectorConfig":
@@ -86,6 +88,8 @@ class InspectorConfig:
             "replay_enabled": self.replay_enabled,
             "live_stream_enabled": self.live_stream_enabled,
             "toolbar_enabled": self.toolbar_enabled,
+            "store": self.store,
+            "store_path": self.store_path,
         }
 
 

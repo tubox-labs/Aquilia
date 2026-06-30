@@ -895,5 +895,7 @@ class ConfigLoader:
                 "replay_enabled": True,
                 "live_stream_enabled": True,
                 "toolbar_enabled": None,
+                "store": "memory",
+                "store_path": ":memory:",
             },
         )

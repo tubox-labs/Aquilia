@@ -514,6 +514,17 @@ class TaskManager:
 
         self._queues.add(_queue)
 
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         job = Job(
             name=getattr(func, "task_name", func_ref.split(":")[-1] if ":" in func_ref else func_ref),
             queue=_queue,
@@ -535,6 +546,32 @@ class TaskManager:
 
         await self.backend.push(job)
         self._total_enqueued += 1
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+
+                trace.add_span(
+                    lane=Lane.TASKS,
+                    label=f"Enqueue Task: {job.name}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "job_id": job.id,
+                        "task_name": job.name,
+                        "queue": job.queue,
+                        "priority": str(job.priority.value) if hasattr(job.priority, "value") else str(job.priority),
+                        "args": list(job.args),
+                        "kwargs": job.kwargs,
+                    },
+                )
+            except Exception:
+                pass
+
         return job.id
 
     # ========================================================================

@@ -109,6 +109,17 @@ class SocketController:
             logger.warning("Cannot publish_room: adapter not set")
             return
 
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         envelope = MessageEnvelope(
             type=MessageType.EVENT,
             event=event,
@@ -121,6 +132,29 @@ class SocketController:
             envelope=envelope,
             exclude_connection=exclude_connection,
         )
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+
+                trace.add_span(
+                    lane=Lane.SOCKETS,
+                    label=f"WS Publish Room: {room} ({event})",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "event": event,
+                        "room": room,
+                        "namespace": ns,
+                        "payload": payload,
+                    },
+                )
+            except Exception:
+                pass
 
     async def broadcast(
         self,
@@ -150,6 +184,17 @@ class SocketController:
             logger.warning("Cannot broadcast: adapter not set")
             return
 
+        t0 = None
+        trace = None
+        try:
+            from aquilia.inspector.trace import current_trace
+            import time
+            trace = current_trace()
+            if trace is not None:
+                t0 = time.monotonic()
+        except ImportError:
+            pass
+
         envelope = MessageEnvelope(
             type=MessageType.EVENT,
             event=event,
@@ -161,6 +206,29 @@ class SocketController:
             envelope=envelope,
             exclude_connection=exclude_connection,
         )
+
+        if trace is not None and t0 is not None:
+            try:
+                from aquilia.inspector.trace import Lane, SpanStatus
+                import time
+                now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
+                duration_ms = (time.monotonic() - t0) * 1000.0
+
+                trace.add_span(
+                    lane=Lane.SOCKETS,
+                    label=f"WS Broadcast: {event}",
+                    start_offset_ms=max(0.0, now_offset - duration_ms),
+                    duration_ms=duration_ms,
+                    status=SpanStatus.OK,
+                    detail={
+                        "event": event,
+                        "room": None,
+                        "namespace": ns,
+                        "payload": payload,
+                    },
+                )
+            except Exception:
+                pass
 
     # Lifecycle hooks (override in subclasses with decorators)
 
