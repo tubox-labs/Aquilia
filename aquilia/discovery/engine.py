@@ -80,6 +80,11 @@ class DiscoveryResult:
     def interceptors(self) -> list[ClassifiedComponent]:
         return [c for c in self.components if c.kind == ComponentKind.INTERCEPTOR]
 
+    @property
+    def socket_controllers(self) -> list[ClassifiedComponent]:
+        return [c for c in self.components if c.kind == ComponentKind.SOCKET_CONTROLLER]
+
+
 
 @dataclass
 class SyncAction:
@@ -182,6 +187,12 @@ class ASTClassifier:
         "interceptor",
         "intercept",
     }
+    SOCKET_CONTROLLER_DECORATORS: set[str] = {
+        "Socket",
+        "SocketController",
+        "WebSocket",
+        "WebSocketController",
+    }
 
     def classify_file(self, file_path: Path) -> list[ClassifiedComponent]:
         """
@@ -226,21 +237,21 @@ class ASTClassifier:
         decorators = set(self._extract_decorator_names(node))
 
         # Check base classes (highest priority)
-        if bases & self.CONTROLLER_BASES:
-            return ComponentKind.CONTROLLER
-        if bases & self.SOCKET_CONTROLLER_BASES:
+        if bases & self.SOCKET_CONTROLLER_BASES or node.name.endswith("SocketController") or decorators & self.SOCKET_CONTROLLER_DECORATORS:
             return ComponentKind.SOCKET_CONTROLLER
-        if bases & self.GUARD_BASES:
+        if bases & self.CONTROLLER_BASES or node.name.endswith("Controller"):
+            return ComponentKind.CONTROLLER
+        if bases & self.GUARD_BASES or node.name.endswith("Guard"):
             return ComponentKind.GUARD
-        if bases & self.PIPE_BASES:
+        if bases & self.PIPE_BASES or node.name.endswith("Pipe"):
             return ComponentKind.PIPE
-        if bases & self.INTERCEPTOR_BASES:
+        if bases & self.INTERCEPTOR_BASES or node.name.endswith("Interceptor"):
             return ComponentKind.INTERCEPTOR
-        if bases & self.MIDDLEWARE_BASES:
+        if bases & self.MIDDLEWARE_BASES or node.name.endswith("Middleware"):
             return ComponentKind.MIDDLEWARE
-        if bases & self.MODEL_BASES:
+        if bases & self.MODEL_BASES or node.name.endswith("Model"):
             return ComponentKind.MODEL
-        if bases & self.SERVICE_BASES:
+        if bases & self.SERVICE_BASES or node.name.endswith("Service"):
             return ComponentKind.SERVICE
 
         # Check decorators (secondary)
@@ -383,6 +394,9 @@ class ManifestDiffer:
         ComponentKind.SERIALIZER: "serializers",
     }
 
+    def __init__(self, root_package: str = "modules"):
+        self.root_package = root_package
+
     def diff(
         self,
         discovered: list[ClassifiedComponent],
@@ -419,7 +433,7 @@ class ManifestDiffer:
         return actions
 
     def _is_declared(self, component: ClassifiedComponent, existing: list[str]) -> bool:
-        """Check if a component is already declared in the manifest."""
+        """Check if a component is already declared in the manifest with correct namespace."""
         class_name = component.name
         import_path = component.import_path
 
@@ -427,13 +441,11 @@ class ManifestDiffer:
             # Match by full import path
             if ref == import_path:
                 return True
-            # Match by class name (after ':')
-            if ":" in ref and ref.split(":", 1)[1] == class_name:
-                return True
-            # Match by just the class name string
-            if ref == class_name:
-                return True
-
+            # Match by class name, but only if the reference is also a fully namespaced path (starts with root_package)
+            if ":" in ref:
+                parts = ref.split(":", 1)
+                if parts[1] == class_name and parts[0].startswith(f"{self.root_package}."):
+                    return True
         return False
 
 
@@ -488,8 +500,8 @@ class ManifestWriter:
     def _add_component(self, source: str, field_name: str, import_path: str) -> str:
         """
         Add a component reference to a field's list in the manifest source.
-
-        Finds the field's list and appends the new import path string.
+        If an unnamespaced or incorrectly namespaced reference to the same class exists,
+        replaces it in-place to keep the manifest clean.
         """
         # Pattern: find `field_name=[...]` including multiline
         # We need to insert before the closing `]` of the list
@@ -500,6 +512,20 @@ class ManifestWriter:
             return source
 
         list_content = match.group(2)
+        start_pos, end_pos = match.start(2), match.end(2)
+        class_name = import_path.split(":", 1)[1]
+
+        # Check if the class is already referenced in some form in the list content
+        # Matches: "ClassName", "something:ClassName", etc.
+        item_pattern = rf'["\']([^"\']*?:)?{class_name}["\']'
+        item_match = re.search(item_pattern, list_content)
+        if item_match:
+            old_item = item_match.group(0)
+            quote = old_item[0]  # keep the same quote char
+            new_item = f"{quote}{import_path}{quote}"
+            new_list_content = list_content[:item_match.start()] + new_item + list_content[item_match.end():]
+            return source[:start_pos] + new_list_content + source[end_pos:]
+
         closing_bracket_pos = match.end(2)
 
         # Format the new entry
@@ -541,10 +567,10 @@ class AutoDiscoveryEngine:
     """
 
     def __init__(self, modules_dir: Path):
-        self.modules_dir = modules_dir
-        self.scanner = FileScanner(modules_dir)
+        self.modules_dir = modules_dir.resolve()
+        self.scanner = FileScanner(self.modules_dir)
         self.classifier = ASTClassifier()
-        self.differ = ManifestDiffer()
+        self.differ = ManifestDiffer(self.modules_dir.name)
         self.writer = ManifestWriter()
 
     def discover(
@@ -651,7 +677,7 @@ class AutoDiscoveryEngine:
         Example: modules/users/controllers.py:UsersController
                  → "modules.users.controllers:UsersController"
         """
-        relative = file_path.relative_to(module_dir.parent)
+        relative = file_path.resolve().relative_to(self.modules_dir.parent)
         module_parts = relative.with_suffix("").parts
         dotted = ".".join(module_parts)
         return f"{dotted}:{class_name}"

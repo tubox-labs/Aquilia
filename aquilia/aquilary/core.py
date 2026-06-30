@@ -492,9 +492,6 @@ class RuntimeRegistry:
         auto-discovery is enabled for the app.
         """
         from aquilia.utils.scanner import PackageScanner
-        # from aquilia.di import Service  <-- Component doesn't exist, using heuristics instead
-        # We can't import Controller from here easily without circular dep?
-        # Use string check or property check in scanner predicate
 
         scanner = PackageScanner()
 
@@ -504,25 +501,15 @@ class RuntimeRegistry:
             if hasattr(manifest_config, "auto_discover") and not manifest_config.auto_discover:
                 continue
 
-            # Default to enabled if not specified (backward compat for builders)
-            # or if it's a raw class manifest (legacy) we might check attribute
-
             # Base package for module
-            # ctx.name is module name e.g. "mymod"
-            # Assuming standard structure modules.<name> or just <name> if valid package
-
-            # Start scan
             base_package = f"modules.{ctx.name}"
 
             # 1. Discover Controllers (Recursive)
             try:
-                # Scan entire module recursively for controllers
-                # This covers .controllers, .test_routes, root files, and any nested subdirectories
-                # use_cache=False: Each scan uses a different predicate on the same package,
-                # and lambda-based cache keys can collide.
+                from aquilia.controller import Controller
                 controllers = scanner.scan_package(
                     base_package,
-                    predicate=lambda cls: cls.__name__.endswith("Controller"),
+                    predicate=lambda cls: cls.__name__.endswith("Controller") or issubclass(cls, Controller),
                     recursive=True,
                     max_depth=5,  # Deep nesting support
                     use_cache=False,
@@ -539,7 +526,6 @@ class RuntimeRegistry:
 
             # 2. Discover Services (Recursive)
             try:
-                # Scan entire module recursively for services
                 services = scanner.scan_package(
                     base_package,
                     predicate=lambda cls: cls.__name__.endswith("Service") or hasattr(cls, "__di_scope__"),
@@ -561,7 +547,7 @@ class RuntimeRegistry:
                 # Scan for classes with @Socket decorator (__socket_metadata__ attribute)
                 socket_controllers = scanner.scan_package(
                     base_package,
-                    predicate=lambda cls: hasattr(cls, "__socket_metadata__"),
+                    predicate=lambda cls: hasattr(cls, "__socket_metadata__") or cls.__name__.endswith("SocketController"),
                     recursive=True,
                     max_depth=5,
                     use_cache=False,
@@ -597,6 +583,44 @@ class RuntimeRegistry:
             # 5. Discover Model Files (Filesystem scan)
             with contextlib.suppress(Exception):
                 self._discover_models(ctx)
+
+            # 6. Discover Middleware (Recursive)
+            try:
+                from aquilia.middleware import Middleware
+                from aquilia.manifest import MiddlewareConfig
+                middlewares = scanner.scan_package(
+                    base_package,
+                    predicate=lambda cls: cls.__name__.endswith("Middleware") or issubclass(cls, Middleware),
+                    recursive=True,
+                    max_depth=5,
+                    use_cache=False,
+                )
+
+                for cls in middlewares:
+                    if cls is Middleware:
+                        continue
+                    path = f"{cls.__module__}:{cls.__name__}"
+                    # Check if already registered
+                    already_registered = False
+                    for mw in ctx.middlewares:
+                        if isinstance(mw, str) and mw == path:
+                            already_registered = True
+                            break
+                        elif isinstance(mw, dict) and (mw.get("class_path") == path or mw.get("path") == path):
+                            already_registered = True
+                            break
+                        elif hasattr(mw, "class_path") and mw.class_path == path:
+                            already_registered = True
+                            break
+
+                    if not already_registered:
+                        mw_cfg = MiddlewareConfig(class_path=path)
+                        ctx.middlewares.append(mw_cfg)
+                        if hasattr(ctx.manifest, "middleware") and isinstance(ctx.manifest.middleware, list):
+                            ctx.manifest.middleware.append(mw_cfg)
+            except Exception:
+                pass
+
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
@@ -759,8 +783,8 @@ class RuntimeRegistry:
 
         Returns a list of Model subclass classes found in the module.
         """
-        import importlib.util
         from pathlib import Path
+        import importlib
 
         try:
             from aquilia.models.base import Model
@@ -771,14 +795,28 @@ class RuntimeRegistry:
         if not file_path.is_file() or file_path.suffix != ".py":
             return []
 
-        module_name = f"_aquilia_models_{file_path.stem}_{id(file_path)}"
+        # Convert to dotted module path relative to workspace root if inside workspace
+        try:
+            workspace_root = self._workspace_root().resolve()
+            resolved_file = file_path.resolve()
+            if resolved_file.is_relative_to(workspace_root):
+                rel = resolved_file.relative_to(workspace_root)
+                module_name = ".".join(rel.with_suffix("").parts)
+            else:
+                module_name = f"_aquilia_models_{resolved_file.stem}_{id(resolved_file)}"
+        except Exception:
+            module_name = f"_aquilia_models_{file_path.stem}_{id(file_path)}"
 
         try:
-            spec = importlib.util.spec_from_file_location(module_name, str(file_path))
-            if spec is None or spec.loader is None:
-                return []
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
+            if module_name.startswith("_aquilia_models_"):
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(module_name, str(file_path))
+                if spec is None or spec.loader is None:
+                    return []
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+            else:
+                mod = importlib.import_module(module_name)
         except Exception:
             return []
 
