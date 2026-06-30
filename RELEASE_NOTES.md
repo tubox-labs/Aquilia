@@ -1,27 +1,34 @@
-# Aquilia v1.0.4
+# Aquilia v1.2.0
 
-Release date: 2026-05-17
+Release date: 2026-06-28
+Release Name: "Kraken's Wake"
 
 ## Summary
 
-Aquilia v1.0.4 removes the React-style workspace build system and returns the framework to a native Python backend runtime model.
+Aquilia v1.2.0 brings major feature additions, optimizations, and compatibility improvements across database migrations, CLI help formatting, localized manifest versioning configurations, cross-field validation, transformation pipelines, columnar validation, discriminated unions, and a brand-new execution tracer in the request inspector toolbar.
 
 ## Changes
 
-- Removed `aquilia/build` and the `aq build` command.
-- Removed build checks from `aq run`, `aq serve`, and `aq deploy`.
-- Removed the Admin Build page and related configuration/permission surface.
-- Kept `aq compile` as an explicit artifact generation tool backed by `WorkspaceCompiler`.
-- Updated `aq freeze` to create an artifact integrity snapshot under `artifacts/`.
-- Updated docs and generated deployment Makefiles for the native runtime flow.
-- Fixed SQLite `:memory:` pool isolation so independent pools no longer share tables.
+### Added
+- **Request Inspector** (`aquilia.inspector`): Full per-request execution tracing with swimlane-based timeline visualization, SSE live streaming, profile profiling support (`X-Profile: true`), redaction rules, and cookie redirect folding.
+- **Database CLI Subcommands**: Added `aq db history`, `aq db rollback`, `aq db check`, `aq db diff`, `aq db seed`, `aq db reset`, and `aq db flush`.
+- **Click CLI Help Custom Colorization**: Options colored in bold green, help text in white, and headers in bold cyan.
+- **Manifest-Level API Versioning Override**: Replaced legacy `Module().versioning()` builder API with a new `AppManifest.versioning` property configured directly in `manifest.py`.
+- **Advanced Validation Engines**: Cross-field validation (`@ward`), facets chaining pipelines (`>>`), columnar validation (`seal_columnar`), discriminated unions (`BlueprintUnion`), form/file blueprint validation (`UploadFile`), and `Sigil` intermediate schema representation.
+
+### Removed
+- **Artifact System**: Entirely removed `aquilia.artifacts` module (`ws.surp` artifacts, etc.), and `compile` and `freeze` commands from the CLI.
+
+### Changed & Optimized
+- **SQLite Adapter**: sqlite Row objects inherit from dict, avoiding conversion loops.
+- **Runtime Performance**: Optimized DI container registration, header decoded caches, lazy wrapping in DataObject, and regex compilation caching in `sigil.py`.
+
+### Fixed
+- **OS Compatibility**: Graceful Windows compatibility handling in MCP daemon processes and process signals.
+- **Stability**: Multiple bug fixes in auto-discovery namespace preservation, PEP 563 / PEP 604 string annotations, and Request ID propagation.
 
 ## Verification
 
 - Python import checks passed.
-- Source lint and format checks passed for touched runtime files.
-- Targeted regression/admin tests: 808 passed, 1 skipped.
-- SQLite shared-memory tests: 5 passed.
-- Full test suite: 6539 passed, 1 skipped.
-- Package build succeeded for sdist and wheel.
-- `twine check dist/*` passed.
+- Ruff source lint and format checks passed.
+- Full test suite execution: 6507 passed, 1 skipped.
