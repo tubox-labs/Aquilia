@@ -344,7 +344,13 @@ class Aquilary:
             # Extract config namespace
             config_ns = {}
             if hasattr(config, "apps") and hasattr(config.apps, app_name):
-                config_ns = getattr(config.apps, app_name).__dict__
+                app_config = getattr(config.apps, app_name)
+                if hasattr(app_config, "to_dict"):
+                    config_ns = app_config.to_dict()
+                elif isinstance(app_config, dict):
+                    config_ns = app_config
+                elif hasattr(app_config, "__dict__"):
+                    config_ns = app_config.__dict__
 
             # Determine route_prefix: workspace takes precedence
             ws_module = ws_modules.get(app_name, {})
