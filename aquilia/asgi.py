@@ -283,8 +283,8 @@ class ASGIAdapter:
         if handler is None:
             raise RuntimeError("Middleware chain was not initialized")
 
-        path = scope.get("path", "/")
-        method = scope.get("method", "GET")
+        path = scope["path"]
+        method = scope["method"]
 
         # ── Fast-path: built-in health endpoint ──
         if path == "/_health":
@@ -353,9 +353,16 @@ class ASGIAdapter:
             di_container = Container(scope="request")
 
         # Register Request instance in container for BlueprintProvider request lookup
+        from .di.providers import ValueProvider
         from .request import Request as RequestClass
 
-        await di_container.register_instance(RequestClass, request, scope="request")
+        di_container._providers["aquilia.request.Request"] = ValueProvider(
+            token=RequestClass,
+            value=request,
+            scope="request",
+            name="Request_instance",
+        )
+        di_container._cache["aquilia.request.Request"] = request
 
         # ── Acquire RequestCtx from pool (zero-alloc hot path) ──
         ctx = _ctx_pool.acquire(

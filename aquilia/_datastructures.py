@@ -128,27 +128,37 @@ class Headers:
     _index: dict[str, list[tuple[bytes, bytes]]] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self):
-        """Build case-insensitive index."""
-        self._index = {}
+        """Build case-insensitive index with eager decoding."""
+        self._index = index = {}
         for name, value in self.raw:
             key = name.decode("latin-1").lower()
-            if key not in self._index:
-                self._index[key] = []
-            self._index[key].append((name, value))
+            val_str = value.decode("latin-1")
+            if key not in index:
+                index[key] = val_str
+            else:
+                existing = index[key]
+                if isinstance(existing, list):
+                    existing.append(val_str)
+                else:
+                    index[key] = [existing, val_str]
 
     def get(self, name: str, default: str | None = None) -> str | None:
         """Get first value for header (case-insensitive)."""
-        key = name.lower()
-        pairs = self._index.get(key)
-        if pairs:
-            return pairs[0][1].decode("latin-1")
+        val = self._index.get(name.lower())
+        if val is not None:
+            if isinstance(val, list):
+                return val[0]
+            return val
         return default
 
     def get_all(self, name: str) -> list[str]:
         """Get all values for header (case-insensitive)."""
-        key = name.lower()
-        pairs = self._index.get(key, [])
-        return [value.decode("latin-1") for _, value in pairs]
+        val = self._index.get(name.lower())
+        if val is not None:
+            if isinstance(val, list):
+                return val.copy()
+            return [val]
+        return []
 
     def has(self, name: str) -> bool:
         """Check if header exists."""

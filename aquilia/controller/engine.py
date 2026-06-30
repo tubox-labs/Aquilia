@@ -239,7 +239,7 @@ class ControllerEngine:
             # Instantiate controller
             controller = await self.factory.create(
                 controller_class,
-                mode=InstantiationMode.PER_REQUEST,
+                mode=InstantiationMode.SINGLETON if is_singleton else InstantiationMode.PER_REQUEST,
                 request_container=container,
                 ctx=ctx,
             )
