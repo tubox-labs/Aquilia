@@ -91,10 +91,10 @@ def patch_di_container():
                 raise AsyncResolutionFault(token=str(token)) from e
             raise
 
-    async def patched_resolve_async(self, token, *, tag=None, optional=False):
+    async def patched_resolve_async(self, token, *, tag=None, optional=False, ctx=None):
         """Patched resolve_async with fault handling."""
         try:
-            return await original_resolve_async(self, token, tag=tag, optional=optional)
+            return await original_resolve_async(self, token, tag=tag, optional=optional, ctx=ctx)
         except OldProviderNotFoundError as e:
             # Convert to structured fault
             raise ProviderNotFoundFault(

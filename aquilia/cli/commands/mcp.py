@@ -90,7 +90,7 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
                 os.kill(pid, 0)
                 click.echo(f"Aquilia MCP server is already running in background (PID: {pid}).")
                 return
-            except (ProcessLookupError, ValueError):
+            except (OSError, ValueError):
                 pass
 
         args = [sys.executable, "-m", "aquilia.cli", "mcp", "serve"]
@@ -162,26 +162,26 @@ def stop(workspace: str, force: bool) -> None:
 
     try:
         os.kill(pid, 0)
-    except ProcessLookupError:
+    except OSError:
         click.echo("Background process is not running. Cleaning up stale PID file.")
         pid_path.unlink(missing_ok=True)
         return
 
     click.echo(f"Stopping background MCP server (PID: {pid})...")
-    sig = signal.SIGKILL if force else signal.SIGTERM
+    sig = getattr(signal, "SIGKILL", signal.SIGTERM) if force else signal.SIGTERM
     try:
         os.kill(pid, sig)
         for _ in range(50):
             time.sleep(0.1)
             try:
                 os.kill(pid, 0)
-            except ProcessLookupError:
+            except OSError:
                 break
         else:
             if not force:
                 click.echo("Server did not stop. Attempting force kill...")
-                os.kill(pid, signal.SIGKILL)
-    except ProcessLookupError:
+                os.kill(pid, getattr(signal, "SIGKILL", signal.SIGTERM))
+    except OSError:
         pass
 
     pid_path.unlink(missing_ok=True)
@@ -214,7 +214,7 @@ def status(workspace: str) -> None:
             pid = int(pid_path.read_text().strip())
             os.kill(pid, 0)
             is_running = True
-        except (ProcessLookupError, ValueError):
+        except (OSError, ValueError):
             pass
 
     click.echo("========================================================")
@@ -298,10 +298,10 @@ def inspect(workspace: str, kill_pid: int | None) -> None:
                         pid_path.unlink()
                 except ValueError:
                     pass
-        except ProcessLookupError:
-            click.echo(f"Process {kill_pid} not found.")
         except PermissionError:
             click.echo(f"No permission to kill process {kill_pid}.")
+        except OSError:
+            click.echo(f"Process {kill_pid} not found.")
         return
 
     pid_path, _, config = _paths(workspace)
