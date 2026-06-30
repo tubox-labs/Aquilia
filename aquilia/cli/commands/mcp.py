@@ -104,9 +104,22 @@ def serve(workspace: str, transport: str, host: str, port: int, index_path: str 
             args.extend(["--index", index_path])
 
         log_file = open(log_path, "a")
-        proc = subprocess.Popen(
-            args, stdout=log_file, stderr=log_file, stdin=subprocess.DEVNULL, close_fds=True, start_new_session=True
-        )
+        kwargs: dict[str, Any] = {
+            "stdout": log_file,
+            "stderr": log_file,
+            "stdin": subprocess.DEVNULL,
+            "close_fds": True,
+        }
+        if sys.platform == "win32":
+            kwargs["creationflags"] = subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+
+        try:
+            proc = subprocess.Popen(args, **kwargs)
+        finally:
+            log_file.close()
+
         pid_path.write_text(str(proc.pid))
 
         click.echo("========================================================")
