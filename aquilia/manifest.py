@@ -413,21 +413,122 @@ class DatabaseConfig:
 class AppVersioningConfig:
     """Module-level versioning override configuration."""
 
-    enabled: bool = True
-    position: str | None = None  # 'before' or 'after'
-    auto_version_unmarked: bool = False
+    strategy: str = "header"
+    versions: list[str] = field(default_factory=list)
+    default_version: str | None = None
+    require_version: bool = False
+    header_name: str = "X-API-Version"
+    query_param: str = "api_version"
+    url_prefix: str = "v"
+    url_segment_index: int = 0
+    strip_version_from_path: bool = True
+    url_position: str = "before"
+    expose_unversioned_alias: bool = False
+    media_type_param: str = "version"
+    channels: dict[str, str] = field(default_factory=dict)
+    channel_header: str = "X-API-Channel"
+    channel_query_param: str = "api_channel"
+    negotiation_mode: str = "exact"
     sunset_policy: Any | None = None
+    sunset_schedules: dict[str, dict[str, Any]] = field(default_factory=dict)
+    include_version_header: bool = True
+    response_header_name: str = "X-API-Version"
+    include_supported_versions_header: bool = True
+    neutral_paths: list[str] | None = None
+    enabled: bool = True
+    auto_version_unmarked: bool = False
+    position: str | None = None  # Convenience alias for url_position
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
+        pos = self.position or self.url_position
         config: dict[str, Any] = {
             "enabled": self.enabled,
-            "position": self.position,
+            "strategy": self.strategy,
+            "versions": self.versions,
+            "default_version": self.default_version,
+            "require_version": self.require_version,
+            "header_name": self.header_name,
+            "query_param": self.query_param,
+            "url_prefix": self.url_prefix,
+            "url_segment_index": self.url_segment_index,
+            "strip_version_from_path": self.strip_version_from_path,
+            "url_position": pos,
+            "position": pos,
+            "expose_unversioned_alias": self.expose_unversioned_alias,
+            "media_type_param": self.media_type_param,
+            "channels": self.channels,
+            "channel_header": self.channel_header,
+            "channel_query_param": self.channel_query_param,
+            "negotiation_mode": self.negotiation_mode,
+            "sunset_schedules": self.sunset_schedules,
+            "include_version_header": self.include_version_header,
+            "response_header_name": self.response_header_name,
+            "include_supported_versions_header": self.include_supported_versions_header,
+            "neutral_paths": self.neutral_paths,
             "auto_version_unmarked": self.auto_version_unmarked,
         }
         if self.sunset_policy is not None:
             config["sunset_policy"] = self.sunset_policy
         return config
+
+
+def versioning(
+    strategy: str = "header",
+    versions: list[str] | None = None,
+    default_version: str | None = None,
+    require_version: bool = False,
+    header_name: str = "X-API-Version",
+    query_param: str = "api_version",
+    url_prefix: str = "v",
+    url_segment_index: int = 0,
+    strip_version_from_path: bool = True,
+    url_position: str = "before",
+    expose_unversioned_alias: bool = False,
+    media_type_param: str = "version",
+    channels: dict[str, str] | None = None,
+    channel_header: str = "X-API-Channel",
+    channel_query_param: str = "api_channel",
+    negotiation_mode: str = "exact",
+    sunset_policy: Any | None = None,
+    sunset_schedules: dict[str, dict[str, Any]] | None = None,
+    include_version_header: bool = True,
+    response_header_name: str = "X-API-Version",
+    include_supported_versions_header: bool = True,
+    neutral_paths: list[str] | None = None,
+    enabled: bool = True,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Configure API versioning integration at module manifest level."""
+    config: dict[str, Any] = {
+        "enabled": enabled,
+        "strategy": strategy,
+        "versions": versions or [],
+        "default_version": default_version,
+        "require_version": require_version,
+        "header_name": header_name,
+        "query_param": query_param,
+        "url_prefix": url_prefix,
+        "url_segment_index": url_segment_index,
+        "strip_version_from_path": strip_version_from_path,
+        "url_position": url_position,
+        "expose_unversioned_alias": expose_unversioned_alias,
+        "media_type_param": media_type_param,
+        "channels": channels or {},
+        "channel_header": channel_header,
+        "channel_query_param": channel_query_param,
+        "negotiation_mode": negotiation_mode,
+        "include_version_header": include_version_header,
+        "response_header_name": response_header_name,
+        "include_supported_versions_header": include_supported_versions_header,
+        "neutral_paths": neutral_paths,
+        **kwargs,
+    }
+    if sunset_policy is not None:
+        config["sunset_policy"] = sunset_policy
+    if sunset_schedules:
+        config["sunset_schedules"] = sunset_schedules
+    return config
 
 
 @dataclass

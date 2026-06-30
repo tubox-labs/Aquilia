@@ -578,6 +578,7 @@ from .manifest import (
     ComponentKind,
     ComponentRef,
     DatabaseConfig,
+    versioning,
 )
 
 # ============================================================================
