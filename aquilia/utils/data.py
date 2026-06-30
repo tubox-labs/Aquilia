@@ -5,99 +5,134 @@ Data Utilities - Provides flexible data structures for the framework.
 from typing import Any
 
 
+class CallableList(list):
+    __slots__ = ("_method",)
+
+    def __init__(self, val, method):
+        super().__init__(val)
+        self._method = method
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableDict(dict):
+    __slots__ = ("_method",)
+
+    def __init__(self, val, method):
+        super().__init__(val)
+        self._method = method
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableSet(set):
+    __slots__ = ("_method",)
+
+    def __init__(self, val, method):
+        super().__init__(val)
+        self._method = method
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableStr(str):
+    def __new__(cls, val, method):
+        obj = str.__new__(cls, val)
+        obj._method = method
+        return obj
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableTuple(tuple):
+    def __new__(cls, val, method):
+        obj = tuple.__new__(cls, val)
+        obj._method = method
+        return obj
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableInt(int):
+    def __new__(cls, val, method):
+        obj = int.__new__(cls, val)
+        obj._method = method
+        return obj
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableFloat(float):
+    def __new__(cls, val, method):
+        obj = float.__new__(cls, val)
+        obj._method = method
+        return obj
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+
+class CallableFallback:
+    __slots__ = ("_val", "_method")
+
+    def __init__(self, val: Any, method: Any):
+        self._val = val
+        self._method = method
+
+    def __call__(self, *args, **kwargs):
+        return self._method(*args, **kwargs)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._val, name)
+
+    def __getitem__(self, item: Any) -> Any:
+        return self._val[item]
+
+    def __len__(self) -> int:
+        return len(self._val)
+
+    def __iter__(self) -> Any:
+        return iter(self._val)
+
+    def __repr__(self) -> str:
+        return repr(self._val)
+
+    def __str__(self) -> str:
+        return str(self._val)
+
+    def __eq__(self, other: Any) -> bool:
+        return self._val == other
+
+    def __bool__(self) -> bool:
+        return bool(self._val)
+
+
 def wrap_callable_attribute(value: Any, method: Any) -> Any:
     """
     Wrap a value in a subclass that also behaves like a callable dict method.
     This solves namespace collisions when a dictionary has keys matching standard method names.
     """
     if isinstance(value, list):
-
-        class CallableList(list):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableList(value)
-
+        return CallableList(value, method)
     if isinstance(value, dict):
-
-        class CallableDict(dict):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableDict(value)
-
+        return CallableDict(value, method)
     if isinstance(value, set):
-
-        class CallableSet(set):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableSet(value)
-
+        return CallableSet(value, method)
     if isinstance(value, str):
-
-        class CallableStr(str):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableStr(value)
-
+        return CallableStr(value, method)
     if isinstance(value, tuple):
-
-        class CallableTuple(tuple):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableTuple(value)
-
+        return CallableTuple(value, method)
     if isinstance(value, int) and not isinstance(value, bool):
-
-        class CallableInt(int):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableInt(value)
-
+        return CallableInt(value, method)
     if isinstance(value, float):
-
-        class CallableFloat(float):
-            def __call__(self, *args, **kwargs):
-                return method(*args, **kwargs)
-
-        return CallableFloat(value)
-
-    class CallableFallback:
-        def __init__(self, val: Any):
-            self._val = val
-
-        def __call__(self, *args, **kwargs):
-            return method(*args, **kwargs)
-
-        def __getattr__(self, name: str) -> Any:
-            return getattr(self._val, name)
-
-        def __getitem__(self, item: Any) -> Any:
-            return self._val[item]
-
-        def __len__(self) -> int:
-            return len(self._val)
-
-        def __iter__(self) -> Any:
-            return iter(self._val)
-
-        def __repr__(self) -> str:
-            return repr(self._val)
-
-        def __str__(self) -> str:
-            return str(self._val)
-
-        def __eq__(self, other: Any) -> bool:
-            return self._val == other
-
-        def __bool__(self) -> bool:
-            return bool(self._val)
-
-    return CallableFallback(value)
+        return CallableFloat(value, method)
+    return CallableFallback(value, method)
 
 
 class DataObject(dict):
@@ -116,15 +151,9 @@ class DataObject(dict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._frozen = False
-        self._recursive_wrap()
-
-    def _recursive_wrap(self) -> None:
-        """Scan and recursively wrap dictionary values."""
-        for key, value in list(self.items()):
-            dict.__setitem__(self, key, self._wrap_value(value))
 
     def _wrap_value(self, value: Any) -> Any:
-        """Helper to recursively convert mapping types to DataObject instances."""
+        """Helper to convert mapping types to DataObject instances lazily."""
         if isinstance(value, dict):
             if not isinstance(value, DataObject):
                 return DataObject(value)
@@ -137,11 +166,30 @@ class DataObject(dict):
             return {self._wrap_value(v) for v in value}
         return value
 
+    def __getitem__(self, key: Any) -> Any:
+        val = super().__getitem__(key)
+        wrapped = self._wrap_value(val)
+        if wrapped is not val:
+            dict.__setitem__(self, key, wrapped)
+        return wrapped
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def items(self):
+        return [(k, self[k]) for k in self]
+
+    def values(self):
+        return [self[k] for k in self]
+
     def __getattribute__(self, name: str) -> Any:
         if not name.startswith("_"):
             try:
                 if dict.__contains__(self, name):
-                    value = dict.__getitem__(self, name)
+                    value = self[name]
                     # If this name shadows a dict method, return a callable wrapper
                     if name in ("items", "keys", "values", "get", "pop", "copy", "update", "clear", "setdefault"):
                         method = getattr(super(), name)
@@ -161,7 +209,7 @@ class DataObject(dict):
     def __setitem__(self, key: Any, value: Any) -> None:
         if getattr(self, "_frozen", False):
             raise TypeError("DataObject is frozen and cannot be modified")
-        super().__setitem__(key, self._wrap_value(value))
+        super().__setitem__(key, value)
 
     def __setattr__(self, name: str, value: Any) -> None:
         if name in ("_frozen",):

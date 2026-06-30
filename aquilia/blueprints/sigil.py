@@ -20,6 +20,40 @@ from .pipeline import Pipeline
 
 __all__ = ["Sigil", "FieldSpec", "SigilDiff", "FieldDiff", "build_sigil"]
 
+import re
+
+# Module-level caches for validation helpers
+_MAPPING_LIKE_TYPES = None
+_MULTIDICT_CLS = None
+_FORMDATA_CLS = None
+_FIELD_REGEX_CACHE = {}
+_EXTRACT_FLAT_P1 = re.compile(r"^\[(\d+)\]")
+_EXTRACT_FLAT_P2 = re.compile(r"^(\d+)\b")
+
+
+def _init_validation_types():
+    global _MAPPING_LIKE_TYPES, _MULTIDICT_CLS, _FORMDATA_CLS
+    if _MAPPING_LIKE_TYPES is not None:
+        return
+    from collections.abc import Mapping
+
+    types = [dict, Mapping]
+    try:
+        from .._datastructures import MultiDict
+
+        _MULTIDICT_CLS = MultiDict
+        types.append(MultiDict)
+    except ImportError:
+        pass
+    try:
+        from .._uploads import FormData
+
+        _FORMDATA_CLS = FormData
+        types.append(FormData)
+    except ImportError:
+        pass
+    _MAPPING_LIKE_TYPES = tuple(types)
+
 
 # ---------------------------------------------------------------------------
 # Sigil / FieldSpec
@@ -560,42 +594,22 @@ def check_strict_type(facet: Any, value: Any) -> bool:
 
 
 def is_mapping_like(val: Any) -> bool:
-    from collections.abc import Mapping
-
-    try:
-        from .._datastructures import MultiDict
-    except ImportError:
-        MultiDict = None
-    try:
-        from .._uploads import FormData
-    except ImportError:
-        FormData = None
-
-    types = [dict, Mapping]
-    if MultiDict is not None:
-        types.append(MultiDict)
-    if FormData is not None:
-        types.append(FormData)
-    return isinstance(val, tuple(types))
+    if _MAPPING_LIKE_TYPES is None:
+        _init_validation_types()
+    return isinstance(val, _MAPPING_LIKE_TYPES)
 
 
 def get_keys(data: Any) -> set[str]:
     from collections.abc import Mapping
 
-    try:
-        from .._datastructures import MultiDict
-    except ImportError:
-        MultiDict = None
-    try:
-        from .._uploads import FormData
-    except ImportError:
-        FormData = None
+    if _MAPPING_LIKE_TYPES is None:
+        _init_validation_types()
 
     if isinstance(data, (dict, Mapping)):
         return set(data.keys())
-    if MultiDict is not None and isinstance(data, MultiDict):
+    if _MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS):
         return set(data.keys())
-    if FormData is not None and isinstance(data, FormData):
+    if _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
         return set(data.fields.keys()) | set(data.files.keys())
     return set()
 
@@ -605,18 +619,12 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
 
     from .facets import UNSET, FileFacet, ListFacet, TextFacet
 
-    try:
-        from .._datastructures import MultiDict
-    except ImportError:
-        MultiDict = None
-    try:
-        from .._uploads import FormData
-    except ImportError:
-        FormData = None
+    if _MAPPING_LIKE_TYPES is None:
+        _init_validation_types()
 
     keys_to_try = [fname, f"{fname}[]"]
 
-    if isinstance(data, (dict, Mapping)) and not (MultiDict is not None and isinstance(data, MultiDict)):
+    if isinstance(data, (dict, Mapping)) and not (_MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS)):
         for k in keys_to_try:
             if k in data:
                 return data[k]
@@ -630,16 +638,18 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
 
         if nested_cls is not None:
             all_keys = []
-            if MultiDict is not None and isinstance(data, MultiDict):
+            if _MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS):
                 all_keys = list(data.keys())
-            elif FormData is not None and isinstance(data, FormData):
+            elif _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
                 all_keys = list(data.fields.keys()) | list(data.files.keys())
 
             indices = set()
-            import re
-
-            pattern1 = re.compile(rf"^{re.escape(fname)}\[(\d+)\]")
-            pattern2 = re.compile(rf"^{re.escape(fname)}\.(\d+)")
+            regexes = _FIELD_REGEX_CACHE.get(fname)
+            if regexes is None:
+                escaped = re.escape(fname)
+                regexes = (re.compile(rf"^{escaped}\[(\d+)\]"), re.compile(rf"^{escaped}\.(\d+)"))
+                _FIELD_REGEX_CACHE[fname] = regexes
+            pattern1, pattern2 = regexes
 
             for k in all_keys:
                 m1 = pattern1.match(k)
@@ -664,7 +674,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                 return results
 
             for k in keys_to_try:
-                val = _get_single_val(data, k, FormData, MultiDict)
+                val = _get_single_val(data, k, _FORMDATA_CLS, _MULTIDICT_CLS)
                 if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
                     try:
                         import json
@@ -679,22 +689,22 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
         is_file_list = isinstance(child_facet, FileFacet) if child_facet else False
 
         if is_file_list:
-            if FormData is not None and isinstance(data, FormData):
+            if _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
                 for k in keys_to_try:
                     if k in data.files:
                         return data.get_all_files(k)
 
-        if FormData is not None and isinstance(data, FormData):
+        if _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
             for k in keys_to_try:
                 if k in data.fields:
                     return data.get_all_fields(k)
-        elif MultiDict is not None and isinstance(data, MultiDict):
+        elif _MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS):
             for k in keys_to_try:
                 if k in data:
                     return data.get_all(k)
 
         for k in keys_to_try:
-            val = _get_single_val(data, k, FormData, MultiDict)
+            val = _get_single_val(data, k, _FORMDATA_CLS, _MULTIDICT_CLS)
             if isinstance(val, str) and val.strip().startswith("[") and val.strip().endswith("]"):
                 try:
                     import json
@@ -706,20 +716,20 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                     pass
 
         for k in keys_to_try:
-            val = _get_single_val(data, k, FormData, MultiDict)
+            val = _get_single_val(data, k, _FORMDATA_CLS, _MULTIDICT_CLS)
             if val is not UNSET:
                 return [val]
 
         return UNSET
 
     if isinstance(facet, FileFacet):
-        if FormData is not None and isinstance(data, FormData):
+        if _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
             for k in keys_to_try:
                 if k in data.files:
                     return data.get_file(k)
                 if k in data.fields:
                     return data.get_field(k)
-        elif MultiDict is not None and isinstance(data, MultiDict):
+        elif _MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS):
             for k in keys_to_try:
                 if k in data:
                     return data.get(k)
@@ -733,7 +743,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
         return UNSET
 
     for k in keys_to_try:
-        val = _get_single_val(data, k, FormData, MultiDict)
+        val = _get_single_val(data, k, _FORMDATA_CLS, _MULTIDICT_CLS)
         if val is not UNSET:
             if val == "":
                 if not isinstance(facet, TextFacet):
@@ -771,20 +781,14 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
 
     from .facets import UNSET
 
-    try:
-        from .._datastructures import MultiDict
-    except ImportError:
-        MultiDict = None
-    try:
-        from .._uploads import FormData
-    except ImportError:
-        FormData = None
+    if _MAPPING_LIKE_TYPES is None:
+        _init_validation_types()
 
     dot_prefix = f"{prefix}."
     bracket_prefix = f"{prefix}["
 
-    if FormData is not None and isinstance(data, FormData):
-        nested_fields = MultiDict() if MultiDict is not None else {}
+    if _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
+        nested_fields = _MULTIDICT_CLS() if _MULTIDICT_CLS is not None else {}
         nested_files = {}
 
         for k in data.fields:
@@ -806,7 +810,7 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
                 nested_files[sub_key] = file_list
 
         if len(nested_fields) > 0 or len(nested_files) > 0:
-            return FormData(fields=nested_fields, files=nested_files)
+            return _FORMDATA_CLS(fields=nested_fields, files=nested_files)
 
         val = UNSET
         if prefix in data.fields:
@@ -825,8 +829,8 @@ def extract_nested_mapping(data: Any, prefix: str) -> Any:
                 pass
         return val
 
-    elif MultiDict is not None and isinstance(data, MultiDict):
-        nested_fields = MultiDict()
+    elif _MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS):
+        nested_fields = _MULTIDICT_CLS()
         for k in data:
             if k.startswith(dot_prefix):
                 sub_key = k[len(dot_prefix) :]
@@ -875,14 +879,8 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
 
     from .facets import UNSET
 
-    try:
-        from .._datastructures import MultiDict
-    except ImportError:
-        MultiDict = None
-    try:
-        from .._uploads import FormData
-    except ImportError:
-        FormData = None
+    if _MAPPING_LIKE_TYPES is None:
+        _init_validation_types()
 
     if not is_mapping_like(data):
         return None
@@ -890,26 +888,21 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
     all_keys = []
     if (
         isinstance(data, (dict, Mapping))
-        and not (MultiDict is not None and isinstance(data, MultiDict))
-        or MultiDict is not None
-        and isinstance(data, MultiDict)
+        and not (_MULTIDICT_CLS is not None and isinstance(data, _MULTIDICT_CLS))
+        or _MULTIDICT_CLS is not None
+        and isinstance(data, _MULTIDICT_CLS)
     ):
         all_keys = list(data.keys())
-    elif FormData is not None and isinstance(data, FormData):
+    elif _FORMDATA_CLS is not None and isinstance(data, _FORMDATA_CLS):
         all_keys = list(data.fields.keys()) | list(data.files.keys())
-
-    import re
-
-    pattern1 = re.compile(r"^\[(\d+)\]")
-    pattern2 = re.compile(r"^(\d+)\b")
 
     indices = set()
     for k in all_keys:
-        m1 = pattern1.match(k)
+        m1 = _EXTRACT_FLAT_P1.match(k)
         if m1:
             indices.add(int(m1.group(1)))
         else:
-            m2 = pattern2.match(k)
+            m2 = _EXTRACT_FLAT_P2.match(k)
             if m2:
                 indices.add(int(m2.group(1)))
 

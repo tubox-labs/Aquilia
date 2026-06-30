@@ -370,7 +370,12 @@ class Facet(metaclass=FacetMeta):
         if self.source == "*":
             return instance
 
-        parts = self.source.split(".") if self.source else []
+        parts = getattr(self, "_source_parts", None)
+        if parts is None or getattr(self, "_source_cached", None) != self.source:
+            parts = self.source.split(".") if self.source else []
+            self._source_parts = parts
+            self._source_cached = self.source
+
         obj = instance
         for part in parts:
             if obj is None:

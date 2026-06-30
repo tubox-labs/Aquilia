@@ -510,27 +510,13 @@ async def bind_blueprint_to_request(
             if hasattr(bp_context, "container") and bp_context.container is None:
                 bp_context.container = container
 
-    # Validate using Sigil directly to preserve fast path
-    errors, validated = blueprint_cls._sigil.validate(merged_data, partial=partial, context=bp_context)
     bp = blueprint_cls(
         data=merged_data,
         partial=partial,
         projection=projection,
         context=bp_context,
     )
-    if errors:
-        bp._errors = errors
-        bp._is_sealed = False
-        bp._validated_data = None
-    else:
-        has_wards = bool(getattr(blueprint_cls, "_ward_methods", []))
-        has_custom_validate = blueprint_cls.validate is not Blueprint.validate
-        if not has_wards and not has_custom_validate:
-            from ..utils.data import DataObject
-
-            bp._errors = {}
-            bp._validated_data = DataObject(validated)
-            bp._is_sealed = True
+    bp.is_sealed(raise_fault=False, _bypass_async_check=True)
 
     try:
         from aquilia.inspector.trace import Lane, SpanStatus, current_trace
