@@ -81,7 +81,7 @@
 .audit-action-badge.storage { background:rgba(6,182,212,0.12);color:#06b6d4; }
 .audit-action-badge.profile { background:rgba(168,85,247,0.12);color:#a855f7; }
 .audit-action-badge.view { background:rgba(113,113,122,0.12);color:#a1a1aa; }
-.audit-action-badge.mlops { background:rgba(236,72,153,0.12);color:#ec4899; }
+
 .audit-action-badge.alert { background:rgba(249,115,22,0.12);color:#f97316; }
 .audit-action-badge.fail { background:rgba(239,68,68,0.2);color:#ef4444;border:1px solid rgba(239,68,68,0.3); }
 
@@ -187,7 +187,7 @@
     <div class="audit-cat-pill" data-category="delete" onclick="filterCategory('delete',this)"><span class="cat-dot" style="background:#ef4444;"></span> Delete <span class="cat-count">({{ delete_count }})</span></div>
     <div class="audit-cat-pill" data-category="infra" onclick="filterCategory('infra',this)"><span class="cat-dot" style="background:#f59e0b;"></span> Infrastructure <span class="cat-count">({{ infra_count }})</span></div>
     <div class="audit-cat-pill" data-category="storage" onclick="filterCategory('storage',this)"><span class="cat-dot" style="background:#06b6d4;"></span> Storage <span class="cat-count">({{ storage_count }})</span></div>
-    <div class="audit-cat-pill" data-category="mlops" onclick="filterCategory('mlops',this)"><span class="cat-dot" style="background:#ec4899;"></span> MLOps</div>
+
     <div class="audit-cat-pill" data-category="view" onclick="filterCategory('view',this)"><span class="cat-dot" style="background:#a1a1aa;"></span> Views</div>
     <div class="audit-cat-pill" data-category="profile" onclick="filterCategory('profile',this)"><span class="cat-dot" style="background:#a855f7;"></span> Profile</div>
     <div class="audit-cat-pill" data-category="failed" onclick="filterCategory('failed',this)"><span class="cat-dot" style="background:#ef4444;"></span> Failed</div>
@@ -217,7 +217,7 @@
         'delete' if action in ('delete','admin_user_delete','file_delete') else
         'infra' if action in ('container_action','container_exec','container_export','docker_prune','docker_build','image_action','image_tag','compose_action','volume_action','network_action') else
         'storage' if action in ('file_upload','file_download') else
-        'mlops' if action in ('ml_inference','ml_batch_inference','ml_compare','ml_health_check') else
+
         'profile' if action in ('profile_update','avatar_upload','password_change') else
         'view' if action in ('view','list','page_view','search') else
         'update'
@@ -375,7 +375,7 @@
         'delete':['delete','admin_user_delete','file_delete'],
         infra:['container_action','container_exec','container_export','docker_prune','docker_build','image_action','image_tag','compose_action','volume_action','network_action'],
         storage:['file_upload','file_delete','file_download'],
-        mlops:['ml_inference','ml_batch_inference','ml_compare','ml_health_check'],
+
         view:['view','list','page_view','search'],
         profile:['profile_update','avatar_upload','password_change']
     };
