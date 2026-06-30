@@ -84,3 +84,24 @@ async def test_standalone_inspector_view_rendering():
         assert b"Aquilia Inspector" in res._content
     finally:
         ctrl_mod._secure_html_response = original_secure_html
+
+
+@pytest.mark.asyncio
+async def test_standalone_ui_forbidden_when_disabled_in_debug():
+    manifest = make_manifest()
+    ws = Workspace("test-ws").inspector(enabled=False)
+
+    from aquilia.config import ConfigLoader
+
+    config_loader = ConfigLoader()
+    config_loader.config_data = ws.to_dict()
+    config_loader.config_data["debug"] = True
+    config_loader._build_apps_namespace()
+
+    async with TestServer(manifests=[manifest], config=config_loader, debug=True) as server:
+        client = TestClient(server.app)
+        response = await client.get("/__aquilia__/inspector/")
+        assert response.status_code in (403, 404)
+
+        api_response = await client.get("/__aquilia__/inspector/api/traces/")
+        assert api_response.status_code in (403, 404)

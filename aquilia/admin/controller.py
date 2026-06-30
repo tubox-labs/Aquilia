@@ -4024,8 +4024,26 @@ class AdminController(Controller):
             self.site.config.get("debug") or self.site.config.get("reload") or os.environ.get("AQUILIA_ENV") == "dev"
         )
 
+    def _is_inspector_enabled(self) -> bool:
+        from aquilia.inspector.config import get_inspector_config
+
+        try:
+            config = get_inspector_config(self.site.config)
+            enabled = config.enabled
+            if enabled is None:
+                enabled = self._is_debug()
+            if config.force_enable_in_prod:
+                enabled = True
+            return bool(enabled)
+        except (AttributeError, TypeError):
+            # Fallback to general debug status if config loader is not available
+            return self._is_debug()
+
     def _check_inspector_auth(self, request) -> Response | None:
         """Check IP allowlist and auth token for inspector dashboard access."""
+        if not self._is_inspector_enabled():
+            return Response(b"Forbidden", status=403)
+
         from aquilia.inspector.config import get_inspector_config
 
         try:
