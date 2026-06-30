@@ -229,7 +229,7 @@ Check your network and try again.</div>
 <button class="btn" onclick="location.reload()">Retry Connection</button>
 <p style="margin-top:24px;font-size:.7rem;color:#3f3f46">Powered by <span style="color:#22c55e">Aquilia</span></p>
 </div>
-<script>window.addEventListener('online',function(){{window.location.href='{url_prefix}/'}});</script>
+<script nonce="__CSP_NONCE__">window.addEventListener('online',function(){{window.location.href='{url_prefix}/'}});</script>
 </body></html>"""
 
 
@@ -1648,7 +1648,7 @@ def _fallback_login(error: str = "", **kw: Any) -> str:
 <input type="checkbox" id="remember_me" name="remember_me" value="1" checked style="accent-color:#22c55e;width:16px;height:16px;">
 <label for="remember_me" style="font-size:.8rem;color:var(--text-muted);cursor:pointer;">Remember me for 30 days</label></div>
 <button type="submit" class="btn btn-primary" style="width:100%">Sign In</button>
-</form></div></div><script>var s=localStorage.getItem('aquilia-admin-theme');
+</form></div></div><script nonce="__CSP_NONCE__">var s=localStorage.getItem('aquilia-admin-theme');
 if(s)document.documentElement.setAttribute('data-theme',s);</script></body></html>"""
 
 

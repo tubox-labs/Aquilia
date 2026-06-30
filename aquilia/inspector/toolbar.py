@@ -129,8 +129,18 @@ class ToolbarInjectionMiddleware(Middleware):
         }
         trace_data = json.dumps(payload)
 
+        # Extract CSP nonce from response if present
+        import re
+
+        csp_header = response.headers.get("content-security-policy") or response.headers.get(
+            "Content-Security-Policy", ""
+        )
+        nonce_match = re.search(r"'nonce-([^']+)'", csp_header)
+        nonce = nonce_match.group(1) if nonce_match else ""
+
         # Splice HTML
         toolbar_html = _TOOLBAR_TEMPLATE.replace("__TRACE_JSON__", trace_data)
+        toolbar_html = toolbar_html.replace("__CSP_NONCE__", nonce)
         toolbar_html = toolbar_html.replace("__SQL_COUNT__", str(sql_count))
         toolbar_html = toolbar_html.replace("__DURATION_MS__", f"{duration_ms:.1f}")
         toolbar_html = toolbar_html.replace("__OVERHEAD_MS__", f"{overhead_ms:.2f}")
@@ -488,9 +498,9 @@ __CSS_DESIGN_TOKENS__
     </div>
 </div>
 
-<script type="application/json" id="aq-toolbar-data">__TRACE_JSON__</script>
+<script type="application/json" id="aq-toolbar-data" nonce="__CSP_NONCE__">__TRACE_JSON__</script>
 
-<script>
+<script nonce="__CSP_NONCE__">
 (function() {
     const tab = document.getElementById("aq-tab");
     const panel = document.getElementById("aq-panel");
@@ -975,7 +985,7 @@ __CSS_DESIGN_TOKENS__
             const hit = detail.hit;
             if (hit === true) hits++;
             else if (hit === false) misses++;
-            
+
             let statusBadge = "";
             if (hit === true) statusBadge = `<span class="aq-tab-badge aq-status-success">HIT</span>`;
             else if (hit === false) statusBadge = `<span class="aq-tab-badge aq-status-error">MISS</span>`;
