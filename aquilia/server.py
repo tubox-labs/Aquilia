@@ -40,10 +40,8 @@ from .sockets.adapters import InMemoryAdapter
 
 # WebSockets
 from .sockets.runtime import AquilaSockets, SocketRouter
-from .templates.di_providers import register_template_providers
 
 # Template Integration
-from .templates.middleware import TemplateMiddleware
 from .typing.manifest import ManifestCollection
 
 
@@ -434,7 +432,9 @@ class AquiliaServer:
             from pathlib import Path
 
             from .templates import TemplateEngine
+            from .templates.di_providers import register_template_providers
             from .templates.loader import TemplateLoader
+            from .templates.middleware import TemplateMiddleware
 
             search_paths = []
 

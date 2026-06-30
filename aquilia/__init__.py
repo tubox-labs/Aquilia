@@ -793,13 +793,8 @@ from .tasks import (
 )
 
 # ============================================================================
-# Templates
+# Templates (lazy-loaded via __getattr__)
 # ============================================================================
-from .templates import (
-    TemplateEngine,
-    TemplateMiddleware,
-)
-
 # ============================================================================
 # API Versioning System
 # ============================================================================
@@ -1517,3 +1512,18 @@ __all__ = [
     "AdminValidationFault",
     "AdminActionFault",
 ]
+
+
+def __getattr__(name: str):
+    if name in ("TemplateEngine", "TemplateMiddleware"):
+        try:
+            from .templates import TemplateEngine, TemplateMiddleware
+
+            if name == "TemplateEngine":
+                return TemplateEngine
+            return TemplateMiddleware
+        except ImportError as e:
+            raise ImportError(
+                "Jinja2 is required for template features. Install it with: pip install aquilia[template]"
+            ) from e
+    raise AttributeError(f"module 'aquilia' has no attribute '{name}'")
