@@ -2817,3 +2817,112 @@ class TestVersioningPerformanceStress:
         duration = time.perf_counter() - start_time
         # Trie matching should be extremely fast (under 250ms for 5000 lookups)
         assert duration < 0.25, f"Stress test took too long: {duration:.3f}s"
+
+    @pytest.mark.asyncio
+    async def test_manifest_independent_module_versioning_strategy(self):
+        from aquilia.versioning.strategy import VersionConfig, VersionStrategy
+        from aquilia.manifest import AppManifest, AppVersioningConfig
+        from aquilia.asgi import ASGIAdapter
+        from aquilia.middleware import MiddlewareStack
+        from aquilia.controller import Controller, GET
+        from aquilia.controller.compiler import ControllerCompiler
+        from aquilia.controller.router import ControllerRouter
+        from types import SimpleNamespace
+
+        # Global config is url-path strategy
+        global_config = VersionConfig(
+            strategy="url",
+            versions=["1.0", "2.0"],
+            default_version="1.0"
+        )
+        strategy = VersionStrategy(global_config)
+
+        # Module A overrides to header strategy
+        manifest_a = AppManifest(
+            name="module_a",
+            version="1.0.0",
+            versioning=AppVersioningConfig(
+                strategy="header",
+                header_name="X-Custom-Module-Version",
+                versions=["1.5", "2.5"],
+                default_version="1.5"
+            )
+        )
+
+        class ControllerA(Controller):
+            prefix = "/resource"
+
+            @GET("/")
+            def get_item(self):
+                return "a"
+
+        compiler = ControllerCompiler()
+        router = ControllerRouter()
+
+        class DummyAppContext:
+            def __init__(self, name, route_prefix, manifest):
+                self.name = name
+                self.route_prefix = route_prefix
+                self.manifest = manifest
+
+        app_ctx_a = DummyAppContext("module_a", "/api/module-a", manifest_a)
+
+        mv_dict = manifest_a.versioning.to_dict()
+        merged_dict = global_config.to_dict()
+        for k, v in mv_dict.items():
+            if v is not None and k not in ("enabled", "auto_version_unmarked", "position"):
+                merged_dict[k] = v
+
+        local_cfg = VersionConfig(**merged_dict)
+        local_strat = VersionStrategy(local_cfg)
+        strategy._module_versioning_overrides = {"module_a": mv_dict}
+        strategy._module_strategies = {"module_a": local_strat}
+
+        compiled_a = compiler.compile_controller(
+            ControllerA,
+            base_prefix="/api/module-a",
+            version_strategy=strategy,
+            module_versioning=mv_dict
+        )
+        for r in compiled_a.routes:
+            r.app_name = "module_a"
+        router.add_controller(compiled_a)
+        router.initialize()
+
+        server = SimpleNamespace(
+            _version_strategy=strategy,
+            runtime=SimpleNamespace(
+                meta=SimpleNamespace(
+                    app_contexts=[app_ctx_a]
+                ),
+                di_containers={}
+            ),
+            middleware_stack=MiddlewareStack()
+        )
+
+        adapter = ASGIAdapter(
+            controller_router=router,
+            controller_engine=SimpleNamespace(),
+            middleware_stack=MiddlewareStack(),
+            server=server
+        )
+
+        # Request Module A with X-Custom-Module-Version header
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/module-a/resource/",
+            "query_string": b"",
+            "headers": [(b"x-custom-module-version", b"2.5")]
+        }
+
+        from aquilia.request import Request
+        request_obj = Request(scope, lambda: None)
+        path_for_match, resolved_version = adapter._resolve_route_inputs(
+            request_obj,
+            "/api/module-a/resource/"
+        )
+
+        assert path_for_match == "/api/module-a/resource/"
+        assert resolved_version is not None
+        assert str(resolved_version) == "2.5"
