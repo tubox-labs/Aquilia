@@ -1172,11 +1172,7 @@ class WorkspaceGenerator:
             import pytest
 
             # Register all built-in Aquilia fixtures:
-            #   test_server, test_client, ws_client, fault_engine,
-            #   effect_registry, di_container, identity_factory,
-            #   mail_outbox, test_request, test_scope, settings_override
-            from aquilia.testing.fixtures import aquilia_fixtures
-            aquilia_fixtures()
+            pytest_plugins = ["aquilia.testing.fixtures"]
 
 
             # ── Workspace-level overrides ─────────────────────────────────────
@@ -1265,8 +1261,9 @@ class WorkspaceGenerator:
 
             async def test_fault_engine_captures(test_server, fault_engine):
                 """MockFaultEngine records faults for assertion in tests."""
-                fault_engine.raise_on_next("not_found", message="Resource missing")
-                assert fault_engine.has_pending()
+                from aquilia.faults import NotFoundFault
+                fault_engine.emit(NotFoundFault("Resource missing"))
+                assert fault_engine.has_fault("HTTP_404")
 
 
             async def test_settings_override(test_client, settings_override):

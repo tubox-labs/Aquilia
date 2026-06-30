@@ -387,7 +387,7 @@ class ASGIAdapter:
         method = scope["method"]
 
         # ── Fast-path: built-in health endpoint ──
-        if path == "/_health":
+        if path in ("/_health", "/health"):
             if method not in ("GET", "HEAD"):
                 await self._send_method_not_allowed(send, ["GET", "HEAD"], scope)
                 return
