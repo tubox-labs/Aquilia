@@ -97,6 +97,22 @@ class MigrationRunner:
         rows = await self.db.fetch_all(f'SELECT "revision" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
         return [r["revision"] for r in rows]
 
+    async def get_applied_records(self) -> list[MigrationRecord]:
+        """Get list of applied migration records, ordered by application time."""
+        await self.ensure_tracking_table()
+        rows = await self.db.fetch_all(
+            f'SELECT "revision", "slug", "checksum", "applied_at" FROM "{MIGRATION_TABLE}" ORDER BY "id"'
+        )
+        return [
+            MigrationRecord(
+                revision=r["revision"],
+                slug=r["slug"],
+                checksum=r.get("checksum") or "",
+                applied_at=r.get("applied_at"),
+            )
+            for r in rows
+        ]
+
     async def get_pending(self) -> list[Path]:
         """Get migration files that haven't been applied yet."""
         applied = set(await self.get_applied())
@@ -304,14 +320,17 @@ class MigrationRunner:
     async def _rollback_to(self, target: str, *, fake: bool = False) -> list[str]:
         """Rollback to a specific revision."""
         applied = await self.get_applied()
-        if target not in applied:
-            raise MigrationFault(
-                migration=target,
-                reason=f"Target revision '{target}' not in applied migrations",
-            )
+        if target == "zero":
+            to_rollback = list(reversed(applied))
+        else:
+            if target not in applied:
+                raise MigrationFault(
+                    migration=target,
+                    reason=f"Target revision '{target}' not in applied migrations",
+                )
 
-        target_idx = applied.index(target)
-        to_rollback = list(reversed(applied[target_idx + 1 :]))
+            target_idx = applied.index(target)
+            to_rollback = list(reversed(applied[target_idx + 1 :]))
 
         rolled_back: list[str] = []
         for rev in to_rollback:

@@ -145,6 +145,179 @@ def create_snapshot(model_classes: list) -> dict[str, Any]:
     return snapshot
 
 
+def _table_to_class_name(table_name: str) -> str:
+    """Convert a table name to a PascalCase class name."""
+    parts = table_name.replace("-", "_").split("_")
+    return "".join(part.capitalize() for part in parts if part)
+
+
+async def create_snapshot_from_db(db, model_classes: list | None = None) -> dict[str, Any]:
+    """
+    Create a schema snapshot from an active database connection.
+
+    Introspects the database metadata and maps it to a standard Aquilia
+    schema snapshot.
+    """
+    tables = await db.get_tables()
+    models_data = {}
+
+    # Exclude internal tracking table
+    tables = [t for t in tables if not t.startswith("sqlite_") and t != "aquilia_migrations"]
+
+    table_to_class = {}
+    if model_classes:
+        for cls in model_classes:
+            if hasattr(cls, "_meta") and hasattr(cls._meta, "table_name"):
+                table_to_class[cls._meta.table_name] = cls.__name__
+
+    for table in tables:
+        columns = await db.get_columns(table)
+        indexes_data = []
+
+        try:
+            indexes_raw = await db._adapter.get_indexes(table)
+            for idx in indexes_raw:
+                indexes_data.append(
+                    {
+                        "name": idx["name"],
+                        "columns": idx.get("columns", []),
+                        "unique": idx.get("unique", False),
+                    }
+                )
+        except Exception:
+            pass
+
+        fields_data = {}
+        pk_columns = set()
+        unique_columns = set()
+
+        if db.dialect == "sqlite":
+            for col in columns:
+                if col.primary_key:
+                    pk_columns.add(col.name)
+        elif db.dialect in ("postgresql", "mysql"):
+            try:
+                rows = await db.fetch_all(
+                    """
+                    SELECT tc.constraint_type, kcu.column_name
+                    FROM information_schema.table_constraints tc
+                    JOIN information_schema.key_column_usage kcu
+                      ON tc.constraint_name = kcu.constraint_name
+                      AND tc.table_schema = kcu.table_schema
+                    WHERE tc.table_name = ?
+                    """,
+                    [table],
+                )
+                for r in rows:
+                    c_type = r["constraint_type"]
+                    col_name = r["column_name"]
+                    if c_type == "PRIMARY KEY":
+                        pk_columns.add(col_name)
+                    elif c_type == "UNIQUE":
+                        unique_columns.add(col_name)
+            except Exception:
+                pass
+
+        # Check unique indexes for single columns
+        for idx in indexes_data:
+            if idx["unique"] and len(idx["columns"]) == 1:
+                unique_columns.add(idx["columns"][0])
+
+        for col in columns:
+            is_pk = col.name in pk_columns
+            is_unique = col.name in unique_columns
+
+            field_class = "CharField"
+            t_upper = col.data_type.upper()
+            if "INT" in t_upper:
+                if "BIGINT" in t_upper:
+                    field_class = "BigIntegerField"
+                else:
+                    field_class = "IntegerField"
+            elif "TEXT" in t_upper or "CLOB" in t_upper:
+                field_class = "TextField"
+            elif "REAL" in t_upper or "FLOAT" in t_upper or "DOUBLE" in t_upper:
+                field_class = "FloatField"
+            elif "DECIMAL" in t_upper or "NUMERIC" in t_upper:
+                field_class = "DecimalField"
+            elif "BOOL" in t_upper:
+                field_class = "BooleanField"
+            elif "BLOB" in t_upper:
+                field_class = "BinaryField"
+            elif "DATE" in t_upper:
+                if "TIME" in t_upper:
+                    field_class = "DateTimeField"
+                else:
+                    field_class = "DateField"
+            elif "TIME" in t_upper:
+                field_class = "TimeField"
+            elif "TIMESTAMP" in t_upper:
+                field_class = "DateTimeField"
+            elif "JSON" in t_upper:
+                field_class = "JSONField"
+
+            field_info = {
+                "field_class": field_class,
+                "type": t_upper,
+            }
+            if col.nullable and not is_pk:
+                field_info["nullable"] = True
+            if is_pk:
+                field_info["primary_key"] = True
+            if is_unique and not is_pk:
+                field_info["unique"] = True
+            if col.default is not None:
+                field_info["default"] = col.default
+
+            # Extract max_length from type string if present
+            import re
+
+            m = re.search(r"\((\d+)\)", t_upper)
+            if m and "DECIMAL" not in t_upper and "NUMERIC" not in t_upper:
+                field_info["max_length"] = int(m.group(1))
+            elif col.max_length:
+                field_info["max_length"] = col.max_length
+
+            fields_data[col.name] = field_info
+
+        # Resolve foreign keys
+        try:
+            fks = await db._adapter.get_foreign_keys(table)
+            for fk in fks:
+                col_name = fk["from_column"]
+                if col_name in fields_data:
+                    ref_table = fk["to_table"]
+                    ref_model = table_to_class.get(ref_table, _table_to_class_name(ref_table))
+                    fields_data[col_name]["references"] = {
+                        "model": ref_model,
+                        "table": ref_table,
+                        "column": fk["to_column"],
+                    }
+                    fields_data[col_name]["on_delete"] = fk.get("on_delete", "CASCADE")
+                    fields_data[col_name]["on_update"] = fk.get("on_update", "CASCADE")
+        except Exception:
+            pass
+
+        model_name = table_to_class.get(table, _table_to_class_name(table))
+        models_data[model_name] = {
+            "table": table,
+            "fields": fields_data,
+            "indexes": indexes_data,
+            "meta": {
+                "ordering": [],
+                "abstract": False,
+                "managed": True,
+            },
+        }
+
+    snapshot = {
+        "version": SNAPSHOT_VERSION,
+        "models": models_data,
+    }
+    snapshot["checksum"] = _compute_checksum(snapshot)
+    return snapshot
+
+
 def _serialize_field(fld) -> dict[str, Any]:
     """Serialize a single Field instance to a snapshot dict."""
     from .fields_module import (
