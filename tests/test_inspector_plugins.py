@@ -12,19 +12,24 @@ def test_custom_lane_registration():
 
 
 def test_span_context_manager_happy_path():
+    from unittest.mock import patch
+
     trace = RequestTrace(
         trace_id="t-plugin-1",
         method="GET",
         path="/",
         route_pattern=None,
         started_at=time.time(),
-        started_monotonic=time.monotonic(),
+        started_monotonic=1.0,
     )
     token = _set_current_trace(trace)
     try:
-        with span(lane="my-custom-lane", label="custom-operation", detail={"some": "metadata"}):
-            # simulate work
-            time.sleep(0.005)
+        # Mock time.monotonic to return 1.0 (start) and 1.01 (end) simulating 10ms of work
+        with (
+            patch("time.monotonic", side_effect=[1.0, 1.01]),
+            span(lane="my-custom-lane", label="custom-operation", detail={"some": "metadata"}),
+        ):
+            pass
 
         assert len(trace.spans) == 1
         s = trace.spans[0]
