@@ -94,7 +94,12 @@ class DependencyGraph:
                     queue.append(dep_name)
 
         # Reverse to get dependency-first order
-        return list(reversed(result))
+        res = list(reversed(result))
+        if len(res) != len(self._nodes):
+            from .errors import DependencyCycleError
+            cycle = self.find_cycle() or list(self._nodes.keys())
+            raise DependencyCycleError(cycle=cycle)
+        return res
 
     def find_cycle(self) -> list[str] | None:
         """
@@ -143,9 +148,14 @@ class DependencyGraph:
                     if w == node_name:
                         break
 
-                # If component has more than 1 node, it's a cycle
+                # If component has more than 1 node, it's a cycle.
+                # If it's exactly 1 node, check if that node has a self-loop.
                 if len(component) > 1:
                     cycles.append(component)
+                elif len(component) == 1:
+                    single_node = component[0]
+                    if single_node in self._adjacency.get(single_node, []):
+                        cycles.append([single_node, single_node])
 
         # Run Tarjan's algorithm
         for node_name in self._nodes:
