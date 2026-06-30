@@ -51,9 +51,6 @@ keywords = [
 dependencies = [
     "click>=8.1.0",
     "uvicorn>=0.30.0",
-    # Template engine — used by admin panel and user templates (always loaded)
-    "jinja2>=3.1.0",
-    "markupsafe>=2.1.0",
     # Surp serializer — used for manifest compilation and runtime evaluation
     "surp",
 ]
@@ -62,6 +59,12 @@ dependencies = [
 # Optional dependency groups
 # ---------------------------------------------------------------------------
 [project.optional-dependencies]
+
+# Template rendering engine — Jinja2 & MarkupSafe
+template = [
+    "jinja2>=3.1.0",
+    "markupsafe>=2.1.0",
+]
 
 # Async SQLite compat shim — DEPRECATED: aiosqlite replaced by native aquilia.sqlite.
 # Kept for gradual migration; will be removed in next major version.
@@ -121,8 +124,9 @@ otel = [
 # ---- Convenience bundles ----------------------------------------------------
 
 full = [
-    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel]",
+    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template]",
 ]
+
 
 # Absolutely everything
 all = [

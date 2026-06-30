@@ -29,9 +29,6 @@ long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists
 CORE_DEPS = [
     "click>=8.1.0",
     "uvicorn>=0.30.0",
-    # Template engine — used by admin panel and user templates (always loaded)
-    "jinja2>=3.1.0",
-    "markupsafe>=2.1.0",
     # Surp serializer — used for manifest compilation and runtime evaluation
     "surp",
 ]
@@ -40,11 +37,8 @@ CORE_DEPS = [
 # Optional dependency groups — mirrors [project.optional-dependencies]
 # ---------------------------------------------------------------------------
 EXTRAS = {
-    # NOTE: jinja2/markupsafe are now core dependencies.
-    # aiosqlite has been replaced by native aquilia.sqlite (stdlib sqlite3).
-    # Keep these keys as empty lists so existing installs that request
-    # aquilia[templates] or aquilia[db] don't get a "no such extra" error.
-    "templates": [],
+    "template": ["jinja2>=3.1.0", "markupsafe>=2.1.0"],
+    "templates": ["jinja2>=3.1.0", "markupsafe>=2.1.0"],
     "db": [],
     "auth": ["cryptography>=42.0.0", "argon2-cffi>=23.1.0"],
     "files": [],  # DEPRECATED: aiofiles replaced by native aquilia.filesystem
@@ -98,6 +92,7 @@ EXTRAS["full"] = (
     + EXTRAS["mail-ses"]
     + EXTRAS["mail-sendgrid"]
     + EXTRAS["server"]
+    + EXTRAS["template"]
 )
 EXTRAS["all"] = EXTRAS["full"] + EXTRAS["mlops-all"]
 
