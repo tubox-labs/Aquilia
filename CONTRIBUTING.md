@@ -10,7 +10,7 @@ This project and everyone participating in it is governed by the [Aquilia Code o
 ## Submitting Contributions
 
 ### 1. Find an Issue to Work On
-Check our [issue tracker](https://github.com/axiomchronicles/aquilia/issues) on GitHub. Issues labeled `good first issue` or `help wanted` are great places to start.
+Check our [issue tracker](https://github.com/tubox-labs/Aquilia/issues) on GitHub. Issues labeled `good first issue` or `help wanted` are great places to start.
 
 ### 2. Fork & Branch
 Fork the repository on GitHub and clone it locally. Then, create a new branch for your work:

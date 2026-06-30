@@ -88,4 +88,6 @@ artifacts/
 
 
 # workspace (Testing)
+benchmarks/techempower/techempower.db
+
 workspace/
