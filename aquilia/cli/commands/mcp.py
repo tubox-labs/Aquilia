@@ -43,6 +43,8 @@ def _paths(workspace: str | None):
 
 
 def _find_mcp_processes() -> list[dict[str, Any]]:
+    if sys.platform == "win32":
+        return []
     processes = []
     try:
         output = subprocess.check_output(["ps", "-Ao", "pid,pcpu,pmem,comm,args"], text=True)
