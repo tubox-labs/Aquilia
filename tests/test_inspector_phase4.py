@@ -168,9 +168,8 @@ async def test_redirect_folding_in_toolbar():
         assert "aq-toolbar-data" in body
 
         # Parse payload
-        start_idx = body.find('<script type="application/json" id="aq-toolbar-data">') + len(
-            '<script type="application/json" id="aq-toolbar-data">'
-        )
+        tag_idx = body.find('id="aq-toolbar-data"')
+        start_idx = body.find(">", tag_idx) + 1
         end_idx = body.find("</script>", start_idx)
         payload_str = body[start_idx:end_idx]
         payload = json.loads(payload_str)

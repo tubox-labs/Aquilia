@@ -8,6 +8,13 @@ from aquilia.request import Request
 from aquilia.response import Response
 
 
+def _get_body_str(response) -> str:
+    content = response._content
+    if isinstance(content, bytes):
+        return content.decode("utf-8")
+    return str(content)
+
+
 @pytest.mark.asyncio
 async def test_toolbar_injected_in_html():
     config = InspectorConfig(enabled=True, toolbar_enabled=True)
@@ -43,7 +50,7 @@ async def test_toolbar_injected_in_html():
     try:
         response = await middleware(request, ctx, next_handler)
         assert response.status == 200
-        body = response._content.decode("utf-8")
+        body = _get_body_str(response)
         assert "aq-tab" in body
         assert "aq-panel" in body
         assert "aq-toolbar-data" in body
@@ -83,7 +90,7 @@ async def test_toolbar_not_injected_in_json():
 
     try:
         response = await middleware(request, ctx, next_handler)
-        body = response._content.decode("utf-8")
+        body = _get_body_str(response)
         assert "aq-tab" not in body
         assert "aq-panel" not in body
     finally:
@@ -125,7 +132,7 @@ async def test_toolbar_not_injected_in_redirect():
 
     try:
         response = await middleware(request, ctx, next_handler)
-        body = response._content.decode("utf-8")
+        body = _get_body_str(response)
         assert "aq-tab" not in body
     finally:
         _reset_current_trace(token)
@@ -165,7 +172,7 @@ async def test_toolbar_not_injected_if_disabled():
 
     try:
         response = await middleware(request, ctx, next_handler)
-        body = response._content.decode("utf-8")
+        body = _get_body_str(response)
         assert "aq-tab" not in body
     finally:
         _reset_current_trace(token)
@@ -205,7 +212,7 @@ async def test_toolbar_not_injected_no_body_tag():
 
     try:
         response = await middleware(request, ctx, next_handler)
-        body = response._content.decode("utf-8")
+        body = _get_body_str(response)
         assert "aq-tab" not in body
     finally:
         _reset_current_trace(token)
