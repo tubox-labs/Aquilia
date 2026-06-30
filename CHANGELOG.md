@@ -159,9 +159,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Implemented single-flight request profiling using standard library `cProfile` and `pstats` when `X-Profile: true` header or `?profile=true` query parameter is supplied.
   - Implemented client-side cookie redirect folding to capture redirect history and display it inside a clean "Redirects" panel on the injected toolbar.
   - Correlated request trace IDs with OpenTelemetry trace and span contexts when active.
-
-
-
+- **Request Inspector Sampling, Security Hardening & Design Consolidation**:
+  - Added configurable `sampling_rate` (0.0–1.0) to `InspectorConfig` for probabilistic request tracing. Defaults to 1.0 (trace all requests).
+  - Added `authorized_ips` (IP allowlist, defaults to `127.0.0.1` / `::1`) and `dashboard_auth_token` (optional Bearer token) to gate access to the inspector dashboard and API endpoints.
+  - Wired `_check_inspector_auth` authorization guard into all 5 inspector admin controller endpoints.
+  - Extracted CSS design tokens from the injected toolbar template into a reusable `_CSS_DESIGN_TOKENS` constant for sharing between the toolbar and standalone dashboard.
 
 
 

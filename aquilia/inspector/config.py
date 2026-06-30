@@ -49,6 +49,9 @@ class InspectorConfig:
     toolbar_enabled: bool | None = None
     store: str = "memory"
     store_path: str = ":memory:"
+    authorized_ips: frozenset[str] = field(default_factory=lambda: frozenset({"127.0.0.1", "::1"}))
+    dashboard_auth_token: str | None = None
+    sampling_rate: float = 1.0
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "InspectorConfig":
@@ -64,7 +67,7 @@ class InspectorConfig:
 
         for k, v in data.items():
             if k in valid_keys:
-                if k in ("redact_headers", "redact_body_keys"):
+                if k in ("redact_headers", "redact_body_keys", "authorized_ips"):
                     kw[k] = frozenset(v)
                 else:
                     kw[k] = v
@@ -90,6 +93,9 @@ class InspectorConfig:
             "toolbar_enabled": self.toolbar_enabled,
             "store": self.store,
             "store_path": self.store_path,
+            "authorized_ips": list(self.authorized_ips),
+            "dashboard_auth_token": self.dashboard_auth_token,
+            "sampling_rate": self.sampling_rate,
         }
 
 

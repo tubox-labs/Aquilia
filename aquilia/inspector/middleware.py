@@ -146,6 +146,13 @@ class InspectorMiddleware(Middleware):
         if request.path.startswith("/__aquilia__/") or request.path.startswith("/static/"):
             return await next_handler(request, ctx)
 
+        # Probabilistic sampling
+        if self._config.sampling_rate < 1.0:
+            import random
+
+            if random.random() > self._config.sampling_rate:
+                return await next_handler(request, ctx)
+
         trace = RequestTrace(
             trace_id=ctx.request_id,
             method=request.method,
@@ -169,6 +176,7 @@ class InspectorMiddleware(Middleware):
         # OpenTelemetry correlation
         try:
             from opentelemetry import trace as otel_trace
+
             current_otel_span = otel_trace.get_current_span()
             if current_otel_span and current_otel_span.get_span_context().is_valid:
                 span_context = current_otel_span.get_span_context()
@@ -181,8 +189,10 @@ class InspectorMiddleware(Middleware):
         try:
             try:
                 import sys
+
                 from aquilia import __version__
                 from aquilia.inspector.trace import Lane, SpanStatus
+
                 trace.add_span(
                     lane=Lane.VERSIONS,
                     label="Resolve Framework Versions",
@@ -192,7 +202,7 @@ class InspectorMiddleware(Middleware):
                     detail={
                         "aquilia": __version__,
                         "python": sys.version,
-                    }
+                    },
                 )
             except Exception:
                 pass
@@ -206,8 +216,9 @@ class InspectorMiddleware(Middleware):
 
             if profile_enabled:
                 import cProfile
-                import pstats
                 import io
+                import pstats
+
                 pr = cProfile.Profile()
                 pr.enable()
                 try:
@@ -236,19 +247,28 @@ class InspectorMiddleware(Middleware):
         finally:
             try:
                 from aquilia.inspector.trace import Lane, SpanStatus
+
                 session = request.state.get("session")
                 identity = request.state.get("identity")
                 if session is not None or identity is not None:
                     detail = {}
                     if session is not None:
                         detail["session_id"] = str(session.id) if hasattr(session, "id") else str(session)
-                        detail["session_scope"] = str(session.scope.value) if hasattr(session, "scope") and hasattr(session.scope, "value") else str(getattr(session, "scope", ""))
+                        detail["session_scope"] = (
+                            str(session.scope.value)
+                            if hasattr(session, "scope") and hasattr(session.scope, "value")
+                            else str(getattr(session, "scope", ""))
+                        )
                     if identity is not None:
                         detail["user_id"] = getattr(identity, "id", None)
                         detail["identity_type"] = getattr(identity, "type", None)
-                        detail["clearance"] = identity.get_attribute("clearance") if hasattr(identity, "get_attribute") else None
-                        detail["roles"] = identity.get_attribute("roles", []) if hasattr(identity, "get_attribute") else []
-                    
+                        detail["clearance"] = (
+                            identity.get_attribute("clearance") if hasattr(identity, "get_attribute") else None
+                        )
+                        detail["roles"] = (
+                            identity.get_attribute("roles", []) if hasattr(identity, "get_attribute") else []
+                        )
+
                     trace.add_span(
                         lane="auth",
                         label="Authenticate Request",
@@ -262,6 +282,7 @@ class InspectorMiddleware(Middleware):
 
             try:
                 from aquilia.inspector.trace import SpanStatus
+
                 locale = request.state.get("locale")
                 if locale is not None:
                     trace.add_span(

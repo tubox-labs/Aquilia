@@ -398,8 +398,10 @@ class ConfigLoader:
         t0 = None
         trace = None
         try:
-            from aquilia.inspector.trace import current_trace
             import time
+
+            from aquilia.inspector.trace import current_trace
+
             trace = current_trace()
             if trace is not None:
                 t0 = time.monotonic()
@@ -418,11 +420,13 @@ class ConfigLoader:
 
         if trace is not None and t0 is not None:
             try:
-                from aquilia.inspector.trace import Lane, SpanStatus
                 import time
+
+                from aquilia.inspector.trace import Lane, SpanStatus
+
                 now_offset = (time.monotonic() - trace.started_monotonic) * 1000.0
                 duration_ms = (time.monotonic() - t0) * 1000.0
-                
+
                 # Eagerly redact sensitive values
                 val_rep = repr(current)
                 if any(k in path.lower() for k in ("secret", "password", "key", "token", "signature")):
@@ -897,5 +901,8 @@ class ConfigLoader:
                 "toolbar_enabled": None,
                 "store": "memory",
                 "store_path": ":memory:",
+                "authorized_ips": ["127.0.0.1", "::1"],
+                "dashboard_auth_token": None,
+                "sampling_rate": 1.0,
             },
         )

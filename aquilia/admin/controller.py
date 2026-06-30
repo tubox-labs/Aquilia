@@ -4024,11 +4024,56 @@ class AdminController(Controller):
             self.site.config.get("debug") or self.site.config.get("reload") or os.environ.get("AQUILIA_ENV") == "dev"
         )
 
+    def _check_inspector_auth(self, request) -> Response | None:
+        """Check IP allowlist and auth token for inspector dashboard access."""
+        from aquilia.inspector.config import get_inspector_config
+
+        try:
+            config = get_inspector_config(self.site.config)
+        except (AttributeError, TypeError):
+            # Config loader not available (e.g. plain dict in tests) — skip auth checks
+            return None
+
+        # IP allowlist check
+        if config.authorized_ips:
+            client_ip = ""
+            if hasattr(request, "client") and request.client:
+                client_ip = request.client[0] if isinstance(request.client, (list, tuple)) else str(request.client)
+            elif hasattr(request, "scope"):
+                client = request.scope.get("client")
+                if client:
+                    client_ip = client[0] if isinstance(client, (list, tuple)) else str(client)
+            if client_ip and client_ip not in config.authorized_ips:
+                return Response(
+                    b'{"error":"forbidden"}',
+                    status=403,
+                    headers={"content-type": "application/json"},
+                )
+
+        # Auth token check
+        if config.dashboard_auth_token:
+            auth_header = ""
+            if hasattr(request, "headers"):
+                auth_header = request.headers.get("authorization", "")
+            expected = f"Bearer {config.dashboard_auth_token}"
+            if auth_header != expected:
+                return Response(
+                    b'{"error":"unauthorized"}',
+                    status=401,
+                    headers={"content-type": "application/json"},
+                )
+
+        return None
+
     @GET("/__aquilia__/inspector/")
     async def inspector_view(self, request, ctx: RequestCtx) -> Response:
         """Request Inspector UI page (standalone)."""
         if not self._is_debug():
             return Response(b"Forbidden", status=403)
+
+        auth_resp = self._check_inspector_auth(request)
+        if auth_resp is not None:
+            return auth_resp
 
         self._ensure_initialized()
         url_prefix = "/__aquilia__/inspector"
@@ -4047,6 +4092,10 @@ class AdminController(Controller):
         """Get recent traces list."""
         if not self._is_debug():
             return Response(b"Forbidden", status=403)
+
+        auth_resp = self._check_inspector_auth(request)
+        if auth_resp is not None:
+            return auth_resp
 
         from aquilia.inspector.collector import get_collector
         from aquilia.inspector.config import get_inspector_config
@@ -4068,6 +4117,10 @@ class AdminController(Controller):
         """Replay request by trace ID."""
         if not self._is_debug():
             return Response(b"Forbidden", status=403)
+
+        auth_resp = self._check_inspector_auth(request)
+        if auth_resp is not None:
+            return auth_resp
 
         trace_id = request.state.get("path_params", {}).get("trace_id") or ""
         from aquilia.inspector.collector import get_collector
@@ -4115,6 +4168,10 @@ class AdminController(Controller):
         if not self._is_debug():
             return Response(b"Forbidden", status=403)
 
+        auth_resp = self._check_inspector_auth(request)
+        if auth_resp is not None:
+            return auth_resp
+
         from aquilia.inspector.collector import get_collector
         from aquilia.inspector.config import get_inspector_config
 
@@ -4135,6 +4192,10 @@ class AdminController(Controller):
         """SSE Live trace stream endpoint."""
         if not self._is_debug():
             return Response(b"Forbidden", status=403)
+
+        auth_resp = self._check_inspector_auth(request)
+        if auth_resp is not None:
+            return auth_resp
 
         from aquilia.inspector.collector import get_collector
         from aquilia.inspector.config import get_inspector_config

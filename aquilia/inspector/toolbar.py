@@ -80,6 +80,7 @@ class ToolbarInjectionMiddleware(Middleware):
             cookie_val = request.cookies.get("aq_redirect_traces", "")
             if cookie_val:
                 from .collector import get_collector
+
                 collector = get_collector(self._config)
                 trace_ids = [tid for tid in cookie_val.split(",") if tid]
                 for tid in trace_ids:
@@ -135,6 +136,7 @@ class ToolbarInjectionMiddleware(Middleware):
         toolbar_html = toolbar_html.replace("__OVERHEAD_MS__", f"{overhead_ms:.2f}")
         toolbar_html = toolbar_html.replace("__STATUS_CODE__", str(status_code))
         toolbar_html = toolbar_html.replace("__STATUS_CLASS__", status_class)
+        toolbar_html = toolbar_html.replace("__CSS_DESIGN_TOKENS__", _CSS_DESIGN_TOKENS)
 
         new_body_str = body_str[:idx] + toolbar_html + body_str[idx:]
         new_body_bytes = new_body_str.encode("utf-8", errors="replace")
@@ -146,11 +148,9 @@ class ToolbarInjectionMiddleware(Middleware):
         return response
 
 
-# ── HTML/CSS/JS Shell Template ──────────────────────────────────────────────
+# ── CSS Design Tokens (shared by toolbar + dashboard) ───────────────────────
 
-_TOOLBAR_TEMPLATE = """
-<!-- Aquilia Inspector Toolbar -->
-<style>
+_CSS_DESIGN_TOKENS = """
     .aq-toolbar {
         --aq-accent: #22c55e;
         --aq-accent-hover: #16a34a;
@@ -178,7 +178,14 @@ _TOOLBAR_TEMPLATE = """
         margin: 0;
         padding: 0;
     }
+"""
 
+# ── HTML/CSS/JS Shell Template ──────────────────────────────────────────────
+
+_TOOLBAR_TEMPLATE = """
+<!-- Aquilia Inspector Toolbar -->
+<style>
+__CSS_DESIGN_TOKENS__
     /* Collapsed Floating Tab */
     #aq-tab {
         position: fixed;
