@@ -524,7 +524,7 @@ class ControllerRouter:
             query=query,
         )
 
-    def get_allowed_methods(self, path: str) -> list[str]:
+    def get_allowed_methods(self, path: str, api_version: Any | None = None) -> list[str]:
         """Return the HTTP methods registered for *path* (normalised).
 
         Used by the ASGI adapter to return a proper ``405 Method Not Allowed``
@@ -545,12 +545,14 @@ class ControllerRouter:
 
         for method, static_map in self._static_routes.items():
             if norm_path in static_map:
-                allowed.append(method)
+                routes_list = static_map[norm_path]
+                if any(self._version_matches(r, api_version) for r, _, _ in routes_list):
+                    allowed.append(method)
 
         for method, trie_root in self._tries.items():
             if method in allowed:
                 continue  # already found via static
-            if self._trie_match(trie_root, norm_path, None) is not None:
+            if self._trie_match(trie_root, norm_path, None, api_version) is not None:
                 allowed.append(method)
 
         for method, dynamic_list in self._dynamic_routes.items():
@@ -558,8 +560,9 @@ class ControllerRouter:
                 continue
             for cp, _route, _param_names in dynamic_list:
                 if cp.compiled_re and cp.compiled_re.match(path):
-                    allowed.append(method)
-                    break
+                    if self._version_matches(cp, api_version):
+                        allowed.append(method)
+                        break
 
         return allowed
 

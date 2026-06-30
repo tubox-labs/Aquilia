@@ -343,7 +343,7 @@ class ASGIAdapter:
                     is_head_fallback = True
 
             if controller_match is None:
-                allowed = self.controller_router.get_allowed_methods(route_path)
+                allowed = self.controller_router.get_allowed_methods(route_path, api_version=_api_version)
                 if allowed:
                     # Path exists but method is not allowed → 405
                     if "GET" in allowed and "HEAD" not in allowed:
