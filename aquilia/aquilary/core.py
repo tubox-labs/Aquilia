@@ -199,8 +199,32 @@ class AquilaryRegistry:
                     "version": ctx.version,
                     "depends_on": ctx.depends_on,
                     "controllers": ctx.controllers,
-                    "services": ctx.services,
-                    "middlewares": [{"path": path, "kwargs": kwargs} for path, kwargs in ctx.middlewares],
+                    "services": [
+                        (
+                            s.to_dict() if hasattr(s, "to_dict")
+                            else {"class_path": s, "scope": "app", "aliases": [], "config": {}} if isinstance(s, str)
+                            else s
+                        )
+                        for s in ctx.services
+                    ],
+                    "models": ctx.models,
+                    "middlewares": [
+                        {
+                            "path": (
+                                m.class_path if hasattr(m, "class_path")
+                                else m.get("class_path") or m.get("path") if isinstance(m, dict)
+                                else m[0] if isinstance(m, (list, tuple)) and len(m) >= 2
+                                else str(m)
+                            ),
+                            "kwargs": (
+                                (m.config or {}) if hasattr(m, "config")
+                                else m.get("config") or m.get("kwargs") or {} if isinstance(m, dict)
+                                else m[1] if isinstance(m, (list, tuple)) and len(m) >= 2
+                                else {}
+                            )
+                        }
+                        for m in ctx.middlewares
+                    ],
                 }
                 for ctx in self.app_contexts
             ],
@@ -1061,15 +1085,23 @@ class RuntimeRegistry:
                         service_path = service_item.class_path
                         scope = getattr(service_item, "scope", "app")
                         aliases = getattr(service_item, "aliases", [])
+                        factory = getattr(service_item, "factory", None)
+                    elif isinstance(service_item, dict):
+                        # Dict from frozen manifest
+                        service_path = service_item.get("class_path")
+                        scope = service_item.get("scope", "app")
+                        aliases = service_item.get("aliases", [])
+                        factory = service_item.get("factory")
                     else:
                         # String path
                         service_path = service_item
                         scope = "app"
                         aliases = []
+                        factory = None
 
-                    if hasattr(service_item, "factory") and service_item.factory:
+                    if factory:
                         # Factory Provider
-                        factory_path = service_item.factory
+                        factory_path = factory
                         if ":" in factory_path:
                             fmod, fname = factory_path.split(":", 1)
                         else:
@@ -1077,8 +1109,14 @@ class RuntimeRegistry:
 
                         factory_func = getattr(importlib.import_module(fmod), fname)
 
-                        scope = getattr(service_item, "scope", None) or getattr(factory_func, "__di_scope__", "app")
-                        tag = getattr(service_item, "tag", None) or getattr(factory_func, "__di_tag__", None)
+                        scope = (
+                            scope if scope != "app" and scope is not None
+                            else (service_item.get("scope") if isinstance(service_item, dict) else getattr(service_item, "scope", None)) or getattr(factory_func, "__di_scope__", "app")
+                        )
+                        tag = (
+                            (service_item.get("tag") if isinstance(service_item, dict) else getattr(service_item, "tag", None))
+                            or getattr(factory_func, "__di_tag__", None)
+                        )
 
                         from aquilia.di.providers import FactoryProvider
 

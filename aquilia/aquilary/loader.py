@@ -254,24 +254,24 @@ class ManifestLoader:
         try:
             spec.loader.exec_module(module)
 
-            # Find manifest class
-            manifest_cls = None
-            for name, obj in vars(module).items():
-                if (
-                    isinstance(obj, type)
-                    and hasattr(obj, "name")
-                    and hasattr(obj, "version")
-                    and not name.startswith("_")
-                ):
-                    manifest_cls = obj
-                    break
+            # Find manifest class or instance
+            manifest_cls = getattr(module, "manifest", None)
+            if manifest_cls is None:
+                for name, obj in vars(module).items():
+                    if (
+                        hasattr(obj, "name")
+                        and hasattr(obj, "version")
+                        and not name.startswith("_")
+                    ):
+                        manifest_cls = obj
+                        break
 
             if manifest_cls is None:
                 from aquilia.faults.domains import RegistryFault
 
                 raise RegistryFault(
                     name=str(path),
-                    message=f"No manifest class found in {path}",
+                    message=f"No manifest class or instance found in {path}",
                 )
 
             return manifest_cls

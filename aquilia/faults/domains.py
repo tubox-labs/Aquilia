@@ -105,12 +105,24 @@ class RegistryFault(Fault):
 
     def __init__(
         self,
-        code: str,
-        message: str,
+        code: str = "REGISTRY_ERROR",
+        message: str = "",
         *,
         severity: Severity = Severity.FATAL,
         metadata: dict[str, Any] | None = None,
+        name: str | None = None,
     ):
+        # Support legacy calls using name parameter instead of code
+        if name is not None:
+            metadata = metadata or {}
+            metadata["name"] = name
+            if code != "REGISTRY_ERROR" and not message:
+                message = code
+                code = "REGISTRY_ERROR"
+        elif not message and code:
+            message = code
+            code = "REGISTRY_ERROR"
+
         super().__init__(
             code=code,
             message=message,
