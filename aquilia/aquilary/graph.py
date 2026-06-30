@@ -97,6 +97,7 @@ class DependencyGraph:
         res = list(reversed(result))
         if len(res) != len(self._nodes):
             from .errors import DependencyCycleError
+
             cycle = self.find_cycle() or list(self._nodes.keys())
             raise DependencyCycleError(cycle=cycle)
         return res
