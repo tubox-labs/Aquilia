@@ -280,6 +280,8 @@ all = [
     { name = "cryptography" },
     { name = "gunicorn" },
     { name = "httpx" },
+    { name = "jinja2" },
+    { name = "markupsafe" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-instrumentation-asgi" },
@@ -309,6 +311,8 @@ full = [
     { name = "cryptography" },
     { name = "gunicorn" },
     { name = "httpx" },
+    { name = "jinja2" },
+    { name = "markupsafe" },
     { name = "opentelemetry-api" },
     { name = "opentelemetry-exporter-otlp-proto-grpc" },
     { name = "opentelemetry-instrumentation-asgi" },
@@ -348,6 +352,10 @@ server = [
 sqlite-compat = [
     { name = "aiosqlite" },
 ]
+template = [
+    { name = "jinja2" },
+    { name = "markupsafe" },
+]
 testing = [
     { name = "httpx" },
     { name = "pytest" },
@@ -360,7 +368,7 @@ requires-dist = [
     { name = "aiobotocore", marker = "extra == 'mail-ses'", specifier = ">=2.9.0" },
     { name = "aiosmtplib", marker = "extra == 'mail'", specifier = ">=3.0.0" },
     { name = "aiosqlite", marker = "extra == 'sqlite-compat'", specifier = ">=0.20.0" },
-    { name = "aquilia", extras = ["auth", "mail", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server"], marker = "extra == 'full'" },
+    { name = "aquilia", extras = ["auth", "mail", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "template"], marker = "extra == 'full'" },
     { name = "aquilia", extras = ["full"], marker = "extra == 'all'" },
     { name = "aquilia", extras = ["testing"], marker = "extra == 'dev'" },
     { name = "argon2-cffi", marker = "extra == 'auth'", specifier = ">=23.1.0" },
@@ -371,7 +379,9 @@ requires-dist = [
     { name = "httpx", marker = "extra == 'mail-sendgrid'", specifier = ">=0.27.0" },
     { name = "httpx", marker = "extra == 'testing'", specifier = ">=0.27.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
+    { name = "jinja2", marker = "extra == 'template'", specifier = ">=3.1.0" },
     { name = "markupsafe", specifier = ">=2.1.0" },
+    { name = "markupsafe", marker = "extra == 'template'", specifier = ">=2.1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.10.0" },
     { name = "opentelemetry-api", marker = "extra == 'otel'", specifier = ">=1.24.0" },
     { name = "opentelemetry-exporter-otlp-proto-grpc", marker = "extra == 'otel'", specifier = ">=1.24.0" },
@@ -388,7 +398,7 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.30.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "server", "postgres", "otel", "full", "all", "testing", "dev"]
+provides-extras = ["template", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "server", "postgres", "otel", "full", "all", "testing", "dev"]
 
 [[package]]
 name = "argon2-cffi"
