@@ -261,245 +261,49 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> l
 
 def _discover_and_update_manifests(workspace_root: Path, verbose: bool = False) -> None:
     """
-    Discover controllers, services, models, guards, pipes, interceptors
-    in all modules and auto-update manifest.py files.
-
-    Discovery pipeline (v2.1):
-    1. ``AutoDiscoveryEngine`` (AST-based) -- primary scanner for all
-       component kinds including models, guards, pipes, interceptors.
-    2. ``EnhancedDiscovery`` -- fallback for controllers/services/sockets.
-    3. Compares with manifest.py declarations.
-    4. Automatically updates manifest.py with missing declarations.
-    5. Updates workspace.py with module registrations.
-
-    Args:
-        workspace_root: Path to workspace root
-        verbose: Enable verbose output
+    Discover all components in all modules and auto-update manifest.py and workspace.py.
     """
     import sys
     from pathlib import Path
 
-    from aquilia.cli.discovery_utils import EnhancedDiscovery
+    from aquilia.cli.generators.workspace import WorkspaceGenerator
+    from aquilia.discovery.engine import AutoDiscoveryEngine
 
     workspace_root = Path(workspace_root)
+    modules_dir = workspace_root / "modules"
+    if not modules_dir.exists():
+        return
 
     # Add workspace root to Python path for imports
     workspace_abs = workspace_root.resolve()
     if str(workspace_abs) not in sys.path:
         sys.path.insert(0, str(workspace_abs))
 
-    modules_dir = workspace_root / "modules"
-    if not modules_dir.exists():
-        return
-
-    # --- v2.1: Try AST-based auto-discovery engine first ---
-    ast_results = {}
     try:
-        from aquilia.discovery.engine import AutoDiscoveryEngine
-
         engine = AutoDiscoveryEngine(modules_dir)
-        ast_results = engine.discover_all()
-    except Exception:
-        pass
-
-    discovery = EnhancedDiscovery(verbose=verbose)
-
-    # Track discovery results
-    total_controllers = 0
-    total_services = 0
-    total_models = 0
-    total_guards = 0
-    total_pipes = 0
-    total_interceptors = 0
-    modules_updated = 0
-
-    # Discover all modules with manifest.py
-    for module_dir in modules_dir.iterdir():
-        if not module_dir.is_dir() or module_dir.name.startswith("_"):
-            continue
-
-        manifest_path = module_dir / "manifest.py"
-        if not manifest_path.exists():
-            continue
-
-        module_name = module_dir.name
-        base_package = f"modules.{module_name}"
-
+        reports = engine.sync_all(dry_run=False)
         if verbose:
-            print(f"\n  Discovering module: {module_name}")
+            for report in reports:
+                if report.has_changes:
+                    print(f"  Synced manifest for module {report.module_name}")
+                    for action in report.added:
+                        print(f"    + Added {action.component.name}")
+                    for action in report.removed:
+                        print(f"    - Removed {action.component.name}")
+    except Exception as e:
+        if verbose:
+            print(f"  ! AST Discovery Engine sync failed: {e}")
 
-        try:
-            # ── Discover via AST engine (models, guards, pipes, interceptors) ──
-            ast_models = []
-            ast_guards = []
-            ast_pipes = []
-            ast_interceptors = []
-
-            if module_name in ast_results:
-                result = ast_results[module_name]
-                ast_models = [c.name for c in result.models]
-                ast_guards = [c.name for c in result.guards]
-                ast_pipes = [c.name for c in result.pipes]
-                ast_interceptors = [c.name for c in result.interceptors]
-
-                if verbose:
-                    if ast_models:
-                        print(f"    + Found {len(ast_models)} model(s): {', '.join(ast_models)}")
-                    if ast_guards:
-                        print(f"    + Found {len(ast_guards)} guard(s): {', '.join(ast_guards)}")
-                    if ast_pipes:
-                        print(f"    + Found {len(ast_pipes)} pipe(s): {', '.join(ast_pipes)}")
-                    if ast_interceptors:
-                        print(f"    + Found {len(ast_interceptors)} interceptor(s): {', '.join(ast_interceptors)}")
-
-            total_models += len(ast_models)
-            total_guards += len(ast_guards)
-            total_pipes += len(ast_pipes)
-            total_interceptors += len(ast_interceptors)
-
-            # ── Discover controllers / services / sockets via EnhancedDiscovery ──
-            result = discovery.discover_module_controllers_and_services(base_package, module_name)
-            # Handle both 2-tuple (legacy) and 3-tuple (new) return values
-            if len(result) == 3:
-                discovered_controllers, discovered_services, discovered_sockets = result
-            else:
-                discovered_controllers, discovered_services = result
-                discovered_sockets = []
-
-            if verbose:
-                if discovered_controllers:
-                    print(f"    + Found {len(discovered_controllers)} controller(s)")
-                if discovered_services:
-                    print(f"    + Found {len(discovered_services)} service(s)")
-                if discovered_sockets:
-                    print(f"    + Found {len(discovered_sockets)} socket controller(s)")
-
-            total_controllers += len(discovered_controllers)
-            total_services += len(discovered_services)
-
-            # Read manifest content
-            try:
-                manifest_content = manifest_path.read_text(encoding="utf-8")
-            except OSError as e:
-                if verbose:
-                    print(f"    !  Cannot read manifest: {str(e)[:60]}")
-                continue
-
-            # Clean and update manifest with properly classified items
-            try:
-                updated_content, services_added, controllers_added = discovery.clean_manifest_lists(
-                    manifest_content,
-                    discovered_controllers,
-                    discovered_services,
-                    module_dir=module_dir,  # Pass module path for validation
-                    discovered_sockets=discovered_sockets,
-                )
-            except Exception as e:
-                if verbose:
-                    print(f"    !  Error cleaning manifest: {str(e)[:60]}")
-                continue
-
-            # ── v2.1: Inject models/guards/pipes/interceptors into manifest ──
-            updated_content = _inject_component_list(updated_content, "models", ast_models)
-            updated_content = _inject_component_list(updated_content, "guards", ast_guards)
-            updated_content = _inject_component_list(updated_content, "pipes", ast_pipes)
-            updated_content = _inject_component_list(updated_content, "interceptors", ast_interceptors)
-
-            # Write updated manifest if there were changes
-            if updated_content != manifest_content:
-                try:
-                    manifest_path.write_text(updated_content, encoding="utf-8")
-                    modules_updated += 1
-                    if verbose:
-                        services_added + controllers_added
-                        print(
-                            f"    + Updated manifest: {services_added} service(s), {controllers_added} controller(s) added"
-                        )
-                except OSError as e:
-                    if verbose:
-                        print(f"    !  Cannot write manifest: {str(e)[:60]}")
-            elif verbose:
-                print("    . Manifest already up-to-date")
-
-        except Exception as e:
-            if verbose:
-                print(f"    !  Unexpected error processing {module_name}: {str(e)[:80]}")
-
-    # Summary (v2.1)
-    if verbose:
-        print("\n  Discovery summary:")
-        print(f"    Controllers: {total_controllers}  Services: {total_services}")
-        print(f"    Models: {total_models}  Guards: {total_guards}")
-        print(f"    Pipes: {total_pipes}  Interceptors: {total_interceptors}")
-        print(f"    Modules updated: {modules_updated}")
-
-    # After updating all manifests, update workspace.py with discovered configs
     try:
-        from ..generators.workspace import WorkspaceGenerator
-
         generator = WorkspaceGenerator(name=workspace_root.name, path=workspace_root)
-
-        # Re-discover with updated manifests to get all controllers/services
         discovered = generator._discover_modules()
-
         if discovered:
             workspace_py_path = workspace_root / "workspace.py"
             if workspace_py_path.exists():
                 generator.update_workspace_config(workspace_py_path, discovered)
-
     except Exception as e:
         if verbose:
-            print(f"  !  Failed to update workspace.py: {str(e)[:80]}")
-
-
-def _inject_component_list(
-    content: str,
-    field_name: str,
-    discovered_items: list,
-) -> str:
-    """
-    Inject or update a component list (models, guards, pipes, interceptors)
-    in a manifest.py content string.
-
-    If the field already exists, merges new items into the existing list.
-    If not present, does nothing (the user can add it when ready).
-
-    Args:
-        content: manifest.py text
-        field_name: e.g. "models", "guards", "pipes", "interceptors"
-        discovered_items: list of class names discovered by AST engine
-
-    Returns:
-        Updated content string
-    """
-
-    if not discovered_items:
-        return content
-
-    # Find existing field declaration: e.g. models=["Foo", "Bar"]
-    pattern = rf"({field_name}\s*=\s*\[)(.*?)(\])"
-    match = re.search(pattern, content, re.DOTALL)
-
-    if not match:
-        return content  # Field not declared -- user hasn't opted in
-
-    # Parse existing items
-    existing_items = re.findall(r'"([^"]+)"', match.group(2))
-
-    # Merge (preserve order, add new at end)
-    merged = list(existing_items)
-    for item in discovered_items:
-        if item not in merged:
-            merged.append(item)
-
-    if set(merged) == set(existing_items):
-        return content  # No changes
-
-    # Rebuild the list
-    items_str = ", ".join(f'"{item}"' for item in merged)
-    new_field = f"{field_name}=[{items_str}]"
-
-    return content[: match.start()] + new_field + content[match.end() :]
+            print(f"  ! Failed to update workspace.py: {e}")
 
 
 def _discover_and_display_routes(workspace_root: Path, verbose: bool = False) -> None:
