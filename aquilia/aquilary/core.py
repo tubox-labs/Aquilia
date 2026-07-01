@@ -554,11 +554,9 @@ class RuntimeRegistry:
                     use_cache=False,
                 )
 
-                # Add discovered controllers to context
-                for cls in controllers:
-                    path = f"{cls.__module__}:{cls.__name__}"
-                    if path not in ctx.controllers:
-                        ctx.controllers.append(path)
+                non_local = [c for c in ctx.controllers if not c.startswith(f"{base_package}.")]
+                discovered_paths = [f"{cls.__module__}:{cls.__name__}" for cls in controllers]
+                ctx.controllers = non_local + [p for p in discovered_paths if p not in non_local]
 
             except Exception:
                 pass
@@ -573,10 +571,13 @@ class RuntimeRegistry:
                     use_cache=False,
                 )
 
-                for cls in services:
-                    path = f"{cls.__module__}:{cls.__name__}"
-                    if path not in ctx.services:
-                        ctx.services.append(path)
+                def is_local_service(s) -> bool:
+                    path = s if isinstance(s, str) else getattr(s, "class_path", "")
+                    return path.startswith(f"{base_package}.")
+
+                non_local = [s for s in ctx.services if not is_local_service(s)]
+                discovered_paths = [f"{cls.__module__}:{cls.__name__}" for cls in services]
+                ctx.services = non_local + [p for p in discovered_paths if p not in non_local]
 
             except Exception:
                 pass
@@ -601,10 +602,12 @@ class RuntimeRegistry:
                     ctx.manifest.socket_controllers = []
                     existing = ctx.manifest.socket_controllers
 
-                for cls in socket_controllers:
-                    path = f"{cls.__module__}:{cls.__name__}"
-                    if path not in existing:
-                        existing.append(path)
+                non_local = [s for s in existing if not s.startswith(f"{base_package}.")]
+                discovered_paths = [f"{cls.__module__}:{cls.__name__}" for cls in socket_controllers]
+                ctx.manifest.socket_controllers = non_local + [p for p in discovered_paths if p not in non_local]
+                if ctx.manifest.socket_controllers is not existing:
+                    existing.clear()
+                    existing.extend(ctx.manifest.socket_controllers)
 
             except Exception:
                 pass
@@ -638,29 +641,21 @@ class RuntimeRegistry:
                     use_cache=False,
                 )
 
+                def is_local_mw(mw) -> bool:
+                    path = mw if isinstance(mw, str) else getattr(mw, "class_path", "")
+                    return path.startswith(f"{base_package}.")
+
+                non_local = [mw for mw in ctx.middlewares if not is_local_mw(mw)]
+                discovered_paths = []
                 for cls in middlewares:
                     if cls is Middleware:
                         continue
-                    path = f"{cls.__module__}:{cls.__name__}"
-                    # Check if already registered
-                    already_registered = False
-                    for mw in ctx.middlewares:
-                        if (
-                            isinstance(mw, str)
-                            and mw == path
-                            or isinstance(mw, dict)
-                            and (mw.get("class_path") == path or mw.get("path") == path)
-                            or hasattr(mw, "class_path")
-                            and mw.class_path == path
-                        ):
-                            already_registered = True
-                            break
+                    discovered_paths.append(f"{cls.__module__}:{cls.__name__}")
 
-                    if not already_registered:
-                        mw_cfg = MiddlewareConfig(class_path=path)
-                        ctx.middlewares.append(mw_cfg)
-                        if hasattr(ctx.manifest, "middleware") and isinstance(ctx.manifest.middleware, list):
-                            ctx.manifest.middleware.append(mw_cfg)
+                ctx.middlewares = non_local + [MiddlewareConfig(class_path=p) for p in discovered_paths]
+                if hasattr(ctx.manifest, "middleware") and isinstance(ctx.manifest.middleware, list):
+                    ctx.manifest.middleware.clear()
+                    ctx.manifest.middleware.extend(ctx.middlewares)
             except Exception:
                 pass
 
