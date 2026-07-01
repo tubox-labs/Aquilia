@@ -23,6 +23,7 @@ from typing import Any, cast
 
 from .migration_dsl import (
     _SENTINEL,
+    AddConstraint,
     AddField,
     AlterField,
     ColumnDef,
@@ -31,6 +32,7 @@ from .migration_dsl import (
     DropIndex,
     DropModel,
     Operation,
+    RemoveConstraint,
     RemoveField,
     RenameField,
     RenameModel,
@@ -44,6 +46,83 @@ logger = logging.getLogger("aquilia.models.schema_snapshot")
 
 
 SNAPSHOT_VERSION = 1
+
+
+def _compile_schema_expression(expr: Any, model_cls: type | None = None, dialect: str = "sqlite") -> str:
+    from aquilia.models.expression import CombinedExpression, Expression, F, Func, RawSQL, Value
+
+    if isinstance(expr, str):
+        if model_cls and hasattr(model_cls, "_fields") and expr in model_cls._fields:
+            return f'"{expr}"'
+        return expr
+
+    if not isinstance(expr, Expression):
+        return str(expr)
+
+    if isinstance(expr, F):
+        if "__" in expr.name:
+            parts = expr.name.split("__")
+            if len(parts) == 2:
+                return f'"{parts[0]}"."{parts[1]}"'
+        return f'"{expr.name}"'
+
+    if isinstance(expr, Value):
+        val = expr.value
+        if val is None:
+            return "NULL"
+        if isinstance(val, str):
+            if model_cls and hasattr(model_cls, "_fields") and val in model_cls._fields:
+                return f'"{val}"'
+            escaped = val.replace("'", "''")
+            return f"'{escaped}'"
+        return str(val)
+
+    if isinstance(expr, Func):
+        arg_sqls = [_compile_schema_expression(arg, model_cls, dialect) for arg in expr.args]
+        return f"{expr.function}({', '.join(arg_sqls)})"
+
+    if isinstance(expr, CombinedExpression):
+        lhs = _compile_schema_expression(expr.lhs, model_cls, dialect)
+        rhs = _compile_schema_expression(expr.rhs, model_cls, dialect)
+        return f"({lhs} {expr.connector} {rhs})"
+
+    if isinstance(expr, RawSQL):
+        sql = expr.sql
+        if expr.params:
+            for param in expr.params:
+                if isinstance(param, str):
+                    escaped = param.replace("'", "''")
+                    sql = sql.replace("?", f"'{escaped}'", 1)
+                else:
+                    sql = sql.replace("?", str(param), 1)
+        return sql
+
+    try:
+        sql, params = expr.as_sql(dialect)
+        if params:
+            for p in params:
+                if isinstance(p, str):
+                    escaped = p.replace("'", "''")
+                    sql = sql.replace("?", f"'{escaped}'", 1)
+                else:
+                    sql = sql.replace("?", str(p), 1)
+        return sql
+    except Exception:
+        return str(expr)
+
+
+def _make_serializable(val: Any, model_cls: type | None = None, dialect: str = "sqlite") -> Any:
+    from aquilia.models.expression import Expression
+
+    if isinstance(val, Expression):
+        return _compile_schema_expression(val, model_cls, dialect)
+    if isinstance(val, list):
+        return [_make_serializable(item, model_cls, dialect) for item in val]
+    if isinstance(val, dict):
+        return {k: _make_serializable(v, model_cls, dialect) for k, v in val.items()}
+    if isinstance(val, tuple):
+        return tuple(_make_serializable(item, model_cls, dialect) for item in val)
+    return val
 
 
 def create_snapshot(model_classes: list) -> dict[str, Any]:
@@ -98,13 +177,24 @@ def create_snapshot(model_classes: list) -> dict[str, Any]:
         # Serialize indexes from Meta
         indexes_data: list[dict[str, Any]] = []
         for idx in getattr(meta, "indexes", []):
-            if isinstance(idx, ModelIndex):
+            if hasattr(idx, "deconstruct"):
+                idx_data = idx.deconstruct()
+                indexes_data.append(_make_serializable(idx_data, model_cls))
+            elif isinstance(idx, ModelIndex):
                 idx_fields = list(idx.fields) if hasattr(idx, "fields") else []
-                idx_name = getattr(idx, "name", None) or _auto_index_name(table, idx_fields)
+                serializable_fields = []
+                for f in idx_fields:
+                    from aquilia.models.expression import Expression
+
+                    if isinstance(f, Expression):
+                        serializable_fields.append(_compile_schema_expression(f, model_cls))
+                    else:
+                        serializable_fields.append(str(f))
+                idx_name = getattr(idx, "name", None) or _auto_index_name(table, serializable_fields)
                 indexes_data.append(
                     {
                         "name": idx_name,
-                        "columns": idx_fields,
+                        "columns": serializable_fields,
                         "unique": getattr(idx, "unique", False),
                     }
                 )
@@ -124,6 +214,18 @@ def create_snapshot(model_classes: list) -> dict[str, Any]:
                         }
                     )
 
+        # Serialize constraints from Meta
+        constraints_data: list[dict[str, Any]] = []
+        for constraint in getattr(meta, "constraints", []):
+            if hasattr(constraint, "deconstruct"):
+                c_data = constraint.deconstruct()
+            else:
+                c_data = {
+                    "type": type(constraint).__name__,
+                    "name": getattr(constraint, "name", None),
+                }
+            constraints_data.append(_make_serializable(c_data, model_cls))
+
         meta_data = {
             "ordering": list(meta.ordering) if meta.ordering else [],
             "abstract": meta.abstract,
@@ -134,6 +236,7 @@ def create_snapshot(model_classes: list) -> dict[str, Any]:
             "table": table,
             "fields": fields_data,
             "indexes": indexes_data,
+            "constraints": constraints_data,
             "meta": meta_data,
         }
 
@@ -542,6 +645,8 @@ class ModelDiff:
     altered_fields: list[str] = field(default_factory=list)  # fields with changed type/constraints
     added_indexes: list[dict[str, Any]] = field(default_factory=list)
     removed_indexes: list[dict[str, Any]] = field(default_factory=list)
+    added_constraints: list[dict[str, Any]] = field(default_factory=list)
+    removed_constraints: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def has_changes(self) -> bool:
@@ -552,6 +657,8 @@ class ModelDiff:
             or self.altered_fields
             or self.added_indexes
             or self.removed_indexes
+            or self.added_constraints
+            or self.removed_constraints
         )
 
 
@@ -696,6 +803,15 @@ def _diff_model(old_model: dict, new_model: dict) -> ModelDiff:
     for name in sorted(set(old_indexes) - set(new_indexes)):
         diff.removed_indexes.append(old_indexes[name])
 
+    # Diff constraints
+    old_constraints = {c["name"]: c for c in old_model.get("constraints", []) if c.get("name")}
+    new_constraints = {c["name"]: c for c in new_model.get("constraints", []) if c.get("name")}
+
+    for name in sorted(set(new_constraints) - set(old_constraints)):
+        diff.added_constraints.append(new_constraints[name])
+    for name in sorted(set(old_constraints) - set(new_constraints)):
+        diff.removed_constraints.append(old_constraints[name])
+
     return diff
 
 
@@ -794,6 +910,24 @@ def diff_to_operations(
                 )
             )
 
+        # Add constraints for new models
+        for c in model_data.get("constraints", []):
+            c_type = c.get("type")
+            c_name = c.get("name")
+            if c_type == "CheckConstraint":
+                sql = f'CONSTRAINT "{c_name}" CHECK ({c.get("check")})'
+            elif c_type == "UniqueConstraint":
+                fields_sql = ", ".join(f'"{f}"' if not ("(" in f or '"' in f) else f for f in c.get("fields", []))
+                sql = f'CONSTRAINT "{c_name}" UNIQUE ({fields_sql})' if c_name else f"UNIQUE ({fields_sql})"
+            elif c_type == "ExclusionConstraint":
+                exprs = ", ".join(f'"{col}" WITH {op}' for col, op in c.get("expressions", []))
+                sql = f'CONSTRAINT "{c_name}" EXCLUDE USING {c.get("index_type", "GIST")} ({exprs})'
+                if c.get("condition"):
+                    sql += f" WHERE ({c.get('condition')})"
+            else:
+                continue
+            ops.append(AddConstraint(table=model_data["table"], constraint_sql=sql))
+
     # 4. Altered models
     for model_name, model_diff in diff.altered_models.items():
         model_data = new_models[model_name]
@@ -846,6 +980,29 @@ def diff_to_operations(
         # Removed indexes
         for idx in model_diff.removed_indexes:
             ops.append(DropIndex(name=idx["name"], table=table))
+
+        # Added constraints
+        for c in model_diff.added_constraints:
+            c_type = c.get("type")
+            c_name = c.get("name")
+            if c_type == "CheckConstraint":
+                sql = f'CONSTRAINT "{c_name}" CHECK ({c.get("check")})'
+            elif c_type == "UniqueConstraint":
+                fields_sql = ", ".join(f'"{f}"' if not ("(" in f or '"' in f) else f for f in c.get("fields", []))
+                sql = f'CONSTRAINT "{c_name}" UNIQUE ({fields_sql})' if c_name else f"UNIQUE ({fields_sql})"
+            elif c_type == "ExclusionConstraint":
+                exprs = ", ".join(f'"{col}" WITH {op}' for col, op in c.get("expressions", []))
+                sql = f'CONSTRAINT "{c_name}" EXCLUDE USING {c.get("index_type", "GIST")} ({exprs})'
+                if c.get("condition"):
+                    sql += f" WHERE ({c.get('condition')})"
+            else:
+                continue
+            ops.append(AddConstraint(table=table, constraint_sql=sql))
+
+        # Removed constraints
+        for c in model_diff.removed_constraints:
+            if c.get("name"):
+                ops.append(RemoveConstraint(table=table, name=c["name"]))
 
     return ops
 
