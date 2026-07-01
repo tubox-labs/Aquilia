@@ -51,9 +51,15 @@ def test_unique_constraint_serialization():
     assert constraints[0]["name"] == "user_email_ci_unique"
     assert constraints[0]["fields"] == ['LOWER("email")']
 
-    # Test generate table SQL
+    # Test generate table SQL (should NOT contain the constraint)
     sql = TestUser.generate_create_table_sql()
-    assert 'CONSTRAINT "user_email_ci_unique" UNIQUE (LOWER("email"))' in sql
+    assert 'CONSTRAINT "user_email_ci_unique"' not in sql
+    assert 'UNIQUE' not in sql
+
+    # Test generate index SQL (should contain the unique index statement)
+    idx_sql_list = TestUser.generate_index_sql()
+    assert len(idx_sql_list) == 1
+    assert idx_sql_list[0] == 'CREATE UNIQUE INDEX IF NOT EXISTS "user_email_ci_unique" ON "test_users" (LOWER("email"));'
 
 
 def test_add_constraint_sqlite_translation():

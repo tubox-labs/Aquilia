@@ -3355,6 +3355,8 @@ class AquiliaServer:
         # ── Phase 3b: Startup guard -- warn if DB missing / stale ────────
         if db_url and not auto_migrate:
             try:
+                from pathlib import Path
+
                 from aquilia.models.startup_guard import check_db_ready
 
                 db_ready = check_db_ready(
@@ -3363,13 +3365,37 @@ class AquiliaServer:
                     auto_migrate=auto_migrate,
                 )
                 if not db_ready:
-                    # DB not ready -- still configure so we get better errors,
-                    # but enable auto_create so tables are created on first boot
-                    auto_create = True
-            except SystemExit:
-                # Legacy path: treat as warning, still proceed with auto_create
-                auto_create = True
+                    # Check if there are any migration files in migrations_dir
+                    mdir = Path(migrations_dir)
+                    has_migrations = mdir.exists() and any(mdir.glob("*.py"))
+
+                    if auto_create and not has_migrations:
+                        # No migrations exist, but auto_create is True:
+                        # Proceed with auto_creation for a new project/first boot.
+                        pass
+                    else:
+                        # Otherwise, raise a SchemaFault (which is a standard Exception)
+                        # so that the ASGI startup fails cleanly and halts the server.
+                        from aquilia.faults.domains import SchemaFault
+
+                        raise SchemaFault(
+                            table="(startup)",
+                            reason="Database is not ready. There are unapplied migrations or the database is missing. "
+                            "Please run: aq db makemigrations && aq db migrate",
+                        )
+            except SystemExit as e:
+                # If a legacy SystemExit/DatabaseNotReadyError is raised, raise SchemaFault
+                from aquilia.faults.domains import SchemaFault
+
+                raise SchemaFault(
+                    table="(startup)",
+                    reason=f"Database is not ready: {e}. Please run: aq db makemigrations && aq db migrate",
+                ) from e
             except Exception as exc:
+                from aquilia.faults.domains import SchemaFault
+
+                if isinstance(exc, SchemaFault):
+                    raise exc
                 self.logger.warning(f"Startup-guard check skipped: {exc}")
 
         # ── Phase 4: Connect and create tables ────────────────────────────

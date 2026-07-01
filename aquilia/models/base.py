@@ -1631,9 +1631,18 @@ class Model(metaclass=ModelMeta):
             elif hasattr(constraint, "fields"):
                 from .schema_snapshot import _compile_schema_expression
 
+                # Check if this unique constraint contains expressions.
+                # If so, do NOT generate it as a table constraint (it will fail on CREATE TABLE).
+                # Instead, it will be generated as a unique index in generate_index_sql.
+                has_expression = any(
+                    not isinstance(f, str) or "(" in str(f) or '"' in str(f) for f in constraint.fields
+                )
+                if has_expression:
+                    continue
+
                 cols = []
                 for f in constraint.fields:
-                    if isinstance(f, str):
+                    if isinstance(f, str) and not ("(" in f or '"' in f):
                         cols.append(f'"{f}"')
                     else:
                         cols.append(_compile_schema_expression(f, cls, dialect))
@@ -1651,6 +1660,37 @@ class Model(metaclass=ModelMeta):
         stmts: list[str] = []
         for idx in cls._meta.indexes:
             stmts.append(idx.sql(cls._table_name, dialect=dialect))
+
+        # Also generate unique indexes for UniqueConstraints that contain expressions
+        for constraint in cls._meta.constraints:
+            if not hasattr(constraint, "sql") and hasattr(constraint, "fields"):
+                has_expression = any(
+                    not isinstance(f, str) or "(" in str(f) or '"' in str(f) for f in constraint.fields
+                )
+                if has_expression:
+                    import re
+
+                    from .schema_snapshot import _compile_schema_expression
+
+                    cols = []
+                    for f in constraint.fields:
+                        if isinstance(f, str) and not ("(" in f or '"' in f):
+                            cols.append(f'"{f}"')
+                        else:
+                            cols.append(_compile_schema_expression(f, cls, dialect))
+                    col_list = ", ".join(cols)
+
+                    if getattr(constraint, "name", None):
+                        idx_name = constraint.name
+                    else:
+                        # Fallback unique index name
+                        clean_exprs = "_".join(
+                            re.sub(r"[^a-zA-Z0-9_]", "_", str(f)).strip("_") for f in constraint.fields
+                        )
+                        idx_name = f"uidx_{cls._table_name}_{clean_exprs}"
+
+                    ine = "" if dialect in ("mysql", "oracle") else " IF NOT EXISTS"
+                    stmts.append(f'CREATE UNIQUE INDEX{ine} "{idx_name}" ON "{cls._table_name}" ({col_list});')
 
         # db_index on individual fields
         ine = "" if dialect == "mysql" else " IF NOT EXISTS"

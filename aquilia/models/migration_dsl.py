@@ -681,25 +681,32 @@ class AddConstraint(Operation):
     constraint_sql: str
 
     def to_sql(self, dialect: str = "sqlite") -> list[str]:
-        if dialect == "sqlite":
-            import re
+        import re
 
-            # Translate UNIQUE constraints to CREATE UNIQUE INDEX on SQLite
-            match = re.search(
-                r'CONSTRAINT\s+["\']([^"\']+)["\']\s+UNIQUE\s*\((.+)\)', self.constraint_sql, re.IGNORECASE | re.DOTALL
-            )
+        # Match UNIQUE constraint SQL format
+        match = re.search(
+            r'CONSTRAINT\s+["\']([^"\']+)["\']\s+UNIQUE\s*\((.+)\)', self.constraint_sql, re.IGNORECASE | re.DOTALL
+        )
+        match_no_name = None
+        if not match:
+            match_no_name = re.search(r"UNIQUE\s*\((.+)\)", self.constraint_sql, re.IGNORECASE | re.DOTALL)
+
+        if match or match_no_name:
             if match:
                 index_name = match.group(1)
                 exprs = match.group(2)
-                return [f'CREATE UNIQUE INDEX IF NOT EXISTS "{index_name}" ON "{self.table}" ({exprs});']
-
-            match_no_name = re.search(r"UNIQUE\s*\((.+)\)", self.constraint_sql, re.IGNORECASE | re.DOTALL)
-            if match_no_name:
+            else:
                 exprs = match_no_name.group(1)
                 clean_expr = re.sub(r"[^a-zA-Z0-9_]", "_", exprs).strip("_")
                 index_name = f"uidx_{self.table}_{clean_expr}"
-                return [f'CREATE UNIQUE INDEX IF NOT EXISTS "{index_name}" ON "{self.table}" ({exprs});']
 
+            # If dialect is SQLite OR the UNIQUE constraint contains an expression (has '('),
+            # we must translate it to CREATE UNIQUE INDEX.
+            if dialect == "sqlite" or "(" in exprs:
+                ine = "" if dialect in ("mysql", "oracle") else " IF NOT EXISTS"
+                return [f'CREATE UNIQUE INDEX{ine} "{index_name}" ON "{self.table}" ({exprs});']
+
+        if dialect == "sqlite":
             return [f"-- SQLite: Cannot add check/exclude constraint via ALTER TABLE: {self.constraint_sql};"]
 
         return [f'ALTER TABLE "{self.table}" ADD {self.constraint_sql};']

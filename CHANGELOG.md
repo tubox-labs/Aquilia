@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.3] — 2026-07-01 — "Kraken's Wake"
+
+### Fixed
+- **ORM Schema Creation with Expressions**: Skip expression-based unique constraints in `generate_create_table_sql()` and instead generate them as separate `CREATE UNIQUE INDEX` statements in `generate_index_sql()`, preventing database engines (SQLite, Postgres, etc.) from raising `expressions prohibited in PRIMARY KEY and UNIQUE constraints`.
+- **Migration Constraint Translation**: Updated `AddConstraint` to compile expression-based unique constraints (containing function calls/expressions) into `CREATE UNIQUE INDEX` statements for all database dialects (SQLite, Postgres, MySQL, Oracle).
+- **Strict Safe-DB Startup Guard**: Hardened the startup sequence to raise a `SchemaFault` and immediately halt the server startup if the database is missing or unapplied migrations exist when migrations are present in the project.
+
 ## [1.2.2] — 2026-07-01 — "Kraken's Wake"
 
 ### Fixed
