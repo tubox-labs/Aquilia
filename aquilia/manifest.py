@@ -42,6 +42,11 @@ class ComponentKind(str, Enum):
     FAULT_HANDLER = "fault_handler"
     SOCKET_CONTROLLER = "socket_controller"
     SERIALIZER = "serializer"
+    TASK = "task"
+    EVENT_HANDLER = "event_handler"
+    INTEGRATION = "integration"
+    COMMAND = "command"
+    VALIDATOR = "validator"
 
 
 @dataclass
