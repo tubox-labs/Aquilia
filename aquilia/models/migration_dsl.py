@@ -681,6 +681,27 @@ class AddConstraint(Operation):
     constraint_sql: str
 
     def to_sql(self, dialect: str = "sqlite") -> list[str]:
+        if dialect == "sqlite":
+            import re
+
+            # Translate UNIQUE constraints to CREATE UNIQUE INDEX on SQLite
+            match = re.search(
+                r'CONSTRAINT\s+["\']([^"\']+)["\']\s+UNIQUE\s*\((.+)\)', self.constraint_sql, re.IGNORECASE | re.DOTALL
+            )
+            if match:
+                index_name = match.group(1)
+                exprs = match.group(2)
+                return [f'CREATE UNIQUE INDEX IF NOT EXISTS "{index_name}" ON "{self.table}" ({exprs});']
+
+            match_no_name = re.search(r"UNIQUE\s*\((.+)\)", self.constraint_sql, re.IGNORECASE | re.DOTALL)
+            if match_no_name:
+                exprs = match_no_name.group(1)
+                clean_expr = re.sub(r"[^a-zA-Z0-9_]", "_", exprs).strip("_")
+                index_name = f"uidx_{self.table}_{clean_expr}"
+                return [f'CREATE UNIQUE INDEX IF NOT EXISTS "{index_name}" ON "{self.table}" ({exprs});']
+
+            return [f"-- SQLite: Cannot add check/exclude constraint via ALTER TABLE: {self.constraint_sql};"]
+
         return [f'ALTER TABLE "{self.table}" ADD {self.constraint_sql};']
 
     def describe(self) -> str:
