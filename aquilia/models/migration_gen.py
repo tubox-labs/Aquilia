@@ -14,6 +14,7 @@ from pathlib import Path
 
 from .migration_dsl import (
     _SENTINEL,
+    AddConstraint,
     AddField,
     AlterField,
     ColumnDef,
@@ -22,6 +23,7 @@ from .migration_dsl import (
     DropIndex,
     DropModel,
     Operation,
+    RemoveConstraint,
     RemoveField,
     RenameField,
     RenameModel,
@@ -241,7 +243,12 @@ def _render_operation(op: Operation) -> str:
             f"    ),"
         )
     elif isinstance(op, DropIndex):
-        return f"    DropIndex(name={op.name!r}),"
+        t = f", table={op.table!r}" if op.table else ""
+        return f"    DropIndex(name={op.name!r}{t}),"
+    elif isinstance(op, AddConstraint):
+        return f"    AddConstraint(\n        table={op.table!r},\n        constraint_sql={op.constraint_sql!r},\n    ),"
+    elif isinstance(op, RemoveConstraint):
+        return f"    RemoveConstraint(table={op.table!r}, name={op.name!r}),"
     elif isinstance(op, RunSQL):
         return f"    RunSQL(sql={op.sql!r}),"
     else:
