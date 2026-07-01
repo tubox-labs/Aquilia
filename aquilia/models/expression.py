@@ -571,7 +571,7 @@ class Func(Expression):
                 "Function names must contain only letters, digits, and underscores.",
             )
         self.function = function
-        self.args = [a if isinstance(a, Expression) else Value(a) for a in args]
+        self.args = [_coerce_expression(a) for a in args]
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         params: list[Any] = []
