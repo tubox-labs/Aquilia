@@ -933,7 +933,6 @@ def _find_available_port(host: str, port: int) -> int:
     for _ in range(max_attempts):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
-                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 s.bind((check_host, current_port))
                 break
             except OSError:
