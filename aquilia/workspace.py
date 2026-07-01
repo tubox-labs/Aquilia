@@ -517,6 +517,9 @@ class Workspace:
             elif integration_type == "render":
                 self._integrations["render"] = integration
                 self._render_config = integration
+            elif integration_type == "database":
+                self._integrations["database"] = integration
+                self._database_config = integration
             return self
 
         # Determine integration type from keys (legacy detection)
