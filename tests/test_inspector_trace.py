@@ -13,10 +13,9 @@ def test_request_trace_duration_and_dict():
         started_monotonic=time.monotonic(),
     )
 
-    time.sleep(0.01)
-    t.finished_monotonic = time.monotonic()
+    t.finished_monotonic = t.started_monotonic + 0.01
 
-    # Check duration calculation (should be around 10ms+)
+    # Check duration calculation (should be around 10ms)
     assert t.duration_ms >= 5.0
 
     # Add spans
