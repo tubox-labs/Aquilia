@@ -998,8 +998,9 @@ class AdminSite:
             indexes_info: list[dict[str, Any]] = []
             if meta:
                 for idx in getattr(meta, "indexes", []):
+                    idx_fields = getattr(idx, "fields", [])
                     idx_entry: dict[str, Any] = {
-                        "fields": getattr(idx, "fields", []),
+                        "fields": [str(f) if not isinstance(f, str) else f for f in idx_fields],
                         "name": getattr(idx, "name", None),
                         "unique": getattr(idx, "unique", False),
                     }
@@ -1044,7 +1045,7 @@ class AdminSite:
                         "type": type(c).__name__,
                     }
                     if hasattr(c, "fields"):
-                        c_entry["fields"] = list(c.fields)
+                        c_entry["fields"] = [str(f) if not isinstance(f, str) else f for f in c.fields]
                     if hasattr(c, "check"):
                         c_entry["check_expression"] = str(c.check)
                     if hasattr(c, "violation_error_message"):
