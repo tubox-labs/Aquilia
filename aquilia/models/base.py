@@ -42,7 +42,6 @@ from typing import (
     ClassVar,
 )
 
-from .constraint import CheckConstraint
 from .deletion import (
     OnDeleteHandler,
 )
@@ -1627,11 +1626,22 @@ class Model(metaclass=ModelMeta):
 
         # Meta.constraints -- CheckConstraint, UniqueConstraint, etc.
         for constraint in cls._meta.constraints:
-            if isinstance(constraint, CheckConstraint):
+            if hasattr(constraint, "sql"):
                 builder.constraint(constraint.sql(cls._table_name, dialect))
             elif hasattr(constraint, "fields"):
-                col_list = ", ".join(f'"{f}"' for f in constraint.fields)
-                builder.constraint(f"UNIQUE ({col_list})")
+                from .schema_snapshot import _compile_schema_expression
+
+                cols = []
+                for f in constraint.fields:
+                    if isinstance(f, str):
+                        cols.append(f'"{f}"')
+                    else:
+                        cols.append(_compile_schema_expression(f, cls, dialect))
+                col_list = ", ".join(cols)
+                if getattr(constraint, "name", None):
+                    builder.constraint(f'CONSTRAINT "{constraint.name}" UNIQUE ({col_list})')
+                else:
+                    builder.constraint(f"UNIQUE ({col_list})")
 
         return builder.build()
 
