@@ -347,16 +347,25 @@ class WorkspaceGenerator:
                 # v2: Merge AST-discovered components with manifest declarations
                 if mod_name in ast_results:
                     result = ast_results[mod_name]
-                    # AST engine provides more accurate classification
-                    controllers_list = [c.import_path for c in result.controllers] or manifest_controllers_list
-                    services_list = [c.import_path for c in result.services] or manifest_services_list
-                    guards_list = [c.import_path for c in result.guards] or manifest_guards_list
-                    pipes_list = [c.import_path for c in result.pipes] or manifest_pipes_list
-                    interceptors_list = [c.import_path for c in result.interceptors] or manifest_interceptors_list
-                    socket_controllers_list = [
-                        c.import_path for c in result.socket_controllers
-                    ] or manifest_socket_controllers_list
-                    middleware_list = [c.import_path for c in result.middleware] or manifest_middleware_list
+                    auto_discover = (
+                        self._extract_field(manifest_content, r"auto_discover\s*=\s*(True|False)", "True") == "True"
+                    )
+                    if auto_discover:
+                        controllers_list = [c.import_path for c in result.controllers]
+                        services_list = [c.import_path for c in result.services]
+                        guards_list = [c.import_path for c in result.guards]
+                        pipes_list = [c.import_path for c in result.pipes]
+                        interceptors_list = [c.import_path for c in result.interceptors]
+                        socket_controllers_list = [c.import_path for c in result.socket_controllers]
+                        middleware_list = [c.import_path for c in result.middleware]
+                    else:
+                        controllers_list = manifest_controllers_list
+                        services_list = manifest_services_list
+                        guards_list = manifest_guards_list
+                        pipes_list = manifest_pipes_list
+                        interceptors_list = manifest_interceptors_list
+                        socket_controllers_list = manifest_socket_controllers_list
+                        middleware_list = manifest_middleware_list
                 else:
                     # Fallback: try EnhancedDiscovery
                     services_list = manifest_services_list
