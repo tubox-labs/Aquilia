@@ -29,6 +29,8 @@ long_description = readme_file.read_text(encoding="utf-8") if readme_file.exists
 CORE_DEPS = [
     "click>=8.1.0",
     "uvicorn>=0.30.0",
+    "jinja2>=3.1.0",
+    "markupsafe>=2.1.0",
     # Surp serializer — used for manifest compilation and runtime evaluation
     "surp",
 ]
