@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] — 2026-07-01 — "Kraken's Wake"
+
+### Fixed
+- **Database Integration Configuration**: Fixed `Workspace.integrate()` to correctly handle `DatabaseIntegration` protocol instances and set `self._database_config`. This ensures the database configurations are correctly populated in the root configuration layout and resolved at ASGI app startup.
+- **ORM Schema Expression Serialization**: Added automatic string casting for expression constraints (like `Lower` or `Upper`) and expression-based index fields within the admin dashboard's model metadata collection (`get_model_schema()`). This prevents `TypeError: Object of type Lower is not JSON serializable` when inspecting models that use function-based constraints or indexes.
+- **Auto-Discovery Integration in CLI**: Replaced the legacy parser inside the server startup sequence with the unified next-generation `AutoDiscoveryEngine` to automatically sync manifests when running the development server.
+- **SQLite Alter Constraints**: Modified migration translation to translate `UniqueConstraint` into unique indexes when applying migrations on SQLite databases.
+
 ## [1.2.1] — 2026-07-01 — "Kraken's Wake"
 
 ### Fixed
