@@ -629,6 +629,7 @@ def run_dev_server(
     rt = _load_workspace_runtime_config(workspace_root)
     host = host if host is not None else rt.get("host", "127.0.0.1")
     port = port if port is not None else rt.get("port", 8000)
+    port = _find_available_port(host, port)
     reload = reload if reload is not None else rt.get("reload", True)
 
     # Set environment variables
@@ -912,3 +913,39 @@ def _find_app_module(workspace_root: Path, verbose: bool = False) -> str | None:
                     return app_ref
 
     return None
+
+
+def _find_available_port(host: str, port: int) -> int:
+    """
+    Find the next available port starting from the given port.
+    If the port is occupied, it increments by 1 and checks again,
+    up to 100 attempts.
+    """
+    import socket
+
+    import click
+
+    original_port = port
+    current_port = port
+    check_host = "127.0.0.1" if host in ("0.0.0.0", "") else host
+
+    max_attempts = 100
+    for _ in range(max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                s.bind((check_host, current_port))
+                break
+            except OSError:
+                current_port += 1
+    else:
+        # If we couldn't find any free port in 100 attempts, fall back to the original port
+        current_port = original_port
+
+    if current_port != original_port:
+        click.secho(
+            f"⚡ Port {original_port} is occupied. Switching to port {current_port}.",
+            fg="yellow",
+            bold=True,
+        )
+    return current_port

@@ -70,6 +70,10 @@ def serve_production(
         host = rt.get("host", "0.0.0.0")
         port = rt.get("port", 8000)
 
+    from .run import _find_available_port
+
+    port = _find_available_port(host, port)
+
     workers = workers if workers is not None else rt.get("workers", 1)
 
     # Add workspace to path
