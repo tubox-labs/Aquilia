@@ -2312,11 +2312,30 @@ class Index:
         self.unique = unique
 
     def sql(self, table_name: str, dialect: str = "sqlite") -> str:
-        idx_name = self.name or f"idx_{table_name}_{'_'.join(self.fields)}"
+        from .schema_snapshot import _compile_schema_expression
+
+        model_cls = getattr(self, "model", None)
+
+        name_parts = []
+        for f in self.fields:
+            if isinstance(f, str):
+                name_parts.append(f)
+            else:
+                name_parts.append(f"{type(f).__name__.lower()}")
+
+        idx_name = self.name or f"idx_{table_name}_{'_'.join(name_parts)}"
         u = "UNIQUE " if self.unique else ""
-        cols = ", ".join(f'"{f}"' for f in self.fields)
+
+        cols = []
+        for f in self.fields:
+            if isinstance(f, str):
+                cols.append(f'"{f}"')
+            else:
+                cols.append(_compile_schema_expression(f, model_cls, dialect))
+
+        cols_str = ", ".join(cols)
         ine = "" if dialect == "mysql" else " IF NOT EXISTS"
-        return f'CREATE {u}INDEX{ine} "{idx_name}" ON "{table_name}" ({cols});'
+        return f'CREATE {u}INDEX{ine} "{idx_name}" ON "{table_name}" ({cols_str});'
 
 
 class UniqueConstraint:
@@ -2333,3 +2352,10 @@ class UniqueConstraint:
     def __init__(self, *, fields: list[str], name: str | None = None):
         self.fields = fields
         self.name = name
+
+    def deconstruct(self) -> dict[str, Any]:
+        return {
+            "type": "UniqueConstraint",
+            "fields": self.fields,
+            "name": self.name,
+        }
