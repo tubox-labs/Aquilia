@@ -1477,8 +1477,22 @@ def ws_kick(ctx, conn: str, reason: str, redis_url: str | None):
 @click.option("--sync", is_flag=True, help="Auto-sync discovered components into manifest.py files")
 @click.option("--dry-run", is_flag=True, help="Preview sync changes without writing (use with --sync)")
 @click.option("--json", "as_json", is_flag=True, help="Output results as JSON")
+@click.option("--validate", is_flag=True, help="Run deep validation on workspace and modules")
+@click.option("--fix", is_flag=True, help="Fix stale registry/import references automatically")
+@click.option("--clean", is_flag=True, help="Purge obsolete and empty configuration values")
+@click.option("--graph", "graph_path", type=str, default=None, help="Path to output dependency graph DOT file")
 @click.pass_context
-def discover(ctx, path: str | None, sync: bool, dry_run: bool, as_json: bool):
+def discover(
+    ctx,
+    path: str | None,
+    sync: bool,
+    dry_run: bool,
+    as_json: bool,
+    validate: bool,
+    fix: bool,
+    clean: bool,
+    graph_path: str | None,
+):
     """Inspect auto-discovered modules in workspace.
 
     Examples:
@@ -1486,6 +1500,10 @@ def discover(ctx, path: str | None, sync: bool, dry_run: bool, as_json: bool):
       aq discover --sync
       aq discover --sync --dry-run
       aq discover --json
+      aq discover --validate
+      aq discover --fix
+      aq discover --clean
+      aq discover --graph=deps.dot
     """
     from .commands.discover import DiscoveryInspector
 
@@ -1496,6 +1514,11 @@ def discover(ctx, path: str | None, sync: bool, dry_run: bool, as_json: bool):
             verbose=ctx.obj["verbose"],
             sync=sync,
             dry_run=dry_run,
+            validate=validate,
+            fix=fix,
+            clean=clean,
+            graph_path=graph_path,
+            as_json=as_json,
         )
     except Exception as e:
         error(f"  {_CROSS} Discovery failed: {e}")
@@ -3579,7 +3602,6 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
       aq admin setup --database-url=postgresql://...
     """
     import asyncio
-    import textwrap
 
     click.echo()
     banner("AquilAdmin", subtitle="Auto-Setup")
@@ -3620,23 +3642,50 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
         needed_imports.append("from aquilia.sessions import PersistencePolicy")
     if "ConcurrencyPolicy" not in import_lines:
         needed_imports.append("from aquilia.sessions import ConcurrencyPolicy")
+    if "AdminIntegration" not in import_lines:
+        needed_imports.append("from aquilia.integrations import AdminIntegration")
+    if "DatabaseIntegration" not in import_lines and "DatabaseIntegration" in content:
+        needed_imports.append("from aquilia.integrations import DatabaseIntegration")
 
     if needed_imports:
-        # Insert after the last import line
-        lines = content.splitlines()
-        last_import_idx = 0
-        for i, line in enumerate(lines):
-            stripped = line.strip()
-            if stripped.startswith("from ") or stripped.startswith("import "):
-                if not stripped.startswith("#"):
-                    last_import_idx = i
+        # Use AST to locate the end of imports safely, avoiding splitting multi-line blocks
+        import ast
 
-        for imp in needed_imports:
-            lines.insert(last_import_idx + 1, imp)
-            last_import_idx += 1
-            changes_made.append(f"Added import: {imp}")
+        try:
+            tree = ast.parse(content)
+            max_line = 0
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    end_line = getattr(node, "end_lineno", node.lineno)
+                    if end_line > max_line:
+                        max_line = end_line
+            if max_line > 0:
+                lines = content.splitlines()
+                for imp in needed_imports:
+                    lines.insert(max_line, imp)
+                    max_line += 1
+                    changes_made.append(f"Added import: {imp}")
+                content = "\n".join(lines)
+            else:
+                lines = content.splitlines()
+                for imp in needed_imports:
+                    lines.insert(10, imp)
+                    changes_made.append(f"Added import: {imp}")
+                content = "\n".join(lines)
+        except Exception:
+            lines = content.splitlines()
+            last_import_idx = 0
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                if stripped.startswith("from ") or stripped.startswith("import "):
+                    if not stripped.startswith("#"):
+                        last_import_idx = i
+            for imp in needed_imports:
+                lines.insert(last_import_idx + 1, imp)
+                last_import_idx += 1
+                changes_made.append(f"Added import: {imp}")
+            content = "\n".join(lines)
 
-        content = "\n".join(lines)
         active = _active(content)
         success(f"    {_CHECK} Added {len(needed_imports)} import(s)")
     else:
@@ -3672,44 +3721,47 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
             success(f"    {_CHECK} Uncommented .sessions(...) block")
         else:
             # Inject a sessions block before the admin integration or at the end
-            sessions_block = textwrap.dedent("""\
-
-    # Sessions -- required for admin login
-    .sessions(
-        policies=[
-            SessionPolicy(
-                name="default",
-                ttl=timedelta(days=7),
-                idle_timeout=timedelta(hours=1),
-                absolute_timeout=timedelta(days=30),
-                rotate_on_use=False,
-                rotate_on_privilege_change=True,
-                fingerprint_binding=False,
-                scope="user",
-                persistence=PersistencePolicy(
-                    enabled=True,
-                    store_name="default",
-                    write_through=True,
-                    compress=False,
-                ),
-                concurrency=ConcurrencyPolicy(
-                    max_sessions_per_principal=5,
-                    behavior_on_limit="evict_oldest",
-                ),
-                transport=TransportPolicy(
-                    cookie_name="aquilia_admin_session",
-                    cookie_secure=False,
-                    cookie_httponly=True,
-                    cookie_samesite="lax",
-                ),
-            ),
-        ],
-    )""")
+            sessions_block = "\n" + "\n".join(
+                "    " + line
+                for line in [
+                    "# Sessions -- required for admin login",
+                    ".sessions(",
+                    "    policies=[",
+                    "        SessionPolicy(",
+                    '            name="default",',
+                    "            ttl=timedelta(days=7),",
+                    "            idle_timeout=timedelta(hours=1),",
+                    "            absolute_timeout=timedelta(days=30),",
+                    "            rotate_on_use=False,",
+                    "            rotate_on_privilege_change=True,",
+                    "            fingerprint_binding=False,",
+                    '            scope="user",',
+                    "            persistence=PersistencePolicy(",
+                    "                enabled=True,",
+                    '                store_name="default",',
+                    "                write_through=True,",
+                    "                compress=False,",
+                    "            ),",
+                    "            concurrency=ConcurrencyPolicy(",
+                    "                max_sessions_per_principal=5,",
+                    '                behavior_on_limit="evict_oldest",',
+                    "            ),",
+                    "            transport=TransportPolicy(",
+                    '                cookie_name="aquilia_admin_session",',
+                    "                cookie_secure=False,",
+                    "                cookie_httponly=True,",
+                    '                cookie_samesite="lax",',
+                    "            ),",
+                    "        ),",
+                    "    ],",
+                    ")",
+                ]
+            )
             # Find the admin integration line or the closing ')'
             lines = content.splitlines()
             insert_idx = None
             for i, line in enumerate(lines):
-                if "Integration.admin(" in line and not line.lstrip().startswith("#"):
+                if ("Integration.admin(" in line or "AdminIntegration(" in line) and not line.lstrip().startswith("#"):
                     insert_idx = i
                     break
             if insert_idx is None:
@@ -3730,10 +3782,34 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
     else:
         dim(f"    {_CHECK} Sessions already configured")
 
-    # ── Step 3: Ensure Integration.admin(...) ────────────────────────
+    # ── Step 3: Ensure AdminIntegration(...) ────────────────────────
     step(3, "Checking admin integration...")
-    if "Integration.admin(" not in active:
-        if "# .integrate(Integration.admin(" in content or "#.integrate(Integration.admin(" in content:
+    has_admin = "Integration.admin(" in active or "AdminIntegration(" in active
+    if not has_admin:
+        if "# .integrate(AdminIntegration(" in content or "#.integrate(AdminIntegration(" in content:
+            content = _re.sub(
+                r"#\s*\.integrate\(AdminIntegration\(",
+                ".integrate(AdminIntegration(",
+                content,
+                count=1,
+            )
+            lines = content.splitlines()
+            in_admin_block = False
+            for i, line in enumerate(lines):
+                if ".integrate(AdminIntegration(" in line and not line.lstrip().startswith("#"):
+                    in_admin_block = True
+                    continue
+                if in_admin_block:
+                    stripped = line.lstrip()
+                    if stripped.startswith("# "):
+                        lines[i] = line.replace("# ", "", 1)
+                    if "))" in line:
+                        in_admin_block = False
+            content = "\n".join(lines)
+            active = _active(content)
+            changes_made.append("Uncommented AdminIntegration(...)")
+            success(f"    {_CHECK} Uncommented admin integration")
+        elif "# .integrate(Integration.admin(" in content or "#.integrate(Integration.admin(" in content:
             # Uncomment it
             content = _re.sub(
                 r"#\s*\.integrate\(Integration\.admin\(",
@@ -3760,14 +3836,17 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
             success(f"    {_CHECK} Uncommented admin integration")
         else:
             # Inject admin integration before the closing ')'
-            admin_block = textwrap.dedent("""\
-
-    # Admin Dashboard
-    .integrate(Integration.admin(
-        url_prefix="/admin",
-        site_title="Admin",
-        auto_discover=True,
-    ))""")
+            admin_block = "\n" + "\n".join(
+                "    " + line
+                for line in [
+                    "# Admin Dashboard",
+                    ".integrate(AdminIntegration(",
+                    '    url_prefix="/admin",',
+                    '    site_title="Admin",',
+                    "    auto_discover=True,",
+                    "))",
+                ]
+            )
             lines = content.splitlines()
             for i in range(len(lines) - 1, -1, -1):
                 if lines[i].strip() == ")":
@@ -3776,48 +3855,54 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
                     break
             content = "\n".join(lines)
             active = _active(content)
-            changes_made.append("Injected Integration.admin(...)")
+            changes_made.append("Injected AdminIntegration(...)")
             success(f"    {_CHECK} Injected admin integration")
     else:
         dim(f"    {_CHECK} Admin integration already configured")
 
-    # ── Step 4: Ensure Integration.database(...) ─────────────────────
+    # ── Step 4: Ensure DatabaseIntegration(...) ─────────────────────
     step(4, "Checking database integration...")
-    if "Integration.database(" not in active:
+    has_db = "Integration.database(" in active or "DatabaseIntegration(" in active
+    if not has_db:
         # Try to uncomment a commented-out database integration line first
-        if "# .integrate(Integration.database(" in content or "#.integrate(Integration.database(" in content:
-            content = _re.sub(
-                r"#\s*\.integrate\(Integration\.database\(",
-                ".integrate(Integration.database(",
-                content,
-                count=1,
-            )
-            # Uncomment any immediately following commented lines until closing ))
+        is_db_commented = (
+            "# .integrate(DatabaseIntegration(" in content
+            or "#.integrate(DatabaseIntegration(" in content
+            or "# .integrate(Integration.database(" in content
+            or "#.integrate(Integration.database(" in content
+        )
+        if is_db_commented:
             lines = content.splitlines()
             in_db_block = False
             for i, line in enumerate(lines):
-                if ".integrate(Integration.database(" in line and not line.lstrip().startswith("#"):
+                stripped = line.lstrip()
+                is_db_start = (
+                    stripped.startswith("# .integrate(DatabaseIntegration(")
+                    or stripped.startswith("#.integrate(DatabaseIntegration(")
+                    or stripped.startswith("# .integrate(Integration.database(")
+                    or stripped.startswith("#.integrate(Integration.database(")
+                )
+                if is_db_start:
+                    lines[i] = line.replace("# .integrate", ".integrate", 1).replace("#.integrate", ".integrate", 1)
                     in_db_block = True
                     if "))" in line:
                         in_db_block = False
                     continue
                 if in_db_block:
-                    stripped = line.lstrip()
                     if stripped.startswith("# "):
                         lines[i] = line.replace("# ", "", 1)
                     if "))" in line:
                         in_db_block = False
             content = "\n".join(lines)
             active = _active(content)
-            changes_made.append("Uncommented Integration.database(...)")
+            changes_made.append("Uncommented database integration")
             success(f"    {_CHECK} Uncommented database integration")
         else:
             # Inject database integration before sessions or admin block, or before closing ')'
             db_url_val = database_url or "sqlite:///db.sqlite3"
-            db_block = textwrap.dedent(f"""\
-
-    # Database
-    .integrate(Integration.database(url="{db_url_val}"))""")
+            db_block = "\n" + "\n".join(
+                "    " + line for line in ["# Database", f'.integrate(DatabaseIntegration(url="{db_url_val}"))']
+            )
             lines = content.splitlines()
             insert_idx = None
             # Prefer inserting before the sessions block
@@ -3828,7 +3913,9 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
             # Fall back to before the admin integration
             if insert_idx is None:
                 for i, line in enumerate(lines):
-                    if "Integration.admin(" in line and not line.lstrip().startswith("#"):
+                    if ("Integration.admin(" in line or "AdminIntegration(" in line) and not line.lstrip().startswith(
+                        "#"
+                    ):
                         insert_idx = i
                         break
             # Last resort: before the closing ')'
@@ -3842,18 +3929,19 @@ def admin_setup(ctx, non_interactive: bool, database_url: str | None):
                     lines.insert(insert_idx + j, sline)
                 content = "\n".join(lines)
                 active = _active(content)
-                changes_made.append("Injected Integration.database(...)")
+                changes_made.append("Injected DatabaseIntegration(...)")
                 success(f"    {_CHECK} Injected database integration (url={db_url_val})")
             else:
-                warning("    ! Could not find insertion point -- add Integration.database() manually")
+                warning("    ! Could not find insertion point -- add DatabaseIntegration() manually")
     else:
         dim(f"    {_CHECK} Database integration present")
 
-    # ── Step 5: Ensure Integration.static_files(...) ─────────────────
+    # ── Step 5: Ensure StaticFilesIntegration(...) ─────────────────
     step(5, "Checking static files integration...")
-    if "Integration.static_files(" not in active:
+    has_static = "Integration.static_files(" in active or "StaticFilesIntegration(" in active
+    if not has_static:
         warning("    ! No static files integration -- admin CSS/JS may not load")
-        info('      Add: .integrate(Integration.static_files(directories={"/static": "static"}))')
+        info('      Add: .integrate(StaticFilesIntegration(directories={"/static": "static"}))')
     else:
         dim(f"    {_CHECK} Static files integration present")
 
