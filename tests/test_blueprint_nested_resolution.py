@@ -157,3 +157,33 @@ def test_meta_class_raises_blueprint_fault():
 
             class Meta:
                 fields = "__all__"
+
+
+def test_generic_subscriptable_nested_blueprint():
+    # 1. Single instance
+    class UsersBlueprint(Blueprint):
+        name: NestedBlueprintFacet[NameBlueprint]
+
+    bp = UsersBlueprint(data={"name": {"first_name": "Ada", "last_name": "Lovelace"}})
+    assert bp.is_sealed() is True
+    assert bp.validated_data["name"]["first_name"] == "Ada"
+
+    instance = _Obj(name=_Obj(first_name="Ada", last_name="Lovelace"))
+    assert UsersBlueprint(instance=instance).to_dict() == {"name": {"first_name": "Ada", "last_name": "Lovelace"}}
+
+    # 2. List (many) instance
+    class UsersListBlueprint(Blueprint):
+        names: NestedBlueprintFacet[NameBlueprint, True]
+
+    bp_list = UsersListBlueprint(data={"names": [{"first_name": "Ada", "last_name": "Lovelace"}]})
+    assert bp_list.is_sealed() is True
+    assert bp_list.validated_data["names"][0]["first_name"] == "Ada"
+
+    # 3. Forward reference (string representation)
+    class LazyUsersBlueprint(Blueprint):
+        name: NestedBlueprintFacet["NameBlueprint"]
+
+    bp_lazy = LazyUsersBlueprint(data={"name": {"first_name": "Ada", "last_name": "Lovelace"}})
+    assert bp_lazy.is_sealed() is True
+    assert bp_lazy.validated_data["name"]["first_name"] == "Ada"
+
