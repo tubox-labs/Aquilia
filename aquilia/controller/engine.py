@@ -1238,8 +1238,8 @@ class ControllerEngine:
             self.logger.warning("Blueprint system not available. Returning raw result.")
             return result
         except Exception as e:
-            self.logger.warning(f"Response Blueprint molding failed: {e}. Returning raw result.")
-            return result
+            self.logger.error(f"Response Blueprint molding failed: {e}")
+            raise
 
     async def _apply_filters_and_pagination(
         self,
