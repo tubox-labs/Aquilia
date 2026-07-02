@@ -311,7 +311,11 @@ class Aquilary:
 
         # Phase 2: Validate manifests
         validator = RegistryValidator(mode=registry_mode)
-        validation_report = validator.validate_manifests(loaded_manifests, config)
+        validation_report = validator.validate_manifests(
+            loaded_manifests,
+            config,
+            workspace_modules=workspace_modules,
+        )
 
         if validation_report.has_errors():
             raise validation_report.to_exception()

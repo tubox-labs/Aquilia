@@ -34,6 +34,7 @@ class RegistryValidator:
         self,
         manifests: list[Any],
         config: Any,
+        workspace_modules: dict[str, dict[str, Any]] | None = None,
     ) -> ValidationReport:
         """
         Validate all manifests.
@@ -41,6 +42,7 @@ class RegistryValidator:
         Args:
             manifests: List of manifest objects
             config: Config object
+            workspace_modules: Module configs from workspace.py (route_prefix, etc.)
 
         Returns:
             ValidationReport with errors/warnings
@@ -58,7 +60,7 @@ class RegistryValidator:
             self._validate_config_namespace(manifest, config, report)
 
         # Phase 3: Validate route conflicts
-        self._validate_route_conflicts(manifests, report)
+        self._validate_route_conflicts(manifests, report, workspace_modules)
 
         # Phase 4: Validate cross-app usage (if in strict mode)
         if self.mode.value == "prod":
@@ -236,6 +238,7 @@ class RegistryValidator:
         self,
         manifests: list[Any],
         report: ValidationReport,
+        workspace_modules: dict[str, dict[str, Any]] | None = None,
     ) -> None:
         """
         Validate no route conflicts between apps (v2: real detection).
@@ -246,9 +249,19 @@ class RegistryValidator:
         """
         # Build prefix → owners map
         prefix_owners: dict[str, list[str]] = {}
+        ws_modules = workspace_modules or {}
 
         for manifest in manifests:
-            prefix = getattr(manifest, "route_prefix", "/") or "/"
+            ws_module = ws_modules.get(manifest.name, {})
+            ws_prefix = ws_module.get("route_prefix")
+            manifest_prefix = getattr(manifest, "route_prefix", None)
+
+            if ws_prefix:
+                prefix = ws_prefix
+            elif manifest_prefix:
+                prefix = manifest_prefix
+            else:
+                prefix = f"/{manifest.name}"
             # Normalize prefix
             prefix = prefix.rstrip("/") or "/"
 

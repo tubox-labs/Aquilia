@@ -968,9 +968,6 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 return self._validated_data
             return {}
 
-        if isinstance(obj, Blueprint):
-            return obj.to_dict(_depth=_depth, _seen=_seen)
-
         # Resolve projection
         projection_fields = self._projections.resolve(self._projection_name)
 

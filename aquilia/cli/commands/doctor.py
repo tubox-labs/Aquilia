@@ -370,7 +370,17 @@ def _check_pipeline(
         except Exception:
             pass
 
-        report_obj = validator.validate_manifests(loaded_manifests, _config)
+        # Load workspace modules if available
+        workspace_modules = None
+        try:
+            from aquilia.runtime import AquiliaRuntime, RuntimeConfig
+
+            rc = RuntimeConfig(workspace_root=Path.cwd(), mode="dev")
+            workspace_modules = AquiliaRuntime(rc)._load_workspace_modules()
+        except Exception:
+            pass
+
+        report_obj = validator.validate_manifests(loaded_manifests, _config, workspace_modules=workspace_modules)
         if report_obj.has_errors():
             for err in report_obj.errors:
                 report.add("Pipeline", "Registry validation", False, str(err)[:120])

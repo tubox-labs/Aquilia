@@ -261,7 +261,19 @@ def validate_workspace(
             except Exception:
                 pass
 
-            pipeline_report = validator.validate_manifests(loaded_manifests, _config)
+            # Load workspace modules if available
+            workspace_modules = None
+            try:
+                from aquilia.runtime import AquiliaRuntime, RuntimeConfig
+
+                rc = RuntimeConfig(workspace_root=Path.cwd(), mode="dev")
+                workspace_modules = AquiliaRuntime(rc)._load_workspace_modules()
+            except Exception:
+                pass
+
+            pipeline_report = validator.validate_manifests(
+                loaded_manifests, _config, workspace_modules=workspace_modules
+            )
 
             for err in pipeline_report.errors:
                 err_str = str(err)
