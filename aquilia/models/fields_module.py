@@ -821,6 +821,10 @@ class CharField(Field):
     def validate(self, value: Any) -> Any:
         value = super().validate(value)
         if value is None:
+            # String fields with blank=True, null=False store "" not NULL
+            # (Django convention: avoid two representations of "no data").
+            if self.blank and not self.null:
+                return ""
             return None
         if not isinstance(value, str):
             value = str(value)
@@ -831,6 +835,13 @@ class CharField(Field):
         if len(value) > self.max_length:
             raise FieldValidationError(self.name, f"Max length is {self.max_length}, got {len(value)} characters")
         return value
+
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
+        # String fields with null=False must never write NULL to the database.
+        # Coerce None to "" to satisfy the NOT NULL constraint.
+        if value is None and not self.null:
+            return ""
+        return super().to_db(value, dialect)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "oracle":
@@ -858,12 +869,21 @@ class TextField(Field):
     def validate(self, value: Any) -> Any:
         value = super().validate(value)
         if value is None:
+            # String fields with blank=True, null=False store "" not NULL.
+            if self.blank and not self.null:
+                return ""
             return None
         if not isinstance(value, str):
             value = str(value)
         if not value.strip() and not self.blank:
             raise FieldValidationError(self.name, "Cannot be blank")
         return value
+
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
+        # String fields with null=False must never write NULL to the database.
+        if value is None and not self.null:
+            return ""
+        return super().to_db(value, dialect)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "oracle":
@@ -1959,6 +1979,9 @@ class GenericIPAddressField(Field):
     def validate(self, value: Any) -> Any:
         value = super().validate(value)
         if value is None:
+            # String-backed field: blank=True, null=False → store "" not NULL.
+            if self.blank and not self.null:
+                return ""
             return None
         if not isinstance(value, str):
             value = str(value)
@@ -1971,6 +1994,11 @@ class GenericIPAddressField(Field):
             return str(addr)
         except ValueError:
             raise FieldValidationError(self.name, f"Invalid IP address: '{value}'")
+
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
+        if value is None and not self.null:
+            return ""
+        return super().to_db(value, dialect)
 
     def sql_type(self, dialect: str = "sqlite") -> str:
         if dialect == "postgresql":
