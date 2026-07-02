@@ -339,6 +339,30 @@ class NestedBlueprintFacet(Facet):
         self.many = many
         self._max_depth = max_nesting_depth or self.MAX_NESTING_DEPTH
 
+    def __class_getitem__(cls, params: Any) -> Any:
+        """Allow indexing with a Blueprint class to instantiate the facet.
+
+        Supports:
+            NestedBlueprintFacet[MyBlueprint]
+            NestedBlueprintFacet[MyBlueprint, True]  # sets many=True
+        """
+        from typing import ForwardRef
+
+        if isinstance(params, tuple):
+            if not params:
+                raise TypeError("NestedBlueprintFacet[...] expects at least one Blueprint class argument")
+            blueprint_cls = params[0]
+            many = params[1] if len(params) > 1 else False
+        else:
+            blueprint_cls = params
+            many = False
+
+        if isinstance(blueprint_cls, (str, ForwardRef)):
+            ref_name = _extract_ref_name(blueprint_cls)
+            return LazyBlueprintFacet(ref_name, many=bool(many))
+
+        return cls(blueprint_cls, many=bool(many))
+
     @property
     def target(self) -> type:
         return self._blueprint_cls
