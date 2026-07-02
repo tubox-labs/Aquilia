@@ -1548,7 +1548,31 @@ class Computed(Facet):
                 result = method()
                 return result
             return None
-        # Callable
+        # Callable -- may be a lambda(instance) or an unbound method(self, instance)
+        # from @computed decorator. Detect by inspecting parameter count.
+        import inspect
+
+        try:
+            sig = inspect.signature(self._compute)
+            if len(sig.parameters) >= 2:
+                # Unbound method: needs (blueprint_self, instance)
+                bp = self.blueprint
+                if bp is None:
+                    # Facets are class-level shared; blueprint is not bound per-instance.
+                    # Create a minimal owning Blueprint instance for method binding.
+                    qualname = getattr(self._compute, "__qualname__", "")
+                    if "." in qualname:
+                        cls_name = qualname.rsplit(".", 1)[0]
+                        # Walk the declaring module to find the class
+                        mod = inspect.getmodule(self._compute)
+                        if mod is not None:
+                            bp_cls = getattr(mod, cls_name, None)
+                            if bp_cls is not None:
+                                bp = bp_cls.__new__(bp_cls)
+                if bp is not None:
+                    return self._compute(bp, instance)
+        except (ValueError, TypeError):
+            pass
         return self._compute(instance)
 
     def mold(self, value: Any) -> Any:
