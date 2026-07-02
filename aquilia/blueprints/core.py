@@ -261,6 +261,13 @@ class BlueprintMeta(type):
         for key, value in list(namespace.items()):
             if isinstance(value, Facet):
                 declared_facets[key] = value
+            elif isinstance(value, mcs):
+                # Auto-wrap Blueprint subclass assignments in a NestedBlueprintFacet
+                from .annotations import NestedBlueprintFacet
+
+                facet = NestedBlueprintFacet(value)
+                declared_facets[key] = facet
+                namespace[key] = facet
 
         # Clean up Field/ComputedMarker descriptors from namespace
         # so they don't pollute the class dict.
@@ -292,6 +299,14 @@ class BlueprintMeta(type):
 
         # Parse Spec inner class
         spec_cls = namespace.pop("Spec", None)
+        if "Meta" in namespace:
+            from .exceptions import BlueprintFault
+
+            raise BlueprintFault(
+                f"Blueprint '{name}' defined 'class Meta'. Aquilia Blueprints "
+                f"use 'class Spec' instead of 'class Meta' to avoid collision with Model Meta. "
+                f"Please rename your configuration class to 'Spec'."
+            )
 
         # Also check bases for Spec
         if spec_cls is None:
@@ -358,8 +373,8 @@ class BlueprintMeta(type):
         )
         cls._declared_facets = declared_facets
 
-        # If this is the base Blueprint class itself, skip model derivation
-        if spec.model is None and not declared_facets and not annotated_facets:
+        # If this is the base Blueprint class itself, skip model derivation and basic setup
+        if name == "Blueprint":
             cls._seal_methods = []
             cls._async_seal_methods = []
             return cls

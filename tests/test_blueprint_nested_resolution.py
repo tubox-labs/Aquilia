@@ -126,3 +126,34 @@ def test_non_nested_explicit_facet_behavior_remains_backward_compatible():
     assert bp.is_sealed() is False
     assert "age" in bp.errors
     assert "at least 10" in " ".join(bp.errors["age"])
+
+
+def test_empty_blueprint_initialization_and_validation():
+    class EmptyBlueprint(Blueprint):
+        pass
+
+    bp = EmptyBlueprint(data={})
+    assert bp.is_sealed() is True
+    assert bp.errors == {}
+    assert bp.validated_data == {}
+
+
+def test_class_attribute_assigned_nested_blueprint():
+    class UsersBlueprint(Blueprint):
+        name = NameBlueprint
+
+    bp = UsersBlueprint(data={"name": {"first_name": "Ada", "last_name": "Lovelace"}})
+    assert bp.is_sealed() is True
+    assert bp.validated_data["name"]["first_name"] == "Ada"
+    assert bp.validated_data["name"]["last_name"] == "Lovelace"
+
+
+def test_meta_class_raises_blueprint_fault():
+    from aquilia.blueprints.exceptions import BlueprintFault
+
+    with pytest.raises(BlueprintFault, match="defined 'class Meta'"):
+        class MetaBlueprint(Blueprint):
+            name: str
+
+            class Meta:
+                fields = "__all__"
