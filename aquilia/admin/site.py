@@ -6792,12 +6792,16 @@ class AdminSite:
         from aquilia.models.fields_module import (
             BigIntegerField,
             BooleanField,
+            DateField,
+            DateTimeField,
             DecimalField,
             FloatField,
             IntegerField,
             PositiveIntegerField,
             PositiveSmallIntegerField,
             SmallIntegerField,
+            TimeField,
+            UUIDField,
         )
 
         # Detect checkbox sentinel markers (_checkbox_{name}) and inject
@@ -6852,6 +6856,11 @@ class AdminSite:
                             coerced[field_name] = float(value)
                         except (ValueError, TypeError):
                             coerced[field_name] = value
+                else:
+                    coerced[field_name] = value
+            elif isinstance(field, (DateTimeField, DateField, TimeField, UUIDField)):
+                if isinstance(value, str) and value.strip() == "":
+                    coerced[field_name] = None
                 else:
                     coerced[field_name] = value
             else:

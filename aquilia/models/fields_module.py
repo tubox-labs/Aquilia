@@ -708,6 +708,8 @@ class DecimalField(Field):
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
+        if isinstance(value, str) and value.strip() == "":
+            value = None
         value = super().validate(value)
         if value is None:
             return None
@@ -749,6 +751,8 @@ class DecimalField(Field):
 
     def to_python(self, value: Any) -> Any:
         if value is None:
+            return None
+        if isinstance(value, str) and value.strip() == "":
             return None
         return decimal.Decimal(str(value))
 
@@ -1066,6 +1070,8 @@ class UUIDField(Field):
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
+        if isinstance(value, str) and value.strip() == "":
+            value = None
         value = super().validate(value)
         if value is None:
             return None
@@ -1083,6 +1089,8 @@ class UUIDField(Field):
             return None
         if isinstance(value, uuid.UUID):
             return value
+        if isinstance(value, str) and value.strip() == "":
+            return None
         return uuid.UUID(str(value))
 
     def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
@@ -1175,6 +1183,8 @@ class DateField(Field):
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
+        if isinstance(value, str) and value.strip() == "":
+            value = None
         value = super().validate(value)
         if value is None:
             return None
@@ -1195,6 +1205,8 @@ class DateField(Field):
         if isinstance(value, datetime.date):
             return value
         if isinstance(value, str):
+            if value.strip() == "":
+                return None
             return datetime.date.fromisoformat(value)
         return value
 
@@ -1267,6 +1279,8 @@ class TimeField(Field):
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
+        if isinstance(value, str) and value.strip() == "":
+            value = None
         value = super().validate(value)
         if value is None:
             return None
@@ -1285,6 +1299,8 @@ class TimeField(Field):
         if isinstance(value, datetime.time):
             return value
         if isinstance(value, str):
+            if value.strip() == "":
+                return None
             return datetime.time.fromisoformat(value)
         return value
 
@@ -1359,6 +1375,8 @@ class DateTimeField(Field):
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
+        if isinstance(value, str) and value.strip() == "":
+            value = None
         value = super().validate(value)
         if value is None:
             return None
@@ -1377,6 +1395,8 @@ class DateTimeField(Field):
         if isinstance(value, datetime.datetime):
             return value
         if isinstance(value, str):
+            if value.strip() == "":
+                return None
             return datetime.datetime.fromisoformat(value)
         return value
 
