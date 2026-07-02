@@ -1289,7 +1289,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         instance: None = None,
         *,
         partial: bool | None = None,
-    ) -> ModelT | list[ModelT]: ...
+    ) -> ModelT: ...
 
     @overload
     async def imprint(
