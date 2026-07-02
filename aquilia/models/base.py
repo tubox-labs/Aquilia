@@ -1158,9 +1158,7 @@ class Model(metaclass=ModelMeta):
                 # Always include NOT NULL fields so to_db() can coerce
                 # (e.g. CharField with null=False converts None → "").
                 # Nullable fields with None are omitted to let the DB use its DEFAULT.
-                if value is not None:
-                    final_data[create_field.column_name] = create_field.to_db(value, dialect=dialect)
-                elif not create_field.null:
+                if value is not None or not create_field.null:
                     final_data[create_field.column_name] = create_field.to_db(value, dialect=dialect)
 
             if final_data:

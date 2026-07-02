@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Strict Safe-DB Startup Guard**: Hardened the startup sequence to raise a `SchemaFault` and immediately halt the server startup if the database is missing or unapplied migrations exist when migrations are present in the project.
 - **Registry Route Prefix Validation**: Accept and utilize `workspace_modules` configuration overrides inside `RegistryValidator.validate_manifests` and `_validate_route_conflicts` to correctly resolve module route prefixes during startup and CLI `validate`/`doctor` calls, preventing false-positive `RouteConflictError` crashes.
 - **Outbound Blueprint Projection Overrides**: Removed raw inbound validated data serialization bypass from `Blueprint._to_dict_instance` to ensure wrapping/response blueprints correctly apply their own projection and write-only filters on nested or returned blueprint instances.
+- **ORM Persistence and UUID Primary Keys**: Fixed `ImprintFault` causing programming errors ("type 'UUID' is not supported") on SQLite databases by ensuring all primary key bindings convert values via `field.to_db()` and restricting `lastrowid` assignment to integer-based AutoFields.
+- **Computed Blueprint Fields**: Fixed `Computed.extract()` in computed facets to correctly bind the blueprint instance as `self` when executing unbound methods.
+- **Admin Panel PK Resolution**: Resolved list view and record endpoint 404 errors by dynamically resolving primary key field names using `model_cls._pk_attr` instead of hardcoding `id`.
+- **Nested Blueprint Facet Typing**: Added generic parameterization to `Blueprint[ModelT]` and updated `imprint` overload signatures to enable IDE autocomplete for imprinted model instances.
+- **Empty Datetime and Format Coercion**: Handled empty string inputs (`""`) gracefully in `to_python` and `validate` methods for `DateTimeField`, `DateField`, `TimeField`, `UUIDField`, and `DecimalField` (coercing them to `None` for nullable fields), resolving the `Invalid isoformat string` and parsing errors in the admin panel edit forms.
+- **ORM `blank=True, null=False` String Field Coercion**: Coerced `None` input to empty string `""` for string-based fields (`CharField`, `TextField`, `GenericIPAddressField`, etc.) when `blank=True` and `null=False` to prevent database `NOT NULL` integrity constraint errors, adhering to standard ORM validation conventions.
+- **Insert Query NOT NULL Inclusion**: Ensured `Model.save()`'s INSERT query builder always includes columns defined as `NOT NULL` even if their value is `None` at Python-level, enabling proper database-level constraint enforcement and/or field coercion.
 
 ## [1.2.2] — 2026-07-01 — "Kraken's Wake"
 
