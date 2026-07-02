@@ -1160,6 +1160,12 @@
                 class="form-input" {{ 'required' if required else '' }} {{ 'readonly' if readonly else '' }}
                 placeholder="https://example.com">
         </div>
+        <div class="url-image-preview-container" id="preview-container-{{ name }}" style="margin-top: 8px; display: none;">
+            <div style="position: relative; display: inline-flex; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-color); background: var(--bg-hover); padding: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                <img id="preview-img-{{ name }}" src="" alt="Preview" style="max-height: 120px; max-width: 100%; display: block; border-radius: var(--radius-xs); object-fit: contain;">
+                <div style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.65); color: #fff; padding: 2px 6px; border-radius: var(--radius-xs); font-size: 0.62rem; font-family: var(--font-mono); backdrop-filter: blur(4px);">Preview</div>
+            </div>
+        </div>
 
         {# ── NUMBER ── #}
         {% elif field_type == 'number' %}
@@ -1744,8 +1750,43 @@
         observer.observe(grp);
     });
 
-    // ── Initial progress update ─────────────────────────────────────
+    // ── URL Image Preview ───────────────────────────────────────────
+    function initUrlImagePreviews() {
+        document.querySelectorAll('input[type="url"]').forEach(function(input) {
+            var name = input.getAttribute('name');
+            var container = document.getElementById('preview-container-' + name);
+            var img = document.getElementById('preview-img-' + name);
+            if (!container || !img) return;
+
+            function updatePreview() {
+                var val = input.value.trim();
+                if (!val || (!/^https?:\/\/.+/i.test(val) && !/^data:image\/.+/i.test(val))) {
+                    container.style.display = 'none';
+                    img.src = '';
+                    return;
+                }
+
+                var tempImg = new Image();
+                tempImg.onload = function() {
+                    img.src = val;
+                    container.style.display = 'inline-flex';
+                };
+                tempImg.onerror = function() {
+                    container.style.display = 'none';
+                    img.src = '';
+                };
+                tempImg.src = val;
+            }
+
+            input.addEventListener('input', updatePreview);
+            input.addEventListener('change', updatePreview);
+            updatePreview();
+        });
+    }
+
+    // ── Initial progress update & Image previews ─────────────────────
     updateFormProgress();
+    initUrlImagePreviews();
 
     // ── Toast ───────────────────────────────────────────────────────
     if (typeof showToast === 'undefined') {

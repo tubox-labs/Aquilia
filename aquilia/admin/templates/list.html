@@ -702,10 +702,10 @@
                     <td class="{{ 'cell-editable' if is_editable else '' }}" data-col="{{ col }}" data-field="{{ col }}" data-pk="{{ row.pk }}" data-type="{{ col_type }}" {% if is_editable %}onclick="startInlineEdit(this)"{% endif %}>
                         <span class="time-relative" data-iso="{{ raw_val }}" title="{{ val }}">{{ val }}</span>
                     </td>
-                    {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico')) %}
+                    {% elif str_val.startswith(('http://', 'https://', 'data:image/')) and (str_val.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico')) or str_val.startswith('data:image/') or 'avatar' in col.lower() or 'image' in col.lower() or 'photo' in col.lower() or 'logo' in col.lower() or 'pic' in col.lower()) %}
                     <td class="cell-media" data-col="{{ col }}">
                         <div class="media-thumb" onclick="showMediaPreview('{{ str_val }}', 'image')">
-                            <img src="{{ str_val }}" alt="{{ col }}" loading="lazy" onerror="this.parentElement.innerHTML='<i class=\'icon-image\' style=\'font-size:16px;color:var(--text-faint);\'></i>'">
+                            <img src="{{ str_val }}" alt="{{ col }}" loading="lazy" onerror="this.parentElement.innerHTML='<a href=\'{{ str_val }}\' target=\'_blank\' class=\'cell-url-link\'><i class=\'icon-external-link\' style=\'font-size:11px;\'></i> {{ str_val|truncate(40, True) }}</a>'">
                         </div>
                     </td>
                     {% elif str_val.startswith(('http://', 'https://')) and str_val.lower().endswith('.pdf') %}
@@ -1138,8 +1138,18 @@ function sortColumn(col, e) {
         if (row[rk] === true) return '<td class="cell-bool-true' + (ie ? ' cell-editable' : '') + '" data-col="' + col + '"' + ea + '><i class="icon-check-circle" style="font-size:15px;"></i> ' + esc(d) + '</td>';
         if (row[rk] === false) return '<td class="cell-bool-false' + (ie ? ' cell-editable' : '') + '" data-col="' + col + '"' + ea + '><i class="icon-x-circle" style="font-size:15px;"></i> ' + esc(d) + '</td>';
         if ((ct==='datetime-local'||ct==='date'||ct==='time') && row[rk]) return '<td class="' + (ie?'cell-editable':'') + '" data-col="' + col + '"' + ea + '><span class="time-relative" data-iso="' + esc(String(row[rk])) + '" title="' + esc(d) + '">' + esc(d) + '</span></td>';
-        if (URL_RE.test(d)) {
-            if (IMG.test(d)) return '<td class="cell-media" data-col="' + col + '"><div class="media-thumb" onclick="showMediaPreview(\'' + esc(d) + '\',\'image\')"><img src="' + esc(d) + '" loading="lazy"></div></td>';
+        if (URL_RE.test(d) || d.indexOf('data:image/') === 0) {
+            var colLower = String(col).toLowerCase();
+            var isProbablyImage = IMG.test(d) || d.indexOf('data:image/') === 0 || 
+                                  colLower.indexOf('avatar') !== -1 || 
+                                  colLower.indexOf('image') !== -1 || 
+                                  colLower.indexOf('photo') !== -1 || 
+                                  colLower.indexOf('logo') !== -1 || 
+                                  colLower.indexOf('pic') !== -1;
+            if (isProbablyImage) {
+                var linkText = d.length > 40 ? d.substring(0, 37) + '...' : d;
+                return '<td class="cell-media" data-col="' + col + '"><div class="media-thumb" onclick="showMediaPreview(\'' + esc(d) + '\',\'image\')"><img src="' + esc(d) + '" loading="lazy" onerror="this.parentElement.innerHTML=\'<a href=\\\'' + esc(d) + '\\\' target=\\\'_blank\\\' class=\\\'cell-url-link\\\'><i class=\\\'icon-external-link\\\' style=\\\'font-size:11px;\\\'></i> ' + esc(linkText) + '</a>\'"></div></td>';
+            }
             if (PDF.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-pdf"><i class="icon-file-text" style="font-size:14px;"></i> PDF</a></td>';
             if (DOC.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-doc"><i class="icon-file-text" style="font-size:14px;"></i> DOCX</a></td>';
             if (SHT.test(d)) return '<td class="cell-media" data-col="' + col + '"><a href="' + esc(d) + '" target="_blank" class="media-file-badge media-file-sheet"><i class="icon-file-spreadsheet" style="font-size:14px;"></i> Sheet</a></td>';
