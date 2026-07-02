@@ -378,7 +378,8 @@ class Model(metaclass=ModelMeta):
         sql, values = builder.build()
         cursor = await db.execute(sql, values)
 
-        if cursor.lastrowid:
+        pk_field = cls._fields[cls._pk_attr]
+        if isinstance(pk_field, (AutoField, BigAutoField)) and cursor.lastrowid:
             setattr(instance, cls._pk_attr, cursor.lastrowid)
 
         # Signal: post_save (created=True)
@@ -677,7 +678,9 @@ class Model(metaclass=ModelMeta):
         was_created = bool(cursor.lastrowid)
 
         if was_created:
-            setattr(instance, cls._pk_attr, cursor.lastrowid)
+            pk_field = cls._fields[cls._pk_attr]
+            if isinstance(pk_field, (AutoField, BigAutoField)):
+                setattr(instance, cls._pk_attr, cursor.lastrowid)
             return instance, True
 
         # ── If not created, SELECT the existing record ────────────────────
@@ -834,7 +837,8 @@ class Model(metaclass=ModelMeta):
                     if ignore_conflicts:
                         sql = sql.replace("INSERT INTO", "INSERT OR IGNORE INTO", 1)
                     cursor = await db.execute(sql, values)
-                    if cursor.lastrowid:
+                    pk_field = cls._fields[cls._pk_attr]
+                    if isinstance(pk_field, (AutoField, BigAutoField)) and cursor.lastrowid:
                         setattr(obj, cls._pk_attr, cursor.lastrowid)
                 results.append(obj)
 
@@ -895,7 +899,9 @@ class Model(metaclass=ModelMeta):
                         data[field.column_name] = None
                 if data:
                     builder = UpdateBuilder(cls._table_name).set_dict(data)
-                    builder.where(f'"{cls._pk_name}" = ?', pk_val)
+                    pk_field = cls._fields[cls._pk_attr]
+                    db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
+                    builder.where(f'"{cls._pk_name}" = ?', db_pk_val)
                     sql, params = builder.build()
                     cursor = await db.execute(sql, params)
                     total_updated += cursor.rowcount
@@ -1075,7 +1081,9 @@ class Model(metaclass=ModelMeta):
 
         db = self._get_db()
         dialect = getattr(db, "dialect", "sqlite")
-        is_create = pk_val is None or force_insert
+        is_create = (
+            pk_val is None or getattr(self, "_original_values", None) is None or force_insert
+        ) and not force_update
 
         # Optional validation
         if validate:
@@ -1114,7 +1122,9 @@ class Model(metaclass=ModelMeta):
 
             if data:
                 update_builder = UpdateBuilder(self._table_name).set_dict(data)
-                update_builder.where(f'"{self._pk_name}" = ?', pk_val)
+                pk_field = self._fields[self._pk_attr]
+                db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
+                update_builder.where(f'"{self._pk_name}" = ?', db_pk_val)
                 sql, params = update_builder.build()
                 await db.execute(sql, params)
 
@@ -1152,7 +1162,8 @@ class Model(metaclass=ModelMeta):
                 insert_builder = InsertBuilder(self._table_name).from_dict(final_data)
                 sql, params = insert_builder.build()
                 cursor = await db.execute(sql, params)
-                if cursor.lastrowid:
+                pk_field = self._fields[self._pk_attr]
+                if isinstance(pk_field, (AutoField, BigAutoField)) and cursor.lastrowid:
                     setattr(self, self._pk_attr, cursor.lastrowid)
 
         # Signal: post_save
@@ -1207,15 +1218,18 @@ class Model(metaclass=ModelMeta):
         await pre_delete.send(sender=self.__class__, instance=self)
 
         db = self._get_db()
+        dialect = getattr(db, "dialect", "sqlite")
+        pk_field = self._fields[self._pk_attr]
+        db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
 
         # Handle on_delete for models that FK to us (cached lookup)
         for model_cls, col_name, on_delete_action in self._get_reverse_fk_refs():
             handler = OnDeleteHandler(on_delete_action)
-            await handler.handle(db, model_cls, col_name, pk_val)
+            await handler.handle(db, model_cls, col_name, db_pk_val)
 
         # Delete this instance using DeleteBuilder
         builder = DeleteBuilder(self._table_name)
-        builder.where(f'"{self._pk_name}" = ?', pk_val)
+        builder.where(f'"{self._pk_name}" = ?', db_pk_val)
         sql, params = builder.build()
         cursor = await db.execute(sql, params)
         row_count = int(cursor.rowcount or 0)
@@ -1320,7 +1334,10 @@ class Model(metaclass=ModelMeta):
             col_sql = ", ".join(f'"{c}"' for c in cols)
             sql = f'SELECT {col_sql} FROM "{self._table_name}" WHERE "{self._pk_name}" = ?'
             db = self._get_db()
-            rows = await db.fetch_all(sql, [pk_val])
+            dialect = getattr(db, "dialect", "sqlite")
+            pk_field = self._fields[self._pk_attr]
+            db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
+            rows = await db.fetch_all(sql, [db_pk_val])
             if not rows:
                 from ..faults.domains import ModelNotFoundFault
 
@@ -1410,12 +1427,15 @@ class Model(metaclass=ModelMeta):
             target_pk = getattr(target, "_pk_name", "id")
 
             db = self._get_db()
+            dialect = getattr(db, "dialect", "sqlite")
+            pk_field = self._fields[self._pk_attr]
+            db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
             sql = (
                 f'SELECT t.* FROM "{target._table_name}" t '
                 f'INNER JOIN "{jt}" j ON t."{target_pk}" = j."{tgt_col}" '
                 f'WHERE j."{src_col}" = ?'
             )
-            rows = await db.fetch_all(sql, [pk_val])
+            rows = await db.fetch_all(sql, [db_pk_val])
             return [target.from_row(r) for r in rows]
 
         # Check reverse FK (search other models for FK pointing to us)
@@ -1425,7 +1445,11 @@ class Model(metaclass=ModelMeta):
                     target_model_name = f.to if isinstance(f.to, str) else f.to.__name__
                     if target_model_name == self.__class__.__name__:
                         pk_val = getattr(self, self._pk_attr)
-                        return await model_cls.query().where(f'"{f.column_name}" = ?', pk_val).all()
+                        db = self._get_db()
+                        dialect = getattr(db, "dialect", "sqlite")
+                        pk_field = self._fields[self._pk_attr]
+                        db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
+                        return await model_cls.query().where(f'"{f.column_name}" = ?', db_pk_val).all()
 
         from ..faults.domains import QueryFault
 
@@ -1456,12 +1480,19 @@ class Model(metaclass=ModelMeta):
         src_col, tgt_col = m2m.junction_columns(self.__class__)
         pk_val = getattr(self, self._pk_attr)
         db = self._get_db()
+        dialect = getattr(db, "dialect", "sqlite")
+        pk_field = self._fields[self._pk_attr]
+        db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
+
+        target_model = m2m.related_model or ModelRegistry.get(m2m.to if isinstance(m2m.to, str) else m2m.to.__name__)
+        target_pk_field = target_model._fields[target_model._pk_attr]
 
         for target in targets:
             target_pk = target if isinstance(target, (int, str)) else getattr(target, target._pk_attr)
+            db_target_pk = target_pk_field.to_db(target_pk, dialect=dialect)
             await db.execute(
                 f'INSERT OR IGNORE INTO "{jt}" ("{src_col}", "{tgt_col}") VALUES (?, ?)',
-                [pk_val, target_pk],
+                [db_pk_val, db_target_pk],
             )
 
         # Signal: m2m_changed
@@ -1494,12 +1525,19 @@ class Model(metaclass=ModelMeta):
         src_col, tgt_col = m2m.junction_columns(self.__class__)
         pk_val = getattr(self, self._pk_attr)
         db = self._get_db()
+        dialect = getattr(db, "dialect", "sqlite")
+        pk_field = self._fields[self._pk_attr]
+        db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
+
+        target_model = m2m.related_model or ModelRegistry.get(m2m.to if isinstance(m2m.to, str) else m2m.to.__name__)
+        target_pk_field = target_model._fields[target_model._pk_attr]
 
         for target in targets:
             target_pk = target if isinstance(target, (int, str)) else getattr(target, target._pk_attr)
+            db_target_pk = target_pk_field.to_db(target_pk, dialect=dialect)
             await db.execute(
                 f'DELETE FROM "{jt}" WHERE "{src_col}" = ? AND "{tgt_col}" = ?',
-                [pk_val, target_pk],
+                [db_pk_val, db_target_pk],
             )
 
         # Signal: m2m_changed
