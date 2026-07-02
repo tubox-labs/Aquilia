@@ -408,6 +408,8 @@ class NestedBlueprintFacet(Facet):
         """Mold output through the nested Blueprint."""
         if value is None:
             return None
+        if isinstance(value, (str, int, float, bool)):
+            return value
         if self.many:
             if hasattr(value, "__iter__"):
                 bp = self._blueprint_cls(instance=None, many=True)
