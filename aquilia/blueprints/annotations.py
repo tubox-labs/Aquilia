@@ -451,7 +451,15 @@ class NestedBlueprintFacet(Facet):
         for part in parts:
             if obj is None:
                 return None
-            obj = obj.get(part) if isinstance(obj, dict) else getattr(obj, part, None)
+            from .core import Blueprint
+
+            if isinstance(obj, Blueprint):
+                if obj._validated_data is not None and part in obj._validated_data:
+                    obj = obj._validated_data[part]
+                else:
+                    obj = getattr(obj, part, None)
+            else:
+                obj = obj.get(part) if isinstance(obj, dict) else getattr(obj, part, None)
         return obj
 
     def to_schema(self) -> dict[str, Any]:
