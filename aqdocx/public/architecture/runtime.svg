@@ -65,6 +65,7 @@
   <!-- Title and Subtitle Block -->
   <g transform="translate(30, 40)">
     <text x="0" y="0" class="title">Aquilia Runtime Boot Phase Lifecycle</text>
+    <text x="0" y="24" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="12px" font-weight="600" fill="#475569">Phases: CREATED -> CONFIGURING -> DISCOVERING -> BOOTSTRAPPING -> READY -> RUNNING -> SHUTTING_DOWN -> STOPPED (FAILED)</text>
   </g>
   
   
@@ -149,7 +150,7 @@
     <rect x="1130" y="140" width="190" height="90" class="card-bg" fill="url(#roseGrad)" filter="url(#handdrawn)" rx="" ry="" />
     
     <!-- Title -->
-    <text x="1146" y="164" class="node-text-title">6. SHUTTING DOWN</text>
+    <text x="1146" y="164" class="node-text-title">6. SHUTTING_DOWN</text>
     
     <!-- Description -->
     <text x="1146" y="182" class="node-text-desc">Triggers shutdown hooks;</text><text x="1146" y="197" class="node-text-desc">tears down DI resources,</text><text x="1146" y="212" class="node-text-desc">flushes tasks</text>

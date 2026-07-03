@@ -29,7 +29,7 @@ export function ServerOverview() {
 
         <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           <code>AquiliaServer</code> is the central orchestrator that wires together every subsystem —
-          from Aquilary manifest compilation to ASGI request handling. It is a 2,400+ line class that
+          from Aquilary manifest compilation to ASGI request handling. It is a 4,000+ line class that
           serves as the single entry point for the entire framework.
         </p>
       </div>
@@ -127,25 +127,29 @@ self.coordinator = LifecycleCoordinator(self.runtime, self.config)
 
 # 8. Setup middleware stack
 #    - ExceptionMiddleware (priority: 1)
-#    - RequestIdMiddleware (priority: 2)
-#    - LoggingMiddleware (priority: 3)
-#    - FaultMiddleware (priority: 4)
-#    - SessionMiddleware (priority: 5)
-#    - AquilAuthMiddleware (priority: 10)
-#    - TemplateMiddleware (priority: 15)
-#    - Security middleware (CORS, CSP, etc.) (priority: 20-30)
-#    - RateLimitMiddleware (if configured) (priority: 30)
-#    - StaticMiddleware (if configured) (priority: 40)
+#    - FaultMiddleware (priority: 2)
+#    - ProxyFixMiddleware (priority: 3)
+#    - HTTPSRedirectMiddleware (priority: 4)
+#    - ServerRequestScopeMiddleware / VersionMiddleware (priority: 5)
+#    - StaticMiddleware (priority: 6)
+#    - SecurityHeadersMiddleware (priority: 7)
+#    - HSTSMiddleware (priority: 8)
+#    - CSPMiddleware (priority: 9)
+#    - RequestIdMiddleware (priority: 10)
+#    - CORSMiddleware / InspectorMiddleware (priority: 11)
+#    - RateLimitMiddleware / ToolbarInjectionMiddleware (priority: 12)
+#    - SessionMiddleware / AquilAuthMiddleware (priority: 15)
+#    - CSRFMiddleware (priority: 20)
+#    - I18nMiddleware (priority: 24)
+#    - TemplateMiddleware (priority: 25)
+#    - CacheMiddleware (priority: 26)
 
 # 9. Create controller pipeline
 #    - ControllerFactory (with base DI container)
 #    - ControllerEngine (with fault engine)
 #    - ControllerCompiler
 
-# 10. Initialize trace directory (.aquilia/)
-self.trace = AquiliaTrace()
-
-# 11. Create ASGI adapter
+# 10. Create ASGI adapter
 self.app = ASGIAdapter(
     controller_router=self.controller_router,
     controller_engine=self.controller_engine,
@@ -187,7 +191,6 @@ self.app = ASGIAdapter(
                 ['middleware_stack', 'MiddlewareStack', 'Priority-ordered middleware chain'],
                 ['aquila_sockets', 'AquilaSockets', 'WebSocket runtime (if configured)'],
                 ['app', 'ASGIAdapter', 'The callable ASGI application'],
-                ['trace', 'AquiliaTrace', '.aquilia/ diagnostic writer'],
               ].map(([attr, type, desc], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{attr}</td>
@@ -213,37 +216,40 @@ self.app = ASGIAdapter(
         </p>
 
         <CodeBlock
-          code={`# Always added:
-ExceptionMiddleware(debug=True)      # Priority 1 — global error handling
-RequestIdMiddleware()                 # Priority 2 — os.urandom-based request IDs
-LoggingMiddleware()                   # Priority 3 — structured logging
+          code={`# Always added in the pipeline:
+ExceptionMiddleware(debug=True)      # Priority 1 — global exception handling
+FaultMiddleware(fault_engine)         # Priority 2 — converts fault signals to HTTP responses
+ServerRequestScopeMiddleware(...)     # Priority 5 — initializes/tears down request-scoped DI container
 
-# Added if faults configured:
-FaultMiddleware(fault_engine)         # Priority 4 — fault signal interception
+# Added if versions configured:
+VersionMiddleware(strategy)           # Priority 5 — API version resolution
 
-# Added if sessions configured:
-SessionMiddleware(session_engine)     # Priority 5 — session load/save
-
-# Added if auth configured:
-AquilAuthMiddleware(auth_manager)     # Priority 10 — identity extraction
+# Added if sessions/auth configured:
+SessionMiddleware(session_engine)     # Priority 15 — loads and saves session state
+AquilAuthMiddleware(...)              # Priority 15 — unified auth and identity extraction
 
 # Added if templates configured:
-TemplateMiddleware(template_engine)   # Priority 15 — template engine injection
+TemplateMiddleware(...)               # Priority 25 — injects template engine and rendering helper
 
-# Added if security configured (via _setup_security_middleware):
-CORSMiddleware(...)                   # Priority 20
-CSPMiddleware(...)                    # Priority 21
-CSRFMiddleware(...)                   # Priority 22
-HSTSMiddleware(...)                   # Priority 23
-SecurityHeadersMiddleware(...)        # Priority 24
-HTTPSRedirectMiddleware(...)          # Priority 25
-ProxyFixMiddleware(...)               # Priority 26
+# Added if caching configured:
+CacheMiddleware(...)                  # Priority 26 — caches GET responses
 
-# Added if rate limiting configured:
-RateLimitMiddleware(...)              # Priority 30
+# Security & Infrastructure Middleware (via _setup_security_middleware):
+ProxyFixMiddleware(...)               # Priority 3 — handles trust-proxy headers
+HTTPSRedirectMiddleware(...)          # Priority 4 — redirects HTTP to HTTPS
+StaticMiddleware(...)                 # Priority 6 — serves static files directly
+SecurityHeadersMiddleware(...)        # Priority 7 — security response headers
+HSTSMiddleware(...)                   # Priority 8 — Strict-Transport-Security header
+CSPMiddleware(...)                    # Priority 9 — Content-Security-Policy header & nonces
+CORSMiddleware(...)                   # Priority 11 — CORS preflight and access control
+RateLimitMiddleware(...)              # Priority 12 — sliding window request rate limiting
+CSRFMiddleware(...)                   # Priority 20 — CSRF token validation
+I18nMiddleware(...)                   # Priority 24 — locale resolution and translating
 
-# Added if static files configured:
-StaticMiddleware(...)                 # Priority 40`}
+# Development/Inspector Middleware:
+RequestIdMiddleware()                 # Priority 10 — request trace ID generator (default/fallback)
+InspectorMiddleware(...)              # Priority 11 — captures debugging statistics
+ToolbarInjectionMiddleware(...)      # Priority 12 — injects dev diagnostics toolbar`}
           language="python"
         />
       </section>
@@ -261,13 +267,7 @@ StaticMiddleware(...)                 # Priority 40`}
         </p>
 
         <CodeBlock
-          code={`# Format 1: Flat dict (from YAML or simple Python config)
-sessions:
-  secret_key: "my-secret"
-  max_age: 3600
-  cookie_name: "aq_session"
-
-# Format 2: Integration builder (recommended)
+          code={`# Format 1: Integration builder (recommended)
 Integration.sessions(
     secret_key="my-secret",
     max_age=3600,
@@ -275,7 +275,7 @@ Integration.sessions(
     transport="cookie",      # "cookie" or "header"
 )
 
-# Format 3: Full policy objects (advanced)
+# Format 2: Full policy objects (advanced)
 from aquilia.sessions import SessionPolicy, PersistencePolicy, TransportPolicy
 Integration.sessions(
     policy=SessionPolicy(
@@ -315,8 +315,7 @@ await server.startup()
 # 4. Loads WebSocket controllers
 # 5. Registers AMDL models (legacy support, 5 phases)
 # 6. Runs LifecycleCoordinator.startup() — executes all on_startup hooks
-# 7. Writes trace artifacts to .aquilia/
-# 8. Sets self._startup_complete = True
+# 7. Sets self._startup_complete = True
 
 await server.shutdown()
 # 1. Runs LifecycleCoordinator.shutdown() — reverse dependency order
@@ -382,10 +381,6 @@ asyncio.run(serve(server.app, config))`}
           <li className="flex items-start gap-2">
             <span className="text-aquilia-400 mt-1">•</span>
             <div><strong>Verbose logging</strong> — Full request/response body logging</div>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-aquilia-400 mt-1">•</span>
-            <div><strong>Trace writes</strong> — .aquilia/ artifacts are updated on every boot</div>
           </li>
           <li className="flex items-start gap-2">
             <span className="text-aquilia-400 mt-1">•</span>

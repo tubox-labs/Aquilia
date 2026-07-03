@@ -112,7 +112,7 @@ export function IntroductionPage() {
                   <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
                 </span>
               </h1>
-              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.2.2 · Production-ready async Python web framework</p>
+              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.2.3 ("Kraken's Wake") · Production-ready async Python web framework</p>
             </div>
           </div>
 
@@ -269,7 +269,29 @@ export function IntroductionPage() {
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Every Aquilia application follows a deterministic pipeline from boot to request handling:
+          Aquilia boots using a programmatic entrypoint that loads the workspace, resolves integrations, auto-discovers manifests, and instantiates the ASGI application:
+        </p>
+
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>app.py</p>
+          <CodeBlock
+            code={`from pathlib import Path
+from aquilia.runtime import AquiliaRuntime
+
+_WORKSPACE_ROOT = Path(__file__).resolve().parent.parent
+
+# Boots the entire workspace: configures config loader, auto-discovers manifests, and constructs the DI containers
+runtime = AquiliaRuntime.from_workspace(
+    workspace_root=_WORKSPACE_ROOT,
+    mode="prod",
+)
+app = runtime.app`}
+            language="python"
+          />
+        </div>
+
+        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Once booted, inbound requests flow through a deterministic pipeline:
         </p>
 
         <div className={`rounded-3xl overflow-hidden relative`}>
@@ -286,28 +308,68 @@ export function IntroductionPage() {
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          A complete Aquilia application in three files:
+          A complete Aquilia application with a modern manifest-driven structure, typed database integration, pure-Python ORM model, validation blueprint, service, and controller:
         </p>
 
         <div className="space-y-4">
           <div>
             <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>workspace.py</p>
             <CodeBlock
-              code={`from aquilia import Workspace, Module, Integration
+              code={`from aquilia import Workspace, Module
+from aquilia.integrations import DatabaseIntegration
 
-app = (
+workspace = (
     Workspace("my-api")
     .module(
         Module("core")
-        .auto_discover("modules/core")
+        .route_prefix("/core")
+        .auto_discover(True)
     )
     .integrate(
-        Integration.auth(),
-        Integration.sessions(),
-        Integration.database(url="sqlite:///db.sqlite3"),
+        DatabaseIntegration(url="sqlite:///db.sqlite3")
     )
-    .build()
 )`}
+              language="python"
+            />
+          </div>
+
+          <div>
+            <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/manifest.py</p>
+            <CodeBlock
+              code={`from aquilia import AppManifest
+
+manifest = AppManifest(
+    name="core",
+    version="1.0.0",
+    description="Core module",
+    controllers=["modules.core.controllers:UsersController"],
+    services=["modules.core.services:UserService"],
+    models=["modules.core.models:User"],
+    base_path="modules.core",
+)
+
+__all__ = ["manifest"]`}
+              language="python"
+            />
+          </div>
+
+          <div>
+            <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/blueprints.py</p>
+            <CodeBlock
+              code={`from aquilia import Blueprint
+
+class UserCreateBlueprint(Blueprint):
+    name: str
+    email: str
+
+    class Spec:
+        extra_fields = "reject"
+
+    def seal_email(self, data):
+        email = data.get("email", "").strip()
+        if "@" not in email:
+            self.reject("email", "Invalid email address format")
+        data["email"] = email`}
               language="python"
             />
           </div>
@@ -316,31 +378,27 @@ app = (
             <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/controllers.py</p>
             <CodeBlock
               code={`from aquilia import Controller, GET, POST, RequestCtx, Response
-
-class HealthController(Controller):
-    prefix = "/health"
-
-    @GET("/")
-    async def check(self, ctx: RequestCtx) -> Response:
-        return Response.json({"status": "ok"})
-
+from .blueprints import UserCreateBlueprint
+from .services import UserService
 
 class UsersController(Controller):
     prefix = "/users"
+    tags = ["users"]
 
     def __init__(self, user_service: UserService):
         self.user_service = user_service
 
     @GET("/")
     async def list_users(self, ctx: RequestCtx) -> Response:
-        users = await self.user_service.list_all()
-        return Response.json({"users": users})
+        users = await self.user_service.list_users()
+        return Response.json({"users": [user.to_dict() for user in users]})
 
     @POST("/")
     async def create_user(self, ctx: RequestCtx) -> Response:
-        data = await ctx.json()
-        user = await self.user_service.create(data)
-        return Response.json(user, status=201)`}
+        blueprint = UserCreateBlueprint(data=await ctx.json())
+        await blueprint.is_sealed_async(raise_fault=True)
+        user = await self.user_service.create_user(blueprint.validated_data)
+        return Response.json(user.to_dict(), status=201)`}
               language="python"
             />
           </div>
@@ -349,20 +407,32 @@ class UsersController(Controller):
             <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/services.py</p>
             <CodeBlock
               code={`from aquilia import service
+from .models import User
 
 @service(scope="app")
 class UserService:
-    def __init__(self, db: Database):
-        self.db = db
+    async def list_users(self) -> list[User]:
+        return await User.objects.all()
 
-    async def list_all(self):
-        return await self.db.fetch_all("SELECT * FROM users")
-
-    async def create(self, data: dict):
-        return await self.db.execute(
-            "INSERT INTO users (name, email) VALUES (:name, :email)",
-            data,
+    async def create_user(self, data: dict) -> User:
+        return await User.objects.create(
+            name=data["name"],
+            email=data["email"],
         )`}
+              language="python"
+            />
+          </div>
+
+          <div>
+            <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/models.py</p>
+            <CodeBlock
+              code={`from aquilia.models import Model, CharField
+
+class User(Model):
+    table = "users"
+
+    name = CharField(max_length=150)
+    email = CharField(max_length=255, unique=True)`}
               language="python"
             />
           </div>
@@ -398,7 +468,7 @@ class UserService:
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
                 ['Server', 'aquilia.server', 'AquiliaServer'],
-                ['Config', 'aquilia.config, config_builders', 'ConfigLoader, Workspace, Module, Integration'],
+                ['Config', 'aquilia.config, aquilia.workspace, aquilia.integrations', 'ConfigLoader, Workspace, Module, Integration'],
                 ['Controllers', 'aquilia.controller', 'Controller, GET/POST/PUT/PATCH/DELETE/WS'],
                 ['DI', 'aquilia.di', 'Container, Provider, Inject, @service, @factory'],
                 ['Models', 'aquilia.models', 'Model, Field types, Manager, QuerySet, Q'],
@@ -408,7 +478,7 @@ class UserService:
                 ['Serializers', 'aquilia.serializers', 'Serializer, ModelSerializer, ListSerializer'],
                 ['Blueprints', 'aquilia.blueprints', 'Blueprint, Facet, Projection, Cast, Seal'],
                 ['Cache', 'aquilia.cache', 'CacheService, MemoryBackend, RedisBackend'],
-                ['Mail', 'aquilia.mail', 'AquilaMail, MailService, EmailMessage'],
+                ['Mail', 'aquilia.mail', 'MailService, asend_mail, EmailMessage'],
                 ['WebSockets', 'aquilia.sockets', 'AquilaSockets, SocketController, @Event'],
                 ['Templates', 'aquilia.templates', 'TemplateEngine, TemplateLoader'],
                 ['Faults', 'aquilia.faults', 'Fault, FaultEngine, FaultDomain, Severity'],

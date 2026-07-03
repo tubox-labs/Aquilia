@@ -95,15 +95,15 @@
     <rect x="205" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
     
     <!-- Title -->
-    <text x="221" y="164" class="node-text-title">CORS / CSP Guard</text>
+    <text x="221" y="164" class="node-text-title">Exception Guard</text>
     
     <!-- Description -->
-    <text x="221" y="182" class="node-text-desc">Security policy</text><text x="221" y="197" class="node-text-desc">headers check</text>
+    <text x="221" y="182" class="node-text-desc">Catches exceptions,</text><text x="221" y="197" class="node-text-desc">renders error page</text>
     
     <!-- Badge -->
     
     <rect class="badge-rect" x="295" y="154" width="54" height="14" rx="" ry="" />
-    <text class="badge-text" x="322.0" y="164" text-anchor="middle">PRIO 10</text>
+    <text class="badge-text" x="322.0" y="164" text-anchor="middle">PRIO 1</text>
         
   </g>
 
@@ -120,7 +120,7 @@
     <!-- Badge -->
     
     <rect class="badge-rect" x="470" y="154" width="54" height="14" rx="" ry="" />
-    <text class="badge-text" x="497.0" y="164" text-anchor="middle">PRIO 20</text>
+    <text class="badge-text" x="497.0" y="164" text-anchor="middle">PRIO 10</text>
         
   </g>
 
@@ -137,7 +137,7 @@
     <!-- Badge -->
     
     <rect class="badge-rect" x="645" y="154" width="54" height="14" rx="" ry="" />
-    <text class="badge-text" x="672.0" y="164" text-anchor="middle">PRIO 30</text>
+    <text class="badge-text" x="672.0" y="164" text-anchor="middle">PRIO 15</text>
         
   </g>
 
@@ -154,7 +154,7 @@
     <!-- Badge -->
     
     <rect class="badge-rect" x="820" y="154" width="54" height="14" rx="" ry="" />
-    <text class="badge-text" x="847.0" y="164" text-anchor="middle">PRIO 40</text>
+    <text class="badge-text" x="847.0" y="164" text-anchor="middle">PRIO 15</text>
         
   </g>
 
@@ -163,15 +163,15 @@
     <rect x="905" y="140" width="160" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
     
     <!-- Title -->
-    <text x="921" y="164" class="node-text-title">Telemetry Tracer</text>
+    <text x="921" y="164" class="node-text-title">Template Engine</text>
     
     <!-- Description -->
-    <text x="921" y="182" class="node-text-desc">Starts distributed</text><text x="921" y="197" class="node-text-desc">tracing span</text>
+    <text x="921" y="182" class="node-text-desc">Injects templates</text><text x="921" y="197" class="node-text-desc">rendering helper</text>
     
     <!-- Badge -->
     
     <rect class="badge-rect" x="995" y="154" width="54" height="14" rx="" ry="" />
-    <text class="badge-text" x="1022.0" y="164" text-anchor="middle">PRIO 50</text>
+    <text class="badge-text" x="1022.0" y="164" text-anchor="middle">PRIO 25</text>
         
   </g>
 

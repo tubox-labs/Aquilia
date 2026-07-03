@@ -73,7 +73,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                     <g transform="translate(30, 100)">
                         <rect x="0" y="0" width="300" height="50" rx="8" fill={accentColor} opacity="0.15" />
                         <text x="15" y="30" fill={textColor} fontSize="12" fontWeight="black">LIFECYCLE COORDINATOR</text>
-                        <text x="230" y="30" fill={accentColor} fontSize="9" fontWeight="bold">V 1.0.0</text>
+                        <text x="210" y="30" fill={accentColor} fontSize="9" fontWeight="bold">v1.2.3 ("Kraken's Wake")</text>
                     </g>
 
                     <g transform="translate(30, 170)">
@@ -138,17 +138,19 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                         {[
                             { name: 'EXCEPTION_MW', p: 1 },
                             { name: 'FAULT_MW', p: 2 },
+                            { name: 'PROXY_REDIRECT_MW', p: 3 },
+                            { name: 'REQ_SCOPE_VERSION_MW', p: 5 },
+                            { name: 'SECURITY_HSTS_CSP_MW', p: 7 },
                             { name: 'REQUEST_ID_MW', p: 10 },
-                            { name: 'LOGGING_MW', p: 20 },
-                            { name: 'AUTH_AUTH_MW', p: 15 },
-                            { name: 'SESSION_MW', p: 15 },
-                            { name: 'TEMPLATE_MW', p: 25 },
-                            { name: 'SECURITY_MW', p: 7 }
+                            { name: 'CORS_RATELIMIT_MW', p: 11 },
+                            { name: 'SESSION_AUTH_MW', p: 15 },
+                            { name: 'CSRF_I18N_MW', p: 20 },
+                            { name: 'TEMPLATE_CACHE_MW', p: 25 }
                         ].sort((a, b) => a.p - b.p).map((mw, i) => (
-                            <g key={mw.name} transform={`translate(15, ${50 + i * 55})`}>
-                                <rect x="0" y="0" width="170" height="42" rx="6" fill={accentColor} opacity={0.1} stroke={accentColor} strokeWidth="0.5" />
-                                <text x="10" y="25" fill={textColor} fontSize="9" fontWeight="bold">{mw.name}</text>
-                                <text x="155" y="25" textAnchor="middle" fill={accentColor} fontSize="8" fontWeight="bold">{mw.p}</text>
+                            <g key={mw.name} transform={`translate(15, ${50 + i * 44})`}>
+                                <rect x="0" y="0" width="170" height="38" rx="6" fill={accentColor} opacity={0.1} stroke={accentColor} strokeWidth="0.5" />
+                                <text x="10" y="23" fill={textColor} fontSize="8" fontWeight="bold">{mw.name}</text>
+                                <text x="155" y="23" textAnchor="middle" fill={accentColor} fontSize="8" fontWeight="bold">{mw.p}</text>
                             </g>
                         ))}
                     </g>

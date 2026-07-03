@@ -154,7 +154,7 @@
     <text x="341" y="154" class="node-text-title">AquiliaRuntime Lifecycle</text>
     
     <!-- Description -->
-    <text x="341" y="172" class="node-text-desc">Linear bootstrap orchestrator: CREATED -> CONFIGURING -></text><text x="341" y="187" class="node-text-desc">DISCOVERING -> BOOTSTRAPPING -> READY</text>
+    <text x="341" y="172" class="node-text-desc">Linear orchestrator: CREATED -> CONFIGURING -> DISCOVERING -></text><text x="341" y="187" class="node-text-desc">BOOTSTRAPPING -> READY -> RUNNING -> SHUTTING_DOWN -> STOPPED (FAILED)</text>
     
     <!-- Badge -->
     
@@ -244,7 +244,7 @@
     <text x="841" y="154" class="node-text-title">Middleware Chain</text>
     
     <!-- Description -->
-    <text x="841" y="172" class="node-text-desc">Runs sequentially by Priority Band:</text><text x="841" y="187" class="node-text-desc">Security (10) -> RequestId (20) -> Session (30) -> Auth (40) -> OTel (50)</text>
+    <text x="841" y="172" class="node-text-desc">Runs sequentially: Exception(1) -> Fault(2) -> ProxyFix(3) -> ReqScope(5) -></text><text x="841" y="187" class="node-text-desc">Security(7) -> ReqId(10) -> Session/Auth(15) -> CSRF(20) -> Template(25)</text>
     
     <!-- Badge -->
     

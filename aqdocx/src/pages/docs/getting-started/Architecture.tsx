@@ -59,7 +59,7 @@ export function ArchitecturePage() {
         </p>
 
         <CodeBlock
-          code={`# 1. ConfigLoader reads workspace.py (Python-first) or aquilia.yaml (YAML fallback)
+          code={`# 1. ConfigLoader resolves the Python-native configuration (AquilaConfig)
 config = ConfigLoader()
 
 # 2. Aquilary.from_manifests() validates and indexes all manifest classes
@@ -89,8 +89,7 @@ server = AquiliaServer(
 #   → Sets up MiddlewareStack (12+ layers)
 #   → Creates ControllerFactory, ControllerEngine, ControllerCompiler
 #   → Creates ControllerRouter
-#   → Builds ASGIAdapter
-#   → Initializes AquiliaTrace (.aquilia/ directory)`}
+#   → Builds ASGIAdapter`}
           language="python"
         />
         <div className="flex items-center justify-center py-6">
@@ -123,21 +122,20 @@ server = AquiliaServer(
 │   └── Model Schemas            # ModelMeta metaclass → table definitions
 ├── MiddlewareStack              # Priority-ordered middleware chain
 │   ├── ExceptionMiddleware      # Global error → Response mapping (priority: 1)
-│   ├── RequestIdMiddleware      # X-Request-ID header (priority: 2)
-│   ├── LoggingMiddleware        # Structured request logging (priority: 3)
-│   ├── FaultMiddleware          # Fault signal interception (priority: 4)
-│   ├── SessionMiddleware        # Session load/save per request (priority: 5)
-│   ├── AquilAuthMiddleware      # Identity extraction from token/session (priority: 10)
-│   ├── TemplateMiddleware       # Template engine injection (priority: 15)
-│   └── Security middleware      # CORS, CSP, CSRF, HSTS, etc. (priority: 20–30)
+│   ├── FaultMiddleware          # Fault signal interception (priority: 2)
+│   ├── ServerRequestScopeMiddleware # Request-scoped child DI container (priority: 5)
+│   ├── RequestIdMiddleware      # Generates X-Request-ID header (priority: 10)
+│   ├── SessionMiddleware        # Session load/save per request (priority: 15)
+│   ├── AquilAuthMiddleware      # Unified auth & identity extraction (priority: 15)
+│   ├── TemplateMiddleware       # Template engine rendering context (priority: 25)
+│   └── Security & Extensions    # CORS (11), RateLimit (12), CSRF (20), Cache (26), etc.
 ├── ControllerRouter             # URL pattern → CompiledRoute mapping
 ├── ControllerEngine             # Route dispatch + pipeline execution
 ├── ControllerFactory            # Controller instantiation with DI
 ├── ControllerCompiler           # Decorator metadata → CompiledRoute
 ├── ASGIAdapter                  # ASGI ↔ Aquilia bridge
 ├── LifecycleCoordinator         # Dependency-ordered startup/shutdown
-├── AquilaSockets                # WebSocket runtime (if enabled)
-└── AquiliaTrace                 # .aquilia/ diagnostic directory`}
+└── AquilaSockets                # WebSocket runtime (if enabled)`}
           language="text"
         />
         <div className="flex items-center justify-center py-6">
@@ -174,7 +172,7 @@ ctx = RequestCtx(
 )
 
 # 4. Middleware chain executes (outermost → innermost):
-#    RequestId → Exception → Logging → Fault → Session → Auth → Template → …
+#    Exception → Fault → RequestScope → RequestId → Session/Auth → Template → …
 #    Each middleware calls: await next_handler(request, ctx)
 
 # 5. ControllerRouter.match(path, method) → CompiledRoute
@@ -222,20 +220,26 @@ ctx = RequestCtx(
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
                 ['1', 'ExceptionMiddleware', 'Catches unhandled exceptions, renders debug pages or JSON error'],
-                ['2', 'RequestIdMiddleware', 'Generates X-Request-ID via os.urandom (no UUID overhead)'],
-                ['3', 'LoggingMiddleware', 'Structured request/response logging with timing'],
-                ['4', 'FaultMiddleware', 'Intercepts Fault signals and converts to HTTP responses'],
-                ['5', 'SessionMiddleware', 'Loads session from store, saves after response'],
-                ['10', 'AquilAuthMiddleware', 'Extracts Identity from JWT/session, sets ctx.identity'],
-                ['15', 'TemplateMiddleware', 'Injects template engine into request context'],
-                ['20', 'CORSMiddleware', 'Cross-origin resource sharing headers'],
-                ['21', 'CSPMiddleware', 'Content-Security-Policy header'],
-                ['22', 'CSRFMiddleware', 'Cross-site request forgery token validation'],
-                ['23', 'HSTSMiddleware', 'HTTP Strict Transport Security header'],
-                ['24', 'SecurityHeadersMiddleware', 'X-Frame-Options, X-Content-Type-Options, etc.'],
-                ['25', 'HTTPSRedirectMiddleware', 'Redirect HTTP → HTTPS'],
-                ['30', 'RateLimitMiddleware', 'Request rate limiting per IP/key'],
-                ['40', 'StaticMiddleware', 'Serve static files from configured directory'],
+                ['2', 'FaultMiddleware', 'Intercepts Fault signals and converts to HTTP responses'],
+                ['3', 'ProxyFixMiddleware', 'Applies trust-proxy headers (X-Forwarded-For, etc.) for upstream proxies'],
+                ['4', 'HTTPSRedirectMiddleware', 'Redirects incoming HTTP requests to HTTPS'],
+                ['5', 'ServerRequestScopeMiddleware', 'Initializes and tears down request-scoped DI container'],
+                ['5', 'VersionMiddleware', 'Handles API version negotiation based on headers/query/path'],
+                ['6', 'StaticMiddleware', 'Serves static files directly from configured directories'],
+                ['7', 'SecurityHeadersMiddleware', 'Injects security headers (Helmet equivalents like X-Frame-Options)'],
+                ['8', 'HSTSMiddleware', 'Enforces HTTP Strict Transport Security'],
+                ['9', 'CSPMiddleware', 'Validates and injects Content-Security-Policy (CSP) headers & nonces'],
+                ['10', 'RequestIdMiddleware', 'Generates X-Request-ID via os.urandom (no UUID overhead)'],
+                ['11', 'CORSMiddleware', 'Cross-origin resource sharing header parsing and preflight routing'],
+                ['11', 'InspectorMiddleware', 'Captures debugging statistics and diagnostics in development'],
+                ['12', 'RateLimitMiddleware', 'Rate limits requests per IP or user key (sliding window)'],
+                ['12', 'ToolbarInjectionMiddleware', 'Injects the development diagnostics toolbar into HTML responses'],
+                ['15', 'SessionMiddleware', 'Loads session from store, saves session state after response'],
+                ['15', 'AquilAuthMiddleware', 'Extracts Identity from JWT/session and populates ctx.identity'],
+                ['20', 'CSRFMiddleware', 'Protects against Cross-Site Request Forgery via token verification'],
+                ['24', 'I18nMiddleware', 'Resolves local locale settings and translates response context'],
+                ['25', 'TemplateMiddleware', 'Injects template engine context and rendering helper into request context'],
+                ['26', 'CacheMiddleware', 'Caches HTTP responses for GET requests to optimize throughput'],
               ].map(([pri, name, purpose], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{pri}</td>
@@ -306,9 +310,8 @@ ctx = RequestCtx(
 #   1. CLI arguments           (--port 9000)
 #   2. Environment variables   (AQ_PORT=9000)
 #   3. .env file               (AQ_PORT=9000)
-#   4. workspace.py            (Workspace("app").runtime(port=9000))
-#   5. aquilia.yaml            (runtime: { port: 9000 })
-#   6. Framework defaults      (port: 8000)
+#   4. Python-native config    (workspace.py / AquilaConfig)
+#   5. Framework defaults      (port: 8000)
 #
 # Environment variable prefix: AQ_
 # Nested keys use double underscores: AQ_DATABASE__URL=postgres://...`}
@@ -339,11 +342,11 @@ ctx = RequestCtx(
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               <tr className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                 <td className={`px-4 py-2 font-mono text-sm ${isDark ? 'text-emerald-400' : 'text-emerald-600'}`}>DEV</td>
-                <td className={`px-4 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Relaxed validation, debug error pages, auto-reload, verbose logging, trace writes enabled</td>
+                <td className={`px-4 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Relaxed validation, debug error pages, auto-reload, verbose logging, hot-reload support</td>
               </tr>
               <tr className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                 <td className={`px-4 py-2 font-mono text-sm ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>PROD</td>
-                <td className={`px-4 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Strict validation, JSON error responses, no debug pages, trace writes disabled, performance optimizations</td>
+                <td className={`px-4 py-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Strict validation, JSON error responses, no debug pages, performance optimizations</td>
               </tr>
               <tr className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                 <td className={`px-4 py-2 font-mono text-sm ${isDark ? 'text-amber-400' : 'text-amber-600'}`}>TEST</td>

@@ -42,7 +42,7 @@ export function InstallationPage() {
             <ul className={`space-y-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               <li className="flex justify-between items-center bg-zinc-500/5 p-2 rounded-lg">
                 <span>Minimum Version</span>
-                <span className={`font-mono font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>3.11</span>
+                <span className={`font-mono font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>3.10</span>
               </li>
               <li className="flex justify-between items-center bg-aquilia-500/10 p-2 rounded-lg border border-aquilia-500/20">
                 <span className="text-aquilia-500 font-medium">Recommended</span>
@@ -80,16 +80,16 @@ export function InstallationPage() {
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Install from PyPI</h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The core package installs the framework, ASGI server (uvicorn), and CLI:
+          Install Aquilia using <strong>uv</strong> (recommended):
+        </p>
+
+        <CodeBlock code={`uv add aquilia`} language="bash" />
+
+        <p className={`mt-4 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Or with standard <strong>pip</strong>:
         </p>
 
         <CodeBlock code={`pip install aquilia`} language="bash" />
-
-        <p className={`mt-4 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Or with <strong>uv</strong> (recommended for faster installs):
-        </p>
-
-        <CodeBlock code={`uv pip install aquilia`} language="bash" />
       </section >
 
       {/* Extras */}
@@ -111,14 +111,21 @@ export function InstallationPage() {
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
-                ['redis', 'redis[hiredis]', 'Redis cache backend, Redis session store, Redis socket adapter'],
-                ['postgres', 'asyncpg, psycopg2-binary', 'PostgreSQL database backend'],
-                ['mysql', 'aiomysql', 'MySQL database backend'],
-                ['mail', 'aiosmtplib, boto3', 'SMTP email, AWS SES provider'],
-                ['templates', 'jinja2', 'Jinja2 template engine (auto-installed)'],
-                ['auth', 'pyjwt, cryptography, argon2-cffi', 'JWT tokens, RS256, Argon2 hashing'],
-                ['dev', 'pytest, httpx, coverage', 'Development and testing tools'],
-                ['all', '(all of the above)', 'Full installation for production'],
+                ['template', 'jinja2, markupsafe', 'Jinja2 HTML template rendering engine'],
+                ['sqlite-compat', 'aiosqlite', 'Async SQLite compatibility shim (deprecated)'],
+                ['auth', 'cryptography, argon2-cffi', 'Cryptography and Argon2 hashing for auth subsystems'],
+                ['multipart', 'python-multipart', 'Parsing multipart form data and file uploads'],
+                ['redis', 'redis[asyncio]', 'Redis cache, session, and socket adapter backends'],
+                ['mail', 'aiosmtplib', 'SMTP email provider support'],
+                ['mail-ses', 'aiobotocore', 'AWS SES email provider support'],
+                ['mail-sendgrid', 'httpx', 'SendGrid email provider support'],
+                ['server', 'gunicorn, uvicorn[standard]', 'Production web server (Gunicorn + Uvicorn workers)'],
+                ['postgres', 'asyncpg', 'Async PostgreSQL database driver support'],
+                ['otel', 'opentelemetry-api, opentelemetry-sdk, opentelemetry-exporter-otlp-proto-grpc, opentelemetry-instrumentation-asgi', 'OpenTelemetry distributed tracing support'],
+                ['full', 'aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template]', 'Convenience bundle with all standard features'],
+                ['all', 'aquilia[full]', 'Full installation with absolutely everything'],
+                ['testing', 'pytest, pytest-asyncio, pytest-cov, httpx', 'Testing utilities and coverage tools'],
+                ['dev', 'aquilia[testing], ruff, mypy, pre-commit', 'Development tools, linters, and checkers'],
               ].map(([extra, installs, when], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>aquilia[{extra}]</td>
@@ -166,12 +173,12 @@ aq version`}
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Verify Installation</h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          After installation, verify that the CLI (<code>aq</code>, also accessible as <code>aquilate</code>) is available:
+          After installation, verify that the CLI (<code>aq</code>) is available:
         </p>
 
         <CodeBlock
           code={`$ aq version
-Aquilia v1.2.2
+Aquilia v1.2.3
 
 $ aq doctor
 ✓ Python 3.12.3 (compatible)
@@ -194,22 +201,18 @@ $ aq doctor
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>CLI Entry Points</h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The package registers two console scripts (both identical):
+          The CLI can be accessed via the registered script or direct module invocation:
         </p>
 
         <div className={`rounded-xl border p-4 ${isDark ? 'bg-zinc-900/50 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
           <ul className={`space-y-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
             <li className="flex items-center gap-2">
               <Terminal className="w-4 h-4 text-aquilia-400" />
-              <code className="font-mono">aq</code> — Short form (recommended)
-            </li>
-            <li className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-aquilia-400" />
-              <code className="font-mono">aquilate</code> — Long form
+              <code className="font-mono">aq</code> — Registered CLI command (recommended)
             </li>
             <li className="flex items-center gap-2">
               <Package className="w-4 h-4 text-aquilia-400" />
-              <code className="font-mono">python -m aquilia.cli</code> — Module invocation (if entry points are broken)
+              <code className="font-mono">python -m aquilia.cli</code> — Module invocation (if entry point is not in PATH)
             </li>
           </ul>
         </div>
@@ -252,8 +255,8 @@ $ aq doctor
               <div>
                 <p className={`font-semibold text-sm ${isDark ? 'text-amber-300' : 'text-amber-800'}`}>Python version incompatibility</p>
                 <p className={`text-sm mt-1 ${isDark ? 'text-amber-200/80' : 'text-amber-700'}`}>
-                  Aquilia requires Python 3.11 or newer. Check with <code>python --version</code>.
-                  If you have multiple Python versions installed, use <code>python3.12 -m pip install aquilia</code>.
+                  Aquilia requires Python 3.10 or newer. Check with <code>python --version</code>.
+                  If you have multiple Python versions installed, use <code>python3.10 -m pip install aquilia</code>.
                 </p>
               </div>
             </div>

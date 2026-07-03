@@ -28,7 +28,7 @@ export function QuickStartPage() {
 
         <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           This guide walks you through creating, configuring, and running an Aquilia application from scratch.
-          By the end, you'll have a multi-endpoint REST API with dependency injection, sessions, and authentication.
+          By the end, you'll have a multi-endpoint REST API with dependency injection, validation blueprints, database models, and unit tests.
         </p>
       </div>
 
@@ -40,7 +40,7 @@ export function QuickStartPage() {
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>aq init workspace</code> command scaffolds a complete project structure:
+          Use the <code>aq init workspace</code> command to scaffold a new workspace directory containing standard project configuration files:
         </p>
 
         <CodeBlock
@@ -53,268 +53,442 @@ cd my-api`}
         />
 
         <p className={`mt-4 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          This creates the following layout:
+          This command generates the following project layout:
         </p>
 
         <CodeBlock
           code={`my-api/
-├── workspace.py          # Workspace configuration (Python-first)
-├── modules/
-│   └── core/
-│       ├── __init__.py
-│       ├── controllers.py  # Controller classes
-│       ├── services.py     # Business logic services
-│       └── models.py       # ORM model definitions
-├── templates/              # Jinja2 templates (optional)
-├── static/                 # Static files (optional)
-└── .aquilia/               # Trace directory (auto-generated)`}
+├── workspace.py          # Root configuration (integrations, server options)
+├── starter.py            # Welcome-page controller (shown at / when debug=True)
+├── modules/              # Sub-modules (initially empty)
+├── tests/                # Test suite
+│   ├── conftest.py
+│   └── test_smoke.py
+├── requirements.txt      # Project dependencies
+├── .env.example          # Environment variables template
+└── Makefile              # Developer shortcuts`}
           language="text"
         />
 
-        <div className={`mt-4 rounded-lg border p-4 ${isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-            <strong>Templates:</strong> Use <code>aq init workspace my-api --template=api</code> for an API-only setup,
-            or <code>--template=monolith</code> for a full-stack setup with templates and static files.
-            Use <code>--minimal</code> for the bare minimum.
-          </p>
-        </div>
-      </section>
-
-      {/* Step 2: Configure workspace */}
-      <section className="mb-10">
-        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">2</span>
-          Configure the Workspace
-        </h2>
-
+        <h3 className={`text-lg font-semibold mt-6 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Workspace Configuration</h3>
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Open <code>workspace.py</code>. This is your application's root configuration — Aquilia uses
-          Python-first configuration through fluent builder classes:
+          Open <code>workspace.py</code> to see the Fluent Builder configuration structure. The workspace config manages environment settings, module registrations, and third-party integrations:
         </p>
 
         <CodeBlock
           code={`# workspace.py
-from aquilia import Workspace, Module, Integration
+from aquilia import Workspace, Module
+from aquilia import AquilaConfig, Secret, Env
+from aquilia.integrations import (
+    MiddlewareChain,
+    DiIntegration,
+    RegistryIntegration,
+    RoutingIntegration,
+    FaultHandlingIntegration,
+    PatternsIntegration,
+    DatabaseIntegration,
+    CacheIntegration,
+)
 
-app = (
+class BaseEnv(AquilaConfig):
+    """Shared defaults — every environment inherits these."""
+    env = "dev"
+
+    class server(AquilaConfig.Server):
+        host = "127.0.0.1"
+        port = 8000
+        workers = 1
+        reload = True
+
+workspace = (
     Workspace("my-api")
-    # Register modules
-    .module(
-        Module("core")
-        .auto_discover("modules/core")  # Scans for controllers, services, models
-    )
-    # Enable integrations
-    .integrate(
-        Integration.database(url="sqlite:///db.sqlite3"),
-        Integration.sessions(),
-        Integration.auth(),
-        Integration.cache(backend="memory"),
-        Integration.cors(
-            allow_origins=["http://localhost:3000"],
-            allow_methods=["GET", "POST", "PUT", "DELETE"],
-        ),
-    )
-    # Runtime settings
-    .runtime(
-        debug=True,
-        host="0.0.0.0",
-        port=8000,
-    )
-    .build()
-)`}
+    .env_config(BaseEnv)
+    .starter("starter")
+    .middleware(MiddlewareChain.defaults())
+    .integrate(DiIntegration(auto_wire=True))
+    .integrate(RegistryIntegration())
+    .integrate(RoutingIntegration(strict_matching=True))
+    .integrate(FaultHandlingIntegration(default_strategy="propagate"))
+    .integrate(PatternsIntegration())
+    .integrate(DatabaseIntegration(url="sqlite:///db.sqlite3"))
+    .integrate(CacheIntegration(backend="memory"))
+)
+
+__all__ = ["workspace"]`}
           language="python"
         />
 
-        <div className={`mt-4`}>
-          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            <strong>Key concepts:</strong>
-          </p>
-          <ul className={`text-sm mt-2 space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-            <li>• <code>Workspace</code> — top-level container for the entire application</li>
-            <li>• <code>Module</code> — a logical grouping of controllers, services, and models</li>
-            <li>• <code>Integration</code> — static methods that configure cross-cutting concerns</li>
-            <li>• <code>.auto_discover()</code> — scans a directory for controller/service/model classes</li>
-            <li>• <code>.build()</code> — finalizes and returns the configuration dict</li>
-          </ul>
-        </div>
-      </section>
-
-      {/* Step 3: Create controller */}
-      <section className="mb-10">
-        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">3</span>
-          Write a Controller
-        </h2>
-
+        <h3 className={`text-lg font-semibold mt-6 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Starter welcome page</h3>
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Controllers are class-based handlers. Each class has a <code>prefix</code> and decorated
-          methods for each HTTP endpoint:
+          The workspace starts with a welcome controller defined in <code>starter.py</code>:
         </p>
 
         <CodeBlock
-          code={`# modules/core/controllers.py
-from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
+          code={`# starter.py
+from aquilia import Controller, GET, RequestCtx, Response
 
-class TasksController(Controller):
-    """CRUD controller for tasks."""
-    prefix = "/api/tasks"
-    tags = ["Tasks"]
-
-    def __init__(self, task_service: "TaskService"):
-        """Constructor DI — the container injects TaskService automatically."""
-        self.task_service = task_service
+class StarterController(Controller):
+    prefix = "/"
+    tags = ["starter"]
 
     @GET("/")
-    async def list_tasks(self, ctx: RequestCtx) -> Response:
-        """List all tasks, with optional filtering."""
-        status_filter = ctx.query_param("status")
-        tasks = await self.task_service.list(status=status_filter)
-        return Response.json({"tasks": tasks})
+    async def welcome(self, ctx: RequestCtx):
+        from aquilia.debug.pages import render_welcome_page
+        try:
+            from aquilia import __version__
+            version = __version__
+        except Exception:
+            version = ""
 
-    @GET("/«id:int»")
-    async def get_task(self, ctx: RequestCtx, id: int) -> Response:
-        """Get a single task by ID."""
-        task = await self.task_service.get(id)
-        if not task:
-            return Response.json({"error": "Task not found"}, status=404)
-        return Response.json(task)
-
-    @POST("/")
-    async def create_task(self, ctx: RequestCtx) -> Response:
-        """Create a new task from JSON body."""
-        data = await ctx.json()
-        task = await self.task_service.create(data)
-        return Response.json(task, status=201)
-
-    @PUT("/«id:int»")
-    async def update_task(self, ctx: RequestCtx, id: int) -> Response:
-        """Update an existing task."""
-        data = await ctx.json()
-        task = await self.task_service.update(id, data)
-        return Response.json(task)
-
-    @DELETE("/«id:int»")
-    async def delete_task(self, ctx: RequestCtx, id: int) -> Response:
-        """Delete a task."""
-        await self.task_service.delete(id)
-        return Response.json({"deleted": True})`}
+        html = render_welcome_page(aquilia_version=version)
+        return Response(
+            content=html.encode("utf-8"),
+            status=200,
+            headers={"content-type": "text/html; charset=utf-8"},
+        )`}
           language="python"
         />
-
-        <div className={`mt-4 rounded-lg`}>
-          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            <strong>Route parameters:</strong> Aquilia uses <code>«name:type»</code> syntax for URL
-            parameters. Supported types: <code>int</code>, <code>str</code>, <code>uuid</code>, <code>slug</code>, <code>path</code>.
-            Parameters are automatically extracted and passed as keyword arguments.
-          </p>
-        </div>
       </section>
 
-      {/* Step 4: Create service */}
+      {/* Step 2: Add a Module */}
       <section className="mb-10">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">4</span>
-          Write a Service
+          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">2</span>
+          Add a Module
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Services contain business logic and are injected into controllers via the DI container.
-          Mark them with <code>@service</code> to register them automatically:
+          To add a new feature or logical domain to your workspace, run <code>aq add module [NAME]</code>:
         </p>
 
         <CodeBlock
-          code={`# modules/core/services.py
-from aquilia import service
-
-@service(scope="app")
-class TaskService:
-    """Business logic for task management.
-
-    Scoped as "app" — one instance shared across all requests.
-    """
-    def __init__(self):
-        # In a real app, inject a database or repository
-        self._tasks: dict[int, dict] = {}
-        self._next_id = 1
-
-    async def list(self, status: str | None = None) -> list[dict]:
-        tasks = list(self._tasks.values())
-        if status:
-            tasks = [t for t in tasks if t.get("status") == status]
-        return tasks
-
-    async def get(self, task_id: int) -> dict | None:
-        return self._tasks.get(task_id)
-
-    async def create(self, data: dict) -> dict:
-        task = {
-            "id": self._next_id,
-            "title": data.get("title", "Untitled"),
-            "status": data.get("status", "pending"),
-        }
-        self._tasks[self._next_id] = task
-        self._next_id += 1
-        return task
-
-    async def update(self, task_id: int, data: dict) -> dict:
-        task = self._tasks.get(task_id, {})
-        task.update(data)
-        task["id"] = task_id
-        self._tasks[task_id] = task
-        return task
-
-    async def delete(self, task_id: int) -> None:
-        self._tasks.pop(task_id, None)`}
-          language="python"
-        />
-      </section>
-
-      {/* Step 5: Run */}
-      <section className="mb-10">
-        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">5</span>
-          Run the Development Server
-        </h2>
-
-        <CodeBlock
-          code={`# Start the development server (auto-reload enabled)
-aq run
-
-# Or with explicit options
-aq run --host 0.0.0.0 --port 8000 --reload`}
+          code={`# Add a new module named "tasks"
+aq add module tasks`}
           language="bash"
         />
 
         <p className={`mt-4 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          You'll see the startup sequence:
+          This scaffolds a new module directory structure under <code>modules/tasks/</code>:
+        </p>
+
+        <CodeBlock
+          code={`modules/tasks/
+├── __init__.py
+├── manifest.py       # Module identity, component imports, and error domain settings
+├── blueprints.py     # Request data validation classes
+├── controllers.py    # Request handlers & HTTP routing
+├── services.py       # Core business logic
+├── faults.py         # Domain-specific error codes
+└── models.py         # ORM database models`}
+          language="text"
+        />
+
+        <p className={`mt-6 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Here is the complete, valid, executable example code for each of these files as scaffolded by the CLI generator:
+        </p>
+
+        {/* manifest.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/manifest.py</p>
+          <CodeBlock
+            code={`from aquilia import AppManifest
+from aquilia.manifest import FaultHandlingConfig
+
+manifest = AppManifest(
+    name="tasks",
+    version="0.1.0",
+    description="Tasks module",
+    tags=["tasks"],
+    controllers=[
+        "modules.tasks.controllers:TasksController",
+    ],
+    services=[
+        "modules.tasks.services:TasksService",
+    ],
+    models=[
+        "modules.tasks.models:Task",
+    ],
+    base_path="modules.tasks",
+    imports=[],
+    exports=[],
+    faults=FaultHandlingConfig(
+        default_domain="TASKS",
+        strategy="propagate",
+    ),
+    auto_discover=True,
+)
+
+__all__ = ["manifest"]`}
+            language="python"
+          />
+        </div>
+
+        {/* __init__.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/__init__.py</p>
+          <CodeBlock
+            code={`from .controllers import *
+from .services import *
+from .faults import *
+
+__module_name__ = "tasks"
+__version__ = "0.1.0"`}
+            language="python"
+          />
+        </div>
+
+        {/* blueprints.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/blueprints.py</p>
+          <CodeBlock
+            code={`from aquilia import Blueprint
+
+class TaskBlueprint(Blueprint):
+    """Blueprint for Task input validation."""
+    name: str
+    description: str | None = None
+    active: bool = True
+
+    class Spec:
+        extra_fields = "reject"`}
+            language="python"
+          />
+        </div>
+
+        {/* controllers.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/controllers.py</p>
+          <CodeBlock
+            code={`from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
+from .faults import TasksNotFoundFault
+from .services import TasksService
+from .blueprints import TaskBlueprint
+
+class TasksController(Controller):
+    """Controller for tasks endpoints."""
+    prefix = "/"
+    tags = ["tasks"]
+
+    def __init__(self, service: TasksService = None):
+        # Service is injected via Dependency Injection, fallback to direct initialization
+        self.service = service or TasksService()
+
+    @GET("/")
+    async def list_tasks(self, ctx: RequestCtx):
+        """List all tasks."""
+        items = await self.service.get_all()
+        return Response.json({
+            "items": items,
+            "total": len(items)
+        })
+
+    @POST("/")
+    async def create_task(self, ctx: RequestCtx, data: TaskBlueprint):
+        """Create a new task, validating parameters using TaskBlueprint."""
+        item = await self.service.create(data.to_dict())
+        return Response.json(item, status=201)
+
+    @GET("/<id:int>")
+    async def get_task(self, ctx: RequestCtx, id: int):
+        """Get a task by ID."""
+        item = await self.service.get_by_id(id)
+        if not item:
+            raise TasksNotFoundFault(item_id=id)
+        return Response.json(item)
+
+    @PUT("/<id:int>")
+    async def update_task(self, ctx: RequestCtx, id: int, data: TaskBlueprint):
+        """Update a task by ID."""
+        item = await self.service.update(id, data.to_dict())
+        if not item:
+            raise TasksNotFoundFault(item_id=id)
+        return Response.json(item)
+
+    @DELETE("/<id:int>")
+    async def delete_task(self, ctx: RequestCtx, id: int):
+        """Delete a task."""
+        deleted = await self.service.delete(id)
+        if not deleted:
+            raise TasksNotFoundFault(item_id=id)
+        return Response(status=204)`}
+            language="python"
+          />
+        </div>
+
+        {/* services.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/services.py</p>
+          <CodeBlock
+            code={`from typing import Optional, List
+from aquilia.di import service
+
+@service(scope="app")
+class TasksService:
+    """Tasks business logic service."""
+    def __init__(self):
+        self._storage: List[dict] = []
+        self._next_id = 1
+
+    async def get_all(self) -> List[dict]:
+        return self._storage
+
+    async def get_by_id(self, item_id: int) -> Optional[dict]:
+        for item in self._storage:
+            if item["id"] == item_id:
+                return item
+        return None
+
+    async def create(self, data: dict) -> dict:
+        item = {
+            "id": self._next_id,
+            **data
+        }
+        self._storage.append(item)
+        self._next_id += 1
+        return item
+
+    async def update(self, item_id: int, data: dict) -> Optional[dict]:
+        item = await self.get_by_id(item_id)
+        if item:
+            item.update(data)
+        return item
+
+    async def delete(self, item_id: int) -> bool:
+        for i, item in enumerate(self._storage):
+            if item["id"] == item_id:
+                self._storage.pop(i)
+                return True
+        return False`}
+            language="python"
+          />
+        </div>
+
+        {/* faults.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/faults.py</p>
+          <CodeBlock
+            code={`from aquilia.faults import Fault, FaultDomain, Severity
+
+TASKS_FAULT_DOMAIN = FaultDomain.custom(
+    "tasks",
+    "Tasks module faults",
+)
+
+class TasksNotFoundFault(Fault):
+    """Raised when a task is not found."""
+    domain = TASKS_FAULT_DOMAIN
+    severity = Severity.INFO
+    code = "TASKS_NOT_FOUND"
+
+    def __init__(self, item_id: int):
+        super().__init__(
+            code=self.code,
+            domain=self.domain,
+            message=f"Task with id {item_id} not found",
+            metadata={"item_id": item_id},
+            retryable=False,
+        )`}
+            language="python"
+          />
+        </div>
+
+        {/* models.py */}
+        <div className="mb-6">
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/models.py</p>
+          <CodeBlock
+            code={`from aquilia.models import Model
+from aquilia.models.fields import (
+    AutoField,
+    CharField,
+    TextField,
+    BooleanField,
+    DateTimeField,
+)
+
+class Task(Model):
+    """Database model for Tasks."""
+    table = "tasks"
+
+    id = AutoField(primary_key=True)
+    name = CharField(max_length=255)
+    description = TextField(blank=True, default="")
+    active = BooleanField(default=True)
+    created_at = DateTimeField(auto_now_add=True)
+    updated_at = DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __repr__(self):
+        return f"<Task id={self.id} name={self.name!r}>"`}
+            language="python"
+          />
+        </div>
+
+        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          The CLI auto-discovery updates <code>workspace.py</code> to register your new module as a pointer, ensuring your routes and metadata are wireable:
+        </p>
+
+        <CodeBlock
+          code={`workspace = (
+    Workspace("my-api")
+    .env_config(BaseEnv)
+    .starter("starter")
+    # ---- Modules -------------------------------------------------------------
+    .module(
+        Module("tasks", version="0.1.0", description="Tasks module")
+        .route_prefix("/tasks")
+    )
+    # ...
+)`}
+          language="python"
+        />
+      </section>
+
+      {/* Step 3: Run */}
+      <section className="mb-10">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">3</span>
+          Run the Development Server
+        </h2>
+
+        <CodeBlock
+          code={`# Start the dev server (auto-reload is active by default in dev environment)
+aq run`}
+          language="bash"
+        />
+
+        <p className={`mt-4 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Upon booting, the compiler outputs the route registrations and subsystem configurations:
         </p>
 
         <CodeBlock
           code={`╔══════════════════════════════════════════╗
-║     Aquilia v1.2.2  ✓  Development       ║
+║     Aquilia v1.2.3  ✓  Development       ║
 ╚══════════════════════════════════════════╝
 
   → Loading workspace.py ...
-  ✓ Module "core" discovered
+  ✓ Module "tasks" discovered
     ├─ Controllers: TasksController
-    ├─ Services: TaskService
-    └─ Models: (none)
+    ├─ Services: TasksService
+    └─ Models: Task
   ✓ Middleware stack compiled (5 layers)
   ✓ DI container ready (2 providers)
   ✓ Routes compiled:
-    GET    /api/tasks/
-    GET    /api/tasks/«id:int»
-    POST   /api/tasks/
-    PUT    /api/tasks/«id:int»
-    DELETE /api/tasks/«id:int»
+    GET    /
+    GET    /tasks/
+    POST   /tasks/
+    GET    /tasks/<id:int>
+    PUT    /tasks/<id:int>
+    DELETE /tasks/<id:int>
 
-  Serving on http://0.0.0.0:8000 (Press Ctrl+C to stop)`}
+  Serving on http://127.0.0.1:8000 (Press Ctrl+C to stop)`}
           language="text"
         />
       </section>
 
       <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-        Open <a href="http://localhost:8000" target="_blank" rel="noopener noreferrer" className="text-aquilia-400 hover:underline font-mono">http://localhost:8000</a> in your browser to experience the Aquilia starter page — your command center for development, debugging, and exploration.
+        Open <a href="http://127.0.0.1:8000" target="_blank" rel="noopener noreferrer" className="text-aquilia-400 hover:underline font-mono">http://127.0.0.1:8000</a> in your browser to inspect the dev console.
       </p>
 
       <div className="mb-10 rounded-2xl overflow-hidden shadow-2xl">
@@ -325,114 +499,74 @@ aq run --host 0.0.0.0 --port 8000 --reload`}
         />
       </div>
 
-      {/* Step 6: Test */}
+      {/* Step 4: Test with cURL */}
       <section className="mb-10">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">6</span>
+          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">4</span>
           Test with cURL
         </h2>
 
         <CodeBlock
           code={`# Create a task
-curl -X POST http://localhost:8000/api/tasks/ \\
+curl -X POST http://127.0.0.1:8000/tasks/ \\
   -H "Content-Type: application/json" \\
-  -d '{"title": "Learn Aquilia", "status": "in_progress"}'
-# → {"id": 1, "title": "Learn Aquilia", "status": "in_progress"}
+  -d '{"name": "Learn Aquilia", "description": "Build an API"}'
+# → {"id": 1, "name": "Learn Aquilia", "description": "Build an API", "active": true}
 
-# List tasks
-curl http://localhost:8000/api/tasks/
-# → {"tasks": [{"id": 1, "title": "Learn Aquilia", "status": "in_progress"}]}
-
-# Get single task
-curl http://localhost:8000/api/tasks/1
-# → {"id": 1, "title": "Learn Aquilia", "status": "in_progress"}
-
-# Filter by status
-curl http://localhost:8000/api/tasks/?status=in_progress
-# → {"tasks": [{"id": 1, "title": "Learn Aquilia", "status": "in_progress"}]}`}
+# List all tasks
+curl http://127.0.0.1:8000/tasks/
+# → {"items": [{"id": 1, "name": "Learn Aquilia", "description": "Build an API", "active": true}], "total": 1}`}
           language="bash"
         />
       </section>
 
-      {/* Step 7: Add a model */}
+      {/* Step 5: Write Tests */}
       <section className="mb-10">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">7</span>
-          Add a Database Model (Optional)
+          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">5</span>
+          Write Tests
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Replace the in-memory service with a proper ORM model:
+          Use the built-in <code>AquiliaTestCase</code> to run integration and endpoint verification tests against the modules. You do not need to construct a test client manually; use the built-in <code>self.client</code> property along with status assertion methods:
         </p>
 
         <CodeBlock
-          code={`# modules/core/models.py
-from aquilia.models import Model, CharField, IntegerField, BooleanField, DateTimeField
+          code={`# tests/test_tasks.py
+from aquilia.testing import AquiliaTestCase
+from modules.tasks.manifest import manifest as tasks_manifest
 
-class Task(Model):
-    title = CharField(max_length=200)
-    status = CharField(max_length=50, default="pending")
-    priority = IntegerField(default=0)
-    completed = BooleanField(default=False)
-    created_at = DateTimeField(auto_now_add=True)
-    updated_at = DateTimeField(auto_now=True)
+class TestTasks(AquiliaTestCase):
+    # Specify the module manifests to load in the test context
+    manifests = [tasks_manifest]
 
-    class Meta:
-        table_name = "tasks"
-        ordering = ["-created_at"]`}
+    async def test_create_task(self):
+        # Built-in self.client handles network requests internally
+        response = await self.client.post("/tasks/", json={
+            "name": "Write Unit Tests",
+            "description": "Test the tasks controller endpoints",
+        })
+        # Built-in assertion helper validates the response status code
+        self.assert_status(response, 201)
+        
+        data = response.json()
+        self.assertEqual(data["name"], "Write Unit Tests")
+
+    async def test_list_tasks(self):
+        response = await self.client.get("/tasks/")
+        self.assert_status(response, 200)
+        data = response.json()
+        self.assertIn("items", data)`}
           language="python"
         />
 
         <p className={`mt-4 mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Then run migrations:
+          Run the tests using the CLI wrapper:
         </p>
 
         <CodeBlock
-          code={`# Generate migration
-aq migrate makemigrations
-
-# Apply migration
-aq migrate apply`}
-          language="bash"
-        />
-      </section>
-
-      {/* Step 8: Write tests */}
-      <section className="mb-10">
-        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="w-8 h-8 rounded-lg bg-aquilia-500/20 text-aquilia-400 flex items-center justify-center text-sm font-bold">8</span>
-          Write Tests
-        </h2>
-
-        <CodeBlock
-          code={`# tests/test_tasks.py
-from aquilia.testing import AquiliaTestCase, TestClient
-
-class TestTasks(AquiliaTestCase):
-    async def test_create_task(self):
-        client = TestClient(self.app)
-        response = await client.post("/api/tasks/", json={
-            "title": "Test Task",
-            "status": "pending",
-        })
-        self.assertEqual(response.status_code, 201)
-        data = response.json()
-        self.assertEqual(data["title"], "Test Task")
-
-    async def test_list_tasks(self):
-        client = TestClient(self.app)
-        response = await client.get("/api/tasks/")
-        self.assertEqual(response.status_code, 200)
-        self.assertIn("tasks", response.json())`}
-          language="python"
-        />
-
-        <CodeBlock
-          code={`# Run tests
-aq test
-
-# Or with pytest
-pytest tests/`}
+          code={`# Run test suite
+aq test`}
           language="bash"
         />
       </section>
