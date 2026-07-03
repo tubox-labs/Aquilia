@@ -1,0 +1,286 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 600" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
+    </linearGradient>
+  </defs>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg { fill: #f9fafb; rx: 12px; }
+    .border-stroke { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
+    .title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }
+    
+    /* Card Styles */
+    .card-bg { stroke: #1e293b; stroke-width: 2; rx: 6px; }
+    .node-text-title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .node-text-desc { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }
+    
+    /* Group Styles */
+    .group-rect { rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }
+    .group-label { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #1e293b; stroke-width: 2.2; }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }
+    .connection-error { fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; fill: #334155; }
+    .badge-text { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1100" height="600" class="bg" rx="" ry="" />
+  <rect width="1098" height="598" x="1" y="1" class="border-stroke" rx="" ry="" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia High-Level System Architecture</text>
+  </g>
+  
+  
+  <g>
+    <rect x="20" y="90" width="260" height="480" class="group-rect" filter="url(#handdrawn)" rx="" ry="" />
+    <text x="35" y="82" class="group-label">DEVELOPMENT AND CLI SOURCE</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="40" y="120" width="220" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="56" y="144" class="node-text-title">Developer Code</text>
+    
+    <!-- Description -->
+    <text x="56" y="162" class="node-text-desc">Writes Controllers, Services,</text><text x="56" y="177" class="node-text-desc">workspace.py, manifest.py</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="202" y="134" width="42" height="14" rx="" ry="" />
+    <text class="badge-text" x="223.0" y="144" text-anchor="middle">INPUT</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="40" y="250" width="220" height="90" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="56" y="274" class="node-text-title">Aquilia CLI (aq)</text>
+    
+    <!-- Description -->
+    <text x="56" y="292" class="node-text-desc">aq init, aq add, aq serve,</text><text x="56" y="307" class="node-text-desc">aq compile, aq deploy</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="214" y="264" width="30" height="14" rx="" ry="" />
+    <text class="badge-text" x="229.0" y="274" text-anchor="middle">CLI</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="40" y="380" width="220" height="95" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="56" y="404" class="node-text-title">Package Scanner</text>
+    
+    <!-- Description -->
+    <text x="56" y="422" class="node-text-desc">Auto-discovers manifests</text><text x="56" y="437" class="node-text-desc">and registers workspace</text><text x="56" y="452" class="node-text-desc">modules dynamically</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="178" y="394" width="66" height="14" rx="" ry="" />
+    <text class="badge-text" x="211.0" y="404" text-anchor="middle">DISCOVERY</text>
+        
+  </g>
+
+  <g>
+    <rect x="310" y="90" width="500" height="480" class="group-rect" filter="url(#handdrawn)" rx="" ry="" />
+    <text x="325" y="82" class="group-label">AQUILIA ENGINE (ASGI RUNTIME)</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="330" y="120" width="220" height="95" class="card-bg" fill="url(#violetGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="346" y="144" class="node-text-title">AquiliaRuntime</text>
+    
+    <!-- Description -->
+    <text x="346" y="162" class="node-text-desc">Linear Boot Phase Manager</text><text x="346" y="177" class="node-text-desc">Created -> Discovering -></text><text x="346" y="192" class="node-text-desc">Bootstrapping -> Ready</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="468" y="134" width="66" height="14" rx="" ry="" />
+    <text class="badge-text" x="501.0" y="144" text-anchor="middle">LIFECYCLE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="570" y="120" width="220" height="95" class="card-bg" fill="url(#violetGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="586" y="144" class="node-text-title">AquiliaServer</text>
+    
+    <!-- Description -->
+    <text x="586" y="162" class="node-text-desc">Main ASGI callable</text><text x="586" y="177" class="node-text-desc">Initializes AppRegistry,</text><text x="586" y="192" class="node-text-desc">Router and middleware</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="696" y="134" width="78" height="14" rx="" ry="" />
+    <text class="badge-text" x="735.0" y="144" text-anchor="middle">CORE SERVER</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="330" y="270" width="220" height="95" class="card-bg" fill="url(#emeraldGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="346" y="294" class="node-text-title">DI Container</text>
+    
+    <!-- Description -->
+    <text x="346" y="312" class="node-text-desc">Manages dependencies,</text><text x="346" y="327" class="node-text-desc">instantiates providers,</text><text x="346" y="342" class="node-text-desc">handles scoped DAGs</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="450" y="284" width="84" height="14" rx="" ry="" />
+    <text class="badge-text" x="492.0" y="294" text-anchor="middle">DI CONTAINER</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="570" y="270" width="220" height="95" class="card-bg" fill="url(#amberGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="586" y="294" class="node-text-title">Flow Pipeline</text>
+    
+    <!-- Description -->
+    <text x="586" y="312" class="node-text-desc">Executes composed route</text><text x="586" y="327" class="node-text-desc">steps: Guards -> Transforms</text><text x="586" y="342" class="node-text-desc">-> Handler -> Hooks</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="714" y="284" width="60" height="14" rx="" ry="" />
+    <text class="badge-text" x="744.0" y="294" text-anchor="middle">PIPELINE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="330" y="410" width="460" height="135" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="346" y="434" class="node-text-title">Subsystem Integrations</text>
+    
+    <!-- Description -->
+    <text x="346" y="452" class="node-text-desc">Database ORM (SQLite / PG)  |  Cache Services (Redis / Memory)</text><text x="346" y="467" class="node-text-desc">Storage Engines (S3 / SFTP) |  Template Mailer and I18n Engine</text><text x="346" y="482" class="node-text-desc">OpenTelemetry Tracer        |  Sockets (WS Realtime)</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="714" y="424" width="60" height="14" rx="" ry="" />
+    <text class="badge-text" x="744.0" y="434" text-anchor="middle">SERVICES</text>
+        
+  </g>
+
+  <g>
+    <rect x="840" y="90" width="240" height="480" class="group-rect" filter="url(#handdrawn)" rx="" ry="" />
+    <text x="855" y="82" class="group-label">PRODUCTION INFRASTRUCTURE</text>
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="850" y="120" width="220" height="85" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="866" y="144" class="node-text-title">Docker Integration</text>
+    
+    <!-- Description -->
+    <text x="866" y="162" class="node-text-desc">Automated production</text><text x="866" y="177" class="node-text-desc">Dockerfile scaffolding</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1012" y="134" width="42" height="14" rx="" ry="" />
+    <text class="badge-text" x="1033.0" y="144" text-anchor="middle">INFRA</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="850" y="240" width="220" height="85" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="866" y="264" class="node-text-title">Compose Config</text>
+    
+    <!-- Description -->
+    <text x="866" y="282" class="node-text-desc">Database, Cache, and</text><text x="866" y="297" class="node-text-desc">API services configuration</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1000" y="254" width="54" height="14" rx="" ry="" />
+    <text class="badge-text" x="1027.0" y="264" text-anchor="middle">COMPOSE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="850" y="360" width="220" height="95" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="866" y="384" class="node-text-title">Render Provider</text>
+    
+    <!-- Description -->
+    <text x="866" y="402" class="node-text-desc">Auto-deploys codebase to</text><text x="866" y="417" class="node-text-desc">Render cloud workspace</text><text x="866" y="432" class="node-text-desc">via credentials store</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="982" y="374" width="72" height="14" rx="" ry="" />
+    <text class="badge-text" x="1018.0" y="384" text-anchor="middle">DEPLOYMENT</text>
+        
+  </g>
+<path d="M 260 165 C 295 165 295 165 330 165" class="connection-line" filter="url(#handdrawn)" /><path d="M 330 165 L 320.0 170.0 L 320.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" /><text x="295.0" y="157.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Config and Code</text>
+<path d="M 150 210 C 150 230 150 230 150 250" class="connection-line" filter="url(#handdrawn)" /><path d="M 150 250 L 145.0 240.0 L 155.0 240.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 260 295 L 295.0 295 L 295.0 165 L 330 165" class="connection-line" filter="url(#handdrawn)" /><path d="M 330 165 L 320.0 170.0 L 320.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 150 340 C 150 360 150 360 150 380" class="connection-line" filter="url(#handdrawn)" /><path d="M 150 380 L 145.0 370.0 L 155.0 370.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 260 425 C 260 440 330 440 330 455" class="connection-dashed" filter="url(#handdrawn)" /><path d="M 330 455 L 318.8389532069236 455.6565321642986 L 322.77814619271527 446.465081864118 Z" fill="#475569" stroke="#475569" stroke-width="1" filter="url(#handdrawn)" /><text x="295.0" y="432.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Register modules</text>
+<path d="M 550 165 C 560 165 560 165 570 165" class="connection-line" filter="url(#handdrawn)" /><path d="M 570 165 L 560.0 170.0 L 560.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 440 215 C 440 242.5 440 242.5 440 270" class="connection-line" filter="url(#handdrawn)" /><path d="M 440 270 L 435.0 260.0 L 445.0 260.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 680 215 C 680 242.5 680 242.5 680 270" class="connection-line" filter="url(#handdrawn)" /><path d="M 680 270 L 675.0 260.0 L 685.0 260.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 550 315 C 560 315 560 315 570 315" class="connection-line" filter="url(#handdrawn)" /><path d="M 570 315 L 560.0 320.0 L 560.0 310.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" /><text x="560.0" y="307.0" text-anchor="middle" font-family="'Architects Daughter', 'Comic Sans MS', cursive, sans-serif" font-size="11px" font-weight="600" fill="#475569">Injects</text>
+<path d="M 440 365 C 440 387.5 440 387.5 440 410" class="connection-line" filter="url(#handdrawn)" /><path d="M 440 410 L 435.0 400.0 L 445.0 400.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 680 365 C 680 387.5 680 387.5 680 410" class="connection-line" filter="url(#handdrawn)" /><path d="M 680 410 L 675.0 400.0 L 685.0 400.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 790 475 L 820.0 475 L 820.0 410 L 850 410" class="connection-line" filter="url(#handdrawn)" /><path d="M 850 410 L 840.0 415.0 L 840.0 405.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 790 165 C 820 165 820 165 850 165" class="connection-line" filter="url(#handdrawn)" /><path d="M 850 165 L 840.0 170.0 L 840.0 160.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 790 280 C 820 280 820 280 850 280" class="connection-line" filter="url(#handdrawn)" /><path d="M 850 280 L 840.0 285.0 L 840.0 275.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+</svg>

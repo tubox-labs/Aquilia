@@ -1,0 +1,159 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 270" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
+    </linearGradient>
+  </defs>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg { fill: #f9fafb; rx: 12px; }
+    .border-stroke { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
+    .title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }
+    
+    /* Card Styles */
+    .card-bg { stroke: #1e293b; stroke-width: 2; rx: 6px; }
+    .node-text-title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .node-text-desc { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }
+    
+    /* Group Styles */
+    .group-rect { rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }
+    .group-label { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #1e293b; stroke-width: 2.2; }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }
+    .connection-error { fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; fill: #334155; }
+    .badge-text { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1280" height="270" class="bg" rx="" ry="" />
+  <rect width="1278" height="268" x="1" y="1" class="border-stroke" rx="" ry="" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia Structured Fault and Exception Lifecycle</text>
+  </g>
+  
+  
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="140" width="220" height="95" class="card-bg" fill="url(#roseGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="46" y="164" class="node-text-title">Exception Raised</text>
+    
+    <!-- Description -->
+    <text x="46" y="182" class="node-text-desc">Uncaught runtime or</text><text x="46" y="197" class="node-text-desc">custom exception inside</text><text x="46" y="212" class="node-text-desc">controller handler</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="156" y="154" width="78" height="14" rx="" ry="" />
+    <text class="badge-text" x="195.0" y="164" text-anchor="middle">ERROR STATE</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="280" y="140" width="220" height="95" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="296" y="164" class="node-text-title">ExceptionMiddleware</text>
+    
+    <!-- Description -->
+    <text x="296" y="182" class="node-text-desc">Catches all failures;</text><text x="296" y="197" class="node-text-desc">initiates mapping</text><text x="296" y="212" class="node-text-desc">to structured Fault</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="406" y="154" width="78" height="14" rx="" ry="" />
+    <text class="badge-text" x="445.0" y="164" text-anchor="middle">INTERCEPTOR</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="530" y="140" width="220" height="95" class="card-bg" fill="url(#violetGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="546" y="164" class="node-text-title">FaultEngine Mapping</text>
+    
+    <!-- Description -->
+    <text x="546" y="182" class="node-text-desc">Resolves Exception</text><text x="546" y="197" class="node-text-desc">domain (Security, DB,</text><text x="546" y="212" class="node-text-desc">Cache) and maps handler</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="650" y="154" width="84" height="14" rx="" ry="" />
+    <text class="badge-text" x="692.0" y="164" text-anchor="middle">FAULT DOMAIN</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="780" y="140" width="220" height="95" class="card-bg" fill="url(#amberGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="796" y="164" class="node-text-title">Fault Severity</text>
+    
+    <!-- Description -->
+    <text x="796" y="182" class="node-text-desc">Checks recovery path;</text><text x="796" y="197" class="node-text-desc">logs critical alerts;</text><text x="796" y="212" class="node-text-desc">determines public disclosure</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="924" y="154" width="60" height="14" rx="" ry="" />
+    <text class="badge-text" x="954.0" y="164" text-anchor="middle">ANALYZER</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1030" y="140" width="220" height="95" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="1046" y="164" class="node-text-title">DebugPageRenderer</text>
+    
+    <!-- Description -->
+    <text x="1046" y="182" class="node-text-desc">Generates public JSON</text><text x="1046" y="197" class="node-text-desc">or visual rich HTML</text><text x="1046" y="212" class="node-text-desc">debug template page</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1174" y="154" width="60" height="14" rx="" ry="" />
+    <text class="badge-text" x="1204.0" y="164" text-anchor="middle">RESPONSE</text>
+        
+  </g>
+<line x1="250" y1="185" x2="280" y2="185" class="connection-error" filter="url(#handdrawn)" /><path d="M 280 185 L 270.0 190.0 L 270.0 180.0 Z" fill="#e11d48" stroke="#e11d48" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="500" y1="185" x2="530" y2="185" class="connection-error" filter="url(#handdrawn)" /><path d="M 530 185 L 520.0 190.0 L 520.0 180.0 Z" fill="#e11d48" stroke="#e11d48" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="750" y1="185" x2="780" y2="185" class="connection-error" filter="url(#handdrawn)" /><path d="M 780 185 L 770.0 190.0 L 770.0 180.0 Z" fill="#e11d48" stroke="#e11d48" stroke-width="1" filter="url(#handdrawn)" />
+<line x1="1000" y1="185" x2="1030" y2="185" class="connection-error" filter="url(#handdrawn)" /><path d="M 1030 185 L 1020.0 190.0 L 1020.0 180.0 Z" fill="#e11d48" stroke="#e11d48" stroke-width="1" filter="url(#handdrawn)" />
+</svg>

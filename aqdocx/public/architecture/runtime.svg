@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1350 270" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- Handdrawn/Sketch Filter -->
+    <filter id="handdrawn" x="-10%" y="-10%" width="120%" height="120%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="4.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+    
+    <!-- Flat Pastel Gradients for Hand-Drawn Vibe -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#bae6fd" />
+    </linearGradient>
+    <linearGradient id="emeraldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d1fae5" />
+      <stop offset="100%" stop-color="#a7f3d0" />
+    </linearGradient>
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ede9fe" />
+      <stop offset="100%" stop-color="#ddd6fe" />
+    </linearGradient>
+    <linearGradient id="roseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe4e6" />
+      <stop offset="100%" stop-color="#fecdd3" />
+    </linearGradient>
+    <linearGradient id="slateGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc" />
+      <stop offset="100%" stop-color="#f1f5f9" />
+    </linearGradient>
+    <linearGradient id="amberGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef9c3" />
+      <stop offset="100%" stop-color="#fef08a" />
+    </linearGradient>
+  </defs>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Architects+Daughter&amp;display=swap');
+
+    .bg { fill: #f9fafb; rx: 12px; }
+    .border-stroke { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
+    .title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 22px; font-weight: 800; fill: #0f172a; letter-spacing: -0.01em; }
+    
+    /* Card Styles */
+    .card-bg { stroke: #1e293b; stroke-width: 2; rx: 6px; }
+    .node-text-title { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 14px; font-weight: 700; fill: #0f172a; }
+    .node-text-desc { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 11.5px; fill: #334155; font-weight: 600; line-height: 1.4; }
+    
+    /* Group Styles */
+    .group-rect { rx: 10px; fill: #f3f4f6; stroke: #475569; stroke-dasharray: 6 6; stroke-width: 1.8; }
+    .group-label { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 12px; font-weight: 700; fill: #475569; letter-spacing: 0.05em; }
+    
+    /* Connection lines */
+    .connection-line { fill: none; stroke: #1e293b; stroke-width: 2.2; }
+    .connection-dashed { fill: none; stroke: #475569; stroke-width: 1.8; stroke-dasharray: 5 5; }
+    .connection-error { fill: none; stroke: #e11d48; stroke-width: 2.2; stroke-dasharray: 4 4; }
+    
+    /* Badges */
+    .badge-rect { rx: 4px; fill: #334155; }
+    .badge-text { font-family: 'Architects Daughter', 'Comic Sans MS', cursive, sans-serif; font-size: 9px; font-weight: 800; fill: #ffffff; }
+  </style>
+
+  <rect width="1350" height="270" class="bg" rx="" ry="" />
+  <rect width="1348" height="268" x="1" y="1" class="border-stroke" rx="" ry="" />
+  
+  <!-- Title and Subtitle Block -->
+  <g transform="translate(30, 40)">
+    <text x="0" y="0" class="title">Aquilia Runtime Boot Phase Lifecycle</text>
+  </g>
+  
+  
+  <g>
+    <!-- Card Body -->
+    <rect x="30" y="140" width="190" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="46" y="164" class="node-text-title">1. CONFIGURING</text>
+    
+    <!-- Description -->
+    <text x="46" y="182" class="node-text-desc">Injects workspace root</text><text x="46" y="197" class="node-text-desc">to sys.path; loads</text><text x="46" y="212" class="node-text-desc">workspace.py config</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="162" y="154" width="42" height="14" rx="" ry="" />
+    <text class="badge-text" x="183.0" y="164" text-anchor="middle">START</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="250" y="140" width="190" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="266" y="164" class="node-text-title">2. DISCOVERING</text>
+    
+    <!-- Description -->
+    <text x="266" y="182" class="node-text-desc">PackageScanner scans</text><text x="266" y="197" class="node-text-desc">modules; imports all</text><text x="266" y="212" class="node-text-desc">module manifests</text>
+    
+    <!-- Badge -->
+    
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="470" y="140" width="190" height="90" class="card-bg" fill="url(#slateGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="486" y="164" class="node-text-title">3. BOOTSTRAPPING</text>
+    
+    <!-- Description -->
+    <text x="486" y="182" class="node-text-desc">Initializes server,</text><text x="486" y="197" class="node-text-desc">DI container graph,</text><text x="486" y="212" class="node-text-desc">and registers routes</text>
+    
+    <!-- Badge -->
+    
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="690" y="140" width="190" height="90" class="card-bg" fill="url(#blueGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="706" y="164" class="node-text-title">4. READY / ASGI L.</text>
+    
+    <!-- Description -->
+    <text x="706" y="182" class="node-text-desc">Triggers startup hooks;</text><text x="706" y="197" class="node-text-desc">DI constructs</text><text x="706" y="212" class="node-text-desc">singleton services</text>
+    
+    <!-- Badge -->
+    
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="910" y="140" width="190" height="90" class="card-bg" fill="url(#emeraldGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="926" y="164" class="node-text-title">5. RUNNING</text>
+    
+    <!-- Description -->
+    <text x="926" y="182" class="node-text-desc">ASGI server starts;</text><text x="926" y="197" class="node-text-desc">handles connection</text><text x="926" y="212" class="node-text-desc">events and routes</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1036" y="154" width="48" height="14" rx="" ry="" />
+    <text class="badge-text" x="1060.0" y="164" text-anchor="middle">UPTIME</text>
+        
+  </g>
+
+  <g>
+    <!-- Card Body -->
+    <rect x="1130" y="140" width="190" height="90" class="card-bg" fill="url(#roseGrad)" filter="url(#handdrawn)" rx="" ry="" />
+    
+    <!-- Title -->
+    <text x="1146" y="164" class="node-text-title">6. SHUTTING DOWN</text>
+    
+    <!-- Description -->
+    <text x="1146" y="182" class="node-text-desc">Triggers shutdown hooks;</text><text x="1146" y="197" class="node-text-desc">tears down DI resources,</text><text x="1146" y="212" class="node-text-desc">flushes tasks</text>
+    
+    <!-- Badge -->
+    
+    <rect class="badge-rect" x="1268" y="154" width="36" height="14" rx="" ry="" />
+    <text class="badge-text" x="1286.0" y="164" text-anchor="middle">STOP</text>
+        
+  </g>
+<path d="M 220 185 C 235 185 235 185 250 185" class="connection-line" filter="url(#handdrawn)" /><path d="M 250 185 L 240.0 190.0 L 240.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 440 185 C 455 185 455 185 470 185" class="connection-line" filter="url(#handdrawn)" /><path d="M 470 185 L 460.0 190.0 L 460.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 660 185 C 675 185 675 185 690 185" class="connection-line" filter="url(#handdrawn)" /><path d="M 690 185 L 680.0 190.0 L 680.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 900 185 C 905 185 905 185 910 185" class="connection-line" filter="url(#handdrawn)" /><path d="M 910 185 L 900.0 190.0 L 900.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+<path d="M 1100 185 C 1115 185 1115 185 1130 185" class="connection-line" filter="url(#handdrawn)" /><path d="M 1130 185 L 1120.0 190.0 L 1120.0 180.0 Z" fill="#1e293b" stroke="#1e293b" stroke-width="1" filter="url(#handdrawn)" />
+</svg>

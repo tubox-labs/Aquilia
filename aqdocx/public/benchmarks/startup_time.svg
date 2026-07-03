@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 320" width="100%" height="100%">
+  <style>
+    .bg { fill: #0b0f19; rx: 12px; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 16px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    .axis-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .bar-value { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 600; }
+    .grid-line { stroke: #1e293b; stroke-width: 1; stroke-dasharray: 4 4; }
+    .axis-line { stroke: #334155; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <linearGradient id="grad-aquilia" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="grad-fastapi" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="grad-flask" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+  </defs>
+  <rect width="500" height="320" class="bg" />
+  <text x="24" y="32" class="title">Application Startup Time</text>
+  <text x="24" y="50" class="subtitle">Lower is better (seconds to HTTP-ready)</text>
+  <line x1="80" y1="270.0" x2="460" y2="270.0" class="grid-line" />
+  <text x="70" y="274.0" text-anchor="end" class="axis-label">0.00s</text>
+  <line x1="80" y1="220.0" x2="460" y2="220.0" class="grid-line" />
+  <text x="70" y="224.0" text-anchor="end" class="axis-label">0.14s</text>
+  <line x1="80" y1="170.0" x2="460" y2="170.0" class="grid-line" />
+  <text x="70" y="174.0" text-anchor="end" class="axis-label">0.28s</text>
+  <line x1="80" y1="120.0" x2="460" y2="120.0" class="grid-line" />
+  <text x="70" y="124.0" text-anchor="end" class="axis-label">0.41s</text>
+  <line x1="80" y1="70.0" x2="460" y2="70.0" class="grid-line" />
+  <text x="70" y="74.0" text-anchor="end" class="axis-label">0.55s</text>
+  <rect x="80.0" y="96.08695652173913" width="110.0" height="173.91304347826087" fill="url(#grad-aquilia)" rx="4" />
+  <text x="135.0" y="88.08695652173913" text-anchor="middle" fill="#38bdf8" class="bar-value">0.479 s</text>
+  <text x="135.0" y="290" text-anchor="middle" class="axis-label" font-weight="600">Aquilia</text>
+  <rect x="215.0" y="133.99380650481996" width="110.0" height="136.00619349518004" fill="url(#grad-fastapi)" rx="4" />
+  <text x="270.0" y="125.99380650481996" text-anchor="middle" fill="#34d399" class="bar-value">0.374 s</text>
+  <text x="270.0" y="290" text-anchor="middle" class="axis-label" font-weight="600">FastAPI</text>
+  <rect x="350.0" y="108.0908744488408" width="110.0" height="161.9091255511592" fill="url(#grad-flask)" rx="4" />
+  <text x="405.0" y="100.0908744488408" text-anchor="middle" fill="#94a3b8" class="bar-value">0.446 s</text>
+  <text x="405.0" y="290" text-anchor="middle" class="axis-label" font-weight="600">Flask</text>
+  <line x1="80" y1="270" x2="460" y2="270" class="axis-line" />
+</svg>

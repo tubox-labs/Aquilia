@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 360" width="100%" height="100%">
+  <style>
+    .bg { fill: #0b0f19; rx: 12px; }
+    .title { font-family: system-ui, -apple-system, sans-serif; font-size: 18px; font-weight: 700; fill: #f8fafc; }
+    .subtitle { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 500; fill: #94a3b8; }
+    .axis-label { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .legend-text { font-family: system-ui, -apple-system, sans-serif; font-size: 12px; font-weight: 600; fill: #e2e8f0; }
+    .grid-line { stroke: #1e293b; stroke-width: 1; stroke-dasharray: 4 4; }
+    .axis-line { stroke: #334155; stroke-width: 1.5; }
+  </style>
+  <defs>
+    <linearGradient id="grad-aquilia" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#0ea5e9" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+    <linearGradient id="grad-fastapi" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#059669" />
+      <stop offset="100%" stop-color="#34d399" />
+    </linearGradient>
+    <linearGradient id="grad-flask" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#475569" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+  </defs>
+  <rect width="720" height="360" class="bg" />
+  <text x="24" y="32" class="title">P95 Tail Latency by Workload</text>
+  <text x="24" y="50" class="subtitle">Lower is better (milliseconds)</text>
+  <line x1="80" y1="300.0" x2="560" y2="300.0" class="grid-line" />
+  <text x="70" y="304.0" text-anchor="end" class="axis-label">0.0 ms</text>
+  <line x1="80" y1="242.5" x2="560" y2="242.5" class="grid-line" />
+  <text x="70" y="246.5" text-anchor="end" class="axis-label">308 ms</text>
+  <line x1="80" y1="185.0" x2="560" y2="185.0" class="grid-line" />
+  <text x="70" y="189.0" text-anchor="end" class="axis-label">617 ms</text>
+  <line x1="80" y1="127.5" x2="560" y2="127.5" class="grid-line" />
+  <text x="70" y="131.5" text-anchor="end" class="axis-label">926 ms</text>
+  <line x1="80" y1="70.0" x2="560" y2="70.0" class="grid-line" />
+  <text x="70" y="74.0" text-anchor="end" class="axis-label">1,235 ms</text>
+  <rect x="80.0" y="201.7684161117092" width="21.333333333333332" height="98.23158388829079" fill="url(#grad-aquilia)" rx="2" />
+  <rect x="103.33333333333333" y="205.33317773606478" width="21.333333333333332" height="94.66682226393523" fill="url(#grad-fastapi)" rx="2" />
+  <rect x="126.66666666666666" y="139.26869430766328" width="21.333333333333332" height="160.73130569233672" fill="url(#grad-flask)" rx="2" />
+  <text x="114.0" y="320" text-anchor="middle" class="axis-label" font-weight="600">Simple JSON</text>
+  <rect x="183.0" y="218.88902368618528" width="21.333333333333332" height="81.11097631381472" fill="url(#grad-aquilia)" rx="2" />
+  <rect x="206.33333333333334" y="201.8592090686257" width="21.333333333333332" height="98.14079093137431" fill="url(#grad-fastapi)" rx="2" />
+  <rect x="229.66666666666666" y="252.08654064971768" width="21.333333333333332" height="47.91345935028231" fill="url(#grad-flask)" rx="2" />
+  <text x="217.0" y="320" text-anchor="middle" class="axis-label" font-weight="600">Large JSON</text>
+  <rect x="286.0" y="194.27893572746495" width="21.333333333333332" height="105.72106427253505" fill="url(#grad-aquilia)" rx="2" />
+  <rect x="309.3333333333333" y="204.79513480443495" width="21.333333333333332" height="95.20486519556506" fill="url(#grad-fastapi)" rx="2" />
+  <rect x="332.6666666666667" y="131.5687807748795" width="21.333333333333332" height="168.4312192251205" fill="url(#grad-flask)" rx="2" />
+  <text x="320.0" y="320" text-anchor="middle" class="axis-label" font-weight="600">DI Chain</text>
+  <rect x="389.0" y="204.3166258270076" width="21.333333333333332" height="95.68337417299237" fill="url(#grad-aquilia)" rx="2" />
+  <rect x="412.3333333333333" y="141.5829259330574" width="21.333333333333332" height="158.4170740669426" fill="url(#grad-fastapi)" rx="2" />
+  <rect x="435.6666666666667" y="99.99999999999997" width="21.333333333333332" height="200.00000000000003" fill="url(#grad-flask)" rx="2" />
+  <text x="423.0" y="320" text-anchor="middle" class="axis-label" font-weight="600">Dense Route</text>
+  <rect x="492.0" y="201.74303242376612" width="21.333333333333332" height="98.25696757623388" fill="url(#grad-aquilia)" rx="2" />
+  <rect x="515.3333333333334" y="100.34470016139198" width="21.333333333333332" height="199.65529983860802" fill="url(#grad-fastapi)" rx="2" />
+  <rect x="538.6666666666666" y="235.42703091861375" width="21.333333333333332" height="64.57296908138623" fill="url(#grad-flask)" rx="2" />
+  <text x="526.0" y="320" text-anchor="middle" class="axis-label" font-weight="600">Async Task</text>
+  <line x1="80" y1="300" x2="560" y2="300" class="axis-line" />
+  <rect x="585" y="80" width="16" height="16" fill="url(#grad-aquilia)" rx="3" />
+  <text x="609" y="93" class="legend-text">Aquilia</text>
+  <rect x="585" y="108" width="16" height="16" fill="url(#grad-fastapi)" rx="3" />
+  <text x="609" y="121" class="legend-text">FastAPI</text>
+  <rect x="585" y="136" width="16" height="16" fill="url(#grad-flask)" rx="3" />
+  <text x="609" y="149" class="legend-text">Flask</text>
+</svg>
