@@ -1,6 +1,6 @@
-import { useRef } from 'react'
+import { useRef, useEffect } from 'react'
 import { motion, useInView } from 'framer-motion'
-import { GitBranch, CircleDot, Activity } from 'lucide-react'
+import { GitBranch, CircleDot, Activity, Check } from 'lucide-react'
 
 export interface RoadmapNode {
   version: string
@@ -14,63 +14,102 @@ export interface RoadmapNode {
 
 export const roadmap: RoadmapNode[] = [
   {
-    version: '0.1.0',
-    codename: 'Spark',
-    date: 'Jun 2025',
-    status: 'released',
-    type: 'minor',
-    highlights: ['Core ASGI runtime', 'Basic routing'],
-    branch: 'alpha',
-  },
-  {
-    version: '0.5.0',
-    codename: 'Foundation',
-    date: 'Sep 2025',
-    status: 'released',
-    type: 'minor',
-    highlights: ['Controller system', 'DI container', 'ORM draft'],
-    branch: 'beta',
-  },
-  {
-    version: '0.9.0',
-    codename: 'Horizon',
-    date: 'Dec 2025',
-    status: 'released',
-    type: 'minor',
-    highlights: ['Auth stack', 'Blueprints', 'CLI tooling'],
-    branch: 'rc',
-  },
-  {
     version: '1.0.0',
     codename: 'Genesis',
-    date: 'Feb 2026',
-    status: 'current',
+    date: 'Feb 22, 2026',
+    status: 'released',
     type: 'major',
-    highlights: ['Production-ready', 'Full framework', '250+ APIs'],
+    highlights: ['First Stable', 'Async ASGI Core', 'Scoped DI'],
+  },
+  {
+    version: '1.0.1',
+    codename: 'Genesis P1',
+    date: 'Mar 08, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Framework Security', 'Argon2 hashing', 'Path checks'],
+  },
+  {
+    version: '1.0.2',
+    codename: 'Genesis P2',
+    date: 'Apr 02, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['SQLite pools', 'Cookie sessions', 'TX commits'],
+  },
+  {
+    version: '1.0.3',
+    codename: 'Genesis P3',
+    date: 'Apr 19, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Route cache compile', 'OpenAPI schemas'],
+  },
+  {
+    version: '1.0.4',
+    codename: 'Genesis P4',
+    date: 'May 17, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Removed workspace compile', 'Native execution'],
+  },
+  {
+    version: '1.0.5',
+    codename: 'Jolly Roger',
+    date: 'Jun 04, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Aquilia MCP Server', 'Surp serialization'],
   },
   {
     version: '1.1.0',
-    codename: 'Pulse',
-    date: 'Q2 2026',
-    status: 'planned',
+    codename: 'Black Pearl',
+    date: 'Jun 08, 2026',
+    status: 'released',
     type: 'minor',
-    highlights: ['GraphQL support', 'Admin dashboard', 'Task queues'],
+    highlights: ['SSE Streaming', 'OpenTelemetry', 'Body validation'],
+    branch: 'beta',
+  },
+  {
+    version: '1.1.1',
+    codename: 'Sea Serpent',
+    date: 'Jun 09, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Decoupled builders', 'Thread-safe dotenv'],
+  },
+  {
+    version: '1.1.2',
+    codename: 'Crimson Gale',
+    date: 'Jun 12, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Middleware scopes', 'Env mapping overrides'],
   },
   {
     version: '1.2.0',
-    codename: 'Nexus',
-    date: 'Q3 2026',
-    status: 'planned',
+    codename: 'Kraken\'s Wake',
+    date: 'Jun 28, 2026',
+    status: 'released',
     type: 'minor',
-    highlights: ['gRPC transport', 'OpenTelemetry', 'Plugin marketplace'],
+    highlights: ['Request Inspector', 'DB CLI rollbacks', 'API versioning'],
+    branch: 'rc',
   },
   {
-    version: '2.0.0',
-    codename: 'Nova',
-    date: '2027',
-    status: 'future',
-    type: 'major',
-    highlights: ['Multi-runtime', 'Native compilation', 'Edge deployments'],
+    version: '1.2.1',
+    codename: 'Kraken\'s Wake',
+    date: 'Jul 01, 2026',
+    status: 'released',
+    type: 'patch',
+    highlights: ['Startup decoupling', 'Lazy Jinja2 loader', 'Windows locks'],
+  },
+  {
+    version: '1.2.2',
+    codename: 'Kraken\'s Wake',
+    date: 'Jul 01, 2026',
+    status: 'current',
+    type: 'patch',
+    highlights: ['Database integrate', 'ORM schema indices', 'CLI sync engine'],
   },
 ]
 
@@ -80,32 +119,42 @@ interface Props {
 
 export function ReleaseTimeline({ isDark }: Props) {
   const graphRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(graphRef, { once: true, amount: 0.2 })
+
+  // Auto-scroll to the end (latest version) on mount
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth
+    }
+  }, [])
 
   const nodeStatusStyles: Record<string, { dot: string; glow: string; label: string }> = {
     released: {
       dot: isDark
-        ? 'bg-aquilia-500/40 border-aquilia-500/60'
-        : 'bg-aquilia-200 border-aquilia-400',
+        ? 'bg-zinc-950 border-aquilia-500/60'
+        : 'bg-white border-aquilia-400',
       glow: '',
       label: isDark ? 'text-gray-500' : 'text-gray-400',
     },
     current: {
-      dot: 'bg-aquilia-500 border-aquilia-400',
+      dot: isDark
+        ? 'bg-zinc-950 border-aquilia-500'
+        : 'bg-white border-aquilia-600',
       glow: 'shadow-[0_0_20px_rgba(34,197,94,0.5),0_0_40px_rgba(34,197,94,0.2)]',
       label: isDark ? 'text-aquilia-400' : 'text-aquilia-600',
     },
     planned: {
       dot: isDark
-        ? 'bg-white/10 border-white/20 border-dashed'
-        : 'bg-gray-100 border-gray-300 border-dashed',
+        ? 'bg-zinc-950 border-white/20 border-dashed'
+        : 'bg-white border-gray-300 border-dashed',
       glow: '',
       label: isDark ? 'text-gray-600' : 'text-gray-400',
     },
     future: {
       dot: isDark
-        ? 'bg-white/5 border-white/10 border-dashed'
-        : 'bg-gray-50 border-gray-200 border-dashed',
+        ? 'bg-zinc-950 border-white/10 border-dashed'
+        : 'bg-white border-gray-200 border-dashed',
       glow: '',
       label: isDark ? 'text-gray-700' : 'text-gray-300',
     },
@@ -147,7 +196,7 @@ export function ReleaseTimeline({ isDark }: Props) {
                 Release Timeline
               </h3>
               <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                From first spark to production and beyond
+                From Genesis to Kraken's Wake and beyond
               </p>
             </div>
           </div>
@@ -156,7 +205,6 @@ export function ReleaseTimeline({ isDark }: Props) {
             {[
               { color: isDark ? 'bg-aquilia-500/40' : 'bg-aquilia-300', label: 'Released' },
               { color: 'bg-aquilia-500', label: 'Current' },
-              { color: isDark ? 'bg-white/10' : 'bg-gray-200', label: 'Planned' },
             ].map(l => (
               <div key={l.label} className="flex items-center gap-1.5">
                 <div className={`w-2.5 h-2.5 rounded-full ${l.color}`} />
@@ -174,11 +222,14 @@ export function ReleaseTimeline({ isDark }: Props) {
       </div>
 
       {/* Graph body */}
-      <div className="px-6 sm:px-8 py-8 overflow-x-auto">
-        <div className="relative min-w-[680px]">
+      <div
+        ref={scrollContainerRef}
+        className="px-6 sm:px-8 py-8 overflow-x-auto scrollbar-thin scrollbar-thumb-aquilia-500/20 scrollbar-track-transparent scroll-smooth"
+      >
+        <div className="relative min-w-[2000px]">
 
           {/* Trunk line */}
-          <div className="absolute top-[52px] left-0 right-0 h-[3px]">
+          <div className="absolute top-[40px] left-0 right-0 h-[3px]">
             <div
               className={`absolute inset-0 rounded-full ${
                 isDark ? 'bg-white/5' : 'bg-gray-100'
@@ -228,7 +279,7 @@ export function ReleaseTimeline({ isDark }: Props) {
                   </div>
 
                   {/* Dot */}
-                  <div className="relative flex items-center justify-center">
+                  <div className="relative h-8 flex items-center justify-center">
                     {isCurrent && (
                       <motion.div
                         animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
@@ -239,10 +290,13 @@ export function ReleaseTimeline({ isDark }: Props) {
                     <div
                       className={`relative z-10 rounded-full border-2 transition-all ${styles.dot} ${
                         styles.glow
-                      } ${isMajor ? 'w-8 h-8' : 'w-5 h-5'}`}
+                      } ${isMajor ? 'w-8 h-8' : 'w-5 h-5'} flex items-center justify-center`}
                     >
                       {isCurrent && (
                         <div className="absolute inset-1 rounded-full bg-aquilia-400 animate-pulse" />
+                      )}
+                      {isPast && (
+                        <Check className={`${isMajor ? 'w-4 h-4' : 'w-3 h-3'} text-aquilia-500`} />
                       )}
                     </div>
                   </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import {
   BookOpen, Download, Rocket, Zap, Layers, Database, Shield, Settings,
   AlertCircle, Terminal, GitBranch, ChevronDown, ChevronRight,
-  Server, Box, Mail, Palette, TestTube, Brain, BarChart, Plug,
+  Server, Box, Mail, Palette, TestTube, Plug,
   FileCode, Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
   Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages,
   Clock, FileText
@@ -328,27 +328,6 @@ export const sections: SidebarSection[] = [
           { label: 'Templates', path: '/docs/mail/templates' },
         ]
       },
-      {
-        label: 'MLOps', path: '/docs/mlops', icon: <Brain className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Type System', path: '/docs/mlops/types' },
-          { label: 'API & Decorators', path: '/docs/mlops/api' },
-          { label: 'Engine & Pipeline', path: '/docs/mlops/engine' },
-          { label: 'Modelpack Builder', path: '/docs/mlops/modelpack' },
-          { label: 'Registry', path: '/docs/mlops/registry' },
-          { label: 'Runtime Backends', path: '/docs/mlops/runtime' },
-          { label: 'Serving', path: '/docs/mlops/serving' },
-          { label: 'Orchestrator', path: '/docs/mlops/orchestrator' },
-          { label: 'Observability', path: '/docs/mlops/observability' },
-          { label: 'Plugins', path: '/docs/mlops/plugins' },
-          { label: 'Release & Rollouts', path: '/docs/mlops/release' },
-          { label: 'Scheduler', path: '/docs/mlops/scheduler' },
-          { label: 'Security', path: '/docs/mlops/security' },
-          { label: 'Explainability', path: '/docs/mlops/explain' },
-          { label: 'Deployment', path: '/docs/mlops/deployment' },
-          { label: 'Tutorial', path: '/docs/mlops/tutorial' },
-        ]
-      },
     ]
   },
   {
@@ -361,13 +340,11 @@ export const sections: SidebarSection[] = [
           { label: 'Overview', path: '/docs/cli' },
           { label: 'Core Commands', path: '/docs/cli/core' },
           { label: 'Database', path: '/docs/cli/database' },
-          { label: 'MLOps', path: '/docs/cli/mlops' },
           { label: 'Inspection', path: '/docs/cli/inspection' },
           { label: 'Generators', path: '/docs/cli/generators' },
           { label: 'WebSocket', path: '/docs/cli/websockets' },
           { label: 'Deploy', path: '/docs/cli/deploy' },
           { label: 'Artifacts', path: '/docs/cli/artifacts' },
-          { label: 'Trace', path: '/docs/cli/trace' },
           { label: 'Subsystems', path: '/docs/cli/subsystems' },
         ]
       },
@@ -381,9 +358,6 @@ export const sections: SidebarSection[] = [
       },
       {
         label: 'OpenAPI', path: '/docs/openapi', icon: <FileCode className="w-3.5 h-3.5" />,
-      },
-      {
-        label: 'Trace & Debug', path: '/docs/trace', icon: <BarChart className="w-3.5 h-3.5" />,
       },
     ]
   },
@@ -617,7 +591,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
 
       {/* Sidebar Container */}
       <div className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 
+        fixed lg:static inset-y-0 left-0 z-50 w-60 lg:h-full
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         flex-shrink-0 border-r 
@@ -646,7 +620,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               <img src="/logo.png" alt="Aquilia" className="w-8 h-8 rounded-lg shadow-lg shadow-aquilia-500/20" />
               <div>
                 <div className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Aquilia Framework</div>
-                <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.0.0 • Latest</div>
+                <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.2.2 • Latest</div>
               </div>
             </div>
           </div>

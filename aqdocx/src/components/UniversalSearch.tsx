@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Command, Loader2, Search, Sparkles } from 'lucide-react'
+import { ArrowRight, Command, Loader2, Search } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import { useTheme } from '../context/ThemeContext'
 import { CodeBlock } from './CodeBlock'
@@ -681,7 +681,7 @@ export function UniversalSearch() {
       />
 
       <div
-        className={`relative w-[min(96vw,78rem)] rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-[#070709]/95 border-white/15' : 'bg-white/95 border-gray-200'}`}
+        className={`relative w-[min(96vw,48rem)] rounded-3xl border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ${isDark ? 'bg-[#070709]/95 border-white/15' : 'bg-white/95 border-gray-200'}`}
         style={{ boxShadow: isDark ? '0 30px 80px rgba(10, 116, 255, 0.22)' : '0 30px 80px rgba(15, 23, 42, 0.12)' }}
       >
         <div className="pointer-events-none absolute -top-20 -right-20 h-56 w-56 rounded-full bg-aquilia-500/20 blur-3xl" />
@@ -690,7 +690,7 @@ export function UniversalSearch() {
         <div className="relative p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-aquilia-500" />
+              <Command className="w-4 h-4 text-aquilia-500" />
               <span className={`text-xs uppercase tracking-[0.18em] font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                 Aquilia Documentation Search
               </span>
@@ -727,7 +727,7 @@ export function UniversalSearch() {
               const isActive = resultMode === option.key
               return (
                 <button
-                  key={option.key}
+                   key={option.key}
                   type="button"
                   onClick={() => setResultMode(option.key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${isActive
@@ -745,7 +745,7 @@ export function UniversalSearch() {
             })}
           </div>
 
-          <div className="max-h-[58vh] overflow-y-auto mt-1">
+          <div className="max-h-[48vh] overflow-y-auto mt-1">
             {isIndexing && (
               <div className={`px-4 py-8 flex items-center justify-center gap-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                 <Loader2 className="w-4 h-4 animate-spin" />

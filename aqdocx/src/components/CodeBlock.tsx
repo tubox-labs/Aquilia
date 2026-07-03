@@ -43,7 +43,7 @@ const aquiliaDarkTheme: PrismTheme = {
     { types: ['string', 'char', 'attr-value', 'template-string', 'template-punctuation'], style: { color: '#4ade80' } },
     { types: ['number', 'boolean', 'constant'], style: { color: '#60a5fa' } },
     { types: ['function', 'function-variable'], style: { color: '#fde047' } },
-    { types: ['class-name', 'maybe-class-name'], style: { color: '#fb923c' } },
+    { types: ['class-name', 'maybe-class-name'], style: { color: '#03eb26' } },
     { types: ['decorator', 'annotation', 'atrule'], style: { color: '#22c55e' } },
     { types: ['operator', 'punctuation'], style: { color: '#d1d5db' } },
     { types: ['variable', 'parameter'], style: { color: '#e5e7eb' } },
@@ -194,7 +194,7 @@ export function CodeBlock({ code, children, language = 'python', filename, title
     return map[normalizedLanguage] || normalizedLanguage
   })()
 
-  const classReferenceColor = isDark ? '#fb923c' : '#c2410c'
+  const classReferenceColor = isDark ? '#fa993f' : '#c2410c'
   const decoratorColor = isDark ? '#22c55e' : '#15803d'
   const variableColor = isDark ? '#93c5fd' : '#1d4ed8'
   const memberColor = isDark ? '#67e8f9' : '#0e7490'

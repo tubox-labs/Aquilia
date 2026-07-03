@@ -226,6 +226,8 @@ export function BenchmarkPage() {
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
+  const [activeChart, setActiveChart] = useState<string>('throughput')
+
   const scenarioWinners = useMemo(() => {
     const names = benchmarkRun.frameworks[0].scenarios.map((row) => row.scenario)
     return names.map((scenarioName) => {
@@ -345,6 +347,59 @@ export function BenchmarkPage() {
                 <div className={`text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Aquilia: <span className="font-semibold text-aquilia-500">{winnerCounts.aquilia || 0}</span> scenarios</div>
                 <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>FastAPI: {winnerCounts.fastapi || 0} scenarios</div>
                 <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Flask: {winnerCounts.flask || 0} scenarios</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Visual Performance Charts Section */}
+        <section className="py-12 border-t border-[var(--border-color)]/40">
+          <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className={`text-2xl font-extrabold font-mono tracking-tight mb-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Performance Charts
+            </h2>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Left tab selectors */}
+              <div className="flex flex-col gap-2">
+                {[
+                  { id: 'throughput', label: 'Mean Throughput', desc: 'Average requests per second across all HTTP scenarios.', file: '/benchmarks/mean_throughput.svg' },
+                  { id: 'latency', label: 'Latency Comparison', desc: 'Percentile latency (P50, P95, P99) in milliseconds.', file: '/benchmarks/latency_comparison.svg' },
+                  { id: 'scenarios', label: 'Scenario Breakdown', desc: 'Individual endpoint throughput comparisons.', file: '/benchmarks/scenario_throughput.svg' },
+                  { id: 'memory', label: 'Memory Footprint', desc: 'Average and peak RSS process memory consumption.', file: '/benchmarks/memory_usage.svg' },
+                  { id: 'startup', label: 'Cold-Start / Startup', desc: 'Server bootstrap and ready latency in seconds.', file: '/benchmarks/startup_time.svg' },
+                  { id: 'websocket', label: 'WebSocket Echo', desc: 'Message throughput in echo scenarios.', file: '/benchmarks/websocket_throughput.svg' },
+                ].map((chart) => (
+                  <button
+                    key={chart.id}
+                    onClick={() => setActiveChart(chart.id)}
+                    className={`text-left p-4 rounded-2xl transition-all border ${
+                      activeChart === chart.id
+                        ? isDark ? 'bg-aquilia-500/10 border-aquilia-500/20 text-white' : 'bg-aquilia-50 border-aquilia-200 text-gray-950'
+                        : isDark ? 'bg-transparent border-transparent text-gray-400 hover:text-white hover:bg-white/5' : 'bg-transparent border-transparent text-gray-600 hover:text-gray-950 hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="font-bold text-sm">{chart.label}</div>
+                    <div className={`text-xs mt-1 ${activeChart === chart.id ? isDark ? 'text-aquilia-400' : 'text-aquilia-600' : 'text-gray-500'}`}>
+                      {chart.desc}
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Right Chart Display Panel */}
+              <div className="lg:col-span-2 flex items-center justify-center p-6 rounded-3xl border border-white/[0.04] bg-zinc-950/20 backdrop-blur-sm relative overflow-hidden">
+                <img
+                  src={
+                    activeChart === 'throughput' ? '/benchmarks/mean_throughput.svg' :
+                    activeChart === 'latency' ? '/benchmarks/latency_comparison.svg' :
+                    activeChart === 'scenarios' ? '/benchmarks/scenario_throughput.svg' :
+                    activeChart === 'memory' ? '/benchmarks/memory_usage.svg' :
+                    activeChart === 'startup' ? '/benchmarks/startup_time.svg' :
+                    '/benchmarks/websocket_throughput.svg'
+                  }
+                  alt="Performance Chart"
+                  className="w-full h-auto object-contain max-h-[380px] rounded-2xl"
+                />
               </div>
             </div>
           </div>

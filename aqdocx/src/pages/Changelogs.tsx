@@ -3,393 +3,311 @@ import { Navbar } from '../components/Navbar'
 import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
 import {
-  FileText, Tag, GitCommit, Zap, Shield, Database, Box, Layers,
-  Terminal, Globe, Brain, Mail, Wrench, ArrowRight, Check,
-  Plus, RefreshCw, AlertTriangle, Bug, Cpu, Lock, Workflow,
-  Github, Calendar, Hash, Clock, ExternalLink, Sparkles,
-  TrendingUp, Package, BookOpen, ChevronRight
+  ArrowRight, Check, Github, ExternalLink, BookOpen, Package
 } from 'lucide-react'
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
+
+interface ChangelogSection {
+  title: string
+  type: 'added' | 'changed' | 'fixed' | 'deprecated' | 'security' | 'breaking' | 'removed'
+  items: string[]
+}
 
 interface ChangelogEntry {
   version: string
+  codename?: string
   date: string
   tag: 'major' | 'minor' | 'patch'
   summary: string
-  sections: {
-    title: string
-    icon: React.ReactNode
-    type: 'added' | 'changed' | 'fixed' | 'deprecated' | 'security' | 'breaking'
-    items: string[]
-  }[]
-}
-
-const typeColors: Record<string, { bg: string; text: string; border: string; darkBg: string; darkText: string; darkBorder: string }> = {
-  added: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', darkBg: 'bg-emerald-500/10', darkText: 'text-emerald-400', darkBorder: 'border-emerald-500/20' },
-  changed: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', darkBg: 'bg-blue-500/10', darkText: 'text-blue-400', darkBorder: 'border-blue-500/20' },
-  fixed: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', darkBg: 'bg-amber-500/10', darkText: 'text-amber-400', darkBorder: 'border-amber-500/20' },
-  deprecated: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', darkBg: 'bg-orange-500/10', darkText: 'text-orange-400', darkBorder: 'border-orange-500/20' },
-  security: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', darkBg: 'bg-red-500/10', darkText: 'text-red-400', darkBorder: 'border-red-500/20' },
-  breaking: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', darkBg: 'bg-purple-500/10', darkText: 'text-purple-400', darkBorder: 'border-purple-500/20' },
-}
-
-const typeIcons: Record<string, React.ReactNode> = {
-  added: <Plus className="w-3.5 h-3.5" />,
-  changed: <RefreshCw className="w-3.5 h-3.5" />,
-  fixed: <Bug className="w-3.5 h-3.5" />,
-  deprecated: <AlertTriangle className="w-3.5 h-3.5" />,
-  security: <Shield className="w-3.5 h-3.5" />,
-  breaking: <AlertTriangle className="w-3.5 h-3.5" />,
+  sections: ChangelogSection[]
 }
 
 const changelogs: ChangelogEntry[] = [
   {
-    version: '1.0.4',
-    date: 'May 17, 2026',
+    version: '1.2.2',
+    codename: 'Kraken\'s Wake',
+    date: '2026-07-01',
     tag: 'patch',
-    summary: 'Removed the React-style build system and simplified Aquilia around native Python runtime and deployment flows.',
+    summary: 'Kraken\'s Wake release patch addressing database integration setup, expression serialization in admin tools, CLI discovery parser, and SQLite constraints.',
     sections: [
       {
-        title: 'Runtime',
-        icon: <Zap className="w-4 h-4" />,
-        type: 'changed',
+        title: 'Fixed',
+        type: 'fixed',
         items: [
-          'Removed aq build and the aquilia/build package',
-          'aq run and aq serve start from the native workspace loader without pre-build gates',
-          'aq deploy now uses live workspace introspection',
+          'Database Integration Configuration: Fixed Workspace.integrate() to correctly handle DatabaseIntegration protocol instances and set self._database_config.',
+          'ORM Schema Expression Serialization: Added automatic string casting for expression constraints (like Lower or Upper) and expression-based index fields within the admin dashboard\'s model metadata collection (get_model_schema()).',
+          'Auto-Discovery Integration in CLI: Replaced the legacy parser inside the server startup sequence with the unified next-generation AutoDiscoveryEngine to automatically sync manifests when running the development server.',
+          'SQLite Alter Constraints: Modified migration translation to translate UniqueConstraint into unique indexes when applying migrations on SQLite databases.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.2.1',
+    codename: 'Kraken\'s Wake',
+    date: '2026-07-01',
+    tag: 'patch',
+    summary: 'Kraken\'s Wake release patch decoupling Jinja2 and MarkupSafe, converting template imports to lazy getattr loading, resolving Windows SQLite file locking, and CSP nonces in toolbar.',
+    sections: [
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Startup dependency decoupling: Decoupled jinja2 and markupsafe from core dependencies, moving them to the aquilia[template] extras bundle to keep core installation lightweight.',
+          'Lazy Imports: Converted eager template imports to a module-level lazy __getattr__ import resolution mechanism, preventing startup crashes when jinja2 is not installed.',
+          'Windows File Locking: Resolved a trace storage lock issue on Windows by explicitly closing all SQLite connections in SQLiteTraceStore.',
+          'Toolbar Nonce Compatibility: Injected toolbar now parses JSON trace payload dynamically by finding the script tag end delimiter instead of matching the full signature, allowing parsing even when CSP nonces are present.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.2.0',
+    codename: 'Kraken\'s Wake',
+    date: '2026-06-28',
+    tag: 'minor',
+    summary: 'Kraken\'s Wake release adding Database CLI rollback/seeding/checking, Click CLI styling, API versioning override in manifest, Request Inspector tool, and Sigil schema representation.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'Database CLI Enhancements: Added history, rollback, check, diff, seed, reset, and flush subcommands.',
+          'Click CLI Help Custom Colorization: formats option flags in bold green, help text in white, and headers in bold cyan.',
+          'Manifest-Level API Versioning Override: Replaced legacy Module().versioning() with manifest AppManifest.versioning configuration supporting strategy, versions, default, sunset, etc.',
+          'Request Inspector (aquilia.inspector): Full request execution tracing with spans, lanes, timeline visualization, and live SSE streaming to admin panel.',
+          'Container self-registration in DI DI containers.',
+          'Container.add_diagnostic_listener() public API.',
+          'Explicit Cross-field validation (@ward) decorator.',
+          'Intermediate Representation (Sigil) schema validator and migration engine.',
+          'Transforms and Pipelines (>>) on facets.',
+          'Bulk & Stream Validation: seal_many, seal_stream, seal_columnar.',
+          'Test Generation Strategy support.',
+          'Discriminated Unions (BlueprintUnion).',
+          'Form & File Uploads via Blueprints (UploadFile and FormData).',
+          'Unified Request Input Resolution & Parameter Casting.',
+          'Click-based Aquilary CLI commands.'
         ]
       },
       {
-        title: 'Admin',
-        icon: <Shield className="w-4 h-4" />,
-        type: 'changed',
+        title: 'Removed',
+        type: 'removed',
         items: [
-          'Removed the Admin Build page, route, sidebar link, permission, and module toggle',
+          'Artifact System: Entirely removed the redundant aquilia.artifacts module, and compile/freeze commands.'
         ]
       },
       {
-        title: 'Artifacts',
-        icon: <Package className="w-4 h-4" />,
+        title: 'Changed',
         type: 'changed',
         items: [
-          'aq compile writes explicit artifacts through WorkspaceCompiler',
-          'aq freeze creates an artifact integrity snapshot under artifacts/',
+          'Database Introspection and Migration Rollback.',
+          'Scaffolding Integration API migration.',
+          'Boilerplate reduction and scaffolding cleanup.',
+          'Zero Runtime Dependencies: Migrated blueprints to pure-Python.',
+          'Deep Performance Optimizations: lazy wrapping, regex caches, ORM fast-path checks.'
         ]
       },
-    ],
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Discovery system improvements dotted parent prefix loading.',
+          'Windows compatibility fixes for signal.SIGKILL and mcp commands.',
+          'RequestIdMiddleware stability across pool boundaries.',
+          'Multiple Blueprint Parameter Support.',
+          'String Annotation Evaluation (PEP 563).'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.1.2',
+    codename: 'Crimson Gale',
+    date: '2026-06-12',
+    tag: 'patch',
+    summary: 'Crimson Gale release patching nested middleware Entry NameErrors and dotenv load order overrides.',
+    sections: [
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'name \'Entry\' is not defined server crash: fixed nested middleware class namespace lookups.',
+          'Generated workspace missing Integration import in generated workspace.py file templates.',
+          '.env values never reflected in workspace config: fixed load order where .env.example overrode .env.',
+          'AQ_ENV/AQUILIA_ENV inconsistency and resolved template files dotenv search paths.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.1.1',
+    codename: 'Sea Serpent',
+    date: '2026-06-09',
+    tag: 'patch',
+    summary: 'Sea Serpent release decoupling Workspace configs, resolving thread-safe dotenv loading, and standardizing catalog format defaults.',
+    sections: [
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'Workspace module config builders decoupling.',
+          'Replaced legacy static Integration API with typed class adapters.'
+        ]
+      },
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Thread safety Lock in pyconfig.py.',
+          'I18n default values catalog format resolution defaults.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.1.0',
+    codename: 'Black Pearl',
+    date: '2026-06-08',
+    tag: 'minor',
+    summary: 'Black Pearl release removing mlops and LSP servers, adding SSE stream manager, OpenTelemetry traces, and @validate_body.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'aquilia.sse Server-Sent Events managers.',
+          'aquilia.otel OpenTelemetry configs and middleware.',
+          '@validate_body body annotation validators.'
+        ]
+      },
+      {
+        title: 'Removed',
+        type: 'removed',
+        items: [
+          'Removed duplicate mlops package, AMDL DSL, and language server modules.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.0.5',
+    codename: 'Jolly Roger',
+    date: '2026-06-04',
+    tag: 'patch',
+    summary: 'Jolly Roger release launching stdio MCP server support and Surp binary serialization.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'Aquilia MCP server under aquilia.mcp.',
+          'MCP tools for API discovery and prompt helpers.'
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'Upgraded serialization from Crous to Surp.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.0.4',
+    date: '2026-05-17',
+    tag: 'patch',
+    summary: 'Patches compiling workflows by removing build compile pipelines and enabling live Python workspace introspection.',
+    sections: [
+      {
+        title: 'Removed',
+        type: 'removed',
+        items: [
+          'Removed react-style aquilia/build package and aq build.',
+          'Removed build-gating barriers.'
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'aq compile writes explicit artifacts.',
+          'aq freeze snapshots cryptographic integrity signatures.'
+        ]
+      }
+    ]
+  },
+  {
+    version: '1.0.1',
+    codename: 'Framework Audit',
+    date: '2026-03-08',
+    tag: 'patch',
+    summary: 'Phase 1-15 comprehensive framework security audit and hardening.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'Core ASGI server, DI registry, Auth stack, controller and session security hardening.',
+          'HMAC SHA-256 validation for Jinja2 template cache files.',
+          'Path traversal path checks rejecting null-bytes.',
+          'Allowlist validation for background tasks.'
+        ]
+      }
+    ]
   },
   {
     version: '1.0.0',
-    date: 'February 28, 2026',
+    codename: 'Genesis',
+    date: 'February 22, 2026',
     tag: 'major',
-    summary: 'Initial production release of Aquilia — a complete, async-native Python web framework with manifest-first architecture, built-in ORM, dependency injection, authentication, MLOps, and more.',
+    summary: 'Initial stable launch of Aquilia framework.',
     sections: [
       {
-        title: 'Core Framework',
-        icon: <Zap className="w-4 h-4" />,
+        title: 'Added',
         type: 'added',
         items: [
-          'AquiliaServer — high-performance ASGI server with lifecycle hooks, graceful shutdown, and health checks',
-          'Manifest-first architecture with native runtime startup',
-          'Request and Response objects with full ASGI support, streaming, and content negotiation',
-          'MultiDict, Headers, URL, ParsedContentType, and Range data structures',
-          'UploadFile and FormData handling with pluggable upload stores (LocalUploadStore)',
-          'HealthRegistry with SubsystemStatus monitoring and health check endpoints',
-          'Config and ConfigLoader for YAML/env-based hierarchical configuration',
-          'Workspace and Module config builders for Python-native configuration',
-          'Integration config builder for third-party service wiring',
-          'LifecycleCoordinator and LifecycleManager for phased application startup/shutdown',
+          'Manifest-First Architecture implementation.',
+          'Scoped Dependency Injection targeting Singleton, App, and Request contexts.',
+          'Async-Native ASGI server using Uvicorn.'
         ]
-      },
-      {
-        title: 'Controller System',
-        icon: <Layers className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Class-based Controller with RequestCtx for type-safe request handling',
-          'Full suite of HTTP decorators: @GET, @POST, @PUT, @PATCH, @DELETE, @HEAD, @OPTIONS, @WS, @route',
-          'ControllerFactory with InstantiationMode (singleton, per-request, transient)',
-          'ControllerEngine and ControllerCompiler for manifest-driven route compilation',
-          'ControllerRouter for optimized request dispatch',
-          'OpenAPIGenerator and OpenAPIConfig for automatic API documentation',
-          'FilterSet, SearchFilter, and OrderingFilter for query filtering',
-          'PageNumberPagination, LimitOffsetPagination, CursorPagination, and NoPagination',
-          'Content negotiation with JSONRenderer, XMLRenderer, YAMLRenderer, PlainTextRenderer, HTMLRenderer, and ContentNegotiator',
-        ]
-      },
-      {
-        title: 'Dependency Injection',
-        icon: <Box className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Container and DIRegistry with hierarchical scoped DI',
-          'ClassProvider, FactoryProvider, and ValueProvider implementations',
-          '@service, @factory, @inject decorators and Inject marker',
-          'Annotation-driven DI with Dep, Header, Query, and Body extractors',
-          'RequestDAG for automatic dependency graph resolution per-request',
-          'Singleton, app, request, transient, pooled, and ephemeral lifetime scopes',
-          'DI diagnostics and lifecycle management',
-        ]
-      },
-      {
-        title: 'Aquilary Registry',
-        icon: <Cpu className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Aquilary and AquilaryRegistry — manifest-driven app registry with dependency resolution',
-          'RuntimeRegistry for runtime component lookup and management',
-          'AppContext for scoped application context propagation',
-          'RegistryMode for controlling registry behavior (strict, lenient)',
-          'RegistryFingerprint for content-addressed fingerprinting of registry state',
-          'Structured errors: RegistryError, DependencyCycleError, RouteConflictError, ManifestValidationError',
-        ]
-      },
-      {
-        title: 'Model System (ORM)',
-        icon: <Database className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Pure-Python async ORM with Model, ModelMeta, and ModelRegistry',
-          'Comprehensive field types: AutoField, BigAutoField, IntegerField, BigIntegerField, SmallIntegerField, FloatField, DecimalField, CharField, TextField, SlugField, EmailField, URLField, UUIDField, DateField, TimeField, DateTimeField, DurationField, BooleanField, BinaryField, JSONField, and more',
-          'Relationship fields: ForeignKey, OneToOneField, ManyToManyField',
-          'Advanced fields: ArrayField, HStoreField, GeneratedField, FileField, ImageField',
-          'Q objects for complex query composition',
-          'Index and UniqueConstraint support',
-          'MigrationRunner and MigrationOps with auto-generated migration files',
-          'AquiliaDatabase engine with configure_database, get_database, set_database helpers',
-          'Multi-backend support: SQLite (aiosqlite), PostgreSQL, MySQL',
-          'Legacy AMDL model definition support for backward compatibility',
-        ]
-      },
-      {
-        title: 'Blueprints',
-        icon: <FileText className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Blueprint and BlueprintMeta for model-to-world contracts (serialization/deserialization)',
-          'Rich facet system: TextFacet, IntFacet, FloatFacet, DecimalFacet, BoolFacet, DateFacet, TimeFacet, DateTimeFacet, DurationFacet, UUIDFacet, EmailFacet, URLFacet, SlugFacet, IPFacet, ListFacet, DictFacet, JSONFacet, FileFacet, ChoiceFacet',
-          'Special facets: Computed, Constant, WriteOnly, ReadOnly, Hidden, Inject',
-          'Lens system for field-level projection transformations',
-          'Seal-based validation with BlueprintFault, CastFault, SealFault, ImprintFault, ProjectionFault',
-          'Automatic schema generation with generate_schema and generate_component_schemas',
-          'Integration helpers: is_blueprint_class, render_blueprint_response, bind_blueprint_to_request',
-        ]
-      },
-      {
-        title: 'Authentication & Authorization',
-        icon: <Lock className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Identity model with IdentityStatus and TokenClaims',
-          'AuthManager for pluggable authentication flows',
-          'TokenManager and KeyRing for JWT/token lifecycle and key management',
-          'PasswordHasher with Argon2 and Passlib support',
-          'AuthzEngine with RBACEngine and ABACEngine for role/attribute-based access control',
-          'OAuth2/OIDC integration support',
-          'MFA (Multi-Factor Authentication) support',
-          'AuthPrincipal and SessionAuthBridge for session-auth integration',
-          'AquilAuthMiddleware and create_auth_middleware_stack',
-          'DI integration: register_auth_providers, create_auth_container, AuthConfig',
-        ]
-      },
-      {
-        title: 'Session System',
-        icon: <Shield className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Session, SessionID, SessionPolicy, and SessionEngine',
-          'SessionPrincipal with SessionMemoryStore and CookieTransport',
-          'Unique decorator syntax: @session, @authenticated, @stateful',
-          'Typed SessionState with SessionField (CartState, UserPreferencesState)',
-          'SessionContext and SessionGuard with @requires decorator',
-          'Built-in guards: AdminGuard, VerifiedEmailGuard',
-          'SessionFault and SessionExpiredFault error handling',
-        ]
-      },
-      {
-        title: 'Cache System',
-        icon: <Zap className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'CacheService with CacheBackend, CacheEntry, CacheStats, and CacheConfig',
-          'Eviction policies: LRU, LFU, TTL, FIFO',
-          'Multiple backends: MemoryBackend, RedisBackend, CompositeBackend, NullBackend',
-          '@cached, @cache_aside, @invalidate decorators for transparent caching',
-          'CacheMiddleware for HTTP-level cache control',
-          'Key builders: DefaultKeyBuilder, HashKeyBuilder',
-          'Serializers: JsonCacheSerializer, PickleCacheSerializer',
-          'Comprehensive fault types: CacheMissFault, CacheConnectionFault, CacheSerializationFault, CacheCapacityFault, and more',
-        ]
-      },
-      {
-        title: 'Middleware Stack',
-        icon: <Layers className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Composable MiddlewareStack with Middleware and Handler base classes',
-          'Built-in: RequestIdMiddleware, LoggingMiddleware',
-          'CORSMiddleware with full origin, method, and header configuration',
-          'CSPMiddleware with CSPPolicy, CSRFMiddleware with csrf_exempt and csrf_token_func',
-          'HSTSMiddleware, HTTPSRedirectMiddleware, ProxyFixMiddleware',
-          'SecurityHeadersMiddleware for comprehensive security headers',
-          'RateLimitMiddleware with configurable RateLimitRule',
-          'StaticMiddleware for serving static files',
-        ]
-      },
-      {
-        title: 'Fault System',
-        icon: <AlertTriangle className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Structured Fault base class with FaultContext and FaultEngine',
-          'FaultHandler with RecoveryStrategy for resilient error handling',
-          'Model-specific faults: ModelFault, AMDLParseFault, ModelNotFoundFault, ModelRegistrationFault',
-          'Database faults: MigrationFault, MigrationConflictFault, QueryFault, DatabaseConnectionFault, SchemaFault',
-          'Fault domains for scoped error boundaries',
-          'Debug pages: DebugPageRenderer, render_debug_exception_page, render_http_error_page, render_welcome_page',
-        ]
-      },
-      {
-        title: 'Effects System',
-        icon: <Workflow className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Effect, EffectProvider, and EffectRegistry for typed side-effect declarations',
-          'DBTx effect for managed database transactions',
-          'Cache effect for DI-integrated cache operations',
-          'Automatic resource lifecycle management within effect scopes',
-        ]
-      },
-      {
-        title: 'WebSockets',
-        icon: <Globe className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'SocketController with @OnConnect, @OnDisconnect, @Event decorators',
-          'Socket abstraction for send/receive/close operations',
-          'AquilaSockets runtime with SocketRouter for namespace-based routing',
-          'SocketGuard for WebSocket-level authentication and authorization',
-          'Adapter-based architecture for pluggable pub/sub backends',
-        ]
-      },
-      {
-        title: 'Templates & Mail',
-        icon: <Mail className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'TemplateEngine with Jinja2 integration and TemplateMiddleware',
-          'Template loaders with security sandboxing',
-          'AquilaMail: EmailMessage, EmailMultiAlternatives, TemplateMessage',
-          'Async mail: send_mail and asend_mail convenience APIs',
-          'MailEnvelope with EnvelopeStatus, Priority tracking',
-          'MailService with IMailProvider and ProviderResult',
-          'Mail fault types: MailSendFault, MailTemplateFault, MailConfigFault, MailSuppressedFault, MailRateLimitFault, MailValidationFault',
-        ]
-      },
-      {
-        title: 'MLOps Platform',
-        icon: <Brain className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'Integrated MLOps toolkit for model packaging, registry, serving, and observability',
-          'ModelPack builder for containerized model deployment',
-          'Model registry with versioning, tagging, and lifecycle management',
-          'Runtime backends: ONNX, PyTorch, and custom runtimes',
-          'Serving infrastructure with A/B testing and canary rollouts',
-          'Orchestrator for pipeline scheduling and execution',
-          'Observability with drift detection and model performance monitoring',
-          'Explainability integration (SHAP, LIME)',
-          'Security policies for model access control',
-          'Plugin system for custom runtime extensions',
-        ]
-      },
-      {
-        title: 'CLI & Tooling',
-        icon: <Terminal className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'aq CLI entry point with Click-based command framework',
-          'Core commands: serve, init, shell, routes, check',
-          'Database commands: migrate, makemigrations, dbshell',
-          'MLOps commands: model pack, model push, model serve',
-          'Inspection commands: show routes, show di, show config',
-          'Generator commands: generate controller, generate model, generate blueprint',
-          'WebSocket, Deploy, Artifact, Trace, and Subsystem command groups',
-        ]
-      },
-      {
-        title: 'Testing Framework',
-        icon: <Wrench className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'TestClient for async HTTP testing without a running server',
-          'TestServer and create_test_server for integration testing',
-          'AquiliaTestCase, SimpleTestCase, TransactionTestCase, LiveServerTestCase',
-          'override_settings context manager for test configuration',
-          'Built-in pytest integration with asyncio_mode="auto"',
-        ]
-      },
-      {
-        title: 'Trace & Artifacts',
-        icon: <Wrench className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'AquiliaTrace system with .aquilia/ directory for runtime introspection',
-          'TraceManifest, TraceRouteMap, TraceDIGraph for compiled state snapshots',
-          'TraceSchemaLedger and TraceLifecycleJournal for schema and lifecycle auditing',
-          'TraceConfigSnapshot and TraceDiagnostics for configuration debugging',
-          'Artifact system: ArtifactBuilder, ArtifactStore (Memory, Filesystem), ArtifactReader',
-          'Typed artifacts: CodeArtifact, ModelArtifact, ConfigArtifact, TemplateArtifact, MigrationArtifact, RegistryArtifact, RouteArtifact, DIGraphArtifact, BundleArtifact',
-          'ArtifactEnvelope with ArtifactProvenance and ArtifactIntegrity for supply-chain tracking',
-        ]
-      },
-      {
-        title: 'Routing & Discovery',
-        icon: <Zap className="w-4 h-4" />,
-        type: 'added',
-        items: [
-          'PatternCompiler, PatternMatcher, and CompiledPattern for high-performance URL matching',
-          'PatternTypeRegistry for custom URL parameter types',
-          'PackageScanner for automatic controller and service discovery',
-          'Flow-based routing with typed, composable pipelines',
-        ]
-      },
+      }
     ]
-  },
+  }
 ]
+
+const tagColors: Record<string, string> = {
+  major: 'text-aquilia-400 bg-aquilia-500/10 border border-aquilia-500/20',
+  minor: 'text-blue-400 bg-blue-500/10 border border-blue-500/20',
+  patch: 'text-amber-400 bg-amber-500/10 border border-amber-500/20',
+}
+
+const typeColors: Record<string, { text: string; bg: string; border: string }> = {
+  added: { text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+  changed: { text: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
+  fixed: { text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+  security: { text: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/20' },
+  breaking: { text: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+  removed: { text: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/20' }
+}
 
 export function Changelogs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({ '1.0.0': true })
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({ '1.2.2': true })
 
   const toggleVersion = (version: string) => {
-    setExpandedSections(prev => ({ ...prev, [version]: !prev[version] }))
+    setExpandedVersions(prev => ({ ...prev, [version]: !prev[version] }))
   }
 
-  const tagColors: Record<string, string> = {
-    major: 'bg-aquilia-500/10 text-aquilia-500 border-aquilia-500/20',
-    minor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-    patch: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  }
-
-  const stats = useMemo(() => {
-    const current = changelogs[0]
-    const totalItems = current.sections.reduce((sum, s) => sum + s.items.length, 0)
-    const typeBreakdown: Record<string, number> = {}
-    current.sections.forEach(s => {
-      typeBreakdown[s.type] = (typeBreakdown[s.type] || 0) + s.items.length
-    })
-    return { totalItems, sectionCount: current.sections.length, typeBreakdown }
-  }, [])
-
-  const getFilteredSections = (entry: ChangelogEntry) => {
-    if (!activeFilter) return entry.sections
-    return entry.sections.filter(s => s.type === activeFilter)
-  }
+  const filteredChangelogs = changelogs.map(entry => {
+    if (!activeFilter) return entry
+    const filteredSections = entry.sections.filter(s => s.type === activeFilter)
+    return { ...entry, sections: filteredSections }
+  }).filter(entry => entry.sections.length > 0 || !activeFilter)
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
@@ -399,318 +317,190 @@ export function Changelogs() {
       </div>
 
       <main className="flex-grow pt-16 relative">
-        {/* Background */}
-        <div className={`fixed inset-0 z-[-1] opacity-20 ${isDark ? '' : 'opacity-5'}`} style={{ backgroundImage: 'linear-gradient(#27272a 1px, transparent 1px), linear-gradient(90deg, #27272a 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
         <div className="fixed inset-0 z-[-1] bg-gradient-to-b from-transparent via-[var(--bg-primary)]/80 to-[var(--bg-primary)]" />
 
-        {/* Hero — full-width, left-aligned */}
-        <section className={`relative pt-12 pb-10 overflow-hidden ${isDark ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-aquilia-900/20 via-black to-black' : ''}`}>
-          <div className={`absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]`} />
+        {/* Hero */}
+        <section className={`relative pt-16 pb-12 overflow-hidden ${isDark ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-aquilia-900/20 via-black to-black' : ''}`}>
           <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <div className={`inline-flex items-center gap-2 mb-4 px-4 py-1.5 rounded-full border text-sm font-medium ${isDark ? 'border-aquilia-500/30 bg-aquilia-500/10 text-aquilia-400' : 'border-aquilia-600/30 bg-aquilia-500/10 text-aquilia-600'}`}>
-                <FileText className="w-4 h-4" />
-                Changelog
-              </div>
               <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight mb-3">
-                <span className="gradient-text font-mono">What's New</span>
+                <span className="gradient-text font-mono">Changelog</span>
               </h1>
-              <p className={`text-lg max-w-2xl ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                A detailed record of every change, improvement, and fix across all Aquilia releases.
+              <p className={`text-base max-w-2xl ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                A comprehensive, sequential log of all additions, changes, and fixes across the Aquilia core framework and libraries.
               </p>
             </motion.div>
           </div>
         </section>
 
-        {/* Main Content — two-column full-width */}
-        <section className="pb-24">
+        {/* Filter Toolbar (Clean borderless pills) */}
+        <section className="py-4 border-b border-white/[0.04]">
           <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col xl:flex-row gap-8">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`text-xs uppercase tracking-wider font-semibold mr-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Filter logs:
+              </span>
+              <button
+                onClick={() => setActiveFilter(null)}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  !activeFilter
+                    ? isDark ? 'bg-white/10 text-white' : 'bg-gray-150 text-gray-900'
+                    : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-955'
+                }`}
+              >
+                All
+              </button>
+              {(['added', 'changed', 'fixed', 'breaking'] as const).map(type => (
+                <button
+                  key={type}
+                  onClick={() => setActiveFilter(activeFilter === type ? null : type)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all capitalize ${
+                    activeFilter === type
+                      ? isDark ? 'bg-white/10 text-white' : 'bg-gray-150 text-gray-900'
+                      : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-955'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
 
-              {/* LEFT — Changelog timeline */}
+        {/* Main Content */}
+        <section className="pb-24 pt-12">
+          <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col xl:flex-row gap-16">
+
+              {/* LEFT — Changelog timeline (No borders, completely clean layout) */}
               <div className="flex-1 min-w-0">
-                <div className="relative">
-                  {/* Timeline line */}
-                  <div className={`absolute left-6 top-0 bottom-0 w-px ${isDark ? 'bg-white/10' : 'bg-gray-200'}`} />
+                <div className={`relative pl-8 sm:pl-12 border-l-2 ${isDark ? 'border-zinc-800' : 'border-zinc-200'} space-y-16 py-4`}>
+                  {filteredChangelogs.map((entry, idx) => {
+                    const isExpanded = expandedVersions[entry.version] ?? false
 
-                  <div className="space-y-10">
-                    {changelogs.map((entry, idx) => {
-                      const isExpanded = expandedSections[entry.version] ?? false
-                      const filteredSections = getFilteredSections(entry)
+                    return (
+                      <motion.div
+                        key={entry.version}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.05, duration: 0.5 }}
+                        className="relative"
+                      >
+                        {/* Node point */}
+                        <div className={`absolute -left-[41px] sm:-left-[57px] top-2.5 w-4 h-4 rounded-full border-2 ${isDark ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'} flex items-center justify-center`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${entry.tag === 'major' ? 'bg-aquilia-400' : entry.tag === 'minor' ? 'bg-blue-400' : 'bg-amber-400'}`} />
+                        </div>
 
-                      return (
-                        <motion.div
-                          key={entry.version}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.1, duration: 0.5 }}
-                          className="relative pl-16"
-                        >
-                          {/* Timeline dot */}
-                          <div className={`absolute left-4 top-2 w-5 h-5 rounded-full border-4 ${isDark ? 'border-[#09090b] bg-aquilia-500' : 'border-white bg-aquilia-500'} shadow-lg shadow-aquilia-500/30`} />
-
-                          {/* Version Header */}
+                        {/* Heading */}
+                        <div className="mb-4">
                           <button
                             onClick={() => toggleVersion(entry.version)}
-                            className={`w-full text-left group rounded-2xl border p-6 transition-all ${isDark
-                              ? 'bg-[#0A0A0A] border-white/10 hover:border-aquilia-500/30'
-                              : 'bg-white border-gray-200 hover:border-aquilia-500/30 shadow-sm'
-                              }`}
+                            className="flex flex-col sm:flex-row sm:items-baseline gap-3 w-full text-left group"
                           >
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                              <div className="flex items-center gap-3">
-                                <h2 className={`text-2xl font-bold font-mono ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                  v{entry.version}
-                                </h2>
-                                <span className={`px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider rounded-full border ${tagColors[entry.tag]}`}>
-                                  {entry.tag}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-3">
-                                <span className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                  {entry.date}
-                                </span>
-                                <GitCommit className={`w-4 h-4 transition-transform duration-300 ${isExpanded ? 'rotate-90' : ''} ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                              </div>
-                            </div>
-                            <p className={`mt-3 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                              {entry.summary}
-                            </p>
+                            <h2 className={`text-2xl font-extrabold font-mono tracking-tight transition-colors ${isDark ? 'text-white group-hover:text-aquilia-400' : 'text-gray-900 group-hover:text-aquilia-600'}`}>
+                              v{entry.version} {entry.codename && <span className={`text-sm font-normal font-sans ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>— {entry.codename}</span>}
+                            </h2>
+                            <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${tagColors[entry.tag] || 'bg-zinc-500'}`}>
+                              {entry.tag}
+                            </span>
+                            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} ml-auto`}>
+                              {entry.date}
+                            </span>
                           </button>
+                        </div>
 
-                          {/* Expandable Sections */}
-                          {isExpanded && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              transition={{ duration: 0.3 }}
-                              className="mt-4 space-y-4"
-                            >
-                              {filteredSections.length === 0 && (
-                                <div className={`text-center py-8 rounded-xl border ${isDark ? 'border-white/5 text-gray-500' : 'border-gray-100 text-gray-400'}`}>
-                                  No entries match the selected filter.
+                        <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {entry.summary}
+                        </p>
+
+                        {/* Version sections */}
+                        {isExpanded && entry.sections.length > 0 && (
+                          <div className="space-y-6 mt-6">
+                            {entry.sections.map((section, sIdx) => {
+                              const colors = typeColors[section.type] || { text: 'text-gray-400', bg: 'bg-zinc-800', border: 'border-zinc-700' }
+                              return (
+                                <div key={sIdx} className="space-y-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${colors.bg} ${colors.text} border ${colors.border}`}>
+                                      {section.type}
+                                    </span>
+                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                      {section.title}
+                                    </h4>
+                                  </div>
+                                  <ul className="space-y-2">
+                                    {section.items.map((item, iIdx) => (
+                                      <li key={iIdx} className="flex items-start gap-2 text-sm">
+                                        <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${colors.text}`} />
+                                        <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+                                          {item}
+                                        </span>
+                                      </li>
+                                    ))}
+                                  </ul>
                                 </div>
-                              )}
-                              {filteredSections.map((section, sIdx) => {
-                                const colors = typeColors[section.type]
-                                return (
-                                  <motion.div
-                                    key={sIdx}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ delay: sIdx * 0.03, duration: 0.3 }}
-                                    className={`rounded-xl border p-5 ${isDark
-                                      ? `${colors.darkBg} ${colors.darkBorder} border`
-                                      : `${colors.bg} ${colors.border} border`
-                                      }`}
-                                  >
-                                    <div className="flex items-center gap-2 mb-3">
-                                      <span className={isDark ? colors.darkText : colors.text}>
-                                        {section.icon}
-                                      </span>
-                                      <h3 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                        {section.title}
-                                      </h3>
-                                      <span className={`ml-auto flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest rounded-full ${isDark
-                                        ? `${colors.darkBg} ${colors.darkText}`
-                                        : `${colors.bg} ${colors.text}`
-                                        }`}>
-                                        {typeIcons[section.type]}
-                                        {section.type}
-                                      </span>
-                                    </div>
-                                    <ul className="space-y-1.5">
-                                      {section.items.map((item, iIdx) => (
-                                        <li key={iIdx} className="flex items-start gap-2">
-                                          <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${isDark ? colors.darkText : colors.text}`} />
-                                          <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {item}
-                                          </span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </motion.div>
-                                )
-                              })}
-                            </motion.div>
-                          )}
-                        </motion.div>
-                      )
-                    })}
-                  </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </motion.div>
+                    )
+                  })}
                 </div>
               </div>
 
-              {/* RIGHT — Sticky sidebar with contextual info */}
+              {/* RIGHT — Premium sidebar (Quick Links only) */}
               <div className="xl:w-80 2xl:w-96 flex-shrink-0">
-                <div className="xl:sticky xl:top-24 space-y-5">
-
-                  {/* Version Overview */}
+                <div className="xl:sticky xl:top-24 space-y-12">
+                  {/* Convention Note */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, duration: 0.5 }}
-                    className={`rounded-2xl border p-5 ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}
+                    className="space-y-2"
                   >
-                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <Sparkles className="w-3.5 h-3.5 text-aquilia-500" />
-                      Latest Version
-                    </h3>
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className={`text-3xl font-bold font-mono ${isDark ? 'text-white' : 'text-gray-900'}`}>v1.0.0</div>
-                      <span className="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-aquilia-500 text-black">LATEST</span>
-                    </div>
-                    <div className="space-y-2.5">
-                      <div className="flex items-center gap-2">
-                        <Calendar className={`w-3.5 h-3.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>February 28, 2026</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Hash className={`w-3.5 h-3.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Codename: Genesis</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className={`w-3.5 h-3.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`} />
-                        <span className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Initial Release</span>
-                      </div>
-                    </div>
-                  </motion.div>
-
-                  {/* Stats */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.3, duration: 0.5 }}
-                    className={`rounded-2xl border p-5 ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}
-                  >
-                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <TrendingUp className="w-3.5 h-3.5 text-aquilia-500" />
-                      Release Stats
-                    </h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      {[
-                        { value: stats.totalItems, label: 'Total Changes' },
-                        { value: stats.sectionCount, label: 'Modules' },
-                        { value: '250+', label: 'Public APIs' },
-                        { value: '500+', label: 'Commits' },
-                      ].map(s => (
-                        <div key={s.label} className={`p-3 rounded-xl ${isDark ? 'bg-white/[0.03] border border-white/5' : 'bg-gray-50 border border-gray-100'}`}>
-                          <div className={`text-xl font-bold font-mono ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{s.value}</div>
-                          <div className={`text-[10px] uppercase tracking-wider font-medium mt-0.5 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{s.label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-
-                  {/* Filter by Type */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.4, duration: 0.5 }}
-                    className={`rounded-2xl border p-5 ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}
-                  >
-                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <Tag className="w-3.5 h-3.5 text-aquilia-500" />
-                      Filter by Type
-                    </h3>
-                    <div className="space-y-1.5">
-                      <button
-                        onClick={() => setActiveFilter(null)}
-                        className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${!activeFilter
-                          ? isDark ? 'bg-aquilia-500/10 text-aquilia-400 border border-aquilia-500/20' : 'bg-aquilia-50 text-aquilia-700 border border-aquilia-200'
-                          : isDark ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'
-                          }`}
-                      >
-                        <span className="flex items-center gap-2">
-                          <Sparkles className="w-3.5 h-3.5" />
-                          All Changes
-                        </span>
-                        <span className={`text-xs font-mono ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>{stats.totalItems}</span>
-                      </button>
-                      {Object.entries(stats.typeBreakdown).map(([type, count]) => {
-                        const colors = typeColors[type]
-                        return (
-                          <button
-                            key={type}
-                            onClick={() => setActiveFilter(activeFilter === type ? null : type)}
-                            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all ${activeFilter === type
-                              ? isDark ? `${colors.darkBg} ${colors.darkText} border ${colors.darkBorder}` : `${colors.bg} ${colors.text} border ${colors.border}`
-                              : isDark ? 'text-gray-400 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'
-                              }`}
-                          >
-                            <span className="flex items-center gap-2">
-                              {typeIcons[type]}
-                              <span className="capitalize">{type}</span>
-                            </span>
-                            <span className={`text-xs font-mono ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>{count}</span>
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </motion.div>
-
-                  {/* Section TOC */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.5, duration: 0.5 }}
-                    className={`rounded-2xl border p-5 ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}
-                  >
-                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <BookOpen className="w-3.5 h-3.5 text-aquilia-500" />
-                      Sections in v1.0.0
-                    </h3>
-                    <div className="space-y-0.5 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                      {changelogs[0].sections.map((section, i) => (
-                        <div
-                          key={i}
-                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-default ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
-                        >
-                          <span className="text-aquilia-500 flex-shrink-0">{section.icon}</span>
-                          <span className="flex-1 truncate">{section.title}</span>
-                          <span className={`text-[10px] font-mono flex-shrink-0 ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>{section.items.length}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <h4 className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Keep a Changelog</h4>
+                    <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Aquilia follows semantic versioning rules (`vMajor.Minor.Patch`) and tracks modifications according to Keep a Changelog guidelines.
+                    </p>
                   </motion.div>
 
                   {/* Quick Links */}
                   <motion.div
                     initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.6, duration: 0.5 }}
-                    className={`rounded-2xl border p-5 ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200 shadow-sm'}`}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.5 }}
+                    className="space-y-4"
                   >
-                    <h3 className={`text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <ChevronRight className="w-3.5 h-3.5 text-aquilia-500" />
+                    <h3 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                       Quick Links
                     </h3>
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       <Link
                         to="/releases"
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isDark ? 'bg-aquilia-500/5 border border-aquilia-500/10 text-aquilia-400 hover:bg-aquilia-500/10' : 'bg-aquilia-50 border border-aquilia-100 text-aquilia-700 hover:bg-aquilia-100'}`}
+                        className={`flex items-center gap-2 py-2 text-sm font-medium transition-colors ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'}`}
                       >
                         <Package className="w-4 h-4" />
                         <span className="flex-1">View Releases</span>
-                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                       <Link
                         to="/docs"
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isDark ? 'bg-white/[0.03] border border-white/5 text-gray-300 hover:bg-white/[0.06]' : 'bg-gray-50 border border-gray-100 text-gray-700 hover:bg-gray-100'}`}
+                        className={`flex items-center gap-2 py-2 text-sm font-medium transition-colors ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'}`}
                       >
                         <BookOpen className="w-4 h-4" />
-                        <span className="flex-1">Read the Docs</span>
-                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                        <span className="flex-1">Documentation</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </Link>
                       <a
                         href="https://github.com/axiomchronicles/Aquilia"
                         target="_blank"
                         rel="noopener"
-                        className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${isDark ? 'bg-white/[0.03] border border-white/5 text-gray-300 hover:bg-white/[0.06]' : 'bg-gray-50 border border-gray-100 text-gray-700 hover:bg-gray-100'}`}
+                        className={`flex items-center gap-2 py-2 text-sm font-medium transition-colors ${isDark ? 'text-gray-300 hover:text-white' : 'text-gray-700 hover:text-gray-900'}`}
                       >
                         <Github className="w-4 h-4" />
                         <span className="flex-1">GitHub Repository</span>
@@ -718,32 +508,9 @@ export function Changelogs() {
                       </a>
                     </div>
                   </motion.div>
-
-                  {/* Convention Note */}
-                  <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.7, duration: 0.5 }}
-                    className={`rounded-2xl border p-5 ${isDark ? 'bg-aquilia-500/5 border-aquilia-500/10' : 'bg-aquilia-50 border-aquilia-100'}`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-aquilia-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <FileText className="w-4 h-4 text-aquilia-500" />
-                      </div>
-                      <div>
-                        <h4 className={`text-sm font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>Changelog Convention</h4>
-                        <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                          This project follows the{' '}
-                          <a href="https://keepachangelog.com" target="_blank" rel="noopener" className="text-aquilia-500 hover:underline">Keep a Changelog</a>
-                          {' '}specification and{' '}
-                          <a href="https://semver.org" target="_blank" rel="noopener" className="text-aquilia-500 hover:underline">Semantic Versioning</a>.
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-
                 </div>
               </div>
+
             </div>
           </div>
         </section>

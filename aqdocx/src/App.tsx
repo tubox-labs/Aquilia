@@ -193,24 +193,6 @@ import { AquilaryManifest } from './pages/docs/aquilary/Manifest'
 import { AquilaryRuntime } from './pages/docs/aquilary/Runtime'
 import { AquilaryFingerprint } from './pages/docs/aquilary/Fingerprint'
 
-// MLOps
-import { MLOpsOverview } from './pages/docs/mlops/Overview'
-import { MLOpsTypes } from './pages/docs/mlops/Types'
-import { MLOpsAPI } from './pages/docs/mlops/API'
-import { MLOpsEngine } from './pages/docs/mlops/Engine'
-import { MLOpsModelpack } from './pages/docs/mlops/Modelpack'
-import { MLOpsRegistry } from './pages/docs/mlops/Registry'
-import { MLOpsRuntime } from './pages/docs/mlops/Runtime'
-import { MLOpsServing } from './pages/docs/mlops/Serving'
-import { MLOpsOrchestrator } from './pages/docs/mlops/Orchestrator'
-import { MLOpsObservability } from './pages/docs/mlops/Observability'
-import { MLOpsPlugins } from './pages/docs/mlops/Plugins'
-import { MLOpsRelease } from './pages/docs/mlops/Release'
-import { MLOpsScheduler } from './pages/docs/mlops/Scheduler'
-import { MLOpsSecurity } from './pages/docs/mlops/Security'
-import { MLOpsExplain } from './pages/docs/mlops/Explain'
-import { MLOpsDeployment } from './pages/docs/mlops/Deployment'
-import { MLOpsTutorial } from './pages/docs/mlops/Tutorial'
 
 // CLI
 import { CLIOverview } from './pages/docs/cli/Overview'
@@ -218,12 +200,10 @@ import { CLICommands } from './pages/docs/cli/Commands'
 import { CLIGenerators } from './pages/docs/cli/Generators'
 import { CLICoreCommands } from './pages/docs/cli/CoreCommands'
 import { CLIDatabaseCommands } from './pages/docs/cli/DatabaseCommands'
-import { CLIMLOpsCommands } from './pages/docs/cli/MLOpsCommands'
 import { CLIInspectionCommands } from './pages/docs/cli/InspectionCommands'
 import { CLIWebSocketCommands } from './pages/docs/cli/WebSocketCommands'
 import { CLIDeployCommands } from './pages/docs/cli/DeployCommands'
 import { CLIArtifactCommands } from './pages/docs/cli/ArtifactCommands'
-import { CLITraceCommands } from './pages/docs/cli/TraceCommands'
 import { CLISubsystemCommands } from './pages/docs/cli/SubsystemCommands'
 
 // Testing
@@ -232,9 +212,7 @@ import { TestingClient } from './pages/docs/testing/Client'
 import { TestingCases } from './pages/docs/testing/Cases'
 import { TestingMocks } from './pages/docs/testing/Mocks'
 
-// Trace
-import { TraceOverview } from './pages/docs/trace/Overview'
-import { TraceSpans } from './pages/docs/trace/Spans'
+
 
 // Tasks
 import { TasksOverview } from './pages/docs/tasks/Overview'
@@ -494,24 +472,7 @@ export default function App() {
           <Route path="mail/providers" element={<MailProviders />} />
           <Route path="mail/templates" element={<MailTemplates />} />
 
-          {/* MLOps */}
-          <Route path="mlops" element={<MLOpsOverview />} />
-          <Route path="mlops/types" element={<MLOpsTypes />} />
-          <Route path="mlops/api" element={<MLOpsAPI />} />
-          <Route path="mlops/engine" element={<MLOpsEngine />} />
-          <Route path="mlops/modelpack" element={<MLOpsModelpack />} />
-          <Route path="mlops/registry" element={<MLOpsRegistry />} />
-          <Route path="mlops/runtime" element={<MLOpsRuntime />} />
-          <Route path="mlops/serving" element={<MLOpsServing />} />
-          <Route path="mlops/orchestrator" element={<MLOpsOrchestrator />} />
-          <Route path="mlops/observability" element={<MLOpsObservability />} />
-          <Route path="mlops/plugins" element={<MLOpsPlugins />} />
-          <Route path="mlops/release" element={<MLOpsRelease />} />
-          <Route path="mlops/scheduler" element={<MLOpsScheduler />} />
-          <Route path="mlops/security" element={<MLOpsSecurity />} />
-          <Route path="mlops/explain" element={<MLOpsExplain />} />
-          <Route path="mlops/deployment" element={<MLOpsDeployment />} />
-          <Route path="mlops/tutorial" element={<MLOpsTutorial />} />
+
 
           {/* CLI */}
           <Route path="cli" element={<CLIOverview />} />
@@ -519,12 +480,10 @@ export default function App() {
           <Route path="cli/generators" element={<CLIGenerators />} />
           <Route path="cli/core" element={<CLICoreCommands />} />
           <Route path="cli/database" element={<CLIDatabaseCommands />} />
-          <Route path="cli/mlops" element={<CLIMLOpsCommands />} />
           <Route path="cli/inspection" element={<CLIInspectionCommands />} />
           <Route path="cli/websockets" element={<CLIWebSocketCommands />} />
           <Route path="cli/deploy" element={<CLIDeployCommands />} />
           <Route path="cli/artifacts" element={<CLIArtifactCommands />} />
-          <Route path="cli/trace" element={<CLITraceCommands />} />
           <Route path="cli/subsystems" element={<CLISubsystemCommands />} />
 
           {/* Testing */}
@@ -536,9 +495,7 @@ export default function App() {
           {/* OpenAPI */}
           <Route path="openapi" element={<ControllersOpenAPI />} />
 
-          {/* Trace */}
-          <Route path="trace" element={<TraceOverview />} />
-          <Route path="trace/spans" element={<TraceSpans />} />
+
 
           {/* Tasks */}
           <Route path="tasks" element={<TasksOverview />} />

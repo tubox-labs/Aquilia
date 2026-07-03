@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import { Navbar } from '../components/Navbar'
 import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
-import { ArrowRight, Github, BookOpen, Zap, Shield, Database, Layers, Box, Workflow, Terminal, Globe, Activity, Rocket, Cpu as CpuIcon, Copy } from 'lucide-react'
+import { ArrowRight, Github, BookOpen, Activity, Rocket, Copy } from 'lucide-react'
 import { PostgresSQLIcon, RedisIcon, RabbitMQIcon, SentryIcon, OpenTelemetryIcon, AwsS3Icon, ElasticsearchIcon, DockerIcon } from '../components/BrandIcons'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
@@ -47,16 +47,14 @@ export function LandingPage() {
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </div>
       <main className="flex-grow pt-16 relative">
-        {/* Grid Background */}
-        <div className={`fixed inset-0 z-[-1] opacity-20 ${isDark ? '' : 'opacity-5'}`} style={{ backgroundImage: 'linear-gradient(#27272a 1px, transparent 1px), linear-gradient(90deg, #27272a 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
+
         <div className="fixed inset-0 z-[-1] bg-gradient-to-b from-transparent via-[var(--bg-primary)]/80 to-[var(--bg-primary)]" />
 
         {/* Hero */}
-        <section className={`relative pt-4 pb-12 sm:pt-8 sm:pb-20 overflow-hidden ${isDark ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-aquilia-900/20 via-black to-black' : ''}`}>
-          <div className={`absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)]`} />
+        <section className={`relative min-h-[calc(100vh-4rem)] flex items-center py-16 overflow-hidden ${isDark ? 'bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-aquilia-900/20 via-black to-black' : ''}`}>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-12 items-center">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
               {/* Left: Content */}
               <motion.div
                 initial="hidden"
@@ -64,11 +62,7 @@ export function LandingPage() {
                 variants={containerVariants}
                 className="text-left flex flex-col items-start"
               >
-                <motion.div variants={itemVariants} className={`inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full border text-sm font-medium backdrop-blur-md relative overflow-hidden group ${isDark ? 'border-aquilia-500/30 bg-aquilia-500/10 text-aquilia-400' : 'border-aquilia-600/30 bg-aquilia-500/10 text-aquilia-600'}`}>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                  <span className="flex h-2 w-2 rounded-full bg-aquilia-500 animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                  v1.0.0 — Production Ready
-                </motion.div>
+
 
                 <motion.h1 variants={itemVariants} className="text-3xl sm:text-5xl font-extrabold tracking-tight mb-4 leading-tight w-full">
                   The Python framework<br />
@@ -79,20 +73,7 @@ export function LandingPage() {
                   Write controllers and services. Aquilia discovers everything, manages its own architecture, and deploys itself. You do not touch most framework-managed files.
                 </motion.p>
 
-                <motion.div variants={itemVariants} className="space-y-2 mb-8">
-                  {[
-                    "Auto-discover routes, services, models — zero routing boilerplate.",
-                    "Generate Docker / Compose / Kubernetes manifests in one command.",
-                    "Native ML model deployment and async performance out of the box."
-                  ].map((benefit, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-aquilia-500/20 flex items-center justify-center">
-                        <Zap className="w-3 h-3 text-aquilia-500" />
-                      </div>
-                      <span className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{benefit}</span>
-                    </div>
-                  ))}
-                </motion.div>
+
 
                 <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 mb-8 w-full lg:w-auto">
                   <Link to="/docs" className={`group relative px-6 py-3 font-bold rounded-xl transition-all overflow-hidden text-center flex justify-center items-center shadow-lg hover:shadow-aquilia-500/25 ${isDark ? 'bg-white text-black hover:scale-105' : 'bg-aquilia-600 text-white hover:bg-aquilia-700 hover:scale-105'}`}>
@@ -266,52 +247,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Feature Cards */}
-        <section className={`py-24 relative overflow-hidden border-t ${isDark ? 'bg-zinc-950 border-white/5' : 'bg-gray-50/50 border-gray-200'}`}>
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-20">
-              <h2 className="text-aquilia-500 font-bold tracking-wide uppercase text-sm mb-4">Everything Built-In</h2>
-              <h3 className={`text-4xl md:text-5xl leading-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                <span className="font-bold tracking-tighter gradient-text font-mono relative inline-block">
-                  One Framework.
-                  <span className="absolute -bottom-1 left-0 w-full h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400" />
-                </span>
-                <br />
-                <span className={isDark ? 'text-white/50' : 'text-gray-400'}>
-                  Zero Compromises.
-                </span>
-              </h3>
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-              {[
-                { icon: <Layers className="w-8 h-8" />, title: 'Controller Architecture', desc: 'Class-based controllers with DI injection, pipelines, and OpenAPI generation. Manifest-first and runtime-native.' },
-                { icon: <Box className="w-8 h-8" />, title: 'Dependency Injection', desc: 'Hierarchical scoped DI with singleton, app, request, transient, pooled, and ephemeral lifetimes.' },
-                { icon: <Database className="w-8 h-8" />, title: 'Full ORM', desc: 'Production-grade async ORM with models, migrations, relationships, signals, and multi-backend support (SQLite, PostgreSQL, MySQL).' },
-                { icon: <Shield className="w-8 h-8" />, title: 'Auth & Security', desc: 'OAuth2/OIDC, MFA, API keys, RBAC/ABAC authorization, cryptographic sessions, and security middleware.' },
-                { icon: <Zap className="w-8 h-8" />, title: 'Effect System', desc: 'Typed side-effect declarations for DB transactions, cache, queues — with automatic resource lifecycle management.' },
-                { icon: <Globe className="w-8 h-8" />, title: 'WebSockets', desc: 'Real-time socket controllers with namespaces, guards, message envelopes, and adapter-based pub/sub.' },
-                { icon: <Workflow className="w-8 h-8" />, title: 'Fault System', desc: 'Structured error handling with fault domains, severity levels, recovery strategies, and debug pages.' },
-                { icon: <CpuIcon className="w-8 h-8" />, title: 'MLOps Platform', desc: 'Model packaging, registry, serving, drift detection, and A/B testing — all integrated into the framework.' },
-                { icon: <Terminal className="w-8 h-8" />, title: 'CLI & Testing', desc: 'Full CLI with generators and commands. Built-in test infrastructure with TestClient and fixtures.' },
-              ].map((f, i) => (
-                <motion.div
-                  key={i}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true }}
-                  variants={itemVariants}
-                  className={`group relative p-8 rounded-3xl border transition-all duration-300 overflow-hidden hover:-translate-y-1 hover:shadow-2xl ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:shadow-aquilia-900/20' : 'bg-white border-gray-200 hover:shadow-aquilia-100'}`}
-                >
-                  <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-aquilia-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
-                  <div className="text-aquilia-500 mb-6">{f.icon}</div>
-                  <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>{f.title}</h3>
-                  <p className={`text-sm leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{f.desc}</p>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </section>
 
         {/* Ecosystem Section */}
         <section className={`py-24 relative overflow-hidden ${isDark ? 'bg-black' : 'bg-white'}`}>
