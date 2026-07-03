@@ -73,7 +73,7 @@ aquilary = Aquilary.from_manifests(
 #    - Creates DI Container per app (scope: "app")
 #    - Registers ClassProvider for each service
 #    - Compiles ControllerCompiler routes for each controller
-#    - Builds model schemas through ModelMeta
+#    - Builds model schemas through ModelMeta and ModelRegistry
 runtime = RuntimeRegistry.from_metadata(aquilary, config)
 
 # 4. AquiliaServer wires everything together
@@ -114,7 +114,7 @@ server = AquiliaServer(
 ├── FaultEngine                  # Typed fault handling with domains and severity
 ├── Aquilary                     # Manifest registry
 │   ├── AquilaryRegistry         # Validated app metadata indexed by name
-│   └── Fingerprinter            # Content-addressed hashing of artifacts
+│   └── FingerprintGenerator     # Content-addressed hashing of artifacts
 ├── RuntimeRegistry              # Compiled runtime state
 │   ├── DI Containers            # One Container per app module (scope: "app")
 │   │   └── Providers            # ClassProvider, FactoryProvider, ValueProvider, …
@@ -128,7 +128,7 @@ server = AquiliaServer(
 │   ├── SessionMiddleware        # Session load/save per request (priority: 15)
 │   ├── AquilAuthMiddleware      # Unified auth & identity extraction (priority: 15)
 │   ├── TemplateMiddleware       # Template engine rendering context (priority: 25)
-│   └── Security & Extensions    # CORS (11), RateLimit (12), CSRF (20), Cache (26), etc.
+│   └── Security & Extensions    # ProxyFix (3), HTTPSRedirect (4), Version (5), Static (6), SecurityHeaders (7), HSTS (8), CSP (9), CORS (11), Inspector (11), RateLimit (12), ToolbarInjection (12), CSRF (20), I18n (24), Cache (26)
 ├── ControllerRouter             # URL pattern → CompiledRoute mapping
 ├── ControllerEngine             # Route dispatch + pipeline execution
 ├── ControllerFactory            # Controller instantiation with DI

@@ -42,7 +42,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
 
                     <g transform="translate(20, 30)">
                         <rect x="0" y="0" width="280" height="40" rx="8" fill={accentColor} opacity="0.1" stroke={accentColor} strokeWidth="1.5" />
-                        <text x="15" y="25" fill={accentColor} fontSize="12" fontWeight="bold">ManifestLoader (manifest.py)</text>
+                        <text x="15" y="25" fill={accentColor} fontSize="12" fontWeight="bold">AquiliaRuntime / ConfigLoader</text>
                         <motion.circle cx="260" cy="20" r="3" fill={accentColor} animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.5, repeat: Infinity }} />
                     </g>
 
@@ -53,7 +53,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
 
                     <g transform="translate(20, 140)">
                         <rect x="0" y="0" width="280" height="40" rx="8" fill={accentColor} opacity="0.1" stroke={accentColor} strokeWidth="1" />
-                        <text x="15" y="25" fill={accentColor} fontSize="11" fontWeight="bold">Aquilary::ValidationReport</text>
+                        <text x="15" y="25" fill={accentColor} fontSize="11" fontWeight="bold">RegistryValidator / ValidationReport</text>
                     </g>
                 </motion.g>
 
@@ -73,13 +73,13 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                     <g transform="translate(30, 100)">
                         <rect x="0" y="0" width="300" height="50" rx="8" fill={accentColor} opacity="0.15" />
                         <text x="15" y="30" fill={textColor} fontSize="12" fontWeight="black">LIFECYCLE COORDINATOR</text>
-                        <text x="210" y="30" fill={accentColor} fontSize="9" fontWeight="bold">v1.2.3 ("Kraken's Wake")</text>
+                        <text x="185" y="30" fill={accentColor} fontSize="8" fontWeight="bold">v1.2.0 ("Kraken's Wake")</text>
                     </g>
 
                     <g transform="translate(30, 170)">
                         <rect x="0" y="0" width="300" height="50" rx="8" fill={accentColor} opacity="0.05" stroke={accentColor} strokeWidth="1" strokeDasharray="4,2" />
-                        <text x="15" y="22" fill={textColor} fontSize="10" fontWeight="bold">RuntimeRegistry::Snapshot</text>
-                        <text x="15" y="40" fill={mutedColor} fontSize="9">Optimized Route Mapping & Hot-Reload</text>
+                        <text x="15" y="22" fill={textColor} fontSize="10" fontWeight="bold">RuntimeRegistry</text>
+                        <text x="15" y="40" fill={mutedColor} fontSize="9">Compiled metadata and route state</text>
                     </g>
                 </motion.g>
 
@@ -110,7 +110,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                         <g transform="translate(0, 75)">
                             <rect x="0" y="0" width="140" height="60" rx="8" fill={accentColor} opacity="0.15" stroke={accentColor} strokeWidth="1" />
                             <text x="10" y="25" fill={textColor} fontSize="11" fontWeight="black">APP (Module)</text>
-                            <text x="10" y="45" fill={mutedColor} fontSize="8">Cross-App Protection</text>
+                            <text x="10" y="45" fill={mutedColor} fontSize="8">App-scoped container</text>
                         </g>
                         <g transform="translate(0, 150)">
                             <rect x="0" y="0" width="140" height="80" rx="8" fill={accentColor} opacity="0.3" stroke={accentColor} strokeWidth="2" filter="url(#glow)" />
@@ -182,7 +182,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
 
                         <g transform="translate(20, 105)">
                             <rect x="0" y="0" width="180" height="40" rx="6" fill={accentColor} opacity="0.15" />
-                            <text x="90" y="25" textAnchor="middle" fill={textColor} fontSize="10" fontWeight="bold">TRANSFORMS (Aquilia Serilizer)</text>
+                            <text x="90" y="25" textAnchor="middle" fill={textColor} fontSize="10" fontWeight="bold">TRANSFORMS (Blueprint validation)</text>
                         </g>
 
                         <g transform="translate(20, 160)">
@@ -213,7 +213,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                     <g transform="translate(35, 130)">
                         <rect x="0" y="0" width="290" height="140" rx="12" fill={accentColor} opacity="0.2" stroke={accentColor} strokeWidth="2" filter="url(#glow)" />
                         <text x="15" y="30" textAnchor="start" fill={textColor} fontSize="14" fontWeight="black">QUERYSET ENGINE</text>
-                        <text x="15" y="55" fill={textColor} fontSize="10" opacity="0.8">Lazy Execution • ModelPack aware</text>
+                        <text x="15" y="55" fill={textColor} fontSize="10" opacity="0.8">Lazy execution • ModelRegistry aware</text>
                         <path d="M 15 75 H 275 M 15 105 H 275" stroke={accentColor} strokeWidth="1" opacity="0.3" />
                         <text x="15" y="95" fill={textColor} fontSize="9">Optimized SQL Generation</text>
                         <text x="15" y="125" fill={textColor} fontSize="9">Transaction Context Isolation</text>
@@ -230,7 +230,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                         <rect x="0" y="0" width="290" height="70" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} strokeWidth="1" />
                         <text x="15" y="25" fill={textColor} fontSize="11" fontWeight="black">VALIDATION ENGINE</text>
                         <text x="15" y="45" fill={mutedColor} fontSize="9">Deep recursive type checking</text>
-                        <text x="15" y="58" fill={accentColor} fontSize="9" fontWeight="bold">Automatic Serilizer Mapping</text>
+                        <text x="15" y="58" fill={accentColor} fontSize="9" fontWeight="bold">Automatic serializer mapping</text>
                     </g>
 
                     <g transform="translate(35, 130)">
@@ -258,43 +258,43 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                     <g transform="translate(35, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.05" stroke={accentColor} strokeDasharray="2,2" />
                         <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">MLOPS</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">ModelPack Registry</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">ONNX/PyTorch Runtime</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">ModelRegistry</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">ORM schema runtime</text>
                     </g>
 
                     <g transform="translate(215, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">DATA LAYER</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">PostgreSQL / Redis</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Transactional UnitOfWork</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">DATABASE</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">DatabaseIntegration / AquiliaDatabase</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Transactions and models</text>
                     </g>
 
                     <g transform="translate(395, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.05" stroke={accentColor} strokeDasharray="2,2" />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">ASYNC TASKS</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">Celery / RabbitMQ</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Periodic Jobs (Beat)</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">TASKS</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">TaskManager / Worker</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Scheduled jobs and queues</text>
                     </g>
 
                     <g transform="translate(575, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} />
                         <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">OBSERVABILITY</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">OpenTelemetry / Sentry</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Aquilia Journaling</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">OpenTelemetry / Inspector</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Tracing and diagnostics</text>
                     </g>
 
                     <g transform="translate(755, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.05" stroke={accentColor} strokeDasharray="2,2" />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">FAULT ENGINE</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">Error Pattern Matching</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Subsytem Patching</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">FAULTS</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">FaultEngine / FaultMiddleware</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Structured fault responses</text>
                     </g>
 
                     <g transform="translate(935, 30)">
                         <rect x="0" y="0" width="130" height="90" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} />
-                        <text x="65" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">COMMMS</text>
-                        <text x="65" y="50" textAnchor="middle" fill={textColor} fontSize="9">Mail (SMTP/SES)</text>
-                        <text x="65" y="70" textAnchor="middle" fill={textColor} fontSize="9">WebSockets (PubSub)</text>
+                        <text x="65" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">MAIL + SOCKETS</text>
+                        <text x="65" y="50" textAnchor="middle" fill={textColor} fontSize="9">Mail providers</text>
+                        <text x="65" y="70" textAnchor="middle" fill={textColor} fontSize="9">WebSocket runtime</text>
                     </g>
                 </motion.g>
 
