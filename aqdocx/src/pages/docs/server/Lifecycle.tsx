@@ -1,5 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview'
 import { Link } from 'react-router-dom'
 import { Workflow, Zap, AlertCircle, ArrowRight, CheckCircle } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
@@ -28,7 +29,7 @@ export function ServerLifecycle() {
         </div>
 
         <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>LifecycleCoordinator</code> manages application startup and shutdown in
+          The <DocTerm id="lifecycle.coordinator">LifecycleCoordinator</DocTerm> manages application startup and shutdown in
           dependency order, ensuring that services are initialized before their dependents
           and torn down in reverse order.
         </p>
@@ -233,13 +234,15 @@ class LifecyclePhase(str, Enum):
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
-                ['on_startup(ctx)', 'Once during server startup', 'singleton only'],
-                ['on_shutdown(ctx)', 'Once during server shutdown', 'singleton only'],
-                ['on_request(ctx)', 'Before every request', 'Both modes'],
-                ['on_response(ctx, response)', 'After every request', 'Both modes'],
-              ].map(([hook, when, mode], i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{hook}</td>
+                ['lifecycle.on_startup', 'on_startup(ctx)', 'Once during server startup', 'singleton only'],
+                ['lifecycle.on_shutdown', 'on_shutdown(ctx)', 'Once during server shutdown', 'singleton only'],
+                ['lifecycle.on_request', 'on_request(ctx)', 'Before every request', 'Both modes'],
+                ['lifecycle.on_response', 'on_response(ctx, response)', 'After every request', 'Both modes'],
+              ].map(([id, hook, when, mode]) => (
+                <tr key={id} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
+                  <td className="px-4 py-2">
+                    <DocTerm id={id}>{hook}</DocTerm>
+                  </td>
                   <td className={`px-4 py-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{when}</td>
                   <td className={`px-4 py-2 text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{mode}</td>
                 </tr>

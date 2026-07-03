@@ -1,5 +1,8 @@
 import { Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
+import { DocPreviewProvider } from './context/DocPreviewContext'
+import { DocPreviewPanel } from './components/docPreview'
+import './data/docEntities'
 import { DocsLayout } from './components/DocsLayout'
 import { LandingPage } from './pages/LandingPage'
 import { Changelogs } from './pages/Changelogs'
@@ -245,6 +248,7 @@ import { FilesystemController } from './pages/docs/filesystem/Controller'
 export default function App() {
   return (
     <ThemeProvider>
+      <DocPreviewProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/benchmark" element={<BenchmarkPage />} />
@@ -530,6 +534,8 @@ export default function App() {
           <Route path="filesystem/controller" element={<FilesystemController />} />
         </Route>
       </Routes>
+      <DocPreviewPanel />
+      </DocPreviewProvider>
     </ThemeProvider>
   )
 }
