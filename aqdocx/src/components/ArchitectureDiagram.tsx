@@ -253,48 +253,48 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
                 {/* --- ZONE 8: SATELLITES (Bottom Row) --- */}
                 <motion.g initial={{ x: 50, y: 1250 }}>
                     <rect x="0" y="0" width="1100" height="150" rx="24" fill="transparent" stroke={accentColor} strokeWidth="1" strokeDasharray="15,5" opacity="0.4" />
-                    <text x="550" y="-25" textAnchor="middle" fill={textColor} fontSize="16" fontWeight="black" className="font-mono tracking-widest opacity-60">08. SATELLITE SUBSYSTEMS (EFFECTS & INTEGRATIONS)</text>
+                    <text x="550" y="-25" textAnchor="middle" fill={textColor} fontSize="16" fontWeight="black" className="font-mono tracking-widest opacity-60">08. FIRST-CLASS SUBSYSTEMS</text>
 
                     <g transform="translate(35, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.05" stroke={accentColor} strokeDasharray="2,2" />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">MLOPS</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">ModelRegistry</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">ORM schema runtime</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">AUTH + SESSIONS</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">AuthManager</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">SessionEngine / policies</text>
                     </g>
 
                     <g transform="translate(215, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">DATABASE</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">DatabaseIntegration / AquiliaDatabase</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Transactions and models</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">TEMPLATES</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">TemplateEngine</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">TemplateMiddleware / loaders</text>
                     </g>
 
                     <g transform="translate(395, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.05" stroke={accentColor} strokeDasharray="2,2" />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">TASKS</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">TaskManager / Worker</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Scheduled jobs and queues</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">CACHE</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">CacheService</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Cache configs / adapters</text>
                     </g>
 
                     <g transform="translate(575, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">OBSERVABILITY</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">OpenTelemetry / Inspector</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Tracing and diagnostics</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">STORAGE</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">StorageRegistry</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Local / S3 / GCS / SFTP</text>
                     </g>
 
                     <g transform="translate(755, 30)">
                         <rect x="0" y="0" width="160" height="90" rx="12" fill={accentColor} opacity="0.05" stroke={accentColor} strokeDasharray="2,2" />
-                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">FAULTS</text>
-                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">FaultEngine / FaultMiddleware</text>
-                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Structured fault responses</text>
+                        <text x="80" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">I18N</text>
+                        <text x="80" y="50" textAnchor="middle" fill={textColor} fontSize="9">I18nService</text>
+                        <text x="80" y="70" textAnchor="middle" fill={textColor} fontSize="9">Locales / catalogues</text>
                     </g>
 
                     <g transform="translate(935, 30)">
                         <rect x="0" y="0" width="130" height="90" rx="12" fill={accentColor} opacity="0.1" stroke={accentColor} />
-                        <text x="65" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">MAIL + SOCKETS</text>
-                        <text x="65" y="50" textAnchor="middle" fill={textColor} fontSize="9">Mail providers</text>
-                        <text x="65" y="70" textAnchor="middle" fill={textColor} fontSize="9">WebSocket runtime</text>
+                        <text x="65" y="25" textAnchor="middle" fill={accentColor} fontSize="12" fontWeight="black">TASKS + WS</text>
+                        <text x="65" y="50" textAnchor="middle" fill={textColor} fontSize="9">TaskManager</text>
+                        <text x="65" y="70" textAnchor="middle" fill={textColor} fontSize="9">AquilaSockets</text>
                     </g>
                 </motion.g>
 
