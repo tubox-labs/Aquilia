@@ -42,6 +42,9 @@ export function ArchitecturePage() {
         </p>
 
         <ArchitectureDiagram isDark={isDark} />
+        <div className="flex items-center justify-center py-6 mt-8">
+          <img src="/architecture/complete_system.svg" alt="Complete System Orchestration" className="max-w-full h-auto max-h-[380px]" />
+        </div>
       </section>
 
       {/* Boot Pipeline */}
@@ -90,6 +93,9 @@ server = AquiliaServer(
 #   → Initializes AquiliaTrace (.aquilia/ directory)`}
           language="python"
         />
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/runtime.svg" alt="Runtime Lifecycle" className="max-w-full h-auto max-h-[360px]" />
+        </div>
       </section>
 
       {/* Component Graph */}
@@ -134,6 +140,9 @@ server = AquiliaServer(
 └── AquiliaTrace                 # .aquilia/ diagnostic directory`}
           language="text"
         />
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/high_level.svg" alt="High-Level Component Graph" className="max-w-full h-auto max-h-[360px]" />
+        </div>
       </section>
 
       {/* Request Lifecycle */}
@@ -184,6 +193,9 @@ ctx = RequestCtx(
 # 8. Response.send(send) serializes to ASGI and sends to client`}
           language="python"
         />
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/middleware.svg" alt="Request Middleware Lifecycle" className="max-w-full h-auto max-h-[360px]" />
+        </div>
       </section>
 
       {/* Middleware ordering */}
@@ -272,6 +284,9 @@ ctx = RequestCtx(
 #   5. Cache in appropriate scope container`}
           language="python"
         />
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/di.svg" alt="DI Container Hierarchy" className="max-w-full h-auto max-h-[360px]" />
+        </div>
       </section>
 
       {/* Config layers */}

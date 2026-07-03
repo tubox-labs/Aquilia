@@ -291,7 +291,7 @@ aq run --host 0.0.0.0 --port 8000 --reload`}
 
         <CodeBlock
           code={`╔══════════════════════════════════════════╗
-║     Aquilia v1.0.0  ✓  Development       ║
+║     Aquilia v1.2.2  ✓  Development       ║
 ╚══════════════════════════════════════════╝
 
   → Loading workspace.py ...

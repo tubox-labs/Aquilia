@@ -67,14 +67,6 @@ export function CLIOverview() {
             <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Migrations, introspection, schema dumps, and shell.</p>
           </Link>
 
-          <Link to="/docs/cli/mlops" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-blue-500/50' : 'bg-white border-gray-200 hover:border-blue-500/50'}`}>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-5 h-5 rounded bg-blue-500/20 flex items-center justify-center text-blue-500">ML</div>
-              <h3 className={`font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>MLOps</h3>
-            </div>
-            <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>Pack, deploy, observe, lineage, and experiments.</p>
-          </Link>
-
           <Link to="/docs/cli/inspection" className={`group p-6 rounded-xl border transition-all ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-green-500/50' : 'bg-white border-gray-200 hover:border-green-500/50'}`}>
             <div className="flex items-center gap-3 mb-2">
               <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center text-green-500">In</div>
@@ -191,8 +183,8 @@ aq inspect routes
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/mlops" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
-          <ArrowLeft className="w-4 h-4" /> MLOps
+        <Link to="/docs" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+          <ArrowLeft className="w-4 h-4" /> Introduction
         </Link>
         <Link to="/docs/testing" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
           Testing <ArrowRight className="w-4 h-4" />

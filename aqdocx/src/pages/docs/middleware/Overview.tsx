@@ -25,32 +25,8 @@ export function MiddlewareOverview() {
       {/* Architecture SVG */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Middleware Pipeline</h2>
-        <div className={`p-8 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`}>
-          <svg viewBox="0 0 660 180" className="w-full h-auto">
-            <rect width="660" height="180" rx="16" fill={isDark ? '#0A0A0A' : '#f8fafc'} />
-
-            {/* Onion layers */}
-            <rect x="30" y="20" width="600" height="140" rx="12" fill="#22c55e08" stroke="#22c55e" strokeWidth="1.5" strokeDasharray="6 3" />
-            <text x="60" y="42" fill="#22c55e" fontSize="11" fontWeight="600">Global (priority 0–49)</text>
-
-            <rect x="80" y="50" width="500" height="100" rx="10" fill="#3b82f608" stroke="#3b82f6" strokeWidth="1.5" strokeDasharray="6 3" />
-            <text x="110" y="70" fill="#3b82f6" fontSize="11" fontWeight="600">App (priority 50)</text>
-
-            <rect x="130" y="78" width="400" height="65" rx="8" fill="#f59e0b08" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="6 3" />
-            <text x="155" y="96" fill="#f59e0b" fontSize="11" fontWeight="600">Controller</text>
-
-            <rect x="280" y="95" width="140" height="35" rx="8" fill={isDark ? '#1a1a2e' : '#e0f2fe'} stroke="#8b5cf6" strokeWidth="2" />
-            <text x="350" y="117" textAnchor="middle" fill="#8b5cf6" fontSize="13" fontWeight="700">Handler</text>
-
-            {/* Flow arrows */}
-            <path d="M 30 90 L 80 90" stroke="#22c55e" strokeWidth="1.5" markerEnd="url(#mwArrow)" />
-            <path d="M 80 90 L 130 90" stroke="#3b82f6" strokeWidth="1.5" markerEnd="url(#mwArrow)" />
-            <path d="M 130 112 L 280 112" stroke="#f59e0b" strokeWidth="1.5" markerEnd="url(#mwArrow)" />
-
-            <defs>
-              <marker id="mwArrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="8" markerHeight="6" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#22c55e" /></marker>
-            </defs>
-          </svg>
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/middleware.svg" alt="Middleware Stack Architecture" className="max-w-full h-auto max-h-[360px]" />
         </div>
       </section>
 

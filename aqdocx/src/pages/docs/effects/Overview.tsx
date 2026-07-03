@@ -1,7 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Zap } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function EffectsOverview() {
@@ -13,7 +13,7 @@ export function EffectsOverview() {
     <div className="max-w-4xl mx-auto">
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Sparkles className="w-4 h-4" />
+          <Zap className="w-4 h-4" />
           Advanced / Effects
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
@@ -45,6 +45,14 @@ export function EffectsOverview() {
             <text x="435" y="73" textAnchor="middle" fill={isDark ? '#6b7280' : '#94a3b8'} fontSize="9">DB connection, cache, etc.</text>
             <defs><marker id="ea" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill={isDark ? '#4ade80' : '#16a34a'} /></marker></defs>
           </svg>
+        </div>
+      </section>
+
+      {/* Flow & Effect Architecture Diagram */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Flow & Effect Architecture</h2>
+        <div className={`p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'} flex items-center justify-center`}>
+          <img src="/architecture/flow_effect.svg" alt="Flow & Effect Architecture" className="max-w-full h-auto max-h-[320px]" />
         </div>
       </section>
 

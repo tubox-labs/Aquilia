@@ -27,95 +27,9 @@ export function DIOverview() {
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>System Architecture</h2>
         <div className="w-full">
-          <svg viewBox="0 0 720 400" className="w-full h-auto">
-            <rect width="720" height="400" rx="16" fill="transparent" />
-
-            {/* Registry */}
-            <rect x="40" y="30" width="200" height="65" rx="12" fill={isDark ? '#1a1a2e' : '#e0f2fe'} stroke="#22c55e" strokeWidth="2">
-              <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite" />
-            </rect>
-            <text x="140" y="56" textAnchor="middle" fill="#22c55e" fontSize="14" fontWeight="700">Registry</text>
-            <text x="140" y="74" textAnchor="middle" fill={isDark ? '#888' : '#64748b'} fontSize="10">from_manifests → graph → validate</text>
-
-            {/* Container */}
-            <rect x="270" y="30" width="190" height="65" rx="12" fill={isDark ? '#1a1a2e' : '#e0f2fe'} stroke="#22c55e" strokeWidth="2" />
-            <text x="365" y="56" textAnchor="middle" fill="#22c55e" fontSize="14" fontWeight="700">Container (App)</text>
-            <text x="365" y="74" textAnchor="middle" fill={isDark ? '#888' : '#64748b'} fontSize="10">register / resolve_async / bind</text>
-
-            {/* Arrow */}
-            <line x1="240" y1="62" x2="270" y2="62" stroke="#22c55e" strokeWidth="2" markerEnd="url(#arrow)" />
-
-            {/* Request Container */}
-            <rect x="490" y="30" width="190" height="65" rx="12" fill={isDark ? '#1a1a2e' : '#e0f2fe'} stroke="#22c55e" strokeWidth="1.5" strokeDasharray="6 3" />
-            <text x="585" y="56" textAnchor="middle" fill="#22c55e" fontSize="14" fontWeight="700">Request Container</text>
-            <text x="585" y="74" textAnchor="middle" fill={isDark ? '#888' : '#64748b'} fontSize="10">create_request_scope()</text>
-
-            {/* Arrow */}
-            <line x1="460" y1="62" x2="490" y2="62" stroke="#22c55e" strokeWidth="2" markerEnd="url(#arrow)" />
-
-            {/* Providers row */}
-            <text x="360" y="120" textAnchor="middle" fill={isDark ? '#555' : '#94a3b8'} fontSize="12" fontWeight="600">PROVIDERS</text>
-            {[
-              { x: 20, label: 'ClassProvider', desc: 'Auto-resolve __init__' },
-              { x: 145, label: 'FactoryProvider', desc: 'Custom factory fn' },
-              { x: 270, label: 'ValueProvider', desc: 'Pre-built constant' },
-              { x: 395, label: 'PoolProvider', desc: 'Object pool (Queue)' },
-              { x: 520, label: 'AliasProvider', desc: 'Token delegation' },
-            ].map((p, i) => (
-              <g key={i}>
-                <rect x={p.x} y="132" width="120" height="48" rx="10" fill={isDark ? '#111' : '#f1f5f9'} stroke={isDark ? '#333' : '#cbd5e1'} strokeWidth="1" />
-                <text x={p.x + 60} y="152" textAnchor="middle" fill={isDark ? '#e5e5e5' : '#334155'} fontSize="11" fontWeight="600">{p.label}</text>
-                <text x={p.x + 60} y="168" textAnchor="middle" fill={isDark ? '#666' : '#94a3b8'} fontSize="9">{p.desc}</text>
-              </g>
-            ))}
-            {[
-              { x: 145, label: 'LazyProxy', desc: 'Break cycles' },
-              { x: 270, label: 'ScopedProvider', desc: 'Scope override' },
-              { x: 395, label: 'SerializerProv', desc: 'Request context' },
-            ].map((p, i) => (
-              <g key={i + 10}>
-                <rect x={p.x} y="186" width="120" height="48" rx="10" fill={isDark ? '#111' : '#f1f5f9'} stroke={isDark ? '#333' : '#cbd5e1'} strokeWidth="1" />
-                <text x={p.x + 60} y="206" textAnchor="middle" fill={isDark ? '#e5e5e5' : '#334155'} fontSize="11" fontWeight="600">{p.label}</text>
-                <text x={p.x + 60} y="222" textAnchor="middle" fill={isDark ? '#666' : '#94a3b8'} fontSize="9">{p.desc}</text>
-              </g>
-            ))}
-
-            {/* Scopes row */}
-            <text x="360" y="260" textAnchor="middle" fill={isDark ? '#555' : '#94a3b8'} fontSize="12" fontWeight="600">SCOPES</text>
-            {[
-              { x: 30, label: 'singleton', color: '#22c55e' },
-              { x: 150, label: 'app', color: '#3b82f6' },
-              { x: 260, label: 'request', color: '#f59e0b' },
-              { x: 375, label: 'transient', color: '#ef4444' },
-              { x: 490, label: 'pooled', color: '#8b5cf6' },
-              { x: 600, label: 'ephemeral', color: '#ec4899' },
-            ].map((s, i) => (
-              <g key={i}>
-                <rect x={s.x} y="272" width="95" height="32" rx="16" fill={s.color + '22'} stroke={s.color} strokeWidth="1.5" />
-                <text x={s.x + 47} y="293" textAnchor="middle" fill={s.color} fontSize="11" fontWeight="600">{s.label}</text>
-              </g>
-            ))}
-
-            {/* Bottom row — tools */}
-            <text x="360" y="328" textAnchor="middle" fill={isDark ? '#555' : '#94a3b8'} fontSize="12" fontWeight="600">TOOLING</text>
-            {[
-              { x: 60, label: 'Tarjan Cycles' },
-              { x: 200, label: 'Scope Validator' },
-              { x: 340, label: 'Diagnostics' },
-              { x: 480, label: 'CLI Profiler' },
-            ].map((t, i) => (
-              <g key={i}>
-                <rect x={t.x} y="340" width="120" height="30" rx="8" fill={isDark ? '#161616' : '#f0fdf4'} stroke={isDark ? '#333' : '#bbf7d0'} strokeWidth="1" />
-                <text x={t.x + 60} y="360" textAnchor="middle" fill={isDark ? '#aaa' : '#334155'} fontSize="10" fontWeight="500">{t.label}</text>
-              </g>
-            ))}
-
-            <defs>
-              <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#22c55e" />
-              </marker>
-            </defs>
-          </svg>
+          <div className="flex items-center justify-center py-6">
+            <img src="/architecture/di.svg" alt="Dependency Injection Architecture" className="max-w-full h-auto max-h-[360px]" />
+          </div>
         </div>
       </section>
 

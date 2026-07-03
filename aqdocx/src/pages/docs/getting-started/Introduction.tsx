@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { NextSteps } from '../../../components/NextSteps'
 import {
-  Zap, Shield, Layers, Database, Plug, Cpu, Globe, Brain, AlertCircle, Gauge,
+  Zap, Shield, Layers, Database, Plug, Cpu, Globe, AlertCircle, Gauge,
   Rocket, Box, Terminal, Code2, GitBranch, Copy
 } from 'lucide-react'
 
@@ -95,11 +95,6 @@ export function IntroductionPage() {
       title: 'Multi-Layer Caching',
       desc: 'Memory (LRU/LFU/TTL), Redis, and Composite (L1+L2) backends. Decorator-driven caching with @cached, @cache_aside, and @invalidate.',
     },
-    {
-      icon: <Brain className="w-5 h-5 text-pink-400" />,
-      title: 'MLOps Integration',
-      desc: 'Model packaging, versioned registry, HTTP serving, drift detection, and release management — bring ML models into your API with first-class support.',
-    },
   ]
 
   return (
@@ -117,7 +112,7 @@ export function IntroductionPage() {
                   <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
                 </span>
               </h1>
-              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.0.0 · Production-ready async Python web framework</p>
+              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.2.2 · Production-ready async Python web framework</p>
             </div>
           </div>
 
@@ -144,16 +139,29 @@ export function IntroductionPage() {
             </div>
 
             {/* Quick Install */}
-            <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border font-mono text-sm ${isDark ? 'bg-black/40 border-white/10 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-              <span className="text-aquilia-500">$</span>
-              <span>pip install aquilia</span>
-              <button
-                onClick={() => navigator.clipboard.writeText('pip install aquilia')}
-                className="ml-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-500 hover:text-aquilia-400"
-                title="Copy to clipboard"
-              >
-                <Copy className="w-3.5 h-3.5" />
-              </button>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border font-mono text-sm ${isDark ? 'bg-black/40 border-white/10 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                <span className="text-aquilia-500">$</span>
+                <span>pip install aquilia</span>
+                <button
+                  onClick={() => navigator.clipboard.writeText('pip install aquilia')}
+                  className="ml-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-500 hover:text-aquilia-400"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border font-mono text-sm ${isDark ? 'bg-black/40 border-white/10 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                <span className="text-aquilia-500">$</span>
+                <span>uv pip install aquilia</span>
+                <button
+                  onClick={() => navigator.clipboard.writeText('uv pip install aquilia')}
+                  className="ml-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-500 hover:text-aquilia-400"
+                  title="Copy to clipboard"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           </div>
 
@@ -177,7 +185,7 @@ export function IntroductionPage() {
       {/* Core Philosophy */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Brain className="w-5 h-5 text-aquilia-400" />
+          <Layers className="w-5 h-5 text-aquilia-400" />
           Core Philosophy
         </h2>
 
@@ -224,10 +232,6 @@ export function IntroductionPage() {
               <li className="flex items-start gap-3">
                 <span className="text-emerald-400 mt-1">✓</span>
                 <div><strong>Infrastructure generation</strong> built-in</div>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-emerald-400 mt-1">✓</span>
-                <div><strong>ML-first mindset</strong> with integrated model registry</div>
               </li>
             </ul>
           </div>
@@ -411,8 +415,6 @@ class UserService:
                 ['Effects', 'aquilia.effects', 'Effect, EffectProvider, EffectRegistry'],
                 ['CLI', 'aquilia.cli', 'aq init/add/generate/validate/run/serve'],
                 ['Testing', 'aquilia.testing', 'TestClient, AquiliaTestCase'],
-                ['Trace', 'aquilia.trace', 'AquiliaTrace, TraceManifest, TraceDIGraph'],
-                ['MLOps', 'aquilia.mlops', 'ModelPack, ModelRegistry, ModelServer'],
               ].map(([name, pkg, classes], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{name}</td>

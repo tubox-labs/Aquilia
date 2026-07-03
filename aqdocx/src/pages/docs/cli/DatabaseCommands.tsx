@@ -290,7 +290,6 @@ Tip: Use loop.run_until_complete(Product.get(pk=1)) for async ops
           <NextSteps
             items={[
               { text: 'Core Commands', link: '/docs/cli/core' },
-              { text: 'MLOps Commands', link: '/docs/cli/mlops' },
               { text: 'Artifact Commands', link: '/docs/cli/artifacts' },
               { text: 'Blueprint Docs', link: '/docs/blueprints' },
             ]}

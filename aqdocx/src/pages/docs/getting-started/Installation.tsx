@@ -64,15 +64,11 @@ export function InstallationPage() {
             <ul className={`space-y-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               <li className="flex items-center gap-3 p-2">
                 <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span><strong>macOS / Linux</strong> (Preferred)</span>
+                <span><strong>macOS / Linux</strong> (Fully Supported)</span>
               </li>
               <li className="flex items-center gap-3 p-2">
                 <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span><strong>Windows</strong> via WSL2</span>
-              </li>
-              <li className="flex items-center gap-3 p-2 opacity-75">
-                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-                <span>Native Windows (Limited Support)</span>
+                <span><strong>Windows</strong> (Fully & Natively Supported)</span>
               </li>
             </ul>
           </div >
@@ -121,7 +117,6 @@ export function InstallationPage() {
                 ['mail', 'aiosmtplib, boto3', 'SMTP email, AWS SES provider'],
                 ['templates', 'jinja2', 'Jinja2 template engine (auto-installed)'],
                 ['auth', 'pyjwt, cryptography, argon2-cffi', 'JWT tokens, RS256, Argon2 hashing'],
-                ['mlops', 'numpy, scikit-learn', 'MLOps model packaging and drift detection'],
                 ['dev', 'pytest, httpx, coverage', 'Development and testing tools'],
                 ['all', '(all of the above)', 'Full installation for production'],
               ].map(([extra, installs, when], i) => (
@@ -176,7 +171,7 @@ aq version`}
 
         <CodeBlock
           code={`$ aq version
-Aquilia v1.0.0
+Aquilia v1.2.2
 
 $ aq doctor
 ✓ Python 3.12.3 (compatible)

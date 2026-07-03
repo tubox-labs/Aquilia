@@ -53,7 +53,7 @@ export function CLIDeployCommands() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed mt-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className={codeClass}>aq deploy</code> command group generates production-ready deployment files by introspecting your workspace. Every output is tailored to the components you actually use — DB, cache, sessions, auth, mail, MLOps, WebSockets, and effects.
+          The <code className={codeClass}>aq deploy</code> command group generates production-ready deployment files by introspecting your workspace. Every output is tailored to the components you actually use — DB, cache, sessions, auth, mail, WebSockets, and effects.
         </p>
       </div>
 
@@ -65,7 +65,7 @@ export function CLIDeployCommands() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {[
-            { cmd: 'aq deploy dockerfile', desc: 'Multi-stage Dockerfile — production, dev, and MLOps variants' },
+            { cmd: 'aq deploy dockerfile', desc: 'Multi-stage Dockerfile — production and dev variants' },
             { cmd: 'aq deploy compose', desc: 'docker-compose.yml with auto-detected services (DB, Redis, Nginx)' },
             { cmd: 'aq deploy kubernetes', desc: 'Full Kubernetes manifest suite — Deployment, Service, Ingress, HPA, PDB' },
             { cmd: 'aq deploy nginx', desc: 'Nginx reverse-proxy configuration for upstream Aquilia servers' },
@@ -106,7 +106,6 @@ export function CLIDeployCommands() {
         </p>
         <Table>
           <Row opt="--dev" desc="Generate Dockerfile.dev with hot-reload support" def="false" />
-          <Row opt="--mlops" desc="Generate Dockerfile.mlops for model-serving workloads" def="false" />
           <Row opt="--output, -o" desc="Output directory" def="." />
         </Table>
         <CodeBlock language="bash" filename="Terminal">{`# Production Dockerfile + .dockerignore
@@ -115,12 +114,6 @@ aq deploy dockerfile
 # Development Dockerfile with hot-reload
 aq deploy dockerfile --dev
 
-# MLOps model-serving Dockerfile
-aq deploy dockerfile --mlops
-
-# Generate all variants at once
-aq deploy dockerfile --dev --mlops
-
 # Force overwrite existing
 aq deploy -f dockerfile`}</CodeBlock>
         <h3 className={h3Class}>What Gets Generated</h3>
@@ -128,7 +121,6 @@ aq deploy -f dockerfile`}</CodeBlock>
           <li><strong>Dockerfile</strong> — production multi-stage with pip install, artifact compilation, non-root user</li>
           <li><strong>.dockerignore</strong> — excludes venv, __pycache__, .git, tests, docs</li>
           <li><strong>Dockerfile.dev</strong> — dev variant with watchfiles hot-reload, debug mode</li>
-          <li><strong>Dockerfile.mlops</strong> — model-serving variant with MLOps dependencies, model volume mounts</li>
         </ul>
       </section>
 
@@ -166,7 +158,6 @@ docker compose --profile monitoring up -d   # Include Prometheus + Grafana`}</Co
         <ul className={`list-disc pl-6 mb-4 space-y-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           <li>PostgreSQL / MySQL database with proper healthchecks</li>
           <li>Redis for cache, sessions, or WebSocket adapter</li>
-          <li>MLOps model server container</li>
           <li>Nginx reverse proxy with upstream configuration</li>
           <li>Prometheus + Grafana monitoring stack</li>
           <li>Mail services (if configured)</li>
@@ -184,16 +175,12 @@ docker compose --profile monitoring up -d   # Include Prometheus + Grafana`}</Co
         </p>
         <Table>
           <Row opt="--output, -o" desc="Output directory for K8s manifests" def="k8s" />
-          <Row opt="--mlops" desc="Force include MLOps-specific manifests" def="false" />
         </Table>
         <CodeBlock language="bash" filename="Terminal">{`# Generate K8s manifests in k8s/ directory
 aq deploy kubernetes
 
 # Custom output directory
-aq deploy kubernetes -o deploy/k8s
-
-# Force MLOps manifests
-aq deploy kubernetes --mlops`}</CodeBlock>
+aq deploy kubernetes -o deploy/k8s`}</CodeBlock>
         <h3 className={h3Class}>Generated Resources</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
           {[
@@ -348,7 +335,6 @@ aq deploy all --dry-run`}</CodeBlock>
           { text: 'Core Commands', link: '/docs/cli/core' },
           { text: 'Artifact Commands', link: '/docs/cli/artifacts' },
           { text: 'Database Commands', link: '/docs/cli/database' },
-          { text: 'MLOps Commands', link: '/docs/cli/mlops' },
         ]}
       />
     </div>

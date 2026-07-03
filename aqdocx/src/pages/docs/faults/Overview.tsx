@@ -22,6 +22,14 @@ export function FaultsOverview() {
         </p>
       </div>
 
+      {/* Fault Architecture Diagram */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Fault Handling Lifecycle</h2>
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/fault.svg" alt="Fault Handling Architecture" className="max-w-full h-auto max-h-[360px]" />
+        </div>
+      </section>
+
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Creating a Fault</h2>
         <CodeBlock language="python" filename="Fault Usage">{`from aquilia.faults import Fault, FaultDomain, Severity, RecoveryStrategy

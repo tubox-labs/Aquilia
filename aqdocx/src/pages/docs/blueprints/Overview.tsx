@@ -1,7 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Layers, Database, Shield, Sparkles, GitBranch, Eye, FileCheck } from 'lucide-react'
+import { ArrowRight, Layers, Database, Shield, GitBranch, Eye, FileCheck } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function BlueprintsOverview() {
@@ -40,7 +40,7 @@ export function BlueprintsOverview() {
             { icon: <Database className="w-5 h-5" />, title: 'Imprint', desc: 'Write-back — validated data writes directly to Model instances' },
             { icon: <Eye className="w-5 h-5" />, title: 'Mold', desc: 'Outbound shaping — Model data transforms for API responses' },
             { icon: <GitBranch className="w-5 h-5" />, title: 'Lens', desc: 'Relational views — depth-controlled nested relationship rendering' },
-            { icon: <Sparkles className="w-5 h-5" />, title: 'Projection', desc: 'Named field subsets — different views of the same data' },
+            { icon: <Eye className="w-5 h-5" />, title: 'Projection', desc: 'Named field subsets — different views of the same data' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <div className="text-aquilia-500 mb-2">{item.icon}</div>
@@ -48,6 +48,14 @@ export function BlueprintsOverview() {
               <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{item.desc}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Blueprint Architecture Diagram */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Blueprint Lifecycle</h2>
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/blueprint.svg" alt="Blueprint Lifecycle Architecture" className="max-w-full h-auto max-h-[360px]" />
         </div>
       </section>
 

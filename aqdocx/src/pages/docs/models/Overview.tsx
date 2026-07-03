@@ -43,6 +43,14 @@ export function ModelsOverview() {
         </div>
       </div>
 
+      {/* ORM Architecture Diagram */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ORM Architecture</h2>
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/orm.svg" alt="ORM Architecture" className="max-w-full h-auto max-h-[360px]" />
+        </div>
+      </section>
+
       {/* Quick start */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Quick Start</h2>

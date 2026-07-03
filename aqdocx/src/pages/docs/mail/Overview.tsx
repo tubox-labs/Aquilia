@@ -163,8 +163,8 @@ class TestRegistration(AquiliaTestCase, MailTestMixin):
         <Link to="/docs/templates" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
           <ArrowLeft className="w-4 h-4" /> Templates
         </Link>
-        <Link to="/docs/mlops" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          MLOps <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/cli" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          CLI <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     

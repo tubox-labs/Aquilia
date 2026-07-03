@@ -1,6 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Sparkles } from 'lucide-react'
+import { FileCode } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function BlueprintsAnnotations() {
@@ -12,7 +12,7 @@ export function BlueprintsAnnotations() {
     <div className="max-w-4xl mx-auto">
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Sparkles className="w-4 h-4" />
+          <FileCode className="w-4 h-4" />
           Blueprints / Annotations & Field()
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
