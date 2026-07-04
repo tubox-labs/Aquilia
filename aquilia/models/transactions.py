@@ -65,7 +65,7 @@ _task_depths: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
 class _DepthHolder:
     """Weak-referenceable holder for an integer depth counter."""
 
-    __slots__ = ("value",)
+    __slots__ = ("value", "__weakref__")
 
     def __init__(self, value: int = 0):
         self.value = value

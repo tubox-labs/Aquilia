@@ -1269,17 +1269,23 @@ class Model(metaclass=ModelMeta):
         pk_field = self._fields[self._pk_attr]
         db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
 
-        # Handle on_delete for models that FK to us (cached lookup)
-        for model_cls, col_name, on_delete_action in self._get_reverse_fk_refs():
-            handler = OnDeleteHandler(on_delete_action)
-            await handler.handle(db, model_cls, col_name, db_pk_val)
+        # Cascade handling (potentially several statements across related
+        # tables) plus the final delete must be one atomic unit -- otherwise
+        # a failure partway through (e.g. a PROTECT check on a later table)
+        # leaves the database in a partially-cascaded, inconsistent state.
+        real_db = getattr(db, "_wrapped_db", db)
+        async with real_db.transaction():
+            # Handle on_delete for models that FK to us (cached lookup)
+            for model_cls, col_name, on_delete_action in self._get_reverse_fk_refs():
+                handler = OnDeleteHandler(on_delete_action)
+                await handler.handle(db, model_cls, col_name, db_pk_val)
 
-        # Delete this instance using DeleteBuilder
-        builder = DeleteBuilder(self._table_name)
-        builder.where(f'"{self._pk_name}" = ?', db_pk_val)
-        sql, params = builder.build()
-        cursor = await db.execute(sql, params)
-        row_count = int(cursor.rowcount or 0)
+            # Delete this instance using DeleteBuilder
+            builder = DeleteBuilder(self._table_name)
+            builder.where(f'"{self._pk_name}" = ?', db_pk_val)
+            sql, params = builder.build()
+            cursor = await db.execute(sql, params)
+            row_count = int(cursor.rowcount or 0)
 
         # Signal: post_delete
         await post_delete.send(sender=self.__class__, instance=self)
