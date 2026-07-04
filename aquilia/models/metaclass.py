@@ -47,6 +47,14 @@ class ModelMeta(type):
         if not parents:
             return super().__new__(mcs, name, bases, namespace)
 
+        # Lightweight guard subclass for deferred-field access (see
+        # models/base.py _deferred_guard_class). It only overrides
+        # __getattribute__; skip Options/registry/manager reprocessing so
+        # it doesn't get a mangled table name or a duplicate registry
+        # entry -- everything else is inherited from the real model class.
+        if namespace.get("__deferred_guard__"):
+            return super().__new__(mcs, name, bases, namespace)
+
         # Extract Meta class
         meta_class = namespace.pop("Meta", None)
 

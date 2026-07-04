@@ -858,6 +858,30 @@ class FieldValidationFault(ModelFault):
         )
 
 
+class DeferredFieldAccessFault(ModelFault, AttributeError):
+    """Accessed a field excluded by only()/defer() without refreshing first.
+
+    Subclasses ``AttributeError`` (in addition to ``ModelFault``) so that
+    defensive ``getattr(instance, name, default)`` call sites -- e.g. dirty
+    field tracking -- keep degrading to *default* instead of propagating,
+    while a direct ``instance.field`` access still raises loudly instead of
+    silently returning ``None`` (which is indistinguishable from a real
+    database NULL).
+    """
+
+    def __init__(self, model: str, field_name: str, **kwargs):
+        super().__init__(
+            code="DEFERRED_FIELD_ACCESS",
+            message=(
+                f"Field '{field_name}' on '{model}' was excluded via only()/defer() "
+                f"and is not loaded. Call await instance.refresh_from_db() or remove "
+                f"only()/defer() to access it."
+            ),
+            severity=Severity.ERROR,
+            metadata={"model": model, "field": field_name, **kwargs.get("metadata", {})},
+        )
+
+
 class ProtectedDeleteFault(ModelFault):
     """Cannot delete a protected object due to PROTECT on_delete."""
 

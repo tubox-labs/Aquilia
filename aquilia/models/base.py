@@ -185,6 +185,54 @@ from .metaclass import ModelMeta
 # The canonical Q class lives in query.py. Import it here for backward compat.
 from .query import Q
 
+# ── Deferred-field guard (only()/defer()) ─────────────────────────────────────
+#
+# Fields are plain instance attributes (no descriptors) for zero per-access
+# overhead on the common, fully-loaded path -- see fields_module.py. That
+# means an instance with an attribute never set falls through to the
+# class-level Field object itself (declared in the model body), not a
+# Python AttributeError. To make accessing an only()/defer()-excluded field
+# raise instead of silently exposing that Field metadata object (or, prior
+# to this fix, a silent None indistinguishable from a real NULL), only
+# instances that actually have deferred fields get their __class__ swapped
+# to a small cached per-model subclass carrying a guarding
+# __getattribute__. Fully-loaded instances (the overwhelming common case)
+# never pay this cost -- their __class__ is untouched.
+_deferred_guard_cache: dict[type, type] = {}
+
+
+def _deferred_guard_class(model_cls: type) -> type:
+    """Return (and cache) a subclass of *model_cls* that raises
+    DeferredFieldAccessFault when a deferred field is read."""
+    # Avoid double-wrapping if already a guard variant.
+    base_cls = getattr(model_cls, "__deferred_guard_base__", model_cls)
+    variant = _deferred_guard_cache.get(base_cls)
+    if variant is not None:
+        return variant
+
+    def _guarded_getattribute(self: Any, name: str) -> Any:
+        value = object.__getattribute__(self, name)
+        if isinstance(value, Field):
+            deferred = object.__getattribute__(self, "__dict__").get("_deferred_fields")
+            if deferred and name in deferred:
+                from ..faults.domains import DeferredFieldAccessFault
+
+                raise DeferredFieldAccessFault(model=base_cls.__name__, field_name=name)
+        return value
+
+    variant = type(
+        f"{base_cls.__name__}__Deferred",
+        (base_cls,),
+        {
+            "__getattribute__": _guarded_getattribute,
+            "__deferred_guard_base__": base_cls,
+            "__deferred_guard__": True,
+        },
+    )
+    _deferred_guard_cache[base_cls] = variant
+    return variant
+
+
 # ── Model Base Class ─────────────────────────────────────────────────────────
 
 
@@ -1346,6 +1394,14 @@ class Model(metaclass=ModelMeta):
                 field = self._fields[attr_name]
                 raw = row.get(field.column_name)
                 setattr(self, attr_name, field.to_python(raw) if raw is not None else None)
+            # These fields are now loaded -- no longer deferred.
+            deferred = self.__dict__.get("_deferred_fields")
+            if deferred:
+                deferred.difference_update(fields)
+                if not deferred:
+                    base_cls = getattr(type(self), "__deferred_guard_base__", None)
+                    if base_cls is not None:
+                        self.__class__ = base_cls
         else:
             # Full refresh
             fresh = await self.__class__.get_or_none(pk=pk_val)
@@ -1355,6 +1411,11 @@ class Model(metaclass=ModelMeta):
                 raise ModelNotFoundFault(model_name=self.__class__.__name__)
             for attr in self._attr_names:
                 setattr(self, attr, getattr(fresh, attr))
+            # Fully reloaded -- no fields remain deferred.
+            self.__dict__.pop("_deferred_fields", None)
+            base_cls = getattr(type(self), "__deferred_guard_base__", None)
+            if base_cls is not None:
+                self.__class__ = base_cls
 
         # Reset dirty tracking snapshot
         self._snapshot_original()
@@ -1624,6 +1685,7 @@ class Model(metaclass=ModelMeta):
         instance = cls.__new__(cls)
         col_to_attr = cls._col_to_attr
         original: dict[str, Any] = {}
+        seen: set[str] = set()
 
         # Iterate row keys and map to attrs via cached dict
         for key, raw in row.items():
@@ -1633,12 +1695,22 @@ class Model(metaclass=ModelMeta):
                 converted = field.to_python(raw)
                 setattr(instance, attr_name, converted)
                 original[attr_name] = converted
+                seen.add(attr_name)
 
-        # Set None for any fields not in the row
-        for attr_name, field in cls._non_m2m_fields:
-            if not hasattr(instance, attr_name):
-                setattr(instance, attr_name, None)
-                original[attr_name] = None
+        # Fields not present in the row were excluded via only()/defer().
+        # Do NOT default them to None -- that would be indistinguishable
+        # from a real database NULL (worse: without this guard the raw
+        # class-level Field object leaks through instead, since fields are
+        # plain attributes with no descriptor to intercept the miss -- see
+        # hasattr() being unreliable here for the same reason). Mark them
+        # deferred and swap this instance's class to a guarded variant that
+        # raises DeferredFieldAccessFault on access; every other (fully
+        # loaded) instance pays zero extra cost.
+        deferred = {attr_name for attr_name, _field in cls._non_m2m_fields if attr_name not in seen}
+
+        if deferred:
+            instance._deferred_fields = deferred
+            instance.__class__ = _deferred_guard_class(cls)
 
         # Snapshot for dirty tracking (used by save())
         instance._original_values = original
