@@ -128,10 +128,19 @@ class AsyncConnection:
         if self._metrics:
             self._metrics.record_cache_access(hit=cached)
 
+        # Combine execute + optional commit into a single thread-pool hop
+        # instead of two separate run_in_executor round trips.
+        raw = self._raw
+        auto_commit = self._config.auto_commit and not self._in_transaction
+
+        def _do_execute() -> sqlite3.Cursor:
+            cur = raw.execute(sql, params)
+            if auto_commit:
+                raw.commit()
+            return cur
+
         try:
-            raw_cursor = await self._run(self._raw.execute, sql, params)
-            if self._config.auto_commit and not self._in_transaction:
-                await self._run(self._raw.commit)
+            raw_cursor = await self._run(_do_execute)
             elapsed = time.monotonic_ns() - t0
             if self._metrics:
                 self._metrics.record_query(elapsed)
@@ -161,14 +170,22 @@ class AsyncConnection:
         t0 = time.monotonic_ns()
         self._cache.touch(sql)
 
+        # Combine executemany + optional commit into a single thread-pool hop.
+        raw = self._raw
+        auto_commit = self._config.auto_commit and not self._in_transaction
+
+        def _do_execute_many() -> int:
+            cur = raw.executemany(sql, params_seq)
+            if auto_commit:
+                raw.commit()
+            return cur.rowcount
+
         try:
-            cursor = await self._run(self._raw.executemany, sql, params_seq)
-            if self._config.auto_commit and not self._in_transaction:
-                await self._run(self._raw.commit)
+            rowcount = await self._run(_do_execute_many)
             elapsed = time.monotonic_ns() - t0
             if self._metrics:
                 self._metrics.record_query(elapsed)
-            return cursor.rowcount
+            return rowcount
         except sqlite3.Error as exc:
             if self._metrics:
                 self._metrics.record_query_error()
@@ -213,9 +230,16 @@ class AsyncConnection:
         if self._metrics:
             self._metrics.record_cache_access(hit=cached)
 
+        # Combine execute + fetchall into a single thread-pool hop instead
+        # of two separate run_in_executor round trips.
+        raw = self._raw
+
+        def _do_fetch_all() -> list[Row]:
+            cur = raw.execute(sql, params)
+            return cur.fetchall()
+
         try:
-            cursor = await self._run(self._raw.execute, sql, params)
-            rows = await self._run(cursor.fetchall)
+            rows = await self._run(_do_fetch_all)
             elapsed = time.monotonic_ns() - t0
             if self._metrics:
                 self._metrics.record_query(elapsed, row_count=len(rows))
@@ -248,9 +272,16 @@ class AsyncConnection:
         if self._metrics:
             self._metrics.record_cache_access(hit=cached)
 
+        # Combine execute + fetchone into a single thread-pool hop instead
+        # of two separate run_in_executor round trips.
+        raw = self._raw
+
+        def _do_fetch_one() -> Row | None:
+            cur = raw.execute(sql, params)
+            return cur.fetchone()
+
         try:
-            cursor = await self._run(self._raw.execute, sql, params)
-            row = await self._run(cursor.fetchone)
+            row = await self._run(_do_fetch_one)
             elapsed = time.monotonic_ns() - t0
             if self._metrics:
                 self._metrics.record_query(elapsed, row_count=1 if row else 0)

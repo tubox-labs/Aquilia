@@ -42,6 +42,7 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 from pathlib import Path
+from unittest import mock
 
 import pytest
 import pytest_asyncio
@@ -759,6 +760,110 @@ class TestFetchMethods:
         await pool.execute("INSERT INTO t (val) VALUES (NULL)")
         val = await pool.fetch_val("SELECT val FROM t WHERE id = 1")
         assert val is None
+
+
+class TestSingleExecutorHopOptimization:
+    """Regression tests for the merged execute+fetch/commit thread-pool hop.
+
+    fetch_one/fetch_all/execute/execute_many must each dispatch exactly ONE
+    ``AsyncConnection._run`` (i.e. one ``run_in_executor``) call per
+    invocation. Previously these did two separate hops (one for
+    execute/executemany, a second for fetchone/fetchall/commit), doubling
+    thread-pool dispatch latency on every query.
+    """
+
+    @staticmethod
+    def _count_run_calls():
+        """Patch AsyncConnection._run to count invocations while preserving behavior."""
+        original_run = AsyncConnection._run
+        calls: list[object] = []
+
+        async def counting_run(self, fn, *args):
+            calls.append(fn)
+            return await original_run(self, fn, *args)
+
+        return calls, mock.patch.object(AsyncConnection, "_run", counting_run)
+
+    @pytest.mark.asyncio
+    async def test_fetch_one_is_single_hop(self, seeded_pool: ConnectionPool):
+        calls, patcher = self._count_run_calls()
+        with patcher:
+            row = await seeded_pool.fetch_one("SELECT * FROM users WHERE name = ?", ["Alice"])
+        assert row is not None
+        assert row["name"] == "Alice"
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_one_not_found_is_single_hop(self, seeded_pool: ConnectionPool):
+        calls, patcher = self._count_run_calls()
+        with patcher:
+            row = await seeded_pool.fetch_one("SELECT * FROM users WHERE name = ?", ["Unknown"])
+        assert row is None
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_all_is_single_hop(self, seeded_pool: ConnectionPool):
+        calls, patcher = self._count_run_calls()
+        with patcher:
+            rows = await seeded_pool.fetch_all("SELECT name FROM users ORDER BY name")
+        assert len(rows) == 4
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_fetch_val_is_single_hop(self, seeded_pool: ConnectionPool):
+        calls, patcher = self._count_run_calls()
+        with patcher:
+            count = await seeded_pool.fetch_val("SELECT count(*) FROM users")
+        assert count == 4
+        assert len(calls) == 1
+
+    @pytest.mark.asyncio
+    async def test_execute_autocommit_is_single_hop(self, pool: ConnectionPool):
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
+        calls, patcher = self._count_run_calls()
+        with patcher:
+            await pool.execute("INSERT INTO t (val) VALUES (?)", ["x"])
+        # Single hop even though this both executes AND auto-commits.
+        assert len(calls) == 1
+        # Auto-commit behavior must be unchanged: the write is durable
+        # and visible to a fresh query outside the patch.
+        rows = await pool.fetch_all("SELECT val FROM t")
+        assert [r["val"] for r in rows] == ["x"]
+
+    @pytest.mark.asyncio
+    async def test_execute_many_autocommit_is_single_hop(self, pool: ConnectionPool):
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
+        calls, patcher = self._count_run_calls()
+        with patcher:
+            await pool.execute_many("INSERT INTO t (val) VALUES (?)", [["a"], ["b"], ["c"]])
+        assert len(calls) == 1
+        rows = await pool.fetch_all("SELECT val FROM t ORDER BY val")
+        assert [r["val"] for r in rows] == ["a", "b", "c"]
+
+    @pytest.mark.asyncio
+    async def test_execute_inside_transaction_does_not_autocommit(self, pool: ConnectionPool):
+        """Inside an explicit transaction, execute() must NOT auto-commit --
+        a rollback must still discard the write. This pins down that merging
+        execute+commit into one hop preserved the auto_commit gating logic."""
+        await pool.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, val TEXT)")
+        async with pool.acquire(readonly=False) as conn:
+            await conn.begin(mode="DEFERRED")
+            await conn.execute("INSERT INTO t (val) VALUES (?)", ["should-not-persist"])
+            await conn.rollback()
+        rows = await pool.fetch_all("SELECT val FROM t")
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_fetch_one_error_still_mapped(self, pool: ConnectionPool):
+        """Errors raised inside the merged closure must still propagate
+        through the normal error-mapping path (not swallowed by the hop merge)."""
+        with pytest.raises(SqliteError):
+            await pool.fetch_one("SELECT * FROM nonexistent_table")
+
+    @pytest.mark.asyncio
+    async def test_execute_error_still_mapped(self, pool: ConnectionPool):
+        with pytest.raises(SqliteError):
+            await pool.execute("INSERT INTO nonexistent_table (val) VALUES (?)", ["x"])
 
 
 class TestExecuteMany:
