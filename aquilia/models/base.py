@@ -1026,11 +1026,7 @@ class Model(metaclass=ModelMeta):
         Usage:
             users = await User.using("replica").filter(active=True).all()
         """
-        # For now, returns a standard query. Multi-DB routing support
-        # will resolve the alias to an actual connection.
-        qs = cls.query()
-        qs._db_alias = db_alias
-        return qs
+        return cls.query().using(db_alias)
 
     # ── Instance methods ─────────────────────────────────────────────
 

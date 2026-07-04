@@ -765,11 +765,21 @@ class Q:
         """
         Target a specific database for this query.
 
+        Resolves *db_alias* to its registered ``AquiliaDatabase`` instance
+        immediately (via ``configure_database(alias=...)``) and rebinds this
+        queryset to execute against it. Raises ``DatabaseConnectionFault``
+        if no database is registered under that alias -- fails loud instead
+        of silently querying the default connection.
+
         Usage:
             users = await User.objects.using("replica").filter(active=True).all()
         """
+        from ..db.engine import get_database
+
         new = self._clone()
         new._db_alias = db_alias
+        model_name = getattr(new._model_cls, "__name__", None) or str(new._model_cls)
+        new._db = QuerySetDatabaseWrapper(get_database(db_alias), model_name)
         return new
 
     def apply_q(self, q_node: QNode) -> Q:
