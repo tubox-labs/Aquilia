@@ -91,3 +91,18 @@ artifacts/
 benchmarks/techempower/techempower.db
 
 workspace/
+
+.claude/
+# Ignore everything in .agents/skills
+.agents/skills/*
+.agents/rules/
+
+# Allow directories starting with aquilia
+!.agents/skills/aquilia*/
+
+# Allow contents inside those directories
+!.agents/skills/aquilia*/**
+
+test_temp_db_cli/
+db.sqlite3
+
