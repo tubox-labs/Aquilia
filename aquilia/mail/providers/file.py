@@ -356,7 +356,7 @@ class FileProvider:
             "rate_limit_per_min": 600,
             "priority": self.priority,
             "config": {
-                "output_dir": str(self.output_dir),
+                "output_dir": self.output_dir.as_posix(),
                 "max_files": self.max_files,
                 "write_index": self.write_index,
                 "include_metadata": self.include_metadata,

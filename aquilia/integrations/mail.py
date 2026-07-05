@@ -60,7 +60,7 @@ def _provider_instance_to_dict(provider: Any, auth: Any, enabled: bool, rate_lim
             continue
         if isinstance(val, (list, dict)) and not val:
             continue
-        d[key] = str(val) if isinstance(val, Path) else val
+        d[key] = val.as_posix() if isinstance(val, Path) else val
 
     d["type"] = getattr(provider, "provider_type", "")
     d.setdefault("priority", getattr(provider, "priority", 50))
