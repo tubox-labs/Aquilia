@@ -585,6 +585,18 @@ class Env:
         """Enable automatic .env loading (default behavior)."""
         cls._auto_load_enabled = True
 
+    def __get__(self, obj: Any, objtype: type | None = None) -> ConfigValue:
+        """
+        Auto-resolve on class/instance attribute access.
+
+        Lets config sections read as ``ProdEnv.mail.email_port`` instead of
+        requiring ``ProdEnv.mail.email_port.resolve()``. Only fires through
+        normal attribute lookup (``Cls.attr`` / ``instance.attr``) — code
+        that needs the raw ``Env`` wrapper (caching internals, ``to_dict()``)
+        must use ``inspect.getattr_static()`` to bypass this descriptor.
+        """
+        return self.resolve(use_cache=True)
+
     def __repr__(self) -> str:
         return f"Env({self._name!r}, default={self._default!r})"
 
@@ -667,9 +679,13 @@ def _class_to_dict(cls: type, *, use_cache: bool = True) -> dict[str, Any]:
         Dictionary representation of the config class.
     """
     result: dict[str, Any] = {}
-    for name, val in inspect.getmembers(cls):
+    for name in dir(cls):
         if name.startswith("_"):
             continue
+        # Use getattr_static, not getattr: Env defines __get__ to auto-resolve
+        # on normal attribute access, but this function needs the raw
+        # Env/Secret wrapper to decide how to resolve/reveal it below.
+        val = inspect.getattr_static(cls, name)
         if callable(val) and not isinstance(val, (type, Env, Secret)):
             continue
         if isinstance(val, type):
@@ -1302,7 +1318,10 @@ class AquilaConfig:
                 continue
             if name == "dotenv":
                 continue
-            val = getattr(cls, name, None)
+            # getattr_static bypasses Env.__get__ so we see the raw wrapper
+            # (needed to resolve/reveal it explicitly below) instead of an
+            # already-resolved primitive.
+            val = inspect.getattr_static(cls, name, None)
             if val is None:
                 continue
             if callable(val) and not isinstance(val, type):
@@ -1520,15 +1539,17 @@ class AquilaConfig:
                 cls.dotenv = legacy_dotenv  # type: ignore[attr-defined]
 
         # Inherit parent's nested section classes if the subclass doesn't define its own.
+        # getattr_static avoids triggering Env.__get__ (which would eagerly
+        # resolve every parent Env binding just from defining a subclass).
         parent_sections = [
             name
-            for name, val in inspect.getmembers(cls.__bases__[0])
-            if isinstance(val, type) and not name.startswith("_")
+            for name in dir(cls.__bases__[0])
+            if not name.startswith("_") and isinstance(inspect.getattr_static(cls.__bases__[0], name), type)
         ]
         for section_name in parent_sections:
             if not hasattr(cls, section_name):
                 # Inherit silently
-                setattr(cls, section_name, getattr(cls.__bases__[0], section_name))
+                setattr(cls, section_name, inspect.getattr_static(cls.__bases__[0], section_name))
 
     def __repr__(self) -> str:
         return f"<AquilaConfig env={getattr(self, 'env', '?')!r}>"

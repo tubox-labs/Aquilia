@@ -723,6 +723,41 @@ class TestAquilaConfig:
         finally:
             del os.environ["CONFIG_PORT"]
 
+    def test_env_auto_resolves_on_class_attribute_access(self):
+        """Env values auto-resolve on plain attribute access, no .resolve() needed."""
+        from aquilia.pyconfig import AquilaConfig, Env
+
+        os.environ["CONFIG_AUTORESOLVE_PORT"] = "5432"
+        try:
+
+            class TestConfig(AquilaConfig):
+                class mail(AquilaConfig.Mail):
+                    email_port = Env("CONFIG_AUTORESOLVE_PORT", default=25, cast=int)
+
+            # Direct attribute access resolves automatically.
+            assert TestConfig.mail.email_port == 5432
+            assert isinstance(TestConfig.mail.email_port, int)
+            # .resolve() keeps working for callers that still use it explicitly.
+            assert TestConfig.mail.__dict__["email_port"].resolve() == 5432
+        finally:
+            del os.environ["CONFIG_AUTORESOLVE_PORT"]
+
+    def test_secret_does_not_auto_resolve_on_class_attribute_access(self):
+        """Secret must stay explicit -- .reveal() is required, no auto-resolve descriptor."""
+        from aquilia.pyconfig import AquilaConfig, Secret
+
+        os.environ["CONFIG_AUTORESOLVE_SECRET"] = "s3cr3t"
+        try:
+
+            class TestConfig(AquilaConfig):
+                class auth(AquilaConfig.Auth):
+                    api_key = Secret(env="CONFIG_AUTORESOLVE_SECRET")
+
+            assert isinstance(TestConfig.auth.api_key, Secret)
+            assert TestConfig.auth.api_key.reveal() == "s3cr3t"
+        finally:
+            del os.environ["CONFIG_AUTORESOLVE_SECRET"]
+
     def test_to_dict_reveals_secrets(self):
         """to_dict() reveals Secret values."""
         from aquilia.pyconfig import AquilaConfig, Secret
