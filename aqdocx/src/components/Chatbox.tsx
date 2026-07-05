@@ -393,6 +393,49 @@ Format your responses beautifully in markdown. If you output code blocks, specif
               {renderBlockTokens(token.tokens)}
             </blockquote>
           )
+        case 'table':
+          return (
+            <div key={idx} className={`my-4 overflow-x-auto rounded-xl border ${isDark ? 'border-white/10 bg-white/[0.01]' : 'border-zinc-200 bg-zinc-50/20'}`}>
+              <table className="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr className={`border-b ${isDark ? 'border-white/10 bg-white/[0.02]' : 'border-zinc-200 bg-zinc-50'}`}>
+                    {token.header.map((cell: any, cellIdx: number) => {
+                      const alignment = token.align[cellIdx] || 'left'
+                      return (
+                        <th
+                          key={cellIdx}
+                          className={`px-4 py-3 font-semibold ${isDark ? 'text-white' : 'text-zinc-900'}`}
+                          style={{ textAlign: alignment }}
+                        >
+                          {renderInlineTokens(cell.tokens || [])}
+                        </th>
+                      )
+                    })}
+                  </tr>
+                </thead>
+                <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-zinc-200'}`}>
+                  {token.rows.map((row: any[], rowIdx: number) => (
+                    <tr key={rowIdx} className={isDark ? 'hover:bg-white/[0.02]' : 'hover:bg-zinc-50/50'}>
+                      {row.map((cell: any, cellIdx: number) => {
+                        const alignment = token.align[cellIdx] || 'left'
+                        return (
+                          <td
+                            key={cellIdx}
+                            className={`px-4 py-3 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}
+                            style={{ textAlign: alignment }}
+                          >
+                            {renderInlineTokens(cell.tokens || [])}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        case 'hr':
+          return <hr key={idx} className={`my-4 border-t ${isDark ? 'border-white/10' : 'border-zinc-200'}`} />
         default:
           return <div key={idx}>{token.raw}</div>
       }
