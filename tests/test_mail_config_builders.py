@@ -557,8 +557,10 @@ class TestMailProviderConsole:
     def test_priority_default_100(self):
         assert self._con().to_dict()["priority"] == 100
 
-    def test_rate_limit_large(self):
-        assert self._con().to_dict()["rate_limit_per_min"] == 10000
+    def test_rate_limit_default(self):
+        """Consolidated onto the standard 600 default shared by all provider
+        builders (previously a special-cased 10000 for Console/File only)."""
+        assert self._con().to_dict()["rate_limit_per_min"] == 600
 
     def test_enabled_default(self):
         assert self._con().to_dict()["enabled"] is True

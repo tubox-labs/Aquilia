@@ -23,6 +23,7 @@ class ConsoleProvider:
     """
 
     name: str = "console"
+    provider_type: str = "console"
     priority: int = 100  # low priority -- fallback only
     supports_batching: bool = True
     max_batch_size: int = 100
