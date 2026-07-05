@@ -223,21 +223,11 @@ Format your responses beautifully in markdown. If you output code blocks, specif
         throw new Error(`API Error: ${response.status} ${response.statusText}`)
       }
 
-      setMessages(prev => [
-        ...prev,
-        {
-          role: 'assistant',
-          content: '',
-          timestamp: new Date(),
-          sources: topResults.map(r => ({ title: r.title, path: r.path }))
-        }
-      ])
-      setIsLoading(false)
-
       const reader = response.body?.getReader()
       const decoder = new TextDecoder('utf-8')
       let done = false
       let buffer = ''
+      let hasAddedAssistantMessage = false
 
       setIsStreaming(true)
       streamingTextRef.current = ''
@@ -265,6 +255,19 @@ Format your responses beautifully in markdown. If you output code blocks, specif
                   const parsed = JSON.parse(jsonStr)
                   const content = parsed.choices?.[0]?.delta?.content || ''
                   if (content) {
+                    if (!hasAddedAssistantMessage) {
+                      hasAddedAssistantMessage = true
+                      setMessages(prev => [
+                        ...prev,
+                        {
+                          role: 'assistant',
+                          content: '',
+                          timestamp: new Date(),
+                          sources: topResults.map(r => ({ title: r.title, path: r.path }))
+                        }
+                      ])
+                      setIsLoading(false)
+                    }
                     streamingTextRef.current += content
                   }
                 } catch (e) {
@@ -283,12 +286,38 @@ Format your responses beautifully in markdown. If you output code blocks, specif
               const parsed = JSON.parse(jsonStr)
               const content = parsed.choices?.[0]?.delta?.content || ''
               if (content) {
+                if (!hasAddedAssistantMessage) {
+                  hasAddedAssistantMessage = true
+                  setMessages(prev => [
+                    ...prev,
+                    {
+                      role: 'assistant',
+                      content: '',
+                      timestamp: new Date(),
+                      sources: topResults.map(r => ({ title: r.title, path: r.path }))
+                    }
+                  ])
+                  setIsLoading(false)
+                }
                 streamingTextRef.current += content
               }
             } catch (e) {
               // Ignore
             }
           }
+        }
+
+        if (!hasAddedAssistantMessage) {
+          setMessages(prev => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: streamingTextRef.current || 'No response content received.',
+              timestamp: new Date(),
+              sources: topResults.map(r => ({ title: r.title, path: r.path }))
+            }
+          ])
+          setIsLoading(false)
         }
       }
     } catch (err: any) {
@@ -407,7 +436,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
                           className={`px-4 py-3 font-semibold ${isDark ? 'text-white' : 'text-zinc-900'}`}
                           style={{ textAlign: alignment }}
                         >
-                          {renderInlineTokens(cell.tokens || [])}
+                          {cell.tokens ? renderInlineTokens(cell.tokens) : (cell.text || cell)}
                         </th>
                       )
                     })}
@@ -424,7 +453,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
                             className={`px-4 py-3 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}
                             style={{ textAlign: alignment }}
                           >
-                            {renderInlineTokens(cell.tokens || [])}
+                            {cell.tokens ? renderInlineTokens(cell.tokens) : (cell.text || cell)}
                           </td>
                         )
                       })}
@@ -436,6 +465,12 @@ Format your responses beautifully in markdown. If you output code blocks, specif
           )
         case 'hr':
           return <hr key={idx} className={`my-4 border-t ${isDark ? 'border-white/10' : 'border-zinc-200'}`} />
+        case 'text':
+          return (
+            <span key={idx}>
+              {token.tokens ? renderInlineTokens(token.tokens) : token.text}
+            </span>
+          )
         default:
           return <div key={idx}>{token.raw}</div>
       }
