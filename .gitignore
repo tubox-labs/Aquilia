@@ -106,3 +106,4 @@ workspace/
 test_temp_db_cli/
 db.sqlite3
 
+.tokensave/
