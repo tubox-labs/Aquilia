@@ -239,13 +239,14 @@ def _validate_workspace_config(workspace_root: Path, verbose: bool = False) -> l
 
                 # Build file path
                 try:
-                    file_path = module_dir
+                    base_path = module_dir
                     for part in parts:
-                        file_path = file_path / part
+                        base_path = base_path / part
 
-                    file_path = file_path.with_suffix(".py")
+                    file_path = base_path.with_suffix(".py")
+                    package_init = base_path / "__init__.py"
 
-                    if not file_path.exists():
+                    if not file_path.exists() and not package_init.exists():
                         errors.append(
                             f"Import error in {module_name}: {import_path} "
                             f"(file not found: {file_path.relative_to(workspace_root)})"

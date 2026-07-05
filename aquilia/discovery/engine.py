@@ -456,8 +456,14 @@ class FileScanner:
             if any(stem.startswith(p) for p in self.SKIP_PREFIXES):
                 continue
 
-            if patterns and stem not in patterns and not any(stem.startswith(p) for p in patterns):
-                continue
+            if patterns:
+                # Match against every path component relative to the module dir
+                # (directory names as well as the file stem), so a pattern like
+                # "models" matches both models.py and models/register.py.
+                rel_parts = py_file.relative_to(module_dir).with_suffix("").parts
+                matches = any(part in patterns or any(part.startswith(p) for p in patterns) for part in rel_parts)
+                if not matches:
+                    continue
 
             files.append(py_file)
 
@@ -566,18 +572,16 @@ class ManifestDiffer:
         return actions
 
     def _is_declared(self, component: ClassifiedComponent, existing: list[str]) -> bool:
-        """Check if a component is already declared in the manifest."""
-        class_name = component.name
-        import_path = component.import_path
+        """Check if a component is already declared in the manifest.
 
-        for ref in existing:
-            if ref == import_path:
-                return True
-            if ":" in ref:
-                parts = ref.split(":", 1)
-                if parts[1] == class_name and parts[0].startswith(f"{self.root_package}."):
-                    return True
-        return False
+        Only an exact dotted-path match counts as "declared" -- a ref with
+        the same class name but a different (stale) path is a rename, not a
+        duplicate, and must still surface as an "add" so ManifestWriter can
+        rewrite the stale entry in place (see _add_component's class-name
+        match-and-replace logic).
+        """
+        import_path = component.import_path
+        return any(ref == import_path for ref in existing)
 
 
 # ============================================================================
@@ -767,8 +771,16 @@ class AutoDiscoveryEngine:
         """Discover components in all modules."""
         results = {}
         for module_name in self.scanner.discover_modules():
-            results[module_name] = self.discover(module_name)
+            patterns = self._module_discover_patterns(module_name)
+            results[module_name] = self.discover(module_name, patterns=patterns)
         return results
+
+    def _module_discover_patterns(self, module_name: str) -> list[str] | None:
+        """Read a module's manifest.py `discover_patterns` list, if declared."""
+        manifest_path = self.modules_dir / module_name / "manifest.py"
+        if not manifest_path.exists():
+            return None
+        return self._parse_manifest_refs(manifest_path).get("discover_patterns")
 
     def sync_manifest(
         self,
@@ -787,8 +799,8 @@ class AutoDiscoveryEngine:
             logger.warning(f"No manifest.py found for module '{module_name}'")
             return report
 
-        discovery = self.discover(module_name)
         manifest_refs = self._parse_manifest_refs(manifest_path)
+        discovery = self.discover(module_name, patterns=manifest_refs.get("discover_patterns"))
 
         module_prefix = f"{self.differ.root_package}.{module_name}"
         actions = self.differ.diff(discovery.components, manifest_refs, module_prefix)
