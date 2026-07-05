@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import {
   X, Send, User, Loader2,
-  Trash2, HelpCircle, BookOpen
+  Trash2, HelpCircle, BookOpen, Square
 } from 'lucide-react'
 import { CodeBlock } from './CodeBlock'
 import { useTheme } from '../context/ThemeContext'
@@ -87,6 +87,25 @@ export function Chatbox() {
   const streamingTextRef = useRef('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Abort request on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
+
+  const handleStopStreaming = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+      abortControllerRef.current = null
+    }
+    setIsStreaming(false)
+    setIsLoading(false)
+  }
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -149,6 +168,12 @@ export function Chatbox() {
     setInput('')
     setIsLoading(true)
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     // Add user message to state
     const newMsg: Message = {
       role: 'user',
@@ -172,11 +197,14 @@ export function Chatbox() {
         .join('\n\n')
     }
 
-    const systemPrompt = `You are the Aquilia AI Documentation Assistant, a premium, knowledgeable agent designed to answer developer queries about the Aquilia async Python web framework.
-Use the documentation context provided below to guide your response. Always write production-grade, clean, and modern Python or react code.
-Preserve architectural concepts like auto-discovery, AppManifest, Workspace configuration, async dependency injection containers, ORM models, typed faults, etc.
-If the context does not contain the exact answer, you can supplement with general knowledge of Python, but keep the tone authoritative, technical, and helpful.
-Format your responses beautifully in markdown. If you output code blocks, specify the correct language (e.g., python, typescript, bash, yaml, json) so that the syntax highlighter works correctly. Keep explanations concise but technically accurate.`
+    const systemPrompt = `You are the Aquilia AI Documentation Assistant, a premium, highly authoritative technical agent designed to answer developer queries about the Aquilia async Python web framework.
+
+### STRICT GUARDRAILS & DIRECTIVES:
+1. **NO HALLUCINATIONS**: Do NOT guess, speculate, or make up any classes, decorators, methods, settings, command flags, or architectural details of the Aquilia framework.
+2. **SOURCE OF TRUTH**: Read the raw documentation context provided below. This context is your absolute source of truth. If a framework API, configuration, or class is not explicitly documented in the provided context, do NOT assume it exists.
+3. **EXPLICIT UNKNOWNS**: If the provided documentation context does not contain enough information to answer the query accurately or if the feature is not explicitly defined in the context, state: "I'm sorry, but that feature or detail is not documented in the Aquilia codebase context." Do not make up examples.
+4. **CODE QUALITY**: Always write production-grade, clean, and modern Python or React code based exactly on the patterns shown in the context.
+5. **FORMATTING**: Format responses beautifully in markdown. Specify the language for all code blocks (e.g. \`python\`, \`typescript\`, \`bash\`, \`yaml\`, \`json\`). Keep explanations concise, technically accurate, and professional.`
 
     const userContent = `Here is my question: "${userMessage}"\n\n` + 
       (contextStr ? `Here is the relevant Aquilia documentation context:\n${contextStr}` : `No direct documentation search results were found for this query.`)
@@ -202,6 +230,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
     try {
       const response = await fetch(`${baseURL}/chat/completions`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
@@ -321,6 +350,20 @@ Format your responses beautifully in markdown. If you output code blocks, specif
         }
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') {
+        setMessages(prev => {
+          const updated = [...prev]
+          const lastMsg = updated[updated.length - 1]
+          if (lastMsg && lastMsg.role === 'assistant') {
+            updated[updated.length - 1] = {
+              ...lastMsg,
+              content: lastMsg.content + '\n\n*🛑 Response interrupted by user.*'
+            }
+          }
+          return updated
+        })
+        return
+      }
       console.error(err)
       setMessages(prev => [
         ...prev,
@@ -687,20 +730,31 @@ Format your responses beautifully in markdown. If you output code blocks, specif
                 : 'bg-white border-gray-300 text-black placeholder-gray-400'
             }`}
           />
-          <button
-            type="submit"
-            disabled={!input.trim() || isLoading}
-            className={`p-2.5 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
-              !input.trim() || isLoading
-                ? `${isDark ? 'text-gray-600 bg-white/[0.02]' : 'text-gray-400 bg-gray-100'}`
-                : 'bg-aquilia-600 text-white hover:bg-aquilia-500 hover:scale-105 active:scale-95'
-            }`}
-            style={{
-              boxShadow: input.trim() && !isLoading ? '0 0 10px rgba(34, 197, 94, 0.2)' : 'none'
-            }}
-          >
-            <Send className="w-4 h-4" />
-          </button>
+          {isStreaming || isLoading ? (
+            <button
+              type="button"
+              onClick={handleStopStreaming}
+              className="p-2.5 rounded-2xl flex items-center justify-center transition-all cursor-pointer bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/30 hover:scale-105 active:scale-95"
+              title="Stop generating"
+            >
+              <Square className="w-4 h-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!input.trim()}
+              className={`p-2.5 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                !input.trim()
+                  ? `${isDark ? 'text-gray-600 bg-white/[0.02]' : 'text-gray-400 bg-gray-100'}`
+                  : 'bg-aquilia-600 text-white hover:bg-aquilia-500 hover:scale-105 active:scale-95'
+              }`}
+              style={{
+                boxShadow: input.trim() ? '0 0 10px rgba(34, 197, 94, 0.2)' : 'none'
+              }}
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          )}
         </form>
       </div>
     </>
