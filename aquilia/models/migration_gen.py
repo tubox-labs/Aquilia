@@ -268,6 +268,8 @@ def _render_column_def(col: ColumnDef) -> str:
         kwargs.append("null=True")
     if col.unique:
         kwargs.append("unique=True")
+    if col.primary_key:
+        kwargs.append("primary_key=True")
     if col.default is not _SENTINEL:
         kwargs.append(f"default={col.default!r}")
 
@@ -276,6 +278,8 @@ def _render_column_def(col: ColumnDef) -> str:
     if col.references:
         ref_table, ref_col = col.references
         parts = [f'"{col.name}"', f'"{ref_table}"', f'"{ref_col}"']
+        if col.col_type != "INTEGER":
+            parts.append(f'col_type="{col.col_type}"')
         if col.nullable:
             parts.append("null=True")
         if col.on_delete != "CASCADE":

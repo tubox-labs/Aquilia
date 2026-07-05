@@ -395,30 +395,30 @@ class SendGridProvider:
     def to_dict(self) -> dict:
         """Serialize to provider config dict for MailIntegration."""
         extras: dict = {
-            'sandbox_mode': self.sandbox_mode,
-            'click_tracking': self.click_tracking,
-            'open_tracking': self.open_tracking,
-            'timeout': self.timeout,
+            "sandbox_mode": self.sandbox_mode,
+            "click_tracking": self.click_tracking,
+            "open_tracking": self.open_tracking,
+            "timeout": self.timeout,
         }
         if self.api_key:
-            extras['api_key'] = self.api_key
+            extras["api_key"] = self.api_key
         if self.categories:
-            extras['categories'] = self.categories
+            extras["categories"] = self.categories
         if self.asm_group_id is not None:
-            extras['asm_group_id'] = self.asm_group_id
+            extras["asm_group_id"] = self.asm_group_id
         if self.ip_pool_name:
-            extras['ip_pool_name'] = self.ip_pool_name
+            extras["ip_pool_name"] = self.ip_pool_name
         if self.template_id:
-            extras['template_id'] = self.template_id
+            extras["template_id"] = self.template_id
         if self.api_base_url != _SENDGRID_API_BASE:
-            extras['api_base_url'] = self.api_base_url
+            extras["api_base_url"] = self.api_base_url
         return {
-            'type': self.provider_type,
-            'name': self.name,
-            'enabled': True,
-            'rate_limit_per_min': 600,
-            'priority': self.priority,
-            'config': extras,
+            "type": self.provider_type,
+            "name": self.name,
+            "enabled": True,
+            "rate_limit_per_min": 600,
+            "priority": self.priority,
+            "config": extras,
         }
 
     def __repr__(self) -> str:

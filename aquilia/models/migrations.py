@@ -398,9 +398,10 @@ class MigrationOps:
         ref_column: str = "id",
         on_delete: str = "CASCADE",
         nullable: bool = False,
+        col_type: str = "INTEGER",
     ) -> str:
         """Foreign key column with inline REFERENCES."""
-        parts = [f'"{name}"', "INTEGER"]
+        parts = [f'"{name}"', col_type]
         if not nullable:
             parts.append("NOT NULL")
         parts.append(f'REFERENCES "{ref_table}"("{ref_column}")')

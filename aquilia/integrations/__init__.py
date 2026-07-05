@@ -40,7 +40,6 @@ dataclasses.  Prefer the typed dataclasses directly for new code.
 
 # ── Protocol ──────────────────────────────────────────────────────────
 # ── Legacy Integration (backward compat) ───────────────────────────────
-from aquilia.integrations.integration import Integration as Integration
 from aquilia.integrations._protocol import IntegrationConfig
 
 # ── Admin ─────────────────────────────────────────────────────────────
@@ -66,6 +65,7 @@ from aquilia.integrations.database import DatabaseIntegration
 
 # ── I18n ──────────────────────────────────────────────────────────────
 from aquilia.integrations.i18n import I18nIntegration
+from aquilia.integrations.integration import Integration as Integration
 
 # ── Logging ───────────────────────────────────────────────────────────
 from aquilia.integrations.logging_cfg import LoggingIntegration

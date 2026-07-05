@@ -11,12 +11,12 @@ from __future__ import annotations
 import dataclasses
 from typing import Any
 
-from aquilia.mail.auth import MailAuth as _MailAuthImpl
-from aquilia.integrations.mail import SmtpProvider as _SmtpProvider
-from aquilia.integrations.mail import SesProvider as _SesProvider
-from aquilia.integrations.mail import SendGridProvider as _SendGridProvider
 from aquilia.integrations.mail import ConsoleProvider as _ConsoleProvider
 from aquilia.integrations.mail import FileProvider as _FileProvider
+from aquilia.integrations.mail import SendGridProvider as _SendGridProvider
+from aquilia.integrations.mail import SesProvider as _SesProvider
+from aquilia.integrations.mail import SmtpProvider as _SmtpProvider
+from aquilia.mail.auth import MailAuth as _MailAuthImpl
 
 
 def _build_integration(cls: type, *args: Any, **kwargs: Any) -> dict[str, Any]:
@@ -47,11 +47,11 @@ class Integration:
     """
 
     from aquilia.integrations.admin import (
-        AdminModules,
         AdminAudit,
+        AdminModules,
         AdminMonitoring,
-        AdminSidebar,
         AdminSecurity,
+        AdminSidebar,
     )
 
     # ── Mail auth and provider builders ──────────────────────────────
@@ -59,6 +59,7 @@ class Integration:
 
     class MailProvider:
         """Typed mail provider builders."""
+
         SMTP = _SmtpProvider
         SES = _SesProvider
         SendGrid = _SendGridProvider
@@ -94,28 +95,30 @@ class Integration:
         """Configure mail subsystem. Returns config dict for Workspace.integrate()."""
         from aquilia.integrations.mail import MailIntegration
 
-        kwargs.update({
-            "default_from": default_from,
-            "default_reply_to": default_reply_to,
-            "subject_prefix": subject_prefix,
-            "providers": providers or [],
-            "auth": auth,
-            "console_backend": console_backend,
-            "preview_mode": preview_mode,
-            "template_dirs": template_dirs or ["mail_templates"],
-            "retry_max_attempts": retry_max_attempts,
-            "retry_base_delay": retry_base_delay,
-            "rate_limit_global": rate_limit_global,
-            "rate_limit_per_domain": rate_limit_per_domain,
-            "dkim_enabled": dkim_enabled,
-            "dkim_domain": dkim_domain,
-            "dkim_selector": dkim_selector,
-            "require_tls": require_tls,
-            "pii_redaction": pii_redaction,
-            "metrics_enabled": metrics_enabled,
-            "tracing_enabled": tracing_enabled,
-            "enabled": enabled,
-        })
+        kwargs.update(
+            {
+                "default_from": default_from,
+                "default_reply_to": default_reply_to,
+                "subject_prefix": subject_prefix,
+                "providers": providers or [],
+                "auth": auth,
+                "console_backend": console_backend,
+                "preview_mode": preview_mode,
+                "template_dirs": template_dirs or ["mail_templates"],
+                "retry_max_attempts": retry_max_attempts,
+                "retry_base_delay": retry_base_delay,
+                "rate_limit_global": rate_limit_global,
+                "rate_limit_per_domain": rate_limit_per_domain,
+                "dkim_enabled": dkim_enabled,
+                "dkim_domain": dkim_domain,
+                "dkim_selector": dkim_selector,
+                "require_tls": require_tls,
+                "pii_redaction": pii_redaction,
+                "metrics_enabled": metrics_enabled,
+                "tracing_enabled": tracing_enabled,
+                "enabled": enabled,
+            }
+        )
         return _build_integration(MailIntegration, **kwargs)
 
     @staticmethod
@@ -127,11 +130,14 @@ class Integration:
     ) -> dict[str, Any]:
         """Configure database integration."""
         from aquilia.integrations.database import DatabaseIntegration
-        kwargs.update({
-            "url": url,
-            "auto_create": auto_create,
-            "scan_dirs": scan_dirs or ["."],
-        })
+
+        kwargs.update(
+            {
+                "url": url,
+                "auto_create": auto_create,
+                "scan_dirs": scan_dirs or ["."],
+            }
+        )
         return _build_integration(DatabaseIntegration, **kwargs)
 
     @staticmethod
@@ -142,16 +148,20 @@ class Integration:
     ) -> dict[str, Any]:
         """Configure cache integration."""
         from aquilia.integrations.cache import CacheIntegration
-        kwargs.update({
-            "backend": backend,
-            "default_ttl": default_ttl,
-        })
+
+        kwargs.update(
+            {
+                "backend": backend,
+                "default_ttl": default_ttl,
+            }
+        )
         return _build_integration(CacheIntegration, **kwargs)
 
     @staticmethod
     def di(auto_wire: bool = True, **kwargs: Any) -> dict[str, Any]:
         """Configure dependency injection."""
         from aquilia.integrations.simple import DiIntegration
+
         kwargs.update({"auto_wire": auto_wire})
         return _build_integration(DiIntegration, **kwargs)
 
@@ -159,6 +169,7 @@ class Integration:
     def routing(strict_matching: bool = True, **kwargs: Any) -> dict[str, Any]:
         """Configure routing."""
         from aquilia.integrations.simple import RoutingIntegration
+
         kwargs.update({"strict_matching": strict_matching})
         return _build_integration(RoutingIntegration, **kwargs)
 
@@ -166,6 +177,7 @@ class Integration:
     def fault_handling(default_strategy: str = "propagate", **kwargs: Any) -> dict[str, Any]:
         """Configure fault handling."""
         from aquilia.integrations.simple import FaultHandlingIntegration
+
         kwargs.update({"default_strategy": default_strategy})
         return _build_integration(FaultHandlingIntegration, **kwargs)
 
@@ -176,6 +188,7 @@ class Integration:
     ) -> dict[str, Any]:
         """Configure background tasks."""
         from aquilia.integrations.tasks import TasksIntegration
+
         kwargs.update({"backend": backend})
         return _build_integration(TasksIntegration, **kwargs)
 
@@ -183,63 +196,72 @@ class Integration:
     def storage(**kwargs: Any) -> dict[str, Any]:
         """Configure storage."""
         from aquilia.integrations.storage import StorageIntegration
+
         return _build_integration(StorageIntegration, **kwargs)
 
     @staticmethod
     def templates(**kwargs: Any) -> dict[str, Any]:
         """Configure templates."""
         from aquilia.integrations.templates import TemplatesIntegration
+
         return _build_integration(TemplatesIntegration, **kwargs)
 
     @staticmethod
     def cors(**kwargs: Any) -> dict[str, Any]:
         """Configure CORS."""
         from aquilia.integrations.security import CorsIntegration
+
         return _build_integration(CorsIntegration, **kwargs)
 
     @staticmethod
     def csp(**kwargs: Any) -> dict[str, Any]:
         """Configure CSP."""
         from aquilia.integrations.security import CspIntegration
+
         return _build_integration(CspIntegration, **kwargs)
 
     @staticmethod
     def rate_limit(**kwargs: Any) -> dict[str, Any]:
         """Configure rate limiting."""
         from aquilia.integrations.security import RateLimitIntegration
+
         return _build_integration(RateLimitIntegration, **kwargs)
 
     @staticmethod
     def csrf(**kwargs: Any) -> dict[str, Any]:
         """Configure CSRF protection."""
         from aquilia.integrations.security import CsrfIntegration
+
         return _build_integration(CsrfIntegration, **kwargs)
 
     @staticmethod
     def static_files(**kwargs: Any) -> dict[str, Any]:
         """Configure static file serving."""
         from aquilia.integrations.static import StaticFilesIntegration
+
         return _build_integration(StaticFilesIntegration, **kwargs)
 
     @staticmethod
     def openapi(**kwargs: Any) -> dict[str, Any]:
         """Configure OpenAPI/Swagger."""
         from aquilia.integrations.openapi import OpenAPIIntegration
+
         return _build_integration(OpenAPIIntegration, **kwargs)
 
     @staticmethod
     def i18n(**kwargs: Any) -> dict[str, Any]:
         """Configure internationalization."""
         from aquilia.integrations.i18n import I18nIntegration
+
         return _build_integration(I18nIntegration, **kwargs)
 
     @staticmethod
     def admin(**kwargs: Any) -> dict[str, Any]:
         """Configure admin panel."""
         from aquilia.integrations.admin import (
+            AdminAudit,
             AdminIntegration,
             AdminModules,
-            AdminAudit,
             AdminMonitoring,
             AdminSidebar,
         )
@@ -358,36 +380,42 @@ class Integration:
     def versioning(**kwargs: Any) -> dict[str, Any]:
         """Configure API versioning."""
         from aquilia.integrations.versioning_cfg import VersioningIntegration
+
         return _build_integration(VersioningIntegration, **kwargs)
 
     @staticmethod
     def logging(**kwargs: Any) -> dict[str, Any]:
         """Configure logging."""
         from aquilia.integrations.logging_cfg import LoggingIntegration
+
         return _build_integration(LoggingIntegration, **kwargs)
 
     @staticmethod
     def render(**kwargs: Any) -> dict[str, Any]:
         """Configure deployment provider."""
         from aquilia.integrations.render import RenderIntegration
+
         return _build_integration(RenderIntegration, **kwargs)
 
     @staticmethod
     def auth(**kwargs: Any) -> dict[str, Any]:
         """Configure authentication."""
         from aquilia.integrations.auth import AuthIntegration
+
         return _build_integration(AuthIntegration, **kwargs)
 
     @staticmethod
     def sessions(**kwargs: Any) -> dict[str, Any]:
         """Configure sessions."""
         from aquilia.integrations.sessions import SessionIntegration
+
         return _build_integration(SessionIntegration, **kwargs)
 
     @staticmethod
     def middleware_chain(entries: list | None = None, **kwargs: Any) -> dict[str, Any]:
         """Configure middleware chain."""
         from aquilia.integrations.mw import MiddlewareChain
+
         kwargs.update({"entries": entries or []})
         return _build_integration(MiddlewareChain, **kwargs)
 
@@ -395,10 +423,12 @@ class Integration:
     def patterns(**kwargs: Any) -> dict[str, Any]:
         """Configure patterns."""
         from aquilia.integrations.simple import PatternsIntegration
+
         return _build_integration(PatternsIntegration, **kwargs)
 
     @staticmethod
     def serializers(**kwargs: Any) -> dict[str, Any]:
         """Configure serializers."""
         from aquilia.integrations.simple import SerializersIntegration
+
         return _build_integration(SerializersIntegration, **kwargs)

@@ -328,60 +328,97 @@ class _ColumnBuilder:
         return ColumnDef(name=name, col_type="BIGINT", primary_key=True, autoincrement=True)
 
     @staticmethod
-    def integer(name: str, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="INTEGER", nullable=null, unique=unique, default=default)
+    def integer(
+        name: str, *, null: bool = False, unique: bool = False, primary_key: bool = False, default: Any = _SENTINEL
+    ) -> ColumnDef:
+        return ColumnDef(
+            name=name, col_type="INTEGER", nullable=null, unique=unique, primary_key=primary_key, default=default
+        )
 
     @staticmethod
-    def biginteger(name: str, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="BIGINT", nullable=null, unique=unique, default=default)
+    def biginteger(
+        name: str, *, null: bool = False, unique: bool = False, primary_key: bool = False, default: Any = _SENTINEL
+    ) -> ColumnDef:
+        return ColumnDef(
+            name=name, col_type="BIGINT", nullable=null, unique=unique, primary_key=primary_key, default=default
+        )
 
     @staticmethod
     def varchar(
-        name: str, length: int = 255, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL
+        name: str,
+        length: int = 255,
+        *,
+        null: bool = False,
+        unique: bool = False,
+        primary_key: bool = False,
+        default: Any = _SENTINEL,
     ) -> ColumnDef:
-        return ColumnDef(name=name, col_type=f"VARCHAR({length})", nullable=null, unique=unique, default=default)
+        return ColumnDef(
+            name=name,
+            col_type=f"VARCHAR({length})",
+            nullable=null,
+            unique=unique,
+            primary_key=primary_key,
+            default=default,
+        )
 
     @staticmethod
-    def text(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="TEXT", nullable=null, default=default)
+    def text(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="TEXT", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
-    def boolean(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="BOOLEAN", nullable=null, default=default)
+    def boolean(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="BOOLEAN", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
-    def real(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="REAL", nullable=null, default=default)
+    def real(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="REAL", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
     def decimal(
-        name: str, max_digits: int = 10, decimal_places: int = 2, *, null: bool = False, default: Any = _SENTINEL
+        name: str,
+        max_digits: int = 10,
+        decimal_places: int = 2,
+        *,
+        null: bool = False,
+        primary_key: bool = False,
+        default: Any = _SENTINEL,
     ) -> ColumnDef:
-        return ColumnDef(name=name, col_type=f"DECIMAL({max_digits},{decimal_places})", nullable=null, default=default)
+        return ColumnDef(
+            name=name,
+            col_type=f"DECIMAL({max_digits},{decimal_places})",
+            nullable=null,
+            primary_key=primary_key,
+            default=default,
+        )
 
     @staticmethod
-    def timestamp(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="TIMESTAMP", nullable=null, default=default)
+    def timestamp(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="TIMESTAMP", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
-    def date(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="DATE", nullable=null, default=default)
+    def date(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="DATE", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
-    def time(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="TIME", nullable=null, default=default)
+    def time(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="TIME", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
-    def uuid(name: str, *, null: bool = False, unique: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="VARCHAR(36)", nullable=null, unique=unique, default=default)
+    def uuid(
+        name: str, *, null: bool = False, unique: bool = False, primary_key: bool = False, default: Any = _SENTINEL
+    ) -> ColumnDef:
+        return ColumnDef(
+            name=name, col_type="VARCHAR(36)", nullable=null, unique=unique, primary_key=primary_key, default=default
+        )
 
     @staticmethod
-    def blob(name: str, *, null: bool = False) -> ColumnDef:
-        return ColumnDef(name=name, col_type="BLOB", nullable=null)
+    def blob(name: str, *, null: bool = False, primary_key: bool = False) -> ColumnDef:
+        return ColumnDef(name=name, col_type="BLOB", nullable=null, primary_key=primary_key)
 
     @staticmethod
-    def json(name: str, *, null: bool = False, default: Any = _SENTINEL) -> ColumnDef:
-        return ColumnDef(name=name, col_type="TEXT", nullable=null, default=default)
+    def json(name: str, *, null: bool = False, primary_key: bool = False, default: Any = _SENTINEL) -> ColumnDef:
+        return ColumnDef(name=name, col_type="TEXT", nullable=null, primary_key=primary_key, default=default)
 
     @staticmethod
     def foreign_key(
@@ -389,13 +426,14 @@ class _ColumnBuilder:
         ref_table: str,
         ref_column: str = "id",
         *,
+        col_type: str = "INTEGER",
         null: bool = False,
         on_delete: str = "CASCADE",
         on_update: str = "CASCADE",
     ) -> ColumnDef:
         return ColumnDef(
             name=name,
-            col_type="INTEGER",
+            col_type=col_type,
             nullable=null,
             references=(ref_table, ref_column),
             on_delete=on_delete,

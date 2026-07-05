@@ -28,6 +28,7 @@ from typing import Any
 
 # ── Legacy Fluent Compatibility Classes ────────────────────────────
 
+
 class CallableInt(int):
     def __new__(cls, val, parent=None, attr_name=None):
         obj = super().__new__(cls, val)
@@ -40,6 +41,7 @@ class CallableInt(int):
             setattr(self.parent, self.attr_name, val)
             return self.parent
         return val
+
 
 class CallableStr(str):
     def __new__(cls, val, parent=None, attr_name=None):
@@ -56,6 +58,7 @@ class CallableStr(str):
             return self.parent
         return val
 
+
 class CallableList(list):
     def __init__(self, val, parent=None, attr_name=None):
         super().__init__(val or [])
@@ -71,6 +74,7 @@ class CallableList(list):
             setattr(self.parent, self.attr_name, val)
             return self.parent
         return val
+
 
 class CallableBool(int):
     def __new__(cls, val, parent=None, attr_name=None):
@@ -95,6 +99,7 @@ class CallableBool(int):
             return self.parent
         return val
 
+
 class LegacyFluentMixin:
     def __getattribute__(self, name: str) -> Any:
         val = object.__getattribute__(self, name)
@@ -102,8 +107,9 @@ class LegacyFluentMixin:
             return val
         cls = object.__getattribute__(self, "__class__")
         if hasattr(cls, "__dataclass_fields__") and name in cls.__dataclass_fields__:
-            import sys
             import dis
+            import sys
+
             called = False
             try:
                 f = sys._getframe(1)
@@ -119,11 +125,13 @@ class LegacyFluentMixin:
                     if op_name.startswith("CALL"):
                         called = True
                         break
-                    if (op_name.startswith("STORE") or 
-                        op_name.startswith("JUMP") or 
-                        op_name.startswith("POP_JUMP") or 
-                        op_name.startswith("BINARY") or 
-                        op_name in ("POP_TOP", "RETURN_VALUE", "COMPARE_OP", "IS_OP", "CONTAINS_OP", "LOAD_ATTR")):
+                    if (
+                        op_name.startswith("STORE")
+                        or op_name.startswith("JUMP")
+                        or op_name.startswith("POP_JUMP")
+                        or op_name.startswith("BINARY")
+                        or op_name in ("POP_TOP", "RETURN_VALUE", "COMPARE_OP", "IS_OP", "CONTAINS_OP", "LOAD_ATTR")
+                    ):
                         called = False
                         break
                     offset += 2
@@ -141,6 +149,7 @@ class LegacyFluentMixin:
                     return CallableList(val, self, name)
         return val
 
+
 def _unwrap_value(val: Any) -> Any:
     if isinstance(val, CallableBool):
         return val._bool_val
@@ -156,8 +165,10 @@ def _unwrap_value(val: Any) -> Any:
         return [_unwrap_value(v) for v in val]
     return val
 
+
 def _unwrap_dict(d: dict[str, Any]) -> dict[str, Any]:
     return {k: _unwrap_value(v) for k, v in d.items()}
+
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AdminModules
@@ -504,14 +515,16 @@ class AdminAudit(LegacyFluentMixin):
         return self
 
     def to_dict(self) -> dict[str, Any]:
-        return _unwrap_dict({
-            "enabled": self.enabled,
-            "max_entries": self.max_entries if isinstance(self.max_entries, int) else 10_000,
-            "log_logins": self.log_logins,
-            "log_views": self.log_views,
-            "log_searches": self.log_searches,
-            "excluded_actions": list(self.excluded_actions),
-        })
+        return _unwrap_dict(
+            {
+                "enabled": self.enabled,
+                "max_entries": self.max_entries if isinstance(self.max_entries, int) else 10_000,
+                "log_logins": self.log_logins,
+                "log_views": self.log_views,
+                "log_searches": self.log_searches,
+                "excluded_actions": list(self.excluded_actions),
+            }
+        )
 
     def __repr__(self) -> str:
         state = "enabled" if self.enabled else "disabled"
@@ -580,11 +593,13 @@ class AdminMonitoring(LegacyFluentMixin):
         return self
 
     def to_dict(self) -> dict[str, Any]:
-        return _unwrap_dict({
-            "enabled": self.enabled,
-            "metrics": list(self.metrics),
-            "refresh_interval": self.refresh_interval,
-        })
+        return _unwrap_dict(
+            {
+                "enabled": self.enabled,
+                "metrics": list(self.metrics),
+                "refresh_interval": self.refresh_interval,
+            }
+        )
 
     def __repr__(self) -> str:
         state = "enabled" if self.enabled else "disabled"

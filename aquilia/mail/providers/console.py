@@ -89,9 +89,9 @@ class ConsoleProvider:
     def to_dict(self) -> dict:
         """Serialize to provider config dict for MailIntegration."""
         return {
-            'type': self.provider_type,
-            'name': self.name,
-            'enabled': True,
-            'rate_limit_per_min': 600,
-            'priority': self.priority,
+            "type": self.provider_type,
+            "name": self.name,
+            "enabled": True,
+            "rate_limit_per_min": 600,
+            "priority": self.priority,
         }

@@ -1746,7 +1746,7 @@ class RelationField(Field):
         if isinstance(self.to, str):
             self._related_model = registry.get(self.to)
 
-    def _resolve_pk_field(self) -> "Field | None":
+    def _resolve_pk_field(self) -> Field | None:
         """Resolve the related model's primary-key field, if the model can be found."""
         model = self.related_model
         if model is None and isinstance(self.to, str):
