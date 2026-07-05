@@ -257,35 +257,57 @@ class MailService:
 
         Uses hard-coded mappings for built-in types, then falls back
         to the MailProviderRegistry (discovery system) for custom types.
+
+        Credential precedence: explicit flat fields (``pc.username`` etc.)
+        win over a nested ``pc.auth`` block, which wins over ``pc.config``.
+        Nested ``auth`` is the shape produced by ``MailAuth.plain(...)`` /
+        ``Integration.MailAuth.plain(...)`` -- it must be read here, or
+        provider auth silently never reaches the real provider constructor.
         """
+        auth = getattr(pc, "auth", None) or {}
+        config = dict(pc.config or {})
 
         if pc.type == "smtp":
             from .providers.smtp import SMTPProvider
 
+            config.pop("host", None)
+            config.pop("port", None)
+            config.pop("username", None)
+            config.pop("password", None)
             return SMTPProvider(
                 name=pc.name,
                 host=pc.host or pc.config.get("host", "localhost"),
                 port=pc.port or pc.config.get("port", 587),
-                username=pc.username or pc.config.get("username"),
-                password=pc.password or pc.config.get("password"),
+                username=pc.username or auth.get("username") or pc.config.get("username"),
+                password=pc.password or auth.get("password") or pc.config.get("password"),
                 use_tls=pc.use_tls,
                 use_ssl=pc.use_ssl,
                 timeout=pc.timeout,
+                **config,
             )
         elif pc.type == "ses":
             from .providers.ses import SESProvider
 
+            config.pop("region", None)
+            config.pop("aws_access_key_id", None)
+            config.pop("aws_secret_access_key", None)
+            config.pop("aws_session_token", None)
             return SESProvider(
                 name=pc.name,
                 region=pc.config.get("region", "us-east-1"),
-                **{k: v for k, v in pc.config.items() if k != "region"},
+                aws_access_key_id=auth.get("aws_access_key_id") or pc.config.get("aws_access_key_id"),
+                aws_secret_access_key=auth.get("aws_secret_access_key") or pc.config.get("aws_secret_access_key"),
+                aws_session_token=auth.get("aws_session_token") or pc.config.get("aws_session_token"),
+                **config,
             )
         elif pc.type == "sendgrid":
             from .providers.sendgrid import SendGridProvider
 
+            config.pop("api_key", None)
             return SendGridProvider(
                 name=pc.name,
-                api_key=pc.config.get("api_key", ""),
+                api_key=auth.get("api_key") or pc.config.get("api_key", ""),
+                **config,
             )
         elif pc.type == "console":
             from .providers.console import ConsoleProvider
@@ -294,9 +316,11 @@ class MailService:
         elif pc.type == "file":
             from .providers.file import FileProvider
 
+            config.pop("output_dir", None)
             return FileProvider(
                 name=pc.name,
                 output_dir=pc.config.get("output_dir", "/tmp/aquilia_mail"),
+                **config,
             )
         else:
             # Fallback: try discovery-based provider registry

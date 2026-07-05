@@ -571,10 +571,23 @@ def _validate_auth(
 
 def _validate_provider(data: dict) -> ProviderConfig:
     """Validate a single provider config dict."""
+    data = dict(data)  # shallow copy before mutation
+
     # Coerce nested auth dict → MailAuthConfig wrapper
     if isinstance(data.get("auth"), dict):
-        data = dict(data)  # shallow copy before mutation
         data["auth"] = _validate_auth(data["auth"]).to_dict() if _validate_auth(data["auth"]) else None
+
+    # Provider-specific fields that aren't part of the blueprint's declared
+    # schema (e.g. SES's "region", SendGrid's "api_key", File's "output_dir")
+    # would otherwise be silently dropped by the blueprint's "ignore unknown
+    # fields" default. Fold them into "config" instead, so _create_provider
+    # can still read them via pc.config.
+    known = set(ProviderConfigBlueprint._declared_facets)
+    extra = {k: v for k, v in data.items() if k not in known}
+    if extra:
+        data = {k: v for k, v in data.items() if k in known}
+        data["config"] = {**extra, **(data.get("config") or {})}
+
     bp = ProviderConfigBlueprint(data=data)
     if bp.is_sealed():
         return ProviderConfig(bp.validated_data)
