@@ -81,6 +81,9 @@ export function Chatbox() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [displayedText, setDisplayedText] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
+  const streamingTextRef = useRef('')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -88,6 +91,38 @@ export function Chatbox() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  // Smooth typewriter streaming effect
+  useEffect(() => {
+    if (displayedText.length >= streamingTextRef.current.length && !isStreaming) {
+      return
+    }
+
+    const timer = setTimeout(() => {
+      const target = streamingTextRef.current
+      const currentLength = displayedText.length
+      if (currentLength < target.length) {
+        // Appending 3 characters at a time for smooth but fast typewriter updates
+        const step = Math.min(3, target.length - currentLength)
+        const nextChunk = target.slice(0, currentLength + step)
+        setDisplayedText(nextChunk)
+        
+        setMessages(prev => {
+          const updated = [...prev]
+          const lastMsg = updated[updated.length - 1]
+          if (lastMsg && lastMsg.role === 'assistant') {
+            updated[updated.length - 1] = {
+              ...lastMsg,
+              content: nextChunk
+            }
+          }
+          return updated
+        })
+      }
+    }, 15)
+
+    return () => clearTimeout(timer)
+  }, [displayedText, isStreaming])
 
 
 
@@ -178,7 +213,8 @@ Format your responses beautifully in markdown. If you output code blocks, specif
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userContent }
           ],
-          temperature: 0.2
+          temperature: 0.2,
+          stream: true
         })
       })
 
@@ -186,30 +222,87 @@ Format your responses beautifully in markdown. If you output code blocks, specif
         throw new Error(`API Error: ${response.status} ${response.statusText}`)
       }
 
-      const data = await response.json()
-      const botResponse = data.choices?.[0]?.message?.content || 'Sorry, I encountered an issue processing your request.'
-
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: botResponse,
+          content: '',
           timestamp: new Date(),
           sources: topResults.map(r => ({ title: r.title, path: r.path }))
         }
       ])
+      setIsLoading(false)
+
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder('utf-8')
+      let done = false
+      let buffer = ''
+
+      setIsStreaming(true)
+      streamingTextRef.current = ''
+      setDisplayedText('')
+
+      if (reader) {
+        while (!done) {
+          const { value, done: readerDone } = await reader.read()
+          done = readerDone
+          if (value) {
+            buffer += decoder.decode(value, { stream: !done })
+            const lines = buffer.split('\n')
+            buffer = lines.pop() || ''
+
+            for (const line of lines) {
+              const trimmed = line.trim()
+              if (!trimmed) continue
+              if (trimmed === 'data: [DONE]') {
+                done = true
+                break
+              }
+              if (trimmed.startsWith('data: ')) {
+                const jsonStr = trimmed.slice(6)
+                try {
+                  const parsed = JSON.parse(jsonStr)
+                  const content = parsed.choices?.[0]?.delta?.content || ''
+                  if (content) {
+                    streamingTextRef.current += content
+                  }
+                } catch (e) {
+                  // Ignore partial parsing errors
+                }
+              }
+            }
+          }
+        }
+
+        if (buffer) {
+          const trimmed = buffer.trim()
+          if (trimmed.startsWith('data: ') && trimmed !== 'data: [DONE]') {
+            const jsonStr = trimmed.slice(6)
+            try {
+              const parsed = JSON.parse(jsonStr)
+              const content = parsed.choices?.[0]?.delta?.content || ''
+              if (content) {
+                streamingTextRef.current += content
+              }
+            } catch (e) {
+              // Ignore
+            }
+          }
+        }
+      }
     } catch (err: any) {
       console.error(err)
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: `❌ **Error communicating with OpenRouter:**\n\n${err.message || 'Unknown network error. Please verify your API URL, key, and model choice in the settings.'}`,
+          content: `❌ **Error communicating with OpenRouter:**\n\n${err.message || 'Unknown network error. Please verify your API URL, key, and model choice.'}`,
           timestamp: new Date()
         }
       ])
     } finally {
       setIsLoading(false)
+      setIsStreaming(false)
     }
   }
 
@@ -229,8 +322,17 @@ Format your responses beautifully in markdown. If you output code blocks, specif
 
   // Custom Markdown parser rendering logic
   const parseMarkdown = (text: string) => {
+    let processedText = text
+    const occurrences = (text.match(/```/g) || []).length
+    if (occurrences % 2 !== 0) {
+      if (!text.endsWith('\n')) {
+        processedText += '\n'
+      }
+      processedText += '```'
+    }
+
     // Split by block code tags
-    const parts = text.split(/(```[a-z]*\n[\s\S]*?\n```)/g)
+    const parts = processedText.split(/(```[a-z]*\n[\s\S]*?\n```)/g)
     return parts.map((part, index) => {
       if (part.startsWith('```')) {
         const match = part.match(/```([a-z]*)\n([\s\S]*?)\n```/)
@@ -386,8 +488,8 @@ Format your responses beautifully in markdown. If you output code blocks, specif
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex gap-3 max-w-[85%] ${
-                msg.role === 'user' ? 'ml-auto flex-row-reverse' : 'mr-auto'
+              className={`flex gap-3 min-w-0 ${
+                msg.role === 'user' ? 'ml-auto flex-row-reverse max-w-[85%]' : 'mr-auto w-full'
               }`}
             >
               {/* Avatar Icon */}
@@ -403,27 +505,23 @@ Format your responses beautifully in markdown. If you output code blocks, specif
                 <img src="/logo.png" alt="Bot Logo" className="w-8 h-8 object-contain rounded-lg shrink-0" />
               )}
 
-              {/* Text Bubble */}
-              <div className="flex flex-col gap-1.5">
-                <div
-                  className={`p-3.5 rounded-2xl text-sm ${
-                    msg.role === 'user'
-                      ? `rounded-tr-none text-white ${
-                          isDark ? 'bg-aquilia-900/30 border border-aquilia-500/20' : 'bg-aquilia-600'
-                        }`
-                      : `rounded-tl-none ${
-                          isDark ? 'bg-white/[0.03] border border-white/5' : 'bg-gray-50 border border-gray-100'
-                        }`
-                  }`}
-                >
-                  {msg.role === 'user' ? (
+              {/* Text Bubble / Content */}
+              <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                {msg.role === 'user' ? (
+                  <div
+                    className={`p-3.5 rounded-2xl rounded-tr-none text-sm text-white ${
+                      isDark ? 'bg-aquilia-900/30 border border-aquilia-500/20' : 'bg-aquilia-600'
+                    }`}
+                  >
                     <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                  ) : (
-                    <div className="markdown-body">
+                  </div>
+                ) : (
+                  <div className={`text-sm leading-relaxed min-w-0 w-full ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    <div className="markdown-body w-full overflow-hidden break-words">
                       {parseMarkdown(msg.content)}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* Sources list */}
                 {msg.sources && msg.sources.length > 0 && (
@@ -452,10 +550,10 @@ Format your responses beautifully in markdown. If you output code blocks, specif
 
           {/* Loading Indicator */}
           {isLoading && (
-            <div className="flex gap-3 max-w-[85%] mr-auto items-center">
+            <div className="flex gap-3 w-full mr-auto items-center text-xs text-gray-400 pl-1">
               <img src="/logo.png" alt="Bot Logo" className="w-8 h-8 object-contain rounded-lg shrink-0" />
-              <div className={`p-3.5 rounded-2xl rounded-tl-none flex items-center gap-2.5 text-xs ${isDark ? 'bg-white/[0.03] border border-white/5 text-gray-400' : 'bg-gray-50 border border-gray-100 text-gray-500'}`}>
-                <Loader2 className="w-4.5 h-4.5 animate-spin text-aquilia-400" />
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-aquilia-400 shrink-0" />
                 <span>Searching documentation and preparing response...</span>
               </div>
             </div>
