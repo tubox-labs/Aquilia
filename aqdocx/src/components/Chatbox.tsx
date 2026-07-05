@@ -6,6 +6,7 @@ import {
 import { CodeBlock } from './CodeBlock'
 import { useTheme } from '../context/ThemeContext'
 import { docsContent } from '../data/docsContent'
+import { marked } from 'marked'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -306,99 +307,102 @@ Format your responses beautifully in markdown. If you output code blocks, specif
     }
   }
 
-  // Helper to render inline formatting
-  const renderTextWithInlineFormatting = (text: string) => {
-    const inlineParts = text.split(/(\*\*.*?\*\*|`.*?`)/g)
-    return inlineParts.map((part, i) => {
-      if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={i} className="font-semibold text-white">{part.slice(2, -2)}</strong>
+  // Render inline markdown tokens using marked
+  const renderInlineTokens = (tokens: any[]): React.ReactNode[] => {
+    if (!tokens) return []
+    return tokens.map((token, idx) => {
+      switch (token.type) {
+        case 'strong':
+          return <strong key={idx} className={`font-semibold ${isDark ? 'text-white' : 'text-zinc-900'}`}>{renderInlineTokens(token.tokens)}</strong>
+        case 'em':
+          return <em key={idx} className="italic">{renderInlineTokens(token.tokens)}</em>
+        case 'codespan':
+          return <code key={idx} className={`px-1.5 py-0.5 rounded font-mono text-[11px] ${isDark ? 'bg-white/10 text-aquilia-400' : 'bg-zinc-100 text-aquilia-600'}`}>{token.text}</code>
+        case 'link':
+          return (
+            <a key={idx} href={token.href} title={token.title} className={`${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'} underline`} target="_blank" rel="noopener noreferrer">
+              {renderInlineTokens(token.tokens)}
+            </a>
+          )
+        case 'text':
+          return token.text
+        case 'br':
+          return <br key={idx} />
+        case 'escape':
+          return token.text
+        default:
+          return token.raw
       }
-      if (part.startsWith('`') && part.endsWith('`')) {
-        return <code key={i} className="px-1.5 py-0.5 rounded bg-white/10 text-aquilia-400 font-mono text-[11px]">{part.slice(1, -1)}</code>
+    })
+  }
+
+  // Render block markdown tokens using marked
+  const renderBlockTokens = (tokens: any[]): React.ReactNode[] => {
+    if (!tokens) return []
+    return tokens.map((token, idx) => {
+      switch (token.type) {
+        case 'space':
+          return <div key={idx} className="h-2" />
+        case 'heading': {
+          const HeadingTag = `h${Math.min(6, token.depth)}` as any
+          const className = 
+            token.depth === 1 ? `text-2xl font-bold mt-6 mb-3 ${isDark ? 'text-white' : 'text-zinc-900'}` :
+            token.depth === 2 ? `text-xl font-bold mt-5 mb-2.5 ${isDark ? 'text-white' : 'text-zinc-900'}` :
+            token.depth === 3 ? `text-lg font-bold mt-4 mb-2 ${isDark ? 'text-white border-b border-white/5 pb-0.5' : 'text-zinc-900 border-b border-zinc-200 pb-0.5'}` :
+            `text-base font-bold mt-3 mb-1 ${isDark ? 'text-white' : 'text-zinc-900'}`
+          return (
+            <HeadingTag key={idx} className={className}>
+              {renderInlineTokens(token.tokens)}
+            </HeadingTag>
+          )
+        }
+        case 'paragraph':
+          return (
+            <p key={idx} className={`text-sm leading-relaxed mb-3 ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`}>
+              {renderInlineTokens(token.tokens)}
+            </p>
+          )
+        case 'code':
+          return (
+            <div key={idx} className={`my-3 overflow-hidden rounded-xl border ${isDark ? 'border-white/5' : 'border-zinc-200'}`}>
+              <CodeBlock language={token.lang || 'python'} compact={true} showLineNumbers={false}>
+                {token.text}
+              </CodeBlock>
+            </div>
+          )
+        case 'list': {
+          const ListTag = token.ordered ? 'ol' : 'ul'
+          const className = token.ordered 
+            ? `list-decimal pl-5 space-y-1 my-2 text-sm ${isDark ? 'text-zinc-300' : 'text-zinc-600'}` 
+            : `list-disc pl-5 space-y-1 my-2 text-sm ${isDark ? 'text-zinc-300' : 'text-zinc-600'}`
+          return (
+            <ListTag key={idx} className={className}>
+              {renderBlockTokens(token.items)}
+            </ListTag>
+          )
+        }
+        case 'list_item':
+          return (
+            <li key={idx} className="pl-1">
+              {renderBlockTokens(token.tokens)}
+            </li>
+          )
+        case 'blockquote':
+          return (
+            <blockquote key={idx} className={`border-l-4 border-aquilia-500 pl-4 py-1 my-2 italic ${isDark ? 'text-zinc-400 bg-white/[0.02]' : 'text-zinc-500 bg-zinc-50'} rounded-r`}>
+              {renderBlockTokens(token.tokens)}
+            </blockquote>
+          )
+        default:
+          return <div key={idx}>{token.raw}</div>
       }
-      return part
     })
   }
 
   // Custom Markdown parser rendering logic
   const parseMarkdown = (text: string) => {
-    let processedText = text
-    const occurrences = (text.match(/```/g) || []).length
-    if (occurrences % 2 !== 0) {
-      if (!text.endsWith('\n')) {
-        processedText += '\n'
-      }
-      processedText += '```'
-    }
-
-    // Split by block code tags
-    const parts = processedText.split(/(```[a-z]*\n[\s\S]*?\n```)/g)
-    return parts.map((part, index) => {
-      if (part.startsWith('```')) {
-        const match = part.match(/```([a-z]*)\n([\s\S]*?)\n```/)
-        const lang = match ? match[1] : 'python'
-        const code = match ? match[2] : part.slice(3, -3)
-        return (
-          <div key={index} className="my-3">
-            <CodeBlock language={lang} compact={true} showLineNumbers={false}>
-              {code}
-            </CodeBlock>
-          </div>
-        )
-      } else {
-        const lines = part.split('\n')
-        return (
-          <div key={index} className="space-y-1.5 my-1 text-sm leading-relaxed">
-            {lines.map((line, lineIndex) => {
-              const trimmed = line.trim()
-              if (!trimmed) return <div key={lineIndex} className="h-2" />
-
-              // Bullet lists
-              if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-                return (
-                  <li key={lineIndex} className="ml-4 list-disc pl-1 text-gray-300">
-                    {renderTextWithInlineFormatting(trimmed.substring(2))}
-                  </li>
-                )
-              }
-              // Numbered lists
-              if (/^\d+\.\s/.test(trimmed)) {
-                const listText = trimmed.replace(/^\d+\.\s/, '')
-                return (
-                  <li key={lineIndex} className="ml-4 list-decimal pl-1 text-gray-300">
-                    {renderTextWithInlineFormatting(listText)}
-                  </li>
-                )
-              }
-              // Headers
-              if (trimmed.startsWith('### ')) {
-                return (
-                  <h4 key={lineIndex} className="font-bold text-sm mt-3 mb-1 text-white border-b border-white/5 pb-0.5">
-                    {renderTextWithInlineFormatting(trimmed.substring(4))}
-                  </h4>
-                )
-              }
-              if (trimmed.startsWith('## ')) {
-                return (
-                  <h3 key={lineIndex} className="font-bold text-base mt-4 mb-2 text-white">
-                    {renderTextWithInlineFormatting(trimmed.substring(3))}
-                  </h3>
-                )
-              }
-              if (trimmed.startsWith('# ')) {
-                return (
-                  <h2 key={lineIndex} className="font-bold text-lg mt-5 mb-2 text-white">
-                    {renderTextWithInlineFormatting(trimmed.substring(2))}
-                  </h2>
-                )
-              }
-
-              return <p key={lineIndex} className="text-gray-300">{renderTextWithInlineFormatting(line)}</p>
-            })}
-          </div>
-        )
-      }
-    })
+    const tokens = marked.lexer(text)
+    return renderBlockTokens(tokens)
   }
 
   const suggestions = [
