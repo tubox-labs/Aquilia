@@ -46,6 +46,14 @@ class Integration:
         from aquilia.integrations import MailIntegration, DatabaseIntegration, etc.
     """
 
+    from aquilia.integrations.admin import (
+        AdminModules,
+        AdminAudit,
+        AdminMonitoring,
+        AdminSidebar,
+        AdminSecurity,
+    )
+
     # ── Mail auth and provider builders ──────────────────────────────
     MailAuth = _MailAuthImpl
 
@@ -112,7 +120,7 @@ class Integration:
 
     @staticmethod
     def database(
-        url: str = "sqlite:///app.db",
+        url: str = "sqlite:///db.sqlite3",
         auto_create: bool = True,
         scan_dirs: list[str] | None = None,
         **kwargs: Any,
@@ -228,7 +236,122 @@ class Integration:
     @staticmethod
     def admin(**kwargs: Any) -> dict[str, Any]:
         """Configure admin panel."""
-        from aquilia.integrations.admin import AdminIntegration
+        from aquilia.integrations.admin import (
+            AdminIntegration,
+            AdminModules,
+            AdminAudit,
+            AdminMonitoring,
+            AdminSidebar,
+        )
+
+        # 1. Parse modules
+        modules = kwargs.get("modules")
+        has_explicit_modules = modules is not None
+        if modules is None:
+            modules = AdminModules()
+        else:
+            # Clone if it is already an instance to avoid mutation
+            modules = AdminModules(**modules.to_dict())
+
+        if not has_explicit_modules:
+            # Support enable/disable flat properties for modules
+            module_fields = {f.name for f in dataclasses.fields(AdminModules)}
+            for name in list(module_fields):
+                # Check for enable_<name>
+                enable_key = f"enable_{name}"
+                if enable_key in kwargs:
+                    setattr(modules, name, bool(kwargs.pop(enable_key)))
+                # Check for disable_<name>
+                disable_key = f"disable_{name}"
+                if disable_key in kwargs:
+                    setattr(modules, name, not bool(kwargs.pop(disable_key)))
+                # Check for direct <name>
+                if name in kwargs and name not in ("audit", "monitoring", "sidebar", "containers", "pods", "security"):
+                    setattr(modules, name, bool(kwargs.pop(name)))
+
+        # 2. Parse audit
+        audit = kwargs.get("audit")
+        has_explicit_audit = audit is not None
+        if audit is None:
+            audit = AdminAudit()
+        else:
+            audit = AdminAudit(**audit.to_dict())
+
+        # If modules.audit is True, audit should also be enabled
+        if modules.audit:
+            audit.enabled = True
+
+        if not has_explicit_audit and not has_explicit_modules:
+            if "enable_audit" in kwargs:
+                val = bool(kwargs.pop("enable_audit"))
+                audit.enabled = val
+                modules.audit = val
+            if "audit_max_entries" in kwargs:
+                audit.max_entries = kwargs.pop("audit_max_entries")
+            if "audit_log_logins" in kwargs:
+                audit.log_logins = bool(kwargs.pop("audit_log_logins"))
+            if "audit_log_views" in kwargs:
+                audit.log_views = bool(kwargs.pop("audit_log_views"))
+            if "audit_log_searches" in kwargs:
+                audit.log_searches = bool(kwargs.pop("audit_log_searches"))
+            if "audit_excluded_actions" in kwargs:
+                audit.excluded_actions = list(kwargs.pop("audit_excluded_actions"))
+        else:
+            # Clean up potential flat parameters so they don't get passed to AdminIntegration constructor
+            kwargs.pop("enable_audit", None)
+            kwargs.pop("audit_max_entries", None)
+            kwargs.pop("audit_log_logins", None)
+            kwargs.pop("audit_log_views", None)
+            kwargs.pop("audit_log_searches", None)
+            kwargs.pop("audit_excluded_actions", None)
+
+        # 3. Parse monitoring
+        monitoring = kwargs.get("monitoring")
+        has_explicit_monitoring = monitoring is not None
+        if monitoring is None:
+            monitoring = AdminMonitoring()
+        else:
+            monitoring = AdminMonitoring(**monitoring.to_dict())
+
+        # If modules.monitoring is True, monitoring should also be enabled
+        if modules.monitoring:
+            monitoring.enabled = True
+
+        if not has_explicit_monitoring and not has_explicit_modules:
+            if "enable_monitoring" in kwargs:
+                val = bool(kwargs.pop("enable_monitoring"))
+                monitoring.enabled = val
+                modules.monitoring = val
+            if "monitoring_metrics" in kwargs:
+                monitoring.metrics = list(kwargs.pop("monitoring_metrics"))
+            if "monitoring_refresh_interval" in kwargs:
+                monitoring.refresh_interval = int(kwargs.pop("monitoring_refresh_interval"))
+        else:
+            # Clean up potential flat parameters
+            kwargs.pop("enable_monitoring", None)
+            kwargs.pop("monitoring_metrics", None)
+            kwargs.pop("monitoring_refresh_interval", None)
+
+        # 4. Parse sidebar
+        sidebar = kwargs.get("sidebar")
+        if sidebar is None:
+            sidebar = AdminSidebar()
+            if "sidebar_sections" in kwargs:
+                sections = kwargs.pop("sidebar_sections")
+                if isinstance(sections, dict):
+                    for k, v in sections.items():
+                        if hasattr(sidebar, k):
+                            setattr(sidebar, k, bool(v))
+        else:
+            sidebar = AdminSidebar(**sidebar.to_dict())
+            kwargs.pop("sidebar_sections", None)
+
+        # Update kwargs with the parsed sub-config objects
+        kwargs["modules"] = modules
+        kwargs["audit"] = audit
+        kwargs["monitoring"] = monitoring
+        kwargs["sidebar"] = sidebar
+
         return _build_integration(AdminIntegration, **kwargs)
 
     @staticmethod

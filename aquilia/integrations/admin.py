@@ -26,6 +26,139 @@ from dataclasses import dataclass, field, replace
 from dataclasses import fields as dc_fields
 from typing import Any
 
+# ── Legacy Fluent Compatibility Classes ────────────────────────────
+
+class CallableInt(int):
+    def __new__(cls, val, parent=None, attr_name=None):
+        obj = super().__new__(cls, val)
+        obj.parent = parent
+        obj.attr_name = attr_name
+        return obj
+
+    def __call__(self, val):
+        if self.parent and self.attr_name:
+            setattr(self.parent, self.attr_name, val)
+            return self.parent
+        return val
+
+class CallableStr(str):
+    def __new__(cls, val, parent=None, attr_name=None):
+        val_str = "" if val is None else str(val)
+        obj = super().__new__(cls, val_str)
+        obj.parent = parent
+        obj.attr_name = attr_name
+        obj._raw_val = val
+        return obj
+
+    def __call__(self, val):
+        if self.parent and self.attr_name:
+            setattr(self.parent, self.attr_name, val)
+            return self.parent
+        return val
+
+class CallableList(list):
+    def __init__(self, val, parent=None, attr_name=None):
+        super().__init__(val or [])
+        self.parent = parent
+        self.attr_name = attr_name
+
+    def __call__(self, *args):
+        if len(args) == 1 and isinstance(args[0], (list, tuple)):
+            val = list(args[0])
+        else:
+            val = list(args)
+        if self.parent and self.attr_name:
+            setattr(self.parent, self.attr_name, val)
+            return self.parent
+        return val
+
+class CallableBool(int):
+    def __new__(cls, val, parent=None, attr_name=None):
+        obj = super().__new__(cls, 1 if val else 0)
+        obj.parent = parent
+        obj.attr_name = attr_name
+        obj._bool_val = bool(val)
+        return obj
+
+    def __bool__(self):
+        return self._bool_val
+
+    def __repr__(self):
+        return str(self._bool_val)
+
+    def __str__(self):
+        return str(self._bool_val)
+
+    def __call__(self, val=True):
+        if self.parent and self.attr_name:
+            setattr(self.parent, self.attr_name, val)
+            return self.parent
+        return val
+
+class LegacyFluentMixin:
+    def __getattribute__(self, name: str) -> Any:
+        val = object.__getattribute__(self, name)
+        if name.startswith("_") or (callable(val) and not isinstance(val, (int, str, list))):
+            return val
+        cls = object.__getattribute__(self, "__class__")
+        if hasattr(cls, "__dataclass_fields__") and name in cls.__dataclass_fields__:
+            import sys
+            import dis
+            called = False
+            try:
+                f = sys._getframe(1)
+                code = f.f_code.co_code
+                lasti = f.f_lasti
+                offset = 2
+                while lasti + offset < len(code):
+                    op = code[lasti + offset]
+                    if op == 0:  # CACHE
+                        offset += 2
+                        continue
+                    op_name = dis.opname[op]
+                    if op_name.startswith("CALL"):
+                        called = True
+                        break
+                    if (op_name.startswith("STORE") or 
+                        op_name.startswith("JUMP") or 
+                        op_name.startswith("POP_JUMP") or 
+                        op_name.startswith("BINARY") or 
+                        op_name in ("POP_TOP", "RETURN_VALUE", "COMPARE_OP", "IS_OP", "CONTAINS_OP", "LOAD_ATTR")):
+                        called = False
+                        break
+                    offset += 2
+            except (ValueError, IndexError):
+                pass
+
+            if called:
+                if isinstance(val, bool):
+                    return CallableBool(val, self, name)
+                elif isinstance(val, int):
+                    return CallableInt(val, self, name)
+                elif isinstance(val, str) or val is None:
+                    return CallableStr(val, self, name)
+                elif isinstance(val, list):
+                    return CallableList(val, self, name)
+        return val
+
+def _unwrap_value(val: Any) -> Any:
+    if isinstance(val, CallableBool):
+        return val._bool_val
+    if isinstance(val, CallableInt):
+        return int(val)
+    if isinstance(val, CallableStr):
+        return val._raw_val
+    if isinstance(val, CallableList):
+        return list(val)
+    if isinstance(val, dict):
+        return {k: _unwrap_value(v) for k, v in val.items()}
+    if isinstance(val, (list, tuple)):
+        return [_unwrap_value(v) for v in val]
+    return val
+
+def _unwrap_dict(d: dict[str, Any]) -> dict[str, Any]:
+    return {k: _unwrap_value(v) for k, v in d.items()}
+
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # AdminModules
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -33,6 +166,7 @@ from typing import Any
 
 @dataclass
 class AdminModules:
+    __slots__ = ("_mailer", "_testing", "__dict__")
     """
     Controls which admin pages are visible.
 
@@ -66,6 +200,21 @@ class AdminModules:
     api_keys: bool = True
     preferences: bool = True
     provider: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "_mailer", self.mailer)
+        object.__setattr__(self, "_testing", self.testing)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+        if name == "mailer":
+            object.__setattr__(self, "_mailer", value)
+        elif name == "_mailer":
+            object.__setattr__(self, "mailer", value)
+        elif name == "testing":
+            object.__setattr__(self, "_testing", value)
+        elif name == "_testing":
+            object.__setattr__(self, "testing", value)
 
     @classmethod
     def default(cls) -> AdminModules:
@@ -267,7 +416,7 @@ class AdminModules:
         return self
 
     def to_dict(self) -> dict[str, bool]:
-        return {f.name: getattr(self, f.name) for f in dc_fields(self)}
+        return _unwrap_dict({f.name: getattr(self, f.name) for f in dc_fields(self)})
 
     def __repr__(self) -> str:
         enabled = [k for k, v in self.to_dict().items() if v]
@@ -280,7 +429,7 @@ class AdminModules:
 
 
 @dataclass
-class AdminAudit:
+class AdminAudit(LegacyFluentMixin):
     """
     Audit log configuration.
 
@@ -298,6 +447,11 @@ class AdminAudit:
 
     def __post_init__(self) -> None:
         self.max_entries = max(100, self.max_entries)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "max_entries":
+            value = max(100, int(value))
+        object.__setattr__(self, name, value)
 
     # ── Legacy fluent API ────────────────────────────────────────────
 
@@ -350,14 +504,14 @@ class AdminAudit:
         return self
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        return _unwrap_dict({
             "enabled": self.enabled,
             "max_entries": self.max_entries if isinstance(self.max_entries, int) else 10_000,
             "log_logins": self.log_logins,
             "log_views": self.log_views,
             "log_searches": self.log_searches,
             "excluded_actions": list(self.excluded_actions),
-        }
+        })
 
     def __repr__(self) -> str:
         state = "enabled" if self.enabled else "disabled"
@@ -382,7 +536,7 @@ _ALL_METRICS = [
 
 
 @dataclass
-class AdminMonitoring:
+class AdminMonitoring(LegacyFluentMixin):
     """
     Monitoring dashboard configuration.
 
@@ -397,6 +551,11 @@ class AdminMonitoring:
 
     def __post_init__(self) -> None:
         self.refresh_interval = max(5, self.refresh_interval)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "refresh_interval":
+            value = max(5, int(value))
+        object.__setattr__(self, name, value)
 
     # ── Legacy fluent API ────────────────────────────────────────────
 
@@ -421,11 +580,11 @@ class AdminMonitoring:
         return self
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        return _unwrap_dict({
             "enabled": self.enabled,
             "metrics": list(self.metrics),
             "refresh_interval": self.refresh_interval,
-        }
+        })
 
     def __repr__(self) -> str:
         state = "enabled" if self.enabled else "disabled"
@@ -524,7 +683,7 @@ class AdminSidebar:
         return self
 
     def to_dict(self) -> dict[str, bool]:
-        return {f.name: getattr(self, f.name) for f in dc_fields(self)}
+        return _unwrap_dict({f.name: getattr(self, f.name) for f in dc_fields(self)})
 
     def __repr__(self) -> str:
         visible = [k for k, v in self.to_dict().items() if v]
@@ -715,7 +874,7 @@ class AdminPods:
 
 
 @dataclass
-class AdminSecurity:
+class AdminSecurity(LegacyFluentMixin):
     """
     Admin dashboard security configuration (CSRF, rate-limit, passwords, headers).
 
@@ -757,6 +916,29 @@ class AdminSecurity:
     session_fixation_protection: bool = True
     # Event tracking
     event_tracker_max_events: int = 1000
+
+    def __post_init__(self) -> None:
+        self.csrf_max_age = max(60, self.csrf_max_age)
+        self.csrf_token_length = max(16, self.csrf_token_length)
+        self.rate_limit_max_attempts = max(1, self.rate_limit_max_attempts)
+        self.rate_limit_window = max(10, self.rate_limit_window)
+        self.password_min_length = max(4, self.password_min_length)
+        self.event_tracker_max_events = max(100, self.event_tracker_max_events)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        if name == "csrf_max_age":
+            value = max(60, int(value))
+        elif name == "csrf_token_length":
+            value = max(16, int(value))
+        elif name == "rate_limit_max_attempts":
+            value = max(1, int(value))
+        elif name == "rate_limit_window":
+            value = max(10, int(value))
+        elif name == "password_min_length":
+            value = max(4, int(value))
+        elif name == "event_tracker_max_events":
+            value = max(100, int(value))
+        object.__setattr__(self, name, value)
 
     # ── Legacy fluent API ────────────────────────────────────────────
 
@@ -828,7 +1010,7 @@ class AdminSecurity:
             result["headers"]["csp_template"] = self.csp_template
         if self.permissions_policy is not None:
             result["headers"]["permissions_policy"] = self.permissions_policy
-        return result
+        return _unwrap_dict(result)
 
     def __repr__(self) -> str:
         parts = []

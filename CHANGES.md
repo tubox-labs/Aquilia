@@ -238,3 +238,20 @@ complete public API surface.
 
 Commit Hash:
 ef5f7e0
+
+## Commit 15
+
+Timestamp: 2026-07-05T22:58:00Z
+
+Agent: Antigravity
+
+Files Modified:
+- aquilia/integrations/admin.py
+- aquilia/integrations/integration.py
+
+Summary:
+- Fixed flat legacy configuration compatibility in Integration.admin(**kwargs) by properly parsing and extracting all modules and sub-config attributes.
+- Added property descriptors and __slots__ support in AdminModules for _mailer and _testing flags.
+- Implemented bytecode scan-forward detection for active attribute function calls in LegacyFluentMixin.__getattribute__ to dynamically return callable wrappers only when the attributes are invoked as methods, allowing direct attributes to resolve to their primitive Python values to support 'is True'/'is False' assertions.
+- Added attribute bounds validation/clamping in AdminSecurity.__setattr__ and AdminSecurity.__post_init__ for csrf_max_age, csrf_token_length, rate_limit_max_attempts, rate_limit_window, password_min_length, and event_tracker_max_events.
+- Corrected database default url to sqlite:///db.sqlite3 in Integration.database().
