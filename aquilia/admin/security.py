@@ -242,6 +242,10 @@ class AdminCSRFProtection:
         submitted_token = None
         if form_data and isinstance(form_data, dict):
             submitted_token = form_data.get(self.FORM_FIELD)
+            if isinstance(submitted_token, list):
+                # multi=True form parsing (e.g. admin bulk actions) wraps every
+                # field, including this scalar one, in a list.
+                submitted_token = submitted_token[0] if submitted_token else None
 
         if not submitted_token:
             # Try request headers
