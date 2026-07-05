@@ -147,6 +147,7 @@ class ServiceConfig:
 
     # DI alternatives
     aliases: list[str] = field(default_factory=list)  # Alternative injection names
+    tag: str | None = None  # Explicit DI tag for Inject(tag=...) resolution
 
     # Factory pattern
     factory: str | None = None  # "path.to.module:factory_function"
@@ -166,6 +167,7 @@ class ServiceConfig:
             "scope": getattr(self.scope, "value", str(self.scope)),
             "auto_discover": self.auto_discover,
             "aliases": self.aliases,
+            "tag": self.tag,
             "factory": self.factory,
             "config": self.config or {},
         }

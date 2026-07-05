@@ -25,6 +25,10 @@ class AnnotatedProvider:
         return ProvidedService()
 
 
+class TaggedService:
+    """Plain service registered under an explicit manifest-declared tag."""
+
+
 def _build_runtime(services):
     ctx = AppContext(
         name="auth",
@@ -72,3 +76,30 @@ async def test_runtime_alias_binds_to_provider_output_token():
 
     assert isinstance(resolved, ProvidedService)
     assert isinstance(aliased, ProvidedService)
+
+
+@pytest.mark.asyncio
+async def test_runtime_registers_class_service_under_explicit_tag():
+    """A ServiceConfig(tag=...) on a class-based service must be resolvable via Inject(tag=...).
+
+    Regression test: the class-provider branch of _register_services previously
+    only read a tag from the @service(tag=...) class decorator (__di_tag__),
+    ignoring any tag declared on the ServiceConfig/manifest entry itself. That
+    meant the provider registered under the untagged key while a caller doing
+    Inject(TaggedService, tag="primary") resolved under the tagged key,
+    raising "DI provider ... not found".
+    """
+    runtime = _build_runtime(
+        [
+            ServiceConfig(
+                class_path=f"{__name__}:TaggedService",
+                tag="primary",
+            )
+        ]
+    )
+
+    runtime._register_services()
+    container = runtime.di_containers["auth"]
+
+    resolved = await container.resolve_async(TaggedService, tag="primary")
+    assert isinstance(resolved, TaggedService)

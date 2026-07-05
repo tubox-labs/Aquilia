@@ -1168,7 +1168,11 @@ class RuntimeRegistry:
                         # Override scope if not explicit in config
                         if scope == "app":
                             scope = getattr(service_class, "__di_scope__", "app")
-                        tag = getattr(service_class, "__di_tag__", None)
+                        tag = (
+                            service_item.get("tag")
+                            if isinstance(service_item, dict)
+                            else getattr(service_item, "tag", None)
+                        ) or getattr(service_class, "__di_tag__", None)
 
                         # Create ClassProvider and register
                         provider = ClassProvider(

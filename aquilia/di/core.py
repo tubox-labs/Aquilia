@@ -760,10 +760,12 @@ class Registry:
                 # Format: "module.path:ClassName"
                 service_str = service_entry
                 scope = "singleton"  # Default scope
+                tag = None
             elif isinstance(service_entry, dict):
-                # Format: {"class": "module.path:ClassName", "scope": "singleton"}
+                # Format: {"class": "module.path:ClassName", "scope": "singleton", "tag": "..."}
                 service_str = service_entry.get("class")
                 scope = service_entry.get("scope", "singleton")
+                tag = service_entry.get("tag")
             else:
                 continue
 
@@ -809,10 +811,15 @@ class Registry:
                     _logger.warning("Rejected service %r: resolved object is not a class.", service_str)
                     continue
 
+                # Manifest-declared tag takes precedence; fall back to a
+                # tag set by the @service(tag=...) decorator on the class.
+                resolved_tag = tag or getattr(service_class, "__di_tag__", None)
+
                 # Create provider
                 provider = ClassProvider(
                     cls=service_class,
                     scope=scope,
+                    tags=(resolved_tag,) if resolved_tag else (),
                 )
 
                 # Add to registry
