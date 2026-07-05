@@ -355,7 +355,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
         <div className={`p-4 flex items-center justify-between border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/50'}`}>
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-aquilia-500/20 to-aquilia-500/5 border border-aquilia-500/30 flex items-center justify-center relative shadow-inner">
-              <Bot className="w-5 h-5 text-aquilia-400" />
+              <img src="/logo.png" alt="Aquilia Logo" className="w-6 h-6 object-contain rounded-lg" />
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-zinc-950 animate-pulse" />
             </div>
             <div>
@@ -475,7 +475,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
                 {msg.role === 'user' ? (
                   <User className="w-4 h-4 text-aquilia-400" />
                 ) : (
-                  <Bot className="w-4 h-4 text-emerald-400" />
+                  <img src="/logo.png" alt="Bot Logo" className="w-5 h-5 object-contain rounded-md" />
                 )}
               </div>
 
@@ -530,7 +530,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
           {isLoading && (
             <div className="flex gap-3 max-w-[85%] mr-auto items-center">
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${isDark ? 'bg-zinc-900 border-white/10' : 'bg-gray-100 border-gray-200'}`}>
-                <Bot className="w-4 h-4 text-emerald-400" />
+                <img src="/logo.png" alt="Bot Logo" className="w-5 h-5 object-contain rounded-md" />
               </div>
               <div className={`p-3.5 rounded-2xl rounded-tl-none flex items-center gap-2.5 text-xs ${isDark ? 'bg-white/[0.03] border border-white/5 text-gray-400' : 'bg-gray-50 border border-gray-100 text-gray-500'}`}>
                 <Loader2 className="w-4.5 h-4.5 animate-spin text-aquilia-400" />
