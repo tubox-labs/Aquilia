@@ -139,21 +139,13 @@ export function DocPreviewPanel() {
           }
         >
           <div
-            className={`relative rounded-2xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-gray-200/80'}`}
+            className={`relative rounded-2xl border overflow-hidden ${isDark ? 'border-white/10 bg-zinc-950' : 'border-gray-200/80 bg-white'}`}
             style={{
-              background: isDark ? 'rgba(9, 9, 12, 0.88)' : 'rgba(255, 255, 255, 0.92)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
               boxShadow: isDark
-                ? '0 24px 64px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255,255,255,0.03), 0 0 40px -8px var(--accent-glow)'
-                : '0 24px 64px -16px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15,23,42,0.02)',
+                ? '0 24px 64px -12px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.03)'
+                : '0 24px 64px -16px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(15, 23, 42, 0.02)',
             }}
           >
-            {/* Ambient aura, matching the site's soft-glow layered surfaces */}
-            <div
-              className="pointer-events-none absolute -top-16 -right-10 h-32 w-32 rounded-full opacity-30 blur-3xl"
-              style={{ backgroundColor: 'var(--accent)' }}
-            />
 
             <button
               type="button"

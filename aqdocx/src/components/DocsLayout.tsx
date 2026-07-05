@@ -51,7 +51,7 @@ export function DocsLayout() {
 
             {/* Main page content */}
             <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-12">
-              <div className="max-w-3xl">
+              <div className="max-w-4xl mx-auto w-full">
                 <Outlet />
 
                 {/* Footer */}

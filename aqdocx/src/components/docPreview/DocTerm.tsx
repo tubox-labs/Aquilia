@@ -83,13 +83,13 @@ export function DocTerm({ id, children, className = '' }: DocTermProps) {
       aria-haspopup="dialog"
       aria-expanded={isActive}
       aria-controls={isActive ? 'aq-doc-preview' : undefined}
-      className={`doc-term font-mono text-[0.85em] rounded px-[0.3em] py-[0.05em] border transition-colors duration-150 cursor-help align-baseline ${isActive
+      className={`doc-term font-mono transition-colors duration-150 cursor-help align-baseline border-b border-dashed ${isActive
         ? isDark
-          ? 'bg-aquilia-500/15 border-aquilia-500/40 text-aquilia-300'
-          : 'bg-aquilia-50 border-aquilia-300 text-aquilia-700'
+          ? 'border-aquilia-300 text-aquilia-300'
+          : 'border-aquilia-600 text-aquilia-600'
         : isDark
-          ? 'bg-white/[0.06] border-white/10 text-gray-200 hover:bg-aquilia-500/10 hover:border-aquilia-500/30 hover:text-aquilia-300'
-          : 'bg-black/[0.04] border-black/10 text-gray-800 hover:bg-aquilia-50 hover:border-aquilia-300 hover:text-aquilia-700'
+          ? 'border-aquilia-400/30 text-aquilia-400 hover:text-aquilia-300 hover:border-aquilia-300/60'
+          : 'border-aquilia-600/30 text-aquilia-600 hover:text-aquilia-500 hover:border-aquilia-500/60'
         } ${className}`}
       style={{ WebkitTapHighlightColor: 'transparent' }}
     >

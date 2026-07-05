@@ -2,6 +2,7 @@ import { Routes, Route } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
 import { DocPreviewProvider } from './context/DocPreviewContext'
 import { DocPreviewPanel } from './components/docPreview'
+import { Chatbox } from './components/Chatbox'
 import './data/docEntities'
 import { DocsLayout } from './components/DocsLayout'
 import { LandingPage } from './pages/LandingPage'
@@ -535,6 +536,7 @@ export default function App() {
         </Route>
       </Routes>
       <DocPreviewPanel />
+      <Chatbox />
       </DocPreviewProvider>
     </ThemeProvider>
   )

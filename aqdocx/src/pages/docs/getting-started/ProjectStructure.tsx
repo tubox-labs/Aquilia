@@ -1,5 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview'
 import { Link } from 'react-router-dom'
 import { Blocks, FolderOpen, FileCode, Settings, Database, Terminal } from 'lucide-react'
 
@@ -35,66 +36,25 @@ export function ProjectStructurePage() {
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          A workspace created with <code>aq init workspace my-api</code> produces the following structure.
+          A workspace created with <DocTerm id="cli.init_workspace">aq init workspace my-api</DocTerm> produces the following structure.
           Every directory and file has a specific purpose:
         </p>
 
         <CodeBlock
           code={`my-api/
-├── workspace.py              # Root configuration (Workspace/Module/Integration)
-├── aquilia.yaml              # Alternative YAML config (optional, lower priority)
-├── .env                      # Environment variables (AQ_ prefix)
+├── workspace.py              # Root configuration (Workspace/Module/Integration/Environment config)
+├── starter.py                # Welcome-page controller (StarterController)
+├── requirements.txt          # Python dependencies
+├── .env.example              # Environment variable template
+├── .gitignore                # Gitignore configuration (ignores secrets & trace directories)
 │
-├── modules/                  # Application modules (one per bounded context)
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── controllers.py    # Controller classes with route decorators
-│   │   ├── services.py       # Business logic services (@service decorated)
-│   │   ├── models.py         # ORM model definitions
-│   │   ├── serializers.py    # Request/response serializers (optional)
-│   │   ├── blueprints.py     # Blueprint contracts (optional)
-│   │   └── tests/
-│   │       ├── __init__.py
-│   │       ├── test_controllers.py
-│   │       └── test_services.py
-│   │
-│   └── users/                # Another module
-│       ├── __init__.py
-│       ├── controllers.py
-│       ├── services.py
-│       └── models.py
-│
-├── templates/                # Jinja2 template files
-│   ├── base.html
-│   ├── layouts/
-│   └── partials/
-│
-├── static/                   # Static files (CSS, JS, images)
-│   ├── css/
-│   ├── js/
-│   └── img/
-│
-├── migrations/               # Auto-generated database migrations
-│   ├── 0001_initial.py
-│   └── 0002_add_users.py
-│
-├── .aquilia/                 # Trace directory (auto-generated, gitignore)
-│   ├── manifest.json         # Compiled app manifest
-│   ├── route_map.json        # All registered routes
-│   ├── di_graph.json         # DI dependency graph
-│   ├── schema_ledger.json    # Model schema snapshots
-│   ├── lifecycle.log         # Lifecycle event journal
-│   ├── config_snapshot.json  # Active configuration
-│   └── diagnostics.json      # Health and diagnostic data
+├── modules/                  # Application modules (empty by default; add using aq add module)
 │
 ├── tests/                    # Top-level test directory
-│   ├── conftest.py
-│   └── test_integration.py
+│   ├── conftest.py           # Shared testing fixtures
+│   └── test_smoke.py         # Smoke/verification tests
 │
-├── Dockerfile                # Auto-generated if --no-docker not set
-├── docker-compose.yml        # Auto-generated if --no-docker not set
-├── requirements.txt          # Python dependencies
-└── pyproject.toml            # Project metadata`}
+└── LICENSE                   # Selected license file (MIT, Apache-2.0, etc.)`}
           language="text"
         />
       </section>
@@ -110,89 +70,91 @@ export function ProjectStructurePage() {
           {/* workspace.py */}
           <div>
             <h3 className={`font-bold text-lg mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              <code>workspace.py</code>
+              <DocTerm id="cli.workspace_py">workspace.py</DocTerm>
             </h3>
             <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               The root configuration file. Aquilia's ConfigLoader looks for this file first (Python-first config).
-              It must export an <code>app</code> variable containing the Workspace configuration object.
+              It must export a <DocTerm id="cli.workspace_py">workspace</DocTerm> variable containing the Workspace configuration object.
             </p>
             <CodeBlock
-              code={`from aquilia import Workspace, Module, Integration
+              code={`from aquilia import Workspace, Module
+from aquilia import AquilaConfig, Secret, Env
+from aquilia.integrations import (
+    MiddlewareChain,
+    DiIntegration,
+    RegistryIntegration,
+    RoutingIntegration,
+    FaultHandlingIntegration,
+    PatternsIntegration,
+    DatabaseIntegration,
+    CacheIntegration,
+    TemplatesIntegration,
+    StaticFilesIntegration,
+)
 
-app = (
-    Workspace("my-api")
-    .module(
-        Module("core")
-        .auto_discover("modules/core")
-        .route_prefix("/api")
+# ── Environment Configuration ────────────────────────────────────
+class BaseEnv(AquilaConfig):
+    """Shared defaults — every environment inherits these."""
+    env = "dev"
+
+    class server(AquilaConfig.Server):
+        host    = "127.0.0.1"
+        port    = 8000
+        workers = 1
+        reload  = False
+
+    class auth(AquilaConfig.Auth):
+        secret_key      = Secret(env="AQ_SECRET_KEY", default="change-me-in-prod")
+        password_hasher = AquilaConfig.PasswordHasher(algorithm="argon2id")
+
+class DevEnv(BaseEnv):
+    """Development — hot-reload, debug pages, single worker."""
+    env = "dev"
+
+    class server(BaseEnv.server):
+        debug   = True
+        reload  = True
+        workers = 1
+
+class ProdEnv(BaseEnv):
+    """Production — multi-worker, no reload, no debug."""
+    env = "prod"
+
+    class server(BaseEnv.server):
+        host               = Env("AQ_HOST", default="0.0.0.0")
+        port               = Env("AQ_PORT", default=8000, cast=int)
+        workers            = Env("AQ_WORKERS", default=4, cast=int)
+        reload             = False
+        access_log         = False
+
+    class auth(BaseEnv.auth):
+        secret_key = Secret(env="AQ_SECRET_KEY", required=True)
+
+# ── Workspace Structure ──────────────────────────────────────────
+workspace = (
+    Workspace(
+        name="my-api",
+        version="1.0.0",
+        description="Aquilia workspace",
     )
-    .module(
-        Module("users")
-        .auto_discover("modules/users")
-        .route_prefix("/api/users")
-        .depends_on(["core"])
-    )
-    .integrate(
-        Integration.database(url="sqlite:///db.sqlite3"),
-        Integration.sessions(),
-        Integration.auth(),
-        Integration.cors(allow_origins=["*"]),
-        Integration.cache(backend="memory"),
-    )
-    .runtime(debug=True, host="0.0.0.0", port=8000)
+    # Wire environment config (resolved by AQ_ENV at runtime)
+    .env_config(BaseEnv)
+
+    # Starter module for welcome page
+    .starter("starter")
+
+    # Middleware chain
+    .middleware(MiddlewareChain.defaults())
     .build()
 )`}
               language="python"
             />
           </div>
 
-          {/* aquilia.yaml */}
-          <div>
-            <h3 className={`font-bold text-lg mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              <code>aquilia.yaml</code> <span className={`text-sm font-normal ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>(alternative)</span>
-            </h3>
-            <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              YAML-based configuration as an alternative to workspace.py. Lower priority — if both exist,
-              workspace.py takes precedence. Useful for deployment environments where Python config isn't ideal.
-            </p>
-            <CodeBlock
-              code={`# aquilia.yaml
-name: my-api
-debug: true
-
-runtime:
-  host: 0.0.0.0
-  port: 8000
-
-database:
-  url: sqlite:///db.sqlite3
-
-sessions:
-  enabled: true
-  secret_key: "change-in-production"
-  max_age: 3600
-
-auth:
-  enabled: true
-  secret_key: "jwt-secret"
-  algorithm: RS256
-
-cors:
-  allow_origins:
-    - "http://localhost:3000"
-  allow_methods:
-    - GET
-    - POST
-    - PUT
-    - DELETE`}
-              language="yaml"
-            />
-          </div>
-
           {/* .env */}
           <div>
             <h3 className={`font-bold text-lg mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              <code>.env</code>
+              <DocTerm id="cli.dotenv_file">.env</DocTerm>
             </h3>
             <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
               Environment variables with the <code>AQ_</code> prefix are automatically loaded. Nested keys
@@ -200,12 +162,9 @@ cors:
             </p>
             <CodeBlock
               code={`# .env
-AQ_DEBUG=false
-AQ_PORT=9000
-AQ_DATABASE__URL=postgres://user:pass@localhost/mydb
-AQ_AUTH__SECRET_KEY=production-secret
-AQ_SESSIONS__SECRET_KEY=session-secret
-AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
+AQ_ENV=dev
+AQ_SECRET_KEY=some-highly-secure-secret-key-string
+AQ_DATABASE__URL=sqlite:///db.sqlite3`}
               language="bash"
             />
           </div>
@@ -234,12 +193,13 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
+                ['manifest.py', 'Module metadata & declarations', 'Compiled & registered by the discovery engine'],
                 ['controllers.py', 'Classes extending Controller', 'Compiled routes registered with ControllerRouter'],
                 ['services.py', 'Classes decorated with @service or @factory', 'Providers registered in DI Container'],
-                ['models.py', 'Classes extending Model (ModelMeta metaclass)', 'Schemas compiled, tables validated/created'],
-                ['serializers.py', 'Classes extending Serializer / ModelSerializer', 'Available for controller decorator binding'],
-                ['blueprints.py', 'Classes extending Blueprint', 'Available for controller decorator binding'],
-                ['middleware.py', 'Callable middleware functions', 'Added to module-scoped middleware stack'],
+                ['models.py', 'Classes extending Model', 'ORM schemas compiled, database tables validated/created'],
+                ['blueprints.py', 'Classes extending Blueprint', 'Input schemas available for controller endpoint binding'],
+                ['faults.py', 'Custom structured Fault classes', 'Added to module-scoped FaultDomain'],
+                ['test_routes.py', 'Integration and route level tests', 'Verified during aq test execution'],
               ].map(([file, scans, reg], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{file}</td>
@@ -249,14 +209,6 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
               ))}
             </tbody>
           </table>
-        </div>
-
-        <div className={`mt-4 rounded-lg border p-4 ${isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
-            <strong>Explicit registration:</strong> If you prefer not to use <code>auto_discover()</code>,
-            you can explicitly register components with <code>Module.register_controllers([...])</code>,
-            <code>.register_services([...])</code>, and <code>.register_models([...])</code>.
-          </p>
         </div>
       </section>
 
@@ -268,8 +220,8 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>.aquilia/</code> directory is automatically generated at boot and contains
-          diagnostic artifacts. It should be added to <code>.gitignore</code>:
+          The <code>.aquilia/</code> directory is automatically generated at boot/runtime and contains
+          diagnostic artifacts, credentials, caches, and logs. It should be added to <code>.gitignore</code>:
         </p>
 
         <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
@@ -282,13 +234,15 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
-                ['manifest.json', 'Runtime manifest snapshot — all apps, controllers, services, and configuration'],
-                ['route_map.json', 'Every registered route with HTTP method, pattern, controller, and handler'],
-                ['di_graph.json', 'Complete DI dependency graph with providers, scopes, and resolution chains'],
-                ['schema_ledger.json', 'Model schema snapshots for migration diffing and validation'],
-                ['lifecycle.log', 'Timestamped journal of lifecycle events (startup, shutdown, errors)'],
-                ['config_snapshot.json', 'Active merged configuration at boot time'],
-                ['diagnostics.json', 'Health check results, latency metrics, and provider statistics'],
+                ['discovery_cache.surp', 'AST discovery cache mapping file hashes to avoid redundant scans'],
+                ['audit.surp', 'Binary SURP format admin audit log logging all administrator actions'],
+                ['admin/profile/', 'Directory containing profile avatar images uploaded via the admin portal'],
+                ['mcp/index.json', 'Local MCP server knowledge index containing codebase schemas'],
+                ['mcp/server.pid', 'Process ID file of the active Model Context Protocol daemon'],
+                ['mcp/server.log', 'Execution log file containing output of the active MCP daemon'],
+                ['providers/render/credentials.surp', 'AES-256-GCM encrypted Render deployment API tokens'],
+                ['providers/render/config.json', 'Non-sensitive Render deployment settings (region, owner name, TTL)'],
+                ['providers/render/audit.log', 'Render credential access audit trail'],
               ].map(([file, contents], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{file}</td>
@@ -300,8 +254,8 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
         </div>
 
         <p className={`mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Use <code>aq inspect</code> to query trace artifacts from the command line, or use
-          <code>aq trace</code> for interactive exploration.
+          Use <DocTerm id="cli.inspect">aq inspect</DocTerm> to query trace artifacts from the command line, or use
+          <DocTerm id="cli.trace">aq trace</DocTerm> for interactive exploration.
         </p>
       </section>
 
@@ -313,7 +267,7 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>aq</code> CLI generates various files. Understanding where they go:
+          The <DocTerm id="cli.aq">aq</DocTerm> CLI generates various files. Understanding where they go:
         </p>
 
         <div className={`rounded-xl border overflow-hidden ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
@@ -326,17 +280,18 @@ AQ_CORS__ALLOW_ORIGINS=https://myapp.com`}
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
-                ['aq init workspace <name>', 'Full project scaffolding with workspace.py, modules/, templates/, static/'],
-                ['aq add module <name>', 'modules/<name>/ with __init__.py, controllers.py, services.py, models.py'],
-                ['aq generate controller <Name>', 'controllers/<name>.py with boilerplate Controller class'],
-                ['aq generate service <Name>', 'services/<name>.py with @service-decorated class'],
-                ['aq compile', 'artifacts/ with explicit Surp metadata files'],
-                ['aq freeze', 'frozen.surp artifact integrity snapshot'],
-                ['aq migrate makemigrations', 'migrations/ directory with numbered migration files'],
-                ['aq deploy all', 'Dockerfile and docker-compose.yml for containerized deployment'],
-              ].map(([cmd, gen], i) => (
+                { cmd: 'aq init workspace <name>', id: 'cli.init_workspace', gen: 'Full project scaffolding with workspace.py, starter.py, modules/ directory' },
+                { cmd: 'aq add module <name>', id: 'cli.add_module', gen: 'modules/<name>/ with manifest.py, controllers.py, services.py, models.py, blueprints.py, faults.py' },
+                { cmd: 'aq validate', id: 'cli.validate', gen: 'Performs static check of imports, wiring, schemas, and configurations' },
+                { cmd: 'aq db makemigrations', id: 'cli.db_makemigrations', gen: 'Scans ORM models and generates numbered database migration files' },
+                { cmd: 'aq db migrate', id: 'cli.db_migrate', gen: 'Applies pending schema migrations to the configured SQLite/PostgreSQL database' },
+                { cmd: 'aq deploy all', id: 'cli.deploy', gen: 'Generates deployment templates: Dockerfile, docker-compose.yml, Kubernetes manifests, and Render configuration' },
+                { cmd: 'aq freeze', id: 'cli.freeze', gen: 'Generates frozen.surp manifest integrity snapshot, disabling auto-discovery' },
+              ].map(({ cmd, id, gen }, i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{cmd}</td>
+                  <td className="px-4 py-2 text-xs">
+                    <DocTerm id={id}>{cmd}</DocTerm>
+                  </td>
                   <td className={`px-4 py-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{gen}</td>
                 </tr>
               ))}

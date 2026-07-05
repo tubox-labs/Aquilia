@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { Copy, Check, Terminal } from 'lucide-react'
+import { Copy, Check, Braces, Settings, FileCode } from 'lucide-react'
 import { Highlight } from 'prism-react-renderer'
 import Prism from 'prismjs'
 import 'prismjs/components/prism-python'
@@ -94,6 +94,57 @@ function getNeighborChars(tokens: Array<{ content: string }>, tokenIndex: number
   return { prevChar, nextChar }
 }
 
+function getLanguageIcon(language: string) {
+  const norm = language.toLowerCase().trim()
+
+  // Map language to Devicon slug
+  const deviconMap: Record<string, string> = {
+    python: 'python/python-original.svg',
+    py: 'python/python-original.svg',
+    typescript: 'typescript/typescript-original.svg',
+    ts: 'typescript/typescript-original.svg',
+    tsx: 'typescript/typescript-original.svg',
+    javascript: 'javascript/javascript-original.svg',
+    js: 'javascript/javascript-original.svg',
+    jsx: 'javascript/javascript-original.svg',
+    bash: 'bash/bash-original.svg',
+    sh: 'bash/bash-original.svg',
+    zsh: 'bash/bash-original.svg',
+    shell: 'bash/bash-original.svg',
+    terminal: 'bash/bash-original.svg',
+    console: 'bash/bash-original.svg',
+    docker: 'docker/docker-original.svg',
+    dockerfile: 'docker/docker-original.svg',
+    yaml: 'yaml/yaml-original.svg',
+    yml: 'yaml/yaml-original.svg',
+    markdown: 'markdown/markdown-original.svg',
+    md: 'markdown/markdown-original.svg',
+  }
+
+  const deviconSlug = deviconMap[norm]
+  if (deviconSlug) {
+    return (
+      <img
+        src={`https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/${deviconSlug}`}
+        className="w-4.5 h-4.5 object-contain grayscale brightness-0 dark:invert opacity-50"
+        alt={language}
+        loading="lazy"
+      />
+    )
+  }
+
+  // Fallback to Lucide icons
+  if (['json'].includes(norm)) {
+    return <Braces className="w-4.5 h-4.5 text-gray-500 dark:text-gray-400 shrink-0" />
+  }
+
+  if (['toml', 'ini', 'conf'].includes(norm)) {
+    return <Settings className="w-4.5 h-4.5 text-gray-500 dark:text-gray-400 shrink-0" />
+  }
+
+  return <FileCode className="w-4.5 h-4.5 text-gray-500 dark:text-gray-400 shrink-0" />
+}
+
 export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true, compact = false }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const { theme } = useTheme()
@@ -136,8 +187,6 @@ export function CodeBlock({ code, children, language = 'python', filename, title
   const selfColor = isDark ? '#f472b6' : '#be185d'
   const canApplyClassFallback = CLASS_FALLBACK_LANGUAGES.has(prismLanguage)
 
-  const isTerminal = ['bash', 'shell', 'sh', 'zsh', 'terminal', 'console', 'shell-session', 'shellsession'].includes(normalizedLanguage)
-
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(codeContent)
     setCopied(true)
@@ -148,16 +197,11 @@ export function CodeBlock({ code, children, language = 'python', filename, title
     <div className={`group relative ${compact ? 'my-2' : 'my-6'}`}>
       <div className="absolute -inset-0.5 bg-gradient-to-r from-aquilia-500/10 to-blue-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition" />
       <div className={`relative rounded-xl overflow-hidden border ${isDark ? 'bg-black border-white/10' : 'bg-[#f8fafc] border-gray-200'}`}>
-        {/* Header with macOS traffic-light dots */}
+        {/* Header with language icon */}
         <div className={`flex items-center justify-between ${compact ? 'px-3 py-2' : 'px-4 py-2.5'} border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/80'}`}>
           <div className="flex items-center gap-3">
-            <div className="flex gap-1.5 opacity-50">
-              <div className="w-3 h-3 rounded-full bg-[#FF5F56]" />
-              <div className="w-3 h-3 rounded-full bg-[#FFBD2E]" />
-              <div className="w-3 h-3 rounded-full bg-[#27C93F]" />
-            </div>
+            {getLanguageIcon(normalizedLanguage)}
             <div className="flex items-center gap-2">
-              {isTerminal && <Terminal className="w-3.5 h-3.5 text-aquilia-500" />}
               <span className={`font-mono uppercase tracking-wider ${compact ? 'text-[10px]' : 'text-xs'} ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                 {title || filename || language}
               </span>
