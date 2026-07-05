@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import {
-  MessageSquare, X, Send, Bot, User, Sparkles, Loader2,
-  Trash2, HelpCircle, Settings, Key, Cpu, BookOpen
+  X, Send, User, Sparkles, Loader2,
+  Trash2, HelpCircle, BookOpen
 } from 'lucide-react'
 import { CodeBlock } from './CodeBlock'
 import { useTheme } from '../context/ThemeContext'
@@ -81,11 +81,6 @@ export function Chatbox() {
   ])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  
-  // Settings drawer state
-  const [showSettings, setShowSettings] = useState(false)
-  const [customKey, setCustomKey] = useState(() => localStorage.getItem('aq-openrouter-key') || '')
-  const [customModel, setCustomModel] = useState(() => localStorage.getItem('aq-openrouter-model') || 'google/gemini-2.5-flash')
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -94,12 +89,7 @@ export function Chatbox() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Save custom key and model to localStorage
-  const saveSettings = () => {
-    localStorage.setItem('aq-openrouter-key', customKey)
-    localStorage.setItem('aq-openrouter-model', customModel)
-    setShowSettings(false)
-  }
+
 
   const handleClear = () => {
     setMessages([
@@ -156,16 +146,16 @@ Format your responses beautifully in markdown. If you output code blocks, specif
       (contextStr ? `Here is the relevant Aquilia documentation context:\n${contextStr}` : `No direct documentation search results were found for this query.`)
 
     // Determine OpenRouter configs
-    const apiKey = customKey || import.meta.env.VITE_OPENROUTER_API_KEY || ''
+    const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY || ''
     const baseURL = import.meta.env.VITE_OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1'
-    const model = customModel || import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-2.5-flash'
+    const model = import.meta.env.VITE_OPENROUTER_MODEL || 'google/gemini-2.5-flash'
 
     if (!apiKey) {
       setMessages(prev => [
         ...prev,
         {
           role: 'assistant',
-          content: '⚠️ **OpenRouter API Key is missing.**\n\nPlease click on the **Settings** gear icon in the chat header, paste your OpenRouter API key, and click Save to start chatting. You can also configure it inside the `aqdocx/.env` file as `VITE_OPENROUTER_API_KEY`.',
+          content: '⚠️ **OpenRouter API Key is missing.**\n\nPlease configure it inside the `aqdocx/.env` file as `VITE_OPENROUTER_API_KEY`.',
           timestamp: new Date()
         }
       ])
@@ -371,17 +361,6 @@ Format your responses beautifully in markdown. If you output code blocks, specif
 
           <div className="flex items-center gap-1">
             <button
-              onClick={() => setShowSettings(!showSettings)}
-              className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                showSettings
-                  ? 'text-aquilia-400 bg-aquilia-500/10'
-                  : `${isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`
-              }`}
-              title="OpenRouter Settings"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-            <button
               onClick={handleClear}
               className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
               title="Clear chat history"
@@ -398,62 +377,7 @@ Format your responses beautifully in markdown. If you output code blocks, specif
           </div>
         </div>
 
-        {/* Settings view Overlay */}
-        {showSettings && (
-          <div className={`p-5 flex flex-col gap-4 border-b ${isDark ? 'bg-zinc-950/95 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-            <div className="flex items-center gap-2 text-xs font-mono font-bold text-aquilia-400">
-              <Settings className="w-4.5 h-4.5" />
-              OPENROUTER CREDENTIALS
-            </div>
-            
-            <div className="flex flex-col gap-1.5">
-              <label className={`text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                <Key className="w-3.5 h-3.5" /> API Key
-              </label>
-              <input
-                type="password"
-                placeholder={import.meta.env.VITE_OPENROUTER_API_KEY ? '•••••••••••••••• (Set via Env)' : 'sk-or-v1-...'}
-                value={customKey}
-                onChange={(e) => setCustomKey(e.target.value)}
-                className={`px-3 py-2 text-sm rounded-xl border font-mono outline-none focus:border-aquilia-500 ${
-                  isDark ? 'bg-black border-white/10 text-white' : 'bg-white border-gray-300 text-black'
-                }`}
-              />
-            </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className={`text-xs font-semibold flex items-center gap-1.5 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                <Cpu className="w-3.5 h-3.5" /> Model Name
-              </label>
-              <input
-                type="text"
-                placeholder="google/gemini-2.5-flash"
-                value={customModel}
-                onChange={(e) => setCustomModel(e.target.value)}
-                className={`px-3 py-2 text-sm rounded-xl border font-mono outline-none focus:border-aquilia-500 ${
-                  isDark ? 'bg-black border-white/10 text-white' : 'bg-white border-gray-300 text-black'
-                }`}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 mt-2">
-              <button
-                onClick={saveSettings}
-                className="px-4 py-2 text-xs rounded-xl font-bold bg-aquilia-600 hover:bg-aquilia-500 text-white shadow-md shadow-aquilia-500/10 cursor-pointer"
-              >
-                Save Config
-              </button>
-              <button
-                onClick={() => setShowSettings(false)}
-                className={`px-4 py-2 text-xs rounded-xl font-bold border cursor-pointer ${
-                  isDark ? 'border-white/10 hover:bg-white/5 text-gray-400 hover:text-white' : 'border-gray-300 hover:bg-gray-100 text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Chat History Viewport */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
