@@ -448,10 +448,13 @@ class Model(metaclass=ModelMeta):
             user = await User.get(email="alice@test.com")
         """
         db = cls._get_db()
+        dialect = getattr(db, "dialect", "sqlite")
 
         if pk is not None:
+            pk_field = cls._fields.get(cls._pk_attr)
+            db_pk = pk_field.to_db(pk, dialect=dialect) if pk_field is not None else pk
             sql = f'SELECT * FROM "{cls._table_name}" WHERE "{cls._pk_name}" = ?'
-            row = await db.fetch_one(sql, [pk])
+            row = await db.fetch_one(sql, [db_pk])
         elif filters:
             # Validate filter keys to prevent identifier injection
             import re
@@ -468,8 +471,12 @@ class Model(metaclass=ModelMeta):
                         "Field names must contain only letters, digits, and underscores.",
                     )
             wheres = [f'"{k}" = ?' for k in filters]
+            db_values = []
+            for k, v in filters.items():
+                field = cls._fields.get(k)
+                db_values.append(field.to_db(v, dialect=dialect) if field is not None else v)
             sql = f'SELECT * FROM "{cls._table_name}" WHERE ' + " AND ".join(wheres)
-            row = await db.fetch_one(sql, list(filters.values()))
+            row = await db.fetch_one(sql, db_values)
         else:
             from ..faults.domains import QueryFault
 

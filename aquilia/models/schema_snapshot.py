@@ -540,6 +540,18 @@ def _field_to_sql_type(fld) -> str:
         UUIDField,
     )
 
+    if isinstance(fld, (ForeignKey, OneToOneField)):
+        related = fld.related_model
+        if related is None and isinstance(fld.to, str):
+            from .registry import ModelRegistry
+
+            related = ModelRegistry.get(fld.to)
+        if related is not None:
+            pk_field = related._fields.get(related._pk_attr)
+            if pk_field is not None:
+                return _field_to_sql_type(pk_field)
+        return "INTEGER"
+
     type_map = {
         AutoField: "INTEGER",
         BigAutoField: "INTEGER",
@@ -555,8 +567,6 @@ def _field_to_sql_type(fld) -> str:
         DateTimeField: "TIMESTAMP",
         DurationField: "INTEGER",
         UUIDField: "VARCHAR(36)",
-        ForeignKey: "INTEGER",
-        OneToOneField: "INTEGER",
     }
 
     for cls, sql_type in type_map.items():

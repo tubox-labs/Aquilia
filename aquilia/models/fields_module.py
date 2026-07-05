@@ -1746,6 +1746,19 @@ class RelationField(Field):
         if isinstance(self.to, str):
             self._related_model = registry.get(self.to)
 
+    def _resolve_pk_field(self) -> "Field | None":
+        """Resolve the related model's primary-key field, if the model can be found."""
+        model = self.related_model
+        if model is None and isinstance(self.to, str):
+            from .registry import ModelRegistry
+
+            model = ModelRegistry.get(self.to)
+            if model is not None:
+                self._related_model = model
+        if model is None:
+            return None
+        return model._fields.get(model._pk_attr)
+
 
 class ForeignKey(RelationField):
     """
@@ -1782,11 +1795,21 @@ class ForeignKey(RelationField):
         super().__set_name__(owner, name)
         self.name = self.db_column
 
+    def _coerce_to_pk(self, value: Any) -> Any:
+        """Unwrap a related Model instance to its primary key value."""
+        if hasattr(value, "pk") and hasattr(value, "_fields"):
+            return value.pk
+        return value
+
     def validate(self, value: Any) -> Any:
         if value is None:
             if self.null:
                 return None
             raise FieldValidationError(self.name, "Cannot be null")
+        value = self._coerce_to_pk(value)
+        pk_field = self._resolve_pk_field()
+        if pk_field is not None:
+            return pk_field.validate(value)
         if not isinstance(value, int):
             try:
                 value = int(value)
@@ -1794,7 +1817,19 @@ class ForeignKey(RelationField):
                 raise FieldValidationError(self.name, f"Expected integer FK, got {type(value).__name__}")
         return value
 
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
+        if value is None:
+            return None
+        value = self._coerce_to_pk(value)
+        pk_field = self._resolve_pk_field()
+        if pk_field is not None:
+            return pk_field.to_db(value, dialect=dialect)
+        return value
+
     def sql_type(self, dialect: str = "sqlite") -> str:
+        pk_field = self._resolve_pk_field()
+        if pk_field is not None:
+            return pk_field.sql_type(dialect=dialect)
         if dialect == "oracle":
             return "NUMBER(10)"
         return "INTEGER"
@@ -1832,10 +1867,14 @@ class OneToOneField(ForeignKey):
         self,
         to: str | type[Model],
         *,
+        related_name: str | None = None,
+        on_delete: str = "CASCADE",
+        on_update: str = "CASCADE",
+        db_constraint: bool = True,
         null: bool = False,
         blank: bool = False,
         default: Any = UNSET,
-        unique: bool = False,
+        unique: bool = True,
         primary_key: bool = False,
         db_index: bool = False,
         db_column: str | None = None,
@@ -1859,8 +1898,14 @@ class OneToOneField(ForeignKey):
             "editable": editable,
             "verbose_name": verbose_name,
         }
-        kwargs.setdefault("unique", True)
-        super().__init__(to=to, **kwargs)
+        super().__init__(
+            to=to,
+            related_name=related_name,
+            on_delete=on_delete,
+            on_update=on_update,
+            db_constraint=db_constraint,
+            **kwargs,
+        )
 
 
 class ManyToManyField(RelationField):

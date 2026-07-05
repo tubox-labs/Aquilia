@@ -473,11 +473,49 @@ class Q:
 
         # Handle keyword filters
         for key, value in kwargs.items():
+            value = self._coerce_filter_value(key, value)
             clause, params = _build_filter_clause(key, value)
             new._wheres.append(clause)
             new._params.extend(params)
 
         return new
+
+    # Lookup suffixes whose value is a direct field-value comparison (so it's
+    # safe to run through field.to_db()) rather than a string pattern, a
+    # boolean flag, or an extracted date component.
+    _TO_DB_SAFE_LOOKUPS = {"exact", "ne", "in", "range", "gt", "gte", "lt", "lte"}
+
+    def _coerce_filter_value(self, key: str, value: Any) -> Any:
+        """Convert a filter value through its field's to_db(), when safe.
+
+        Mirrors the conversion update() already applies to SET values --
+        without it, filtering/excluding on non-primitively-bindable field
+        values (e.g. a UUID primary key/FK) fails at the driver with
+        "type '...' is not supported" instead of resolving correctly.
+        """
+        from .expression import Expression
+
+        if isinstance(value, Expression) or hasattr(value, "_build_select"):
+            return value
+
+        if "__" in key:
+            base_key, op = key.rsplit("__", 1)
+            if op not in self._TO_DB_SAFE_LOOKUPS:
+                return value
+        else:
+            base_key = key
+
+        field = self._model_cls._fields.get(base_key) if hasattr(self._model_cls, "_fields") else None
+        if field is None:
+            return value
+
+        dialect = self._get_dialect()
+        if isinstance(value, (list, tuple)):
+            converted = [field.to_db(v, dialect=dialect) if v is not None else None for v in value]
+            return type(value)(converted)
+        if value is None:
+            return None
+        return field.to_db(value, dialect=dialect)
 
     def exclude(self, *q_nodes: Any, **kwargs: Any) -> Q:
         """
@@ -500,6 +538,7 @@ class Q:
                     new._params.extend(params)
         # Handle keyword filters
         for key, value in kwargs.items():
+            value = self._coerce_filter_value(key, value)
             clause, params = _build_filter_clause(key, value)
             new._wheres.append(f"NOT ({clause})")
             new._params.extend(params)
