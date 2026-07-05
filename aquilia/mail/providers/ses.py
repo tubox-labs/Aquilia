@@ -436,5 +436,34 @@ class SESProvider:
         # Default to transient
         return ProviderResultStatus.TRANSIENT_FAILURE, 30.0
 
+    def to_dict(self) -> dict:
+        """Serialize to provider config dict for MailIntegration."""
+        d: dict = {
+            'type': self.provider_type,
+            'name': self.name,
+            'enabled': True,
+            'rate_limit_per_min': 600,
+            'priority': self.priority,
+        }
+        extras: dict = {'region': self.region, 'use_raw': self.use_raw}
+        if self.aws_access_key_id:
+            extras['aws_access_key_id'] = self.aws_access_key_id
+        if self.aws_secret_access_key:
+            extras['aws_secret_access_key'] = self.aws_secret_access_key
+        if self.aws_session_token:
+            extras['aws_session_token'] = self.aws_session_token
+        if self.configuration_set:
+            extras['configuration_set'] = self.configuration_set
+        if self.source_arn:
+            extras['source_arn'] = self.source_arn
+        if self.return_path:
+            extras['return_path'] = self.return_path
+        if self.tags:
+            extras['tags'] = self.tags
+        if self.endpoint_url:
+            extras['endpoint_url'] = self.endpoint_url
+        d['config'] = extras
+        return d
+
     def __repr__(self) -> str:
         return f"SESProvider(name={self.name!r}, region={self.region!r}, config_set={self.configuration_set!r})"

@@ -532,5 +532,32 @@ class SMTPProvider:
             ),
         )
 
+    def to_dict(self) -> dict:
+        """Serialize to provider config dict for MailIntegration."""
+        d = {
+            'type': self.provider_type,
+            'name': self.name,
+            'enabled': True,
+            'rate_limit_per_min': 600,
+            'priority': self.priority,
+            'host': self.host,
+            'port': self.port,
+            'use_tls': self.use_tls,
+            'use_ssl': self.use_ssl,
+            'timeout': self.timeout,
+        }
+        if self.username:
+            d['username'] = self.username
+        if self.password:
+            d['password'] = self.password
+        extras = {}
+        for attr in ('source_address', 'local_hostname', 'validate_certs', 'client_cert', 'client_key', 'pool_size', 'pool_recycle'):
+            val = getattr(self, attr, None)
+            if val is not None:
+                extras[attr] = val
+        if extras:
+            d['config'] = extras
+        return d
+
     def __repr__(self) -> str:
         return f"SMTPProvider(name={self.name!r}, host={self.host!r}, port={self.port}, tls={self.use_tls})"

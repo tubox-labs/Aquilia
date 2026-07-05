@@ -347,5 +347,22 @@ class FileProvider:
             index.unlink()
         return count
 
+    def to_dict(self) -> dict:
+        """Serialize to provider config dict for MailIntegration."""
+        return {
+            'type': self.provider_type,
+            'name': self.name,
+            'enabled': True,
+            'rate_limit_per_min': 600,
+            'priority': self.priority,
+            'config': {
+                'output_dir': str(self.output_dir),
+                'max_files': self.max_files,
+                'write_index': self.write_index,
+                'include_metadata': self.include_metadata,
+                'file_extension': self.file_extension,
+            },
+        }
+
     def __repr__(self) -> str:
         return f"FileProvider(name={self.name!r}, dir={self.output_dir!r}, files={self._total_sent})"
