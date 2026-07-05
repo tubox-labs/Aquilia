@@ -33,15 +33,14 @@ Quick start::
 
 Backward compatibility
 ----------------------
-The legacy ``Integration`` class lives in ``_legacy.py`` (formerly
-``config_builders.py``).  Its static methods still work, so old code
-(``Integration.mail(...)``, ``Integration.admin(...)``, etc.) keeps
-compiling, but new code should prefer the typed dataclasses.
+The ``Integration`` class (``aquilia/integrations/integration.py``) provides
+backward-compatible static builder methods that delegate to the typed
+dataclasses.  Prefer the typed dataclasses directly for new code.
 """
 
 # ── Protocol ──────────────────────────────────────────────────────────
 # ── Legacy Integration (backward compat) ───────────────────────────────
-from aquilia.integrations._legacy import Integration as Integration  # noqa: F811
+from aquilia.integrations.integration import Integration as Integration
 from aquilia.integrations._protocol import IntegrationConfig
 
 # ── Admin ─────────────────────────────────────────────────────────────
@@ -185,6 +184,6 @@ __all__ = [
     "PatternsIntegration",
     "RegistryIntegration",
     "SerializersIntegration",
-    # Legacy
+    # Integration (typed wrapper — delegates to typed dataclasses)
     "Integration",
 ]

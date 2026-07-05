@@ -501,7 +501,7 @@ from .integrations import (
     FaultHandlingIntegration,
     FileProvider,
     I18nIntegration,
-    Integration,  # legacy — prefer typed dataclasses
+    Integration,  # typed wrapper — delegates to typed dataclasses
     IntegrationConfig,
     LoggingIntegration,
     MailAuth,
@@ -1126,7 +1126,7 @@ __all__ = [
     # Config builders (NEW - Python config)
     "Workspace",
     "Module",
-    # Legacy Integration
+    # Integration (typed wrapper — delegates to typed dataclasses)
     "Integration",
     # Typed Integration configs (modern API)
     "IntegrationConfig",
