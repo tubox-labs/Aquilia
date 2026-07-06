@@ -393,11 +393,35 @@ class OracleAdapter(DatabaseAdapter):
 
     # ── Transactions ─────────────────────────────────────────────────
 
-    async def begin(self) -> None:
-        """Acquire a dedicated connection and start a transaction."""
+    async def begin(self, isolation: str | None = None, readonly: bool = False) -> None:
+        """Acquire a dedicated connection and start a transaction.
+
+        Oracle only supports ``READ COMMITTED`` (default) and
+        ``SERIALIZABLE`` isolation; ``SET TRANSACTION`` must run before any
+        DML on the same session, so it's issued here immediately after
+        acquiring the dedicated connection.
+        """
         if self._in_transaction:
             return
         self._txn_conn = await self._pool.acquire()
+        if readonly:
+            # Oracle's SET TRANSACTION READ ONLY can't be combined with an
+            # explicit ISOLATION LEVEL clause -- a read-only transaction is
+            # already serializable-snapshot semantics.
+            cursor = self._txn_conn.cursor()
+            await cursor.execute("SET TRANSACTION READ ONLY")
+        elif isolation:
+            normalized = isolation.strip().upper()
+            if normalized not in ("READ COMMITTED", "SERIALIZABLE"):
+                from aquilia.faults.domains import QueryFault
+
+                raise QueryFault(
+                    model="(transaction)",
+                    operation="begin",
+                    reason=f"Oracle only supports READ COMMITTED/SERIALIZABLE isolation, got {isolation!r}",
+                )
+            cursor = self._txn_conn.cursor()
+            await cursor.execute(f"SET TRANSACTION ISOLATION LEVEL {normalized}")
         # Oracle transactions are implicit -- any DML starts a transaction
         self._in_transaction = True
 

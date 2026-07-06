@@ -129,8 +129,8 @@ class DatabaseAdapter(ABC):
     # ── Transaction management ───────────────────────────────────────
 
     @abstractmethod
-    async def begin(self) -> None:
-        """Start a transaction."""
+    async def begin(self, isolation: str | None = None, readonly: bool = False) -> None:
+        """Start a transaction, optionally at a specific isolation level and/or read-only."""
         ...
 
     @abstractmethod

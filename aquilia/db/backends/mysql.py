@@ -257,12 +257,26 @@ class MySQLAdapter(DatabaseAdapter):
 
     # ── Transactions ─────────────────────────────────────────────────
 
-    async def begin(self) -> None:
-        """Acquire a dedicated connection and start a transaction."""
+    async def begin(self, isolation: str | None = None, readonly: bool = False) -> None:
+        """Acquire a dedicated connection and start a transaction.
+
+        MySQL requires ``SET TRANSACTION ISOLATION LEVEL``/``SET TRANSACTION
+        READ ONLY`` to run on the *same session*, before ``START
+        TRANSACTION`` -- so both must be issued on the freshly acquired
+        ``conn`` here, before ``conn.begin()``, not through the generic
+        auto-commit ``execute()`` path (which could acquire a different
+        pooled connection).
+        """
         if self._in_transaction:
             return
         conn = await self._pool.acquire()
         await conn.autocommit(False)
+        if isolation or readonly:
+            async with conn.cursor() as cur:
+                if isolation:
+                    await cur.execute(f"SET TRANSACTION ISOLATION LEVEL {isolation}")
+                if readonly:
+                    await cur.execute("SET TRANSACTION READ ONLY")
         await conn.begin()
         self._txn_conn = conn
         self._in_transaction = True

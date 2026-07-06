@@ -264,6 +264,29 @@ class AquiliaDatabase:
             self._connected = False
             await self.connect()
 
+    async def begin(self, isolation: str | None = None, readonly: bool = False) -> None:
+        """
+        Start a transaction on the backend adapter directly.
+
+        This pins a dedicated connection (the writer, for SQLite, unless
+        ``readonly=True``) and disables per-statement auto-commit on it --
+        unlike sending literal ``"BEGIN"`` text through ``execute()``, which
+        the adapter treats as an ordinary auto-committed statement.
+        """
+        await self.ensure_connected()
+        await self._adapter.begin(isolation=isolation, readonly=readonly)
+        self._in_transaction = True
+
+    async def commit(self) -> None:
+        """Commit the transaction started by :meth:`begin` and release its connection."""
+        await self._adapter.commit()
+        self._in_transaction = False
+
+    async def rollback(self) -> None:
+        """Roll back the transaction started by :meth:`begin` and release its connection."""
+        await self._adapter.rollback()
+        self._in_transaction = False
+
     @asynccontextmanager
     async def transaction(self) -> AsyncIterator[None]:
         """
@@ -276,18 +299,13 @@ class AquiliaDatabase:
                 await db.execute("INSERT INTO ...")
                 await db.execute("UPDATE ...")
         """
-        await self.ensure_connected()
-
-        await self._adapter.begin()
-        self._in_transaction = True
+        await self.begin()
         try:
             yield
-            await self._adapter.commit()
+            await self.commit()
         except Exception:
-            await self._adapter.rollback()
+            await self.rollback()
             raise
-        finally:
-            self._in_transaction = False
 
     async def savepoint(self, name: str) -> None:
         """Create a named savepoint within a transaction."""

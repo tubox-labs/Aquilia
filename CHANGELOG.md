@@ -5,6 +5,62 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0b1] — 2026-07-07 — "Ironclad Anchor" (beta)
+
+### Fixed
+- **`atomic()` never actually started a database transaction**: `Atomic.__aenter__`/`__aexit__`
+  (`aquilia/models/transactions.py`) drove the transaction by sending literal `"BEGIN"` /
+  `"SAVEPOINT ..."` / `"RELEASE SAVEPOINT ..."` / `"COMMIT"` / `"ROLLBACK"` through
+  `AquiliaDatabase.execute()` — the exact same auto-commit code path as an ordinary query. Every
+  backend's adapter (`aquilia/db/backends/{sqlite,postgres,mysql,oracle}.py`) only disables
+  per-statement auto-commit once its own `begin()` pins a dedicated connection and flips an
+  internal `_in_transaction` flag; `Atomic` never called that `begin()`/`commit()`/`rollback()`
+  path (`AquiliaDatabase` didn't even expose it publicly — only the private `transaction()`
+  async-contextmanager used it internally, for `Model.delete_instance()` cascades and the
+  migration runner). So the literal `"BEGIN"` text auto-committed on its own the instant it ran,
+  collapsing the transaction before the block's own statements executed; by the time `atomic()`
+  issued its own `"COMMIT"` at block exit, the database had nothing open to commit, surfacing as
+  `QueryFault(code="QUERY_FAILED", operation="execute", metadata.sql="COMMIT",
+  metadata.reason="... cannot commit - no transaction is active")` on SQLite (equivalent errors on
+  other backends). Every statement issued inside `async with atomic(): ...` — including any
+  `Model.save()` calls, which were never at fault — ran autocommitted and independent of one
+  another instead of atomically. `AquiliaDatabase` now exposes public `begin()`/`commit()`/
+  `rollback()` (mirroring its existing `savepoint()`/`release_savepoint()`/
+  `rollback_to_savepoint()` wrappers), and `Atomic` routes through them (plus the savepoint
+  wrappers for nesting) instead of raw SQL text — the same adapter machinery already proven
+  correct by the cascade-delete and migration-runner call sites.
+- **Isolation level silently no-op'd for Postgres/MySQL**: `atomic(isolation="SERIALIZABLE")`
+  issued a separate `SET TRANSACTION ISOLATION LEVEL ...` statement through the auto-commit
+  `execute()` path *before* `"BEGIN"` — since `execute()` auto-acquires and releases a pooled
+  connection per call, the isolation-level statement could land on a different physical connection
+  than the one the following `BEGIN` pinned moments later, silently discarding it. Isolation is now
+  passed directly into each adapter's `begin(isolation=...)`, set on the exact connection/session the
+  transaction actually runs on (asyncpg's native `transaction(isolation=...)` for Postgres, `SET
+  TRANSACTION ISOLATION LEVEL` on the dedicated session before `START TRANSACTION` for MySQL, `SET
+  TRANSACTION ISOLATION LEVEL` before any DML for Oracle; SQLite has no session isolation levels and
+  ignores the parameter).
+
+### Added
+- **`atomic()` as a decorator**: `@atomic()` on an `async def` now wraps the whole call in its own
+  transaction (Tortoise-ORM-style), constructing a fresh `Atomic` per call so concurrent calls to
+  the decorated function don't share mutable transaction state.
+- **`atomic(readonly=True)`**: hints that a block only reads. On SQLite this routes to a reader
+  connection instead of contending for the pool's single writer (Aquilia's own N-readers+1-writer
+  design already made this possible; `atomic()` just wasn't using it). Other backends pass
+  `readonly` straight to their native read-only transaction support (asyncpg `transaction(readonly=
+  True)`, `SET TRANSACTION READ ONLY` for MySQL/Oracle).
+- **`atomic(timeout=...)`** (seconds): Prisma-style interactive-transaction timeout. A watchdog
+  cancels the enclosing task if the block hasn't finished in time; the transaction is rolled back
+  and a `QueryFault` is raised instead of leaving a transaction open indefinitely.
+
+### Testing
+- New `tests/test_orm_transactions_atomic.py`: reproduces the original report exactly
+  (`select_related().filter().first()` before `atomic()`, two `.save()` calls inside it), plus
+  commit/rollback, nested savepoints (commit and partial rollback), `durable=True` nesting
+  rejection, `on_commit`/`on_rollback` hook scoping, two concurrent `asyncio.Task`s each committing
+  independently, the decorator form, `readonly=True` non-contention with a concurrent writer,
+  `timeout=` expiry, and `asyncio.CancelledError` mid-transaction rollback.
+
 ## [1.3.0b0] — 2026-07-06 — "Ironclad Anchor" (beta)
 
 ### Added

@@ -28,18 +28,36 @@ Usage:
     # With isolation level (PostgreSQL/MySQL):
     async with atomic(isolation="SERIALIZABLE"):
         ...
+
+    # As a decorator -- wraps the whole call in a transaction, matching
+    # Tortoise ORM's `@atomic()`:
+    @atomic()
+    async def transfer(src, dst, amount):
+        await src.save()
+        await dst.save()
+
+    # Read-only -- routes to a reader connection instead of contending for
+    # the writer, when the block is known not to write:
+    async with atomic(readonly=True):
+        ...
+
+    # With a timeout (seconds) -- rolled back and raised as a QueryFault if
+    # the block hasn't finished in time, Prisma-style:
+    async with atomic(timeout=5.0):
+        ...
 """
 
 from __future__ import annotations
 
 import asyncio
+import functools
 import inspect
 import logging
 import re
 import uuid
 import weakref
 from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -118,6 +136,8 @@ class Atomic:
         savepoint: bool = True,
         durable: bool = False,
         isolation: str | None = None,
+        readonly: bool = False,
+        timeout: float | None = None,
     ):
         """
         Args:
@@ -126,16 +146,25 @@ class Atomic:
             durable: If True, raises error when used inside another atomic block
             isolation: Transaction isolation level
                 (e.g., "READ COMMITTED", "SERIALIZABLE")
+            readonly: If True, hints the backend this transaction only reads --
+                routes to a reader connection on SQLite instead of contending
+                for the single writer. Ignored for nested (savepoint) blocks.
+            timeout: Seconds before the block is cancelled, rolled back, and a
+                ``QueryFault`` is raised instead of leaving the transaction open.
         """
         self._db = db
         self._use_savepoint = savepoint
         self._durable = durable
         self._isolation = isolation
+        self._readonly = readonly
+        self._timeout = timeout
         self._savepoint_id: str | None = None
         self._is_outermost = False
         self._depth_holder: _DepthHolder | None = None
         self._commit_hooks: list[Callable] = []
         self._rollback_hooks: list[Callable] = []
+        self._timeout_task: asyncio.Task | None = None
+        self._timed_out = False
 
     def _get_db(self) -> AquiliaDatabase:
         if self._db is not None:
@@ -193,16 +222,16 @@ class Atomic:
             # Outermost: start transaction
             self._is_outermost = True
 
-            # Set isolation level if requested (before BEGIN for some backends)
-            if self._isolation and db.driver != "sqlite":
+            normalized_isolation: str | None = None
+            if self._isolation:
                 _ALLOWED_ISOLATION_LEVELS = {
                     "READ UNCOMMITTED",
                     "READ COMMITTED",
                     "REPEATABLE READ",
                     "SERIALIZABLE",
                 }
-                _normalized = self._isolation.upper().strip()
-                if _normalized not in _ALLOWED_ISOLATION_LEVELS:
+                normalized_isolation = self._isolation.upper().strip()
+                if normalized_isolation not in _ALLOWED_ISOLATION_LEVELS:
                     from ..faults.domains import QueryFault
 
                     raise QueryFault(
@@ -211,9 +240,12 @@ class Atomic:
                         reason=f"Invalid isolation level: {self._isolation!r}. "
                         f"Allowed: {sorted(_ALLOWED_ISOLATION_LEVELS)}",
                     )
-                await db.execute(f"SET TRANSACTION ISOLATION LEVEL {_normalized}")
 
-            await db.execute("BEGIN")
+            # Real adapter-level BEGIN (pins a dedicated connection and
+            # disables per-statement auto-commit) instead of sending "BEGIN"
+            # as ordinary SQL text through execute() -- see module docstring
+            # history / CHANGELOG for why the latter silently no-ops.
+            await db.begin(isolation=normalized_isolation, readonly=self._readonly)
             self._depth_holder.value = 1
         else:
             if self._durable:
@@ -227,30 +259,48 @@ class Atomic:
             if self._use_savepoint:
                 # Nested: create savepoint with safe alphanumeric name
                 self._savepoint_id = f"sp_{uuid.uuid4().hex[:12]}"
-                await db.execute(f"SAVEPOINT {self._savepoint_id}")
+                await db.savepoint(self._savepoint_id)
             self._depth_holder.value = depth + 1
+
+        if self._timeout is not None:
+            self._timeout_task = asyncio.ensure_future(self._watchdog(asyncio.current_task()))
 
         return self
 
+    async def _watchdog(self, owner_task: asyncio.Task | None) -> None:
+        """Cancel the owning task if the block outlives ``self._timeout`` seconds."""
+        assert self._timeout is not None
+        await asyncio.sleep(self._timeout)
+        if owner_task is not None and not owner_task.done():
+            self._timed_out = True
+            owner_task.cancel()
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         db = self._get_db()
+
+        # Stop the timeout watchdog before it can fire a spurious late
+        # cancellation once we're already past the guarded block.
+        if self._timeout_task is not None and not self._timeout_task.done():
+            self._timeout_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._timeout_task
 
         try:
             if exc_type is not None:
                 # Exception occurred -- rollback
                 if self._savepoint_id:
-                    await db.execute(f"ROLLBACK TO SAVEPOINT {self._savepoint_id}")
+                    await db.rollback_to_savepoint(self._savepoint_id)
                 elif self._is_outermost:
-                    await db.execute("ROLLBACK")
+                    await db.rollback()
 
                 # Fire rollback hooks
                 await self._fire_hooks(self._rollback_hooks)
             else:
                 # Success -- commit or release savepoint
                 if self._savepoint_id:
-                    await db.execute(f"RELEASE SAVEPOINT {self._savepoint_id}")
+                    await db.release_savepoint(self._savepoint_id)
                 elif self._is_outermost:
-                    await db.execute("COMMIT")
+                    await db.commit()
 
                     # Fire on_commit hooks only at outermost level
                     await self._fire_hooks(self._commit_hooks)
@@ -260,13 +310,22 @@ class Atomic:
                 new_depth = self._depth_holder.value - 1
                 self._depth_holder.value = max(new_depth, 0)
 
+        if self._timed_out and exc_type is not None and issubclass(exc_type, asyncio.CancelledError):
+            from ..faults.domains import QueryFault
+
+            raise QueryFault(
+                model="(transaction)",
+                operation="atomic",
+                reason=f"Transaction exceeded timeout of {self._timeout}s and was rolled back",
+            ) from exc_val
+
         return False  # Don't suppress exceptions
 
     async def savepoint(self) -> str:
         """Create an explicit savepoint within this atomic block."""
         db = self._get_db()
         sp_id = f"sp_{uuid.uuid4().hex[:12]}"
-        await db.execute(f"SAVEPOINT {sp_id}")
+        await db.savepoint(sp_id)
         return sp_id
 
     async def rollback_to_savepoint(self, savepoint_id: str) -> None:
@@ -278,7 +337,7 @@ class Atomic:
                 message=f"Invalid savepoint name: {savepoint_id!r}. Must be alphanumeric/underscores only.",
             )
         db = self._get_db()
-        await db.execute(f"ROLLBACK TO SAVEPOINT {savepoint_id}")
+        await db.rollback_to_savepoint(savepoint_id)
 
     async def release_savepoint(self, savepoint_id: str) -> None:
         """Release (commit) a savepoint."""
@@ -289,7 +348,43 @@ class Atomic:
                 message=f"Invalid savepoint name: {savepoint_id!r}. Must be alphanumeric/underscores only.",
             )
         db = self._get_db()
-        await db.execute(f"RELEASE SAVEPOINT {savepoint_id}")
+        await db.release_savepoint(savepoint_id)
+
+    def __call__(self, func: Callable) -> Callable:
+        """
+        Use ``atomic()`` as a decorator on an async function (Tortoise-ORM
+        style), wrapping the whole call in its own transaction:
+
+            @atomic()
+            async def transfer(src, dst, amount):
+                ...
+
+        A fresh ``Atomic`` (with the same config) is used per call so
+        concurrent calls to the decorated function don't share mutable
+        transaction state.
+        """
+        if not inspect.iscoroutinefunction(func):
+            from ..faults.domains import QueryFault
+
+            raise QueryFault(
+                model="(transaction)",
+                operation="atomic",
+                reason=f"atomic() can only decorate an async function, got {func!r}",
+            )
+
+        @functools.wraps(func)
+        async def wrapper(*args, **kwargs):
+            async with Atomic(
+                self._db,
+                savepoint=self._use_savepoint,
+                durable=self._durable,
+                isolation=self._isolation,
+                readonly=self._readonly,
+                timeout=self._timeout,
+            ):
+                return await func(*args, **kwargs)
+
+        return wrapper
 
 
 def atomic(
@@ -298,9 +393,11 @@ def atomic(
     savepoint: bool = True,
     durable: bool = False,
     isolation: str | None = None,
+    readonly: bool = False,
+    timeout: float | None = None,
 ) -> Atomic:
     """
-    Create an atomic transaction context manager.
+    Create an atomic transaction context manager (and/or decorator).
 
     Can be used as a context manager:
         async with atomic():
@@ -314,13 +411,37 @@ def atomic(
         async with atomic(isolation="SERIALIZABLE"):
             ...
 
+    Or as a decorator on an async function:
+        @atomic()
+        async def transfer(src, dst, amount):
+            ...
+
+    Or read-only (routes to a reader connection on SQLite instead of the
+    single writer):
+        async with atomic(readonly=True):
+            ...
+
+    Or with a timeout in seconds (rolled back and raised as a QueryFault if
+    exceeded):
+        async with atomic(timeout=5.0):
+            ...
+
     Args:
         db: Database instance. If None, uses the default.
         savepoint: Use savepoints for nesting (default True)
         durable: Disallow nesting inside another atomic block
         isolation: SQL transaction isolation level
+        readonly: Hint that this transaction only reads
+        timeout: Seconds before the block is cancelled and rolled back
     """
-    return Atomic(db, savepoint=savepoint, durable=durable, isolation=isolation)
+    return Atomic(
+        db,
+        savepoint=savepoint,
+        durable=durable,
+        isolation=isolation,
+        readonly=readonly,
+        timeout=timeout,
+    )
 
 
 class TransactionManager:

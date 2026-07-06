@@ -264,12 +264,22 @@ class PostgresAdapter(DatabaseAdapter):
 
     # ── Transactions ─────────────────────────────────────────────────
 
-    async def begin(self) -> None:
-        """Acquire a dedicated connection and start a transaction."""
+    async def begin(self, isolation: str | None = None, readonly: bool = False) -> None:
+        """Acquire a dedicated connection and start a transaction.
+
+        ``isolation``/``readonly`` are passed straight to asyncpg's own
+        ``Connection.transaction()``, which sets them as part of the same
+        ``BEGIN`` statement -- unlike a separate ``SET TRANSACTION ...``
+        issued beforehand, this can't land on a different connection than
+        the one the transaction actually runs on.
+        """
         if self._in_transaction:
             return
         self._txn_conn = await self._pool.acquire()
-        self._txn_obj = self._txn_conn.transaction()
+        kwargs: dict[str, Any] = {"readonly": readonly}
+        if isolation:
+            kwargs["isolation"] = isolation.strip().lower().replace(" ", "_")
+        self._txn_obj = self._txn_conn.transaction(**kwargs)
         await self._txn_obj.start()
         self._in_transaction = True
 

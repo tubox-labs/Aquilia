@@ -166,13 +166,19 @@ class SQLiteAdapter(DatabaseAdapter):
 
     # ── Transactions ─────────────────────────────────────────────────
 
-    async def begin(self) -> None:
+    async def begin(self, isolation: str | None = None, readonly: bool = False) -> None:
+        # SQLite has no session-level isolation levels (only its own
+        # locking modes, controlled via BEGIN DEFERRED/IMMEDIATE/EXCLUSIVE);
+        # `isolation` is accepted for interface symmetry with the other
+        # backends and intentionally ignored here.
         if not self._connected or self._pool is None:
             from aquilia.faults.domains import DatabaseConnectionFault
 
             raise DatabaseConnectionFault(backend="sqlite", reason="Not connected")
-        # Acquire the writer connection and hold it for the transaction
-        self._writer_conn = await self._pool._acquire(readonly=False)
+        # readonly=True pins a reader connection instead of the single
+        # writer, so a read-only atomic() block doesn't contend with
+        # concurrent writers for the pool's one writer slot.
+        self._writer_conn = await self._pool._acquire(readonly=readonly)
         await self._writer_conn.begin(mode="DEFERRED")
         self._in_transaction = True
 
