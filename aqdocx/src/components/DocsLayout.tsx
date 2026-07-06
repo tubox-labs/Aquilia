@@ -12,9 +12,9 @@ export function DocsLayout() {
 
   return (
     // Lock the viewport — nothing on <body> scrolls
-    <div className="h-screen overflow-hidden flex flex-col">
+    <div className="h-screen overflow-hidden flex flex-col print:h-auto print:overflow-visible print:block">
       {/* Ambient background — fixed, behind everything */}
-      <div className="fixed inset-0 -z-10 pointer-events-none">
+      <div className="fixed inset-0 -z-10 pointer-events-none print:hidden">
         <div className={isDark ? 'absolute inset-0 bg-black' : 'absolute inset-0 bg-[#fafafa]'} />
         <div className={`absolute inset-0 ${isDark ? 'bg-gradient-to-br from-aquilia-500/5 via-transparent to-blue-500/5' : ''}`} />
         <div className={`absolute top-0 left-1/4 w-96 h-96 ${isDark ? 'bg-aquilia-500/10' : 'bg-aquilia-500/5'} rounded-full blur-3xl`} />
@@ -29,7 +29,7 @@ export function DocsLayout() {
         pt-16 offsets the fixed navbar (64px).
         overflow-hidden here so only each column scrolls independently.
       */}
-      <div className="flex flex-1 overflow-hidden pt-16">
+      <div className="flex flex-1 overflow-hidden pt-16 print:block print:overflow-visible print:pt-0">
 
         {/* ── LEFT SIDEBAR ────────────────────────────────────────────
             Full height, scrolls independently via its own overflow-y-auto.
@@ -44,18 +44,18 @@ export function DocsLayout() {
           data-scroll-container lets TableOfContents find this element.
         */}
         <div
-          className="flex-1 min-w-0 overflow-y-auto"
+          className="flex-1 min-w-0 overflow-y-auto print:overflow-visible print:block"
           data-scroll-container=""
         >
-          <div className="flex max-w-[80rem] mx-auto">
+          <div className="flex max-w-[80rem] mx-auto print:block print:w-full print:max-w-none">
 
             {/* Main page content */}
-            <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-12">
+            <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-12 print:px-0 print:py-0 print:m-0 print:w-full print:max-w-none print:block">
               <div className="max-w-4xl mx-auto w-full">
                 <Outlet />
 
                 {/* Footer */}
-                <div className={`mt-24 pt-8 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+                <div className={`mt-24 pt-8 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} print:hidden`}>
                   <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                     <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                       Last updated: July 2026
@@ -78,7 +78,7 @@ export function DocsLayout() {
                 center column, so it never moves as content scrolls.
                 Only visible on xl+.
             */}
-            <aside className="hidden xl:block w-56 shrink-0 py-12 px-2">
+            <aside className="hidden xl:block w-56 shrink-0 py-12 px-2 print:hidden">
               <div className="sticky top-0">
                 <TableOfContents />
               </div>
