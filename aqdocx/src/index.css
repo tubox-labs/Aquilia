@@ -412,84 +412,87 @@ code {
     border-radius: 0.25rem !important;
   }
 
+  /* Set the default color for all plain text / tokens in codeblock to dark gray */
+  .code-block-container pre span {
+    color: #27272a !important;
+  }
+
   /* Keep code tokens readable */
-  .token {
+  .code-block-container pre span.token {
     background: transparent !important;
     text-shadow: none !important;
   }
   
-  .token.comment,
-  .token.prolog,
-  .token.doctype,
-  .token.cdata {
+  .code-block-container pre span.token.comment,
+  .code-block-container pre span.token.prolog,
+  .code-block-container pre span.token.doctype,
+  .code-block-container pre span.token.cdata {
     color: #71717a !important;
   }
   
-  .token.punctuation {
+  .code-block-container pre span.token.punctuation {
     color: #52525b !important;
   }
   
-  .token.property,
-  .token.tag,
-  .token.boolean,
-  .token.number,
-  .token.constant,
-  .token.symbol,
-  .token.deleted {
+  .code-block-container pre span.token.property,
+  .code-block-container pre span.token.tag,
+  .code-block-container pre span.token.boolean,
+  .code-block-container pre span.token.number,
+  .code-block-container pre span.token.constant,
+  .code-block-container pre span.token.symbol,
+  .code-block-container pre span.token.deleted {
     color: #0f766e !important;
   }
   
-  .token.selector,
-  .token.attr-name,
-  .token.string,
-  .token.char,
-  .token.builtin,
-  .token.inserted {
+  .code-block-container pre span.token.selector,
+  .code-block-container pre span.token.attr-name,
+  .code-block-container pre span.token.string,
+  .code-block-container pre span.token.char,
+  .code-block-container pre span.token.builtin,
+  .code-block-container pre span.token.inserted {
     color: #15803d !important;
   }
   
-  .token.operator,
-  .token.entity,
-  .token.url,
-  .language-css .token.string,
-  .style .token.string {
+  .code-block-container pre span.token.operator,
+  .code-block-container pre span.token.entity,
+  .code-block-container pre span.token.url {
     color: #b45309 !important;
   }
   
-  .token.atrule,
-  .token.attr-value,
-  .token.keyword {
+  .code-block-container pre span.token.atrule,
+  .code-block-container pre span.token.attr-value,
+  .code-block-container pre span.token.keyword {
     color: #1d4ed8 !important;
   }
   
-  .token.function,
-  .token.class-name {
+  .code-block-container pre span.token.function,
+  .code-block-container pre span.token.class-name {
     color: #6d28d9 !important;
   }
   
-  .token.regex,
-  .token.important,
-  .token.variable {
+  .code-block-container pre span.token.regex,
+  .code-block-container pre span.token.important,
+  .code-block-container pre span.token.variable {
     color: #be123c !important;
   }
 
   /* Custom token colors from CodeBlock component mapping */
-  .code-decorator {
+  .code-block-container pre span.code-decorator {
     color: #15803d !important;
   }
-  .code-variable {
+  .code-block-container pre span.code-variable {
     color: #1d4ed8 !important;
   }
-  .code-self {
+  .code-block-container pre span.code-self {
     color: #be185d !important;
   }
-  .code-class-ref {
+  .code-block-container pre span.code-class-ref {
     color: #c2410c !important;
   }
-  .code-function-call {
+  .code-block-container pre span.code-function-call {
     color: #a16207 !important;
   }
-  .code-member {
+  .code-block-container pre span.code-member {
     color: #0e7490 !important;
   }
 
