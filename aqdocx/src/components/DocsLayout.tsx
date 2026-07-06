@@ -72,7 +72,7 @@ export function DocsLayout() {
                   Print Article
                 </button>
               </div>
-              <div ref={printRef} className="max-w-4xl mx-auto w-full">
+              <div ref={printRef} className="max-w-4xl mx-auto w-full print-content-wrapper">
                 <Outlet />
 
                 {/* Footer */}
