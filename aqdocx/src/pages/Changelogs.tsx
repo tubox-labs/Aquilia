@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { Navbar } from '../components/Navbar'
 import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
+import { DocTerm } from '../components/docPreview'
 import {
   ArrowRight, Check, Github, ExternalLink, BookOpen, Package
 } from 'lucide-react'
@@ -384,7 +385,7 @@ function parseMarkdownChangelog(md: string): ChangelogEntry[] {
   return entries
 }
 
-// Render helper to parse inline markdown bold (**) and code (`) tags
+// Render helper to parse inline markdown bold (**) and code (`) tags, mapping terms to DocTerm popovers
 function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
   const boldParts = text.split(/(\*\*.*?\*\*)/g);
   
@@ -397,6 +398,30 @@ function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
       const isCode = cPart.startsWith('`') && cPart.endsWith('`');
       if (isCode) {
         const codeText = cPart.slice(1, -1);
+        
+        // Map common technical terms to registered doc entities
+        const termIdMap: Record<string, string> = {
+          'Env': 'config.env',
+          'Secret': 'config.secret',
+          'Workspace': 'config.workspace',
+          'Module': 'config.module',
+          'Integration': 'config.integration',
+          'Integration.database': 'config.integration',
+          'DatabaseIntegration': 'config.integration',
+          'workspace.py': 'cli.workspace_py',
+          '.env': 'cli.dotenv_file',
+          'Request': 'http.request_type',
+        };
+        
+        const matchingId = termIdMap[codeText];
+        if (matchingId) {
+          return (
+            <DocTerm key={cIdx} id={matchingId}>
+              {codeText}
+            </DocTerm>
+          );
+        }
+        
         return (
           <code
             key={cIdx}
