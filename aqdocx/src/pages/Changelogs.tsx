@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext'
 import {
   ArrowRight, Check, Github, ExternalLink, BookOpen, Package
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 
 interface ChangelogSection {
@@ -296,6 +296,10 @@ export function Changelogs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    document.title = "Changelogs — Aquilia"
+  }, [])
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({ '1.2.2': true })
 
