@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { GitBranch, CircleDot, Activity, Check } from 'lucide-react'
 
@@ -121,12 +121,57 @@ export function ReleaseTimeline({ isDark }: Props) {
   const graphRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(graphRef, { once: true, amount: 0.2 })
+  const [nodes, setNodes] = useState<RoadmapNode[]>(roadmap)
 
-  // Auto-scroll to the end (latest version) on mount
   useEffect(() => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth
-    }
+    fetch('https://api.github.com/repos/tubox-labs/Aquilia/tags')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch tags')
+        return res.json()
+      })
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const tags = [...data].reverse()
+          const mapped = tags.map((tag: any, i) => {
+            const version = tag.name.replace(/^v/, '')
+            const staticMatch = roadmap.find(r => r.version === version)
+            
+            let defaultCodename = "Genesis"
+            if (version.startsWith('1.2')) {
+              defaultCodename = "Kraken's Wake"
+            } else if (version.startsWith('1.1')) {
+              defaultCodename = "Black Pearl"
+            } else if (version === '1.0.5') {
+              defaultCodename = "Jolly Roger"
+            }
+            
+            return {
+              version,
+              codename: staticMatch?.codename || defaultCodename,
+              date: staticMatch?.date || "Jul 2026",
+              status: (i === tags.length - 1) ? 'current' as const : 'released' as const,
+              type: staticMatch?.type || (version.endsWith('.0') ? 'minor' as const : 'patch' as const),
+              highlights: staticMatch?.highlights || ['GitHub tag release'],
+              branch: staticMatch?.branch
+            }
+          })
+          setNodes(mapped)
+          
+          // Auto-scroll to the end (latest version) after nodes state is set and DOM updates
+          setTimeout(() => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth
+            }
+          }, 100)
+        }
+      })
+      .catch(err => {
+        console.error('Failed to fetch github tags for timeline:', err)
+        // Fallback auto-scroll on failure
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth
+        }
+      })
   }, [])
 
   const nodeStatusStyles: Record<string, { dot: string; glow: string; label: string }> = {
@@ -173,8 +218,8 @@ export function ReleaseTimeline({ isDark }: Props) {
   }
 
   // index of the "current" node (inclusive)
-  const currentIdx = roadmap.findIndex(n => n.status === 'current')
-  const progressPct = ((currentIdx + 0.5) / roadmap.length) * 100
+  const currentIdx = nodes.findIndex(n => n.status === 'current')
+  const progressPct = ((currentIdx + 0.5) / nodes.length) * 100
 
   return (
     <motion.div
@@ -250,7 +295,7 @@ export function ReleaseTimeline({ isDark }: Props) {
 
           {/* Nodes */}
           <div className="relative flex justify-between">
-            {roadmap.map((node, i) => {
+            {nodes.map((node, i) => {
               const styles = nodeStatusStyles[node.status]
               const isCurrent = node.status === 'current'
               const isPast = node.status === 'released'
@@ -263,7 +308,7 @@ export function ReleaseTimeline({ isDark }: Props) {
                   animate={isInView ? { opacity: 1, y: 0 } : {}}
                   transition={{ delay: 0.2 + i * 0.12, duration: 0.5 }}
                   className="flex flex-col items-center relative"
-                  style={{ width: `${100 / roadmap.length}%` }}
+                  style={{ width: `${100 / nodes.length}%` }}
                 >
                   {/* Branch pill */}
                   <div className="h-5 flex items-center justify-center mb-1">
