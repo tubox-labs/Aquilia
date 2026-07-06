@@ -246,3 +246,44 @@ class TestAdminRendersUnloadedFK:
 
         rendered = admin.format_value("author", book.author)
         assert "RelatedNotLoaded" in rendered
+
+
+class TestForeignKeyDescriptor:
+    """
+    ForeignKey/OneToOneField are real data descriptors (define __get__ and
+    __set__) so a static checker can resolve `instance.author` to
+    `RnlAuthor | RelatedNotLoaded[RnlAuthor] | None` instead of the bare
+    `ForeignKey` field object -- see aquilia/models/relations.py `Related`
+    and aquilia/models/fields_module.py `ForeignKey.__get__`. This class
+    covers the runtime contract of that descriptor: class-level access must
+    still return the Field object (needed by introspection, the query
+    builder, and admin/migration code that does `Model.author.related_model`
+    etc.), while instance-level access/assignment behaves exactly as before
+    the descriptor was added.
+    """
+
+    def test_class_level_access_returns_field_object(self):
+        # Model.author (no instance) must return the ForeignKey descriptor
+        # itself, not None/AttributeError -- e.g. RnlBook.author.related_model
+        # is used throughout the ORM (SQL generation, introspection, admin).
+        field = RnlBook.author
+        assert isinstance(field, ForeignKey)
+        assert field.related_model is RnlAuthor
+
+    async def test_instance_level_get_set_roundtrip(self, seeded_db):
+        alice = await RnlAuthor.get(pk=1)
+        book = RnlBook(title="Descriptor Roundtrip")
+        book.author = alice
+        assert book.author is alice
+
+    async def test_instance_access_after_hydration_is_not_sentinel(self, seeded_db):
+        # Filtering on "title" (not "id") to sidestep the pre-existing,
+        # separately-documented "ambiguous column name" issue with
+        # select_related() + filter() on a column name shared by both
+        # tables (see CHANGELOG.md [1.3.0b0] Known Issues).
+        book = await RnlBook.objects.select_related("author").filter(title="Book A").first()
+        assert isinstance(book.author, RnlAuthor)
+
+    async def test_instance_access_before_hydration_is_sentinel(self, seeded_db):
+        book = await RnlBook.objects.filter(id=1).first()
+        assert isinstance(book.author, RelatedNotLoaded)

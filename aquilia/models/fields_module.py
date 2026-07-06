@@ -29,10 +29,21 @@ from collections.abc import Callable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
+    Generic,
+    TypeVar,
+    overload,
 )
 
 if TYPE_CHECKING:
     from .base import Model
+    from .relations import Related
+
+#: Bound to Model -- lets ForeignKey/OneToOneField infer *which* model
+#: they point to from their own constructor argument (`ForeignKey(User)`
+#: binds TModel=User), the same convention Manager/QuerySet/Q already use
+#: (aquilia/models/manager.py) and RelatedNotLoaded now uses too
+#: (aquilia/models/relations.py).
+TModel = TypeVar("TModel", bound="Model")
 
 __all__: list[str] = []
 
@@ -1760,13 +1771,19 @@ class RelationField(Field):
         return model._fields.get(model._pk_attr)
 
 
-class ForeignKey(RelationField):
+class ForeignKey(RelationField, Generic[TModel]):
     """
     Many-to-one relationship field.
 
     Usage:
         class Post(Model):
-            author = ForeignKey("User", related_name="posts")
+            author = ForeignKey(User, related_name="posts")
+
+    ``ForeignKey`` is a real generic descriptor -- no explicit annotation
+    needed for a checker to resolve ``post.author`` to
+    ``User | RelatedNotLoaded[User] | None`` (``aquilia.models.relations.Related``)
+    instead of the bare ``ForeignKey`` field object; ``reveal_type(post.author)``
+    shows the full union straight from this declaration.
 
     Reading this attribute on a loaded instance:
         - After ``select_related("author")``, ``prefetch_related("author")``,
@@ -1791,6 +1808,17 @@ class ForeignKey(RelationField):
     Assigning an instance of the wrong related model (e.g. a ``Book`` to
     a ``User``-typed FK) raises ``RelatedTypeMismatchFault`` at
     validate()/save() time rather than silently taking its ``.pk``.
+
+    ``ForeignKey`` is a real data descriptor (defines both ``__get__`` and
+    ``__set__``): it -- not plain instance-``__dict__`` shadowing -- is what
+    mediates every read/write of the attribute now. This is a transparent
+    drop-in for every existing ``setattr(instance, name, value)``/
+    ``getattr(instance, name)`` call site in the ORM (``Model.__init__``,
+    ``Model.from_row()``, ``select_related``/``prefetch_related`` hydration,
+    ``Model.related()``'s cache-on-resolve): they all already store/read the
+    value at ``instance.__dict__[self.attr_name]``, which is exactly where
+    ``__get__``/``__set__`` below keep it -- nothing about *where* the value
+    lives changes, only that a descriptor now mediates access to it.
     """
 
     _field_type = "FK"
@@ -1798,7 +1826,7 @@ class ForeignKey(RelationField):
 
     def __init__(
         self,
-        to: str | type[Model],
+        to: type[TModel] | str,
         *,
         related_name: str | None = None,
         on_delete: str = "CASCADE",
@@ -1818,6 +1846,21 @@ class ForeignKey(RelationField):
             self.db_column = f"{name}_id"
         super().__set_name__(owner, name)
         self.name = self.db_column
+
+    @overload
+    def __get__(self, instance: None, owner: type | None = None) -> ForeignKey[TModel]: ...
+    @overload
+    def __get__(self, instance: Model, owner: type | None = None) -> Related[TModel]: ...
+
+    def __get__(self, instance: Model | None, owner: type | None = None) -> Any:
+        if instance is None:
+            # Class-level access (Model.author, introspection, query-builder
+            # field resolution) still returns the Field object itself.
+            return self
+        return instance.__dict__.get(self.attr_name)
+
+    def __set__(self, instance: Model, value: Related[TModel] | TModel) -> None:
+        instance.__dict__[self.attr_name] = value
 
     def _coerce_to_pk(self, value: Any) -> Any:
         """Unwrap a related Model instance (or unloaded relation) to its primary key value.
@@ -1900,18 +1943,19 @@ class ForeignKey(RelationField):
         return d
 
 
-class OneToOneField(ForeignKey):
+class OneToOneField(ForeignKey[TModel], Generic[TModel]):
     """
     One-to-one relationship field.
 
     Usage:
         class Profile(Model):
-            user = OneToOneField("User", related_name="profile")
+            user = OneToOneField(User, related_name="profile")
 
-    Forward access follows ForeignKey's RelatedNotLoaded contract exactly.
-    Reverse access via ``await user.related("profile")`` returns a single
-    instance (or ``None``) instead of a list, matching this field's actual
-    1:1 cardinality -- unlike a plain ForeignKey's reverse side, which is
+    Forward access follows ForeignKey's RelatedNotLoaded contract exactly
+    (including the ``Related[TModel]``/descriptor typing above). Reverse
+    access via ``await user.related("profile")`` returns a single instance
+    (or ``None``) instead of a list, matching this field's actual 1:1
+    cardinality -- unlike a plain ForeignKey's reverse side, which is
     always a list since multiple rows can reference the same target.
     """
 
@@ -1919,7 +1963,7 @@ class OneToOneField(ForeignKey):
 
     def __init__(
         self,
-        to: str | type[Model],
+        to: type[TModel] | str,
         *,
         related_name: str | None = None,
         on_delete: str = "CASCADE",

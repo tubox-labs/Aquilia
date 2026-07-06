@@ -23,12 +23,21 @@ treating a raw scalar as if it were the related object.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar
 
-__all__ = ["RelatedNotLoaded"]
+if TYPE_CHECKING:
+    from .base import Model
+
+__all__ = ["RelatedNotLoaded", "Related"]
+
+#: Bound to Model -- parametrizes RelatedNotLoaded so a checker can see
+#: *which* model a given unhydrated relation would resolve to (e.g.
+#: `RelatedNotLoaded[UserModel]`), matching the TModel convention already
+#: used by Manager/QuerySet/Q (aquilia/models/manager.py).
+TModel = TypeVar("TModel", bound="Model")
 
 
-class RelatedNotLoaded:
+class RelatedNotLoaded(Generic[TModel]):
     """
     Placeholder for a ForeignKey/OneToOneField attribute that holds a real,
     non-null foreign key value but hasn't been resolved to a related model
@@ -48,6 +57,10 @@ class RelatedNotLoaded:
     Once hydrated -- via ``select_related()``, ``prefetch_related()``, or
     ``await instance.related(field_name)`` -- the attribute holds the real
     model instance instead of this sentinel, permanently, for that instance.
+
+    Generic over the target model (``RelatedNotLoaded[UserModel]``) purely
+    for static type-checking -- see ``Related[TModel]`` below, which is what
+    a ``ForeignKey``/``OneToOneField`` attribute is actually typed as.
     """
 
     __slots__ = ("_pk", "_field_name", "_owner_model_name")
@@ -101,3 +114,33 @@ class RelatedNotLoaded:
             field_name=self._field_name,
             pk=self._pk,
         )
+
+
+#: What a ForeignKey/OneToOneField attribute actually resolves to at
+#: runtime: a hydrated instance of the target model, the RelatedNotLoaded
+#: sentinel wrapping its raw stored id, or None (nullable FK with no value /
+#: LEFT JOIN miss). ForeignKey/OneToOneField are real generic descriptors
+#: (see ``aquilia.models.fields_module.ForeignKey.__get__``), so a plain,
+#: unannotated field declaration already resolves to this union on instance
+#: access with no extra work:
+#:
+#:     class Post(Model):
+#:         author = ForeignKey(User, related_name="posts")
+#:
+#:     reveal_type(Post().author)  # User | RelatedNotLoaded[User] | None
+#:
+#: ``Related[TModel]`` itself is exported for the cases *outside* a field
+#: declaration where you need to name the union explicitly -- a function
+#: parameter/return type, a local variable, etc. Don't use it as the class
+#: body's own annotation (``author: Related[User] = ForeignKey(...)``): a
+#: type checker checks that assignment against ``ForeignKey[User]`` (the
+#: descriptor's own type), not the instance-access union, so an explicit
+#: annotation there produces a false-positive mismatch -- the same
+#: descriptor-typing limitation Django-stubs/SQLAlchemy2-stubs work around
+#: with a checker plugin. Leaving the field unannotated gets full,
+#: correct typing for free without one.
+#:
+#: Narrowing (``isinstance(post.author, User)``) is required before using
+#: it as the hydrated instance -- exactly the same discipline
+#: RelatedNotLoadedFault already enforces at runtime, now visible statically.
+Related: TypeAlias = TModel | RelatedNotLoaded[TModel] | None

@@ -61,6 +61,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   independently, the decorator form, `readonly=True` non-contention with a concurrent writer,
   `timeout=` expiry, and `asyncio.CancelledError` mid-transaction rollback.
 
+### Changed
+- **`ForeignKey`/`OneToOneField` are now real, generic data descriptors** (`aquilia/models/
+  fields_module.py`): previously neither defined `__get__`/`__set__` at all — every FK "attribute"
+  was a plain instance-`__dict__` entry that happened to shadow the class-level `Field` object via
+  Python's normal (non-descriptor) attribute lookup. A static type checker therefore saw
+  `instance.author` as a bare `ForeignKey` (the class-body assignment's own type), not the real
+  runtime union of a hydrated model instance, the `RelatedNotLoaded` sentinel, or `None` — so it
+  could never catch a missing `select_related()`/`related()` call before it crashed at runtime.
+  `ForeignKey`/`OneToOneField` are now `Generic[TModel]` (bound from their own constructor argument,
+  e.g. `ForeignKey(User)` binds `TModel=User`, the same convention `Manager`/`QuerySet`/`Q` already
+  use) with a real `@overload`-typed `__get__`/`__set__`. `RelatedNotLoaded` is now `Generic[TModel]`
+  too, and a new `Related[TModel]` alias (`aquilia/models/relations.py`) spells out the full union:
+  `TModel | RelatedNotLoaded[TModel] | None`. A plain, **unannotated** field declaration —
+  `author = ForeignKey(User, related_name="posts")` — now resolves `instance.author` to
+  `User | RelatedNotLoaded[User] | None` for mypy/pyright with no extra syntax; `Related[TModel]` is
+  exported for the cases outside a field declaration where the union needs to be named explicitly
+  (a function parameter/return type, a local variable). This is a pure typing/mediation change with
+  zero runtime behavior change: `__get__`/`__set__` read and write the exact same
+  `instance.__dict__[self.attr_name]` slot every existing call site (`Model.__init__`,
+  `Model.from_row()`, `select_related`/`prefetch_related` hydration, `Model.related()`'s
+  cache-on-resolve) already used — a data descriptor takes priority over instance-`__dict__`
+  shadowing regardless, so every one of those call sites keeps working unchanged, and class-level
+  access (`Model.author`, used throughout SQL generation/introspection/admin for
+  `field.related_model` etc.) still returns the `Field` object itself. `ManyToManyField` is
+  unaffected — it was already excluded from this attribute-storage path (`_attr_names`/
+  `_column_names` in `metaclass.py`) and never stored a `RelatedNotLoaded`-wrapped forward value.
+
+### Testing
+- New `TestForeignKeyDescriptor` in `tests/test_related_not_loaded_and_reverse_manager.py`: class-level
+  access still returns the `Field` object (not `None`/`AttributeError`), instance-level get/set
+  round-trips a real model instance, and hydrated vs. unhydrated instance access resolve to the
+  hydrated instance vs. the `RelatedNotLoaded` sentinel respectively — confirms the descriptor swap
+  is behaviorally transparent. Full existing suite (6600+ tests, `tests/
+  test_related_not_loaded_and_reverse_manager.py` in particular, which exercises `RnlBook.author`
+  extensively) passes unchanged.
+
 ## [1.3.0b0] — 2026-07-06 — "Ironclad Anchor" (beta)
 
 ### Added
