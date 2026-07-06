@@ -385,7 +385,7 @@ function parseMarkdownChangelog(md: string): ChangelogEntry[] {
   return entries
 }
 
-// Render helper to parse inline markdown bold (**) and code (`) tags, mapping terms to DocTerm popovers
+// Render helper to parse inline markdown bold (**) and code (`) tags, coloring them with Aquilia green
 function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
   const boldParts = text.split(/(\*\*.*?\*\*)/g);
   
@@ -398,37 +398,13 @@ function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
       const isCode = cPart.startsWith('`') && cPart.endsWith('`');
       if (isCode) {
         const codeText = cPart.slice(1, -1);
-        
-        // Map common technical terms to registered doc entities
-        const termIdMap: Record<string, string> = {
-          'Env': 'config.env',
-          'Secret': 'config.secret',
-          'Workspace': 'config.workspace',
-          'Module': 'config.module',
-          'Integration': 'config.integration',
-          'Integration.database': 'config.integration',
-          'DatabaseIntegration': 'config.integration',
-          'workspace.py': 'cli.workspace_py',
-          '.env': 'cli.dotenv_file',
-          'Request': 'http.request_type',
-        };
-        
-        const matchingId = termIdMap[codeText];
-        if (matchingId) {
-          return (
-            <DocTerm key={cIdx} id={matchingId}>
-              {codeText}
-            </DocTerm>
-          );
-        }
-        
         return (
           <code
             key={cIdx}
             className={`px-1.5 py-0.5 rounded font-mono text-xs border ${
               isDark
-                ? 'bg-zinc-900 text-aquilia-400 border-zinc-800'
-                : 'bg-gray-100 text-aquilia-700 border-gray-200'
+                ? 'bg-aquilia-500/10 text-aquilia-400 border-aquilia-500/20'
+                : 'bg-aquilia-50 text-aquilia-600 border-aquilia-200'
             }`}
           >
             {codeText}
@@ -608,7 +584,7 @@ export function Changelogs() {
                           </div>
 
                           <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                            {entry.summary}
+                            {renderFormattedText(entry.summary, isDark)}
                           </p>
 
                           {/* Version sections */}
