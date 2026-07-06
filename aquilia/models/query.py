@@ -604,7 +604,7 @@ class Q(Generic[TModel]):
 
     # ── Set Operations ────────────────────────────────────────────────
 
-    def union(self, *querysets: "Q[TModel]", all: bool = False) -> Q[TModel]:
+    def union(self, *querysets: Q[TModel], all: bool = False) -> Q[TModel]:
         """
         Combine this queryset with others using UNION.
 
@@ -622,7 +622,7 @@ class Q(Generic[TModel]):
             new._set_operations.append((op, qs))
         return new
 
-    def intersection(self, *querysets: "Q[TModel]") -> Q[TModel]:
+    def intersection(self, *querysets: Q[TModel]) -> Q[TModel]:
         """
         Combine with INTERSECT -- only rows in ALL querysets.
 
@@ -636,7 +636,7 @@ class Q(Generic[TModel]):
             new._set_operations.append(("INTERSECT", qs))
         return new
 
-    def difference(self, *querysets: "Q[TModel]") -> Q[TModel]:
+    def difference(self, *querysets: Q[TModel]) -> Q[TModel]:
         """
         Combine with EXCEPT -- rows in this set but not in others.
 
