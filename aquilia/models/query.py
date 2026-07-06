@@ -23,7 +23,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 from .fields.lookups import lookup_registry, resolve_lookup
 
@@ -65,6 +65,12 @@ _EXPR_OP_MAP = {
 if TYPE_CHECKING:
     from ..db.engine import AquiliaDatabase
     from .base import Model
+
+#: Bound to Model -- parametrizes Q so chained/terminal methods keep the
+#: concrete model type (e.g. Q[UserModel]) instead of widening to the bare
+#: Model base, which is what let IDEs/mypy lose field-name autocomplete
+#: after any chained call (.filter(), .select_related(), etc.).
+TModel = TypeVar("TModel", bound="Model")
 
 __all__ = ["Q", "QNode", "QCombination", "Prefetch"]
 
@@ -283,7 +289,7 @@ class QuerySetDatabaseWrapper:
         return attr
 
 
-class Q:
+class Q(Generic[TModel]):
     """
     Aquilia QuerySet -- chainable, immutable, async-terminal query builder.
 
@@ -356,9 +362,9 @@ class Q:
         "_iterator_chunk_size",
     )
 
-    def __init__(self, table: str, model_cls: type[Model], db: AquiliaDatabase):
+    def __init__(self, table: str, model_cls: type[TModel], db: AquiliaDatabase):
         self._table = table
-        self._model_cls = model_cls
+        self._model_cls: type[TModel] = model_cls
         self._wheres: list[str] = []
         self._params: list[Any] = []
         self._order_clauses: list[str] = []
@@ -380,7 +386,7 @@ class Q:
         self._sfu_nowait: bool = False
         self._sfu_skip_locked: bool = False
         self._is_none: bool = False
-        self._set_operations: list[tuple[str, Q]] = []
+        self._set_operations: list[tuple[str, Q[TModel]]] = []
         self._result_cache: list | None = None
         self._iterator_chunk_size: int | None = None
 
@@ -400,7 +406,7 @@ class Q:
 
     # ── Chain methods (return new Q) ─────────────────────────────────
 
-    def where(self, clause: str, *args: Any, **kwargs: Any) -> Q:
+    def where(self, clause: str, *args: Any, **kwargs: Any) -> Q[TModel]:
         """
         Add raw WHERE clause (Aquilia-only syntax).
 
@@ -443,7 +449,7 @@ class Q:
             new._params.extend(args)
         return new
 
-    def filter(self, *q_nodes: Any, **kwargs: Any) -> Q:
+    def filter(self, *q_nodes: Any, **kwargs: Any) -> Q[TModel]:
         """
         Field lookup filter.
 
@@ -517,7 +523,7 @@ class Q:
             return None
         return field.to_db(value, dialect=dialect)
 
-    def exclude(self, *q_nodes: Any, **kwargs: Any) -> Q:
+    def exclude(self, *q_nodes: Any, **kwargs: Any) -> Q[TModel]:
         """
         Negated filter -- exclude matching records.
 
@@ -544,7 +550,7 @@ class Q:
             new._params.extend(params)
         return new
 
-    def order(self, *fields: Any) -> Q:
+    def order(self, *fields: Any) -> Q[TModel]:
         """
         ORDER BY -- Aquilia's primary ordering method.
 
@@ -598,7 +604,7 @@ class Q:
 
     # ── Set Operations ────────────────────────────────────────────────
 
-    def union(self, *querysets: Q, all: bool = False) -> Q:
+    def union(self, *querysets: "Q[TModel]", all: bool = False) -> Q[TModel]:
         """
         Combine this queryset with others using UNION.
 
@@ -616,7 +622,7 @@ class Q:
             new._set_operations.append((op, qs))
         return new
 
-    def intersection(self, *querysets: Q) -> Q:
+    def intersection(self, *querysets: "Q[TModel]") -> Q[TModel]:
         """
         Combine with INTERSECT -- only rows in ALL querysets.
 
@@ -630,7 +636,7 @@ class Q:
             new._set_operations.append(("INTERSECT", qs))
         return new
 
-    def difference(self, *querysets: Q) -> Q:
+    def difference(self, *querysets: "Q[TModel]") -> Q[TModel]:
         """
         Combine with EXCEPT -- rows in this set but not in others.
 
@@ -644,25 +650,25 @@ class Q:
             new._set_operations.append(("EXCEPT", qs))
         return new
 
-    def limit(self, n: int) -> Q:
+    def limit(self, n: int) -> Q[TModel]:
         """Set LIMIT on query results."""
         new = self._clone()
         new._limit_val = n
         return new
 
-    def offset(self, n: int) -> Q:
+    def offset(self, n: int) -> Q[TModel]:
         """Set OFFSET for pagination."""
         new = self._clone()
         new._offset_val = n
         return new
 
-    def distinct(self) -> Q:
+    def distinct(self) -> Q[TModel]:
         """Apply SELECT DISTINCT."""
         new = self._clone()
         new._distinct = True
         return new
 
-    def only(self, *fields: str) -> Q:
+    def only(self, *fields: str) -> Q[TModel]:
         """
         Load only specified fields (deferred loading for others).
 
@@ -682,7 +688,7 @@ class Q:
         new._only_fields = field_list
         return new
 
-    def defer(self, *fields: str) -> Q:
+    def defer(self, *fields: str) -> Q[TModel]:
         """
         Defer loading of specified fields.
 
@@ -695,7 +701,7 @@ class Q:
         new._defer_fields = list(fields)
         return new
 
-    def annotate(self, **expressions: Any) -> Q:
+    def annotate(self, **expressions: Any) -> Q[TModel]:
         """
         Add aggregate/expression annotations to each row.
 
@@ -711,7 +717,7 @@ class Q:
         new._annotations.update(expressions)
         return new
 
-    def group_by(self, *fields: str) -> Q:
+    def group_by(self, *fields: str) -> Q[TModel]:
         """GROUP BY clause."""
         for f in fields:
             _validate_field_name(f, context="group_by")
@@ -719,7 +725,7 @@ class Q:
         new._group_by.extend(fields)
         return new
 
-    def having(self, clause: str, *args: Any) -> Q:
+    def having(self, clause: str, *args: Any) -> Q[TModel]:
         """HAVING clause (use after group_by).
 
         The clause must use ``?`` placeholders for all user-supplied values.
@@ -744,7 +750,7 @@ class Q:
         new._having_params.extend(args)
         return new
 
-    def select_related(self, *fields: str) -> Q:
+    def select_related(self, *fields: str) -> Q[TModel]:
         """
         Eager-load FK/OneToOne relations via JOINs.
 
@@ -758,7 +764,7 @@ class Q:
         new._select_related.extend(fields)
         return new
 
-    def prefetch_related(self, *lookups: Any) -> Q:
+    def prefetch_related(self, *lookups: Any) -> Q[TModel]:
         """
         Prefetch related objects via separate queries.
 
@@ -774,7 +780,7 @@ class Q:
         new._prefetch_related.extend(lookups)
         return new
 
-    def select_for_update(self, *, nowait: bool = False, skip_locked: bool = False) -> Q:
+    def select_for_update(self, *, nowait: bool = False, skip_locked: bool = False) -> Q[TModel]:
         """
         Lock selected rows (SELECT ... FOR UPDATE).
 
@@ -800,7 +806,7 @@ class Q:
         new._sfu_skip_locked = skip_locked
         return new
 
-    def using(self, db_alias: str) -> Q:
+    def using(self, db_alias: str) -> Q[TModel]:
         """
         Target a specific database for this query.
 
@@ -821,7 +827,7 @@ class Q:
         new._db = QuerySetDatabaseWrapper(get_database(db_alias), model_name)
         return new
 
-    def apply_q(self, q_node: QNode) -> Q:
+    def apply_q(self, q_node: QNode) -> Q[TModel]:
         """
         Apply a QNode filter to this queryset (Aquilia-only).
 
@@ -831,7 +837,7 @@ class Q:
         """
         return self.filter(q_node)
 
-    def iterator(self, chunk_size: int = 2000) -> Q:
+    def iterator(self, chunk_size: int = 2000) -> Q[TModel]:
         """
         Return a queryset that uses chunked iteration for memory efficiency.
 
@@ -846,7 +852,7 @@ class Q:
         new._iterator_chunk_size = chunk_size
         return new
 
-    def none(self) -> Q:
+    def none(self) -> Q[TModel]:
         """
         Return an empty queryset that evaluates to [].
 
@@ -879,7 +885,7 @@ class Q:
 
     # ── Slicing support ──────────────────────────────────────────────
 
-    def __getitem__(self, key: Any) -> Q:
+    def __getitem__(self, key: Any) -> Q[TModel]:
         """
         Support Python slicing on querysets.
 
@@ -908,7 +914,7 @@ class Q:
 
     # ── Internal ─────────────────────────────────────────────────────
 
-    def _clone(self) -> Q:
+    def _clone(self) -> Q[TModel]:
         """Create an immutable copy of this queryset.
 
         Optimized: only copies non-empty collections to reduce allocation
@@ -1111,7 +1117,7 @@ class Q:
 
     # ── Terminal methods (async, execute query) ──────────────────────
 
-    async def all(self) -> list[Model]:
+    async def all(self) -> list[TModel]:
         """Execute and return all matching rows as model instances."""
         if self._is_none:
             return []
@@ -1131,6 +1137,26 @@ class Q:
 
         rows = await self._db.fetch_all(sql, params)
 
+        instances = self._hydrate_rows(rows)
+
+        # ── prefetch_related: execute separate queries for related objects ──
+        if self._prefetch_related and instances:
+            await self._execute_prefetch(instances)
+
+        # Cache results
+        self._result_cache = instances
+        return instances
+
+    def _hydrate_rows(self, rows: list[Any]) -> list[TModel]:
+        """
+        Convert raw DB rows into model instances, splitting select_related's
+        joined ``rel_name__attr`` aliased columns into nested related-model
+        instances along the way.
+
+        Shared by every terminal method that materializes rows (``all()``,
+        ``first()``, ``one()``) so select_related hydration -- and any future
+        row-processing step -- can't silently drift out of sync between them.
+        """
         # ── select_related: split joined columns into nested objects ──
         if self._select_related:
             from .fields_module import ForeignKey, OneToOneField
@@ -1178,18 +1204,11 @@ class Q:
                     with contextlib.suppress(AttributeError):
                         delattr(instance, sr_key)
                 instances.append(instance)
-        else:
-            instances = [self._model_cls.from_row(row) for row in rows]
+            return instances
 
-        # ── prefetch_related: execute separate queries for related objects ──
-        if self._prefetch_related and instances:
-            await self._execute_prefetch(instances)
+        return [self._model_cls.from_row(row) for row in rows]
 
-        # Cache results
-        self._result_cache = instances
-        return instances
-
-    async def _execute_prefetch(self, instances: list[Model]) -> None:
+    async def _execute_prefetch(self, instances: list[TModel]) -> None:
         """
         Execute prefetch_related queries and attach results to instances.
 
@@ -1305,7 +1324,7 @@ class Q:
                         [target_map[pk] for pk in tgt_pks if pk in target_map],
                     )
 
-    async def one(self) -> Model:
+    async def one(self) -> TModel:
         """
         Return exactly one row. Raises if 0 or >1 (Aquilia-only).
 
@@ -1328,9 +1347,12 @@ class Q:
                 operation="one",
                 reason="Multiple rows found, expected one",
             )
-        return self._model_cls.from_row(rows[0])
+        instances = self._hydrate_rows(rows)
+        if self._prefetch_related:
+            await self._execute_prefetch(instances)
+        return instances[0]
 
-    async def first(self) -> Model | None:
+    async def first(self) -> TModel | None:
         """Return first matching row or None."""
         if self._is_none:
             return None
@@ -1339,9 +1361,12 @@ class Q:
         rows = await self._db.fetch_all(sql, params)
         if not rows:
             return None
-        return self._model_cls.from_row(rows[0])
+        instances = self._hydrate_rows(rows)
+        if self._prefetch_related:
+            await self._execute_prefetch(instances)
+        return instances[0]
 
-    async def last(self) -> Model | None:
+    async def last(self) -> TModel | None:
         """Return last matching row or None (reverses ordering)."""
         if self._is_none:
             return None
@@ -1361,7 +1386,7 @@ class Q:
             new._order_clauses = [f'"{pk}" DESC']
         return await new.first()
 
-    async def latest(self, field_name: str | None = None) -> Model:
+    async def latest(self, field_name: str | None = None) -> TModel:
         """
         Return the latest record by date field.
 
@@ -1381,7 +1406,7 @@ class Q:
             raise ModelNotFoundFault(model_name=self._model_cls.__name__)
         return result
 
-    async def earliest(self, field_name: str | None = None) -> Model:
+    async def earliest(self, field_name: str | None = None) -> TModel:
         """
         Return the earliest record by date field.
 
@@ -1550,7 +1575,7 @@ class Q:
             return [row[fields[0]] for row in rows]
         return [tuple(row.values()) for row in rows]
 
-    async def in_bulk(self, id_list: list[Any], *, batch_size: int = 999) -> dict[Any, Model]:
+    async def in_bulk(self, id_list: list[Any], *, batch_size: int = 999) -> dict[Any, TModel]:
         """
         Return a dict mapping PKs to instances for the given ID list.
 
@@ -1565,7 +1590,7 @@ class Q:
             return {}
         pk_name = self._model_cls._pk_name
         pk_attr = self._model_cls._pk_attr
-        result: dict[Any, Model] = {}
+        result: dict[Any, TModel] = {}
 
         # Process in batches to avoid overly large IN clauses
         for i in range(0, len(id_list), batch_size):
@@ -1621,7 +1646,7 @@ class Q:
         row = await self._db.fetch_one(sql, params)
         return dict(row) if row else {alias: None for alias in expressions}
 
-    async def create(self, **data: Any) -> Model:
+    async def create(self, **data: Any) -> TModel:
         """
         Create a new record (shortcut on queryset).
 
@@ -1632,7 +1657,7 @@ class Q:
         """
         return await self._model_cls.create(**data)
 
-    async def get_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
+    async def get_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[TModel, bool]:
         """
         Get existing or create new.
 
@@ -1640,7 +1665,7 @@ class Q:
         """
         return await self._model_cls.get_or_create(defaults=defaults, **lookup)
 
-    async def update_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
+    async def update_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[TModel, bool]:
         """
         Update existing or create new.
 
@@ -1653,7 +1678,7 @@ class Q:
         defaults: dict[str, Any] | None = None,
         create_defaults: dict[str, Any] | None = None,
         **lookup: Any,
-    ) -> tuple[Model, bool]:
+    ) -> tuple[TModel, bool]:
         """
         Atomically find an existing record or create a new one.
 

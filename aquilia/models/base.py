@@ -67,6 +67,8 @@ from .signals import (
 from .sql_builder import CreateTableBuilder, DeleteBuilder, InsertBuilder, UpdateBuilder
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from ..db.engine import AquiliaDatabase
 
 logger = logging.getLogger("aquilia.models")
@@ -291,9 +293,16 @@ class Model(metaclass=ModelMeta):
     _using_db: str | None = None  # per-instance DB alias
 
     # Default Manager -- provides User.objects.filter(...) etc.
-    # Auto-injected by metaclass if not declared; annotated here
-    # so IDEs (Pylance, mypy, PyCharm) resolve .objects without errors.
-    objects: ClassVar[Manager]
+    # Auto-injected by metaclass if not declared; annotated here (as a
+    # declaration-only ClassVar, never actually assigned at this line) so
+    # IDEs (Pylance, mypy, PyCharm) resolve .objects without errors.
+    #
+    # Manager[Self] -- not Manager[Model] -- is what makes every concrete
+    # subclass automatically get its own manager/queryset typing: accessing
+    # `UserModel.objects` binds Self to UserModel, so `.filter(...)` returns
+    # `Q[UserModel]` and `.first()` returns `UserModel | None` with full
+    # field autocomplete, without each model needing its own annotation.
+    objects: ClassVar[Manager[Self]]
 
     def __init__(self, **kwargs: Any):
         """Create a model instance (in-memory, not persisted)."""
@@ -364,7 +373,7 @@ class Model(metaclass=ModelMeta):
     # ── CRUD API ─────────────────────────────────────────────────────
 
     @classmethod
-    async def create(cls, **data: Any) -> Model:
+    async def create(cls, **data: Any) -> Self:
         """
         Create and persist a new record.
 
@@ -436,7 +445,7 @@ class Model(metaclass=ModelMeta):
         return instance
 
     @classmethod
-    async def get(cls, pk: Any = None, **filters: Any) -> Model:
+    async def get(cls, pk: Any = None, **filters: Any) -> Self:
         """
         Get a single record by PK or filters.
 
@@ -493,7 +502,7 @@ class Model(metaclass=ModelMeta):
         return cls.from_row(row)
 
     @classmethod
-    async def get_or_none(cls, pk: Any = None, **filters: Any) -> Model | None:
+    async def get_or_none(cls, pk: Any = None, **filters: Any) -> Self | None:
         """
         Get a single record, returning ``None`` if not found.
 
@@ -511,7 +520,7 @@ class Model(metaclass=ModelMeta):
             return None
 
     @classmethod
-    async def get_or_create(cls, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
+    async def get_or_create(cls, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Self, bool]:
         """
         Get existing or create new record.
 
@@ -526,7 +535,7 @@ class Model(metaclass=ModelMeta):
         return instance, True
 
     @classmethod
-    async def update_or_create(cls, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
+    async def update_or_create(cls, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Self, bool]:
         """
         Update existing or create new record.
 
@@ -552,7 +561,7 @@ class Model(metaclass=ModelMeta):
         defaults: dict[str, Any] | None = None,
         create_defaults: dict[str, Any] | None = None,
         **lookup: Any,
-    ) -> tuple[Model, bool]:
+    ) -> tuple[Self, bool]:
         """
         Atomically find an existing record or create a new one.
 
@@ -836,7 +845,7 @@ class Model(metaclass=ModelMeta):
         *,
         batch_size: int | None = None,
         ignore_conflicts: bool = False,
-    ) -> list[Model]:
+    ) -> list[Self]:
         """
         Create multiple records efficiently using batched inserts.
 
@@ -861,7 +870,7 @@ class Model(metaclass=ModelMeta):
 
         db = cls._get_db()
         dialect = getattr(db, "dialect", "sqlite")
-        results: list[Model] = []
+        results: list[Self] = []
 
         # Process in batches
         effective_batch = batch_size or len(instances)
@@ -902,7 +911,7 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def bulk_update(
         cls,
-        instances: list[Model],
+        instances: list[Self],
         fields: list[str],
         *,
         batch_size: int | None = None,
@@ -964,7 +973,7 @@ class Model(metaclass=ModelMeta):
         return total_updated
 
     @classmethod
-    def query(cls) -> Q:
+    def query(cls) -> Q[Self]:
         """
         Start a query chain.
 
@@ -974,7 +983,7 @@ class Model(metaclass=ModelMeta):
         return Q(cls._table_name, cls, cls._get_db())
 
     @classmethod
-    async def all(cls) -> list[Model]:
+    async def all(cls) -> list[Self]:
         """Shortcut: get all records."""
         return await cls.query().all()
 
@@ -984,7 +993,7 @@ class Model(metaclass=ModelMeta):
         return await cls.query().count()
 
     @classmethod
-    async def latest(cls, field_name: str | None = None) -> Model:
+    async def latest(cls, field_name: str | None = None) -> Self:
         """
         Return the latest record by date field.
 
@@ -1011,7 +1020,7 @@ class Model(metaclass=ModelMeta):
         return result
 
     @classmethod
-    async def earliest(cls, field_name: str | None = None) -> Model:
+    async def earliest(cls, field_name: str | None = None) -> Self:
         """
         Return the earliest record by date field.
 
@@ -1038,7 +1047,7 @@ class Model(metaclass=ModelMeta):
         return result
 
     @classmethod
-    async def raw(cls, sql: str, params: list[Any] | None = None) -> list[Model]:
+    async def raw(cls, sql: str, params: list[Any] | None = None) -> list[Self]:
         """
         Execute raw SQL and return model instances.
 
@@ -1074,7 +1083,7 @@ class Model(metaclass=ModelMeta):
         return [cls.from_row(row) for row in rows]
 
     @classmethod
-    def using(cls, db_alias: str) -> Q:
+    def using(cls, db_alias: str) -> Q[Self]:
         """
         Target a specific database for this query.
 
@@ -1092,7 +1101,7 @@ class Model(metaclass=ModelMeta):
         force_insert: bool = False,
         force_update: bool = False,
         validate: bool = False,
-    ) -> Model:
+    ) -> Self:
         """
         Save instance (insert or update).
 
@@ -1356,7 +1365,7 @@ class Model(metaclass=ModelMeta):
         """
         pass
 
-    async def refresh(self, fields: list[str] | None = None) -> Model:
+    async def refresh(self, fields: list[str] | None = None) -> Self:
         """Reload instance from database.
 
         Args:
@@ -1686,7 +1695,7 @@ class Model(metaclass=ModelMeta):
         return value
 
     @classmethod
-    def from_row(cls, row: dict[str, Any]) -> Model:
+    def from_row(cls, row: dict[str, Any]) -> Self:
         """Create model instance from database row dict.
 
         Performance: Uses _col_to_attr mapping cached at class creation

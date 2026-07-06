@@ -36,7 +36,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
     from .base import Model
@@ -47,8 +47,14 @@ __all__ = ["Manager", "BaseManager", "QuerySet"]
 
 M = TypeVar("M", bound="BaseManager")
 
+#: Bound to Model -- parametrizes QuerySet/BaseManager/Manager so
+#: `UserModel.objects.filter(...)` keeps resolving to `UserModel` (not the
+#: bare Model base) through every chained/terminal call, restoring IDE and
+#: mypy field-name autocomplete on the result.
+TModel = TypeVar("TModel", bound="Model")
 
-class QuerySet:
+
+class QuerySet(Generic[TModel]):
     """
     Reusable query method set -- compose into Manager via from_queryset().
 
@@ -70,9 +76,9 @@ class QuerySet:
         users = await User.objects.active().adults().order("-name").all()
     """
 
-    _model_cls: type[Model] | None = None
+    _model_cls: type[TModel] | None = None
 
-    def _get_queryset(self) -> Q:
+    def _get_queryset(self) -> Q[TModel]:
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
 
@@ -82,11 +88,11 @@ class QuerySet:
             )
         return self._model_cls.query()
 
-    def get_queryset(self) -> Q:
+    def get_queryset(self) -> Q[TModel]:
         return self._get_queryset()
 
 
-class BaseManager:
+class BaseManager(Generic[TModel]):
     """
     Base manager with Python descriptor protocol.
 
@@ -95,21 +101,21 @@ class BaseManager:
         user.objects                # AttributeError
     """
 
-    _model_cls: type[Model] | None = None
+    _model_cls: type[TModel] | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
-        self._model_cls = cast("type[Model]", owner)
+        self._model_cls = cast("type[TModel]", owner)
 
     def __get__(self: M, instance: Any, owner: type) -> M:
         # Bind to current class (supports inheritance)
-        self._model_cls = cast("type[Model]", owner)
+        self._model_cls = cast("type[TModel]", owner)
         if instance is not None:
             raise AttributeError("Manager is accessible only via the model class, not instances.")
         return self
 
     # ── QuerySet factory ─────────────────────────────────────────────
 
-    def _get_queryset(self) -> Q:
+    def _get_queryset(self) -> Q[TModel]:
         """Return a fresh Q (QuerySet) for the model."""
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
@@ -120,7 +126,7 @@ class BaseManager:
             )
         return self._model_cls.query()
 
-    def get_queryset(self) -> Q:
+    def get_queryset(self) -> Q[TModel]:
         """
         Override point for custom managers.
 
@@ -134,113 +140,113 @@ class BaseManager:
 
     # ── Forwarded chain methods (return Q) ───────────────────────────
 
-    def filter(self, *q_nodes: Any, **kwargs: Any) -> Q:
+    def filter(self, *q_nodes: Any, **kwargs: Any) -> Q[TModel]:
         """Field filtering. See Q.filter() for details."""
         return self.get_queryset().filter(*q_nodes, **kwargs)
 
-    def exclude(self, **kwargs: Any) -> Q:
+    def exclude(self, **kwargs: Any) -> Q[TModel]:
         """Negated filter. See Q.exclude() for details."""
         return self.get_queryset().exclude(**kwargs)
 
-    def where(self, clause: str, *args: Any, **kwargs: Any) -> Q:
+    def where(self, clause: str, *args: Any, **kwargs: Any) -> Q[TModel]:
         """Raw WHERE clause (Aquilia-only). See Q.where() for details."""
         return self.get_queryset().where(clause, *args, **kwargs)
 
-    def order(self, *fields: Any) -> Q:
+    def order(self, *fields: Any) -> Q[TModel]:
         """ORDER BY. See Q.order() for details -- supports str, F().desc(), OrderBy."""
         return self.get_queryset().order(*fields)
 
     # Alias
     order_by = order
 
-    def limit(self, n: int) -> Q:
+    def limit(self, n: int) -> Q[TModel]:
         return self.get_queryset().limit(n)
 
-    def offset(self, n: int) -> Q:
+    def offset(self, n: int) -> Q[TModel]:
         return self.get_queryset().offset(n)
 
-    def distinct(self) -> Q:
+    def distinct(self) -> Q[TModel]:
         return self.get_queryset().distinct()
 
-    def only(self, *fields: str) -> Q:
+    def only(self, *fields: str) -> Q[TModel]:
         """Load only specified fields."""
         return self.get_queryset().only(*fields)
 
-    def defer(self, *fields: str) -> Q:
+    def defer(self, *fields: str) -> Q[TModel]:
         """Defer loading of specified fields."""
         return self.get_queryset().defer(*fields)
 
-    def annotate(self, **expressions: Any) -> Q:
+    def annotate(self, **expressions: Any) -> Q[TModel]:
         """Add annotations. See Q.annotate() for details."""
         return self.get_queryset().annotate(**expressions)
 
-    def group_by(self, *fields: str) -> Q:
+    def group_by(self, *fields: str) -> Q[TModel]:
         return self.get_queryset().group_by(*fields)
 
-    def having(self, clause: str, *args: Any) -> Q:
+    def having(self, clause: str, *args: Any) -> Q[TModel]:
         """HAVING clause (use after group_by)."""
         return self.get_queryset().having(clause, *args)
 
-    def union(self, *querysets: Any, all: bool = False) -> Q:
+    def union(self, *querysets: Any, all: bool = False) -> Q[TModel]:
         """UNION set operation."""
         return self.get_queryset().union(*querysets, all=all)
 
-    def intersection(self, *querysets: Any) -> Q:
+    def intersection(self, *querysets: Any) -> Q[TModel]:
         """INTERSECT set operation."""
         return self.get_queryset().intersection(*querysets)
 
-    def difference(self, *querysets: Any) -> Q:
+    def difference(self, *querysets: Any) -> Q[TModel]:
         """EXCEPT set operation."""
         return self.get_queryset().difference(*querysets)
 
-    def select_related(self, *fields: str) -> Q:
+    def select_related(self, *fields: str) -> Q[TModel]:
         """JOIN-based eager loading."""
         return self.get_queryset().select_related(*fields)
 
-    def prefetch_related(self, *lookups: Any) -> Q:
+    def prefetch_related(self, *lookups: Any) -> Q[TModel]:
         """Separate-query prefetching. Accepts strings or Prefetch objects."""
         return self.get_queryset().prefetch_related(*lookups)
 
-    def select_for_update(self, **kwargs: Any) -> Q:
+    def select_for_update(self, **kwargs: Any) -> Q[TModel]:
         """SELECT ... FOR UPDATE (locking)."""
         return self.get_queryset().select_for_update(**kwargs)
 
-    def iterator(self, chunk_size: int = 2000) -> Q:
+    def iterator(self, chunk_size: int = 2000) -> Q[TModel]:
         """Memory-efficient chunked iteration. See Q.iterator() for details."""
         return self.get_queryset().iterator(chunk_size=chunk_size)
 
-    def using(self, db_alias: str) -> Q:
+    def using(self, db_alias: str) -> Q[TModel]:
         """Target a specific database."""
         return self.get_queryset().using(db_alias)
 
-    def none(self) -> Q:
+    def none(self) -> Q[TModel]:
         """Return an empty queryset."""
         return self.get_queryset().none()
 
-    def apply_q(self, q_node: Any) -> Q:
+    def apply_q(self, q_node: Any) -> Q[TModel]:
         """Apply a QNode filter."""
         return self.get_queryset().apply_q(q_node)
 
     # ── Forwarded terminal methods (async) ───────────────────────────
 
-    async def all(self) -> list[Model]:
+    async def all(self) -> list[TModel]:
         return await self.get_queryset().all()
 
-    async def first(self) -> Model | None:
+    async def first(self) -> TModel | None:
         return await self.get_queryset().first()
 
-    async def last(self) -> Model | None:
+    async def last(self) -> TModel | None:
         return await self.get_queryset().last()
 
-    async def one(self) -> Model:
+    async def one(self) -> TModel:
         """Return exactly one row. Raises if 0 or >1 (Aquilia-only)."""
         return await self.get_queryset().one()
 
-    async def latest(self, field_name: str | None = None) -> Model:
+    async def latest(self, field_name: str | None = None) -> TModel:
         """Return latest record by date field."""
         return await self.get_queryset().latest(field_name)
 
-    async def earliest(self, field_name: str | None = None) -> Model:
+    async def earliest(self, field_name: str | None = None) -> TModel:
         """Return earliest record by date field."""
         return await self.get_queryset().earliest(field_name)
 
@@ -266,7 +272,7 @@ class BaseManager:
         """Compute aggregates. See Q.aggregate() for details."""
         return await self.get_queryset().aggregate(**expressions)
 
-    async def in_bulk(self, id_list: list[Any]) -> dict[Any, Model]:
+    async def in_bulk(self, id_list: list[Any]) -> dict[Any, TModel]:
         """Return dict mapping PKs to instances."""
         return await self.get_queryset().in_bulk(id_list)
 
@@ -276,7 +282,7 @@ class BaseManager:
 
     # ── Convenience shortcuts (delegate to Model class methods) ──────
 
-    async def get(self, pk: Any = None, **filters: Any) -> Model | None:
+    async def get(self, pk: Any = None, **filters: Any) -> TModel | None:
         """
         Get a single instance by PK or filter kwargs.
 
@@ -293,7 +299,7 @@ class BaseManager:
             )
         return await self._model_cls.get(pk=pk, **filters)
 
-    async def get_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
+    async def get_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[TModel, bool]:
         """
         Get existing instance or create a new one.
 
@@ -314,7 +320,7 @@ class BaseManager:
             )
         return await self._model_cls.get_or_create(defaults=defaults, **lookup)
 
-    async def update_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Model, bool]:
+    async def update_or_create(self, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[TModel, bool]:
         """
         Update existing instance or create a new one.
 
@@ -335,7 +341,7 @@ class BaseManager:
             )
         return await self._model_cls.update_or_create(defaults=defaults, **lookup)
 
-    async def create(self, **data: Any) -> Model:
+    async def create(self, **data: Any) -> TModel:
         """
         Create and save a new instance.
 
@@ -357,7 +363,7 @@ class BaseManager:
         *,
         batch_size: int | None = None,
         ignore_conflicts: bool = False,
-    ) -> list[Model]:
+    ) -> list[TModel]:
         """
         Create multiple instances efficiently.
 
@@ -377,7 +383,7 @@ class BaseManager:
 
     async def bulk_update(
         self,
-        instances: list[Model],
+        instances: list[TModel],
         fields: list[str],
         *,
         batch_size: int | None = None,
@@ -400,7 +406,7 @@ class BaseManager:
             )
         return await self._model_cls.bulk_update(instances, fields, batch_size=batch_size)
 
-    async def raw(self, sql: str, params: list[Any] | None = None) -> list[Model]:
+    async def raw(self, sql: str, params: list[Any] | None = None) -> list[TModel]:
         """
         Execute raw SQL and return model instances.
 
@@ -420,7 +426,7 @@ class BaseManager:
 
     # ── Slicing support ──────────────────────────────────────────────
 
-    def __getitem__(self, key: Any) -> Q:
+    def __getitem__(self, key: Any) -> Q[TModel]:
         """
         Slice support: User.objects[:5], User.objects[10:20]
         """
@@ -439,7 +445,7 @@ class BaseManager:
         return f"<{self.__class__.__name__} for {model_name}>"
 
 
-class Manager(BaseManager):
+class Manager(BaseManager[TModel]):
     """
     Default manager -- auto-attached as ``objects`` on every Model.
 
