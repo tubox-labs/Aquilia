@@ -384,6 +384,47 @@ function parseMarkdownChangelog(md: string): ChangelogEntry[] {
   return entries
 }
 
+// Render helper to parse inline markdown bold (**) and code (`) tags
+function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
+  const boldParts = text.split(/(\*\*.*?\*\*)/g);
+  
+  return boldParts.map((bPart, bIdx) => {
+    const isBold = bPart.startsWith('**') && bPart.endsWith('**');
+    const innerText = isBold ? bPart.slice(2, -2) : bPart;
+    
+    const codeParts = innerText.split(/(`.*?`)/g);
+    const renderedCodeParts = codeParts.map((cPart, cIdx) => {
+      const isCode = cPart.startsWith('`') && cPart.endsWith('`');
+      if (isCode) {
+        const codeText = cPart.slice(1, -1);
+        return (
+          <code
+            key={cIdx}
+            className={`px-1.5 py-0.5 rounded font-mono text-xs border ${
+              isDark
+                ? 'bg-zinc-900 text-aquilia-400 border-zinc-800'
+                : 'bg-gray-100 text-aquilia-700 border-gray-200'
+            }`}
+          >
+            {codeText}
+          </code>
+        );
+      }
+      return <span key={cIdx}>{cPart}</span>;
+    });
+    
+    if (isBold) {
+      return (
+        <strong key={bIdx} className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          {renderedCodeParts}
+        </strong>
+      );
+    }
+    
+    return <span key={bIdx}>{renderedCodeParts}</span>;
+  });
+}
+
 export function Changelogs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -565,7 +606,7 @@ export function Changelogs() {
                                         <li key={iIdx} className="flex items-start gap-2 text-sm">
                                           <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${colors.text}`} />
                                           <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                                            {item}
+                                            {renderFormattedText(item, isDark)}
                                           </span>
                                         </li>
                                       ))}
