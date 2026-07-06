@@ -101,7 +101,7 @@ export function IntroductionPage() {
     <div className="max-w-4xl mx-auto">
       {/* Hero */}
       <div className="relative mb-12">
-        <div className="absolute -inset-4 bg-gradient-to-r from-aquilia-500/10 via-blue-500/5 to-purple-500/10 rounded-3xl blur-2xl" />
+        <div className="absolute -inset-4 bg-gradient-to-r from-aquilia-500/10 via-blue-500/5 to-purple-500/10 rounded-3xl blur-2xl print:hidden" />
         <div className="relative">
           <div className="flex items-center gap-3 mb-4">
             <img src="/logo.png" alt="Aquilia" className="w-12 h-12 rounded-2xl shadow-lg shadow-aquilia-500/20" />
