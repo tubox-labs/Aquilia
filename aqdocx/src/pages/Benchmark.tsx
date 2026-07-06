@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   Activity,
@@ -225,6 +225,10 @@ export function BenchmarkPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    document.title = "Benchmark — Aquilia"
+  }, [])
 
   const [activeChart, setActiveChart] = useState<string>('throughput')
 
