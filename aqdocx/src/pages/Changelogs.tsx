@@ -352,7 +352,7 @@ function parseMarkdownChangelog(md: string): ChangelogEntry[] {
       if (items.length > 0) {
         sections.push({
           title,
-          type,
+          type: type as any,
           items
         })
       }
