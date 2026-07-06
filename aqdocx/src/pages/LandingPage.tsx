@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Navbar } from '../components/Navbar'
+import { Footer } from '../components/Footer'
 import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
 import { ArrowRight, Github, BookOpen, Activity, Rocket, Copy } from 'lucide-react'
@@ -345,26 +346,7 @@ export function LandingPage() {
       </main>
 
       {/* Footer */}
-      <footer className={`border-t backdrop-blur-sm mt-auto ${isDark ? 'border-[var(--border-color)] bg-[var(--bg-card)]/50' : 'border-gray-200 bg-white/50'}`}>
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-8">
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Aquilia" className="w-6 h-6 object-contain opacity-80" />
-              <span className={`text-sm font-bold tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>AQUILIA</span>
-            </div>
-
-            <div className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-              © 2026 Aquilia Framework. Built for the modern web.
-            </div>
-
-            <div className="flex space-x-6">
-              <a href="https://github.com/axiomchronicles/Aquilia" target="_blank" rel="noopener" className={`transition-colors ${isDark ? 'text-gray-400 hover:text-aquilia-400' : 'text-gray-400 hover:text-aquilia-600'}`}>
-                <Github className="w-5 h-5" />
-              </a>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div >
   )
 }

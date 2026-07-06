@@ -4,6 +4,7 @@ import { Navbar } from './Navbar'
 import { Sidebar, sections } from './Sidebar'
 import { TableOfContents } from './TableOfContents'
 import { useTheme } from '../context/ThemeContext'
+import { Footer } from './Footer'
 import { useReactToPrint } from 'react-to-print'
 import { Printer } from 'lucide-react'
 
@@ -107,20 +108,8 @@ export function DocsLayout() {
                 <Outlet />
 
                 {/* Footer */}
-                <div className={`mt-24 pt-8 border-t ${isDark ? 'border-white/10' : 'border-gray-200'} print:hidden`}>
-                  <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                    <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Last updated: July 2026
-                    </p>
-                    <a
-                      href="https://github.com/axiomchronicles/Aquilia"
-                      target="_blank"
-                      rel="noopener"
-                      className={`flex items-center gap-2 text-sm transition-colors ${isDark ? 'text-gray-500 hover:text-aquilia-400' : 'text-gray-400 hover:text-aquilia-600'}`}
-                    >
-                      Crafted with ❤️ using Aquilia
-                    </a>
-                  </div>
+                <div className="mt-12 print:hidden">
+                  <Footer />
                 </div>
               </div>
             </main>

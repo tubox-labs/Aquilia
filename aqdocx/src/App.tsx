@@ -9,6 +9,12 @@ import { LandingPage } from './pages/LandingPage'
 import { Changelogs } from './pages/Changelogs'
 import { Releases } from './pages/Releases'
 import { BenchmarkPage } from './pages/Benchmark'
+import { HelpPage } from './pages/Help'
+import { CommunityPage } from './pages/Community'
+import { PrivacyPage } from './pages/Privacy'
+import { TermsPage } from './pages/Terms'
+import { CookiePreferences } from './components/CookiePreferences'
+
 
 // Getting Started
 import { IntroductionPage } from './pages/docs/getting-started/Introduction'
@@ -265,6 +271,10 @@ export default function App() {
         <Route path="/benchmark" element={<BenchmarkPage />} />
         <Route path="/changelogs" element={<Changelogs />} />
         <Route path="/releases" element={<Releases />} />
+        <Route path="/help" element={<HelpPage />} />
+        <Route path="/community" element={<CommunityPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/docs" element={<DocsLayout />}>
           <Route index element={<IntroductionPage />} />
           <Route path="installation" element={<InstallationPage />} />
@@ -555,6 +565,7 @@ export default function App() {
       </Routes>
       <DocPreviewPanel />
       <Chatbox />
+      <CookiePreferences />
       </DocPreviewProvider>
     </ThemeProvider>
   )
