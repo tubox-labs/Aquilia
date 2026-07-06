@@ -23,7 +23,7 @@ interface ChangelogEntry {
   sections: ChangelogSection[]
 }
 
-const changelogs: ChangelogEntry[] = [
+const staticChangelogs: ChangelogEntry[] = [
   {
     version: '1.2.2',
     codename: 'Kraken\'s Wake',
@@ -292,22 +292,137 @@ const typeColors: Record<string, { text: string; bg: string; border: string }> =
   removed: { text: 'text-zinc-400', bg: 'bg-zinc-500/10', border: 'border-zinc-500/20' }
 }
 
+// Parser to parse CHANGELOG.md into ChangelogEntry[]
+function parseMarkdownChangelog(md: string): ChangelogEntry[] {
+  const entries: ChangelogEntry[] = []
+  // Split by "## ["
+  const parts = md.split(/\n##\s*\[/)
+  // Skip the first part since it's the header (# Changelog etc.)
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i]
+    const lines = part.split('\n')
+    const headerLine = lines[0]
+    
+    // Parse version: e.g. "1.2.4] — 2026-07-05 — \"Kraken's Wake\""
+    const versionMatch = headerLine.match(/^([^\]]+)\]/)
+    if (!versionMatch) continue
+    const version = versionMatch[1]
+    
+    // Parse date: matches YYYY-MM-DD
+    const dateMatch = headerLine.match(/(\d{4}-\d{2}-\d{2})/)
+    const date = dateMatch ? dateMatch[1] : 'Unknown'
+    
+    // Parse codename: text inside double quotes
+    const codenameMatch = headerLine.match(/"([^"]+)"/)
+    const codename = codenameMatch ? codenameMatch[1] : undefined
+    
+    // Reconstruct sections
+    const content = lines.slice(1).join('\n')
+    const sectionParts = content.split(/\n###\s+/)
+    
+    const sections: ChangelogSection[] = []
+    
+    for (let j = 0; j < sectionParts.length; j++) {
+      const secPart = sectionParts[j].trim()
+      if (!secPart) continue
+      
+      const secLines = secPart.split('\n')
+      const title = secLines[0].trim()
+      
+      // Determine the type: lowercase
+      const type = title.toLowerCase()
+      
+      // Extract bullet points
+      const items: string[] = []
+      let currentItem = ''
+      
+      for (let k = 1; k < secLines.length; k++) {
+        const line = secLines[k].trim()
+        if (line.startsWith('- ')) {
+          if (currentItem) items.push(currentItem)
+          currentItem = line.substring(2).trim()
+        } else if (line && currentItem) {
+          if (line.startsWith('###') || line.startsWith('##')) break
+          // Append multiline list items
+          currentItem += ' ' + line
+        }
+      }
+      if (currentItem) items.push(currentItem)
+      
+      if (items.length > 0) {
+        sections.push({
+          title,
+          type,
+          items
+        })
+      }
+    }
+    
+    // Construct summary from first few items or sections
+    const firstSection = sections[0]
+    let summaryText = `Release details for v${version}.`
+    if (firstSection && firstSection.items.length > 0) {
+      summaryText = firstSection.items[0]
+      if (summaryText.length > 150) {
+        summaryText = summaryText.substring(0, 147) + '...'
+      }
+    }
+    
+    // Determine tag based on version
+    const parts_v = version.split('.')
+    const tag = parts_v[0] !== '0' && parts_v[1] === '0' && parts_v[2] === '0' ? 'major' : parts_v[2] === '0' ? 'minor' : 'patch'
+    
+    entries.push({
+      version,
+      codename,
+      date,
+      tag,
+      summary: summaryText,
+      sections
+    })
+  }
+  return entries
+}
+
 export function Changelogs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<string | null>(null)
+  const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({})
+  const [changelogData, setChangelogData] = useState<ChangelogEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     document.title = "Changelogs — Aquilia"
+    
+    fetch('https://raw.githubusercontent.com/tubox-labs/Aquilia/master/CHANGELOG.md')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch CHANGELOG.md')
+        return res.text()
+      })
+      .then(text => {
+        const parsed = parseMarkdownChangelog(text)
+        setChangelogData(parsed)
+        // Automatically expand the latest version
+        if (parsed.length > 0) {
+          setExpandedVersions({ [parsed[0].version]: true })
+        }
+        setIsLoading(false)
+      })
+      .catch(err => {
+        console.error('Failed to load GitHub changelog, using static fallback:', err)
+        setChangelogData(staticChangelogs)
+        setExpandedVersions({ '1.2.2': true })
+        setIsLoading(false)
+      })
   }, [])
-  const [activeFilter, setActiveFilter] = useState<string | null>(null)
-  const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({ '1.2.2': true })
 
   const toggleVersion = (version: string) => {
     setExpandedVersions(prev => ({ ...prev, [version]: !prev[version] }))
   }
 
-  const filteredChangelogs = changelogs.map(entry => {
+  const filteredChangelogs = changelogData.map(entry => {
     if (!activeFilter) return entry
     const filteredSections = entry.sections.filter(s => s.type === activeFilter)
     return { ...entry, sections: filteredSections }
@@ -382,79 +497,89 @@ export function Changelogs() {
 
               {/* LEFT — Changelog timeline (No borders, completely clean layout) */}
               <div className="flex-1 min-w-0">
-                <div className={`relative pl-8 sm:pl-12 border-l-2 ${isDark ? 'border-zinc-800' : 'border-zinc-200'} space-y-16 py-4`}>
-                  {filteredChangelogs.map((entry, idx) => {
-                    const isExpanded = expandedVersions[entry.version] ?? false
+                {isLoading ? (
+                  <div className={`text-sm py-12 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Fetching latest changelogs from GitHub...
+                  </div>
+                ) : filteredChangelogs.length === 0 ? (
+                  <div className={`text-sm py-12 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    No changelogs found.
+                  </div>
+                ) : (
+                  <div className={`relative pl-8 sm:pl-12 border-l-2 ${isDark ? 'border-zinc-800' : 'border-zinc-200'} space-y-16 py-4`}>
+                    {filteredChangelogs.map((entry, idx) => {
+                      const isExpanded = expandedVersions[entry.version] ?? false
 
-                    return (
-                      <motion.div
-                        key={entry.version}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.05, duration: 0.5 }}
-                        className="relative"
-                      >
-                        {/* Node point */}
-                        <div className={`absolute -left-[41px] sm:-left-[57px] top-2.5 w-4 h-4 rounded-full border-2 ${isDark ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'} flex items-center justify-center`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${entry.tag === 'major' ? 'bg-aquilia-400' : entry.tag === 'minor' ? 'bg-blue-400' : 'bg-amber-400'}`} />
-                        </div>
-
-                        {/* Heading */}
-                        <div className="mb-4">
-                          <button
-                            onClick={() => toggleVersion(entry.version)}
-                            className="flex flex-col sm:flex-row sm:items-baseline gap-3 w-full text-left group"
-                          >
-                            <h2 className={`text-2xl font-extrabold font-mono tracking-tight transition-colors ${isDark ? 'text-white group-hover:text-aquilia-400' : 'text-gray-900 group-hover:text-aquilia-600'}`}>
-                              v{entry.version} {entry.codename && <span className={`text-sm font-normal font-sans ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>— {entry.codename}</span>}
-                            </h2>
-                            <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${tagColors[entry.tag] || 'bg-zinc-500'}`}>
-                              {entry.tag}
-                            </span>
-                            <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} ml-auto`}>
-                              {entry.date}
-                            </span>
-                          </button>
-                        </div>
-
-                        <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                          {entry.summary}
-                        </p>
-
-                        {/* Version sections */}
-                        {isExpanded && entry.sections.length > 0 && (
-                          <div className="space-y-6 mt-6">
-                            {entry.sections.map((section, sIdx) => {
-                              const colors = typeColors[section.type] || { text: 'text-gray-400', bg: 'bg-zinc-800', border: 'border-zinc-700' }
-                              return (
-                                <div key={sIdx} className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${colors.bg} ${colors.text} border ${colors.border}`}>
-                                      {section.type}
-                                    </span>
-                                    <h4 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                      {section.title}
-                                    </h4>
-                                  </div>
-                                  <ul className="space-y-2">
-                                    {section.items.map((item, iIdx) => (
-                                      <li key={iIdx} className="flex items-start gap-2 text-sm">
-                                        <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${colors.text}`} />
-                                        <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                                          {item}
-                                        </span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              )
-                            })}
+                      return (
+                        <motion.div
+                          key={entry.version}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05, duration: 0.5 }}
+                          className="relative"
+                        >
+                          {/* Node point */}
+                          <div className={`absolute -left-[41px] sm:-left-[57px] top-2.5 w-4 h-4 rounded-full border-2 ${isDark ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'} flex items-center justify-center`}>
+                            <div className={`w-1.5 h-1.5 rounded-full ${entry.tag === 'major' ? 'bg-aquilia-400' : entry.tag === 'minor' ? 'bg-blue-400' : 'bg-amber-400'}`} />
                           </div>
-                        )}
-                      </motion.div>
-                    )
-                  })}
-                </div>
+
+                          {/* Heading */}
+                          <div className="mb-4">
+                            <button
+                              onClick={() => toggleVersion(entry.version)}
+                              className="flex flex-col sm:flex-row sm:items-baseline gap-3 w-full text-left group"
+                            >
+                              <h2 className={`text-2xl font-extrabold font-mono tracking-tight transition-colors ${isDark ? 'text-white group-hover:text-aquilia-400' : 'text-gray-900 group-hover:text-aquilia-600'}`}>
+                                v{entry.version} {entry.codename && <span className={`text-sm font-normal font-sans ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>— {entry.codename}</span>}
+                              </h2>
+                              <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${tagColors[entry.tag] || 'bg-zinc-500'}`}>
+                                {entry.tag}
+                              </span>
+                              <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} ml-auto`}>
+                                {entry.date}
+                              </span>
+                            </button>
+                          </div>
+
+                          <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                            {entry.summary}
+                          </p>
+
+                          {/* Version sections */}
+                          {isExpanded && entry.sections.length > 0 && (
+                            <div className="space-y-6 mt-6">
+                              {entry.sections.map((section, sIdx) => {
+                                const colors = typeColors[section.type] || { text: 'text-gray-400', bg: 'bg-zinc-800', border: 'border-zinc-700' }
+                                return (
+                                  <div key={sIdx} className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${colors.bg} ${colors.text} border ${colors.border}`}>
+                                        {section.type}
+                                      </span>
+                                      <h4 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {section.title}
+                                      </h4>
+                                    </div>
+                                    <ul className="space-y-2">
+                                      {section.items.map((item, iIdx) => (
+                                        <li key={iIdx} className="flex items-start gap-2 text-sm">
+                                          <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${colors.text}`} />
+                                          <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+                                            {item}
+                                          </span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </motion.div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* RIGHT — Premium sidebar (Quick Links only) */}
