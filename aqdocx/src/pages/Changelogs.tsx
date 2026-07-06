@@ -400,11 +400,7 @@ function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
         return (
           <code
             key={cIdx}
-            className={`px-1.5 py-0.5 rounded font-mono text-xs border ${
-              isDark
-                ? 'bg-aquilia-500/10 text-aquilia-400 border-aquilia-500/20'
-                : 'bg-aquilia-50 text-aquilia-600 border-aquilia-200'
-            }`}
+            className="changelog-code px-1.5 py-0.5 rounded font-mono text-xs border"
           >
             {codeText}
           </code>
