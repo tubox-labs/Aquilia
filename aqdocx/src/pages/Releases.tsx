@@ -364,6 +364,7 @@ export function Releases() {
   }
 
   useEffect(() => {
+    document.title = "Releases — Aquilia"
     fetch('https://api.github.com/repos/tubox-labs/Aquilia/tags')
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch')
