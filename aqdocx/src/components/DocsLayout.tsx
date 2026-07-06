@@ -1,17 +1,48 @@
-import { Outlet } from 'react-router-dom'
-import { useState, useRef } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
 import { Navbar } from './Navbar'
-import { Sidebar } from './Sidebar'
+import { Sidebar, sections } from './Sidebar'
 import { TableOfContents } from './TableOfContents'
 import { useTheme } from '../context/ThemeContext'
 import { useReactToPrint } from 'react-to-print'
 import { Printer } from 'lucide-react'
+
+// Recursive helper to find page labels
+function findItemLabel(items: any[], path: string): string | null {
+  for (const item of items) {
+    if (item.path.toLowerCase() === path.toLowerCase()) {
+      return item.label
+    }
+    if (item.children) {
+      const found = findItemLabel(item.children, path)
+      if (found) return found
+    }
+  }
+  return null
+}
 
 export function DocsLayout() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
+  const location = useLocation()
+
+  useEffect(() => {
+    let pageLabel = null
+    for (const sec of sections) {
+      const found = findItemLabel(sec.items, location.pathname)
+      if (found) {
+        pageLabel = found
+        break
+      }
+    }
+    if (pageLabel) {
+      document.title = `${pageLabel} — Aquilia Documentation`
+    } else {
+      document.title = "Aquilia Documentation"
+    }
+  }, [location.pathname])
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
