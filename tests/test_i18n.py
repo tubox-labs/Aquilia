@@ -813,6 +813,8 @@ class TestSurpCatalog:
         return tmp_path / "locales"
 
     def test_has_surp(self):
+        pytest.importorskip("surp")
+
         from aquilia.i18n.catalog import has_surp
 
         # Should be True since surp is installed
@@ -825,6 +827,8 @@ class TestSurpCatalog:
         assert cat.get("messages.welcome", "en") == "Welcome!"
 
     def test_auto_compile(self, locale_dir):
+        pytest.importorskip("surp")
+
         from aquilia.i18n.catalog import SurpCatalog
 
         cat = SurpCatalog([locale_dir], auto_compile=True)
@@ -834,6 +838,8 @@ class TestSurpCatalog:
         assert surp_file.exists()
 
     def test_load_from_surp(self, locale_dir):
+        pytest.importorskip("surp")
+
         from aquilia.i18n.catalog import SurpCatalog
 
         # First compile
@@ -849,6 +855,8 @@ class TestSurpCatalog:
         assert cat2.get("messages.welcome", "en") == "Welcome!"
 
     def test_compile_method(self, locale_dir):
+        pytest.importorskip("surp")
+
         from aquilia.i18n.catalog import SurpCatalog
 
         cat = SurpCatalog([locale_dir], auto_compile=False)
@@ -919,7 +927,7 @@ class TestSurpCatalog:
 
     def test_envelope_integrity(self, locale_dir):
         """Validate SURP envelope structure."""
-        import surp
+        surp = pytest.importorskip("surp")
 
         from aquilia.i18n.catalog import SurpCatalog
 
@@ -2330,6 +2338,8 @@ class TestCLIInit:
         assert "greeting" in data
 
     def test_init_surp_format(self, tmp_path, monkeypatch):
+        surp = pytest.importorskip("surp")
+
         from aquilia.cli.commands.i18n import cmd_i18n_init
 
         monkeypatch.chdir(tmp_path)
@@ -2338,8 +2348,6 @@ class TestCLIInit:
 
         surp_file = tmp_path / "locales" / "en" / "messages.surp"
         assert surp_file.exists()
-
-        import surp
 
         data = surp.decode_from_file(str(surp_file))
         assert data["__format__"] == "surp"
@@ -2372,6 +2380,8 @@ class TestCLICompile:
     """aq i18n compile command."""
 
     def test_compile_json_to_surp(self, tmp_path, monkeypatch):
+        pytest.importorskip("surp")
+
         from aquilia.cli.commands.i18n import cmd_i18n_compile, cmd_i18n_init
 
         monkeypatch.chdir(tmp_path)
@@ -2574,6 +2584,8 @@ class TestI18nRegression:
 
     def test_surp_round_trip(self, tmp_path):
         """SURP catalog survives full write → read round-trip."""
+        pytest.importorskip("surp")
+
         from aquilia.i18n.catalog import SurpCatalog
 
         locale_dir = tmp_path / "locales" / "en"
@@ -2738,6 +2750,8 @@ class TestI18nRegression:
 
     def test_has_surp_function(self):
         """has_surp() reports surp library availability."""
+        pytest.importorskip("surp")
+
         from aquilia.i18n.catalog import has_surp
 
         assert isinstance(has_surp(), bool)

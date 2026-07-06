@@ -15,6 +15,8 @@ from aquilia.discovery.engine import (
 
 def test_discovery_caching(tmp_path):
     """Test that file discovery caches scan results and detects changes correctly."""
+    pytest.importorskip("surp")
+
     cache_file = tmp_path / "cache.surp"
     cache = DiscoveryCache(cache_file)
 

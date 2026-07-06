@@ -832,12 +832,14 @@ class TestMigrationFormat:
             save_snapshot(snapshot, surp_path)
             assert os.path.exists(surp_path)
             # Verify it is Surp-decodable binary, not JSON text.
-            import surp
+            surp = pytest.importorskip("surp")
 
             assert surp.decode_from_file(surp_path) == snapshot
 
     def test_snapshot_roundtrip_surp(self):
         """save_snapshot + load_snapshot should roundtrip data via SURP."""
+        pytest.importorskip("surp")
+
         import os
         import tempfile
 
@@ -868,14 +870,14 @@ class TestMigrationFormat:
         source = inspect.getsource(generate_dsl_migration)
         assert "schema_snapshot.surp" in source
 
-    def test_no_json_fallback_in_save(self):
-        """save_snapshot should not contain JSON fallback logic."""
+    def test_json_fallback_in_save(self):
+        """save_snapshot should fall back to JSON when surp is not installed."""
         import inspect
 
         from aquilia.models.schema_snapshot import save_snapshot
 
         source = inspect.getsource(save_snapshot)
-        assert "json.dumps" not in source, "save_snapshot should not fall back to JSON"
+        assert "json.dumps" in source, "save_snapshot should fall back to JSON when surp is unavailable"
 
     def test_no_json_fallback_in_load(self):
         """load_snapshot should not contain JSON fallback logic."""

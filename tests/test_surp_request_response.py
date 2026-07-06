@@ -19,7 +19,8 @@ from typing import Any
 from unittest.mock import patch
 
 import pytest
-import surp as _surp_mod
+
+_surp_mod = pytest.importorskip("surp")
 
 # ============================================================================
 # Helpers

@@ -19,6 +19,13 @@ from unittest.mock import patch
 
 import pytest
 
+try:
+    import surp as _surp_probe  # noqa: F401
+
+    _HAS_SURP = True
+except ImportError:
+    _HAS_SURP = False
+
 # ════════════════════════════════════════════════════════════════════════
 # MODULE 1: TRACE REMOVAL — Verify trace is completely gone
 # ════════════════════════════════════════════════════════════════════════
@@ -207,6 +214,7 @@ class TestAquilaryLoaderSurp:
 # ════════════════════════════════════════════════════════════════════════
 
 
+@pytest.mark.skipif(not _HAS_SURP, reason="surp is not installed (optional dependency)")
 class TestSurpBackend:
     """Test the low-level Surp binary encoder/decoder."""
 
