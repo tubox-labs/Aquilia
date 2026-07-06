@@ -254,11 +254,11 @@ code {
 
 @media print {
   @page {
-    margin: 1.5cm !important;
+    margin: 0.8cm !important;
   }
 
   .print-content-wrapper {
-    padding: 0 0.8cm !important;
+    padding: 0 !important;
     max-width: none !important;
     width: 100% !important;
     box-sizing: border-box !important;
@@ -380,6 +380,14 @@ code {
     background-color: #f8fafc !important;
     color: #0f172a !important;
     border: none !important;
+    white-space: pre-wrap !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  .code-block-container pre div:has(span.select-none) {
+    padding-left: 3rem !important;
+    text-indent: -3rem !important;
   }
 
   /* Table styling */
