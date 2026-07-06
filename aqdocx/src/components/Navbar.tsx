@@ -22,7 +22,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
   useEffect(() => { setMobileMenuOpen(false) }, [location.pathname])
 
   return (
-    <nav className="fixed w-full z-40 glass border-b border-[var(--border-color)]/50">
+    <nav className="fixed w-full z-40 glass border-b border-[var(--border-color)]/50 print:hidden">
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Hamburger + Logo */}
