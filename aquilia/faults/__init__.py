@@ -122,6 +122,9 @@ from .domains import (
     RateLimitExceededFault,
     # Registry faults
     RegistryFault,
+    RelatedNameConflictFault,
+    RelatedNotLoadedFault,
+    RelatedTypeMismatchFault,
     RequestHeaderFieldsTooLargeFault,
     RequestTimeoutFault,
     ResourceExhaustedFault,
@@ -226,6 +229,9 @@ __all__ = [
     "FieldValidationFault",
     "ProtectedDeleteFault",
     "RestrictedDeleteFault",
+    "RelatedNotLoadedFault",
+    "RelatedTypeMismatchFault",
+    "RelatedNameConflictFault",
     # Security faults
     "SecurityFault",
     "AuthenticationFault",

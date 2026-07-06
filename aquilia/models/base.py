@@ -53,8 +53,10 @@ from .fields_module import (
     FieldValidationError,
     ForeignKey,
     ManyToManyField,
+    OneToOneField,
 )
 from .manager import Manager
+from .relations import RelatedNotLoaded
 from .signals import (
     m2m_changed,
     post_delete,
@@ -70,6 +72,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     from ..db.engine import AquiliaDatabase
+    from .manager import RelatedManager
 
 logger = logging.getLogger("aquilia.models")
 
@@ -272,9 +275,25 @@ class Model(metaclass=ModelMeta):
         users = await User.query().filter(active=True).all()
 
     Relationships:
-        posts  = await user.related("posts")   # reverse FK
+        posts  = await user.related("posts")   # reverse FK (related_name or default `_set` name)
         author = await post.related("author")   # forward FK
         tags   = await post.related("tags")     # M2M
+
+        # Reverse relations can also be accessed lazily/chainably instead
+        # of via the eager-list related() above:
+        recent = await user.related_manager("posts").filter(
+            published=True,
+        ).order("-created_at").first()
+
+    Forward ForeignKey/OneToOneField access without an eager load
+    (select_related()/prefetch_related()/related()) returns a
+    RelatedNotLoaded sentinel, not the raw stored id -- see
+    aquilia.models.relations.RelatedNotLoaded and ForeignKey's docstring
+    (aquilia/models/fields_module.py) for the full contract. This is
+    deliberate: Aquilia's DB layer is entirely async, and Python's
+    descriptor protocol can't run a hidden query synchronously the way
+    Django's ForwardManyToOneDescriptor does, so hydration is always
+    explicit and awaited.
     """
 
     # Class-level attributes set by metaclass
@@ -289,6 +308,7 @@ class Model(metaclass=ModelMeta):
     _non_m2m_fields: ClassVar[list[tuple[str, Field]]] = []
     _col_to_attr: ClassVar[dict[str, tuple[str, Field]]] = {}
     _reverse_fk_cache: ClassVar[list[tuple[type[Model], str, str]] | None] = None
+    _reverse_relation_cache: ClassVar[dict[str, tuple[type[Model], str, str, bool]] | None] = None
     _db: ClassVar[AquiliaDatabase | None] = None
     _using_db: str | None = None  # per-instance DB alias
 
@@ -337,7 +357,13 @@ class Model(metaclass=ModelMeta):
 
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, self.__class__):
-            return False
+            # NotImplemented (not False) so Python falls back to *other*'s
+            # own __eq__ when it knows how to compare itself against a
+            # Model -- e.g. a RelatedNotLoaded sentinel comparing by pk.
+            # Without this, dirty-field tracking would flag a FK as
+            # "changed" any time related()/select_related() replaces an
+            # unhydrated sentinel with the equivalent hydrated instance.
+            return NotImplemented
         return bool(getattr(self, self._pk_attr) == getattr(other, other._pk_attr))
 
     def __hash__(self) -> int:
@@ -1257,6 +1283,61 @@ class Model(metaclass=ModelMeta):
         cls._reverse_fk_cache = refs
         return refs
 
+    @classmethod
+    def _reverse_relation_map(cls) -> dict[str, tuple[type[Model], str, str, bool]]:
+        """
+        Map of reverse-relation accessor name -> (referencing_model,
+        fk_column_name, fk_attr_name, is_one_to_one) for every
+        ForeignKey/OneToOneField in the registry that points at this model.
+        Cached per class using the same lazy-on-first-use pattern as
+        ``_get_reverse_fk_refs()`` (and for the same reason: this must run
+        after every model is registered, which is only guaranteed once real
+        use begins -- e.g. the first ``related()``/``related_manager()``
+        call -- not at class-creation time, since import order across
+        modules isn't guaranteed).
+
+        Accessor name defaults to ``related_name`` when set on the FK,
+        otherwise ``f"{referencing_model.__name__.lower()}_set"``.
+
+        ``is_one_to_one`` lets ``related()`` return a single instance (or
+        None) instead of a list for OneToOneField's reverse side, matching
+        its actual 1:1 cardinality.
+
+        Raises RelatedNameConflictFault if two different FKs targeting this
+        model would resolve to the same accessor name.
+        """
+        if cls._reverse_relation_cache is not None:
+            return cls._reverse_relation_cache
+
+        mapping: dict[str, tuple[type[Model], str, str, bool]] = {}
+        conflicts: dict[str, list[type[Model]]] = {}
+        for model_cls in ModelRegistry.all_models().values():
+            for fname, field in model_cls._fields.items():
+                if not isinstance(field, ForeignKey):
+                    continue
+                target_name = field.to if isinstance(field.to, str) else field.to.__name__
+                if target_name != cls.__name__:
+                    continue
+                accessor_name = field.related_name or f"{model_cls.__name__.lower()}_set"
+                existing = mapping.get(accessor_name)
+                if existing is not None and existing[0] is not model_cls:
+                    conflicts.setdefault(accessor_name, [existing[0]]).append(model_cls)
+                    continue
+                mapping[accessor_name] = (model_cls, field.column_name, fname, isinstance(field, OneToOneField))
+
+        if conflicts:
+            name, conflicting_models = next(iter(conflicts.items()))
+            from ..faults.domains import RelatedNameConflictFault
+
+            raise RelatedNameConflictFault(
+                model_name=cls.__name__,
+                related_name=name,
+                conflicting_models=[m.__name__ for m in conflicting_models],
+            )
+
+        cls._reverse_relation_cache = mapping
+        return mapping
+
     async def delete_instance(self) -> int:
         """
         Delete this instance from database.
@@ -1473,30 +1554,53 @@ class Model(metaclass=ModelMeta):
 
     async def related(self, name: str) -> Any:
         """
-        Access a related model via FK or M2M.
+        Access a related model via FK, reverse FK, or M2M -- awaited,
+        one-shot, always returns real hydrated data (never a
+        RelatedNotLoaded sentinel or a lazy manager).
 
         Usage:
             author = await post.related("author")     # FK forward
-            posts = await user.related("posts")        # FK reverse (via related_name)
+            posts = await user.related("posts")        # FK reverse (related_name or default `_set` name)
             tags = await post.related("tags")           # M2M
+
+        Forward FK: if the attribute already holds a hydrated instance
+        (via select_related()/prefetch_related()/a prior related() call),
+        returns it immediately with zero query. Otherwise resolves it and
+        caches the hydrated instance in place, so subsequent bare
+        attribute access (not just future related() calls) is instant and
+        correctly typed from then on.
+
+        Reverse FK: O(1) lookup into _reverse_relation_map() (see
+        related_manager() for a lazy, chainable alternative that doesn't
+        eagerly materialize the full list).
         """
-        # Check forward FK
+        # Forward FK
         field = self._fields.get(name)
         if isinstance(field, ForeignKey):
-            fk_value = getattr(self, name, None)
+            current = getattr(self, name, None)
+            if current is None:
+                return None
+            if isinstance(current, Model):
+                return current  # already hydrated -- zero-query fast path
+
+            fk_value = current.pk if isinstance(current, RelatedNotLoaded) else current
             if fk_value is None:
-                # Try the _id column
+                # Defensive fallback for the pre-1.3 _id-column convention.
                 fk_value = getattr(self, field.column_name, None)
             if fk_value is None:
                 return None
+
             target = field.related_model
             if target is None:
                 target = ModelRegistry.get(field.to if isinstance(field.to, str) else field.to.__name__)
             if target is None:
                 return None
-            return await target.get(pk=fk_value)
 
-        # Check M2M
+            resolved = await target.get(pk=fk_value)
+            setattr(self, name, resolved)  # cache -- future bare access just works
+            return resolved
+
+        # M2M
         if name in self._m2m_fields:
             m2m = self._m2m_fields[name]
             target = m2m.related_model or ModelRegistry.get(m2m.to if isinstance(m2m.to, str) else m2m.to.__name__)
@@ -1520,18 +1624,15 @@ class Model(metaclass=ModelMeta):
             rows = await db.fetch_all(sql, [db_pk_val])
             return [target.from_row(r) for r in rows]
 
-        # Check reverse FK (search other models for FK pointing to us)
-        for model_cls in ModelRegistry.all_models().values():
-            for _fname, f in model_cls._fields.items():
-                if isinstance(f, ForeignKey) and f.related_name == name:
-                    target_model_name = f.to if isinstance(f.to, str) else f.to.__name__
-                    if target_model_name == self.__class__.__name__:
-                        pk_val = getattr(self, self._pk_attr)
-                        db = self._get_db()
-                        dialect = getattr(db, "dialect", "sqlite")
-                        pk_field = self._fields[self._pk_attr]
-                        db_pk_val = pk_field.to_db(pk_val, dialect=dialect)
-                        return await model_cls.query().where(f'"{f.column_name}" = ?', db_pk_val).all()
+        # Reverse FK -- delegate to the lazy related_manager(). A
+        # OneToOneField's reverse side is genuinely 1:1, so return a single
+        # instance (or None) instead of a list, matching its actual
+        # cardinality; a plain ForeignKey's reverse side stays a list.
+        reverse_entry = self._reverse_relation_map().get(name)
+        if reverse_entry is not None:
+            is_one_to_one = reverse_entry[3]
+            manager = self.related_manager(name)
+            return await manager.first() if is_one_to_one else await manager.all()
 
         from ..faults.domains import QueryFault
 
@@ -1540,6 +1641,41 @@ class Model(metaclass=ModelMeta):
             operation="related",
             reason=f"No relation '{name}' on {self.__class__.__name__}",
         )
+
+    def related_manager(self, name: str) -> RelatedManager[Any]:
+        """
+        Return a lazy, chainable manager over the reverse relation `name`
+        (rows in another table whose FK points back at this instance).
+
+        Unlike related() (which awaits and returns a fully materialized
+        list), this constructs a pre-filtered, async-terminal manager with
+        zero I/O -- nothing executes until a terminal method is awaited:
+
+            recent = await user.related_manager("verifications").filter(
+                expires_at__gt=now,
+            ).order("-created_at").first()
+
+            count = await user.related_manager("verifications").count()
+        """
+        entry = self._reverse_relation_map().get(name)
+        if entry is None:
+            from ..faults.domains import QueryFault
+
+            raise QueryFault(
+                model=self.__class__.__name__,
+                operation="related_manager",
+                reason=f"No reverse relation '{name}' on {self.__class__.__name__}",
+            )
+        referencing_model, fk_column_name, _fk_attr_name, _is_one_to_one = entry
+
+        db = self._get_db()
+        dialect = getattr(db, "dialect", "sqlite")
+        pk_field = self._fields[self._pk_attr]
+        db_pk_val = pk_field.to_db(getattr(self, self._pk_attr), dialect=dialect)
+
+        from .manager import RelatedManager
+
+        return RelatedManager(referencing_model, fk_column_name, db_pk_val)
 
     async def attach(self, name: str, *targets: Any) -> None:
         """
@@ -1715,6 +1851,15 @@ class Model(metaclass=ModelMeta):
             if mapping is not None:
                 attr_name, field = mapping
                 converted = field.to_python(raw)
+                if isinstance(field, ForeignKey) and converted is not None:
+                    # A raw FK id read straight off a row is NOT a related
+                    # model instance -- wrap it so accessing it as one
+                    # raises a clear, actionable fault instead of a
+                    # confusing AttributeError on the wrong type. Real
+                    # hydration (select_related()/prefetch_related()/
+                    # related()) always overwrites this with the actual
+                    # instance afterward.
+                    converted = RelatedNotLoaded(converted, field_name=attr_name, owner_model_name=cls.__name__)
                 setattr(instance, attr_name, converted)
                 original[attr_name] = converted
                 seen.add(attr_name)

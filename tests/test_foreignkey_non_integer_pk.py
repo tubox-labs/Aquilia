@@ -75,7 +75,15 @@ class TestForeignKeyAcceptsRelatedInstance:
 
         fetched = await FkUuidPost.objects.filter(id=post.id).first()
         assert fetched is not None
-        assert str(fetched.author) == str(author.pk)
+        # fetched.author is an unhydrated RelatedNotLoaded sentinel here (no
+        # select_related()/related() call) -- .pk reads the raw stored FK
+        # value without a query or without needing to be the hydrated
+        # instance itself. ForeignKey doesn't coerce its own raw column
+        # through the related model's pk field's to_python(), so the
+        # stored value is a plain str here rather than a uuid.UUID --
+        # str()-normalize both sides for comparison, as the original
+        # assertion did.
+        assert str(fetched.author.pk) == str(author.pk)
 
     @pytest.mark.asyncio
     async def test_validate_accepts_uuid_pk_value(self, seeded_db):

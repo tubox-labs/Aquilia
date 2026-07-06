@@ -1767,6 +1767,30 @@ class ForeignKey(RelationField):
     Usage:
         class Post(Model):
             author = ForeignKey("User", related_name="posts")
+
+    Reading this attribute on a loaded instance:
+        - After ``select_related("author")``, ``prefetch_related("author")``,
+          or ``await post.related("author")`` -- a real ``User`` instance
+          (or ``None`` for a nullable FK with no value).
+        - Otherwise -- a ``RelatedNotLoaded`` sentinel wrapping the raw
+          stored id (see ``aquilia.models.relations.RelatedNotLoaded``).
+          Cheap operations (``.pk``, ``bool(...)``, ``==``) work directly
+          on it without a query; anything else raises
+          ``RelatedNotLoadedFault`` with guidance on how to hydrate it.
+          This is deliberate, not an oversight: Aquilia's DB layer is
+          entirely async and Python's descriptor protocol can't run a
+          hidden query synchronously the way Django's
+          ``ForwardManyToOneDescriptor`` does on first access, so unlike
+          Django there is no implicit lazy query here -- hydration is
+          always explicit and awaited.
+
+    Writing this attribute:
+        post.author = some_user      # a User instance, None, or a raw pk
+        await post.save()
+
+    Assigning an instance of the wrong related model (e.g. a ``Book`` to
+    a ``User``-typed FK) raises ``RelatedTypeMismatchFault`` at
+    validate()/save() time rather than silently taking its ``.pk``.
     """
 
     _field_type = "FK"
@@ -1796,8 +1820,32 @@ class ForeignKey(RelationField):
         self.name = self.db_column
 
     def _coerce_to_pk(self, value: Any) -> Any:
-        """Unwrap a related Model instance to its primary key value."""
+        """Unwrap a related Model instance (or unloaded relation) to its primary key value.
+
+        Validates the assigned instance's type against the resolved
+        ``related_model`` when possible, so assigning the wrong model (e.g.
+        a ``Book`` to an ``author`` FK expecting ``User``) fails immediately
+        with ``RelatedTypeMismatchFault`` instead of silently taking
+        ``.pk`` and only surfacing as a confusing failure elsewhere (or
+        never, if the two models' PK types happen to collide). Falls back
+        to duck-typing when ``related_model`` is still an unresolved lazy
+        string reference -- best-effort, not a regression from before.
+        """
+        from .relations import RelatedNotLoaded
+
+        if isinstance(value, RelatedNotLoaded):
+            return value.pk
+
         if hasattr(value, "pk") and hasattr(value, "_fields"):
+            related_model = self.related_model
+            if related_model is not None and not isinstance(value, related_model):
+                from ..faults.domains import RelatedTypeMismatchFault
+
+                raise RelatedTypeMismatchFault(
+                    field_name=self.name,
+                    expected_model=related_model.__name__,
+                    got_type=type(value).__name__,
+                )
             return value.pk
         return value
 
@@ -1859,6 +1907,12 @@ class OneToOneField(ForeignKey):
     Usage:
         class Profile(Model):
             user = OneToOneField("User", related_name="profile")
+
+    Forward access follows ForeignKey's RelatedNotLoaded contract exactly.
+    Reverse access via ``await user.related("profile")`` returns a single
+    instance (or ``None``) instead of a list, matching this field's actual
+    1:1 cardinality -- unlike a plain ForeignKey's reverse side, which is
+    always a list since multiple rows can reference the same target.
     """
 
     _field_type = "O2O"

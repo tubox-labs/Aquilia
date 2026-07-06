@@ -882,6 +882,70 @@ class DeferredFieldAccessFault(ModelFault, AttributeError):
         )
 
 
+class RelatedNotLoadedFault(ModelFault, AttributeError):
+    """Accessed a related-model attribute on an unhydrated ForeignKey/OneToOneField.
+
+    Subclasses ``AttributeError`` (in addition to ``ModelFault``, same pattern
+    as ``DeferredFieldAccessFault``) so that defensive ``hasattr(value, name)``/
+    ``getattr(value, name, default)`` call sites -- e.g. duck-typing checks in
+    ``ForeignKey._coerce_to_pk()`` -- keep degrading gracefully instead of
+    propagating, while code that actually tries to use the relation as a
+    hydrated instance (e.g. ``instance.user.name``) raises loudly with
+    guidance instead of a confusing raw ``AttributeError`` on the wrong type.
+    """
+
+    def __init__(self, model_name: str, field_name: str, pk: Any, **kwargs):
+        super().__init__(
+            code="RELATED_NOT_LOADED",
+            message=(
+                f"Field '{field_name}' on '{model_name}' (pk={pk!r}) is not loaded. "
+                f"Call `await instance.related({field_name!r})`, use "
+                f"`.select_related({field_name!r})` on the query, or "
+                f"`.prefetch_related({field_name!r})` to load it."
+            ),
+            severity=Severity.ERROR,
+            metadata={"model": model_name, "field": field_name, "pk": pk, **kwargs.get("metadata", {})},
+        )
+
+
+class RelatedTypeMismatchFault(ModelFault):
+    """Assigned an instance of the wrong model type to a ForeignKey/OneToOneField."""
+
+    def __init__(self, field_name: str, expected_model: str, got_type: str, **kwargs):
+        super().__init__(
+            code="RELATED_TYPE_MISMATCH",
+            message=f"Expected instance of '{expected_model}' for field '{field_name}', got '{got_type}' instead.",
+            severity=Severity.ERROR,
+            metadata={
+                "field": field_name,
+                "expected_model": expected_model,
+                "got_type": got_type,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
+class RelatedNameConflictFault(ModelFault):
+    """Two ForeignKeys targeting the same model resolve to the same reverse accessor name."""
+
+    def __init__(self, model_name: str, related_name: str, conflicting_models: list[str], **kwargs):
+        super().__init__(
+            code="RELATED_NAME_CONFLICT",
+            message=(
+                f"Reverse relation name '{related_name}' on '{model_name}' is ambiguous -- "
+                f"claimed by more than one model ({', '.join(conflicting_models)}). "
+                f"Set an explicit, distinct related_name= on each ForeignKey."
+            ),
+            severity=Severity.ERROR,
+            metadata={
+                "model": model_name,
+                "related_name": related_name,
+                "conflicting_models": conflicting_models,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
 class ProtectedDeleteFault(ModelFault):
     """Cannot delete a protected object due to PROTECT on_delete."""
 

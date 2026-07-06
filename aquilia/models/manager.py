@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from .query import Q
 
 
-__all__ = ["Manager", "BaseManager", "QuerySet"]
+__all__ = ["Manager", "BaseManager", "QuerySet", "RelatedManager"]
 
 M = TypeVar("M", bound="BaseManager")
 
@@ -524,3 +524,49 @@ class Manager(BaseManager[TModel]):
 
         new_cls = type(class_name, (cls,), attrs)
         return new_cls
+
+
+class RelatedManager(Manager[TModel]):
+    """
+    Instance-bound reverse-relation manager -- returned by
+    ``Model.related_manager(name)``, not attached as a class attribute.
+
+    ``BaseManager`` (and therefore ``Manager``) is deliberately class-only:
+    its ``__get__`` raises ``AttributeError`` if accessed from an instance
+    (``user.objects`` fails; only ``User.objects`` works), because a single
+    ``Manager()`` object is shared across every instance of a model and
+    isn't parametrized per-row. A reverse relation needs the opposite --
+    one manager bound to *this* row's primary key -- so ``RelatedManager``
+    is constructed directly (by ``related_manager()``) instead of through
+    the descriptor protocol, and pre-filters every query through the
+    owning instance's pk via ``get_queryset()``, following the exact same
+    override shape as the ``PublishedManager`` example in this module's
+    docstring -- just parametrized per-instance instead of per-class:
+
+        class PublishedManager(Manager):
+            def get_queryset(self):
+                return super().get_queryset().filter(status="published")
+
+    Fully lazy like every other manager/queryset in this ORM -- nothing
+    executes until a terminal method (``.all()``, ``.count()``, etc.) is
+    awaited, so it composes with the rest of the chainable query API:
+
+        await user.related_manager("verifications").filter(
+            expires_at__gt=now,
+        ).order("-created_at").first()
+    """
+
+    # Narrows BaseManager's `type[TModel] | None` -- a RelatedManager is
+    # always constructed with a concrete model class, never left unbound.
+    _model_cls: type[TModel]
+
+    def __init__(self, model_cls: type[TModel], fk_column_name: str, owner_pk: Any) -> None:
+        self._model_cls = model_cls
+        self._fk_column_name = fk_column_name
+        self._owner_pk = owner_pk
+
+    def get_queryset(self) -> Q[TModel]:
+        return self._model_cls.query().where(f'"{self._fk_column_name}" = ?', self._owner_pk)
+
+    def __repr__(self) -> str:
+        return f'<RelatedManager for {self._model_cls.__name__} where "{self._fk_column_name}" = {self._owner_pk!r}>'
