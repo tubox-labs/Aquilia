@@ -69,16 +69,26 @@ jobs:
             python: "3.13"
           - os: windows-latest
             python: "3.13"
+          - os: windows-latest
+            python: "3.12"
+            install_mode: "pypi-sim"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python }}
           cache: pip
-      - name: Install
+      - name: Install (editable)
+        if: matrix.install_mode != 'pypi-sim'
         run: |
           pip install --upgrade pip setuptools wheel
           pip install -e ".[testing]"
+          pip install -r requirements-dev.txt
+      - name: Install (pypi-sim — clean end-user install)
+        if: matrix.install_mode == 'pypi-sim'
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install aquilia[testing]
           pip install -r requirements-dev.txt
       - name: Test
         run: pytest tests/ -v --tb=short -q
