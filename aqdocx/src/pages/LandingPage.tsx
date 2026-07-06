@@ -4,7 +4,7 @@ import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
 import { ArrowRight, Github, BookOpen, Activity, Rocket, Copy } from 'lucide-react'
 import { PostgresSQLIcon, RedisIcon, RabbitMQIcon, SentryIcon, OpenTelemetryIcon, AwsS3Icon, ElasticsearchIcon, DockerIcon } from '../components/BrandIcons'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArchitectureDiagram } from '../components/ArchitectureDiagram'
 import { ReleaseTimeline } from '../components/ReleaseTimeline'
@@ -14,6 +14,10 @@ export function LandingPage() {
   const isDark = theme === 'dark'
   const [copied, setCopied] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+
+  useEffect(() => {
+    document.title = "Aquilia — High-Performance Async Python Web Framework"
+  }, [])
 
   const copyCmd = () => {
     navigator.clipboard.writeText('pip install aquilia')
