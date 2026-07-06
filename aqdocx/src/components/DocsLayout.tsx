@@ -1,14 +1,21 @@
 import { Outlet } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Navbar } from './Navbar'
 import { Sidebar } from './Sidebar'
 import { TableOfContents } from './TableOfContents'
 import { useTheme } from '../context/ThemeContext'
+import { useReactToPrint } from 'react-to-print'
+import { Printer } from 'lucide-react'
 
 export function DocsLayout() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const printRef = useRef<HTMLDivElement>(null)
+
+  const handlePrint = useReactToPrint({
+    contentRef: printRef,
+  })
 
   return (
     // Lock the viewport — nothing on <body> scrolls
@@ -51,7 +58,21 @@ export function DocsLayout() {
 
             {/* Main page content */}
             <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-12 print:px-0 print:py-0 print:m-0 print:w-full print:max-w-none print:block">
-              <div className="max-w-4xl mx-auto w-full">
+              <div className="flex justify-end mb-6 print:hidden">
+                <button
+                  onClick={() => handlePrint()}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                    isDark
+                      ? 'border-white/10 text-gray-400 hover:text-aquilia-400 hover:border-aquilia-400/50 bg-white/5 hover:bg-white/10'
+                      : 'border-gray-200 text-gray-600 hover:text-aquilia-600 hover:border-aquilia-600/30 bg-gray-50 hover:bg-gray-100'
+                  }`}
+                  title="Print Article or Save as PDF"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  Print Article
+                </button>
+              </div>
+              <div ref={printRef} className="max-w-4xl mx-auto w-full">
                 <Outlet />
 
                 {/* Footer */}
