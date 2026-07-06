@@ -1425,5 +1425,16 @@ export const docsContent: DocSection[] = [
     "codeBlocks": [
       "from aquilia import Controller, WS, RequestCtx, WebSocket\n\nclass ChatController(Controller):\n    \n    @WS(\"/chat/\u00abroom_id\u00bb\")\n    async def chat_endpoint(self, ctx: RequestCtx, room_id: str):\n        ws: WebSocket = ctx.websocket\n        await ws.accept()\n        \n        try:\n            while True:\n                data = await ws.receive_text()\n                await ws.send_text(f\"Echo from {room_id}: {data}\")\n        except Exception:\n            print(\"Client disconnected\")"
     ]
+  },
+  {
+    "title": "Admin Panel Setup",
+    "path": "/docs/admin-panel",
+    "content": "export function AdminSetupPage() {\n  const { theme } = useTheme()\n  const isDark = theme === 'dark'\n\n  return (\n    <div className=\"max-w-4xl mx-auto\">\n      <div className=\"mb-12\">\n        <h1>Admin Panel Setup</h1>\n      </div>\n    </div>\n  )\n}",
+    "plainText": "Admin Panel Setup, AquilAdmin, aq admin setup, AdminIntegration, AdminModules, AdminSecurity. Learn how to configure and deploy the built-in admin dashboard.",
+    "codeBlocks": [
+      "aq admin setup",
+      "aq admin check",
+      "aq admin createsuperuser"
+    ]
   }
 ];

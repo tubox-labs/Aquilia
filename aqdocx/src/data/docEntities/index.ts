@@ -6,3 +6,4 @@
  */
 import './serverLifecycle'
 import './showcase'
+import './adminPanel'

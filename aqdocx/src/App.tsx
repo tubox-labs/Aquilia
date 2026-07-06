@@ -16,6 +16,7 @@ import { InstallationPage } from './pages/docs/getting-started/Installation'
 import { QuickStartPage } from './pages/docs/getting-started/QuickStart'
 import { ArchitecturePage } from './pages/docs/getting-started/Architecture'
 import { ProjectStructurePage } from './pages/docs/getting-started/ProjectStructure'
+import { AdminSetupPage } from './pages/docs/getting-started/AdminSetup'
 
 // Controllers
 import { ControllersOverview } from './pages/docs/controllers/Overview'
@@ -261,6 +262,7 @@ export default function App() {
           <Route path="quickstart" element={<QuickStartPage />} />
           <Route path="architecture" element={<ArchitecturePage />} />
           <Route path="project-structure" element={<ProjectStructurePage />} />
+          <Route path="admin-panel" element={<AdminSetupPage />} />
 
           {/* Server */}
           <Route path="server" element={<ServerOverview />} />

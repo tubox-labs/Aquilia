@@ -33,6 +33,7 @@ export const sections: SidebarSection[] = [
       { label: 'Quick Start', path: '/docs/quickstart', icon: <Zap className="w-3.5 h-3.5" /> },
       { label: 'Architecture', path: '/docs/architecture', icon: <Network className="w-3.5 h-3.5" /> },
       { label: 'Project Structure', path: '/docs/project-structure', icon: <Blocks className="w-3.5 h-3.5" /> },
+      { label: 'Admin Panel Setup', path: '/docs/admin-panel', icon: <Settings className="w-3.5 h-3.5" /> },
     ]
   },
   {

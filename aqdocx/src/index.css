@@ -540,3 +540,15 @@ code.changelog-code {
     display: none !important;
   }
 }
+
+/* Custom inline code overrides for the Admin Setup page */
+.admin-setup-page :not(pre) > code {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: var(--color-aquilia-400) !important;
+}
+
+[data-theme="light"] .admin-setup-page :not(pre) > code {
+  color: var(--color-aquilia-600) !important;
+}
