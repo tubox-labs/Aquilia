@@ -82,7 +82,7 @@ jobs:
         if: matrix.install_mode != 'pypi-sim'
         run: |
           pip install --upgrade pip setuptools wheel
-          pip install -e ".[testing]"
+          pip install -e ".[testing,surp]"
           pip install -r requirements-dev.txt
       - name: Install (pypi-sim — clean end-user install)
         if: matrix.install_mode == 'pypi-sim'
