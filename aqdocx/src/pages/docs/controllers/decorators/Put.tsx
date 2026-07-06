@@ -9,8 +9,8 @@ export function DecoratorPut() {
     const isDark = theme === 'dark'
 
     return (
-        <div className="max-w-4xl mx-auto">
-            <div className="mb-8">
+        <div className="max-w-4xl mx-auto space-y-12 pb-16">
+            <div>
                 <Link to="/docs/controllers/decorators" className={`flex items-center gap-2 text-sm mb-4 ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>
                     <ArrowLeft className="w-4 h-4" /> Back to Decorators
                 </Link>
@@ -29,14 +29,14 @@ export function DecoratorPut() {
             </div>
 
             {/* Usage */}
-            <section className="mb-12">
-                <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Basic Usage</h2>
+            <section className="space-y-4">
+                <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Basic Usage</h2>
                 <CodeBlock
                     code={`from aquilia import Controller, PUT, RequestCtx, Response
-
+ 
 class UsersController(Controller):
     prefix = "/users"
-
+ 
     @PUT("/«id:int»")
     async def update_user(self, ctx: RequestCtx, id: int):
         """Fully replace the user resource."""
@@ -48,23 +48,23 @@ class UsersController(Controller):
             </section>
 
             {/* Deep Dive: Idempotency & Validation */}
-            <section className="mb-12">
+            <section className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                     <RefreshCw className="w-5 h-5 text-aquilia-500" />
                     <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Replacement Semantics</h2>
                 </div>
-                <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                     Unlike <code>@PATCH</code>, <code>@PUT</code> expects a complete representation of the resource.
-                    Accessing <code>ctx.data</code> via a serializer will typically enforce that all required fields are present.
+                    Accessing <code>ctx.blueprint</code> or using <code>request_blueprint</code> will typically enforce that all required fields are present.
                 </p>
 
-                <div className={`p-4 mb-6 rounded-lg border ${isDark ? 'bg-orange-900/20 border-orange-500/30' : 'bg-orange-50 border-orange-200'}`}>
+                <div className="p-4 border-l-4 border-orange-500 bg-orange-500/5 rounded-r-xl">
                     <div className="flex items-start gap-3">
                         <FileWarning className="w-5 h-5 text-orange-500 mt-0.5" />
                         <div>
                             <h4 className={`font-semibold ${isDark ? 'text-orange-200' : 'text-orange-800'}`}>Validation Behavior</h4>
                             <p className={`text-sm ${isDark ? 'text-orange-300' : 'text-orange-700'}`}>
-                                When using <code>request_serializer</code> with PUT, partial updates (missing required fields) will strictly fail validation.
+                                When using <code>request_blueprint</code> with PUT, partial updates (missing required fields) will strictly fail validation.
                                 Use <code>@PATCH</code> if you want to allow partial data.
                             </p>
                         </div>
@@ -74,13 +74,12 @@ class UsersController(Controller):
                 <CodeBlock
                     code={`@PUT(
     "/«id:int»",
-    request_serializer=UserSerializer,  # Strict: Requires all fields
-    response_serializer=UserSerializer
+    request_blueprint=UserBlueprint,  # Strict: Requires all fields
+    response_blueprint=UserBlueprint
 )
-async def update(self, ctx: RequestCtx, id: int):
-    # ctx.data contains the full object
-    user = await self.repo.update(id, ctx.data)
-    return user`}
+async def update(self, ctx: RequestCtx, id: int, body: dict):
+    user = await self.repo.update(id, body)
+    return Response.json(user)`}
                     language="python"
                 />
             </section>
@@ -95,7 +94,7 @@ async def update(self, ctx: RequestCtx, id: int):
                 </Link>
             </div>
         
-      <NextSteps />
-    </div>
+            <NextSteps />
+        </div>
     )
 }

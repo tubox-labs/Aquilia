@@ -64,10 +64,6 @@ export function ControllersDecorators() {
         response_model: Optional[type] = None,
         status_code: int = 200,
 
-        # ── Request / Response Serialization ──────────────────────
-        request_serializer: Optional[type] = None,
-        response_serializer: Optional[type] = None,
-
         # ── Blueprint Casting / Sealing ───────────────────────────
         request_blueprint: Optional[type] = None,
         response_blueprint: Optional[type] = None,
@@ -114,8 +110,6 @@ export function ControllersDecorators() {
                 ['deprecated', 'bool', 'Mark route as deprecated in OpenAPI spec. Default: False.'],
                 ['response_model', 'Optional[type]', 'Response type for OpenAPI schema generation ($ref).'],
                 ['status_code', 'int', 'Default HTTP status code. Default: 200.'],
-                ['request_serializer', 'Optional[type]', 'Serializer subclass for automatic request body parsing and validation.'],
-                ['response_serializer', 'Optional[type]', 'Serializer subclass for automatic response serialization.'],
                 ['request_blueprint', 'Optional[type]', 'Blueprint subclass (or Blueprint["projection"]) for request body casting and sealing.'],
                 ['response_blueprint', 'Optional[type]', 'Blueprint subclass (or ProjectedRef) for response molding.'],
                 ['filterset_class', 'Optional[type]', 'FilterSet subclass for declarative query-based filtering.'],
@@ -230,16 +224,16 @@ class ArticlesController(Controller):
           language="python"
         />
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>With Serializers and Blueprints</h3>
+        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>With Blueprints</h3>
 
         <CodeBlock
           code={`from aquilia import Controller, GET, POST, PUT, RequestCtx, Response
-from aquilia.serializers import Serializer, StringField, IntField
+from aquilia.blueprints import Blueprint, Field
 
-class ArticleSerializer(Serializer):
-    title = StringField(required=True, max_length=200)
-    body = StringField(required=True)
-    category_id = IntField(required=True)
+class ArticleBlueprint(Blueprint):
+    title: str = Field(max_length=200)
+    body: str
+    category_id: int
 
 class ArticlesController(Controller):
     prefix = "/api/articles"
@@ -247,24 +241,22 @@ class ArticlesController(Controller):
     @POST(
         "/",
         status_code=201,
-        request_serializer=ArticleSerializer,   # Auto-validates request body
-        response_model=ArticleSerializer,        # OpenAPI response schema
+        request_blueprint=ArticleBlueprint,   # Auto-validates request body
+        response_blueprint=ArticleBlueprint,   # Auto-molds response
     )
-    async def create(self, ctx: RequestCtx) -> Response:
-        # Body has already been validated by ArticleSerializer
-        data = await ctx.json()
-        article = await self.repo.create(data)
+    async def create(self, ctx: RequestCtx, body: dict) -> Response:
+        # body is the validated payload dictionary
+        article = await self.repo.create(body)
         return Response.json(article, status=201)
 
     @PUT(
         "/«id:int»",
-        request_serializer=ArticleSerializer,
-        response_serializer=ArticleSerializer,  # Auto-serializes response
+        request_blueprint=ArticleBlueprint,
+        response_blueprint=ArticleBlueprint,
     )
-    async def update(self, ctx: RequestCtx, id: int) -> Response:
-        data = await ctx.json()
-        article = await self.repo.update(id, data)
-        return article  # Auto-serialized by response_serializer`}
+    async def update(self, ctx: RequestCtx, id: int, body: dict) -> Response:
+        article = await self.repo.update(id, body)
+        return Response.json(article)`}
           language="python"
         />
 
