@@ -539,7 +539,7 @@ export function Chatbox() {
       {/* Circular Floating Chat Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer shadow-lg hover:scale-105 active:scale-95 group border ${
+        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer shadow-lg hover:scale-105 active:scale-95 group border print:hidden ${
           isDark
             ? 'bg-zinc-900 hover:bg-zinc-800 border-white/10'
             : 'bg-white hover:bg-gray-50 border-gray-200'
@@ -562,7 +562,7 @@ export function Chatbox() {
 
       {/* Premium Chatbox Panel */}
       <div
-        className={`fixed bottom-24 right-6 w-100 max-w-[calc(100vw-2rem)] h-[620px] max-h-[calc(100vh-8rem)] z-50 rounded-3xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300 transform origin-bottom-right ${
+        className={`fixed bottom-24 right-6 w-100 max-w-[calc(100vw-2rem)] h-[620px] max-h-[calc(100vh-8rem)] z-50 rounded-3xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300 transform origin-bottom-right print:hidden ${
           isOpen
             ? 'scale-100 opacity-100 translate-y-0 pointer-events-auto'
             : 'scale-90 opacity-0 translate-y-4 pointer-events-none'
