@@ -51,9 +51,12 @@ export const sections: SidebarSection[] = [
       {
         label: 'Configuration', path: '/docs/config', icon: <Settings className="w-3.5 h-3.5" />,
         children: [
-          { label: 'ConfigLoader', path: '/docs/config/loader' },
+          { label: 'Overview', path: '/docs/config/loader' },
+          { label: 'AquilaConfig & Env', path: '/docs/config/pyconfig' },
+          { label: '.env Files', path: '/docs/config/dotenv' },
           { label: 'Workspace Builder', path: '/docs/config/workspace' },
           { label: 'Module Builder', path: '/docs/config/module' },
+          { label: 'AppManifest', path: '/docs/config/manifest' },
           { label: 'Integrations', path: '/docs/config/integrations' },
         ]
       },

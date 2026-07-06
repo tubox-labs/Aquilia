@@ -47,6 +47,9 @@ import { ConfigOverview } from './pages/docs/config/Overview'
 import { ConfigWorkspace } from './pages/docs/config/Workspace'
 import { ConfigModule } from './pages/docs/config/Module'
 import { ConfigIntegrations } from './pages/docs/config/Integrations'
+import { ConfigPyConfig } from './pages/docs/config/PyConfig'
+import { ConfigDotEnv } from './pages/docs/config/DotEnv'
+import { ConfigManifest } from './pages/docs/config/Manifest'
 
 // Request / Response
 import { RequestPage } from './pages/docs/request-response/Request'
@@ -276,6 +279,9 @@ export default function App() {
           <Route path="config/workspace" element={<ConfigWorkspace />} />
           <Route path="config/module" element={<ConfigModule />} />
           <Route path="config/integrations" element={<ConfigIntegrations />} />
+          <Route path="config/pyconfig" element={<ConfigPyConfig />} />
+          <Route path="config/dotenv" element={<ConfigDotEnv />} />
+          <Route path="config/manifest" element={<ConfigManifest />} />
 
           {/* Request/Response */}
           <Route path="request-response" element={<RequestPage />} />

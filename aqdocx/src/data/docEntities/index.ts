@@ -7,3 +7,4 @@
 import './serverLifecycle'
 import './showcase'
 import './adminPanel'
+import './configEntities'
