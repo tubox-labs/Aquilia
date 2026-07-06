@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-07-06 — "Ironclad Anchor"
+
+### Added
+- **`RelatedManager` / `Model.related_manager()`**: reverse relations (rows in another table whose `ForeignKey` points back at an instance) can now be accessed lazily and chained like any other queryset: `await user.related_manager("verifications").filter(expires_at__gt=now).order("-created_at").first()`. Previously `Model.related()` was the only reverse-relation entry point and always eagerly awaited a fully materialized list. `related()` itself is unchanged in contract — it now delegates to `related_manager(name).all()` (or `.first()` for a `OneToOneField`'s reverse side, matching its actual 1:1 cardinality instead of returning a list).
+- **`RelatedNotLoaded` sentinel** (`aquilia.models.relations`): reading a `ForeignKey`/`OneToOneField` attribute that hasn't been hydrated via `select_related()`, `prefetch_related()`, or `await instance.related(name)` now returns this sentinel instead of the raw stored id. Cheap operations work directly on it without a query (`.pk`/`.id`, `bool(...)`, `== other_instance`/`== raw_pk`); any other attribute access raises `RelatedNotLoadedFault` with actionable guidance. Aquilia's DB layer is 100% async and `__get__` can't be `async def`, so — unlike Django's `ForwardManyToOneDescriptor` — there is no transparent hidden query; hydration stays explicit and awaited, this only replaces the previous silent-wrong-type footgun on the read side.
+- **`RelatedNotLoadedFault`, `RelatedTypeMismatchFault`, `RelatedNameConflictFault`** (`aquilia/faults/domains.py`): new `ModelFault` subclasses. The first is raised by the `RelatedNotLoaded` sentinel (dual-inherits `AttributeError`, same pattern as `DeferredFieldAccessFault`, so defensive `hasattr()`/`getattr(..., default)` call sites keep degrading gracefully). The second is raised when assigning an instance of the wrong model to a `ForeignKey`. The third is raised when two `ForeignKey`s targeting the same model would resolve to the same reverse-accessor name.
+- **`Model._reverse_relation_map()`**: cached (same lazy-on-first-use pattern as the existing `_get_reverse_fk_refs()`) map from reverse-accessor name — `related_name` or the default `f"{model}_set"` — to the referencing model/column, replacing `related()`'s previous per-call O(models × fields) linear scan with an O(1) lookup, and giving reverse relations a default accessor name for the first time (previously `related()`'s reverse branch only worked when `related_name` was explicitly set).
+
+### Changed
+- **`ForeignKey._coerce_to_pk()` now validates related-model type**: assigning an instance of the wrong model (e.g. a `Book` to a `User`-typed FK) previously took `.pk` off of *any* duck-typed object with `.pk`/`._fields` attributes with no type check, only surfacing as a confusing failure elsewhere (or never, if the two models' PK types happened to collide). It now raises `RelatedTypeMismatchFault` immediately when `related_model` is resolved; falls back to duck-typing when it's still an unresolved lazy string reference (best-effort, not a regression).
+- **`Model.related()` forward-FK branch caches its result**: previously re-queried on every call even if the attribute already held a hydrated instance. Now checks for an already-hydrated instance first (zero-query fast path) and, when it does query, overwrites the attribute with the resolved instance so subsequent *bare* attribute access — not just future `related()` calls — is instant and correctly typed.
+- **`Model.__eq__` returns `NotImplemented` (not `False`) for a type mismatch**, letting Python fall back to the other operand's own `__eq__` — needed so dirty-field tracking doesn't flag a `ForeignKey` as changed merely because `related()`/`select_related()` replaced an unhydrated `RelatedNotLoaded` sentinel with the equivalent hydrated instance (same underlying pk).
+
+### Fixed
+- Reverse-relation resolution (`Model.related()`) previously required an explicit `related_name` on the `ForeignKey` and re-scanned every registered model's every field on every call; it now has a default accessor name and an O(1) cached lookup, and fails fast with `RelatedNameConflictFault` if two FKs would collide on the same name.
+
 ## [1.2.5] — 2026-07-06 — "Kraken's Wake"
 
 ### Fixed
