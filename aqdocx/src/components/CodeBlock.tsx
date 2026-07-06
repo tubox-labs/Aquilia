@@ -194,8 +194,8 @@ export function CodeBlock({ code, children, language = 'python', filename, title
   }, [codeContent])
 
   return (
-    <div className={`group relative ${compact ? 'my-2' : 'my-6'}`}>
-      <div className="absolute -inset-0.5 bg-gradient-to-r from-aquilia-500/10 to-blue-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition" />
+    <div className={`group relative code-block-container ${compact ? 'my-2' : 'my-6'}`}>
+      <div className="absolute -inset-0.5 bg-gradient-to-r from-aquilia-500/10 to-blue-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition print:hidden" />
       <div className={`relative rounded-xl overflow-hidden border ${isDark ? 'bg-black border-white/10' : 'bg-[#f8fafc] border-gray-200'}`}>
         {/* Header with language icon */}
         <div className={`flex items-center justify-between ${compact ? 'px-3 py-2' : 'px-4 py-2.5'} border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/80'}`}>
@@ -209,7 +209,7 @@ export function CodeBlock({ code, children, language = 'python', filename, title
           </div>
           <button
             onClick={handleCopy}
-            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all ${copied
+            className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all print:hidden ${copied
               ? 'text-aquilia-400 bg-aquilia-500/10'
               : `${isDark ? 'text-gray-500 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-gray-700 hover:bg-gray-200'}`
               }`}
@@ -234,7 +234,7 @@ export function CodeBlock({ code, children, language = 'python', filename, title
 
                     if (token.types.includes('decorator') || token.types.includes('annotation')) {
                       return (
-                        <span key={key} className={tokenProps.className} style={{ ...tokenProps.style, color: decoratorColor }}>
+                        <span key={key} className={`${tokenProps.className} code-decorator`} style={{ ...tokenProps.style, color: decoratorColor }}>
                           {token.content}
                         </span>
                       )
@@ -262,17 +262,22 @@ export function CodeBlock({ code, children, language = 'python', filename, title
                           const isClassReference = CLASS_REFERENCE_PATTERN.test(segment)
 
                           let color = variableColor
+                          let tokenClassName = 'code-variable'
                           if (SELF_IDENTIFIERS.has(segment)) {
                             color = selfColor
+                            tokenClassName = 'code-self'
                           } else if (isClassReference) {
                             color = classReferenceColor
+                            tokenClassName = 'code-class-ref'
                           } else if (nextChar === '(') {
                             color = functionCallColor
+                            tokenClassName = 'code-function-call'
                           } else if (prevChar === '.') {
                             color = memberColor
+                            tokenClassName = 'code-member'
                           }
 
-                          return <span key={segmentIndex} style={{ color }}>{segment}</span>
+                          return <span key={segmentIndex} className={tokenClassName} style={{ color }}>{segment}</span>
                         })}
                       </span>
                     )
