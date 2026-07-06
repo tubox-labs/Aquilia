@@ -3,6 +3,7 @@
 # ============================================================================
 # Install core:           pip install aquilia
 # Install with extras:    pip install aquilia[auth,redis,mail]
+# Install with surp:      pip install aquilia[surp]
 # Install everything:     pip install aquilia[all]
 # ============================================================================
 
@@ -53,8 +54,10 @@ dependencies = [
     "uvicorn>=0.30.0",
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
-    # Surp serializer — used for manifest compilation and runtime evaluation
-    "surp",
+    # Surp is intentionally absent from core deps: every import is already
+    # lazy (try/except ImportError), it's a Rust extension with no Windows or
+    # Linux wheels on PyPI, and building it from source requires Rust. Install
+    # via the "surp" extra below.
 ]
 
 # ---------------------------------------------------------------------------
@@ -67,6 +70,10 @@ template = [
     "jinja2>=3.1.0",
     "markupsafe>=2.1.0",
 ]
+
+# Surp serializer — used for manifest compilation and runtime evaluation.
+# Rust extension with no Windows/Linux wheels on PyPI; install explicitly.
+surp = ["surp>=1.0.2"]
 
 # Async SQLite compat shim — DEPRECATED: aiosqlite replaced by native aquilia.sqlite.
 # Kept for gradual migration; will be removed in next major version.
@@ -126,7 +133,7 @@ otel = [
 # ---- Convenience bundles ----------------------------------------------------
 
 full = [
-    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template]",
+    "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template,surp]",
 ]
 
 
