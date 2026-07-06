@@ -20,6 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Reverse-relation resolution (`Model.related()`) previously required an explicit `related_name` on the `ForeignKey` and re-scanned every registered model's every field on every call; it now has a default accessor name and an O(1) cached lookup, and fails fast with `RelatedNameConflictFault` if two FKs would collide on the same name.
+- **Path Traversal in `LocalStorage.listdir()`**: every other `LocalStorage` method (`save`, `open`, `delete`, `stat`, `url`, `copy`) routes its path argument through `_normalize_path()` (rejects `..` segments and null bytes) and `_full_path()` (resolves and confines the result to `config.root`) — `listdir()` (`aquilia/storage/backends/local.py`) did neither, building its target with a raw `self._root / path`, so `await storage.listdir("../secret_sibling")` listed a directory entirely outside the configured storage root. `listdir()` now normalizes and confines its `path` argument the same way every sibling method already does, matching the `S3Storage`/`SFTPStorage` backends (which already normalize their `listdir` path) and the framework's stated file-path-validation invariant.
+
+### Known Issues
+- **Ambiguous column name with `select_related()` + `filter()`**: filtering on a column name shared by both the base table and a joined table (e.g. `id`) raises `ambiguous column name` because `QuerySet._build_select()` (`aquilia/models/query.py`) doesn't qualify the column with its owning table in the generated `WHERE` clause. Pre-existing, not addressed here — workaround is to filter on unambiguous column names until `_build_select()` gets its own fix pass.
 
 ## [1.2.5] — 2026-07-06 — "Kraken's Wake"
 

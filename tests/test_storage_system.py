@@ -2141,6 +2141,27 @@ class TestLocalStorageRegression:
         result = await s.copy("src.txt", "new_dir/copy.txt")
         assert await s.exists("new_dir/copy.txt")
 
+    @pytest.mark.asyncio
+    async def test_listdir_rejects_path_traversal(self, tmp_path):
+        root = tmp_path / "root"
+        root.mkdir()
+        sibling = tmp_path / "secret_sibling"
+        sibling.mkdir()
+        (sibling / "passwords.txt").write_bytes(b"hunter2")
+
+        s = LocalStorage(LocalConfig(root=str(root)))
+        await s.initialize()
+
+        with pytest.raises(StoragePermissionError):
+            await s.listdir("../secret_sibling")
+
+    @pytest.mark.asyncio
+    async def test_listdir_rejects_null_byte(self, tmp_path):
+        s = LocalStorage(LocalConfig(root=str(tmp_path)))
+        await s.initialize()
+        with pytest.raises(StoragePermissionError):
+            await s.listdir("foo\x00bar")
+
 
 class TestMemoryStorageRegression:
     """Edge cases for MemoryStorage."""

@@ -157,7 +157,7 @@ class LocalStorage(StorageBackend):
         )
 
     async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
-        target = self._root / path if path else self._root
+        target = self._full_path(self._normalize_path(path)) if path else self._root
 
         def _list() -> tuple[list[str], list[str]]:
             dirs: list[str] = []
