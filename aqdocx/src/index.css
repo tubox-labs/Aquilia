@@ -261,24 +261,136 @@ code {
     color: #18181b !important;
   }
 
-  /* Force background colors to print if supported/requested */
+  /* Force background colors to print */
   body {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Ensure standard elements have high contrast */
-  p, span, li, a, h1, h2, h3, h4, h5, h6, td, th, div {
+  /* Ensure text selections don't look weird on print */
+  ::selection {
+    background: transparent !important;
+    color: inherit !important;
+  }
+
+  /* Make sure primary text is dark charcoal/black */
+  p, li, a, h1, h2, h3, h4, h5, h6, td, th {
     color: #18181b !important;
   }
 
-  /* Light backgrounds for code blocks on print */
-  pre,
-  code,
-  kbd {
+  /* Deepen semantic colors for highly readable print contrast */
+  .text-blue-400,
+  .text-blue-500 {
+    color: #1d4ed8 !important;
+  }
+  .text-purple-400,
+  .text-purple-500 {
+    color: #6d28d9 !important;
+  }
+  .text-emerald-400,
+  .text-emerald-500 {
+    color: #15803d !important;
+  }
+  .text-amber-400,
+  .text-amber-500 {
+    color: #b45309 !important;
+  }
+  .text-pink-400,
+  .text-pink-500 {
+    color: #be123c !important;
+  }
+  .text-aquilia-400,
+  .text-aquilia-500 {
+    color: #16a34a !important;
+  }
+
+  /* Remove text gradients and force solid text */
+  .gradient-text {
+    background: none !important;
+    -webkit-background-clip: initial !important;
+    background-clip: initial !important;
+    -webkit-text-fill-color: initial !important;
+    color: #111827 !important;
+  }
+
+  /* Reset Framer Motion initial animation opacities to be visible in print */
+  div[style*="opacity"],
+  span[style*="opacity"],
+  g[style*="opacity"] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* Clean up card boxes (features, callouts, next steps) */
+  div[class*="bg-zinc-900"],
+  div[class*="bg-zinc-950"],
+  div[class*="bg-black"],
+  div[class*="bg-zinc-800"],
+  a[class*="bg-zinc-900"],
+  a[class*="bg-zinc-950"] {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Soft backgrounds for callouts/info boxes */
+  .bg-red-50,
+  div[class*="bg-red-500"] {
+    background-color: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+  }
+
+  .bg-emerald-50,
+  div[class*="bg-emerald-500"] {
+    background-color: #f0fdf4 !important;
+    border-color: #86efac !important;
+  }
+
+  /* Force light backgrounds for code blocks and containers */
+  .code-block-container {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .code-block-container > div {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .code-block-container > div > div:first-child {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .code-block-container > div > div:first-child span {
+    color: #475569 !important;
+  }
+
+  .code-block-container pre {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: none !important;
+  }
+
+  /* Table styling */
+  thead tr,
+  tr[class*="bg-zinc-800"] {
+    background-color: #f1f5f9 !important;
+  }
+
+  tr:nth-child(even) {
+    background-color: #f8fafc !important;
+  }
+
+  th, td {
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Inline code formatting */
+  :not(pre) > code {
     background-color: #f4f4f5 !important;
-    color: #18181b !important;
     border: 1px solid #d4d4d8 !important;
+    padding: 0.125rem 0.25rem !important;
+    border-radius: 0.25rem !important;
   }
 
   /* Keep code tokens readable */
@@ -342,6 +454,26 @@ code {
     color: #be123c !important;
   }
 
+  /* Custom token colors from CodeBlock component mapping */
+  .code-decorator {
+    color: #15803d !important;
+  }
+  .code-variable {
+    color: #1d4ed8 !important;
+  }
+  .code-self {
+    color: #be185d !important;
+  }
+  .code-class-ref {
+    color: #c2410c !important;
+  }
+  .code-function-call {
+    color: #a16207 !important;
+  }
+  .code-member {
+    color: #0e7490 !important;
+  }
+
   /* Reset layout borders */
   * {
     border-color: #d4d4d8 !important;
@@ -367,13 +499,8 @@ code {
     break-after: avoid;
   }
 
-  /* Remove scrollbars, highlights or glow effects */
+  /* Remove scrollbars */
   ::-webkit-scrollbar {
     display: none !important;
-  }
-
-  ::selection {
-    background: transparent !important;
-    color: inherit !important;
   }
 }
