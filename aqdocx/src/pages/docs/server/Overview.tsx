@@ -3,17 +3,18 @@ import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 import { Server, Layers, Settings, Shield, Database, Zap, Globe, AlertCircle } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function ServerOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto select-none">
       {/* Header */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-aquilia-500/30 to-aquilia-500/10 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-aquilia-500/30 to-aquilia-500/10 flex items-center justify-center shadow-lg shadow-aquilia-500/10">
             <Server className="w-5 h-5 text-aquilia-400" />
           </div>
           <div>
@@ -27,15 +28,79 @@ export function ServerOverview() {
           </div>
         </div>
 
-        <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           <code>AquiliaServer</code> is the central orchestrator that wires together every subsystem —
           from Aquilary manifest compilation to ASGI request handling. It is a 4,000+ line class that
           serves as the single entry point for the entire framework.
         </p>
       </div>
 
+      {/* Visual System Topology (No boxy layout, premium concentric SVG) */}
+      <div className="w-full h-80 flex items-center justify-center my-6 relative">
+        <svg className="w-full h-full max-w-2xl" viewBox="0 0 600 320" fill="none">
+          <defs>
+            <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.25" />
+              <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+            </radialGradient>
+            <linearGradient id="orbitLineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
+              <stop offset="50%" stopColor="rgba(245,158,11,0.2)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0.08)" />
+            </linearGradient>
+          </defs>
+
+          {/* Glowing background circles */}
+          <circle cx="300" cy="160" r="100" fill="url(#centerGlow)" />
+          <circle cx="300" cy="160" r="150" fill="none" stroke="url(#orbitLineGrad)" strokeWidth="1" strokeDasharray="5,5" />
+          <circle cx="300" cy="160" r="80" fill="none" stroke="url(#orbitLineGrad)" strokeWidth="1.5" />
+
+          {/* Connecting bezier lines */}
+          <g stroke="rgba(255,255,255,0.12)" strokeWidth="1.5">
+            <path d="M 300 160 Q 200 100 100 100" />
+            <path d="M 300 160 Q 400 100 500 100" />
+            <path d="M 300 160 Q 200 220 100 220" />
+            <path d="M 300 160 Q 400 220 500 220" />
+          </g>
+
+          {/* Satellites circles with text labels */}
+          {/* Center Hub */}
+          <circle cx="300" cy="160" r="28" fill="#18181b" stroke="#f59e0b" strokeWidth="2.5" className="filter drop-shadow-[0_0_12px_rgba(245,158,11,0.4)]" />
+          <text x="300" y="164" textAnchor="middle" fill="#fff" fontSize="9" fontWeight="bold" fontFamily="monospace">Server</text>
+
+          {/* Satellites */}
+          {/* Top Left: DI Container */}
+          <circle cx="100" cy="100" r="20" fill="#18181b" stroke="#10b981" strokeWidth="2" />
+          <text x="100" y="103" textAnchor="middle" fill="#10b981" fontSize="8" fontWeight="bold" fontFamily="monospace">DI</text>
+          <text x="100" y="74" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9" fontFamily="sans-serif">DI Containers</text>
+
+          {/* Top Right: ASGI Adapter */}
+          <circle cx="500" cy="100" r="20" fill="#18181b" stroke="#3b82f6" strokeWidth="2" />
+          <text x="500" y="103" textAnchor="middle" fill="#3b82f6" fontSize="8" fontWeight="bold" fontFamily="monospace">ASGI</text>
+          <text x="500" y="74" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9" fontFamily="sans-serif">ASGI Adapter</text>
+
+          {/* Bottom Left: Registry */}
+          <circle cx="100" cy="220" r="20" fill="#18181b" stroke="#ec4899" strokeWidth="2" />
+          <text x="100" y="223" textAnchor="middle" fill="#ec4899" fontSize="8" fontWeight="bold" fontFamily="monospace">REG</text>
+          <text x="100" y="254" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9" fontFamily="sans-serif">App Registry</text>
+
+          {/* Bottom Right: Engine */}
+          <circle cx="500" cy="220" r="20" fill="#18181b" stroke="#8b5cf6" strokeWidth="2" />
+          <text x="500" y="223" textAnchor="middle" fill="#8b5cf6" fontSize="8" fontWeight="bold" fontFamily="monospace">ENG</text>
+          <text x="500" y="254" textAnchor="middle" fill="rgba(255,255,255,0.5)" fontSize="9" fontFamily="sans-serif">Controller Engine</text>
+
+          {/* Interactive animated flow indicator */}
+          <circle r="4" fill="#f59e0b">
+            <animateMotion dur="4s" repeatCount="indefinite" path="M 300 160 Q 200 100 100 100" />
+          </circle>
+          <circle r="4" fill="#f59e0b">
+            <animateMotion dur="3s" repeatCount="indefinite" path="M 300 160 Q 400 100 500 100" />
+          </circle>
+        </svg>
+      </div>
+
       {/* Constructor */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Settings className="w-5 h-5 text-aquilia-400" />
           Constructor
@@ -83,13 +148,13 @@ server = AquiliaServer(
       </section>
 
       {/* Initialization sequence */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Zap className="w-5 h-5 text-aquilia-400" />
           Initialization Sequence
         </h2>
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`mb-4 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           The <code>__init__</code> method performs the following steps in order. Understanding this
           sequence is critical for debugging boot issues:
         </p>
@@ -162,7 +227,7 @@ self.app = ASGIAdapter(
       </section>
 
       {/* Key Attributes */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Database className="w-5 h-5 text-aquilia-400" />
           Key Attributes
@@ -194,8 +259,14 @@ self.app = ASGIAdapter(
               ].map(([attr, type, desc], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
                   <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{attr}</td>
-                  <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{type}</td>
-                  <td className={`px-4 py-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{desc}</td>
+                  <td className={`px-4 py-2 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                    {type === 'LifecycleCoordinator' ? (
+                      <DocTerm id="lifecycle.coordinator">{type}</DocTerm>
+                    ) : (
+                      type
+                    )}
+                  </td>
+                  <td className={`px-4 py-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-505'}`}>{desc}</td>
                 </tr>
               ))}
             </tbody>
@@ -204,13 +275,13 @@ self.app = ASGIAdapter(
       </section>
 
       {/* Middleware Setup */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Layers className="w-5 h-5 text-aquilia-400" />
           Middleware Setup
         </h2>
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`mb-4 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           The <code>_setup_middleware()</code> method builds the middleware stack from configuration.
           Middleware is added conditionally based on what integrations are enabled:
         </p>
@@ -255,50 +326,39 @@ ToolbarInjectionMiddleware(...)      # Priority 12 — injects dev diagnostics t
       </section>
 
       {/* Session Engine Creation */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Shield className="w-5 h-5 text-aquilia-400" />
           Session & Auth Setup
         </h2>
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The server supports three configuration formats for sessions, handled by
-          <code>_create_session_engine()</code>:
+        <p className={`mb-4 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          The server supports configuration for sessions using the typed <code>SessionIntegration</code> class:
         </p>
 
         <CodeBlock
-          code={`# Format 1: Integration builder (recommended)
-Integration.sessions(
-    secret_key="my-secret",
-    max_age=3600,
-    store="memory",          # "memory" or "file"
-    transport="cookie",      # "cookie" or "header"
-)
+          code={`# SessionIntegration class (recommended)
+from aquilia.integrations import SessionIntegration
+from aquilia.sessions import SessionPolicy, MemoryStore, CookieTransport
 
-# Format 2: Full policy objects (advanced)
-from aquilia.sessions import SessionPolicy, PersistencePolicy, TransportPolicy
-Integration.sessions(
-    policy=SessionPolicy(
-        max_age=3600,
-        idle_timeout=900,
-        max_sessions_per_user=5,
-    ),
-    persistence=PersistencePolicy(
-        save_on_read=False,
-        save_on_write=True,
-    ),
-    transport=TransportPolicy(
-        cookie_name="aq_session",
-        cookie_httponly=True,
-        cookie_samesite="Lax",
-    ),
+workspace = (
+    Workspace("myapp")
+    .integrate(SessionIntegration(
+        policy=SessionPolicy.for_web_users()
+            .lasting(days=14)
+            .idle_timeout(hours=2)
+            .rotating_on_privilege_change()
+            .scoped_to("tenant"),
+        store=MemoryStore.with_capacity(50000),
+        transport=CookieTransport.secure_defaults(),
+    ))
 )`}
           language="python"
         />
       </section>
 
       {/* startup/shutdown */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Zap className="w-5 h-5 text-aquilia-400" />
           Startup & Shutdown
@@ -327,7 +387,7 @@ await server.shutdown()
       </section>
 
       {/* run() method */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Globe className="w-5 h-5 text-aquilia-400" />
           Running the Server
@@ -352,8 +412,8 @@ asyncio.run(serve(server.app, config))`}
           language="python"
         />
 
-        <div className={`mt-4 rounded-lg border p-4 ${isDark ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-700'}`}>
+        <div className="mt-4 text-sm leading-relaxed">
+          <p className={isDark ? 'text-aquilia-400' : 'text-aquilia-700'}>
             <strong>Production tip:</strong> Use <code>aq serve</code> for production deployments. It
             runs uvicorn with production-optimized settings (no reload, access logs, worker configuration).
             Use <code>aq run</code> for development (auto-reload enabled).
@@ -362,18 +422,18 @@ asyncio.run(serve(server.app, config))`}
       </section>
 
       {/* Debug mode */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <AlertCircle className="w-5 h-5 text-aquilia-400" />
           Debug Mode
         </h2>
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`mb-4 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           When <code>debug=True</code> (via config, <code>AQ_DEBUG=true</code>, or <code>RegistryMode.DEV</code>),
           the server enables:
         </p>
 
-        <ul className={`space-y-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <ul className={`space-y-2 text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           <li className="flex items-start gap-2">
             <span className="text-aquilia-400 mt-1">•</span>
             <div><strong>Debug error pages</strong> — ExceptionMiddleware renders rich HTML error pages with tracebacks, request details, and source code context</div>
@@ -394,7 +454,7 @@ asyncio.run(serve(server.app, config))`}
       </section>
 
       {/* Next */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Related</h2>
         <div className="flex flex-col gap-2">
           <Link to="/docs/server/asgi" className={`text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}>

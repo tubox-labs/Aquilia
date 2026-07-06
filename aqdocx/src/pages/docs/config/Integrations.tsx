@@ -51,26 +51,26 @@ export function ConfigIntegrations() {
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-gray-700/50' : 'divide-gray-100'}`}>
               {[
-                ['Integration.auth()', '(legacy)', 'Authentication — JWT tokens, stores, security policies'],
-                ['Integration.sessions()', '(legacy)', 'Session management — policies, stores, transport'],
-                ['Integration.database()', '(legacy)', 'Database — URL, connection pool, migrations, AMDL'],
-                ['Integration.di()', '(legacy)', 'Dependency injection — auto-wiring'],
-                ['Integration.openapi()', '"openapi"', 'OpenAPI spec generation, Swagger UI, ReDoc'],
-                ['Integration.cache()', '"cache"', 'Caching — memory, Redis, composite L1+L2'],
-                ['Integration.cors()', '"cors"', 'CORS middleware'],
-                ['Integration.csp()', '"csp"', 'Content-Security-Policy middleware'],
-                ['Integration.csrf()', '"csrf"', 'CSRF protection middleware'],
-                ['Integration.rate_limit()', '"rate_limit"', 'Rate limiting middleware'],
-                ['Integration.static_files()', '"static_files"', 'Static file serving'],
-                ['Integration.logging()', '"logging"', 'Request/response logging middleware'],
-                ['Integration.mail()', '"mail"', 'AquilaMail — async mail subsystem'],
-                ['Integration.mlops()', '"mlops"', 'MLOps platform — model registry, serving, drift'],
-                ['Integration.serializers()', '"serializers"', 'Global serializer settings'],
-                ['Integration.templates', '(legacy)', 'Template engine — fluent builder class'],
-                ['Integration.routing()', '(legacy)', 'Routing configuration'],
-                ['Integration.fault_handling()', '(legacy)', 'Fault handling defaults'],
-                ['Integration.registry()', '(legacy)', 'Registry configuration'],
-                ['Integration.patterns()', '(legacy)', 'Pattern matching configuration'],
+                ['AuthIntegration', 'auth', 'Authentication — JWT tokens, stores, security policies'],
+                ['SessionIntegration', 'sessions', 'Session management — policies, stores, transport'],
+                ['DatabaseIntegration', 'database', 'Database — URL, connection pool, migrations, AMDL'],
+                ['DiIntegration', 'di', 'Dependency injection — auto-wiring'],
+                ['OpenAPIIntegration', 'openapi', 'OpenAPI spec generation, Swagger UI, ReDoc'],
+                ['CacheIntegration', 'cache', 'Caching — memory, Redis, composite L1+L2'],
+                ['CorsIntegration', 'cors', 'CORS middleware'],
+                ['CspIntegration', 'csp', 'Content-Security-Policy middleware'],
+                ['CsrfIntegration', 'csrf', 'CSRF protection middleware'],
+                ['RateLimitIntegration', 'rate_limit', 'Rate limiting middleware'],
+                ['StaticFilesIntegration', 'static_files', 'Static file serving'],
+                ['LoggingIntegration', 'logging', 'Request/response logging middleware'],
+                ['MailIntegration', 'mail', 'AquilaMail — async mail subsystem'],
+                ['MlopsIntegration', 'mlops', 'MLOps platform — model registry, serving, drift'],
+                ['SerializersIntegration', 'serializers', 'Global serializer settings'],
+                ['TemplatesIntegration', 'templates', 'Template engine — fluent builder class'],
+                ['RoutingIntegration', 'routing', 'Routing configuration'],
+                ['FaultHandlingIntegration', 'fault_handling', 'Fault handling defaults'],
+                ['RegistryIntegration', 'registry', 'Registry configuration'],
+                ['PatternsIntegration', 'patterns', 'Pattern matching configuration'],
               ].map(([method, marker, desc], i) => (
                 <tr key={i} className={isDark ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50/80'}>
                   <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{method}</td>
@@ -350,87 +350,30 @@ def cache(
       {/* Sessions */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Integration.sessions()
+          SessionIntegration
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Configures session management with Aquilia's unique fluent policy builders.
-          Provides smart defaults based on application type.
+          Configures session management using the typed <code>SessionIntegration</code> class.
+          This handles session policy constraints, persistent backend storage, and cookie or header transports.
         </p>
 
-        <CodeBlock language="python" title="Signature">
-{`@staticmethod
-def sessions(
-    policy: Optional[Any] = None,     # SessionPolicy instance
-    store: Optional[Any] = None,      # Store instance
-    transport: Optional[Any] = None,  # Transport instance
-    **kwargs
-) -> Dict[str, Any]:`}
-        </CodeBlock>
+        <CodeBlock language="python" title="Usage Example">
+{`from aquilia.integrations import SessionIntegration
+from aquilia.sessions import SessionPolicy, MemoryStore, CookieTransport
 
-        <CodeBlock language="python" title="Fluent Policy Builders">
-{`from aquilia.sessions import SessionPolicy, MemoryStore, CookieTransport
-
-# Full fluent syntax:
-.integrate(Integration.sessions(
-    policy=SessionPolicy.for_web_users()
-        .lasting(days=14)
-        .idle_timeout(hours=2)
-        .rotating_on_privilege_change()
-        .scoped_to("tenant"),
-    store=MemoryStore.with_capacity(50000),
-    transport=CookieTransport.secure_defaults(),
-))`}
-        </CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Session Templates
-        </h3>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>Integration.sessions</code> inner class provides pre-configured templates
-          for common use cases:
-        </p>
-
-        <div className={`overflow-x-auto mb-6 rounded-xl border ${isDark ? 'border-gray-700/50' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead className={isDark ? 'bg-gray-800/80' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Template</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>TTL</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Transport</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Use Case</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700/50' : 'divide-gray-100'}`}>
-              {[
-                ['sessions.web_app()', '7 days', 'Cookie', 'Web applications with browser users'],
-                ['sessions.api_service()', '1 hour', 'Header', 'REST APIs with token-based auth'],
-                ['sessions.mobile_app()', '90 days', 'Cookie', 'Mobile apps with long-lived sessions'],
-              ].map(([template, ttl, transport, useCase], i) => (
-                <tr key={i} className={isDark ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50/80'}>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{template}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{ttl}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{transport}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{useCase}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <CodeBlock language="python" title="Template Usage">
-{`# Pre-configured for web apps:
-.integrate(Integration.sessions.web_app())
-
-# Pre-configured for API services:
-.integrate(Integration.sessions.api_service())
-
-# Pre-configured for mobile apps:
-.integrate(Integration.sessions.mobile_app())
-
-# Templates accept overrides:
-.integrate(Integration.sessions.web_app(idle_timeout_hours=4))`}
+workspace = (
+    Workspace("myapp")
+    .integrate(SessionIntegration(
+        policy=SessionPolicy.for_web_users()
+            .lasting(days=14)
+            .idle_timeout(hours=2)
+            .rotating_on_privilege_change()
+            .scoped_to("tenant"),
+        store=MemoryStore.with_capacity(50000),
+        transport=CookieTransport.secure_defaults(),
+    ))
+)`}
         </CodeBlock>
       </section>
 
