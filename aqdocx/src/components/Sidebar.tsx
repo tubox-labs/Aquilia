@@ -79,6 +79,10 @@ export const sections: SidebarSection[] = [
           { label: 'Controller Compiler', path: '/docs/controllers/compiler' },
           { label: 'Controller Router', path: '/docs/controllers/router' },
           { label: 'OpenAPI Generation', path: '/docs/controllers/openapi' },
+          { label: 'Body Validation', path: '/docs/controllers/validation' },
+          { label: 'Pagination', path: '/docs/controllers/pagination' },
+          { label: 'Filtering & Search', path: '/docs/controllers/filters' },
+          { label: 'Content Negotiation', path: '/docs/controllers/renderers' },
           {
             label: 'Route Decorators', path: '/docs/controllers/decorators', icon: <Tag className="w-3.5 h-3.5" />,
             children: [

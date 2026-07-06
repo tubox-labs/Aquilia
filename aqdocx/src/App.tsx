@@ -36,6 +36,10 @@ import { ControllersEngine } from './pages/docs/controllers/Engine'
 import { ControllersCompiler } from './pages/docs/controllers/Compiler'
 import { ControllersRouter } from './pages/docs/controllers/Router'
 import { ControllersOpenAPI } from './pages/docs/controllers/OpenAPI'
+import { ControllersValidation } from './pages/docs/controllers/Validation'
+import { ControllersPagination } from './pages/docs/controllers/Pagination'
+import { ControllersFilters } from './pages/docs/controllers/Filters'
+import { ControllersRenderers } from './pages/docs/controllers/Renderers'
 
 // Server
 import { ServerOverview } from './pages/docs/server/Overview'
@@ -59,6 +63,8 @@ import { UploadsPage } from './pages/docs/request-response/Uploads'
 
 // Routing
 import { RoutingOverview } from './pages/docs/routing/Overview'
+import { RoutingPatterns } from './pages/docs/routing/Patterns'
+import { RoutingUrls } from './pages/docs/routing/Urls'
 
 // DI
 import { DIOverview } from './pages/docs/di/Overview'
@@ -309,12 +315,16 @@ export default function App() {
           <Route path="controllers/compiler" element={<ControllersCompiler />} />
           <Route path="controllers/router" element={<ControllersRouter />} />
           <Route path="controllers/openapi" element={<ControllersOpenAPI />} />
+          <Route path="controllers/validation" element={<ControllersValidation />} />
+          <Route path="controllers/pagination" element={<ControllersPagination />} />
+          <Route path="controllers/filters" element={<ControllersFilters />} />
+          <Route path="controllers/renderers" element={<ControllersRenderers />} />
 
           {/* Routing */}
           <Route path="routing" element={<RoutingOverview />} />
-          <Route path="routing/patterns" element={<RoutingOverview />} />
+          <Route path="routing/patterns" element={<RoutingPatterns />} />
           <Route path="routing/router" element={<ControllersRouter />} />
-          <Route path="routing/urls" element={<RoutingOverview />} />
+          <Route path="routing/urls" element={<RoutingUrls />} />
 
           {/* DI */}
           <Route path="di" element={<DIOverview />} />

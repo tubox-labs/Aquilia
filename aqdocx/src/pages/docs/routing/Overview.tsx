@@ -1,7 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { ArrowRight, GitBranch } from 'lucide-react'
+import { ArrowRight, GitBranch, Shield, Zap, Layers, AlertCircle } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function RoutingOverview() {
@@ -9,8 +9,9 @@ export function RoutingOverview() {
   const isDark = theme === 'dark'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto space-y-12 pb-16">
+      {/* Header */}
+      <div>
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <GitBranch className="w-4 h-4" />
           Core / Routing
@@ -21,81 +22,81 @@ export function RoutingOverview() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia uses a compile-time pattern matching router. Routes are declared via controller decorators, compiled at startup by the <code className="text-aquilia-500">ControllerCompiler</code>, and matched at runtime by the <code className="text-aquilia-500">ControllerRouter</code> with specificity-based resolution and typed parameters.
+        <p className={`text-lg leading-relaxed mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+          Aquilia features a highly optimized, compile-time routing engine. By declaring route patterns directly on controller methods via decorators, routes are parsed, analyzed, and compiled at application startup to provide near-zero matching overhead.
         </p>
       </div>
 
-      {/* How Routing Works */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Route Declaration</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Routes are declared using HTTP method decorators on controller methods. The controller's <code className="text-aquilia-500">prefix</code> is prepended to each route path.
+      {/* Warning Banner: Legacy Syntax Removal */}
+      <div className="p-4 border-l-4 border-red-500 bg-red-500/5 rounded-r-xl space-y-2">
+        <h4 className="font-bold text-sm text-red-500 flex items-center gap-2">
+          <AlertCircle className="w-4 h-4" />
+          Syntax Deprecation & Removal Warning
+        </h4>
+        <p className={`text-xs ${isDark ? 'text-red-200/80' : 'text-red-800'}`}>
+          The legacy angle bracket parameter syntax (e.g. <code className="text-red-500 font-semibold">&lt;id:int&gt;</code> or <code className="text-red-500 font-semibold">«id:int»</code>) has been <strong>completely removed</strong> from the framework. Using it will result in compilation and runtime matching failures. You must use the modern curly brace format (e.g. <code className="text-red-500 font-semibold">{"{id:int}"}</code>) for all parameterized paths.
         </p>
-        <CodeBlock language="python" filename="controller.py">{`from aquilia import Controller, Get, Post, Put, Delete
+      </div>
 
+      {/* Route Declaration */}
+      <section className="space-y-4">
+        <h2 className={`text-2xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Shield className="w-5 h-5 text-aquilia-400" />
+          Route Declaration & Nesting
+        </h2>
+        <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          In Aquilia, controllers act as routing namespaces. The class-level <code className="text-aquilia-500">prefix</code> is automatically merged with method-level path templates during compilation:
+        </p>
+
+        <CodeBlock
+          language="python"
+          filename="controller_routing.py"
+          code={`from aquilia import Controller, GET, POST, RequestCtx, Response
 
 class ArticleController(Controller):
     prefix = "/api/articles"
 
-    @Get("/")
-    async def list_articles(self, ctx):
-        """GET /api/articles/ — list all articles"""
-        ...
+    @GET("/")
+    async def list_articles(self, ctx: RequestCtx) -> Response:
+        # Resolves to: GET /api/articles
+        return Response.json({"articles": []})
 
-    @Get("/{id:int}")
-    async def get_article(self, ctx, id: int):
-        """GET /api/articles/42 — get single article"""
-        ...
-
-    @Get("/{slug:str}")
-    async def get_by_slug(self, ctx, slug: str):
-        """GET /api/articles/hello-world — get by slug"""
-        ...
-
-    @Post("/")
-    async def create_article(self, ctx):
-        """POST /api/articles/ — create article"""
-        ...
-
-    @Put("/{id:int}")
-    async def update_article(self, ctx, id: int):
-        """PUT /api/articles/42 — update article"""
-        ...
-
-    @Delete("/{id:int}")
-    async def delete_article(self, ctx, id: int):
-        """DELETE /api/articles/42 — delete article"""
-        ...`}</CodeBlock>
+    @GET("/{id:int}")
+    async def get_article(self, ctx: RequestCtx, id: int) -> Response:
+        # Resolves to: GET /api/articles/42
+        return Response.json({"id": id})`}
+        />
       </section>
 
-      {/* Pattern Types */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>URL Pattern Types</h2>
-        <div className={`overflow-hidden rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
+      {/* Specificity */}
+      <section className="space-y-4">
+        <h2 className={`text-2xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Zap className="w-5 h-5 text-aquilia-400" />
+          Route Specificity Scoring
+        </h2>
+        <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Aquilia avoids matching order bugs by sorting routes mathematically based on segment specificity. When matching a path, the router evaluates routes from the highest specificity score to the lowest:
+        </p>
+        <div className="overflow-x-auto py-2">
+          <table className="w-full text-sm text-left">
             <thead>
-              <tr className={isDark ? 'bg-zinc-900' : 'bg-gray-50'}>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Pattern</th>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Type</th>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Example Match</th>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Specificity</th>
+              <tr className="border-b border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400">
+                <th className="px-4 py-3 font-semibold">Route Pattern</th>
+                <th className="px-4 py-3 font-semibold">Match Target</th>
+                <th className="px-4 py-3 font-semibold">Specificity Score</th>
               </tr>
             </thead>
-            <tbody className={isDark ? 'divide-y divide-white/5' : 'divide-y divide-gray-100'}>
+            <tbody className={`divide-y ${isDark ? 'divide-white/5 text-gray-300' : 'divide-gray-100 text-gray-700'}`}>
               {[
-                { p: '/users/admin', t: 'Static', e: '/users/admin', s: '100/segment' },
-                { p: '/{id:int}', t: 'Integer', e: '/42 → id=42', s: '50/segment' },
-                { p: '/{name:str}', t: 'String', e: '/john → name="john"', s: '25/segment' },
-                { p: '/{price:float}', t: 'Float', e: '/19.99 → price=19.99', s: '50/segment' },
-                { p: '/{active:bool}', t: 'Boolean', e: '/true → active=True', s: '50/segment' },
-                { p: '/{path:path}', t: 'Path', e: '/a/b/c → path="a/b/c"', s: '1/segment' },
-              ].map((row, i) => (
-                <tr key={i} className={isDark ? 'bg-[#0A0A0A]' : 'bg-white'}>
-                  <td className="py-3 px-4"><code className="text-aquilia-500 font-mono text-xs">{row.p}</code></td>
-                  <td className={`py-3 px-4 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.t}</td>
-                  <td className={`py-3 px-4 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.e}</td>
-                  <td className={`py-3 px-4 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.s}</td>
+                ['/users/active', '/users/active (Exact match)', '200 (Static segments +100 each)'],
+                ['/users/{id:int}', '/users/42 (Integer segment match)', '150 (Static + Typed parameter +50)'],
+                ['/users/{slug:str}', '/users/john (Generic string match)', '125 (Static + Untyped parameter +25)'],
+                ['/users/*path', '/users/profile/settings (Wildcard catch-all)', '101 (Static + Splat segment +1)']
+              ].map(([pattern, target, score], i) => (
+                <tr key={i} className="hover:bg-aquilia-500/5 transition-colors">
+                  <td className="px-4 py-2 font-mono text-xs text-aquilia-500 font-semibold">{pattern}</td>
+                  <td className="px-4 py-2 text-xs">{target}</td>
+                  <td className="px-4 py-2 font-mono text-xs">{score}</td>
                 </tr>
               ))}
             </tbody>
@@ -103,54 +104,30 @@ class ArticleController(Controller):
         </div>
       </section>
 
-      {/* Specificity */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Specificity Resolution</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          When multiple routes could match the same URL, the router picks the most specific one. Static segments score highest, typed parameters score medium, and catch-alls score lowest.
-        </p>
-        <CodeBlock language="python" filename="specificity.py">{`# Given these routes:
-@Get("/users/admin")        # Specificity: 200 (static + static)
-@Get("/users/{id:int}")     # Specificity: 150 (static + typed)
-@Get("/users/{slug:str}")   # Specificity: 125 (static + untyped)
-
-# Request: GET /users/admin → matches "/users/admin" (score 200)
-# Request: GET /users/42    → matches "/users/{id:int}" (score 150)
-# Request: GET /users/john  → matches "/users/{slug:str}" (score 125)`}</CodeBlock>
-      </section>
-
-      {/* Reverse URLs */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Reverse URL Generation</h2>
-        <CodeBlock language="python" filename="url_for.py">{`# In controllers
-url = router.url_for("ArticleController.get_article", id=42)
-# → "/api/articles/42"
-
-# In templates (auto-injected)
-# {{ url_for("ArticleController.get_article", id=article.id) }}`}</CodeBlock>
-      </section>
-
-      {/* Deep Dives */}
-      <section>
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Deep Dives</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { title: 'Controller Router', desc: 'Pattern matching, URL params, conflict detection', to: '/docs/controllers/router' },
-            { title: 'Controller Compiler', desc: 'How routes are compiled at startup', to: '/docs/controllers/compiler' },
-            { title: 'Route Decorators', desc: '@Get, @Post, @Put, @Delete, @WS', to: '/docs/controllers/decorators' },
-            { title: 'OpenAPI Generation', desc: 'Auto-generated API documentation', to: '/docs/controllers/openapi' },
-          ].map((item, i) => (
-            <Link key={i} to={item.to} className={`group p-5 rounded-xl border transition-all hover:-translate-y-0.5 ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-aquilia-500/30' : 'bg-white border-gray-200 hover:border-aquilia-500/30'}`}>
-              <h3 className={`font-bold text-sm mb-1 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {item.title}
-                <ArrowRight className="w-3 h-3 text-aquilia-500 opacity-0 group-hover:opacity-100 transition" />
-              </h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{item.desc}</p>
-            </Link>
-          ))}
+      {/* Guides */}
+      <section className="space-y-4">
+        <h2 className={`text-2xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-400" />
+          Guides & Reference
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+          <Link to="/docs/routing/patterns" className="group block space-y-1 hover:text-aquilia-500 transition-colors">
+            <h3 className={`font-semibold text-sm flex items-center gap-2 ${isDark ? 'text-white group-hover:text-aquilia-400' : 'text-gray-900 group-hover:text-aquilia-600'}`}>
+              <span>Pattern Syntax & constraints</span>
+              <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </h3>
+            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Curly brace pattern grammar, types, constraints, and validation.</p>
+          </Link>
+          <Link to="/docs/routing/urls" className="group block space-y-1 hover:text-aquilia-500 transition-colors">
+            <h3 className={`font-semibold text-sm flex items-center gap-2 ${isDark ? 'text-white group-hover:text-aquilia-400' : 'text-gray-900 group-hover:text-aquilia-600'}`}>
+              <span>URL Generation</span>
+              <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </h3>
+            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Reverse path routing using url_for and query parameters.</p>
+          </Link>
         </div>
       </section>
-    
+
       <NextSteps />
     </div>
   )
