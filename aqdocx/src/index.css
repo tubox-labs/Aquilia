@@ -132,14 +132,16 @@ code {
 }
 
 code.changelog-code {
-  background: rgba(16, 185, 129, 0.08) !important;
-  border: 1px solid rgba(16, 185, 129, 0.15) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
   color: #10b981 !important;
 }
 
 [data-theme="light"] code.changelog-code {
-  background: rgba(16, 185, 129, 0.05) !important;
-  border: 1px solid rgba(16, 185, 129, 0.15) !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
   color: #059669 !important;
 }
 
