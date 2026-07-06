@@ -127,7 +127,7 @@ export function DocPreviewPanel() {
           tabIndex={-1}
           onPointerEnter={cancelHide}
           onPointerLeave={() => scheduleHide(entity.id, reason ?? 'hover')}
-          className="fixed top-0 left-0 z-[130]"
+          className="fixed top-0 left-0 z-[130] print:hidden"
           style={{ width: `min(${PANEL_WIDTH}px, calc(100vw - 24px))`, willChange: 'transform, opacity' }}
           initial={reducedMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, x: resolvedPosition.left, y: resolvedPosition.top + (resolvedPosition.placement === 'bottom' ? -6 : 6) }}
           animate={reducedMotion ? { opacity: 1 } : { opacity: 1, scale: 1, x: resolvedPosition.left, y: resolvedPosition.top }}
