@@ -184,8 +184,13 @@ class ModelAdmin:
     def _setup_actions(self) -> None:
         """Discover and register actions from class methods and actions list."""
         # Built-in delete action
+        # NOTE: registered unbound (via the class, not `self`) because
+        # execute_action() invokes action_desc.func(model_admin, request, queryset)
+        # per AdminActionDescriptor's documented contract -- passing a bound method
+        # here would double up `self`/`model_admin` and raise a positional-argument
+        # mismatch.
         self._actions["delete_selected"] = AdminActionDescriptor(
-            func=self._action_delete_selected,
+            func=type(self)._action_delete_selected,
             name="delete_selected",
             short_description="Delete selected records",
             confirmation="Are you sure you want to delete the selected records? This action cannot be undone.",
@@ -193,7 +198,7 @@ class ModelAdmin:
 
         # Built-in duplicate action
         self._actions["duplicate_selected"] = AdminActionDescriptor(
-            func=self._action_duplicate_selected,
+            func=type(self)._action_duplicate_selected,
             name="duplicate_selected",
             short_description="Duplicate selected records",
             confirmation="",
@@ -201,36 +206,36 @@ class ModelAdmin:
 
         # Built-in export actions
         self._actions["export_csv"] = AdminActionDescriptor(
-            func=self._action_export_csv,
+            func=type(self)._action_export_csv,
             name="export_csv",
             short_description="Export selected as CSV",
         )
         self._actions["export_json"] = AdminActionDescriptor(
-            func=self._action_export_json,
+            func=type(self)._action_export_json,
             name="export_json",
             short_description="Export selected as JSON",
         )
 
         # Built-in activate/deactivate (for models with is_active/active field)
         self._actions["activate_selected"] = AdminActionDescriptor(
-            func=self._action_activate_selected,
+            func=type(self)._action_activate_selected,
             name="activate_selected",
             short_description="Activate selected records",
         )
         self._actions["deactivate_selected"] = AdminActionDescriptor(
-            func=self._action_deactivate_selected,
+            func=type(self)._action_deactivate_selected,
             name="deactivate_selected",
             short_description="Deactivate selected records",
         )
 
         # Built-in mark as featured/unfeatured
         self._actions["mark_featured"] = AdminActionDescriptor(
-            func=self._action_mark_featured,
+            func=type(self)._action_mark_featured,
             name="mark_featured",
             short_description="Mark as featured",
         )
         self._actions["unmark_featured"] = AdminActionDescriptor(
-            func=self._action_unmark_featured,
+            func=type(self)._action_unmark_featured,
             name="unmark_featured",
             short_description="Unmark featured",
         )
@@ -248,7 +253,7 @@ class ModelAdmin:
             if isinstance(act, str):
                 if act in self._actions:
                     continue
-                method = getattr(self, act, None)
+                method = getattr(self.__class__, act, None)
                 if method:
                     self._actions[act] = AdminActionDescriptor(func=method)
             elif callable(act):
@@ -532,8 +537,18 @@ class ModelAdmin:
     # ── Built-in actions ─────────────────────────────────────────────
 
     async def _action_delete_selected(self, request: Any, queryset: Any) -> str:
-        """Built-in delete action."""
-        count = await queryset.delete()
+        """
+        Built-in delete action.
+
+        Deletes per-instance via ``delete_instance()`` rather than a bulk
+        ``queryset.delete()`` so relational on_delete policies (CASCADE,
+        SET_NULL, PROTECT, RESTRICT) and delete signals still fire.
+        """
+        records = await queryset.all()
+        count = 0
+        for record in records:
+            await record.delete_instance()
+            count += 1
         return f"Deleted {count} record(s)"
 
     async def _action_duplicate_selected(self, request: Any, queryset: Any) -> str:
