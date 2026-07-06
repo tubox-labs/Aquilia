@@ -602,13 +602,15 @@ def _compute_checksum(snapshot: dict[str, Any]) -> str:
 
 
 def save_snapshot(snapshot: dict[str, Any], path: Path) -> None:
-    """Write snapshot to file in SURP binary format."""
+    """Write snapshot to file in SURP binary format, falling back to JSON if surp is not installed."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Always use SURP binary format via surp
-    import surp as surp_backend
+    try:
+        import surp as surp_backend
 
-    surp_backend.encode_to_file(snapshot, str(path))
+        surp_backend.encode_to_file(snapshot, str(path))
+    except ImportError:
+        path.write_text(json.dumps(snapshot, sort_keys=True, default=str), encoding="utf-8")
 
 
 def load_snapshot(path: Path) -> dict[str, Any] | None:
