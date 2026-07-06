@@ -15,8 +15,8 @@ export function AdminSetupPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 relative admin-setup-page">
       {/* Background Radial Glow */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.06)_0,transparent_70%)] pointer-events-none" />
-      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.04)_0,transparent_75%)] pointer-events-none" />
+      <div className="absolute top-0 left-1/4 w-96 h-96 bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.06)_0,transparent_70%)] pointer-events-none print:hidden" />
+      <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.04)_0,transparent_75%)] pointer-events-none print:hidden" />
 
       {/* Hero Header */}
       <div className="relative mb-16">
