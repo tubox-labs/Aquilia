@@ -251,3 +251,129 @@ code {
   color: #16a34a;
   border-left: 2px solid #16a34a;
 }
+
+@media print {
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #18181b !important;
+  }
+
+  /* Force background colors to print if supported/requested */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ensure standard elements have high contrast */
+  p, span, li, a, h1, h2, h3, h4, h5, h6, td, th, div {
+    color: #18181b !important;
+  }
+
+  /* Light backgrounds for code blocks on print */
+  pre,
+  code,
+  kbd {
+    background-color: #f4f4f5 !important;
+    color: #18181b !important;
+    border: 1px solid #d4d4d8 !important;
+  }
+
+  /* Keep code tokens readable */
+  .token {
+    background: transparent !important;
+    text-shadow: none !important;
+  }
+  
+  .token.comment,
+  .token.prolog,
+  .token.doctype,
+  .token.cdata {
+    color: #71717a !important;
+  }
+  
+  .token.punctuation {
+    color: #52525b !important;
+  }
+  
+  .token.property,
+  .token.tag,
+  .token.boolean,
+  .token.number,
+  .token.constant,
+  .token.symbol,
+  .token.deleted {
+    color: #0f766e !important;
+  }
+  
+  .token.selector,
+  .token.attr-name,
+  .token.string,
+  .token.char,
+  .token.builtin,
+  .token.inserted {
+    color: #15803d !important;
+  }
+  
+  .token.operator,
+  .token.entity,
+  .token.url,
+  .language-css .token.string,
+  .style .token.string {
+    color: #b45309 !important;
+  }
+  
+  .token.atrule,
+  .token.attr-value,
+  .token.keyword {
+    color: #1d4ed8 !important;
+  }
+  
+  .token.function,
+  .token.class-name {
+    color: #6d28d9 !important;
+  }
+  
+  .token.regex,
+  .token.important,
+  .token.variable {
+    color: #be123c !important;
+  }
+
+  /* Reset layout borders */
+  * {
+    border-color: #d4d4d8 !important;
+  }
+
+  /* Prevent page-breaks inside crucial components */
+  pre,
+  blockquote,
+  table,
+  tr,
+  img,
+  li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Avoid headers isolated at bottom of page */
+  h1,
+  h2,
+  h3,
+  h4 {
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+
+  /* Remove scrollbars, highlights or glow effects */
+  ::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  ::selection {
+    background: transparent !important;
+    color: inherit !important;
+  }
+}
