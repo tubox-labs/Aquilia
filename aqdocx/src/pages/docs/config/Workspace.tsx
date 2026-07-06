@@ -1,368 +1,413 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { Box, Zap, Settings, Server, Layers, ArrowRight, AlertCircle } from 'lucide-react'
+import { Layers, Zap, Settings, ArrowRight, Package, GitBranch, Globe, Shield, Activity } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function ConfigWorkspace() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const txt = isDark ? 'text-gray-300' : 'text-gray-600'
+  const subtxt = isDark ? 'text-gray-400' : 'text-gray-500'
+  const head = isDark ? 'text-white' : 'text-gray-900'
+  const divider = isDark ? 'divide-white/5' : 'divide-gray-100'
+  const thead = isDark ? 'bg-zinc-800/80' : 'bg-gray-50'
+  const th = isDark ? 'text-gray-300' : 'text-gray-700'
+  const hov = isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'
+  const border = isDark ? 'border-white/10' : 'border-gray-200'
 
   return (
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-10">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-aquilia-500/30 to-aquilia-500/10 flex items-center justify-center">
-            <Box className="w-5 h-5 text-aquilia-400" />
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-aquilia-500/30 to-aquilia-500/10 flex items-center justify-center shadow-lg shadow-aquilia-500/10">
+            <Layers className="w-5 h-5 text-aquilia-400" />
           </div>
           <div>
-            <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
+            <h1 className={`text-4xl ${head}`}>
               <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
                 Workspace Builder
                 <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
               </span>
             </h1>
-            <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>aquilia.config_builders.Workspace — Top-level fluent configuration</p>
+            <p className={`text-sm ${subtxt}`}>aquilia.workspace — Workspace() fluent builder</p>
           </div>
         </div>
 
-        <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>Workspace</code> class is the top-level entry point for Python-based configuration.
-          It provides a fluent builder API for defining runtime settings, modules, integrations,
-          security, database, sessions, telemetry, and MLOps — all chained into a single
-          immutable configuration object.
+        <p className={`text-lg leading-relaxed ${txt}`}>
+          <DocTerm id="config.workspace">Workspace</DocTerm> is the top-level fluent builder that defines your entire application — its name, modules, integrations, and environment config. Everything chains off a single <code>Workspace("name")</code> call and lives in <code>workspace.py</code> at the project root.
         </p>
       </div>
 
+      {/* Quick full example */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Settings className="w-5 h-5 text-aquilia-400" />
+          Minimal example
+        </h2>
+        <CodeBlock language="python" code={`# workspace.py
+from aquilia import Workspace, Module
+from aquilia.pyconfig import AquilaConfig, Env, Secret
+from aquilia.integrations import DatabaseIntegration, AuthIntegration, OpenAPIIntegration
+
+class BaseEnv(AquilaConfig):
+    class server(AquilaConfig.Server):
+        host = "127.0.0.1"
+        port = Env("PORT", default=8000, cast=int)
+
+    class auth(AquilaConfig.Auth):
+        secret_key = Secret(env="AQ_SECRET_KEY", required=True)
+
+workspace = (
+    Workspace("myapp", version="1.0.0")
+    .env_config(BaseEnv)
+    .module(Module("api").route_prefix("/api"))
+    .integrate(DatabaseIntegration(url=Env("DATABASE_URL", default="sqlite:///app.db")))
+    .integrate(AuthIntegration(secret_key="dev-secret"))
+    .integrate(OpenAPIIntegration(title="My API", version="1.0.0"))
+)`} />
+      </section>
+
       {/* Constructor */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Box className="w-5 h-5 inline mr-2 text-aquilia-400" />
-          Class Definition
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          Workspace() constructor
         </h2>
+        <CodeBlock language="python" code={`from aquilia import Workspace
 
-        <CodeBlock language="python" title="Workspace.__init__()">
-{`class Workspace:
-    """Fluent workspace builder."""
-    
-    def __init__(self, name: str, version: str = "0.1.0", description: str = ""):
-        self._name = name
-        self._version = version
-        self._description = description
-        self._runtime = RuntimeConfig()
-        self._modules: List[ModuleConfig] = []
-        self._integrations: Dict[str, Dict[str, Any]] = {}
-        self._sessions_config: Optional[Dict[str, Any]] = None
-        self._security_config: Optional[Dict[str, Any]] = None
-        self._telemetry_config: Optional[Dict[str, Any]] = None
-        self._database_config: Optional[Dict[str, Any]] = None
-        self._mail_config: Optional[Dict[str, Any]] = None
-        self._mlops_config: Optional[Dict[str, Any]] = None
-        self._cache_config: Optional[Dict[str, Any]] = None`}
-        </CodeBlock>
-
-        <div className={`overflow-x-auto mt-4 mb-6 rounded-xl border ${isDark ? 'border-gray-700/50' : 'border-gray-200'}`}>
+workspace = Workspace(
+    name="myapp",               # Required. Used in logging, traces, and OpenAPI metadata
+    version="1.0.0",            # Optional. Shown in OpenAPI spec and admin panel
+    description="My App",       # Optional. Human-readable description
+)`} />
+        <div className={`mt-4 rounded-xl border overflow-hidden ${border}`}>
           <table className="w-full text-sm">
-            <thead className={isDark ? 'bg-gray-800/80' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Parameter</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Type</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Default</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700/50' : 'divide-gray-100'}`}>
+            <thead><tr className={thead}><th className={`text-left px-4 py-3 font-semibold ${th}`}>Param</th><th className={`text-left px-4 py-3 font-semibold ${th}`}>Default</th><th className={`text-left px-4 py-3 font-semibold ${th}`}>Description</th></tr></thead>
+            <tbody className={`divide-y ${divider}`}>
               {[
-                ['name', 'str', '—', 'Workspace name (required). Used in logging and traces.'],
-                ['version', 'str', '"0.1.0"', 'Workspace version. Used in OpenAPI spec and metadata.'],
-                ['description', 'str', '""', 'Human-readable description of the workspace.'],
-              ].map(([param, type_, def_, desc], i) => (
-                <tr key={i} className={isDark ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50/80'}>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{param}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{type_}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{def_}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</td>
-                </tr>
-              ))}
+                ['name', '—', 'Workspace name (required). Used in structured logs, tracing, and OpenAPI metadata'],
+                ['version', '"0.1.0"', 'Version string shown in OpenAPI spec and admin panel title'],
+                ['description', '""', 'Human-readable description of the workspace'],
+              ].map(([p, d, desc], i) => <tr key={i} className={hov}><td className="px-4 py-3 font-mono text-xs text-aquilia-400">{p}</td><td className={`px-4 py-3 font-mono text-xs ${subtxt}`}>{d}</td><td className={`px-4 py-3 text-xs ${txt}`}>{desc}</td></tr>)}
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* runtime() */}
+      {/* .env_config() */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Server className="w-5 h-5 inline mr-2 text-aquilia-400" />
-          .runtime()
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Settings className="w-5 h-5 text-aquilia-400" />
+          .env_config()
         </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Configures the runtime environment. These settings control the ASGI server behavior
-          and determine which environment-specific config files are loaded.
+        <p className={`mb-4 ${txt}`}>
+          Wires an <DocTerm id="config.aquilaconfig">AquilaConfig</DocTerm> base class into the workspace. At runtime, the framework reads the <code>AQ_ENV</code> environment variable and selects the matching subclass automatically. The config is then converted to a <code>ConfigLoader</code> and made available to all subsystems.
         </p>
+        <CodeBlock language="python" code={`from aquilia import Workspace
+from aquilia.pyconfig import AquilaConfig, Env, Secret
 
-        <CodeBlock language="python" title="runtime() signature">
-{`def runtime(
-    self,
-    mode: str = "dev",
-    host: str = "127.0.0.1",
-    port: int = 8000,
-    reload: bool = True,
-    workers: int = 1,
-) -> "Workspace":`}
-        </CodeBlock>
+class BaseEnv(AquilaConfig):
+    class server(AquilaConfig.Server):
+        host    = "127.0.0.1"
+        port    = Env("PORT", default=8000, cast=int)
+        workers = 1
 
-        <div className={`overflow-x-auto mt-4 mb-6 rounded-xl border ${isDark ? 'border-gray-700/50' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead className={isDark ? 'bg-gray-800/80' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Parameter</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Type</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Default</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700/50' : 'divide-gray-100'}`}>
-              {[
-                ['mode', 'str', '"dev"', 'Runtime mode. Determines config/{mode}.yaml loading. Common values: "dev", "prod", "test", "staging".'],
-                ['host', 'str', '"127.0.0.1"', 'Bind address. Use "0.0.0.0" for external access.'],
-                ['port', 'int', '8000', 'Bind port.'],
-                ['reload', 'bool', 'True', 'Enable auto-reload on file changes (development only).'],
-                ['workers', 'int', '1', 'Number of worker processes. Use CPU count for production.'],
-              ].map(([param, type_, def_, desc], i) => (
-                <tr key={i} className={isDark ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50/80'}>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{param}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{type_}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{def_}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+class DevEnv(BaseEnv):
+    env = "dev"
+    class server(BaseEnv.server):
+        reload = True
+        debug  = True
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>RuntimeConfig</code> dataclass backs this method:
-        </p>
+class ProdEnv(BaseEnv):
+    env = "prod"
+    class server(BaseEnv.server):
+        host    = "0.0.0.0"
+        workers = Env("WEB_WORKERS", default=4, cast=int)
+        timeout_keep_alive = 30
 
-        <CodeBlock language="python" title="RuntimeConfig dataclass">
-{`@dataclass
-class RuntimeConfig:
-    """Runtime configuration."""
-    mode: str = "dev"
-    host: str = "127.0.0.1"
-    port: int = 8000
-    reload: bool = True
-    workers: int = 1`}
-        </CodeBlock>
+workspace = (
+    Workspace("myapp")
+    .env_config(BaseEnv)   # AQ_ENV=prod → uses ProdEnv, AQ_ENV=dev → uses DevEnv
+)`} />
       </section>
 
-      {/* module() */}
+      {/* .module() */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Layers className="w-5 h-5 inline mr-2 text-aquilia-400" />
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Package className="w-5 h-5 text-aquilia-400" />
           .module()
         </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Registers a module (application unit) in the workspace. Each module is a <code>Module</code> builder
-          that gets <code>.build()</code> called automatically to produce a <code>ModuleConfig</code> dataclass.
-          See the <Link to="/docs/config/module" className="text-aquilia-400 hover:underline">Module Builder</Link> page for full details.
+        <p className={`mb-4 ${txt}`}>
+          Registers a <DocTerm id="config.module">Module</DocTerm> in the workspace. A module is a logical boundary that groups controllers, services, routes, models, and middleware under a single URL prefix and optional fault domain. Each <code>Module</code> builder is converted to a <code>ModuleConfig</code> internally. You can register as many modules as you need — they are isolated from each other unless explicitly declared as dependencies.
         </p>
+        <CodeBlock language="python" code={`from aquilia import Workspace, Module
 
-        <CodeBlock language="python" title="module() method">
-{`def module(self, module: Module) -> "Workspace":
-    """Add a module to the workspace."""
-    self._modules.append(module.build())
-    return self`}
-        </CodeBlock>
-
-        <CodeBlock language="python" title="Usage">
-{`workspace = (
+workspace = (
     Workspace("myapp")
+
+    # ── Simple module with auto-discovery ────────────────────────────────
     .module(
         Module("users")
         .route_prefix("/users")
-        .auto_discover("apps/users")
-        .register_controllers("UserController", "ProfileController")
-        .register_services("UserService")
+        .auto_discover("apps/users")      # scans apps/users/ for controllers, services, models
     )
+
+    # ── Explicit component registration ──────────────────────────────────
     .module(
-        Module("blog")
-        .route_prefix("/blog")
-        .auto_discover("apps/blog")
-        .tags("Blog", "Articles")
+        Module("auth", version="2.0.0")
+        .route_prefix("/auth")
+        .register_controllers("LoginController", "TokenController", "OAuthController")
+        .register_services("AuthService", "TokenService")
+        .register_models("UserSession", "RefreshToken")
     )
+
+    # ── Module with dependencies and fault isolation ─────────────────────
+    .module(
+        Module("orders")
+        .route_prefix("/orders")
+        .auto_discover("apps/orders")
+        .depends_on("users", "catalog")   # ensures users and catalog are booted first
+        .fault_domain("commerce")         # groups orders-related faults under a single domain
+        .tags("Orders", "Commerce")       # OpenAPI grouping tags
+    )
+
+    # ── Module with socket controllers (WebSocket) ───────────────────────
+    .module(
+        Module("realtime")
+        .route_prefix("/ws")
+        .register_socket_controllers("ChatController", "NotificationController")
+    )
+
+    # ── Module with module-level middleware ──────────────────────────────
     .module(
         Module("admin")
         .route_prefix("/admin")
-        .fault_domain("admin")
-        .depends_on("users", "blog")
+        .register_controllers("DashboardController", "UserAdminController")
+        .register_middlewares("AdminAuthMiddleware", "AuditMiddleware")
+        .depends_on("users")
     )
-)`}
-        </CodeBlock>
+)`} />
       </section>
 
-      {/* integrate() */}
+      {/* .integrate() */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Zap className="w-5 h-5 inline mr-2 text-aquilia-400" />
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Zap className="w-5 h-5 text-aquilia-400" />
           .integrate()
         </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Adds an integration configuration to the workspace. Integrations are dictionaries
-          produced by <code>Integration.*</code> static methods. The workspace auto-detects
-          the integration type and wires it to the correct config slot.
+        <p className={`mb-4 ${txt}`}>
+          Adds a typed integration dataclass to the workspace. Pass instances from <code>aquilia.integrations</code> — each one has <code>__post_init__</code> validation and a <code>_integration_type</code> field the framework uses for routing. There is no old-style <code>Integration.database()</code> static method — use the typed dataclasses directly.
         </p>
+        <CodeBlock language="python" code={`from aquilia import Workspace, Module
+from aquilia.integrations import (
+    DatabaseIntegration,
+    AuthIntegration,
+    SessionIntegration,
+    CacheIntegration,
+    OpenAPIIntegration,
+    MailIntegration, SmtpProvider, MailAuth,
+    TasksIntegration,
+    CorsIntegration,
+    CsrfIntegration,
+    RateLimitIntegration,
+    TemplatesIntegration,
+    StaticFilesIntegration,
+    LoggingIntegration,
+)
+from aquilia.pyconfig import Env, Secret
 
-        <CodeBlock language="python" title="integrate() method">
-{`def integrate(self, integration: Dict[str, Any]) -> "Workspace":
-    """Add an integration."""
-    # Check for explicit _integration_type marker
-    integration_type = integration.get("_integration_type")
-    if integration_type:
-        self._integrations[integration_type] = integration
-        # Wire specific types to their config slots:
-        #   "cors"         → self._security_config.cors
-        #   "csp"          → self._security_config.csp
-        #   "rate_limit"   → self._security_config.rate_limit
-        #   "static_files" → self._integrations["static_files"]
-        #   "openapi"      → self._integrations["openapi"]
-        #   "mail"         → self._mail_config
-        #   "mlops"        → self._mlops_config
-        #   "cache"        → self._cache_config
-        return self
-    
-    # Legacy detection from dict keys:
-    #   "tokens" + "security"     → auth
-    #   "policy" | "store"        → sessions
-    #   "auto_wire"               → dependency_injection
-    #   "strict_matching"         → routing
-    #   "default_strategy"        → fault_handling
-    #   "search_paths" + "cache"  → templates
-    #   "url" + "auto_create"     → database`}
-        </CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Integration Type Detection
-        </h3>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Modern integrations (cache, cors, csp, csrf, logging, mail, mlops, openapi, rate_limit,
-          serializers, static_files) include an <code>_integration_type</code> marker key that
-          enables unambiguous detection. Legacy integrations (auth, sessions, di, routing,
-          fault_handling, templates, database) are detected by heuristic key inspection.
-        </p>
-
-        <CodeBlock language="python" title="Usage with Integration builders">
-{`workspace = (
+workspace = (
     Workspace("myapp")
-    .integrate(Integration.database(url="sqlite:///app.db"))
-    .integrate(Integration.auth(secret_key="my-key"))
-    .integrate(Integration.openapi(title="My API"))
-    .integrate(Integration.cache(backend="redis"))
-    .integrate(Integration.cors(allow_origins=["https://myapp.com"]))
-    .integrate(Integration.mail(console_backend=True))
-    .integrate(Integration.templates.source("templates").cached())
-    .integrate(Integration.sessions(policy=my_policy))
-)`}
-        </CodeBlock>
+
+    # ── Database ──────────────────────────────────────────────────────────
+    .integrate(DatabaseIntegration(
+        url=Env("DATABASE_URL", required=True),
+        auto_migrate=True,
+        pool_size=20,
+    ))
+
+    # ── Authentication ────────────────────────────────────────────────────
+    .integrate(AuthIntegration(
+        secret_key=Secret(env="AQ_SECRET_KEY", required=True).reveal(),
+        algorithm="HS256",
+        access_token_ttl_minutes=60,
+        refresh_token_ttl_days=30,
+        require_auth_by_default=False,
+    ))
+
+    # ── Sessions ─────────────────────────────────────────────────────────
+    .integrate(SessionIntegration(
+        enabled=True,
+        # Omit policy/store/transport to use smart defaults
+    ))
+
+    # ── Cache ─────────────────────────────────────────────────────────────
+    .integrate(CacheIntegration(
+        backend="redis",
+        redis_url=Env("REDIS_URL", default="redis://localhost:6379/0"),
+        default_ttl=600,
+    ))
+
+    # ── OpenAPI / Swagger UI ──────────────────────────────────────────────
+    .integrate(OpenAPIIntegration(
+        title="My App API",
+        version="1.0.0",
+        docs_path="/docs",
+        redoc_path="/redoc",
+        group_by_module=True,
+    ))
+
+    # ── CORS ─────────────────────────────────────────────────────────────
+    .integrate(CorsIntegration(
+        allow_origins=["https://myapp.com"],
+        allow_credentials=True,
+        max_age=600,
+    ))
+
+    # ── CSRF ─────────────────────────────────────────────────────────────
+    .integrate(CsrfIntegration(
+        secret_key="csrf-signing-key",
+        exempt_paths=["/api/webhooks/stripe"],
+    ))
+
+    # ── Rate limiting ─────────────────────────────────────────────────────
+    .integrate(RateLimitIntegration(
+        limit=200, window=60, per_user=True, burst=30,
+    ))
+
+    # ── Mail ──────────────────────────────────────────────────────────────
+    .integrate(MailIntegration(
+        default_from="noreply@myapp.com",
+        auth=MailAuth.plain("smtp_user", password_env="SMTP_PASS"),
+        providers=[SmtpProvider(host="smtp.sendgrid.net", port=587, use_tls=True)],
+    ))
+
+    # ── Background tasks ──────────────────────────────────────────────────
+    .integrate(TasksIntegration(
+        num_workers=8,
+        max_retries=5,
+        scheduler_tick=15.0,
+    ))
+
+    # ── Templates ────────────────────────────────────────────────────────
+    .integrate(TemplatesIntegration(
+        directories=["templates"],
+        bytecode_cache=True,
+        autoescape=True,
+    ))
+
+    # ── Static files ──────────────────────────────────────────────────────
+    .integrate(StaticFilesIntegration(
+        directories=["static"],
+        prefix="/static",
+        cache_max_age=31536000,
+    ))
+
+    # ── Structured logging ────────────────────────────────────────────────
+    .integrate(LoggingIntegration(
+        level="INFO",
+        format="json",
+        include_request_id=True,
+    ))
+)`} />
       </section>
 
-      {/* security() */}
+      {/* .env_config + integrate together */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          .security()
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <GitBranch className="w-5 h-5 text-aquilia-400" />
+          Combining env_config with integrations
         </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          High-level security flags that control which security middleware are automatically
-          added to the middleware stack during server startup. For fine-grained control,
-          use <code>Integration.cors()</code>, <code>Integration.csp()</code>,
-          <code>Integration.rate_limit()</code>, or <code>Integration.csrf()</code> instead.
+        <p className={`mb-4 ${txt}`}>
+          <code>.env_config()</code> controls the environment-level settings (server, auth tokens, DB URL) through <DocTerm id="config.aquilaconfig">AquilaConfig</DocTerm> subclasses. <code>.integrate()</code> controls the subsystem behaviour (connection pools, middleware, logging). They are complementary — use both together for the cleanest production setup.
         </p>
+        <CodeBlock language="python" code={`# workspace.py — combining env_config and integrate()
+from aquilia import Workspace, Module
+from aquilia.pyconfig import AquilaConfig, Env, Secret
+from aquilia.integrations import (
+    DatabaseIntegration, AuthIntegration, CacheIntegration,
+    OpenAPIIntegration, CorsIntegration, TasksIntegration,
+)
 
-        <CodeBlock language="python" title="security() signature">
-{`def security(
-    self,
-    cors_enabled: bool = False,
-    csrf_protection: bool = False,
-    helmet_enabled: bool = True,
-    rate_limiting: bool = False,
-    https_redirect: bool = False,
-    hsts: bool = True,
-    proxy_fix: bool = False,
-    **kwargs
-) -> "Workspace":`}
-        </CodeBlock>
+# ─── AquilaConfig: env-specific settings ─────────────────────────────────────
+class BaseEnv(AquilaConfig):
+    class server(AquilaConfig.Server):
+        host    = "127.0.0.1"
+        port    = Env("PORT", default=8000, cast=int)
+        workers = 1
 
-        <div className={`overflow-x-auto mt-4 mb-6 rounded-xl border ${isDark ? 'border-gray-700/50' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead className={isDark ? 'bg-gray-800/80' : 'bg-gray-50'}>
-              <tr>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Flag</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Default</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700/50' : 'divide-gray-100'}`}>
-              {[
-                ['cors_enabled', 'False', 'Enable CORS middleware (default origins: *)'],
-                ['csrf_protection', 'False', 'Enable CSRF protection'],
-                ['helmet_enabled', 'True', 'Enable Helmet-style security headers'],
-                ['rate_limiting', 'False', 'Enable rate limiting (100 req/min default)'],
-                ['https_redirect', 'False', 'Enable HTTP→HTTPS redirect'],
-                ['hsts', 'True', 'Enable HSTS header (Strict-Transport-Security)'],
-                ['proxy_fix', 'False', 'Enable X-Forwarded-* header processing'],
-              ].map(([flag, def_, desc], i) => (
-                <tr key={i} className={isDark ? 'hover:bg-gray-800/40' : 'hover:bg-gray-50/80'}>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{flag}</td>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{def_}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    class auth(AquilaConfig.Auth):
+        secret_key = Secret(env="AQ_SECRET_KEY", required=True)
 
-        <CodeBlock language="python" title="Usage">
-{`workspace = (
+class DevEnv(BaseEnv):
+    env = "dev"
+    class server(BaseEnv.server):
+        reload = True
+        debug  = True
+
+class ProdEnv(BaseEnv):
+    env = "prod"
+    class server(BaseEnv.server):
+        host    = "0.0.0.0"
+        workers = Env("WEB_WORKERS", default=4, cast=int)
+        timeout_keep_alive = 30
+    class auth(BaseEnv.auth):
+        password_hasher = AquilaConfig.PasswordHasher.argon2id(time_cost=3)
+
+# ─── Workspace: structure + subsystem integrations ────────────────────────────
+workspace = (
+    Workspace("ecommerce", version="2.0.0")
+    .env_config(BaseEnv)       # AQ_ENV selects DevEnv or ProdEnv
+
+    .module(Module("catalog").route_prefix("/catalog").auto_discover("apps/catalog"))
+    .module(Module("orders").route_prefix("/orders").auto_discover("apps/orders").depends_on("catalog"))
+    .module(Module("users").route_prefix("/users").auto_discover("apps/users"))
+
+    .integrate(DatabaseIntegration(url=Env("DATABASE_URL", required=True), auto_migrate=True, pool_size=20))
+    .integrate(AuthIntegration(secret_key=Secret(env="AQ_SECRET_KEY", required=True).reveal()))
+    .integrate(CacheIntegration(backend="redis", redis_url=Env("REDIS_URL", default="redis://localhost:6379/0")))
+    .integrate(OpenAPIIntegration(title="E-Commerce API", version="2.0.0", swagger_ui_theme="dark"))
+    .integrate(CorsIntegration(allow_origins=["https://myshop.com"], allow_credentials=True))
+    .integrate(TasksIntegration(num_workers=8, max_retries=5))
+)`} />
+      </section>
+
+      {/* .security() */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Shield className="w-5 h-5 text-aquilia-400" />
+          .security() — high-level flags
+        </h2>
+        <p className={`mb-4 ${txt}`}>
+          High-level flags that enable entire middleware categories with sensible defaults. For fine-grained control (custom CORS origins, CSRF exemptions, rate-limit algorithms), use the typed integration dataclasses via <code>.integrate()</code> instead.
+        </p>
+        <CodeBlock language="python" code={`workspace = (
     Workspace("myapp")
     .security(
-        cors_enabled=True,
-        csrf_protection=True,
-        rate_limiting=True,
-        https_redirect=True,  # Production
-        proxy_fix=True,       # Behind reverse proxy
+        cors_enabled=True,          # adds CorsMiddleware with allow_origins=["*"]
+        csrf_protection=True,       # adds CsrfMiddleware
+        helmet_enabled=True,        # adds security response headers (X-Frame-Options, etc.)
+        rate_limiting=False,        # adds RateLimitMiddleware (100 req/min default)
+        https_redirect=False,       # redirects HTTP → HTTPS
+        hsts=True,                  # Strict-Transport-Security header
+        proxy_fix=False,            # trust X-Forwarded-* headers from reverse proxy
     )
-)`}
-        </CodeBlock>
+)`} />
       </section>
 
-      {/* sessions() */}
+      {/* .sessions() shorthand */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          .sessions()
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          Sessions shorthand
         </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Configures session management at the workspace level. Accepts a list of <code>SessionPolicy</code>
-          instances and additional configuration.
+        <p className={`mb-4 ${txt}`}>
+          You can also use <code>.sessions()</code> as a shorthand instead of <code>.integrate(SessionIntegration(...))</code>. Both are equivalent.
         </p>
+        <CodeBlock language="python" code={`from aquilia.sessions import SessionPolicy, MemoryStore
 
-        <CodeBlock language="python" title="sessions() signature">
-{`def sessions(
-    self,
-    policies: Optional[List[Any]] = None,
-    **kwargs
-) -> "Workspace":`}
-        </CodeBlock>
-
-        <CodeBlock language="python" title="Usage with SessionPolicy">
-{`from aquilia.sessions import SessionPolicy
-
+# Using .sessions() shorthand:
 workspace = (
     Workspace("myapp")
     .sessions(policies=[
@@ -371,277 +416,225 @@ workspace = (
             .idle_timeout(hours=2)
             .rotating_on_privilege_change()
     ])
-)`}
-        </CodeBlock>
-      </section>
+)
 
-      {/* database() */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          .database()
-        </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Sets the global default database for the workspace. Individual modules can override
-          this with <code>Module.database()</code>.
-        </p>
-
-        <CodeBlock language="python" title="database() signature">
-{`def database(
-    self,
-    url: str = "sqlite:///db.sqlite3",
-    auto_connect: bool = True,
-    auto_create: bool = True,
-    auto_migrate: bool = False,
-    migrations_dir: str = "migrations",
-    **kwargs,
-) -> "Workspace":`}
-        </CodeBlock>
-
-        <CodeBlock language="python" title="Usage">
-{`workspace = (
+# Equivalent using .integrate():
+from aquilia.integrations import SessionIntegration
+workspace = (
     Workspace("myapp")
-    .database(
-        url="postgresql://localhost/myapp",
-        auto_create=True,
-        auto_migrate=True,
-        migrations_dir="db/migrations",
-    )
-    .module(
-        Module("analytics")
-        .database(
-            url="postgresql://localhost/analytics",  # Module-specific DB
-            auto_connect=True,
-        )
-    )
-)`}
-        </CodeBlock>
+    .integrate(SessionIntegration(
+        policy=SessionPolicy.for_web_users().lasting(days=14),
+    ))
+)`} />
       </section>
 
-      {/* telemetry() */}
+      {/* .mlops() */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          .telemetry()
-        </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Configures observability: tracing, metrics, and logging.
-        </p>
-
-        <CodeBlock language="python" title="telemetry() signature">
-{`def telemetry(
-    self,
-    tracing_enabled: bool = False,
-    metrics_enabled: bool = True,
-    logging_enabled: bool = True,
-    **kwargs
-) -> "Workspace":`}
-        </CodeBlock>
-      </section>
-
-      {/* mlops() */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Activity className="w-5 h-5 text-aquilia-400" />
           .mlops()
         </h2>
-
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Shorthand for <code>.integrate(Integration.mlops(...))</code>. Configures the MLOps
-          platform at the workspace level.
+        <p className={`mb-4 ${txt}`}>
+          Shorthand to enable the Aquilia MLOps platform — model registry, serving, drift detection, and lineage tracking. Equivalent to <code>.integrate(MlopsIntegration(...))</code>.
         </p>
-
-        <CodeBlock language="python" title="mlops() signature">
-{`def mlops(
-    self,
-    enabled: bool = True,
-    registry_db: str = "registry.db",
-    blob_root: str = ".aquilia-store",
-    drift_method: str = "psi",
-    drift_threshold: float = 0.2,
-    max_batch_size: int = 16,
-    max_latency_ms: float = 50.0,
-    plugin_auto_discover: bool = True,
-    **kwargs,
-) -> "Workspace":`}
-        </CodeBlock>
+        <CodeBlock language="python" code={`workspace = (
+    Workspace("mlapp")
+    .mlops(
+        enabled=True,
+        registry_db="registry.db",
+        blob_root=".aquilia-store",
+        drift_method="psi",
+        drift_threshold=0.2,
+        max_batch_size=16,
+        max_latency_ms=50.0,
+        plugin_auto_discover=True,
+    )
+)`} />
       </section>
 
-      {/* to_dict() */}
+      {/* Full production workspace */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Settings className="w-5 h-5 inline mr-2 text-aquilia-400" />
-          .to_dict() — Serialization
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Globe className="w-5 h-5 text-aquilia-400" />
+          Full production workspace
         </h2>
+        <CodeBlock language="python" code={`# workspace.py — production-ready multi-module workspace
+from aquilia import Workspace, Module
+from aquilia.pyconfig import AquilaConfig, Env, Secret
+from aquilia.integrations import (
+    DatabaseIntegration,
+    AuthIntegration,
+    SessionIntegration,
+    CacheIntegration,
+    OpenAPIIntegration,
+    MailIntegration, SmtpProvider, SesProvider, MailAuth,
+    TasksIntegration,
+    CorsIntegration,
+    CsrfIntegration,
+    RateLimitIntegration,
+    CspIntegration,
+    TemplatesIntegration,
+    StaticFilesIntegration,
+    LoggingIntegration,
+    StorageIntegration,
+    AdminIntegration, AdminModules,
+    I18nIntegration,
+)
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Converts the workspace to a flat dictionary compatible with <code>ConfigLoader</code>.
-          This is called automatically when <code>ConfigLoader</code> loads an <code>aquilia.py</code> file.
-        </p>
+# ── AquilaConfig (environment-specific) ──────────────────────────────────────
 
-        <CodeBlock language="python" title="to_dict() output structure">
-{`def to_dict(self) -> Dict[str, Any]:
-    config = {
-        "workspace": {
-            "name": self._name,
-            "version": self._version,
-            "description": self._description,
-        },
-        "runtime": {
-            "mode": self._runtime.mode,
-            "host": self._runtime.host,
-            "port": self._runtime.port,
-            "reload": self._runtime.reload,
-            "workers": self._runtime.workers,
-        },
-        "modules": [m.to_dict() for m in self._modules],
-        "integrations": self._integrations,
-    }
-    
-    # Optional sections added only when configured:
-    # config["sessions"]  ← from .sessions()
-    # config["security"]  ← from .security()
-    # config["telemetry"] ← from .telemetry()
-    # config["database"]  ← from .database() (also integrations.database)
-    # config["mail"]      ← from Integration.mail() (also integrations.mail)
-    # config["mlops"]     ← from .mlops() (also integrations.mlops)
-    # config["cache"]     ← from Integration.cache() (also integrations.cache)
-    
-    return config`}
-        </CodeBlock>
+class BaseEnv(AquilaConfig):
+    class server(AquilaConfig.Server):
+        host    = "127.0.0.1"
+        port    = Env("PORT", default=8000, cast=int)
+        workers = 1
 
-        <div className={`p-4 rounded-lg border mt-4 ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-blue-300' : 'text-blue-800'}`}>
-            <AlertCircle className="w-4 h-4 inline mr-1" />
-            <strong>Dual registration:</strong> Subsystem configs like database, mail, mlops, and cache
-            are stored both at the top level (<code>config["database"]</code>) and inside
-            <code>config["integrations"]["database"]</code> for compatibility. The <code>ConfigLoader</code>
-            accessor methods check both locations.
-          </p>
-        </div>
-      </section>
+    class auth(AquilaConfig.Auth):
+        secret_key = Secret(env="AQ_SECRET_KEY", required=True)
+        algorithm  = "HS256"
 
-      {/* Complete Example */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Complete Example
-        </h2>
+    class database(AquilaConfig.Database):
+        url = Env("DATABASE_URL", default="sqlite:///dev.db")
 
-        <CodeBlock language="python" title="aquilia.py — Full Production Workspace">
-{`from aquilia.config_builders import Workspace, Module, Integration
+    class signing(AquilaConfig.Signing):
+        secret = Secret(env="AQ_SECRET_KEY", required=True)
+
+class DevEnv(BaseEnv):
+    env = "dev"
+    class server(BaseEnv.server):
+        reload    = True
+        debug     = True
+        log_level = "debug"
+
+class ProdEnv(BaseEnv):
+    env = "prod"
+    class server(BaseEnv.server):
+        host              = "0.0.0.0"
+        workers           = Env("WEB_WORKERS", default=4, cast=int)
+        timeout_keep_alive = 30
+        proxy_headers      = True
+        forwarded_allow_ips = "*"
+    class auth(BaseEnv.auth):
+        password_hasher = AquilaConfig.PasswordHasher.argon2id(time_cost=3, memory_cost=131072)
+    class database(BaseEnv.database):
+        pool_size    = 20
+        auto_migrate = True
+
+# ── Workspace (structure + subsystem config) ──────────────────────────────────
 
 workspace = (
-    Workspace("ecommerce", version="2.0.0", description="E-commerce Platform")
-    
-    # Runtime
-    .runtime(mode="prod", host="0.0.0.0", port=80, reload=False, workers=4)
-    
-    # Global database
-    .database(
-        url="postgresql://db-host:5432/ecommerce",
-        auto_connect=True,
-        auto_migrate=True,
-        pool_size=20,
-    )
-    
-    # Modules
+    Workspace("platform", version="3.0.0", description="Multi-tenant SaaS platform")
+    .env_config(BaseEnv)                  # AQ_ENV → DevEnv | ProdEnv
+
+    # ── Modules ──────────────────────────────────────────────────────────
     .module(
-        Module("catalog")
-        .route_prefix("/catalog")
-        .auto_discover("apps/catalog")
-        .fault_domain("catalog")
-        .tags("Products", "Categories")
-    )
-    .module(
-        Module("orders")
-        .route_prefix("/orders")
-        .auto_discover("apps/orders")
-        .fault_domain("orders")
-        .depends_on("catalog", "users")
+        Module("auth", version="2.0")
+        .route_prefix("/auth")
+        .auto_discover("apps/auth")
+        .fault_domain("security")
     )
     .module(
         Module("users")
         .route_prefix("/users")
         .auto_discover("apps/users")
-        .register_controllers("UserController", "ProfileController")
-        .register_services("UserService", "AuthService")
+        .depends_on("auth")
+        .fault_domain("users")
+        .tags("Users", "Profiles")
     )
-    
-    # Integrations
-    .integrate(Integration.auth(
-        secret_key="prod-secret-key-from-vault",
-        store_type="memory",
+    .module(
+        Module("billing")
+        .route_prefix("/billing")
+        .auto_discover("apps/billing")
+        .depends_on("users")
+        .fault_domain("billing")
+    )
+    .module(
+        Module("notifications")
+        .route_prefix("/notifications")
+        .register_controllers("NotificationController")
+        .register_socket_controllers("NotificationSocketController")
+        .depends_on("users")
+    )
+    .module(
+        Module("admin")
+        .route_prefix("/admin")
+        .auto_discover("apps/admin")
+        .depends_on("users", "billing")
+    )
+
+    # ── Integrations ─────────────────────────────────────────────────────
+    .integrate(DatabaseIntegration(
+        url=Env("DATABASE_URL", required=True),
+        auto_migrate=True,
+        pool_size=20,
     ))
-    .integrate(Integration.openapi(
-        title="E-commerce API",
-        version="2.0.0",
-        contact_email="api@ecommerce.com",
-        swagger_ui_theme="dark",
+    .integrate(AuthIntegration(
+        secret_key=Secret(env="AQ_SECRET_KEY", required=True).reveal(),
+        access_token_ttl_minutes=60,
+        refresh_token_ttl_days=30,
+        require_auth_by_default=False,
     ))
-    .integrate(Integration.cache(
+    .integrate(SessionIntegration())
+    .integrate(CacheIntegration(
         backend="composite",
-        l1_max_size=500,
-        l1_ttl=30,
-        redis_url="redis://cache-host:6379/0",
+        l1_max_size=1000,
+        l1_ttl=60,
+        l2_backend="redis",
+        redis_url=Env("REDIS_URL", default="redis://localhost:6379/0"),
     ))
-    .integrate(Integration.cors(
-        allow_origins=["https://ecommerce.com", "https://admin.ecommerce.com"],
-        allow_credentials=True,
+    .integrate(OpenAPIIntegration(
+        title="Platform API",
+        version="3.0.0",
+        contact_email="eng@platform.io",
+        swagger_ui_theme="dark",
+        group_by_module=True,
     ))
-    .integrate(Integration.mail(
-        default_from="noreply@ecommerce.com",
-        providers=[
-            {"name": "ses", "type": "ses", "region": "us-east-1"},
-        ],
+    .integrate(MailIntegration(
+        default_from="noreply@platform.io",
+        providers=[SesProvider(region="eu-west-1")],
     ))
-    .integrate(Integration.static_files(
-        directories={"/static": "static", "/media": "uploads"},
-        cache_max_age=86400,
+    .integrate(TasksIntegration(num_workers=8, max_retries=5, scheduler_tick=15.0))
+    .integrate(CorsIntegration(allow_origins=["https://platform.io"], allow_credentials=True))
+    .integrate(CsrfIntegration(exempt_paths=["/api/webhooks"]))
+    .integrate(RateLimitIntegration(limit=200, window=60, per_user=True, burst=30))
+    .integrate(CspIntegration(preset="strict", nonce=True))
+    .integrate(TemplatesIntegration(directories=["templates"], bytecode_cache=True))
+    .integrate(StaticFilesIntegration(directories=["static"], cache_max_age=86400))
+    .integrate(StorageIntegration(backend="s3", bucket="platform-uploads", region="eu-west-1"))
+    .integrate(I18nIntegration(
+        default_locale="en",
+        available_locales=["en", "fr", "de", "es"],
     ))
-    .integrate(Integration.rate_limit(
-        limit=200,
-        window=60,
-        algorithm="token_bucket",
-        burst=50,
+    .integrate(LoggingIntegration(level="INFO", format="json", include_request_id=True))
+    .integrate(AdminIntegration(
+        site_title="Platform Admin",
+        prefix="/admin",
+        modules=AdminModules(monitoring=True, audit=True, users=True, tasks=True),
     ))
-    .integrate(Integration.logging(
-        slow_threshold_ms=500,
-        skip_paths=["/health", "/metrics"],
-    ))
-    
-    # Security
-    .security(
-        cors_enabled=True,
-        csrf_protection=True,
-        helmet_enabled=True,
-        https_redirect=True,
-        proxy_fix=True,
-    )
-    
-    # Telemetry
-    .telemetry(
-        tracing_enabled=True,
-        metrics_enabled=True,
-    )
-)`}
-        </CodeBlock>
+)`} />
       </section>
 
       {/* Navigation */}
-      <div className={`mt-12 pt-6 border-t flex justify-between ${isDark ? 'border-gray-700/50' : 'border-gray-200'}`}>
-        <Link
-          to="/docs/config/loader"
-          className="flex items-center gap-2 text-aquilia-400 hover:text-aquilia-300 transition-colors"
-        >
-          ← Config System Overview
-        </Link>
-        <Link
-          to="/docs/config/module"
-          className="flex items-center gap-2 text-aquilia-400 hover:text-aquilia-300 transition-colors"
-        >
-          Module Builder <ArrowRight className="w-4 h-4" />
-        </Link>
-      </div>
-    
+      <section className="mb-12 border-t pt-8" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            ['/docs/config', 'Config Overview', 'Configuration system, AquilaConfig, precedence'],
+            ['/docs/config/pyconfig', 'AquilaConfig & Env', 'Env, Secret, PasswordHasher, section'],
+            ['/docs/config/module', 'Module Builder', 'Full Module fluent API reference'],
+            ['/docs/config/integrations', 'Integrations', 'All typed integration dataclasses'],
+            ['/docs/config/manifest', 'AppManifest', 'Per-module component registry'],
+            ['/docs/config/dotenv', '.env Files', 'File loading, syntax, DotEnvLoader'],
+          ].map(([href, label, desc]) => (
+            <Link key={href as string} to={href as string} className="flex flex-col gap-0.5 group">
+              <span className={`text-sm font-semibold flex items-center gap-1 ${isDark ? 'text-aquilia-400 group-hover:text-aquilia-300' : 'text-aquilia-600 group-hover:text-aquilia-500'} transition-colors`}>
+                <ArrowRight className="w-3 h-3" />{label}
+              </span>
+              <span className={`text-xs ${subtxt}`}>{desc}</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <NextSteps />
     </div>
   )
