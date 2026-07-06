@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.3.0] — 2026-07-06 — "Ironclad Anchor"
+## [1.3.0b0] — 2026-07-06 — "Ironclad Anchor" (beta)
 
 ### Added
 - **`RelatedManager` / `Model.related_manager()`**: reverse relations (rows in another table whose `ForeignKey` points back at an instance) can now be accessed lazily and chained like any other queryset: `await user.related_manager("verifications").filter(expires_at__gt=now).order("-created_at").first()`. Previously `Model.related()` was the only reverse-relation entry point and always eagerly awaited a fully materialized list. `related()` itself is unchanged in contract — it now delegates to `related_manager(name).all()` (or `.first()` for a `OneToOneField`'s reverse side, matching its actual 1:1 cardinality instead of returning a list).
