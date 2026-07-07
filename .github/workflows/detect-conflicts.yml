@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check if PRs have merge conflicts
-        uses: eps1lon/actions-label-merge-conflict@v3
+        uses: eps1lon/actions-label-merge-conflict@d5ebf66048cf1919ef49bed4e46df507a76aefc0 # v3.0.2
         with:
           dirtyLabel: "conflicting"
           repoToken: "${{ secrets.GITHUB_TOKEN }}"
