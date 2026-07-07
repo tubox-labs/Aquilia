@@ -14,6 +14,9 @@ import { CommunityPage } from './pages/Community'
 import { PrivacyPage } from './pages/Privacy'
 import { TermsPage } from './pages/Terms'
 import { CookiePreferences } from './components/CookiePreferences'
+import { NotFoundPage } from './pages/NotFound'
+import { ServerErrorPage } from './pages/ServerError'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 
 // Getting Started
@@ -267,8 +270,9 @@ import { FilesystemController } from './pages/docs/filesystem/Controller'
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <DocPreviewProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <DocPreviewProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/benchmark" element={<BenchmarkPage />} />
@@ -564,12 +568,19 @@ export default function App() {
           <Route path="filesystem/api" element={<FilesystemAPI />} />
           <Route path="filesystem/operations" element={<FilesystemOperations />} />
           <Route path="filesystem/controller" element={<FilesystemController />} />
+
+          {/* Docs Wildcard 404 */}
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
+
+        <Route path="/500" element={<ServerErrorPage />} />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <DocPreviewPanel />
       <Chatbox />
       <CookiePreferences />
       </DocPreviewProvider>
     </ThemeProvider>
+    </ErrorBoundary>
   )
 }
