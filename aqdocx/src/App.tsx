@@ -91,6 +91,9 @@ import { ModelsQuerySet } from './pages/docs/models/QuerySet'
 import { ModelsRelationships } from './pages/docs/models/Relationships'
 import { ModelsMigrations } from './pages/docs/models/Migrations'
 import { ModelsAdvanced } from './pages/docs/models/Advanced'
+import { ModelsSignals } from './pages/docs/models/Signals'
+import { ModelsTransactions } from './pages/docs/models/Transactions'
+import { ModelsAggregation } from './pages/docs/models/Aggregation'
 
 // Blueprints
 import { BlueprintsOverview } from './pages/docs/blueprints/Overview'
@@ -357,9 +360,9 @@ export default function App() {
           <Route path="models/relationships" element={<ModelsRelationships />} />
           <Route path="models/migrations" element={<ModelsMigrations />} />
           <Route path="models/advanced" element={<ModelsAdvanced />} />
-          <Route path="models/signals" element={<ModelsAdvanced />} />
-          <Route path="models/transactions" element={<ModelsAdvanced />} />
-          <Route path="models/aggregation" element={<ModelsAdvanced />} />
+          <Route path="models/signals" element={<ModelsSignals />} />
+          <Route path="models/transactions" element={<ModelsTransactions />} />
+          <Route path="models/aggregation" element={<ModelsAggregation />} />
 
           {/* Blueprints */}
           <Route path="blueprints" element={<BlueprintsOverview />} />

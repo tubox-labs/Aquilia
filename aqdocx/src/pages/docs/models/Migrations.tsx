@@ -430,10 +430,10 @@ async def after_migration(sender, migration_name, **kwargs):
           <ArrowLeft className="w-4 h-4" /> Relationships
         </Link>
         <Link
-          to="/docs/models/advanced"
+          to="/docs/models/signals"
           className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}
         >
-          Advanced <ArrowRight className="w-4 h-4" />
+          Signals <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
     

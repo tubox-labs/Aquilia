@@ -370,10 +370,9 @@ code.changelog-code {
     border-color: #86efac !important;
   }
 
-  /* Force light backgrounds for code blocks and containers */
   .code-block-container {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
+    page-break-inside: auto !important;
+    break-inside: auto !important;
   }
 
   .code-block-container > div {
@@ -424,6 +423,7 @@ code.changelog-code {
     border: 1px solid #d4d4d8 !important;
     padding: 0.125rem 0.25rem !important;
     border-radius: 0.25rem !important;
+    color: #18181b !important;
   }
 
   /* Set the default color for all plain text / tokens in codeblock to dark gray */
@@ -516,7 +516,6 @@ code.changelog-code {
   }
 
   /* Prevent page-breaks inside crucial components */
-  pre,
   blockquote,
   table,
   tr,

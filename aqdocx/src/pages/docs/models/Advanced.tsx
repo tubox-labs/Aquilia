@@ -30,92 +30,6 @@ export function ModelsAdvanced() {
         </p>
       </div>
 
-      {/* Transactions */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Transactions</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <code>atomic()</code> context manager wraps database operations in a transaction. It supports nesting via savepoints.
-        </p>
-        <CodeBlock language="python">
-{`from aquilia.models.transactions import atomic
-
-# Basic transaction
-async with atomic(db):
-    user = User(name="Alice", email="alice@co.com")
-    await user.save(db)
-    profile = Profile(user_id=user.id, bio="Hello")
-    await profile.save(db)
-    # If either fails, both are rolled back
-
-# Nested transactions — uses SAVEPOINTs
-async with atomic(db):
-    await user.save(db)
-
-    async with atomic(db):
-        # Creates SAVEPOINT
-        await risky_operation(db)
-        # If this fails, only the inner block rolls back
-
-    # Outer transaction continues
-
-# Durable mode — prevents nesting, always creates a real transaction
-async with atomic(db, durable=True):
-    await critical_operation(db)
-
-# as decorator
-@atomic(db)
-async def transfer_funds(from_id, to_id, amount):
-    await Account.objects.filter(id=from_id).update(balance=F("balance") - amount)
-    await Account.objects.filter(id=to_id).update(balance=F("balance") + amount)`}
-        </CodeBlock>
-      </section>
-
-      {/* on_commit / on_rollback */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>on_commit / on_rollback Hooks</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Register callbacks that fire after the transaction successfully commits or rolls back. Callbacks are FIFO-ordered and only fire once.
-        </p>
-        <CodeBlock language="python">
-{`from aquilia.models.transactions import atomic, on_commit, on_rollback
-
-async with atomic(db) as txn:
-    user = User(name="Bob")
-    await user.save(db)
-
-    # Runs only if the transaction commits
-    on_commit(txn, lambda: send_welcome_email(user.id))
-    on_commit(txn, lambda: invalidate_cache("users"))
-
-    # Runs only if the transaction rolls back
-    on_rollback(txn, lambda: log_failure("user_creation_failed"))
-
-# Multiple callbacks execute in registration order
-# on_commit hooks are suppressed if any exception occurs`}
-        </CodeBlock>
-      </section>
-
-      {/* Isolation Levels */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Isolation Levels</h2>
-        <CodeBlock language="python">
-{`from aquilia.models.transactions import atomic, IsolationLevel
-
-# Default isolation level (depends on DB engine)
-async with atomic(db):
-    ...
-
-# Explicit isolation level (PostgreSQL)
-async with atomic(db, isolation_level=IsolationLevel.SERIALIZABLE):
-    ...
-
-# Available levels:
-# IsolationLevel.READ_UNCOMMITTED
-# IsolationLevel.READ_COMMITTED     (PG default)
-# IsolationLevel.REPEATABLE_READ    (MySQL default)
-# IsolationLevel.SERIALIZABLE       (strictest)`}
-        </CodeBlock>
-      </section>
 
       {/* Expression System */}
       <section className="mb-12">
@@ -549,80 +463,13 @@ data = await (
         </CodeBlock>
       </section>
 
-      {/* select_for_update */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Pessimistic Locking — select_for_update</h2>
-        <CodeBlock language="python">
-{`from aquilia.models.transactions import atomic
-
-# SELECT ... FOR UPDATE locks the selected rows
-async with atomic(db):
-    account = await (
-        Account.objects
-        .select_for_update()   # basic row lock
-        .filter(id=42)
-        .first()
-    )
-    account.balance -= 100
-    await account.save(db)
-
-# Options:
-# .select_for_update(nowait=True)       — raise error instead of waiting
-# .select_for_update(skip_locked=True)  — skip locked rows
-# .select_for_update(of=["self"])       — lock only this table (not JOINed)
-# .select_for_update(no_key=True)       — FOR NO KEY UPDATE (PG: weaker lock)`}
-        </CodeBlock>
-      </section>
-
-      {/* Signals */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Model Signals</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Hook into the model lifecycle at every stage:
-        </p>
-        <CodeBlock language="python">
-{`from aquilia.models.signals import (
-    pre_save, post_save, pre_delete, post_delete,
-    pre_init, post_init, class_prepared,
-    m2m_changed, receiver,
-)
-
-@receiver(pre_save, sender=User)
-async def hash_password(sender, instance, **kwargs):
-    if instance._state.get("password_changed"):
-        instance.password = hash_fn(instance.password)
-
-@receiver(post_save, sender=User)
-async def send_notification(sender, instance, created, **kwargs):
-    if created:
-        await send_welcome_email(instance.email)
-
-@receiver(pre_delete, sender=User)
-async def check_can_delete(sender, instance, **kwargs):
-    if instance.is_superuser:
-        raise PermissionError("Cannot delete superuser")
-
-@receiver(class_prepared)
-async def on_model_registered(sender, **kwargs):
-    print(f"Model registered: {sender.__name__}")
-
-# Signal.connect() / Signal.disconnect() for manual management
-from aquilia.models.signals import Signal
-
-custom_signal = Signal()
-custom_signal.connect(my_handler, sender=MyModel)
-await custom_signal.send(sender=MyModel, instance=obj)
-custom_signal.disconnect(my_handler, sender=MyModel)`}
-        </CodeBlock>
-      </section>
-
       {/* Navigation */}
       <div className={`flex justify-between items-center pt-8 mt-8 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
         <Link
-          to="/docs/models/migrations"
+          to="/docs/models/aggregation"
           className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}
         >
-          <ArrowLeft className="w-4 h-4" /> Migrations
+          <ArrowLeft className="w-4 h-4" /> Aggregation
         </Link>
         <Link
           to="/docs/serializers/overview"
