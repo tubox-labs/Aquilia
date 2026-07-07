@@ -1,0 +1,24 @@
+# Aquilia Async Python Web Framework
+
+Aquilia is a high-performance, async-native, manifest-first Python web framework designed for building zero-boilerplate, production-ready APIs from day one.
+
+## Core Architectural Pillars
+
+- **Manifest-First**: Describe modules, controllers, and services in a central configuration. Aquilia scans your workspace, auto-discovers dependencies, sets up routes, and builds ASGI deployment manifests.
+- **Advanced Dependency Injection**: Strong, typed container supporting Singleton, Request, and Transient lifecycles, mapped via dynamic RequestDAG.
+- **Data Layer (ORM)**: Clean models, sqlite/postgreSQL engine pooling, automated schema migrations, entity signals, and transaction decorators.
+- **Security Hardening**: Built-in OAuth2/OIDC, Multi-Factor Authentication (MFA), JWT tokens, pluggable session stores, and RBAC guards.
+- **Tooling & Operations**: Background job worker (@task), SQLite connection pool, CLI generators, and auto-generated OpenAPI schemas.
+
+## Essential Documentation URLs
+
+- [Documentation Index](https://aquilia.tubox.cloud/docs) — Getting started, installation, architecture.
+- [Installation Guide](https://aquilia.tubox.cloud/docs/installation) — `pip install aquilia` and dependencies.
+- [Quick Start](https://aquilia.tubox.cloud/docs/quickstart) — Building a hello world controller in 5 minutes.
+- [Dependency Injection](https://aquilia.tubox.cloud/docs/di) — Provider lifecycle, scopes, and diagnostics.
+- [ORM Models](https://aquilia.tubox.cloud/docs/models) — Defining fields, relationships, and queries.
+- [CLI Reference](https://aquilia.tubox.cloud/docs/cli) — aq commands, code generators, migrations.
+- [Performance Benchmarks](https://aquilia.tubox.cloud/benchmark) — Aquilia vs FastAPI vs Starlette vs Django.
+
+## Extended Knowledge Base
+- [Full Aggregated Documentation text](https://aquilia.tubox.cloud/llms-full.txt) — Raw markdown for LLM context injection.

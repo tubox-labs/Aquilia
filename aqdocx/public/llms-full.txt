@@ -1,0 +1,175 @@
+# Aquilia Framework — Complete Developer Guide (Aggregated Context)
+
+This file contains the consolidated developer guides, configuration options, and code patterns for the Aquilia async Python web framework.
+
+---
+
+## 1. Quick Start
+
+### Installation
+Install the core framework and SQLite drivers using pip:
+```bash
+pip install aquilia
+```
+
+### Scaffolding a New Project
+Initialize a workspace using the CLI:
+```bash
+aq init my-api
+```
+This generates the following project directory structure:
+```text
+my-api/
+├── .env
+├── workspace.py
+├── app/
+│   ├── manifest.py
+│   ├── controllers/
+│   │   └── home.py
+│   └── services/
+└── requirements.txt
+```
+
+### Basic Controller Example
+```python
+# app/controllers/home.py
+from aquilia.controller import Controller, GET
+from aquilia.di import Inject
+from app.services.greet import GreetService
+
+class HomeController(Controller):
+    def __init__(self, greeter: GreetService = Inject()):
+        self.greeter = greeter
+
+    @GET("/")
+    async def index(self) -> dict:
+        return {"message": self.greeter.say_hello()}
+```
+
+---
+
+## 2. Dynamic Dependency Injection (DI)
+
+Aquilia resolves dependencies dynamically using a directed acyclic graph (RequestDAG) representation of dependencies.
+
+### Scopes
+1. **SINGLETON**: Instantialized once at startup, reused for all requests.
+2. **REQUEST**: Created once per HTTP/WebSocket request context.
+3. **TRANSIENT**: Instantiated every time it is injected.
+
+### Example Provider Definition
+```python
+from aquilia.di import Service, Scope
+
+@Service(scope=Scope.REQUEST)
+class UserService:
+    def __init__(self, db: DatabaseConnection = Inject()):
+        self.db = db
+
+    async def get_user(self, user_id: int):
+        return await self.db.fetch("SELECT * FROM users WHERE id = ?", user_id)
+```
+
+---
+
+## 3. Data Layer & ORM
+
+The built-in ORM provides asynchronous connection pooling, entity transactions, and schema tracking.
+
+### Defining Models
+```python
+from aquilia.orm import Model, Field, Integer, String, DateTime
+from datetime import datetime
+
+class Article(Model):
+    id = Field(Integer, primary_key=True)
+    title = Field(String, max_length=200, index=True)
+    content = Field(String)
+    created_at = Field(DateTime, default=datetime.utcnow)
+
+    class Meta:
+        table_name = "articles"
+```
+
+### Querying the Database
+```python
+# Fetch all articles published recently
+articles = await Article.objects.filter(created_at__gte=start_date).all()
+
+# Create a new record
+new_article = await Article.objects.create(
+    title="Optimizing Python for Production",
+    content="..."
+)
+```
+
+---
+
+## 4. Background Tasks
+
+Define background jobs with simple decorators. The job runtime supports intervals, retries, and failure routing.
+
+```python
+from aquilia.tasks import task
+
+@task(retry=3, delay_seconds=5)
+async def process_image_upload(image_path: str):
+    # Process image asynchronously
+    print(f"Processing image at {image_path}")
+```
+
+Trigger the task inside a controller:
+```python
+@POST("/upload")
+async def upload_image(self, file_path: str):
+    await process_image_upload.delay(file_path)
+    return {"status": "processing"}
+```
+
+---
+
+## 5. WebSockets
+
+Real-time pub/sub communication is defined using websocket controllers.
+
+```python
+from aquilia.websocket import SocketController, Socket, OnConnect, OnDisconnect, Event
+
+class ChatController(SocketController):
+    
+    @OnConnect()
+    async def connect(self, socket: Socket):
+        await socket.join_room("general")
+        await socket.broadcast("general", {"user": socket.id, "action": "joined"})
+
+    @Event("send_message")
+    async def message(self, socket: Socket, data: dict):
+        await socket.broadcast("general", {
+            "user": socket.id,
+            "text": data.get("text")
+        })
+```
+
+---
+
+## 6. Admin Panel Setup
+
+Register modules and secure them behind admin clearances:
+```python
+# workspace.py
+from aquilia.workspace import Workspace
+from aquilia.admin import AdminPanel
+
+workspace = Workspace(
+    name="my-api",
+    admin=AdminPanel(
+        route="/admin",
+        clearance_level="superuser"
+    )
+)
+```
+The panel includes built-in views for:
+* **Database Snapshot & Migrations**
+* **Active WebSocket Rooms**
+* **Background Worker Performance Queue**
+* **Security Audit Logs**
