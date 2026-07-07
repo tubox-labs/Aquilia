@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0b1] — 2026-07-07 — "Ironclad Anchor" (beta)
 
 ### Fixed
+- **Type inference for `Model.related(name)`**: Added `@overload` signatures to `related()`, enabling IDE autocomplete on related field model attributes (e.g. `await token.related("user", UserModel)`) without manual casting.
+- **Instance manager access error handling**: Replaced bare `AttributeError` when attempting to access class-level managers on model instances (e.g. `user.objects.all()`) with a structured `ManagerInstanceAccessFault` (subclassing both `ModelFault` and `AttributeError` for backward compatibility).
+- **ORM field `sql_type()` error handling**: Replaced `NotImplementedError` raised in custom field classes missing `sql_type()` implementations with a structured `SchemaFault`.
+- **Migration DSL error handling**: Replaced `NotImplementedError` raised when attempting to mechanically reverse irreversible migration operations (like `DropModel` and `RemoveField` rollbacks) with a structured `MigrationFault`.
+- **Dependency Injection error handling**: Migrated `DIError` and all its subclasses in `aquilia/di/errors.py` to subclass `DIFault` and participate fully in the Aquilia structured fault handling system, capturing rich diagnostics in metadata.
+- **DI CLI missing settings error handling**: Replaced `FileNotFoundError` raised when a settings file is missing during CLI loader setup with `ConfigMissingFault`.
+- **Configuration validation error handling**: Changed `ConfigError` in the configuration loader to inherit from `ConfigFault`.
+- **Blueprint sync/async validation mismatch error handling**: Replaced `RuntimeError` raises for async ward validation sync mismatch with a structured `BlueprintAsyncMismatchFault` (inheriting from `BlueprintFault` and `RuntimeError`).
+- **Blueprint migration error handling**: Replaced raw `ValueError` raised during missing blueprint migration path in `Sigil` validation with a proper validation error response dictionary, preventing unhandled 500 errors on invalid client inputs.
+- **ASGI middleware chain error handling**: Replaced `RuntimeError` raised when the ASGI middleware chain is not initialized with a structured `SystemFault`.
+- **Pattern compiler error handling**: Subclassed `PatternSyntaxError`, `PatternSemanticError`, and `RouteAmbiguityError` from `RoutingFault` in `patterns/diagnostics/errors.py`.
 - **`atomic()` never actually started a database transaction**: `Atomic.__aenter__`/`__aexit__`
   (`aquilia/models/transactions.py`) drove the transaction by sending literal `"BEGIN"` /
   `"SAVEPOINT ..."` / `"RELEASE SAVEPOINT ..."` / `"COMMIT"` / `"ROLLBACK"` through
