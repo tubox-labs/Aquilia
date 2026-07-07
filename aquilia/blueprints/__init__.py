@@ -41,6 +41,7 @@ from .annotations import Field, NestedBlueprintFacet, computed
 from .core import Blueprint, BlueprintMeta, BlueprintUnion, ColumnarReport, SealOutcome
 from .exceptions import (
     BLUEPRINT,
+    BlueprintAsyncMismatchFault,
     BlueprintFault,
     CastFault,
     ImprintFault,
@@ -164,6 +165,7 @@ __all__ = [
     "ProjectionRegistry",
     # Exceptions
     "BlueprintFault",
+    "BlueprintAsyncMismatchFault",
     "CastFault",
     "SealFault",
     "ImprintFault",

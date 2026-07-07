@@ -189,7 +189,9 @@ class Sigil:
                             except Exception as e:
                                 return {"__revision__": [f"Migration failed: {e}"]}, {}
                         else:
-                            raise ValueError(f"Missing migration path from revision {current_rev} to {next_rev}")
+                            return {
+                                "__revision__": [f"Missing migration path from revision {current_rev} to {next_rev}"]
+                            }, {}
 
         from .facets import UNSET, Computed, Constant, Inject
 

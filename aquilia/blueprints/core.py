@@ -30,6 +30,7 @@ from .annotations import (
     introspect_annotations,
 )
 from .exceptions import (
+    BlueprintAsyncMismatchFault,
     CastFault,
     ImprintFault,
     SealFault,
@@ -1028,7 +1029,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             True if data passes all seals.
         """
         if not _bypass_async_check and self.has_async_wards:
-            raise RuntimeError(
+            raise BlueprintAsyncMismatchFault(
                 "Blueprint contains async wards (is async but called from sync context) and must be validated using is_sealed_async()."
             )
 
@@ -1264,7 +1265,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
             if self.has_async_wards:
-                raise RuntimeError(
+                raise BlueprintAsyncMismatchFault(
                     "Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
                 )
             self.is_sealed()
@@ -1275,7 +1276,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """Validation errors -- available after sealing attempt."""
         if self._is_sealed is None:
             if self.has_async_wards:
-                raise RuntimeError(
+                raise BlueprintAsyncMismatchFault(
                     "Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
                 )
             self.is_sealed()

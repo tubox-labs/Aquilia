@@ -381,7 +381,12 @@ class ASGIAdapter:
             self._build_cached_chain()
         handler = self._cached_middleware_chain
         if handler is None:
-            raise RuntimeError("Middleware chain was not initialized")
+            from .faults.domains import SystemFault
+
+            raise SystemFault(
+                code="SYSTEM_UNINITIALIZED",
+                message="Middleware chain was not initialized",
+            )
 
         path = scope["path"]
         method = scope["method"]

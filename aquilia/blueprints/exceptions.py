@@ -148,3 +148,13 @@ class LensCycleFault(BlueprintFault):
             message=f"Circular Lens reference detected: {' → '.join(cycle_path)}",
             metadata={"cycle": cycle_path},
         )
+
+
+class BlueprintAsyncMismatchFault(BlueprintFault, RuntimeError):
+    """Raised when an async-only blueprint/field operation is called synchronously."""
+
+    code = "BP201"
+
+    def __init__(self, message: str, **kwargs):
+        BlueprintFault.__init__(self, message=message, **kwargs)
+        RuntimeError.__init__(self, message)
