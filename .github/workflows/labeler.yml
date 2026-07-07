@@ -1,0 +1,21 @@
+name: Labels
+on:
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions: {}
+
+jobs:
+  labeler:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/labeler@v5
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"

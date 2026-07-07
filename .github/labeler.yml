@@ -1,0 +1,37 @@
+area:models:
+  - changed-files:
+    - any-glob-to-any-file: 'aquilia/models/**'
+
+area:blueprints:
+  - changed-files:
+    - any-glob-to-any-file: 'aquilia/blueprints/**'
+
+area:di:
+  - changed-files:
+    - any-glob-to-any-file: 'aquilia/di/**'
+
+area:auth:
+  - changed-files:
+    - any-glob-to-any-file: 'aquilia/auth/**'
+
+area:cli:
+  - changed-files:
+    - any-glob-to-any-file: 'aquilia/cli/**'
+
+area:docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - 'aqdocx/**'
+      - 'GUIDE.md'
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'CHANGES.md'
+
+area:tests:
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**'
+
+area:infrastructure:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
