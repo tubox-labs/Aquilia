@@ -6,7 +6,7 @@ import { TableOfContents } from './TableOfContents'
 import { useTheme } from '../context/ThemeContext'
 import { Footer } from './Footer'
 import { useReactToPrint } from 'react-to-print'
-import { Printer } from 'lucide-react'
+import { Printer, ChevronDown } from 'lucide-react'
 
 // Recursive helper to find page labels
 function findItemLabel(items: any[], path: string): string | null {
@@ -49,6 +49,16 @@ export function DocsLayout() {
     contentRef: printRef,
   })
 
+  const [isPrintDropdownOpen, setIsPrintDropdownOpen] = useState(false)
+
+  const triggerPrint = (printTheme: 'light' | 'dark') => {
+    if (printRef.current) {
+      printRef.current.setAttribute('data-print-theme', printTheme)
+    }
+    handlePrint()
+    setIsPrintDropdownOpen(false)
+  }
+
   return (
     // Lock the viewport — nothing on <body> scrolls
     <div className="h-screen overflow-hidden flex flex-col print:h-auto print:overflow-visible print:block">
@@ -90,21 +100,57 @@ export function DocsLayout() {
 
             {/* Main page content */}
             <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-12 print:px-0 print:py-0 print:m-0 print:w-full print:max-w-none print:block">
-              <div className="flex justify-end mb-6 print:hidden">
-                <button
-                  onClick={() => handlePrint()}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                    isDark
-                      ? 'border-white/10 text-gray-400 hover:text-aquilia-400 hover:border-aquilia-400/50 bg-white/5 hover:bg-white/10'
-                      : 'border-gray-200 text-gray-600 hover:text-aquilia-600 hover:border-aquilia-600/30 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  title="Print Article or Save as PDF"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print Article
-                </button>
+              <div className="flex justify-end mb-6 print:hidden relative">
+                <div className="relative">
+                  <button
+                    onClick={() => setIsPrintDropdownOpen(!isPrintDropdownOpen)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      isDark
+                        ? 'border-white/10 text-gray-400 hover:text-aquilia-400 hover:border-aquilia-400/50 bg-white/5 hover:bg-white/10'
+                        : 'border-gray-200 text-gray-600 hover:text-aquilia-600 hover:border-aquilia-600/30 bg-gray-50 hover:bg-gray-100'
+                    }`}
+                    title="Print Options"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Article
+                    <ChevronDown className="w-3 h-3 opacity-60" />
+                  </button>
+
+                  {isPrintDropdownOpen && (
+                    <>
+                      {/* Click outside overlay */}
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setIsPrintDropdownOpen(false)} 
+                      />
+                      {/* Dropdown Menu */}
+                      <div className={`absolute right-0 mt-1.5 w-48 rounded-lg shadow-xl border z-20 overflow-hidden ${
+                        isDark 
+                          ? 'bg-[#0f0f11] border-white/10 text-gray-300' 
+                          : 'bg-white border-gray-200 text-gray-700'
+                      }`}>
+                        <button
+                          onClick={() => triggerPrint('light')}
+                          className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${
+                            isDark ? 'hover:bg-white/5 text-gray-300 hover:text-aquilia-400' : 'hover:bg-gray-50 text-gray-700 hover:text-aquilia-600'
+                          }`}
+                        >
+                          Print in Light Theme (Default)
+                        </button>
+                        <button
+                          onClick={() => triggerPrint('dark')}
+                          className={`w-full text-left px-4 py-2.5 text-xs font-medium transition-colors cursor-pointer ${
+                            isDark ? 'hover:bg-white/5 text-gray-300 hover:text-aquilia-400' : 'hover:bg-gray-50 text-gray-700 hover:text-aquilia-600'
+                          }`}
+                        >
+                          Print in Dark Theme
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
-              <div ref={printRef} className="max-w-4xl mx-auto w-full print-content-wrapper">
+              <div ref={printRef} className="max-w-4xl mx-auto w-full print-content-wrapper" data-print-theme="light">
                 <Outlet />
 
                 {/* Footer */}
