@@ -79,6 +79,13 @@ class QuerySet(Generic[TModel]):
     _model_cls: type[TModel] | None = None
 
     def _get_queryset(self) -> Q[TModel]:
+        """Return a fresh ``Q`` bound to ``self._model_cls``.
+
+        Raises ``ModelRegistrationFault`` if this ``QuerySet`` hasn't been
+        composed into a ``Manager`` yet (i.e. ``_model_cls`` is still
+        ``None``) -- happens if a ``QuerySet`` subclass is used standalone
+        instead of via ``Manager.from_queryset()``.
+        """
         if self._model_cls is None:
             from aquilia.faults.domains import ModelRegistrationFault
 
@@ -89,6 +96,11 @@ class QuerySet(Generic[TModel]):
         return self._model_cls.query()
 
     def get_queryset(self) -> Q[TModel]:
+        """Public entry point for custom query methods -- delegates to ``_get_queryset()``.
+
+        Override this (not ``_get_queryset()``) in a ``QuerySet`` subclass if
+        you need pre-filtering, mirroring ``Manager.get_queryset()``.
+        """
         return self._get_queryset()
 
 
@@ -104,9 +116,27 @@ class BaseManager(Generic[TModel]):
     _model_cls: type[TModel] | None = None
 
     def __set_name__(self, owner: type, name: str) -> None:
+        """Bind this manager to its owning model at class-body definition time.
+
+        Called automatically by Python when the manager is assigned as a
+        class attribute (e.g. ``objects = Manager()`` inside ``class User(Model)``),
+        letting ``self._model_cls`` be resolved before ``__get__`` ever runs.
+        """
         self._model_cls = cast("type[TModel]", owner)
 
     def __get__(self: M, instance: Any, owner: type) -> M:
+        """Descriptor accessor -- returns the (class-bound) manager itself.
+
+        Re-binds ``_model_cls`` to *owner* on every access so subclassing
+        works correctly (e.g. a manager defined on a base model resolves to
+        the concrete subclass when accessed as ``SubModel.objects``).
+
+        Raises ``AttributeError`` if accessed from an instance rather than
+        the class (``user.objects`` fails; only ``User.objects`` works),
+        since a single ``Manager()`` is shared across every row and isn't
+        parametrized per-instance -- see ``RelatedManager`` for the
+        per-instance equivalent.
+        """
         # Bind to current class (supports inheritance)
         self._model_cls = cast("type[TModel]", owner)
         if instance is not None:
@@ -160,12 +190,15 @@ class BaseManager(Generic[TModel]):
     order_by = order
 
     def limit(self, n: int) -> Q[TModel]:
+        """Cap the number of rows returned (SQL ``LIMIT``). See Q.limit()."""
         return self.get_queryset().limit(n)
 
     def offset(self, n: int) -> Q[TModel]:
+        """Skip the first *n* rows before returning results (SQL ``OFFSET``). See Q.offset()."""
         return self.get_queryset().offset(n)
 
     def distinct(self) -> Q[TModel]:
+        """Deduplicate rows via ``SELECT DISTINCT``. See Q.distinct()."""
         return self.get_queryset().distinct()
 
     def only(self, *fields: str) -> Q[TModel]:
@@ -181,6 +214,7 @@ class BaseManager(Generic[TModel]):
         return self.get_queryset().annotate(**expressions)
 
     def group_by(self, *fields: str) -> Q[TModel]:
+        """Add a SQL ``GROUP BY`` over *fields* (paired with ``aggregate()``/``having()``). See Q.group_by()."""
         return self.get_queryset().group_by(*fields)
 
     def having(self, clause: str, *args: Any) -> Q[TModel]:
@@ -188,15 +222,15 @@ class BaseManager(Generic[TModel]):
         return self.get_queryset().having(clause, *args)
 
     def union(self, *querysets: Any, all: bool = False) -> Q[TModel]:
-        """UNION set operation."""
+        """Combine with other querysets via SQL ``UNION`` (dedupes unless ``all=True``). See Q.union()."""
         return self.get_queryset().union(*querysets, all=all)
 
     def intersection(self, *querysets: Any) -> Q[TModel]:
-        """INTERSECT set operation."""
+        """Combine with other querysets via SQL ``INTERSECT`` (rows present in all sets). See Q.intersection()."""
         return self.get_queryset().intersection(*querysets)
 
     def difference(self, *querysets: Any) -> Q[TModel]:
-        """EXCEPT set operation."""
+        """Combine with other querysets via SQL ``EXCEPT`` (rows in this set but not the others). See Q.difference()."""
         return self.get_queryset().difference(*querysets)
 
     def select_related(self, *fields: str) -> Q[TModel]:
@@ -220,22 +254,30 @@ class BaseManager(Generic[TModel]):
         return self.get_queryset().using(db_alias)
 
     def none(self) -> Q[TModel]:
-        """Return an empty queryset."""
+        """Return an empty queryset -- ``all()`` yields ``[]``, ``count()`` yields ``0``, no SQL is run.
+
+        Useful as a no-op branch in conditional query-building code, e.g.
+        returning ``self.get_queryset().none()`` when a precondition for a
+        custom manager method isn't met, instead of special-casing the caller.
+        """
         return self.get_queryset().none()
 
     def apply_q(self, q_node: Any) -> Q[TModel]:
-        """Apply a QNode filter."""
+        """Apply a composable ``QNode`` filter (supports AND/OR/NOT via ``&``, ``|``, ``~``). See Q.apply_q()."""
         return self.get_queryset().apply_q(q_node)
 
     # ── Forwarded terminal methods (async) ───────────────────────────
 
     async def all(self) -> list[TModel]:
+        """Execute the query and return every matching row as a model instance. See Q.all()."""
         return await self.get_queryset().all()
 
     async def first(self) -> TModel | None:
+        """Return the first matching row, or ``None`` if there are no matches. See Q.first()."""
         return await self.get_queryset().first()
 
     async def last(self) -> TModel | None:
+        """Return the last matching row (reverses ordering), or ``None`` if empty. See Q.last()."""
         return await self.get_queryset().last()
 
     async def one(self) -> TModel:
@@ -251,21 +293,27 @@ class BaseManager(Generic[TModel]):
         return await self.get_queryset().earliest(field_name)
 
     async def count(self) -> int:
+        """Return the number of matching rows via ``SELECT COUNT(*)``. See Q.count()."""
         return await self.get_queryset().count()
 
     async def exists(self) -> bool:
+        """Return whether any matching row exists, using a short-circuiting ``EXISTS`` query. See Q.exists()."""
         return await self.get_queryset().exists()
 
     async def values(self, *fields: str) -> list[dict[str, Any]]:
+        """Return matching rows as plain dicts restricted to *fields* (all fields if omitted). See Q.values()."""
         return await self.get_queryset().values(*fields)
 
     async def values_list(self, *fields: str, flat: bool = False) -> list[Any]:
+        """Return matching rows as tuples of *fields*; if ``flat=True`` and one field, returns a flat list. See Q.values_list()."""
         return await self.get_queryset().values_list(*fields, flat=flat)
 
     async def update(self, values: dict[str, Any] | None = None, **kwargs: Any) -> int:
+        """Update matching rows in bulk and return the affected row count. Does not fire save signals. See Q.update()."""
         return await self.get_queryset().update(values or {}, **kwargs)
 
     async def delete(self) -> int:
+        """Delete matching rows in bulk and return the deleted row count. Does not fire delete signals. See Q.delete()."""
         return await self.get_queryset().delete()
 
     async def aggregate(self, **expressions: Any) -> dict[str, Any]:
@@ -441,6 +489,7 @@ class BaseManager(Generic[TModel]):
         return self.get_queryset().__aiter__()
 
     def __repr__(self) -> str:
+        """Debug string naming the manager class and its bound model (or ``<unbound>``)."""
         model_name = self._model_cls.__name__ if self._model_cls else "<unbound>"
         return f"<{self.__class__.__name__} for {model_name}>"
 
@@ -561,12 +610,22 @@ class RelatedManager(Manager[TModel]):
     _model_cls: type[TModel]
 
     def __init__(self, model_cls: type[TModel], fk_column_name: str, owner_pk: Any) -> None:
+        """Bind this manager to one owning row.
+
+        Args:
+            model_cls: The related model being queried (the "many" side).
+            fk_column_name: Column on *model_cls*'s table holding the foreign key
+                back to the owning instance.
+            owner_pk: The owning instance's primary key value to filter by.
+        """
         self._model_cls = model_cls
         self._fk_column_name = fk_column_name
         self._owner_pk = owner_pk
 
     def get_queryset(self) -> Q[TModel]:
+        """Return a queryset pre-filtered to rows whose FK column matches the owning instance's pk."""
         return self._model_cls.query().where(f'"{self._fk_column_name}" = ?', self._owner_pk)
 
     def __repr__(self) -> str:
+        """Debug string showing the target model and the FK = owner_pk filter applied."""
         return f'<RelatedManager for {self._model_cls.__name__} where "{self._fk_column_name}" = {self._owner_pk!r}>'

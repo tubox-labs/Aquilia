@@ -128,34 +128,64 @@ class ModelRegistry(metaclass=_ModelRegistryMeta):
 
     @classmethod
     def register(cls, model_cls: type[Model]) -> None:
+        """Register *model_cls* with the canonical registry.
+
+        Forwards to ``registry.ModelRegistry.register()``. See that method
+        for the full behavior (app_label bucketing, forward-reference
+        resolution).
+        """
         _CanonicalRegistry.register(model_cls)
 
     @classmethod
     def get(cls, name: str) -> type[Model] | None:
+        """Look up a registered model class by its ``__name__``.
+
+        Returns ``None`` if no model with that name has been registered.
+        """
         return _CanonicalRegistry.get(name)
 
     @classmethod
     def all_models(cls) -> dict[str, type[Model]]:
+        """Return a shallow copy of ``{model_name: model_cls}`` for every registered model."""
         return _CanonicalRegistry.all_models()
 
     @classmethod
     def set_database(cls, db: AquiliaDatabase) -> None:
+        """Set the global database connection for all *currently* registered models.
+
+        Also stores *db* as the registry-wide default so models registered
+        afterward pick it up via ``Model._get_db()`` falling back to
+        ``ModelRegistry.get_database()``.
+        """
         _CanonicalRegistry.set_database(db)
 
     @classmethod
     def get_database(cls) -> AquiliaDatabase | None:
+        """Return the registry-wide default database, or ``None`` if unset."""
         return _CanonicalRegistry.get_database()
 
     @classmethod
     def _resolve_relations(cls) -> None:
+        """Resolve any pending string-based forward references (``to="OtherModel"``) in FK/M2M fields.
+
+        Called automatically after every ``register()`` so that a model
+        can reference another model that hasn't been imported/registered
+        yet, as long as it exists by the time relations are actually used.
+        """
         _CanonicalRegistry._resolve_relations()
 
     @classmethod
     async def create_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
+        """Create tables (and indexes/M2M junction tables) for all registered models.
+
+        Returns the list of SQL statements executed, in dependency
+        (topological) order.
+        """
         return await _CanonicalRegistry.create_tables(db)
 
     @classmethod
     def reset(cls) -> None:
+        """Clear all registered models and the default database (for tests)."""
         _CanonicalRegistry.reset()
 
     # ── Lifecycle hooks (DI compatibility) ───────────────────────────
@@ -178,6 +208,7 @@ class ModelRegistry(metaclass=_ModelRegistryMeta):
         # If not auto, the startup guard in server.py handles the check.
 
     async def on_shutdown(self) -> None:
+        """Lifecycle hook -- called by LifecycleCoordinator at app shutdown. No-op."""
         pass
 
 
@@ -192,17 +223,22 @@ from .query import Q
 
 # ── Deferred-field guard (only()/defer()) ─────────────────────────────────────
 #
-# Fields are plain instance attributes (no descriptors) for zero per-access
-# overhead on the common, fully-loaded path -- see fields_module.py. That
-# means an instance with an attribute never set falls through to the
-# class-level Field object itself (declared in the model body), not a
-# Python AttributeError. To make accessing an only()/defer()-excluded field
-# raise instead of silently exposing that Field metadata object (or, prior
-# to this fix, a silent None indistinguishable from a real NULL), only
-# instances that actually have deferred fields get their __class__ swapped
-# to a small cached per-model subclass carrying a guarding
-# __getattribute__. Fully-loaded instances (the overwhelming common case)
-# never pay this cost -- their __class__ is untouched.
+# Fields are real data descriptors (Field.__get__/__set__, fields_module.py):
+# reading an attribute that was never set on the instance still goes through
+# the descriptor, which returns instance.__dict__.get(attr_name) -- i.e.
+# None -- not the class-level Field object. That's exactly why a deferred
+# (only()/defer()-excluded) field can no longer be detected by "the value is
+# still a raw Field object": the descriptor already resolved it to None
+# before any guard would see it. So instead of inspecting the *value*,
+# _guarded_getattribute checks _deferred_fields membership directly, before
+# delegating to object.__getattribute__ (which is what actually invokes the
+# descriptor). This raises instead of silently returning None -- a None
+# indistinguishable from a real database NULL -- for a field the caller
+# explicitly excluded and hasn't refreshed. Only instances that actually
+# have deferred fields get their __class__ swapped to a small cached
+# per-model subclass carrying this guarding __getattribute__. Fully-loaded
+# instances (the overwhelming common case) never pay this cost -- their
+# __class__ is untouched.
 _deferred_guard_cache: dict[type, type] = {}
 
 
@@ -216,14 +252,12 @@ def _deferred_guard_class(model_cls: type) -> type:
         return variant
 
     def _guarded_getattribute(self: Any, name: str) -> Any:
-        value = object.__getattribute__(self, name)
-        if isinstance(value, Field):
-            deferred = object.__getattribute__(self, "__dict__").get("_deferred_fields")
-            if deferred and name in deferred:
-                from ..faults.domains import DeferredFieldAccessFault
+        deferred = object.__getattribute__(self, "__dict__").get("_deferred_fields")
+        if deferred and name in deferred:
+            from ..faults.domains import DeferredFieldAccessFault
 
-                raise DeferredFieldAccessFault(model=base_cls.__name__, field_name=name)
-        return value
+            raise DeferredFieldAccessFault(model=base_cls.__name__, field_name=name)
+        return object.__getattribute__(self, name)
 
     variant = type(
         f"{base_cls.__name__}__Deferred",
@@ -325,7 +359,25 @@ class Model(metaclass=ModelMeta):
     objects: ClassVar[Manager[Self]]
 
     def __init__(self, **kwargs: Any):
-        """Create a model instance (in-memory, not persisted)."""
+        """
+        Create a model instance in-memory (not persisted).
+
+        For every non-M2M field (in declaration order, including inherited
+        ones), the value is resolved -- first match wins -- from:
+
+        1. ``kwargs[attr_name]`` (the Python attribute name, e.g. ``author``)
+        2. ``kwargs[field.column_name]`` (the DB column name, if different)
+        3. ``field.get_default()`` if the field declares a default
+        4. ``None`` otherwise
+
+        M2M fields are not settable here; use ``attach()``/``detach()``
+        after the instance is saved. Fires ``pre_init`` before assignment
+        and ``post_init`` after, so signal listeners can inspect/mutate the
+        raw kwargs or the fully-populated instance respectively.
+
+        This only builds the object in memory -- call ``save()`` or use
+        ``Model.create(**kwargs)`` to persist it.
+        """
         pre_init.send_sync(sender=self.__class__, kwargs=kwargs)
         for attr_name, field in self._non_m2m_fields:
             if attr_name in kwargs:
@@ -339,6 +391,7 @@ class Model(metaclass=ModelMeta):
         post_init.send_sync(sender=self.__class__, instance=self)
 
     def __repr__(self) -> str:
+        """Debug representation: ``<ModelName pk=<value or '?'>>``."""
         pk_val = getattr(self, self._pk_attr, "?")
         return f"<{self.__class__.__name__} pk={pk_val}>"
 
@@ -356,6 +409,7 @@ class Model(metaclass=ModelMeta):
         return repr(self)
 
     def __eq__(self, other: Any) -> bool:
+        """Equal if *other* is an instance of the same class with an equal primary key."""
         if not isinstance(other, self.__class__):
             # NotImplemented (not False) so Python falls back to *other*'s
             # own __eq__ when it knows how to compare itself against a
@@ -367,6 +421,7 @@ class Model(metaclass=ModelMeta):
         return bool(getattr(self, self._pk_attr) == getattr(other, other._pk_attr))
 
     def __hash__(self) -> int:
+        """Hash by (class name, pk value) so instances are usable in sets/dict keys."""
         return hash((self.__class__.__name__, getattr(self, self._pk_attr, None)))
 
     # ── pk property ──────────────────────────────────────────────────
@@ -385,7 +440,19 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def _get_db(cls) -> AquiliaDatabase:
-        """Get database connection."""
+        """
+        Resolve the database connection to use for this model.
+
+        Lookup order: the model's own ``cls._db`` (set via
+        ``ModelRegistry.set_database()`` or per-model override), then the
+        registry-wide default (``ModelRegistry.get_database()``), then the
+        process-global default from ``aquilia.db.engine.get_database()``.
+
+        The resolved connection is wrapped in ``QuerySetDatabaseWrapper``
+        (which tags errors with the model name for clearer faults) before
+        being returned. Every CRUD/query entry point on ``Model`` funnels
+        through this method.
+        """
         db = cls._db or ModelRegistry.get_database()
         if db is None:
             from ..db.engine import get_database
@@ -548,9 +615,30 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def get_or_create(cls, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Self, bool]:
         """
-        Get existing or create new record.
+        Get an existing record matching ``lookup``, or create one if none exists.
 
-        Returns (instance, created) tuple.
+        Args:
+            defaults: Extra field values applied only when creating a new
+                record (merged on top of ``lookup``). Ignored if a matching
+                record already exists.
+            **lookup: Field=value pairs used both to search for an existing
+                record and (merged with ``defaults``) to build a new one.
+
+        Returns:
+            A ``(instance, created)`` tuple: ``created`` is ``True`` only
+            when a new record was inserted.
+
+        Caveat:
+            This is a plain SELECT-then-INSERT and is **not** atomic --
+            under concurrent access two callers can both miss the SELECT
+            and both attempt to INSERT, risking a duplicate or a unique
+            constraint violation. Use ``find_or_create()`` instead when you
+            need a race-free upsert backed by ``INSERT ... ON CONFLICT``.
+
+        Usage:
+            user, created = await User.get_or_create(
+                email="alice@test.com", defaults={"name": "Alice"}
+            )
         """
         instance = await cls.get_or_none(**lookup)
         if instance is not None:
@@ -563,9 +651,29 @@ class Model(metaclass=ModelMeta):
     @classmethod
     async def update_or_create(cls, defaults: dict[str, Any] | None = None, **lookup: Any) -> tuple[Self, bool]:
         """
-        Update existing or create new record.
+        Update an existing record matching ``lookup``, or create one if none exists.
 
-        Returns (instance, created) tuple.
+        Args:
+            defaults: Field values to apply. If a record is found, these
+                are set on the instance and persisted via an UPDATE query
+                (filtered by ``lookup``) plus a matching in-memory
+                assignment. If no record is found, they're merged with
+                ``lookup`` to build the new record.
+            **lookup: Field=value pairs used to find the existing record.
+
+        Returns:
+            A ``(instance, created)`` tuple: ``created`` is ``True`` only
+            when a new record was inserted.
+
+        Caveat:
+            Like ``get_or_create()``, this is SELECT-then-UPDATE-or-INSERT
+            and not atomic under concurrent access; prefer
+            ``find_or_create()`` when race-freedom matters.
+
+        Usage:
+            user, created = await User.update_or_create(
+                email="alice@test.com", defaults={"name": "Alice 2"}
+            )
         """
         instance = await cls.get_or_none(**lookup)
         if instance is not None:
@@ -833,10 +941,32 @@ class Model(metaclass=ModelMeta):
     @classmethod
     def _get_conflict_columns(cls, lookup_fields: set[str], dialect: str) -> list[str]:
         """
-        Determine the database column names for conflict detection.
+        Pick the DB column(s) to use as the ``ON CONFLICT`` target for ``find_or_create()``.
 
-        For single unique field: returns that field's column name.
-        For composite unique: returns all columns in the unique constraint.
+        Mirrors the precedence of ``_validate_unique_constraint()`` (which
+        must have already confirmed *some* unique constraint covers
+        ``lookup_fields``) so the conflict target actually matches a real
+        unique index:
+
+        1. A single field in ``lookup_fields`` with ``unique=True`` or
+           ``primary_key=True`` -- returns that field's column name alone.
+        2. A ``Meta.unique_together`` tuple that is a subset of
+           ``lookup_fields`` -- returns all of that tuple's columns.
+        3. A ``Meta.constraints`` ``UniqueConstraint`` whose fields are a
+           subset of ``lookup_fields`` -- returns all of its columns.
+        4. Fallback: every column in ``lookup_fields``, in case validation
+           was bypassed or the constraint shape wasn't recognized above.
+
+        Args:
+            lookup_fields: The attribute names passed as ``**lookup`` to
+                ``find_or_create()``.
+            dialect: Unused directly here (columns are dialect-independent)
+                but accepted for symmetry with sibling helpers.
+
+        Returns:
+            List of database column names (not attribute names) to use as
+            the conflict target, e.g. for
+            ``ON CONFLICT (col_a, col_b) DO NOTHING``.
         """
         # Prefer single unique field if available
         for field_name in lookup_fields:
@@ -1010,12 +1140,12 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     async def all(cls) -> list[Self]:
-        """Shortcut: get all records."""
+        """Return every row in the table as model instances. Shortcut for ``query().all()``."""
         return await cls.query().all()
 
     @classmethod
     async def count(cls) -> int:
-        """Shortcut: count all records."""
+        """Return the total row count for this table. Shortcut for ``query().count()``."""
         return await cls.query().count()
 
     @classmethod
@@ -1528,7 +1658,18 @@ class Model(metaclass=ModelMeta):
     refresh_from_db = refresh
 
     def _snapshot_original(self) -> None:
-        """Capture current field values for dirty-field tracking."""
+        """
+        Record the current value of every non-M2M attribute into
+        ``self._original_values``, establishing the baseline that
+        ``get_dirty_fields()`` diffs against.
+
+        Called by ``from_row()`` (right after loading from the DB),
+        ``save()`` (right after a successful insert/update), and
+        ``refresh()`` (after reloading) -- i.e. every point at which the
+        in-memory instance is known to match the database. ``save()``'s
+        default (no ``update_fields``) UPDATE path relies on this snapshot
+        to compute a minimal ``SET`` clause via ``get_dirty_fields()``.
+        """
         self._original_values = {attr: getattr(self, attr, None) for attr in self._attr_names}
 
     def get_dirty_fields(self) -> dict[str, Any]:
@@ -1679,10 +1820,22 @@ class Model(metaclass=ModelMeta):
 
     async def attach(self, name: str, *targets: Any) -> None:
         """
-        Attach records to a M2M relationship.
+        Add one or more rows to a many-to-many relation via the junction table.
+
+        Args:
+            name: The M2M field's attribute name (e.g. ``"tags"``).
+            *targets: Each target may be a raw primary-key value (``int``
+                or ``str``) or a model instance (its pk is used).
+
+        Behavior:
+            Issues ``INSERT OR IGNORE`` into the junction table for each
+            (self.pk, target.pk) pair, so re-attaching an already-linked
+            target is a no-op rather than a unique-constraint error. Fires
+            ``m2m_changed`` once afterward with ``action="attach"`` and the
+            full list of target pks -- not once per target.
 
         Usage:
-            await post.attach("tags", tag1.id, tag2.id)
+            await post.attach("tags", tag1.id, tag2)
         """
         m2m = self._m2m_fields.get(name)
         if m2m is None:
@@ -1724,7 +1877,18 @@ class Model(metaclass=ModelMeta):
 
     async def detach(self, name: str, *targets: Any) -> None:
         """
-        Detach records from a M2M relationship.
+        Remove one or more rows from a many-to-many relation via the junction table.
+
+        Args:
+            name: The M2M field's attribute name (e.g. ``"tags"``).
+            *targets: Each target may be a raw primary-key value (``int``
+                or ``str``) or a model instance (its pk is used).
+
+        Behavior:
+            Issues a ``DELETE`` from the junction table for each
+            (self.pk, target.pk) pair; deleting a link that doesn't exist
+            is a silent no-op. Fires ``m2m_changed`` once afterward with
+            ``action="detach"`` and the full list of target pks.
 
         Usage:
             await post.detach("tags", tag1.id)
@@ -1806,7 +1970,20 @@ class Model(metaclass=ModelMeta):
 
     @staticmethod
     def _serialize_value(value: Any) -> Any:
-        """Convert a Python value to a JSON-safe representation."""
+        """
+        Convert a single Python field value into a JSON-serializable form for ``to_dict()``.
+
+        Conversions applied (first match wins, else the value is returned
+        as-is): ``None`` stays ``None``; ``datetime``/``date``/``time`` ->
+        ISO 8601 string; ``timedelta`` -> total seconds (``float``);
+        ``uuid.UUID`` -> ``str``; ``bytes`` -> hex string; ``Decimal`` ->
+        ``str`` (preserves precision, unlike ``float``); ``enum.Enum``
+        (including ``TextChoices``/``IntegerChoices``) -> its ``.value``.
+
+        Does not recurse into nested Model instances, lists, or dicts --
+        callers needing that should serialize relations separately (e.g.
+        via ``related()`` + another ``to_dict()``).
+        """
         if value is None:
             return None
         if isinstance(value, datetime.datetime):
@@ -1866,13 +2043,14 @@ class Model(metaclass=ModelMeta):
 
         # Fields not present in the row were excluded via only()/defer().
         # Do NOT default them to None -- that would be indistinguishable
-        # from a real database NULL (worse: without this guard the raw
-        # class-level Field object leaks through instead, since fields are
-        # plain attributes with no descriptor to intercept the miss -- see
-        # hasattr() being unreliable here for the same reason). Mark them
-        # deferred and swap this instance's class to a guarded variant that
-        # raises DeferredFieldAccessFault on access; every other (fully
-        # loaded) instance pays zero extra cost.
+        # from a real database NULL. Since Field is a data descriptor
+        # (fields_module.py), an instance that never gets one of these attrs
+        # set would otherwise just read back None on access -- same problem,
+        # not fixed by the descriptor. Mark them deferred and swap this
+        # instance's class to a guarded variant that raises
+        # DeferredFieldAccessFault on access instead (see
+        # _deferred_guard_class above); every other (fully loaded) instance
+        # pays zero extra cost.
         deferred = {attr_name for attr_name, _field in cls._non_m2m_fields if attr_name not in seen}
 
         if deferred:
@@ -1887,7 +2065,30 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def generate_create_table_sql(cls, dialect: str = "sqlite") -> str:
-        """Generate CREATE TABLE SQL using CreateTableBuilder."""
+        """
+        Build the ``CREATE TABLE`` statement for this model.
+
+        Args:
+            dialect: Target SQL dialect (``"sqlite"``, ``"postgresql"``,
+                ``"mysql"``, ``"oracle"``, ...) -- forwarded to each
+                field's ``sql_column_def()`` and to constraint compilation
+                so column types/defaults and constraint syntax match the
+                target database.
+
+        Behavior:
+            Emits one column definition per non-M2M field (via
+            ``CreateTableBuilder``), then table-level constraints for
+            ``Meta.unique_together`` and ``Meta.constraints``. A
+            ``UniqueConstraint`` whose fields include an expression
+            (anything not a plain column name) is skipped here -- it can't
+            be expressed as a table constraint -- and is instead emitted
+            as a ``CREATE UNIQUE INDEX`` by ``generate_index_sql()``.
+
+        Returns:
+            The complete ``CREATE TABLE ...`` SQL string (no trailing
+            execution -- callers such as ``ModelRegistry.create_tables()``
+            run it).
+        """
         builder = CreateTableBuilder(cls._table_name)
 
         for _attr_name, field in cls._non_m2m_fields:
@@ -1932,7 +2133,30 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def generate_index_sql(cls, dialect: str = "sqlite") -> list[str]:
-        """Generate CREATE INDEX statements from Meta.indexes."""
+        """
+        Build ``CREATE INDEX`` statements for this model.
+
+        Sources, in order:
+
+        1. ``Meta.indexes`` -- each ``Index``'s own ``.sql()``.
+        2. ``Meta.constraints`` ``UniqueConstraint`` entries whose fields
+           contain an expression (skipped by
+           ``generate_create_table_sql()`` as a table constraint) --
+           emitted here as ``CREATE UNIQUE INDEX`` instead, named after the
+           constraint or a generated ``uidx_<table>_<expr>`` fallback.
+        3. Individual fields with ``db_index=True`` that aren't already
+           covered by a primary key or unique index -- named
+           ``idx_<table>_<column>``.
+
+        Args:
+            dialect: Target SQL dialect; affects ``IF NOT EXISTS`` support
+                (omitted for MySQL/Oracle, which don't support it on
+                ``CREATE INDEX``) and expression compilation.
+
+        Returns:
+            List of ``CREATE INDEX``/``CREATE UNIQUE INDEX`` statement
+            strings, not yet executed.
+        """
         stmts: list[str] = []
         for idx in cls._meta.indexes:
             stmts.append(idx.sql(cls._table_name, dialect=dialect))
@@ -1979,7 +2203,27 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def generate_m2m_sql(cls, dialect: str = "sqlite") -> list[str]:
-        """Generate junction table SQL for M2M fields."""
+        """
+        Build ``CREATE TABLE`` statements for this model's implicit M2M junction tables.
+
+        Fields with a user-supplied ``through`` model are skipped -- the
+        developer owns that table's schema and it's created as a regular
+        model instead. For the remaining M2M fields, generates a junction
+        table named via ``m2m.junction_table_name(cls)`` with an
+        auto-incrementing ``id`` PK (dialect-specific syntax), two
+        ``INTEGER NOT NULL`` FK columns (``m2m.junction_columns(cls)``),
+        and a ``UNIQUE(src, tgt)`` constraint preventing duplicate links.
+
+        Args:
+            dialect: Target SQL dialect -- selects the PK auto-increment
+                syntax (``SERIAL`` for PostgreSQL, ``AUTO_INCREMENT`` for
+                MySQL, ``GENERATED ALWAYS AS IDENTITY`` for Oracle,
+                ``AUTOINCREMENT`` otherwise).
+
+        Returns:
+            List of ``CREATE TABLE IF NOT EXISTS`` statement strings for
+            each implicit junction table, not yet executed.
+        """
         stmts: list[str] = []
         for _attr_name, m2m in cls._m2m_fields.items():
             if m2m.through:
@@ -2011,7 +2255,23 @@ class Model(metaclass=ModelMeta):
 
     @classmethod
     def fingerprint(cls) -> str:
-        """Compute deterministic hash for migration diffing."""
+        """
+        Compute a short, deterministic hash of this model's shape for migration diffing.
+
+        Hashes ``{name, table, fields}`` -- where ``fields`` maps each
+        non-M2M field's attribute name to ``field.deconstruct()`` (its
+        constructor args, per fields_module.py) -- via
+        ``json.dumps(..., sort_keys=True, default=str)`` then SHA-256,
+        truncated to 16 hex chars.
+
+        M2M fields are excluded since they don't affect this table's own
+        column layout (they live in a separate junction table).
+
+        Two model definitions produce the same fingerprint if and only if
+        their name, table, and every field's deconstructed arguments are
+        equal -- used by the migration system to detect when a model has
+        changed and a new migration is needed.
+        """
         data = {
             "name": cls.__name__,
             "table": cls._table_name,

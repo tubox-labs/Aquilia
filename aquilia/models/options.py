@@ -72,6 +72,45 @@ class Options:
         meta: type | None = None,
         table_attr: str | None = None,
     ):
+        """
+        Parse a model's inner ``Meta`` class (if any) into concrete,
+        always-present attributes with sensible defaults.
+
+        Called once per model class by ``ModelMeta.__new__()`` -- never
+        instantiated directly by user code.
+
+        Args:
+            model_name: The model class's ``__name__`` (e.g. ``"User"``).
+                Used to derive defaults for ``table_name`` (lowercased),
+                ``verbose_name``, and ``verbose_name_plural`` when ``Meta``
+                doesn't specify them.
+            meta: The raw inner ``class Meta: ...`` object popped from the
+                model's class body by the metaclass, or ``None`` if the
+                model declared no ``Meta``. Every attribute below is read
+                via ``getattr(meta, "...", default)``, so an incomplete
+                ``Meta`` (only setting e.g. ``ordering``) still gets
+                defaults for everything else.
+            table_attr: The value of a class-level ``table``, ``table_name``,
+                or ``__tablename__`` attribute on the model, if the model
+                declared one. Takes precedence over ``Meta.table`` /
+                ``Meta.table_name`` / ``Meta.__tablename__`` when both are
+                present, and over the ``model_name.lower()`` fallback.
+
+        Resulting table name precedence (highest to lowest):
+        ``table_attr`` -> ``meta.table`` -> ``meta.table_name`` ->
+        ``meta.__tablename__`` -> ``model_name.lower()``.
+
+        Every other option (``ordering``, ``indexes``, ``constraints``,
+        ``abstract``, ``verbose_name(_plural)``, ``app_label``,
+        ``unique_together``, ``select_on_save``, ``managed``,
+        ``default_permissions``, ``permissions``, ``db_tablespace``,
+        ``get_latest_by``, ``order_with_respect_to``,
+        ``default_related_name``, ``required_db_features``,
+        ``required_db_vendor``, ``proxy``) is read straight off ``meta``
+        with the type-appropriate empty/False/None default documented in
+        the class docstring above. ``_model_cls`` starts unset (``None``)
+        and is populated later, once the owning model class exists.
+        """
         self.table_name = (
             table_attr
             or (
@@ -124,6 +163,7 @@ class Options:
         return self.label.lower()
 
     def __repr__(self) -> str:
+        """Debug representation showing table name and any non-default flags/options set."""
         parts = [f"table={self.table_name!r}"]
         if self.abstract:
             parts.append("abstract=True")

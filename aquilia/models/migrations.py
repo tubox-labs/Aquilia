@@ -5,6 +5,25 @@ Provides:
 - Migration operations (op.create_table, op.drop_table, etc.)
 - Migration file generation from Python Model classes
 - Migration runner with tracking table
+
+Legacy system notice:
+    This module is the **original** migration system and is now superseded
+    by the DSL-based migration system in ``migration_dsl.py``
+    (declarative ``Operation``/``Migration`` classes), ``migration_gen.py``
+    (snapshot-diff-based file generation), and ``migration_runner.py`` (the
+    actively-developed runner). The two systems share the same
+    ``aquilia_migrations`` tracking table format and can coexist in the
+    same ``migrations/`` directory.
+
+    This module is not dead code, though: ``aq db makemigrations`` still
+    falls back to ``generate_migration_from_models`` here when invoked
+    without the DSL flag (see ``aquilia/cli/commands/model_cmds.py``,
+    which explicitly labels this path "Legacy raw-SQL migration
+    generation"), and ``aquilia/server.py``'s ``auto_migrate`` startup path
+    imports and uses this module's ``MigrationRunner`` directly rather than
+    ``migration_runner.MigrationRunner``. New code should prefer the DSL
+    system; this module remains for backward compatibility with
+    already-written raw-SQL migration files and existing call sites.
 """
 
 from __future__ import annotations
@@ -54,15 +73,18 @@ class MigrationOps:
     """
 
     def __init__(self, dialect: str = "sqlite") -> None:
+        """Create an operation builder targeting *dialect*, with an empty accumulated-statement buffer."""
         self._statements: list[str] = []
         self._dialect = dialect
 
     @property
     def dialect(self) -> str:
+        """The SQL dialect ("sqlite", "postgresql", "mysql", "oracle") used by dialect-aware helpers below."""
         return self._dialect
 
     @dialect.setter
     def dialect(self, value: str) -> None:
+        """Change the target dialect -- affects only statements generated *after* this is set."""
         self._dialect = value
 
     # ── Table operations ─────────────────────────────────────────────
@@ -274,6 +296,7 @@ class MigrationOps:
 
     @staticmethod
     def integer(name: str, nullable: bool = False, unique: bool = False) -> str:
+        """Return an ``"name" INTEGER [UNIQUE] [NOT NULL]`` column-definition fragment for use in ``create_table``/``add_column``."""
         parts = [f'"{name}"', "INTEGER"]
         if unique:
             parts.append("UNIQUE")
@@ -294,6 +317,7 @@ class MigrationOps:
 
     @staticmethod
     def varchar(name: str, length: int = 255, nullable: bool = False, unique: bool = False) -> str:
+        """Return an ``"name" VARCHAR(length) [UNIQUE] [NOT NULL]`` column-definition fragment."""
         parts = [f'"{name}"', f"VARCHAR({length})"]
         if unique:
             parts.append("UNIQUE")
@@ -303,6 +327,7 @@ class MigrationOps:
 
     @staticmethod
     def text(name: str, nullable: bool = False) -> str:
+        """Return an ``"name" TEXT [NOT NULL]`` column-definition fragment."""
         parts = [f'"{name}"', "TEXT"]
         if not nullable:
             parts.append("NOT NULL")
@@ -310,6 +335,7 @@ class MigrationOps:
 
     @staticmethod
     def blob(name: str, nullable: bool = False) -> str:
+        """Return an ``"name" BLOB [NOT NULL]`` column-definition fragment for binary data."""
         parts = [f'"{name}"', "BLOB"]
         if not nullable:
             parts.append("NOT NULL")
@@ -386,6 +412,7 @@ class MigrationOps:
 
     @staticmethod
     def real(name: str, nullable: bool = False) -> str:
+        """Return an ``"name" REAL [NOT NULL]`` column-definition fragment for floating-point data."""
         parts = [f'"{name}"', "REAL"]
         if not nullable:
             parts.append("NOT NULL")
@@ -570,6 +597,24 @@ class MigrationRunner:
         db: AquiliaDatabase,
         migrations_dir: str | Path = "migrations",
     ):
+        """Bind this runner to *db* and the directory of legacy (``upgrade()``/``downgrade()``-style) migration files.
+
+        This is the legacy, raw-SQL/Python-function migration system --
+        it coexists with the newer declarative-DSL system
+        (``migration_dsl.py`` + ``migration_runner.py``'s own
+        ``MigrationRunner``); the CLI's ``use_dsl`` flag (see
+        ``aquilia/cli/commands/model_cmds.py``) picks between the two, and
+        ``AquiliaServer``'s ``auto_migrate`` startup path still falls back
+        to this one. New projects should prefer the DSL system; this one
+        is kept for backward compatibility with migrations generated before
+        the DSL system existed.
+
+        Args:
+            db: The database connection/pool to apply migrations against.
+            migrations_dir: Directory containing legacy migration ``.py``
+                files (each exposing ``upgrade(conn)``/``downgrade(conn)``
+                and, for dependency ordering, a ``Meta.dependencies`` list).
+        """
         self.db = db
         self.migrations_dir = Path(migrations_dir)
         self._dialect = getattr(db, "dialect", "sqlite")

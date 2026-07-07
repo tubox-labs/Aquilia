@@ -37,6 +37,7 @@ class CompositeAttribute:
     as a single Python dict/namedtuple.
 
     Usage:
+    ```
         class Order(Model):
             _ship_street = CharField(max_length=200)
             _ship_city = CharField(max_length=100)
@@ -49,6 +50,7 @@ class CompositeAttribute:
         order = Order(...)
         order.shipping  # → {"street": "123 Main", "city": "NYC"}
         order.shipping = {"street": "456 Oak", "city": "LA"}
+    ```
     """
 
     def __init__(
@@ -57,13 +59,34 @@ class CompositeAttribute:
         fields: list[str],
         keys: list[str] | None = None,
     ):
+        """
+        Args:
+            fields: Names of the underlying model attributes (fields)
+                that back this composite, in order.
+            keys: Dict keys exposed to callers, in the same order as
+                ``fields``. Defaults to ``fields`` itself (dict keys ==
+                attribute names) when omitted.
+        """
         self.fields = fields
         self.keys = keys or fields
 
     def __set_name__(self, owner: type, name: str) -> None:
+        """Record the attribute name this descriptor is bound to on the owning class."""
         self.attr_name = name
 
     def __get__(self, instance, owner=None):
+        """
+        Read the composite value.
+
+        Class-level access (``Model.attr``) returns the descriptor
+        itself. Instance-level access returns a ``dict`` built by
+        reading each attribute named in ``self.fields`` off ``instance``
+        (missing attributes default to ``None``) and pairing the results
+        with ``self.keys``.
+
+        If ``fields`` and ``keys`` have different lengths, the pairing
+        (``zip(..., strict=False)``) silently truncates to the shorter one.
+        """
         if instance is None:
             return self
         result = {}
@@ -72,6 +95,21 @@ class CompositeAttribute:
         return result
 
     def __set__(self, instance, value):
+        """
+        Write the composite value.
+
+        Accepts either:
+            - a ``dict``: only keys present in ``self.keys`` are applied
+              (other keys in ``value`` are ignored; keys of ``self.keys``
+              missing from ``value`` leave the corresponding attribute
+              untouched).
+            - a ``list``/``tuple``: values are assigned positionally to
+              ``self.fields`` in order (``zip(..., strict=False)``, so a
+              shorter sequence leaves the remaining fields untouched and
+              a longer one has its extra items ignored).
+
+        Any other type is silently ignored -- no assignment, no error.
+        """
         if isinstance(value, dict):
             for field_name, key in zip(self.fields, self.keys, strict=False):
                 if key in value:
@@ -97,6 +135,7 @@ class CompositeField(Field):
         strategy: "json" (single TEXT column) or "expand" (multiple columns)
 
     Usage (JSON strategy -- single column):
+    ```
         coordinates = CompositeField(
             schema={"lat": FloatField(), "lng": FloatField()},
             strategy="json",
@@ -112,6 +151,7 @@ class CompositeField(Field):
             prefix="addr",
             strategy="expand",
         )
+        ```
     """
 
     _field_type = "COMPOSITE"
@@ -124,12 +164,45 @@ class CompositeField(Field):
         strategy: str = "json",
         **kwargs,
     ):
+        """
+        Args:
+            schema: Mapping of sub-field name to ``Field`` instance
+                describing the shape of this composite.
+            prefix: Column name prefix used by the ``"expand"`` strategy.
+                Ignored by the ``"json"`` strategy.
+            strategy: ``"json"`` to serialize the whole dict into a single
+                TEXT/JSONB column, or ``"expand"`` to store each sub-field
+                as its own column (prefixed with ``prefix``).
+            **kwargs: Passed through to ``Field.__init__`` (``null``,
+                ``default``, etc.).
+        """
         self.schema = schema
         self.prefix = prefix
         self.strategy = strategy
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:
+        """
+        Validate a composite value.
+
+        Args:
+            value: Must be a ``dict`` (or ``None``).
+
+        Returns:
+            A new dict with each sub-field's value run through that
+            sub-field's own ``validate()`` (so per-key validators/type
+            coercion apply).
+
+        Raises:
+            FieldValidationError: If ``value`` is ``None`` and the field
+                isn't nullable, or if ``value`` is not a ``dict``.
+
+        Keys declared in ``self.schema`` but absent from ``value`` are
+        looked up via ``value.get(key)`` (yielding ``None``), so an
+        incomplete dict doesn't raise here -- each sub-field's own
+        ``validate()`` decides whether ``None`` is acceptable for it
+        (based on that sub-field's ``null``/``blank``).
+        """
         if value is None:
             if self.null:
                 return None
@@ -144,6 +217,14 @@ class CompositeField(Field):
         return cleaned
 
     def to_python(self, value: Any) -> Any:
+        """
+        Convert a raw database value back to a Python dict.
+
+        If ``value`` is a JSON-encoded string, parse it; if parsing
+        fails, return the raw string unchanged rather than raising.
+        Non-string values (already a dict, or ``None``) pass through
+        unchanged.
+        """
         if value is None:
             return None
         if isinstance(value, str):
@@ -154,6 +235,15 @@ class CompositeField(Field):
         return value
 
     def to_db(self, value: Any) -> Any:
+        """
+        Convert a Python dict to its database-ready form.
+
+        Under the ``"json"`` strategy, serializes ``value`` to a JSON
+        string via ``json.dumps``. Under ``"expand"`` (or any other
+        strategy), returns ``value`` unchanged -- expanded storage is
+        handled by the individual sub-field columns, not by this method.
+        ``None`` passes through unchanged.
+        """
         if value is None:
             return None
         if self.strategy == "json":
@@ -161,6 +251,17 @@ class CompositeField(Field):
         return value
 
     def sql_type(self, dialect: str = "sqlite") -> str:
+        """
+        Return the SQL column type for this field's own column.
+
+        Only meaningful for the ``"json"`` strategy, where the whole
+        composite lives in one column: ``JSONB`` on PostgreSQL, ``TEXT``
+        elsewhere. Under the ``"expand"`` strategy this field doesn't
+        itself produce a column (each sub-field does); the ``"TEXT"``
+        fallback returned here is not meant to be used to create a
+        column in that case -- callers using expand storage should
+        generate columns from ``self.schema`` directly.
+        """
         if self.strategy == "json":
             if dialect == "postgresql":
                 return "JSONB"
@@ -169,6 +270,14 @@ class CompositeField(Field):
         return "TEXT"
 
     def deconstruct(self) -> dict[str, Any]:
+        """
+        Serialize this field's definition for migrations.
+
+        Extends the base ``deconstruct()`` output with ``strategy``,
+        ``prefix``, and a recursively deconstructed ``schema`` (each
+        sub-field's own ``deconstruct()`` output), so migration diffing
+        can detect changes to the composite's shape.
+        """
         d = super().deconstruct()
         d["strategy"] = self.strategy
         d["prefix"] = self.prefix
@@ -196,6 +305,17 @@ class CompositePrimaryKey:
     """
 
     def __init__(self, *, fields: list[str]):
+        """
+        Args:
+            fields: Column names participating in the composite primary
+                key, in the order they should appear in the
+                ``PRIMARY KEY (...)`` clause. Must contain at least 2
+                names -- a single-column PK should use that field's own
+                ``primary_key=True`` instead.
+
+        Raises:
+            ConfigInvalidFault: If fewer than 2 fields are supplied.
+        """
         if len(fields) < 2:
             from aquilia.faults.domains import ConfigInvalidFault
 
@@ -206,9 +326,15 @@ class CompositePrimaryKey:
         self.fields = fields
 
     def sql(self) -> str:
-        """Generate the SQL PRIMARY KEY constraint."""
+        """
+        Generate the SQL ``PRIMARY KEY`` table constraint.
+
+        Each field name is double-quote-identifier-quoted, e.g.
+        ``PRIMARY KEY ("order_id", "product_id")``.
+        """
         cols = ", ".join(f'"{f}"' for f in self.fields)
         return f"PRIMARY KEY ({cols})"
 
     def deconstruct(self) -> dict[str, Any]:
+        """Serialize for migrations as ``{"type": "CompositePrimaryKey", "fields": [...]}``."""
         return {"type": "CompositePrimaryKey", "fields": self.fields}

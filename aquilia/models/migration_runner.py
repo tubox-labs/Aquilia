@@ -30,12 +30,24 @@ from .migration_dsl import Migration
 
 logger = logging.getLogger("aquilia.models.migration_runner")
 
+# Name of the tracking table this runner creates and reads in the target database.
 MIGRATION_TABLE = "aquilia_migrations"
 
 
 @dataclass
 class MigrationRecord:
-    """A record in the aquilia_migrations tracking table."""
+    """A single applied-migration record, as read from the ``aquilia_migrations`` table.
+
+    Attributes:
+        revision: The migration's timestamp-based revision ID.
+        slug: The human-readable slug portion of the migration filename.
+        checksum: SHA-256 (truncated to 16 hex chars) of the migration file's
+            contents at the time it was applied, used by ``verify_checksums``
+            to detect post-apply edits. May be an empty string for very old
+            rows recorded before checksum tracking existed.
+        applied_at: Timestamp string of when the migration was applied, as
+            returned by the database driver (format is driver/dialect-dependent).
+    """
 
     revision: str
     slug: str
@@ -45,10 +57,15 @@ class MigrationRecord:
 
 class MigrationRunner:
     """
-    Applies and tracks migrations against an AquiliaDatabase.
+    Applies and tracks DSL migrations against a live ``AquiliaDatabase``.
 
-    Supports both new DSL migrations (with ``operations`` list)
-    and legacy raw-SQL migrations (with ``upgrade``/``downgrade`` functions).
+    This is the primary, actively-maintained migration runner (paired with
+    ``migration_dsl.py`` and ``migration_gen.py``). It supports both new DSL
+    migrations (files exposing a module-level ``operations`` list) and
+    legacy raw-SQL migrations (files exposing ``upgrade``/``downgrade``
+    functions, as produced by the older ``migrations.py`` system) so that
+    both migration styles can coexist in the same ``migrations/`` directory
+    during a transition period.
 
     Usage:
         runner = MigrationRunner(db, "migrations/")
@@ -65,12 +82,29 @@ class MigrationRunner:
         *,
         dialect: str = "sqlite",
     ):
+        """
+        Args:
+            db: Connected ``AquiliaDatabase`` instance to run migrations against.
+            migrations_dir: Directory containing migration ``.py`` files,
+                sorted and applied by filename order.
+            dialect: SQL dialect used to compile DSL operations (``"sqlite"``,
+                ``"postgresql"``, ``"mysql"``, ``"oracle"``). Should match
+                ``db``'s actual backend.
+        """
         self.db = db
         self.migrations_dir = Path(migrations_dir)
         self.dialect = dialect
 
     async def ensure_tracking_table(self) -> None:
-        """Create the aquilia_migrations tracking table if it doesn't exist."""
+        """Create the ``aquilia_migrations`` tracking table if it doesn't exist.
+
+        Called at the start of every public method that reads or writes
+        migration state, so callers never need to invoke this directly.
+        The primary-key column definition is dialect-specific (``SERIAL``
+        on PostgreSQL, ``AUTO_INCREMENT`` on MySQL, ``GENERATED ALWAYS AS
+        IDENTITY`` on Oracle, ``AUTOINCREMENT`` on SQLite/other), everything
+        else is dialect-neutral.
+        """
         if self.dialect == "postgresql":
             pk_def = '"id" SERIAL PRIMARY KEY'
         elif self.dialect == "mysql":
@@ -131,7 +165,14 @@ class MigrationRunner:
         return pending
 
     async def status(self) -> dict[str, Any]:
-        """Get migration status -- applied, pending, totals."""
+        """Get migration status -- applied, pending, and total counts.
+
+        Returns:
+            Dict with keys: ``applied`` (list of applied revision IDs),
+            ``pending`` (list of pending migration file stems),
+            ``last_applied`` (last applied revision, or ``None``),
+            ``applied_count``, ``pending_count``, ``total``.
+        """
         applied = await self.get_applied()
         pending = await self.get_pending()
         return {
@@ -162,9 +203,23 @@ class MigrationRunner:
 
     async def plan(self, target: str | None = None) -> list[str]:
         """
-        Preview migrations without executing (--plan / dry-run).
+        Preview pending migrations without executing them (``--plan`` / dry-run).
 
-        Returns list of SQL statements that would be executed.
+        For each pending migration file (in application order), emits a
+        ``-- Migration: <revision> (<filename>)`` header followed by either
+        its compiled-forward SQL statements (DSL migrations) or a
+        ``-- (Legacy: runs upgrade() from ...)`` placeholder (legacy
+        migrations, whose ``upgrade()`` body executes arbitrary Python and
+        can't be statically previewed).
+
+        Args:
+            target: Currently unused -- accepted for interface symmetry
+                with ``migrate()``/``sqlmigrate()`` but ``plan()`` always
+                previews the full set of pending (forward) migrations.
+
+        Returns:
+            A flat list of SQL/comment lines suitable for printing to the
+            console or a file.
         """
         statements: list[str] = []
         pending = await self.get_pending()
@@ -186,7 +241,24 @@ class MigrationRunner:
 
     async def sqlmigrate(self, revision: str) -> list[str]:
         """
-        Get the SQL for a specific migration (aq db sqlmigrate).
+        Get the forward SQL for a single migration, by revision (``aq db sqlmigrate``).
+
+        Unlike ``plan()``, this targets one specific migration (applied or
+        not) and returns its actual SQL rather than a summary. For DSL
+        migrations this is the compiled ``operations`` list; for legacy
+        migrations it falls back to best-effort regex extraction of
+        ``execute(...)`` calls from the file's source (see
+        ``_extract_sql_from_source``), since legacy ``upgrade()`` functions
+        aren't statically compilable to SQL.
+
+        Args:
+            revision: Revision ID (or unique filename prefix) to look up.
+
+        Returns:
+            List of SQL statement strings for that migration.
+
+        Raises:
+            MigrationFault: If no migration file matches ``revision``.
         """
         path = self._find_migration_file(revision)
         if not path:
@@ -246,7 +318,25 @@ class MigrationRunner:
         return applied
 
     async def _apply_migration(self, path: Path, *, fake: bool = False) -> None:
-        """Apply a single migration file."""
+        """Apply a single migration file and record it as applied.
+
+        Dispatches to ``_execute_dsl_migration`` for DSL migrations
+        (modules exposing ``operations``) or runs the legacy ``upgrade()``
+        function directly otherwise (sync or async). If neither is present,
+        logs a warning and records the migration as applied without running
+        anything. When ``fake`` is ``True``, execution is skipped entirely
+        but the migration is still recorded in ``aquilia_migrations`` --
+        this is what lets ``--fake`` mark migrations as applied without
+        touching the schema (e.g. when the schema was already created by
+        other means).
+
+        Args:
+            path: Path to the migration file.
+            fake: If ``True``, skip execution but still record as applied.
+
+        Raises:
+            MigrationFault: If a legacy ``upgrade()`` function raises.
+        """
         rev = _extract_revision(path) or path.stem
         slug = _extract_slug(path)
         checksum = _file_checksum(path)
@@ -283,7 +373,27 @@ class MigrationRunner:
         )
 
     async def _execute_dsl_migration(self, migration: Migration) -> None:
-        """Execute a DSL migration transactionally."""
+        """Execute a DSL migration's SQL and Python operations inside one transaction.
+
+        Runs all compiled SQL statements (skipping ``--`` comments) followed
+        by all ``RunPython`` callables (sync or async), all within a single
+        ``self.db.transaction()`` block so the migration applies atomically
+        where the backend supports transactional DDL.
+
+        MySQL-specific tolerance: error 1061 (duplicate key name) is
+        swallowed during index creation, since tables may already have been
+        created directly via ``create_tables()`` before this migration ran
+        (e.g. during initial app bootstrap), leaving indexes that the
+        migration also tries to create.
+
+        Args:
+            migration: The ``Migration`` to execute.
+
+        Raises:
+            MigrationFault: Wraps any non-``MigrationFault`` exception raised
+                during SQL execution or Python-op execution, tagged with
+                ``migration.revision``.
+        """
         stmts = migration.compile_upgrade(self.dialect)
         python_ops = migration.get_python_ops()
 
@@ -318,7 +428,30 @@ class MigrationRunner:
             ) from exc
 
     async def _rollback_to(self, target: str, *, fake: bool = False) -> list[str]:
-        """Rollback to a specific revision."""
+        """Roll back all applied migrations after ``target``, in reverse order.
+
+        Each migration to roll back is downgraded via its DSL
+        ``compile_downgrade`` (inside a transaction, tolerating MySQL error
+        codes 1061/1091 -- duplicate key / index doesn't exist -- the same
+        way forward execution tolerates 1061) or its legacy ``downgrade()``
+        function, then removed from the ``aquilia_migrations`` tracking
+        table regardless of ``fake``.
+
+        Args:
+            target: Revision to roll back to (exclusive -- migrations after
+                this one are undone; ``target`` itself stays applied), or
+                the special value ``"zero"`` to roll back everything.
+            fake: If ``True``, skip running downgrade SQL/functions but
+                still remove the tracking rows.
+
+        Returns:
+            List of revision IDs that were rolled back, in the order they
+            were undone (newest first).
+
+        Raises:
+            MigrationFault: If ``target`` isn't a currently-applied
+                revision, or if a downgrade step fails.
+        """
         applied = await self.get_applied()
         if target == "zero":
             to_rollback = list(reversed(applied))
@@ -378,14 +511,35 @@ class MigrationRunner:
         return rolled_back
 
     def _find_migration_file(self, revision: str) -> Path | None:
-        """Find migration file by revision prefix."""
+        """Find the migration file whose name starts with ``revision``.
+
+        Args:
+            revision: Full or partial revision/filename prefix (e.g.
+                ``"20260217_210454"``).
+
+        Returns:
+            The first matching ``Path``, or ``None`` if the migrations
+            directory doesn't exist or no file matches.
+        """
         if not self.migrations_dir.exists():
             return None
         candidates = list(self.migrations_dir.glob(f"{revision}*.py"))
         return candidates[0] if candidates else None
 
     async def verify_checksums(self) -> list[dict[str, str]]:
-        """Verify that applied migration files haven't been tampered with."""
+        """Verify that applied migration files haven't been tampered with since being applied.
+
+        Recomputes each applied migration's SHA-256 checksum and compares it
+        against the value stored at apply time. Migrations recorded without
+        a checksum (pre-checksum-tracking rows) are skipped rather than
+        flagged.
+
+        Returns:
+            A list of ``{"revision": ..., "reason": ...}`` dicts, one per
+            mismatch -- either ``"File not found on disk"`` or
+            ``"File modified since applied"``. Empty list means everything
+            checks out.
+        """
         await self.ensure_tracking_table()
         rows = await self.db.fetch_all(f'SELECT "revision", "checksum" FROM "{MIGRATION_TABLE}" ORDER BY "id"')
         mismatches: list[dict[str, str]] = []
@@ -492,7 +646,15 @@ def check_migrations_applied(db_url: str, migrations_dir: str | Path = "migratio
 
 
 def _extract_sqlite_path(url: str) -> str:
-    """Extract the file path from a sqlite:/// URL."""
+    """Extract the file path from a ``sqlite:///`` or ``sqlite://`` URL.
+
+    Args:
+        url: A SQLite connection URL, e.g. ``"sqlite:///db.sqlite3"``.
+
+    Returns:
+        The bare filesystem path, or ``":memory:"`` if the URL has no path
+        component (in-memory database).
+    """
     for prefix in ("sqlite:///", "sqlite://"):
         if url.startswith(prefix):
             return url[len(prefix) :] or ":memory:"
@@ -503,7 +665,18 @@ def _extract_sqlite_path(url: str) -> str:
 
 
 def _extract_revision(path: Path) -> str | None:
-    """Extract revision ID from filename: YYYYMMDD_HHMMSS_slug.py"""
+    """Extract the revision ID from a migration filename.
+
+    Filenames follow the ``YYYYMMDD_HHMMSS_slug.py`` convention; the
+    revision is the first two underscore-separated segments (date and time).
+
+    Args:
+        path: Migration file path.
+
+    Returns:
+        The revision string (e.g. ``"20260217_210454"``), or ``None`` if the
+        filename stem has fewer than two ``_``-separated segments.
+    """
     parts = path.stem.split("_", 2)
     if len(parts) >= 2:
         return f"{parts[0]}_{parts[1]}"
@@ -511,7 +684,16 @@ def _extract_revision(path: Path) -> str | None:
 
 
 def _extract_slug(path: Path) -> str:
-    """Extract slug from filename."""
+    """Extract the slug portion of a migration filename (everything after the revision).
+
+    Args:
+        path: Migration file path.
+
+    Returns:
+        The slug (e.g. ``"create_users_table"`` from
+        ``"20260217_210454_create_users_table.py"``), or the full filename
+        stem if it doesn't have a third ``_``-separated segment.
+    """
     parts = path.stem.split("_", 2)
     if len(parts) >= 3:
         return parts[2]
@@ -519,13 +701,41 @@ def _extract_slug(path: Path) -> str:
 
 
 def _file_checksum(path: Path) -> str:
-    """Compute SHA-256 checksum of a migration file."""
+    """Compute a truncated SHA-256 checksum of a migration file's contents.
+
+    Args:
+        path: Migration file path.
+
+    Returns:
+        The first 16 hex characters of the file's SHA-256 digest -- short
+        enough to store compactly, long enough to make accidental
+        collisions between distinct migration files effectively impossible.
+    """
     content = path.read_bytes()
     return hashlib.sha256(content).hexdigest()[:16]
 
 
 def _load_migration_module(path: Path, rev: str) -> Any:
-    """Load a migration Python module from file path."""
+    """Load a migration file as a standalone Python module (not via normal import).
+
+    Uses ``importlib.util`` to execute the file directly by path (migration
+    files live outside any package, so they can't be imported by dotted
+    name). The resulting module is not registered in ``sys.modules``.
+
+    Args:
+        path: Path to the migration ``.py`` file.
+        rev: Revision ID, used only to build a synthetic module name
+            (``f"migration_{rev}"``) for error messages/introspection.
+
+    Returns:
+        The executed module object, exposing whatever top-level names the
+        migration file defines (``operations``, ``Meta``, ``upgrade``,
+        ``downgrade``, etc.).
+
+    Raises:
+        MigrationFault: If the module spec can't be created, or if
+            executing the module's top-level code raises.
+    """
     spec = importlib.util.spec_from_file_location(f"migration_{rev}", path)
     if not spec or not spec.loader:
         raise MigrationFault(
@@ -544,7 +754,20 @@ def _load_migration_module(path: Path, rev: str) -> Any:
 
 
 def _build_migration_from_module(module: Any) -> Migration:
-    """Build a Migration object from a loaded DSL migration module."""
+    """Build a ``Migration`` instance from a loaded DSL migration module.
+
+    Reads ``revision``/``slug``/``models`` from the module's ``Meta`` class
+    if present, falling back to same-named module-level attributes for
+    compatibility with older/hand-written migration files that don't use a
+    ``Meta`` class. ``dependencies`` is only read from ``Meta`` (defaults to
+    ``[]``). ``operations`` is always read as a module-level list.
+
+    Args:
+        module: A module object as returned by ``_load_migration_module``.
+
+    Returns:
+        A ``Migration`` populated from the module's metadata and operations.
+    """
     meta = getattr(module, "Meta", None)
     revision = getattr(meta, "revision", "") if meta else getattr(module, "revision", "")
     slug = getattr(meta, "slug", "") if meta else getattr(module, "slug", "")
@@ -562,7 +785,30 @@ def _build_migration_from_module(module: Any) -> Migration:
 
 
 def _extract_sql_from_source(path: Path) -> list[str]:
-    """Extract SQL from a legacy migration file's source code."""
+    """Best-effort extraction of SQL text from a legacy migration's source.
+
+    Legacy migrations (``migrations.py``-style, with ``upgrade()``/
+    ``downgrade()`` functions) execute SQL via arbitrary ``conn.execute(...)``
+    Python calls rather than a declarative list, so there's no reliable way
+    to get "the SQL" without running the function. As a preview-only
+    fallback for ``sqlmigrate()``, this scans the raw file text with regexes
+    for ``execute(...)`` calls whose argument is a triple-double-quoted,
+    triple-single-quoted, or plain single-quoted string literal, and
+    returns whatever string literals they capture.
+
+    Limitations: only recognizes the exact ``execute(...)`` call shapes
+    matched by these three patterns (e.g. multi-line f-strings, variables,
+    or ``execute("...")`` with plain double quotes are not captured); this
+    is a readability aid for previewing legacy migrations, not a reliable
+    SQL extractor.
+
+    Args:
+        path: Path to the legacy migration file.
+
+    Returns:
+        List of extracted SQL strings, in source order (may be incomplete
+        or empty depending on how the migration's SQL was written).
+    """
     import re
 
     source = path.read_text(encoding="utf-8")

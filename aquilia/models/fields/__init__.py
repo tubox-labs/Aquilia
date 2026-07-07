@@ -17,6 +17,66 @@ New sub-modules:
     binary_field-- Enhanced BinaryField
     auto_field-- AutoField, BigAutoField
     enum_field-- EnumField
+
+Map of this package's public surface (what's exported here, and why you'd
+reach for it):
+
+- **Base** (``Field``, ``FieldValidationError``, ``Index``,
+  ``UniqueConstraint``, ``UNSET``) -- the foundation every field builds on.
+  Reach for ``Field`` when writing a brand-new field type or a mixin;
+  ``UNSET`` is the sentinel used to distinguish "no default supplied" from
+  an explicit ``None`` default.
+- **Numeric** (``IntegerField``, ``BigIntegerField``, ``SmallIntegerField``,
+  ``PositiveIntegerField``, ``PositiveSmallIntegerField``, ``FloatField``,
+  ``DecimalField``, plus auto-incrementing ``AutoField``/``BigAutoField``/
+  ``SmallAutoField``) -- standard numeric column types and PK generators.
+- **Text** (``CharField``, ``VarcharField``, ``TextField``, ``SlugField``,
+  ``EmailField``, ``URLField``, ``UUIDField``, ``FilePathField``, and the
+  case-insensitive ``CICharField``/``CIEmailField``/``CITextField``
+  variants) -- string-backed columns with built-in format validation.
+- **Date/Time** (``DateField``, ``TimeField``, ``DateTimeField``,
+  ``DurationField``) -- combine with ``AutoNowMixin`` for auto-updating
+  timestamp columns (e.g. ``updated_at``).
+- **Boolean** (``BooleanField``).
+- **Binary/Special** (``BinaryField``, ``JSONField``) -- raw bytes and
+  structured JSON storage.
+- **Relationships** (``RelationField``, ``ForeignKey``, ``OneToOneField``,
+  ``ManyToManyField``) -- reach for these to model FK/M2M associations
+  between models.
+- **IP/Network** (``GenericIPAddressField``, ``InetAddressField``).
+- **File/Media** (``FileField``, ``ImageField``) -- fields with storage
+  backend hooks (see ``aquilia.storage``).
+- **PostgreSQL-specific** (``ArrayField``, ``HStoreField``, ``RangeField``
+  and its typed variants ``IntegerRangeField``/``BigIntegerRangeField``/
+  ``DecimalRangeField``/``DateRangeField``/``DateTimeRangeField``) -- only
+  meaningful on a PostgreSQL-backed database.
+- **Meta/Special** (``GeneratedField``, ``OrderWrt``) -- computed columns
+  and ordering-support columns.
+- **Mixins** (``NullableMixin``, ``UniqueMixin``, ``IndexedMixin``,
+  ``AutoNowMixin``, ``ChoiceMixin``, ``EncryptedMixin``) -- composable
+  behaviors layered onto any ``Field`` subclass via multiple inheritance
+  (mixin goes to the left, e.g. ``class X(NullableMixin, CharField)``).
+  ``EncryptedMixin`` is security-sensitive -- read its docstring in
+  ``mixins.py`` before using it to store real secrets.
+- **Composite fields** (``CompositeField``, ``CompositePrimaryKey``,
+  ``CompositeAttribute``) -- multi-column logical fields (e.g. composite
+  primary keys).
+- **Enum** (``EnumField``) -- typed Python ``Enum``-backed column.
+- **Validators** (``BaseValidator``, ``ValidationError``, and the concrete
+  ``MinValueValidator``/``MaxValueValidator``/``MinLengthValidator``/
+  ``MaxLengthValidator``/``RegexValidator``/``EmailValidator``/
+  ``URLValidator``/``SlugValidator``/``ProhibitNullCharactersValidator``/
+  ``DecimalValidator``/``FileExtensionValidator``/``StepValueValidator``/
+  ``RangeValidator``) -- reusable value validators, typically passed via a
+  field's ``validators=[...]`` argument.
+- **Lookups** (``Lookup`` base class plus ``Exact``/``IExact``/
+  ``Contains``/``IContains``/``StartsWith``/``IStartsWith``/``EndsWith``/
+  ``IEndsWith``/``In``/``Gt``/``Gte``/``Lt``/``Lte``/``IsNull``/``Range``/
+  ``Regex``/``IRegex``, plus ``register_lookup``/``resolve_lookup``/
+  ``lookup_registry``) -- the ``field__lookup=value`` query-filter system;
+  see ``lookups.py`` for the full extensible registry, including lookups
+  not re-exported here (``Date``, ``Year``, ``Month``, ``Day``) which are
+  available directly from ``aquilia.models.fields.lookups``.
 """
 
 # ── Re-export everything from the original monolithic fields.py ──────────────

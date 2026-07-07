@@ -150,11 +150,20 @@ class OrderBy:
     """
 
     def __init__(self, expression: Expression, descending: bool = False, nulls_first: bool | None = None):
+        """
+        Args:
+            expression: The expression to order by (typically an ``F``).
+            descending: If True, order DESC; otherwise ASC.
+            nulls_first: If True, append ``NULLS FIRST``; if False, append
+                ``NULLS LAST``; if None (default), omit NULLS handling and
+                rely on the database's default ordering of NULLs.
+        """
         self.expression = expression
         self.descending = descending
         self.nulls_first = nulls_first
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``<expr> ASC|DESC [NULLS FIRST|LAST]``."""
         expr_sql, params = self.expression.as_sql(dialect)
         direction = "DESC" if self.descending else "ASC"
         sql = f"{expr_sql} {direction}"
@@ -183,9 +192,24 @@ class F(Expression):
     """
 
     def __init__(self, name: str):
+        """
+        Args:
+            name: Field name, or a double-underscore path (``"related__field"``)
+                pointing to a field on a joined table.
+        """
         self.name = name
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as a quoted identifier.
+
+        Supports one level of double-underscore related field paths,
+        e.g. ``F("author__name")`` → ``"author"."name"`` (for JOINed queries).
+
+        Caveat: only a single ``__`` split is recognized -- a name with more
+        than one ``__`` segment (e.g. ``"a__b__c"``) does not resolve to a
+        multi-hop path and is instead quoted verbatim as one identifier.
+        """
         # Support double-underscore related field paths
         # e.g. F("author__name") → "author"."name" (for JOINed queries)
         if "__" in self.name:
@@ -226,6 +250,7 @@ class Value(Expression):
         self.value = value
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as a bind-parameter placeholder, or the ``NULL`` literal when ``value is None``."""
         if self.value is None:
             return "NULL", []
         return "?", [self.value]
@@ -257,6 +282,16 @@ class RawSQL(Expression):
     )
 
     def __init__(self, sql: str, params: list[Any] | None = None):
+        """
+        Args:
+            sql: Raw SQL text. Use ``?`` placeholders for any values.
+            params: Bind values for the ``?`` placeholders, in order.
+
+        Raises:
+            QueryFault: If *sql* contains a destructive DDL/DCL keyword
+                (``DROP``, ``ALTER``, ``TRUNCATE``, ``GRANT``, ``REVOKE``,
+                ``EXEC``, ``EXECUTE``), as a defense-in-depth guard.
+        """
         if self._DANGEROUS_RE.search(sql):
             from ..faults.domains import QueryFault
 
@@ -271,6 +306,7 @@ class RawSQL(Expression):
         self.params = params or []
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Return the raw SQL text unchanged, with a defensive copy of ``params``."""
         return self.sql, list(self.params)
 
     def __repr__(self) -> str:
@@ -290,6 +326,7 @@ class Col(Expression):
         self.column = column
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``"table"."column"``."""
         return f'"{self.table}"."{self.column}"', []
 
     def __repr__(self) -> str:
@@ -300,6 +337,7 @@ class Star(Expression):
     """Represents * (all columns)."""
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as the literal ``*``."""
         return "*", []
 
 
@@ -316,6 +354,13 @@ class CombinedExpression(Expression):
         connector: str,
         rhs: Expression | Any,
     ):
+        """
+        Args:
+            lhs: Left-hand operand. Non-``Expression`` values are wrapped in ``Value``.
+            connector: SQL operator, one of the ``Combinable`` constants (``+``, ``-``,
+                ``*``, ``/``, ``%``, ``&``, ``|``).
+            rhs: Right-hand operand. Non-``Expression`` values are wrapped in ``Value``.
+        """
         if not isinstance(lhs, Expression):
             lhs = Value(lhs)
         if not isinstance(rhs, Expression):
@@ -325,6 +370,7 @@ class CombinedExpression(Expression):
         self.rhs = rhs
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``(lhs connector rhs)``, with lhs params preceding rhs params."""
         lhs_sql, lhs_params = self.lhs.as_sql(dialect)
         rhs_sql, rhs_params = self.rhs.as_sql(dialect)
         sql = f"({lhs_sql} {self.connector} {rhs_sql})"
@@ -373,11 +419,39 @@ class When(Expression):
         then: Any = None,
         **lookups: Any,
     ):
+        """
+        Args:
+            condition: The WHEN condition, given as one of:
+                - ``str``: a raw SQL boolean expression (scanned for a small
+                  set of dangerous keywords/tokens; not parameterized -- do
+                  not interpolate user input into it).
+                - ``dict``: field-equals-value pairs, AND-ed together and
+                  safely parameterized (e.g. ``{"status": "active"}``).
+                - ``Expression``: any expression evaluating to a boolean.
+                - ``None`` (default) with no ``**lookups``: condition is
+                  omitted and rendered as the tautology ``1=1``.
+            then: The result when *condition* is true. Non-``Expression``
+                values are wrapped in ``Value``.
+            **lookups: Django-style field lookups (e.g. ``age__gte=18``),
+                AND-ed together via the same lookup machinery as
+                ``QuerySet.filter()``. Mutually exclusive with *condition*
+                in practice -- if both are supplied, *condition* wins.
+        """
         self.condition = condition
         self.lookups = lookups
         self.then = then if isinstance(then, Expression) else Value(then)
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``WHEN <condition> THEN <then>``.
+
+        Dispatches on the type of ``self.condition``: raw string (checked
+        against a dangerous-keyword blocklist and raises ``QueryFault`` if
+        matched), dict (parameterized equality AND-chain, with field names
+        validated to prevent identifier injection), ``Expression`` (rendered
+        directly), or falls through to ``**lookups`` (delegated to
+        ``query._build_filter_clause``) and finally to ``1=1`` if none apply.
+        """
         params: list[Any] = []
 
         # Build condition
@@ -445,10 +519,19 @@ class Case(Expression):
     """
 
     def __init__(self, *cases: When, default: Any = None):
+        """
+        Args:
+            *cases: One or more ``When`` clauses, evaluated in order.
+            default: Value for the ``ELSE`` branch. Non-``Expression`` values
+                are wrapped in ``Value``; if ``None`` (default), no ``ELSE``
+                clause is emitted and the SQL ``CASE`` falls through to
+                ``NULL`` when no branch matches.
+        """
         self.cases = cases
         self.default = default if isinstance(default, Expression) else Value(default) if default is not None else None
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``CASE WHEN ... THEN ... [ELSE ...] END``."""
         params: list[Any] = []
         parts = ["CASE"]
 
@@ -479,10 +562,25 @@ class Subquery(Expression):
     """
 
     def __init__(self, queryset: Any, output_field: Any = None):
+        """
+        Args:
+            queryset: Object with a ``_build_select()`` method (typically a
+                ``QuerySet``) whose compiled SELECT becomes the subquery body.
+            output_field: Declares the annotated field's type for downstream
+                type resolution. Currently informational only -- it is
+                stored but not consulted by ``as_sql()``.
+        """
         self.queryset = queryset
         self.output_field = output_field
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``(<compiled SELECT>)``.
+
+        Falls back to ``str(queryset)`` wrapped in parens with no bind
+        params if *queryset* has no ``_build_select()`` method -- e.g. when
+        a raw SQL string is passed directly.
+        """
         if hasattr(self.queryset, "_build_select"):
             sql, params = self.queryset._build_select()
             return f"({sql})", params
@@ -503,9 +601,20 @@ class Exists(Expression):
     """
 
     def __init__(self, queryset: Any):
+        """
+        Args:
+            queryset: Object with a ``_build_select()`` method (typically a
+                ``QuerySet``) whose compiled SELECT is wrapped in ``EXISTS()``.
+        """
         self.queryset = queryset
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``EXISTS (<compiled SELECT>)``.
+
+        Falls back to ``EXISTS (str(queryset))`` with no bind params if
+        *queryset* has no ``_build_select()`` method.
+        """
         if hasattr(self.queryset, "_build_select"):
             sql, params = self.queryset._build_select()
             return f"EXISTS ({sql})", params
@@ -538,10 +647,18 @@ class ExpressionWrapper(Expression):
     """
 
     def __init__(self, expression: Expression, output_field: Any = None):
+        """
+        Args:
+            expression: The wrapped expression, rendered unchanged.
+            output_field: Declares the result's field type for downstream
+                type resolution. Informational only -- it does not affect
+                the generated SQL.
+        """
         self.expression = expression
         self.output_field = output_field
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Delegate entirely to the wrapped expression's ``as_sql()``."""
         return self.expression.as_sql(dialect)
 
     def __repr__(self) -> str:
@@ -561,6 +678,20 @@ class Func(Expression):
     """
 
     def __init__(self, function: str, *args: Any):
+        """
+        Args:
+            function: SQL function name. Must match ``_SAFE_FUNC_RE``
+                (letters, digits, underscores only) -- this is not a
+                user-facing formatting choice but a security guard against
+                identifier injection.
+            *args: Function arguments. Each is coerced via
+                ``_coerce_expression``: ``Expression`` instances pass
+                through, strings become ``F(str)`` (a field reference),
+                and everything else becomes ``Value(arg)``.
+
+        Raises:
+            QueryFault: If *function* fails the safe-name check.
+        """
         if not _SAFE_FUNC_RE.match(function):
             from ..faults.domains import QueryFault
 
@@ -574,6 +705,7 @@ class Func(Expression):
         self.args = [_coerce_expression(a) for a in args]
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``FUNCTION(arg1, arg2, ...)``, concatenating each arg's params in order."""
         params: list[Any] = []
         arg_parts: list[str] = []
         for arg in self.args:
@@ -595,6 +727,18 @@ class Cast(Expression):
     """
 
     def __init__(self, expression: Any, output_type: str):
+        """
+        Args:
+            expression: Value to cast. ``Expression`` passes through, ``str``
+                is treated as a field reference (``F(expression)``), anything
+                else becomes a literal ``Value(expression)``.
+            output_type: Target SQL type, e.g. ``"INTEGER"``, ``"VARCHAR(255)"``,
+                ``"NUMERIC(10, 2)"``. Validated against ``_SAFE_TYPE_RE`` as a
+                guard against identifier/type injection.
+
+        Raises:
+            QueryFault: If *output_type* is not a valid-looking SQL type name.
+        """
         if not _SAFE_TYPE_RE.match(output_type):
             from ..faults.domains import QueryFault
 
@@ -615,6 +759,7 @@ class Cast(Expression):
         self.output_type = output_type
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``CAST(expr AS output_type)``."""
         expr_sql, params = self.expression.as_sql(dialect)
         return f"CAST({expr_sql} AS {self.output_type})", params
 
@@ -631,6 +776,7 @@ class Coalesce(Func):
     """
 
     def __init__(self, *args: Any):
+        """Build ``COALESCE(*args)`` -- each arg is coerced (Expression passthrough, str→field, else literal)."""
         super().__init__("COALESCE", *args)
 
 
@@ -643,9 +789,11 @@ class Greatest(Func):
     """
 
     def __init__(self, *args: Any):
+        """Build ``GREATEST(*args)`` -- each arg is coerced (Expression passthrough, str→field, else literal)."""
         super().__init__("GREATEST", *args)
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``MAX(...)`` on SQLite (no multi-arg ``GREATEST``), else ``GREATEST(...)``."""
         if dialect == "sqlite":
             # SQLite uses MAX() for this purpose
             params: list[Any] = []
@@ -667,9 +815,11 @@ class Least(Func):
     """
 
     def __init__(self, *args: Any):
+        """Build ``LEAST(*args)`` -- each arg is coerced (Expression passthrough, str→field, else literal)."""
         super().__init__("LEAST", *args)
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``MIN(...)`` on SQLite (no multi-arg ``LEAST``), else ``LEAST(...)``."""
         if dialect == "sqlite":
             # SQLite uses MIN() for this purpose
             params: list[Any] = []
@@ -691,10 +841,16 @@ class NullIf(Expression):
     """
 
     def __init__(self, expression1: Any, expression2: Any):
+        """
+        Args:
+            expression1: Left operand. Non-``Expression`` values are wrapped in ``Value``.
+            expression2: Right operand. Non-``Expression`` values are wrapped in ``Value``.
+        """
         self.expr1 = expression1 if isinstance(expression1, Expression) else Value(expression1)
         self.expr2 = expression2 if isinstance(expression2, Expression) else Value(expression2)
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``NULLIF(expr1, expr2)``."""
         sql1, params1 = self.expr1.as_sql(dialect)
         sql2, params2 = self.expr2.as_sql(dialect)
         return f"NULLIF({sql1}, {sql2})", params1 + params2
@@ -715,6 +871,7 @@ class Length(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``LENGTH(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("LENGTH", expression)
 
 
@@ -727,6 +884,7 @@ class Upper(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``UPPER(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("UPPER", expression)
 
 
@@ -739,6 +897,7 @@ class Lower(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``LOWER(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("LOWER", expression)
 
 
@@ -751,6 +910,7 @@ class Trim(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``TRIM(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("TRIM", expression)
 
 
@@ -763,6 +923,7 @@ class LTrim(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``LTRIM(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("LTRIM", expression)
 
 
@@ -775,6 +936,7 @@ class RTrim(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``RTRIM(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("RTRIM", expression)
 
 
@@ -787,9 +949,16 @@ class Concat(Expression):
     """
 
     def __init__(self, *expressions: Any):
+        """
+        Args:
+            *expressions: Parts to concatenate. Non-``Expression`` values
+                (including plain strings) are wrapped in ``Value`` --
+                use ``F("field")`` explicitly to reference a column.
+        """
         self.expressions = [e if isinstance(e, Expression) else Value(e) for e in expressions]
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``CONCAT(a, b, ...)`` on MySQL, or ``(a || b || ...)`` on SQLite/PostgreSQL."""
         parts: list[str] = []
         params: list[Any] = []
         for expr in self.expressions:
@@ -814,6 +983,12 @@ class Left(Expression):
     """
 
     def __init__(self, expression: Any, length: int):
+        """
+        Args:
+            expression: Source string. ``Expression`` passes through, ``str``
+                is treated as a field reference, anything else is a literal.
+            length: Number of leftmost characters to extract.
+        """
         self.expression = (
             expression
             if isinstance(expression, Expression)
@@ -824,6 +999,7 @@ class Left(Expression):
         self.length = length
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``SUBSTR(expr, 1, ?)`` on SQLite/PostgreSQL, or ``LEFT(expr, ?)`` elsewhere."""
         expr_sql, params = self.expression.as_sql(dialect)
         if dialect in ("sqlite", "postgresql"):
             return f"SUBSTR({expr_sql}, 1, ?)", params + [self.length]
@@ -842,6 +1018,12 @@ class Right(Expression):
     """
 
     def __init__(self, expression: Any, length: int):
+        """
+        Args:
+            expression: Source string. ``Expression`` passes through, ``str``
+                is treated as a field reference, anything else is a literal.
+            length: Number of rightmost characters to extract.
+        """
         self.expression = (
             expression
             if isinstance(expression, Expression)
@@ -852,6 +1034,7 @@ class Right(Expression):
         self.length = length
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``SUBSTR(expr, -length)`` on SQLite/PostgreSQL, or ``RIGHT(expr, ?)`` elsewhere."""
         expr_sql, params = self.expression.as_sql(dialect)
         if dialect in ("sqlite", "postgresql"):
             return f"SUBSTR({expr_sql}, -{self.length})", params
@@ -870,6 +1053,14 @@ class Substr(Func):
     """
 
     def __init__(self, expression: Any, pos: int, length: int | None = None):
+        """
+        Args:
+            expression: Source string. ``Expression`` passes through, ``str``
+                is treated as a field reference, anything else is a literal.
+            pos: 1-indexed starting position.
+            length: Number of characters to take; if omitted, extracts through
+                the end of the string (``SUBSTR(expr, pos)``).
+        """
         self.pos = pos
         self.length = length
         expr = (
@@ -894,6 +1085,13 @@ class Replace(Func):
     """
 
     def __init__(self, expression: Any, old: Any, new: Any):
+        """
+        Args:
+            expression: Source string. ``Expression`` passes through, ``str``
+                is treated as a field reference, anything else is a literal.
+            old: Substring to find. Non-``Expression`` values are wrapped in ``Value``.
+            new: Replacement substring. Non-``Expression`` values are wrapped in ``Value``.
+        """
         expr = (
             expression
             if isinstance(expression, Expression)
@@ -918,6 +1116,7 @@ class Abs(Func):
     """
 
     def __init__(self, expression: Any):
+        """Build ``ABS(expression)`` -- ``expression`` may be a field name, ``F()``, or literal."""
         super().__init__("ABS", expression)
 
 
@@ -930,6 +1129,12 @@ class Round(Expression):
     """
 
     def __init__(self, expression: Any, precision: int = 0):
+        """
+        Args:
+            expression: Value to round. ``Expression`` passes through, ``str``
+                is treated as a field reference, anything else is a literal.
+            precision: Number of decimal places (default 0, i.e. round to an integer).
+        """
         self.expression = (
             expression
             if isinstance(expression, Expression)
@@ -940,6 +1145,7 @@ class Round(Expression):
         self.precision = precision
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``ROUND(expr, precision)``."""
         expr_sql, params = self.expression.as_sql(dialect)
         return f"ROUND({expr_sql}, ?)", params + [self.precision]
 
@@ -956,6 +1162,12 @@ class Power(Expression):
     """
 
     def __init__(self, expression: Any, exponent: Any):
+        """
+        Args:
+            expression: Base value. ``Expression`` passes through, ``str``
+                is treated as a field reference, anything else is a literal.
+            exponent: Power to raise to. Non-``Expression`` values are wrapped in ``Value``.
+        """
         self.expression = (
             expression
             if isinstance(expression, Expression)
@@ -966,6 +1178,14 @@ class Power(Expression):
         self.exponent = exponent if isinstance(exponent, Expression) else Value(exponent)
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``POWER(expr, exponent)`` on all dialects.
+
+        Caveat: stock SQLite has no built-in ``POWER()`` function -- it is
+        only available when the connection has the math functions extension
+        enabled (``SQLITE_ENABLE_MATH_FUNCTIONS``). Without it, this will
+        raise a "no such function" error at execution time.
+        """
         expr_sql, expr_params = self.expression.as_sql(dialect)
         exp_sql, exp_params = self.exponent.as_sql(dialect)
         if dialect == "sqlite":
@@ -990,6 +1210,7 @@ class Now(Expression):
     """
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``DATETIME('now')`` on SQLite, or ``NOW()`` on MySQL/PostgreSQL. No bind params."""
         if dialect == "sqlite":
             return "DATETIME('now')", []
         elif dialect == "mysql":

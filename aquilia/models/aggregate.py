@@ -54,6 +54,24 @@ class Aggregate(Expression):
         alias: str | None = None,
         filter_clause: str | None = None,
     ):
+        """
+        Args:
+            expression: Field to aggregate, given as a field name (wrapped
+                in ``F()``) or any ``Expression``.
+            distinct: If True, render as ``FUNCTION(DISTINCT expr)``.
+            alias: Optional label for this aggregate, stored for
+                introspection/serialization only. Note that
+                ``QuerySet.aggregate()`` derives the output column name from
+                its keyword argument name, not from this attribute.
+            filter_clause: Raw SQL boolean expression appended as
+                ``FILTER (WHERE ...)`` (PostgreSQL / SQLite 3.25+; not
+                supported on MySQL).
+
+                .. warning::
+                    Interpolated directly into the SQL string with **no
+                    parameterization or escaping**. Never build it from
+                    untrusted input.
+        """
         if isinstance(expression, str):
             expression = F(expression)
         self.expression = expression
@@ -62,6 +80,7 @@ class Aggregate(Expression):
         self.filter_clause = filter_clause
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``FUNCTION([DISTINCT] expr) [FILTER (WHERE ...)]``."""
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
         sql = f"{self.function}({distinct_str}{expr_sql})"
@@ -91,6 +110,11 @@ class Count(Aggregate):
     function = "COUNT"
 
     def __init__(self, expression: str | Expression = "*", **kwargs):
+        """
+        Args:
+            expression: Field to count, or ``"*"`` (default) for ``COUNT(*)``.
+            **kwargs: Forwarded to ``Aggregate.__init__`` (``distinct``, ``alias``, ``filter_clause``).
+        """
         if expression == "*":
             # Special case: COUNT(*)
             super().__init__(expression="*", **kwargs)
@@ -98,6 +122,7 @@ class Count(Aggregate):
             super().__init__(expression=expression, **kwargs)
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``COUNT([DISTINCT] *)`` when constructed with ``"*"``, else defer to ``Aggregate.as_sql``."""
         if isinstance(self.expression, F) and self.expression.name == "*":
             distinct_str = "DISTINCT " if self.distinct else ""
             return f"COUNT({distinct_str}*)", []
@@ -122,6 +147,16 @@ class StdDev(Aggregate):
     function = "STDDEV"
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``STDDEV(expr)``.
+
+        Caveat: SQLite has no native ``STDDEV`` -- it must be registered as
+        a custom aggregate on the connection (e.g. via
+        ``sqlite3.Connection.create_aggregate``), otherwise this raises a
+        "no such function" error at execution time. The SQLite branch also
+        bypasses ``distinct``/``filter_clause`` support, unlike the base
+        ``Aggregate.as_sql`` used for other dialects.
+        """
         if dialect == "sqlite":
             # SQLite doesn't have STDDEV natively; use a workaround
             expr_sql, expr_params = self.expression.as_sql(dialect)
@@ -135,6 +170,13 @@ class Variance(Aggregate):
     function = "VARIANCE"
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``VARIANCE(expr)``.
+
+        Caveat: same as ``StdDev`` -- SQLite has no native ``VARIANCE`` and
+        requires a custom aggregate registered on the connection; the
+        SQLite branch also bypasses ``distinct``/``filter_clause`` support.
+        """
         if dialect == "sqlite":
             expr_sql, expr_params = self.expression.as_sql(dialect)
             return f"VARIANCE({expr_sql})", expr_params
@@ -164,10 +206,28 @@ class ArrayAgg(Aggregate):
         ordering: str | None = None,
         **kwargs,
     ):
+        """
+        Args:
+            expression: Field name or Expression to collect.
+            distinct: If True, collect only distinct values.
+            ordering: Field name to order collected values by; prefix with
+                ``"-"`` for descending. Only honored on the PostgreSQL branch
+                (see caveat on ``as_sql``).
+            **kwargs: Forwarded to ``Aggregate.__init__`` (``alias``, ``filter_clause``).
+        """
         super().__init__(expression, distinct=distinct, **kwargs)
         self.ordering = ordering
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``ARRAY_AGG([DISTINCT] expr [ORDER BY ...])`` on PostgreSQL.
+
+        Falls back to ``GROUP_CONCAT([DISTINCT] expr)`` on SQLite.
+
+        Caveat: on the SQLite branch, ``ordering`` is computed but never
+        applied to the returned SQL -- SQLite's ``GROUP_CONCAT`` has no
+        native ``ORDER BY`` sub-clause, so ordering is a no-op there.
+        """
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
 
@@ -213,11 +273,34 @@ class StringAgg(Aggregate):
         ordering: str | None = None,
         **kwargs,
     ):
+        """
+        Args:
+            expression: Field name or Expression to concatenate.
+            delimiter: Separator placed between values (default ``","``).
+            distinct: If True, concatenate only distinct values.
+            ordering: Field name to order concatenated values by; prefix
+                with ``"-"`` for descending. Only honored on the PostgreSQL
+                branch.
+            **kwargs: Forwarded to ``Aggregate.__init__`` (``alias``, ``filter_clause``).
+        """
         super().__init__(expression, distinct=distinct, **kwargs)
         self.delimiter = delimiter
         self.ordering = ordering
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render dialect-specific string aggregation.
+
+        - SQLite: ``GROUP_CONCAT([DISTINCT] expr, ?)`` with *delimiter* parameterized.
+        - MySQL: ``GROUP_CONCAT([DISTINCT] expr SEPARATOR '<delimiter>')``.
+
+          .. warning::
+              *delimiter* is interpolated directly into the SQL string on
+              this branch (not parameterized) -- do not build it from
+              untrusted input, and avoid delimiters containing ``'``.
+        - PostgreSQL: ``STRING_AGG([DISTINCT] expr, ? [ORDER BY ...])`` with
+          *delimiter* parameterized and *ordering* honored.
+        """
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
 
@@ -255,10 +338,26 @@ class GroupConcat(Aggregate):
         distinct: bool = False,
         **kwargs,
     ):
+        """
+        Args:
+            expression: Field name or Expression to concatenate.
+            separator: Separator placed between values (default ``","``).
+            distinct: If True, concatenate only distinct values.
+            **kwargs: Forwarded to ``Aggregate.__init__`` (``alias``, ``filter_clause``).
+        """
         super().__init__(expression, distinct=distinct, **kwargs)
         self.separator = separator
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """
+        Render as ``GROUP_CONCAT([DISTINCT] expr SEPARATOR '<separator>')`` on MySQL,
+        or ``GROUP_CONCAT([DISTINCT] expr, ?)`` with *separator* parameterized elsewhere (SQLite).
+
+        .. warning::
+            On the MySQL branch, *separator* is interpolated directly into
+            the SQL string (not parameterized) -- do not build it from
+            untrusted input, and avoid separators containing ``'``.
+        """
         expr_sql, expr_params = self.expression.as_sql(dialect)
         distinct_str = "DISTINCT " if self.distinct else ""
 
@@ -283,6 +382,7 @@ class BoolAnd(Aggregate):
     function = "BOOL_AND"
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``MIN(expr)`` on SQLite (booleans stored as 0/1), else ``BOOL_AND(expr)``."""
         expr_sql, expr_params = self.expression.as_sql(dialect)
         if dialect == "sqlite":
             return f"MIN({expr_sql})", expr_params
@@ -302,6 +402,7 @@ class BoolOr(Aggregate):
     function = "BOOL_OR"
 
     def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        """Render as ``MAX(expr)`` on SQLite (booleans stored as 0/1), else ``BOOL_OR(expr)``."""
         expr_sql, expr_params = self.expression.as_sql(dialect)
         if dialect == "sqlite":
             return f"MAX({expr_sql})", expr_params

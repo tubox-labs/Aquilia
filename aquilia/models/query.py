@@ -102,24 +102,34 @@ class QNode:
     OR = "OR"
 
     def __init__(self, **kwargs: Any):
+        """Create a leaf filter node from field-lookup kwargs (same syntax as ``Q.filter()``).
+
+        ``QNode(name="Alice", age__gt=18)`` builds a leaf node whose own
+        filters are AND-ed together when rendered. Combine leaf nodes with
+        ``&``/``|``/``~`` to build composite trees (see ``__and__``,
+        ``__or__``, ``__invert__``).
+        """
         self.filters: dict[str, Any] = kwargs
         self.negated: bool = False
         self.children: list[QNode] = []
         self.connector: str = self.AND
 
     def __and__(self, other: QNode) -> QNode:
+        """Combine two nodes with AND, returning a new composite node (does not mutate either operand)."""
         node = QNode()
         node.connector = self.AND
         node.children = [self, other]
         return node
 
     def __or__(self, other: QNode) -> QNode:
+        """Combine two nodes with OR, returning a new composite node (does not mutate either operand)."""
         node = QNode()
         node.connector = self.OR
         node.children = [self, other]
         return node
 
     def __invert__(self) -> QNode:
+        """Return a negated copy of this node (``NOT (...)`` when rendered to SQL); does not mutate ``self``."""
         clone = QNode(**self.filters)
         clone.negated = not self.negated
         clone.children = self.children[:]
@@ -127,7 +137,15 @@ class QNode:
         return clone
 
     def _build_sql(self) -> tuple[str, list[Any]]:
-        """Build SQL WHERE clause fragment from this node."""
+        """Build SQL WHERE clause fragment from this node.
+
+        Recursively renders this node's own ``filters`` (AND-ed together via
+        ``_build_filter_clause``) plus any ``children`` (each parenthesized
+        and joined by ``self.connector``), wrapping the whole result in
+        ``NOT (...)`` if ``self.negated`` is set. Returns ``("", [])`` for an
+        empty node (no filters, no children) so callers can skip emitting an
+        empty clause.
+        """
         parts: list[str] = []
         params: list[Any] = []
 
@@ -156,6 +174,7 @@ class QNode:
         return sql, params
 
     def __repr__(self) -> str:
+        """Debug string -- shows connector + child count for composite nodes, or the raw filters for a leaf."""
         if self.children:
             return f"QNode({self.connector}, children={len(self.children)})"
         return f"QNode({self.filters})"
@@ -188,11 +207,21 @@ class Prefetch:
         queryset: Q | None = None,
         to_attr: str | None = None,
     ):
+        """Describe one ``prefetch_related()`` lookup with an optional custom queryset/target attribute.
+
+        Args:
+            lookup: Name of the FK/M2M field on the model being queried to prefetch.
+            queryset: Optional pre-filtered/ordered queryset to use instead of fetching
+                all related rows (e.g. ``Order.objects.filter(total__gt=500)``).
+            to_attr: Optional attribute name to stash the prefetched results under on
+                each instance. Defaults to *lookup* itself.
+        """
         self.lookup = lookup
         self.queryset = queryset
         self.to_attr = to_attr or lookup
 
     def __repr__(self) -> str:
+        """Debug string showing the prefetch lookup name."""
         return f"Prefetch({self.lookup!r})"
 
 
@@ -267,11 +296,30 @@ def _build_filter_clause(key: str, value: Any) -> tuple[str, list[Any]]:
 
 
 class QuerySetDatabaseWrapper:
+    """Thin proxy around an ``AquiliaDatabase`` that tags each call with the owning model's name.
+
+    Wraps ``execute``/``fetch_all``/``fetch_one``/``fetch_val`` so the model
+    name is available via ``current_model_var`` (a ``contextvars.ContextVar``)
+    for the duration of each call -- used by lower layers (e.g. error
+    reporting, per-model instrumentation) that need to know which model a raw
+    SQL statement was issued on. All other attributes/methods pass through
+    to the wrapped database unchanged.
+    """
+
     def __init__(self, db: Any, model_name: str):
+        """Wrap *db* so all query calls are tagged with *model_name*."""
         self._wrapped_db = db
         self._model_name = model_name
 
     def __getattr__(self, name: str) -> Any:
+        """Proxy attribute access to the wrapped database.
+
+        For the four query-execution methods, returns an async wrapper that
+        sets ``current_model_var`` to this wrapper's model name for the
+        duration of the call (resetting it afterward) and passes
+        ``model=<model_name>`` through as a keyword argument. Any other
+        attribute is returned as-is from the wrapped database.
+        """
         attr = getattr(self._wrapped_db, name)
         if callable(attr) and name in ("execute", "fetch_all", "fetch_one", "fetch_val"):
 
@@ -363,6 +411,19 @@ class Q(Generic[TModel]):
     )
 
     def __init__(self, table: str, model_cls: type[TModel], db: AquiliaDatabase):
+        """Construct a fresh, empty queryset bound to a model/table/database.
+
+        Args:
+            table: Physical table name to query against.
+            model_cls: The model class rows are hydrated into (via ``from_row()``).
+            db: The database connection this queryset executes against by default
+                (can be overridden per-chain with ``.using(db_alias)``).
+
+        End users should not call this directly -- querysets are obtained via
+        ``Model.query()`` / ``Model.objects`` and then built up by chaining
+        (each chain method returns a new ``Q`` via ``_clone()``, never mutating
+        this one in place).
+        """
         self._table = table
         self._model_cls: type[TModel] = model_cls
         self._wheres: list[str] = []
@@ -870,6 +931,12 @@ class Q(Generic[TModel]):
     # ── Guard methods ────────────────────────────────────────────────
 
     def __bool__(self) -> bool:
+        """Always raises -- a lazy ``Q`` has no truthiness until executed.
+
+        Guards against the common mistake of writing ``if qs:`` (which would
+        silently evaluate the *object identity*, not "are there matching
+        rows") instead of ``if await qs.exists():``.
+        """
         from aquilia.faults.domains import QueryFault
 
         raise QueryFault(
@@ -877,6 +944,10 @@ class Q(Generic[TModel]):
         )
 
     def __len__(self) -> int:
+        """Always raises -- ``len()`` would require executing the query synchronously.
+
+        Use ``await qs.count()`` (a SQL ``COUNT(*)``) instead.
+        """
         from aquilia.faults.domains import QueryFault
 
         raise QueryFault(
@@ -950,11 +1021,40 @@ class Q(Generic[TModel]):
         return c
 
     def _build_select(self, count: bool = False, columns: list[str] | None = None) -> tuple[str, list[Any]]:
-        """Build the SELECT SQL and parameter list.
+        """Build the SELECT SQL and parameter list from all accumulated query state.
+
+        Assembles, in order: the column list (``COUNT(*)`` if *count*, an
+        explicit *columns* list for ``values()``, annotation expressions
+        merged with base/only/defer columns, or ``*``/``"table".*``),
+        ``select_related`` LEFT JOINs and their aliased ``rel__attr`` columns,
+        ``WHERE`` (from ``_wheres``/``_params``), ``GROUP BY``, ``HAVING``,
+        ``ORDER BY`` (explicit ``_order_clauses`` or falling back to
+        ``Meta.ordering``), ``LIMIT``/``OFFSET``, and ``SELECT ... FOR UPDATE``
+        locking clauses.
 
         Args:
-            count: If True, build a COUNT(*) query.
-            columns: Optional explicit column list (used by values()).
+            count: If True, build a ``COUNT(*)`` query instead of selecting
+                columns -- skips select_related joins/columns, ordering,
+                limit/offset, and locking clauses since they're irrelevant to
+                a row count.
+            columns: Optional explicit column list (used by ``values()``) --
+                each entry is rendered as an aliased annotation expression if
+                it names one, otherwise as a plain quoted column.
+
+        Returns:
+            A ``(sql, params)`` tuple. Params are ordered annotation params
+            first (since annotation SQL appears in the SELECT clause, before
+            WHERE), then WHERE params, then HAVING params -- callers combining
+            this with other query fragments (e.g. set operations) must
+            preserve that order.
+
+        Caveats:
+            - ``SELECT FOR UPDATE`` raises ``QueryFault`` on SQLite (not
+              supported by the dialect); use ``atomic()`` transactions there
+              instead.
+            - Field names throughout are assumed pre-validated by the chain
+              methods that populated this state (``_SAFE_FIELD_RE``), so this
+              method does not re-validate them.
         """
         from .aggregate import Aggregate
         from .expression import Expression
@@ -1758,6 +1858,13 @@ class Q(Generic[TModel]):
         return _QueryIterator(self)
 
     def __repr__(self) -> str:
+        """Debug string showing the rendered SQL and params (or ``.none()`` for an empty queryset).
+
+        Building the SQL here mirrors what ``all()``/``first()``/etc. would
+        actually run, so ``repr(qs)`` is safe to use for debugging without
+        triggering a query -- ``_build_select()`` only inspects accumulated
+        chain state, it never executes.
+        """
         if self._is_none:
             return f"<Q: {self._model_cls.__name__}.none()>"
         sql, params = self._build_select()
@@ -1779,11 +1886,16 @@ class _QueryIterator:
     """Async iterator for Q querysets -- loads all results on first iteration."""
 
     def __init__(self, query: Q):
+        """Wrap *query* -- results aren't fetched until the first ``__anext__`` call."""
         self._query = query
         self._results: list | None = None
         self._index = 0
 
     async def __anext__(self):
+        """Return the next row, executing and caching ``query.all()`` lazily on first call.
+
+        Raises ``StopAsyncIteration`` once every row has been yielded.
+        """
         if self._results is None:
             self._results = await self._query.all()
         if self._index >= len(self._results):
@@ -1801,6 +1913,7 @@ class _ChunkedQueryIterator:
     """
 
     def __init__(self, query: Q, chunk_size: int = 2000):
+        """Wrap *query* to fetch results in batches of *chunk_size* rows via LIMIT/OFFSET."""
         self._query = query
         self._chunk_size = chunk_size
         self._offset = 0
@@ -1809,6 +1922,14 @@ class _ChunkedQueryIterator:
         self._exhausted = False
 
     async def __anext__(self):
+        """Return the next row, fetching a new chunk from the database once the current buffer is exhausted.
+
+        Applies ``limit(chunk_size).offset(offset)`` on top of the wrapped
+        query for each batch (bypassing its result cache so every batch hits
+        the database), and marks itself exhausted -- raising
+        ``StopAsyncIteration`` on this and all subsequent calls -- once a
+        batch comes back shorter than ``chunk_size`` or empty.
+        """
         if self._index >= len(self._buffer):
             if self._exhausted:
                 raise StopAsyncIteration

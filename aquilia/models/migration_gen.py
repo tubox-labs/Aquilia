@@ -48,7 +48,19 @@ def _generate_revision() -> str:
 
 
 def _slugify(name: str) -> str:
-    """Convert model name to a migration slug."""
+    """Convert a model name to a migration slug.
+
+    Note:
+        This function is currently unused elsewhere in this module --
+        ``generate_dsl_migration`` builds its slug inline from
+        ``_affected_model_names`` instead of calling this. It also appears
+        to have its ``re.sub`` arguments swapped (``repl`` and ``string``
+        are reversed compared to the equivalent, actively-used
+        ``migrations.py::_slugify``), so as written it does not sanitize
+        non-alphanumeric characters out of ``name`` -- it only lowercases
+        it. Left as-is per the docs-only scope of this pass; flagged here
+        for a future behavioral fix.
+    """
     return re.sub(r"[^a-z0-9]+", name.lower(), "_").strip("_")
 
 
@@ -131,7 +143,18 @@ def generate_dsl_migration(
 
 
 def _affected_model_names(diff: SchemaDiff) -> list[str]:
-    """Get all model names affected by a diff."""
+    """Collect the sorted, de-duplicated set of model names touched by a diff.
+
+    Combines added, removed, renamed (using the new name), and altered
+    model names from ``diff`` into a single flat list. Used both to build
+    the migration's ``Meta.models`` list and to derive its default slug.
+
+    Args:
+        diff: The ``SchemaDiff`` to summarize.
+
+    Returns:
+        Sorted list of unique model names.
+    """
     names: list[str] = []
     names.extend(diff.added_models)
     names.extend(diff.removed_models)
@@ -147,7 +170,24 @@ def _render_migration_file(
     model_names: list[str],
     operations: list[Operation],
 ) -> str:
-    """Render a DSL migration file as Python source."""
+    """Render a complete DSL migration file as Python source text.
+
+    Produces a module with: a module docstring (revision/generated
+    timestamp/affected models), an import of every ``Operation`` subclass
+    actually used plus ``columns as C``, a ``Meta`` class carrying
+    ``revision``/``slug``/``models``, and a module-level ``operations`` list
+    with one rendered operation per entry (see ``_render_operation``).
+
+    Args:
+        revision: Timestamp-based revision ID for the ``Meta.revision`` field.
+        slug: Migration slug for the ``Meta.slug`` field.
+        model_names: Affected model names, written verbatim into ``Meta.models``.
+        operations: The DSL operations to render into the ``operations`` list.
+
+    Returns:
+        The full migration file contents as a string, ready to be written
+        to disk.
+    """
     now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     models_str = ", ".join(model_names)
 
@@ -188,7 +228,26 @@ def _render_migration_file(
 
 
 def _render_operation(op: Operation) -> str:
-    """Render a single Operation as Python source."""
+    """Render a single ``Operation`` instance as a Python source-code call.
+
+    Dispatches on the concrete operation type and emits a multi-line,
+    ready-to-read constructor call (e.g. ``CreateModel(name=..., table=...,
+    fields=[...])``) matching the literal argument values on ``op``, using
+    ``repr()`` (via ``!r``) for safe literal formatting of strings/lists.
+    ``CreateModel``/``AddField`` additionally render their ``ColumnDef``
+    values via ``_render_column_def``.
+
+    Args:
+        op: The operation to render. Must be one of the concrete DSL
+            operation types imported at the top of this module.
+
+    Returns:
+        A string containing one or more indented lines of Python source,
+        always ending in a trailing comma (so it can be placed directly
+        inside the generated ``operations = [...]`` list). For an
+        unrecognized operation type, returns a ``# Unknown operation: ...``
+        comment instead of raising.
+    """
     if isinstance(op, CreateModel):
         field_lines = []
         for f in op.fields:
@@ -256,7 +315,29 @@ def _render_operation(op: Operation) -> str:
 
 
 def _render_column_def(col: ColumnDef) -> str:
-    """Render a ColumnDef as a C.xxx() call."""
+    """Render a ``ColumnDef`` as the equivalent ``C.xxx(...)`` builder call.
+
+    Inverts the ``_ColumnBuilder``/``C`` helpers in ``migration_dsl.py``:
+    given a fully-formed ``ColumnDef``, infers which ``C.*`` factory method
+    would have produced it and renders that call with the relevant kwargs
+    (``null``, ``unique``, ``primary_key``, ``default``) reconstructed from
+    the column's attributes.
+
+    Dispatch order: auto-increment primary keys render as ``C.auto(...)``;
+    a ``references`` tuple always renders as ``C.foreign_key(...)``
+    (regardless of ``col_type``) before any other check; otherwise dispatch
+    is by uppercased ``col_type`` (``BOOLEAN``, ``VARCHAR``, ``TEXT``,
+    ``INTEGER``, ``DECIMAL``, ``TIMESTAMP``, ``REAL``, ``BLOB``, ``DATE``,
+    ``TIME``, ``VARCHAR(36)``/``UUID``), falling back to ``C.text(...)``
+    for any unrecognized type.
+
+    Args:
+        col: The column definition to render.
+
+    Returns:
+        A single-line string like ``'C.varchar("email", 255, unique=True)'``,
+        suitable for embedding directly in generated migration source.
+    """
     if col.primary_key and col.autoincrement:
         return f'C.auto("{col.name}")'
 

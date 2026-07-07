@@ -14,9 +14,14 @@ Usage:
 
     async with atomic() as sp1:
         await User.create(name="Bob")
-        async with atomic() as sp2:
-            await Post.create(title="Hello")
-            raise ValueError("oops")  # sp2 rolled back
+        try:
+            async with atomic() as sp2:
+                await Post.create(title="Hello")
+                raise ValueError("oops")  # sp2 rolled back
+        except ValueError:
+            pass  # must be caught here -- atomic() never suppresses the
+            # exception itself, so letting it keep propagating would also
+            # roll back the outer sp1 transaction
         # sp1 still active -- Bob is saved, Post is not
 
     # With commit hooks:
@@ -200,7 +205,15 @@ class Atomic:
         self._rollback_hooks.append(fn)
 
     async def _fire_hooks(self, hooks: list[Callable]) -> None:
-        """Execute a list of hooks, catching exceptions."""
+        """
+        Run each hook in ``hooks`` in registration order.
+
+        Supports both sync and async callables. Each hook is isolated:
+        an exception is logged (not raised) and execution continues with
+        the next hook, so one broken ``on_commit``/``on_rollback``
+        callback can never prevent the others from running or corrupt the
+        already-completed commit/rollback that triggered them.
+        """
         for hook in hooks:
             try:
                 if inspect.iscoroutinefunction(hook):
@@ -211,6 +224,35 @@ class Atomic:
                 logger.error(f"Transaction hook failed: {exc}")
 
     async def __aenter__(self) -> Atomic:
+        """
+        Enter the transaction/savepoint, tracked by nesting depth for the
+        current asyncio task (see ``_get_depth_holder``).
+
+        - Depth 0 (outermost): connects the database if needed, validates
+          ``isolation`` against the allow-list (raising ``QueryFault`` if
+          it isn't one of the four standard SQL levels), then issues a
+          real adapter-level BEGIN via ``db.begin(isolation=, readonly=)``
+          -- this pins a dedicated connection and disables per-statement
+          autocommit, unlike sending literal ``"BEGIN"`` text through
+          ``execute()``. Depth becomes 1.
+        - Depth > 0 (nested): if ``durable=True`` was requested, raises
+          ``QueryFault`` immediately (a durable block must be the
+          outermost one). Otherwise, if ``savepoint=True`` (the default),
+          creates a uniquely-named SAVEPOINT (``sp_<12 hex chars>``) via
+          ``db.savepoint()``. Depth is incremented.
+
+        Caveat: ``isolation`` and ``readonly`` are only ever applied at
+        depth 0 -- passing them to a nested ``atomic()`` call is silently
+        ignored, since the branch that reads them only runs when starting
+        the outermost transaction.
+
+        If ``timeout`` was given, schedules a background watchdog task
+        (:meth:`_watchdog`) that cancels the current task if the block
+        doesn't finish in time.
+
+        Returns:
+            ``self``, bound to the ``as`` target of the ``async with``.
+        """
         db = self._get_db()
         if not db.is_connected:
             await db.connect()
@@ -268,7 +310,20 @@ class Atomic:
         return self
 
     async def _watchdog(self, owner_task: asyncio.Task | None) -> None:
-        """Cancel the owning task if the block outlives ``self._timeout`` seconds."""
+        """
+        Cancel the owning task if the block outlives ``self._timeout`` seconds.
+
+        Sleeps for ``self._timeout`` seconds, then -- if the owning task
+        is still running -- sets ``self._timed_out = True`` and calls
+        ``owner_task.cancel()``. This does not itself roll anything back:
+        the resulting ``asyncio.CancelledError`` propagates up through the
+        guarded ``async with`` block into :meth:`__aexit__`, which performs
+        the actual rollback and (because ``_timed_out`` is set) re-raises
+        a ``QueryFault`` describing the timeout instead of a bare
+        ``CancelledError``. This task is itself cancelled by
+        ``__aexit__`` once the block finishes normally, so it never fires
+        for a block that completed in time.
+        """
         assert self._timeout is not None
         await asyncio.sleep(self._timeout)
         if owner_task is not None and not owner_task.done():
@@ -276,6 +331,41 @@ class Atomic:
             owner_task.cancel()
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """
+        Exit the transaction/savepoint and always decrement the per-task
+        depth counter, regardless of outcome.
+
+        Order of operations:
+
+        1. Cancel the timeout watchdog (if any) so it can't fire a late,
+           spurious cancellation after the guarded block has already
+           finished.
+        2. If an exception is propagating (``exc_type is not None``):
+           roll back to this block's savepoint (``self._savepoint_id``),
+           or -- if this is the outermost block -- roll back the whole
+           transaction via ``db.rollback()``. Then run the
+           ``on_rollback`` hooks.
+        3. Otherwise (clean exit): release this block's savepoint, or --
+           if outermost -- commit via ``db.commit()`` and then run the
+           ``on_commit`` hooks (hooks only fire at the outermost level in
+           either case; a nested block releasing its savepoint does not
+           trigger hooks).
+        4. In a ``finally``, decrement the depth holder (floored at 0).
+        5. If the propagating exception was specifically the
+           ``asyncio.CancelledError`` raised by the timeout watchdog
+           (``self._timed_out`` is set), re-raise it as a ``QueryFault``
+           (chained with ``from exc_val``) instead -- so callers see a
+           clear timeout error rather than a bare cancellation.
+
+        Never suppresses exceptions itself (always returns ``False``): a
+        nested block's exception still propagates to its caller after
+        rolling back only its own savepoint -- if that caller lets it
+        propagate further (e.g. out of the enclosing ``atomic()`` too),
+        the outer block's ``__aexit__`` will *also* see ``exc_type is not
+        None`` and roll back further. To keep a nested rollback local,
+        the exception must be caught between the nested and outer
+        ``async with`` blocks (see the module docstring example).
+        """
         db = self._get_db()
 
         # Stop the timeout watchdog before it can fire a spurious late
@@ -322,14 +412,53 @@ class Atomic:
         return False  # Don't suppress exceptions
 
     async def savepoint(self) -> str:
-        """Create an explicit savepoint within this atomic block."""
+        """
+        Create an additional, explicitly-managed savepoint within this
+        atomic block.
+
+        Unlike the automatic savepoint created when nesting ``atomic()``
+        calls, this lets you create multiple independent rollback points
+        *inside a single* ``atomic()`` block without opening another
+        context manager -- e.g. to try a risky sub-operation and roll
+        back only that part via :meth:`rollback_to_savepoint`, while
+        remaining inside the same block.
+
+        The generated name (``sp_<12 hex chars>`` from ``uuid4``) is
+        always safe by construction, so -- unlike
+        :meth:`rollback_to_savepoint`/:meth:`release_savepoint`, which
+        accept a caller-supplied id -- this method does not need to
+        validate it against ``_SP_NAME_RE`` before sending it to the
+        database.
+
+        Returns:
+            The generated savepoint id, to pass to
+            :meth:`rollback_to_savepoint` or :meth:`release_savepoint`
+            later.
+        """
         db = self._get_db()
         sp_id = f"sp_{uuid.uuid4().hex[:12]}"
         await db.savepoint(sp_id)
         return sp_id
 
     async def rollback_to_savepoint(self, savepoint_id: str) -> None:
-        """Roll back to a specific savepoint."""
+        """
+        Roll back to a specific savepoint created via :meth:`savepoint`.
+
+        Args:
+            savepoint_id: The id returned by an earlier :meth:`savepoint`
+                call.
+
+        Raises:
+            QueryFault: If ``savepoint_id`` doesn't match
+                ``_SP_NAME_RE`` (alphanumeric/underscore only, not
+                starting with a digit) -- this id gets interpolated into
+                SQL text, so it is validated defensively here even though
+                every id this class generates already satisfies the
+                pattern; the check only matters if a caller passes back a
+                tampered or hand-written string. The database layer
+                (``AquiliaDatabase.rollback_to_savepoint``) re-validates
+                independently as a second line of defense.
+        """
         if not _SP_NAME_RE.match(savepoint_id):
             from aquilia.faults.domains import QueryFault
 
@@ -340,7 +469,19 @@ class Atomic:
         await db.rollback_to_savepoint(savepoint_id)
 
     async def release_savepoint(self, savepoint_id: str) -> None:
-        """Release (commit) a savepoint."""
+        """
+        Release (commit) a specific savepoint created via :meth:`savepoint`,
+        keeping its changes as part of the enclosing transaction.
+
+        Args:
+            savepoint_id: The id returned by an earlier :meth:`savepoint`
+                call.
+
+        Raises:
+            QueryFault: If ``savepoint_id`` fails the same
+                ``_SP_NAME_RE`` validation described in
+                :meth:`rollback_to_savepoint`.
+        """
         if not _SP_NAME_RE.match(savepoint_id):
             from aquilia.faults.domains import QueryFault
 
@@ -448,8 +589,14 @@ class TransactionManager:
     """
     Higher-level transaction manager with properly scoped on_commit hooks.
 
-    Unlike using bare on_commit hooks, TransactionManager ensures hooks
-    are tied to the outermost transaction and only fire on full success.
+    Unlike attaching bare hooks to an ``Atomic`` instance directly (which
+    ties them to that one instance's lifetime), a ``TransactionManager``
+    lets you register ``on_commit``/``on_rollback`` hooks *before*
+    opening a transaction, then transfers them onto the ``Atomic``
+    created by :meth:`atomic` when the block is entered -- guaranteeing
+    they run at the outermost commit/rollback regardless of nesting.
+    Hooks are cleared after each ``atomic()`` block finishes, so the same
+    manager can be reused across multiple, independent transactions.
     """
 
     def __init__(self, db: AquiliaDatabase | None = None):
@@ -458,20 +605,36 @@ class TransactionManager:
         self._on_rollback_hooks: list[Callable] = []
 
     def on_commit(self, func: Callable) -> None:
-        """Register a function to be called after successful commit."""
+        """
+        Register a function to be called after the next transaction opened
+        via :meth:`atomic` successfully commits at the outermost level.
+        """
         self._on_commit_hooks.append(func)
 
     def on_rollback(self, func: Callable) -> None:
-        """Register a function to be called on rollback."""
+        """
+        Register a function to be called if the next transaction opened
+        via :meth:`atomic` rolls back.
+        """
         self._on_rollback_hooks.append(func)
 
     @asynccontextmanager
     async def atomic(self, **kwargs) -> AsyncIterator[Atomic]:
         """
-        Use as: async with manager.atomic() as txn: ...
+        Open a transaction, pre-loaded with this manager's hooks.
 
-        All on_commit/on_rollback hooks from the manager are attached
-        to the outermost transaction.
+        Usage:
+            async with manager.atomic() as txn:
+                ...
+
+        Creates a fresh ``Atomic(self._db, **kwargs)`` (``kwargs`` are
+        forwarded to ``Atomic.__init__``, e.g. ``isolation=``,
+        ``timeout=``), copies every hook registered via :meth:`on_commit`
+        / :meth:`on_rollback` onto it, then enters it as an async context
+        manager. Once the block exits (whether it committed or rolled
+        back), the manager's own hook lists are cleared -- so hooks
+        registered before this call apply to this transaction only, and
+        must be re-registered for the next one.
         """
         txn = Atomic(self._db, **kwargs)
 

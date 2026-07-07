@@ -49,6 +49,20 @@ class CheckConstraint:
         name: str,
         violation_error_message: str | None = None,
     ):
+        """
+        Args:
+            check: Raw SQL boolean expression enforced by the constraint
+                (e.g. ``"price > 0"``).
+
+                .. warning::
+                    Not parameterized -- this is interpolated directly into
+                    DDL. Never build it from untrusted input.
+            name: Constraint name, used in the generated DDL and for
+                migration diffing/equality.
+            violation_error_message: Message associated with this constraint
+                when raising on violation. Defaults to a generic
+                ``"Constraint {name!r} violated"``.
+        """
         self.check = check
         self.name = name
         self.violation_error_message = violation_error_message or f"Constraint {name!r} violated"
@@ -69,6 +83,7 @@ class CheckConstraint:
         return f'ALTER TABLE "{table_name}" DROP CONSTRAINT "{self.name}";'
 
     def deconstruct(self) -> dict[str, Any]:
+        """Return a plain-dict representation used by migration diffing/serialization."""
         return {
             "type": "CheckConstraint",
             "check": self.check,
@@ -79,11 +94,13 @@ class CheckConstraint:
         return f"CheckConstraint(name={self.name!r}, check={self.check!r})"
 
     def __eq__(self, other: Any) -> bool:
+        """Equal when both *name* and *check* match (used for migration diffing/dedup)."""
         if not isinstance(other, CheckConstraint):
             return NotImplemented
         return self.name == other.name and self.check == other.check
 
     def __hash__(self) -> int:
+        """Hashed by *name* only; distinct ``check`` text with the same name still collides safely."""
         return hash(("CheckConstraint", self.name))
 
 
@@ -117,6 +134,27 @@ class ExclusionConstraint:
         deferrable: str | None = None,
         violation_error_message: str | None = None,
     ):
+        """
+        Args:
+            name: Constraint name, used in the generated DDL and for
+                migration diffing/equality.
+            expressions: ``(column, operator)`` pairs combined into the
+                ``EXCLUDE USING ... (col WITH op, ...)`` clause, e.g.
+                ``[("room_id", "="), ("during", "&&")]``.
+            index_type: Access method backing the exclusion index (default ``"GIST"``).
+            condition: Raw SQL boolean expression for a partial exclusion
+                (``WHERE (...)``).
+
+                .. warning::
+                    Not parameterized -- interpolated directly into DDL.
+                    Never build it from untrusted input.
+            deferrable: One of the ``Deferrable`` constants
+                (``Deferrable.DEFERRED`` / ``Deferrable.IMMEDIATE``), or
+                ``None`` for a non-deferrable constraint.
+            violation_error_message: Message associated with this constraint
+                when raising on violation. Defaults to a generic
+                ``"Exclusion constraint {name!r} violated"``.
+        """
         self.name = name
         self.expressions = list(expressions)
         self.index_type = index_type
@@ -138,17 +176,20 @@ class ExclusionConstraint:
         return sql
 
     def sql_alter_add(self, table_name: str, dialect: str = "sqlite") -> str:
+        """Generate ``ALTER TABLE ... ADD CONSTRAINT ... EXCLUDE ...`` SQL; a no-op comment on SQLite."""
         if dialect == "sqlite":
             return f"-- EXCLUDE constraints not supported on SQLite ({self.name})"
         constraint_body = self.sql(table_name, dialect)
         return f'ALTER TABLE "{table_name}" ADD {constraint_body};'
 
     def sql_alter_drop(self, table_name: str, dialect: str = "sqlite") -> str:
+        """Generate ``ALTER TABLE ... DROP CONSTRAINT`` SQL; a no-op comment on SQLite."""
         if dialect == "sqlite":
             return f"-- Cannot drop EXCLUDE constraint on SQLite ({self.name})"
         return f'ALTER TABLE "{table_name}" DROP CONSTRAINT "{self.name}";'
 
     def deconstruct(self) -> dict[str, Any]:
+        """Return a plain-dict representation used by migration diffing/serialization."""
         return {
             "type": "ExclusionConstraint",
             "name": self.name,
@@ -161,9 +202,11 @@ class ExclusionConstraint:
         return f"ExclusionConstraint(name={self.name!r})"
 
     def __eq__(self, other: Any) -> bool:
+        """Equal when both *name* and *expressions* match (used for migration diffing/dedup)."""
         if not isinstance(other, ExclusionConstraint):
             return NotImplemented
         return self.name == other.name and self.expressions == other.expressions
 
     def __hash__(self) -> int:
+        """Hashed by *name* only; distinct ``expressions`` with the same name still collide safely."""
         return hash(("ExclusionConstraint", self.name))

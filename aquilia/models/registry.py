@@ -32,7 +32,27 @@ class ModelRegistry:
 
     @classmethod
     def register(cls, model_cls: type[Model]) -> None:
-        """Register a model class."""
+        """
+        Register a concrete model class by its ``__name__``.
+
+        Called automatically by ``ModelMeta.__new__()`` for every
+        non-abstract model as soon as the class is created -- not
+        intended to be called directly by user code.
+
+        Args:
+            model_cls: The model class to register. Re-registering a name
+                that already exists overwrites the previous entry (e.g.
+                during test/module reloads).
+
+        Behavior:
+            Adds the model to the flat ``_models`` map and to the
+            per-app-label bucket in ``_app_models`` (keyed by
+            ``model_cls._meta.app_label``, ``""`` if unset). Immediately
+            calls ``_resolve_relations()`` afterward so that any
+            *previously* registered model with a pending string forward
+            reference (``to="ThisModel"``) to the newly registered class
+            gets resolved right away.
+        """
         name = model_cls.__name__
         cls._models[name] = model_cls
 
@@ -47,33 +67,73 @@ class ModelRegistry:
 
     @classmethod
     def get(cls, name: str) -> type[Model] | None:
-        """Get model class by name."""
+        """Look up a registered model class by its ``__name__``, or ``None`` if not found."""
         return cls._models.get(name)
 
     @classmethod
     def all_models(cls) -> dict[str, type[Model]]:
-        """Get all registered models."""
+        """Return a shallow copy of ``{model_name: model_cls}`` for every registered model."""
         return dict(cls._models)
 
     @classmethod
     def get_app_models(cls, app_label: str) -> dict[str, type[Model]]:
-        """Get all models for a specific app."""
+        """
+        Return a shallow copy of ``{model_name: model_cls}`` for models belonging to *app_label*.
+
+        Args:
+            app_label: The value of ``Meta.app_label`` on the target
+                models. Models with no ``app_label`` set are grouped under
+                the empty string ``""``.
+
+        Returns:
+            An empty dict if no models are registered under that label
+            (never raises).
+        """
         return dict(cls._app_models.get(app_label, {}))
 
     @classmethod
     def set_database(cls, db: AquiliaDatabase) -> None:
-        """Set global database for all models."""
+        """
+        Set the registry-wide default database and propagate it to every already-registered model.
+
+        Args:
+            db: The database connection/adapter to use.
+
+        Behavior:
+            Stores *db* as ``cls._db`` (the fallback used by
+            ``Model._get_db()`` for models without their own override) and
+            eagerly stamps ``model_cls._db = db`` on every currently
+            registered model. Models registered *after* this call don't
+            need a separate assignment -- their ``_db`` starts as ``None``
+            (set by the metaclass) and ``Model._get_db()`` falls back to
+            ``ModelRegistry.get_database()`` automatically.
+        """
         cls._db = db
         for model_cls in cls._models.values():
             model_cls._db = db
 
     @classmethod
     def get_database(cls) -> AquiliaDatabase | None:
+        """Return the registry-wide default database, or ``None`` if ``set_database()`` was never called."""
         return cls._db
 
     @classmethod
     def _resolve_relations(cls) -> None:
-        """Resolve forward-referenced model names in FK/M2M fields."""
+        """
+        Resolve pending string-based forward references in FK/M2M fields.
+
+        Iterates every field of every registered model; for any
+        ``RelationField`` (``ForeignKey``, ``OneToOneField``,
+        ``ManyToManyField``) still holding its ``to`` as an unresolved
+        string (e.g. ``ForeignKey(to="Profile")`` declared before
+        ``Profile`` was imported/registered), calls
+        ``field.resolve_model(cls._models)`` to swap in the actual class
+        now that it may be available.
+
+        Idempotent and cheap enough to call after every single
+        ``register()`` -- fields that are already resolved (``to`` is a
+        class, not a string) are skipped via the ``isinstance`` check.
+        """
         from .fields_module import RelationField
 
         for model_cls in cls._models.values():
@@ -84,9 +144,31 @@ class ModelRegistry:
     @classmethod
     async def create_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
         """
-        Create tables for all registered models in topological order.
+        Create tables, indexes, and M2M junction tables for every registered, managed model.
 
-        FK target tables are created before tables that reference them.
+        Args:
+            db: Database connection to run DDL against. Falls back to the
+                registry-wide default (``cls._db``, set via
+                ``set_database()``) if omitted.
+
+        Behavior:
+            Models are ordered topologically (``_topological_sort()``) so
+            FK target tables are created before the tables that reference
+            them. Abstract models and models with ``Meta.managed = False``
+            are skipped entirely. For each remaining model: runs its
+            ``CREATE TABLE`` statement, then its index statements (a MySQL
+            "duplicate key name" error -- MySQL error 1061, since MySQL
+            lacks ``CREATE INDEX IF NOT EXISTS`` -- is swallowed as
+            "already exists"; any other error propagates), then its
+            implicit M2M junction table statements.
+
+        Args/Raises:
+            Raises ``DatabaseConnectionFault`` if no database is available
+            (neither *db* nor a previously configured registry default).
+
+        Returns:
+            Every SQL statement executed, in execution order -- useful for
+            logging/debugging what ``create_tables()`` actually did.
         """
         target_db = db or cls._db
         if not target_db:
@@ -201,7 +283,28 @@ class ModelRegistry:
 
     @classmethod
     async def drop_tables(cls, db: AquiliaDatabase | None = None) -> list[str]:
-        """Drop all registered model tables (dangerous!)."""
+        """
+        Drop every registered (non-abstract) model's table.
+
+        .. warning::
+            Destructive and irreversible -- intended for test teardown or
+            throwaway dev databases, not production use. Does not drop M2M
+            junction tables or respect FK ordering (each ``DROP TABLE IF
+            EXISTS`` is independent), so on databases that enforce FK
+            constraints at DDL time this may fail depending on drop order;
+            SQLite (the common case) tolerates it.
+
+        Args:
+            db: Database connection to run DDL against. Falls back to the
+                registry-wide default (``cls._db``) if omitted.
+
+        Raises:
+            DatabaseConnectionFault: If no database is available.
+
+        Returns:
+            Every ``DROP TABLE IF EXISTS ...`` statement executed, in
+            (reverse-registration) order.
+        """
         target_db = db or cls._db
         if not target_db:
             from ..faults.domains import DatabaseConnectionFault
@@ -224,7 +327,15 @@ class ModelRegistry:
 
     @classmethod
     def reset(cls) -> None:
-        """Clear registry (for testing)."""
+        """
+        Clear all registered models, app-label buckets, and the default database.
+
+        Intended for test isolation (e.g. an ``autouse`` fixture between
+        test modules that each define their own models) -- without this,
+        model classes from a previous test module would linger in
+        ``_models``/``_app_models`` and leak into unrelated tests
+        (duplicate table names, stale FK targets, etc.).
+        """
         cls._models.clear()
         cls._app_models.clear()
         cls._db = None
@@ -269,8 +380,19 @@ class ModelRegistry:
     # ── Lifecycle hooks (DI compatibility) ───────────────────────────
 
     async def on_startup(self) -> None:
+        """
+        Lifecycle hook -- called by LifecycleCoordinator at app start.
+
+        If any models are registered, calls ``create_tables()`` using the
+        registry's default database. This is the low-level table-creation
+        path invoked when auto-migration is enabled; see
+        ``base.py``'s ``ModelRegistry.on_startup()`` wrapper (gated on
+        ``AQUILIA_AUTO_MIGRATE``) for the guarded entry point actually
+        wired into app startup.
+        """
         if ModelRegistry._models:
             await ModelRegistry.create_tables()
 
     async def on_shutdown(self) -> None:
+        """Lifecycle hook -- called by LifecycleCoordinator at app shutdown. No-op."""
         pass

@@ -49,6 +49,18 @@ SNAPSHOT_VERSION = 1
 
 
 def _compile_schema_expression(expr: Any, model_cls: type | None = None, dialect: str = "sqlite") -> str:
+    """Render a query-expression object (``F``, ``Value``, ``Func``, ``CombinedExpression``, ``RawSQL``, or any ``Expression`` with ``as_sql``) as inline SQL text for use in a schema artifact (index/constraint DDL, snapshot diffing).
+
+    Unlike normal query compilation, this produces a single self-contained
+    SQL string with parameters inlined (quoted/escaped in place, via naive
+    ``'`` doubling) rather than a ``(sql, params)`` pair -- appropriate for
+    DDL contexts like ``CREATE INDEX ... (expression)`` where there's no
+    query executor to bind parameters against. A bare string is treated as
+    a field name if it matches one on *model_cls* (quoted as an
+    identifier), otherwise returned as-is. Any other non-``Expression``
+    value is stringified. Falls back to ``str(expr)`` if a generic
+    expression's own ``as_sql()`` raises.
+    """
     from aquilia.models.expression import CombinedExpression, Expression, F, Func, RawSQL, Value
 
     if isinstance(expr, str):
@@ -112,6 +124,7 @@ def _compile_schema_expression(expr: Any, model_cls: type | None = None, dialect
 
 
 def _make_serializable(val: Any, model_cls: type | None = None, dialect: str = "sqlite") -> Any:
+    """Recursively walk *val* (list/dict/tuple/scalar), compiling any ``Expression`` found into inline SQL text via ``_compile_schema_expression`` so the result is JSON-serializable for storage in a snapshot file."""
     from aquilia.models.expression import Expression
 
     if isinstance(val, Expression):
@@ -644,6 +657,7 @@ class SchemaDiff:
 
     @property
     def has_changes(self) -> bool:
+        """True if any model was added, removed, renamed, or altered between the two snapshots compared."""
         return bool(self.added_models or self.removed_models or self.renamed_models or self.altered_models)
 
 
@@ -662,6 +676,7 @@ class ModelDiff:
 
     @property
     def has_changes(self) -> bool:
+        """True if this model has any added/removed/renamed/altered field, index, or constraint."""
         return bool(
             self.added_fields
             or self.removed_fields

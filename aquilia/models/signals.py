@@ -90,6 +90,15 @@ class Signal:
     """
 
     def __init__(self, name: str):
+        """
+        Create a new signal.
+
+        Args:
+            name: Human-readable identifier used in log messages, inspector
+                trace spans, and ``repr()`` output. Not required to be
+                globally unique, but by convention matches the module-level
+                variable name (e.g. ``"pre_save"``).
+        """
         self.name = name
         # Each entry: (receiver_or_weakref, sender_filter, priority)
         self._receivers: list[tuple] = []
@@ -132,7 +141,24 @@ class Signal:
         weak: bool,
         priority: int,
     ) -> None:
-        """Internal: add a receiver with deduplication."""
+        """
+        Internal: register a receiver, deduplicating by (function, sender).
+
+        If ``weak`` is True, ``fn`` is wrapped in a ``weakref.ref`` carrying
+        a finalizer (see ``_make_cleanup``) that prunes dead entries once
+        ``fn`` is garbage collected; callables that cannot be weakly
+        referenced (e.g. some builtins/bound methods of temporary objects)
+        silently fall back to a strong reference instead of raising.
+
+        Connecting the exact same ``(fn, sender)`` pair twice is a no-op --
+        the existing entry is kept in place and no duplicate is appended,
+        so decorating the same function twice with the same signal/sender
+        has no extra effect.
+
+        After insertion, ``_receivers`` is re-sorted by priority using
+        Python's stable sort, so receivers with equal priority still run
+        in the order they were connected.
+        """
         # Store weak reference if requested
         if weak:
             try:
@@ -154,7 +180,17 @@ class Signal:
         self._receivers.sort(key=lambda x: x[2])
 
     def _make_cleanup(self, fn: Callable, sender: type | None) -> Callable:
-        """Create a weak-reference finalizer that removes dead entries."""
+        """
+        Build the weakref finalizer invoked when a weakly-referenced
+        receiver is garbage collected.
+
+        Rather than locating and removing the single entry for ``fn``, the
+        callback rebuilds ``_receivers`` filtering out every entry whose
+        weakref has died -- simpler than tracking the specific tuple, and
+        cheap given the typically small number of receivers per signal.
+        The ``ref`` parameter (the now-dead weakref) is required by the
+        ``weakref.ref(fn, callback)`` calling convention but is unused here.
+        """
 
         def cleanup(ref):
             self._receivers = [(r, s, p) for r, s, p in self._receivers if self._resolve_ref(r) is not _DeadRef]
@@ -175,7 +211,20 @@ class Signal:
         """
         Disconnect a receiver.
 
-        Returns True if the receiver was found and removed.
+        First tries an exact match on ``(receiver, sender)``; if none is
+        found (e.g. the receiver was connected without a sender filter, or
+        with a different one), falls back to removing the first entry
+        whose resolved callable is ``receiver`` regardless of its sender
+        filter. Only one matching entry is removed per call.
+
+        Args:
+            receiver: The originally-connected callable (weak or strong).
+            sender: The sender filter it was connected with, if any.
+
+        Returns:
+            True if a matching receiver was found and removed, False if
+            no match exists (already disconnected, GC'd, or never
+            connected).
         """
         for i, (ref, s, _p) in enumerate(self._receivers):
             resolved = self._resolve_ref(ref)
@@ -192,14 +241,34 @@ class Signal:
 
     async def send(self, sender: type, **kwargs) -> list[Any]:
         """
-        Fire the signal, calling all connected receivers.
+        Fire the signal, invoking every connected receiver in priority order.
+
+        Receivers are called lowest-``priority``-first (ties preserve
+        connection order); dead weakrefs are skipped; receivers connected
+        with a ``sender`` filter are skipped unless ``sender is filter_sender``
+        (identity, not subclass, check). Coroutine-function receivers are
+        awaited; plain callables are invoked directly (never offloaded to a
+        thread), so a slow sync receiver blocks the whole ``send()``.
+
+        A receiver raising is logged and does NOT stop the remaining
+        receivers from running -- the exception instance itself is appended
+        to the result list in place of a return value, so a single broken
+        receiver can never prevent ``save()``/``delete()`` from completing.
+        Inspect the returned list (or use :meth:`robust_send`, which pairs
+        each result with its receiver) if you need to detect failures.
+
+        When the Aquilia inspector is active, records a span on the
+        ``Lane.SIGNALS`` lane covering the total dispatch time.
 
         Args:
-            sender: The Model class sending the signal
-            **kwargs: Signal-specific arguments
+            sender: The Model class sending the signal (passed to each
+                receiver as the ``sender`` kwarg).
+            **kwargs: Signal-specific arguments forwarded to every receiver
+                (e.g. ``instance=``, ``created=``).
 
         Returns:
-            List of return values from receivers
+            One entry per matching, alive receiver: either its return
+            value, or the ``Exception`` instance it raised.
         """
         t0 = None
         trace = None
@@ -266,7 +335,19 @@ class Signal:
 
     def send_sync(self, sender: type, **kwargs) -> list[Any]:
         """
-        Fire the signal synchronously (for sync receivers only).
+        Fire the signal synchronously, invoking only synchronous receivers.
+
+        Behaves like :meth:`send` (priority order, sender filtering, dead
+        weakrefs skipped, per-receiver exceptions logged and swallowed) but
+        cannot ``await`` anything: any connected receiver that is a
+        coroutine function is skipped with a logged warning instead of being
+        called. Use this from non-async call sites (e.g. ``Model.__init__``
+        for ``pre_init``/``post_init``) where there is no event loop to
+        await into; async-only receivers on those signals simply never run.
+
+        Returns:
+            One entry per matching, alive, *synchronous* receiver invoked:
+            either its return value, or the ``Exception`` it raised.
         """
         t0 = None
         trace = None
@@ -333,10 +414,21 @@ class Signal:
 
     async def robust_send(self, sender: type, **kwargs) -> list[Any]:
         """
-        Fire the signal, catching exceptions from each receiver.
+        Fire the signal, invoking every connected receiver regardless of
+        exceptions raised by earlier ones (the same fault-isolation
+        behavior as :meth:`send`).
 
-        Unlike send(), this does NOT stop on exceptions -- every receiver
-        runs regardless. Returns list of (receiver, response_or_exception).
+        The only difference from :meth:`send` is the shape of the return
+        value: each entry is paired with the receiver that produced it, as
+        ``(receiver, result_or_exception)``, instead of a flat list of
+        values. Use ``robust_send`` when a caller needs to attribute a
+        result or failure back to the specific receiver that produced it
+        (e.g. surfacing per-handler errors in a debug/inspector view); use
+        plain :meth:`send` when only the aggregate results matter.
+
+        Returns:
+            One ``(receiver, result_or_exception)`` tuple per matching,
+            alive receiver, in the priority order they were invoked.
         """
         t0 = None
         trace = None
@@ -411,7 +503,19 @@ class Signal:
         return result
 
     def has_listeners(self, sender: type | None = None) -> bool:
-        """Check if any receivers are connected (optionally for a sender)."""
+        """
+        Check whether any (alive) receivers are connected.
+
+        Args:
+            sender: If given, only receivers connected with no sender
+                filter, or whose filter is exactly this class (identity
+                check, not subclass-aware), count as a match. If omitted,
+                any alive receiver on this signal counts, regardless of
+                each receiver's own sender filter.
+
+        Returns:
+            True if at least one matching, still-alive receiver exists.
+        """
         if sender is None:
             return any(self._resolve_ref(ref) is not _DeadRef for ref, _, _ in self._receivers)
         return any(
@@ -441,22 +545,112 @@ class Signal:
         self._receivers.clear()
 
     def __repr__(self) -> str:
+        """Return ``<Signal 'name' receivers=N>`` where N is the count of still-alive receivers."""
         alive = sum(1 for ref, _, _ in self._receivers if self._resolve_ref(ref) is not _DeadRef)
         return f"<Signal '{self.name}' receivers={alive}>"
 
 
 # ── Built-in signals ─────────────────────────────────────────────────────────
+#
+# Every built-in signal is sent with `sender` set to the Model *subclass*
+# involved (never an instance). Extra kwargs each receiver gets are
+# documented below per-signal; find the actual `.send(...)` call sites in
+# `aquilia/models/base.py`, `metaclass.py`, and `migration_runner.py`.
 
 pre_save = Signal("pre_save")
+"""Sent (async, via ``send()``) just before a row is INSERTed or UPDATEd.
+
+Kwargs: ``instance`` (the model instance about to be saved), ``created``
+(``True`` if this save will INSERT a new row, ``False`` if it will UPDATE
+an existing one). Raising in a receiver propagates out of ``save()``
+before any SQL has been executed for this call, aborting the save.
+"""
+
 post_save = Signal("post_save")
+"""Sent (async, via ``send()``) after a row has been INSERTed or UPDATEd
+and dirty-tracking has been reset.
+
+Kwargs: ``instance`` (the saved model instance, with its primary key
+populated for inserts), ``created`` (``True`` for an insert, ``False`` for
+an update). Commonly used to enqueue follow-up work (e.g. welcome emails)
+that should only happen once the row is durably written.
+"""
+
 pre_delete = Signal("pre_delete")
+"""Sent (async, via ``send()``) before ``delete_instance()`` cascades
+on_delete handling and issues the DELETE statement.
+
+Kwargs: ``instance`` (the model instance about to be deleted; its primary
+key is still populated). Fired outside the delete's transaction, so a
+receiver cannot veto the delete by raising -- the exception is caught and
+logged like any other signal receiver (see :meth:`Signal.send`).
+"""
+
 post_delete = Signal("post_delete")
+"""Sent (async, via ``send()``) after the row (and any on_delete cascade
+side effects) have been committed.
+
+Kwargs: ``instance`` (the now-deleted model instance -- its primary key
+attribute retains its prior value, but the row no longer exists in the
+database).
+"""
+
 pre_init = Signal("pre_init")
+"""Sent synchronously (via ``send_sync()``) at the start of ``Model.__init__``,
+before field defaults/values are assigned onto the instance.
+
+Kwargs: ``kwargs`` (the raw keyword arguments passed to the constructor,
+as a dict). Only synchronous receivers run -- ``__init__`` cannot await,
+so any async receiver connected to this signal is skipped with a warning.
+"""
+
 post_init = Signal("post_init")
+"""Sent synchronously (via ``send_sync()``) at the end of ``Model.__init__``,
+after all fields have been assigned.
+
+Kwargs: ``instance`` (the newly-constructed model instance). Like
+``pre_init``, async receivers are skipped with a warning since there is
+no event loop to await into from ``__init__``.
+"""
+
 m2m_changed = Signal("m2m_changed")
+"""Sent (async, via ``send()``) after a many-to-many relation is modified
+via ``instance.attach(...)`` or ``instance.detach(...)``.
+
+Kwargs: ``instance`` (the model instance the M2M field lives on),
+``action`` (``"attach"`` or ``"detach"``), ``model`` (the M2M field name,
+e.g. ``"tags"`` -- despite the name, this is the *field* name, not a
+model class), ``pk_set`` (list of primary keys of the target objects that
+were attached/detached). Fired after the junction-table rows have already
+been written.
+"""
+
 class_prepared = Signal("class_prepared")
+"""Sent synchronously (via ``send_sync()``) once per ``Model`` subclass,
+from the metaclass, right after the class body has finished being
+processed (fields collected, registered with ``ModelRegistry``, etc).
+
+No extra kwargs -- ``sender`` is the newly-created model class. Useful for
+registering per-model metadata that depends on the fully-assembled class
+(e.g. building indexes) at import time, before any instances exist.
+"""
+
 pre_migrate = Signal("pre_migrate")
+"""Sent (async, via ``send()``) before a migration run begins applying
+pending migrations.
+
+Kwargs: ``db`` (the database connection/engine the migration runner is
+using). ``sender`` is the migration runner's class, not a ``Model``.
+"""
+
 post_migrate = Signal("post_migrate")
+"""Sent (async, via ``send()``) after a migration run has finished
+applying all pending migrations.
+
+Kwargs: ``db`` (the database connection/engine used). ``sender`` is the
+migration runner's class, not a ``Model``. Useful for seeding data or
+warming caches once the schema is known to be up to date.
+"""
 
 
 # ── receiver() shorthand decorator ──────────────────────────────────────────

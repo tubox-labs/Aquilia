@@ -26,6 +26,74 @@ Public API:
     - Migrations: MigrationRunner, MigrationOps, generate_migration_file
     - Database: AquiliaDatabase (re-exported from aquilia.db)
     - Faults: ModelNotFoundFault, QueryFault, etc.
+
+Map of this package's public surface (grouped by why you'd reach for it):
+
+- **Core model system** (``Model``, ``ModelMeta``, ``ModelRegistry``,
+  ``Options``, ``Q``) -- ``Model`` is the base class every model subclasses;
+  ``Q`` builds compound filter expressions (``Q(a=1) | Q(b=2)``);
+  ``ModelRegistry`` looks up model classes by table/name at runtime.
+  ``NewModelRegistry``/``QueryBuilder``/``QNode``/``QCombination``/
+  ``Prefetch``/``EnhancedOptions`` are newer, parallel split-module
+  implementations (from ``registry.py``/``query.py``/``options.py``) kept
+  available under aliased names alongside the originals for incremental
+  migration -- prefer the unaliased ``Model``/``Q``/``ModelRegistry``/
+  ``Options`` unless you specifically need the newer implementation.
+- **Manager** (``Manager``, ``BaseManager``, ``QuerySet``) -- the
+  ``objects``-style query interface attached to each ``Model``.
+- **Fields** -- the full field type catalogue (numeric, text, date/time,
+  boolean, binary/JSON, relationship, IP/network, file/media, PostgreSQL,
+  meta/special) plus **mixins & composites**
+  (``NullableMixin``/``UniqueMixin``/``IndexedMixin``/``AutoNowMixin``/
+  ``ChoiceMixin``/``EncryptedMixin``, ``CompositeField``/
+  ``CompositePrimaryKey``/``CompositeAttribute``, ``EnumField``). See
+  ``aquilia.models.fields`` for the detailed map; everything there is
+  re-exported here too so ``from aquilia.models import CharField`` works
+  without a separate import. ``EncryptedMixin`` is security-sensitive --
+  see its docstring in ``fields/mixins.py`` before relying on it.
+- **Expressions & Aggregates** (``F``, ``Value``, ``RawSQL``, ``Case``/
+  ``When``, ``Subquery``/``Exists``/``OuterRef``, string/math/date
+  functions like ``Concat``/``Upper``/``Round``/``Now``, and aggregates
+  ``Sum``/``Avg``/``Count``/``Max``/``Min``/``StdDev``/``Variance``/
+  ``ArrayAgg``/``StringAgg``/``GroupConcat``/``BoolAnd``/``BoolOr``) --
+  reach for these to express computed values, conditionals, and
+  aggregations directly in queries instead of pulling data into Python.
+- **Signals** (``Signal``, ``pre_save``/``post_save``, ``pre_delete``/
+  ``post_delete``, ``pre_init``/``post_init``, ``m2m_changed``,
+  ``pre_migrate``/``post_migrate``, ``receiver``, ``class_prepared``) --
+  hook into model/migration lifecycle events.
+- **Transactions** (``atomic``, ``Atomic``, ``TransactionManager``) --
+  wrap a block of ORM calls in a real database transaction.
+- **Deletion behavior** (``CASCADE``, ``SET_NULL``, ``PROTECT``,
+  ``SET_DEFAULT``, ``DO_NOTHING``, ``RESTRICT``, ``SET``,
+  ``OnDeleteHandler``, ``ProtectedError``, ``RestrictedError``) -- the
+  ``on_delete`` constants/handlers used by ``ForeignKey``/``OneToOneField``.
+- **Enums / Choices** (``Choices``, ``TextChoices``, ``IntegerChoices``) --
+  base classes for declaring a field's ``choices`` as a Python enum.
+- **SQL Builder** (``SQLBuilder``, ``InsertBuilder``, ``UpdateBuilder``,
+  ``DeleteBuilder``, ``CreateTableBuilder``) -- lower-level SQL
+  construction, mostly used internally by the manager/migration layers.
+- **Constraints & Indexes** (``CheckConstraint``, ``ExclusionConstraint``,
+  ``Deferrable``, ``GinIndex``, ``GistIndex``, ``BrinIndex``,
+  ``HashIndex``, ``FunctionalIndex``) -- declared on a model's ``Meta`` to
+  add database-level constraints and specialized index types.
+- **Migrations** -- two parallel systems are exported: the original
+  (``MigrationOps``, ``MigrationRunner``, ``MigrationInfo``,
+  ``generate_migration_from_models``, ``op``) and the newer DSL
+  (``Migration``, ``Operation``, and the ``DSL``-prefixed operation
+  classes like ``DSLCreateModel``/``DSLAddField``/``DSLRunSQL``, plus
+  ``DSLMigrationRunner`` = ``migration_runner.MigrationRunner``,
+  ``check_db_exists``, ``check_migrations_applied``, ``check_db_ready``,
+  ``DatabaseNotReadyError``, ``generate_dsl_migration``, and the
+  ``ColumnDef``/``columns``/``C`` column-definition helpers). Snapshot/diff
+  tooling (``create_snapshot``, ``save_snapshot``, ``load_snapshot``,
+  ``compute_diff``, ``diff_to_operations``, ``SchemaDiff``, ``ModelDiff``)
+  supports autodetecting schema changes between snapshots.
+- **Faults** (``ModelFault``, ``ModelNotFoundFault``,
+  ``ModelRegistrationFault``, ``MigrationFault``,
+  ``MigrationConflictFault``, ``QueryFault``, ``DatabaseConnectionFault``,
+  ``SchemaFault``) -- re-exported from ``aquilia.faults.domains`` for
+  convenience so ORM callers can catch/raise them without a second import.
 """
 
 # ── New Pure Python Model System ─────────────────────────────────────────────
