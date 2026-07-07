@@ -1,5 +1,5 @@
 import { Outlet, useLocation } from 'react-router-dom'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { Navbar } from './Navbar'
 import { Sidebar, sections } from './Sidebar'
 import { TableOfContents } from './TableOfContents'
@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext'
 import { Footer } from './Footer'
 import { useReactToPrint } from 'react-to-print'
 import { Printer } from 'lucide-react'
+import { SEO } from './SEO'
 
 // Recursive helper to find page labels
 function findItemLabel(items: any[], path: string): string | null {
@@ -22,6 +23,36 @@ function findItemLabel(items: any[], path: string): string | null {
   return null
 }
 
+function getBreadcrumbs(pathname: string): { name: string; url: string }[] {
+  const crumbs = [{ name: 'Home', url: 'https://aquilia.tubox.cloud/' }]
+  if (pathname === '/docs' || pathname === '/docs/') {
+    crumbs.push({ name: 'Documentation', url: 'https://aquilia.tubox.cloud/docs' })
+    return crumbs
+  }
+
+  const parts = pathname.split('/').filter(Boolean)
+  let currentPath = ''
+  
+  for (let i = 0; i < parts.length; i++) {
+    currentPath += '/' + parts[i]
+    let label = null
+    
+    if (currentPath === '/docs') {
+      label = 'Documentation'
+    } else {
+      for (const sec of sections) {
+        label = findItemLabel(sec.items, currentPath)
+        if (label) break
+      }
+    }
+    
+    if (label) {
+      crumbs.push({ name: label, url: `https://aquilia.tubox.cloud${currentPath}` })
+    }
+  }
+  return crumbs
+}
+
 export function DocsLayout() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -29,21 +60,47 @@ export function DocsLayout() {
   const printRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
 
-  useEffect(() => {
-    let pageLabel = null
-    for (const sec of sections) {
-      const found = findItemLabel(sec.items, location.pathname)
-      if (found) {
-        pageLabel = found
-        break
+  let pageLabel = 'Documentation'
+  for (const sec of sections) {
+    const found = findItemLabel(sec.items, location.pathname)
+    if (found) {
+      pageLabel = found
+      break
+    }
+  }
+
+  const title = `${pageLabel} — Aquilia Documentation`
+  const description = `Comprehensive guide and documentation for ${pageLabel} in the Aquilia framework. View API reference, examples, and implementation patterns.`
+  const keywords = `Aquilia, ${pageLabel}, Python framework, async, dependency injection, ORM, WebSockets, background tasks`
+
+  const crumbs = getBreadcrumbs(location.pathname)
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "@id": `https://aquilia.tubox.cloud${location.pathname}#article`,
+        "headline": title,
+        "description": description,
+        "url": `https://aquilia.tubox.cloud${location.pathname}`,
+        "inLanguage": "en",
+        "author": {
+          "@type": "Organization",
+          "name": "Aquilia Team"
+        }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": `https://aquilia.tubox.cloud${location.pathname}#breadcrumbs`,
+        "itemListElement": crumbs.map((crumb, index) => ({
+          "@type": "ListItem",
+          "position": index + 1,
+          "name": crumb.name,
+          "item": crumb.url
+        }))
       }
-    }
-    if (pageLabel) {
-      document.title = `${pageLabel} — Aquilia Documentation`
-    } else {
-      document.title = "Aquilia Documentation"
-    }
-  }, [location.pathname])
+    ]
+  }
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -52,6 +109,12 @@ export function DocsLayout() {
   return (
     // Lock the viewport — nothing on <body> scrolls
     <div className="h-screen overflow-hidden flex flex-col print:h-auto print:overflow-visible print:block">
+      <SEO
+        title={title}
+        description={description}
+        keywords={keywords}
+        schema={schema}
+      />
       {/* Ambient background — fixed, behind everything */}
       <div className="fixed inset-0 -z-10 pointer-events-none print:hidden">
         <div className={isDark ? 'absolute inset-0 bg-black' : 'absolute inset-0 bg-[#fafafa]'} />
