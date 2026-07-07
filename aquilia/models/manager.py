@@ -54,6 +54,21 @@ M = TypeVar("M", bound="BaseManager")
 TModel = TypeVar("TModel", bound="Model")
 
 
+def _manager_attr_name(manager: BaseManager, owner: type) -> str:
+    """Return the attribute name under which *manager* is stored on *owner*.
+
+    Walks the MRO so inherited managers (e.g. ``objects`` defined on a base
+    model) are still resolved correctly. Falls back to ``"objects"`` if the
+    manager instance cannot be found -- this should never happen in practice
+    since ``__set_name__`` runs before ``__get__``.
+    """
+    for cls in owner.__mro__:
+        for name, val in vars(cls).items():
+            if val is manager:
+                return name
+    return "objects"
+
+
 class QuerySet(Generic[TModel]):
     """
     Reusable query method set -- compose into Manager via from_queryset().
@@ -140,7 +155,13 @@ class BaseManager(Generic[TModel]):
         # Bind to current class (supports inheritance)
         self._model_cls = cast("type[TModel]", owner)
         if instance is not None:
-            raise AttributeError("Manager is accessible only via the model class, not instances.")
+            from aquilia.faults.domains import ManagerInstanceAccessFault
+
+            model_name = owner.__name__ if owner is not None else "<unknown>"
+            raise ManagerInstanceAccessFault(
+                model_name=model_name,
+                manager_name=_manager_attr_name(self, owner),
+            )
         return self
 
     # ── QuerySet factory ─────────────────────────────────────────────

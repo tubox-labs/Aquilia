@@ -6,7 +6,7 @@ synchronous fallback, and Python's descriptor protocol requires ``__get__``
 to be synchronous -- so a ForeignKey/OneToOneField attribute can never
 transparently run a hidden query on first access the way Django's
 ``ForwardManyToOneDescriptor`` does. There is no legal way to ``await``
-inside ``__get__``. Hydration in Aquilia is therefore always explicit:
+inside ``__get__``. Hydration in Aquilia is therefore always explicit::
 
     await instance.related("user")                       # one-shot fetch + cache
     await Model.objects.select_related("user").first()    # eager JOIN
@@ -21,14 +21,19 @@ the moment it tries to use the value as a model instance (e.g.
 treating a raw scalar as if it were the related object.
 """
 
-from __future__ import annotations
+# NOTE: ``from __future__ import annotations`` is intentionally absent here.
+# The ``Related`` TypeAlias assignment is a *value* expression evaluated at
+# import time, not an annotation; making it a lazy string via __future__
+# would break Pylance/mypy/Pyright's ability to resolve the union at
+# analysis time.  All forward references in this module are already handled
+# via TYPE_CHECKING guards or string-form annotations in function signatures.
 
 from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar
 
 if TYPE_CHECKING:
     from .base import Model
 
-__all__ = ["RelatedNotLoaded", "Related"]
+__all__ = ["RelatedNotLoaded", "Related", "TModel"]
 
 #: Bound to Model -- parametrizes RelatedNotLoaded so a checker can see
 #: *which* model a given unhydrated relation would resolve to (e.g.
@@ -43,14 +48,14 @@ class RelatedNotLoaded(Generic[TModel]):
     non-null foreign key value but hasn't been resolved to a related model
     instance yet.
 
-    Cheap, no-query operations work directly on the sentinel:
+    Cheap, no-query operations work directly on the sentinel::
 
         if instance.user:               # bool() -- True (pk is set)
         instance.user.pk                # raw stored id, no query
         instance.user == other_user     # compares by pk, no query
 
     Anything else raises ``RelatedNotLoadedFault`` with guidance on how to
-    hydrate the relation:
+    hydrate the relation::
 
         instance.user.name              # raises RelatedNotLoadedFault
 
@@ -145,7 +150,7 @@ class RelatedNotLoaded(Generic[TModel]):
 #: their TModel from the field's own ``to`` constructor argument -- so a
 #: plain, unannotated field declaration resolves to this union on instance
 #: access with no extra work, **but only when ``to`` is passed an actual
-#: class**:
+#: class**::
 #:
 #:     class Post(Model):
 #:         author = ForeignKey(User, related_name="posts")
@@ -156,7 +161,7 @@ class RelatedNotLoaded(Generic[TModel]):
 #: equally common cross-module pattern that avoids circular imports --
 #: ``ForeignKey("User", ...)`` -- leaves TModel unresolved and the attribute
 #: degrades to ``Any``. Add an explicit annotation to recover full typing
-#: for a string-referenced FK:
+#: for a string-referenced FK::
 #:
 #:     class Post(Model):
 #:         author: ForeignKey[User] = ForeignKey("User", related_name="posts")
@@ -165,17 +170,26 @@ class RelatedNotLoaded(Generic[TModel]):
 #: arbitrary runtime string to a type -- it's the same descriptor-typing
 #: limitation Django-stubs/SQLAlchemy2-stubs need a checker plugin for.
 #:
-#: ``Related[TModel]`` itself is exported for the cases *outside* a field
-#: declaration where you need to name the union explicitly -- a function
-#: parameter/return type, a local variable, etc. Don't use it as the class
-#: body's own annotation (``author: Related[User] = ForeignKey(...)``): a
-#: type checker checks that assignment against ``ForeignKey[User]`` (the
-#: descriptor's own type), not the instance-access union, so an explicit
-#: annotation there produces a false-positive mismatch. Annotate with
-#: ``ForeignKey[User]`` (as in the string-ref example above), not
-#: ``Related[User]``, when you need an explicit annotation at all.
+#: ``Related[TModel]`` is exported for cases *outside* a field declaration
+#: where you need to name the union explicitly (function parameters/return
+#: types, local variables, etc.). Do NOT use it as the class body's own
+#: annotation (``author: Related[User] = ForeignKey(...)``): a type checker
+#: checks that assignment against ``ForeignKey[User]`` (the descriptor's own
+#: type), not the instance-access union, which produces a false-positive
+#: mismatch. Annotate with ``ForeignKey[User]`` instead.
 #:
-#: Narrowing (``isinstance(post.author, User)``) is required before using
-#: it as the hydrated instance -- exactly the same discipline
-#: RelatedNotLoadedFault already enforces at runtime, now visible statically.
+#: After ``select_related()``/``prefetch_related()``/
+#: ``await instance.related(field_name)`` narrows with
+#: ``isinstance(post.author, User)`` to get a fully typed ``User``
+#: instance. Alternatively, cast when you know the relation is always loaded::
+#:
+#:     from typing import cast
+#:     user = cast(UserModel, post.author)
+#:
+#: ``Related`` is a generic ``TypeAlias`` parametrized by ``TModel``
+#: (subscriptable as ``Related[UserModel]``). The free-TypeVar alias is the
+#: standard PEP 613 pattern supported by Pylance, mypy, and Pyright. If
+#: your checker still complains, use the equivalent explicit union::
+#:
+#:     Union[TModel, RelatedNotLoaded[TModel], None]
 Related: TypeAlias = TModel | RelatedNotLoaded[TModel] | None

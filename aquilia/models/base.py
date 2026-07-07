@@ -40,7 +40,14 @@ from typing import (
     TYPE_CHECKING,
     Any,
     ClassVar,
+    TypeVar,
+    overload,
 )
+
+#: Used by ``related()``'s typed overload so callers that pass an explicit
+#: ``type[TModel]`` hint get ``TModel | None`` back instead of the wide
+#: ``Model | list[Model] | None`` union -- no cast required at the call site.
+_TRelated = TypeVar("_TRelated", bound="Model")
 
 from .deletion import (
     OnDeleteHandler,
@@ -1693,27 +1700,54 @@ class Model(metaclass=ModelMeta):
 
     # ── Relationships ────────────────────────────────────────────────
 
-    async def related(self, name: str) -> Any:
+    @overload
+    async def related(self, name: str, model: type[_TRelated]) -> _TRelated | None: ...
+    @overload
+    async def related(self, name: str, model: None = ...) -> Model | list[Model] | None: ...
+
+    async def related(  # type: ignore[misc]
+        self,
+        name: str,
+        model: type[_TRelated] | None = None,
+    ) -> _TRelated | Model | list[Model] | None:
         """
         Access a related model via FK, reverse FK, or M2M -- awaited,
         one-shot, always returns real hydrated data (never a
         RelatedNotLoaded sentinel or a lazy manager).
 
-        Usage:
-            author = await post.related("author")     # FK forward
-            posts = await user.related("posts")        # FK reverse (related_name or default `_set` name)
-            tags = await post.related("tags")           # M2M
+        **Basic usage** (forward FK, reverse FK, M2M)::
 
-        Forward FK: if the attribute already holds a hydrated instance
-        (via select_related()/prefetch_related()/a prior related() call),
-        returns it immediately with zero query. Otherwise resolves it and
-        caches the hydrated instance in place, so subsequent bare
-        attribute access (not just future related() calls) is instant and
-        correctly typed from then on.
+            author = await post.related("author")       # -> Model | list[Model] | None
+            posts  = await user.related("posts")         # -> Model | list[Model] | None
+            tags   = await post.related("tags")          # -> Model | list[Model] | None
 
-        Reverse FK: O(1) lookup into _reverse_relation_map() (see
-        related_manager() for a lazy, chainable alternative that doesn't
-        eagerly materialize the full list).
+        **Typed usage** -- pass the expected model class as the second
+        argument and the IDE infers the precise return type with no cast::
+
+            user = await token.related("user", UserModel)
+            # reveal_type(user)  ->  UserModel | None
+
+            # Full attribute autocomplete immediately:
+            if user is not None:
+                print(user.email)   # ✅ UserModel.email, fully typed
+
+        The second argument is **type-hint only** -- it is not used at
+        runtime (the resolved instance is always cast-compatible). Pass
+        it whenever you need accurate IDE inference without a manual
+        ``cast()`` at the call site.
+
+        **Caching:** forward FK results are cached directly on the
+        instance so subsequent bare attribute access (e.g. ``post.author``
+        after ``await post.related("author")``) is instant and already
+        typed from then on.
+
+        **Zero-query fast path:** if the attribute already holds a
+        hydrated instance (via ``select_related()``/``prefetch_related()``
+        or a prior ``related()`` call), it is returned immediately.
+
+        **Reverse FK cardinality:** a plain ``ForeignKey``'s reverse side
+        returns a list; a ``OneToOneField``'s reverse side returns a
+        single instance (or ``None``), matching its 1:1 cardinality.
         """
         # Forward FK
         field = self._fields.get(name)

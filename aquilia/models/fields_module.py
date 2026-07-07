@@ -360,7 +360,16 @@ class Field(Generic[T]):
         throughout this module are ``"sqlite"`` (default), ``"postgresql"``,
         ``"mysql"``, and ``"oracle"``.
         """
-        raise NotImplementedError(f"{self.__class__.__name__} must implement sql_type()")
+        from ..faults.domains import SchemaFault
+
+        raise SchemaFault(
+            table=getattr(self, "name", None) or self.__class__.__name__,
+            reason=(
+                f"Field class '{self.__class__.__name__}' must implement sql_type(). "
+                f"If you are defining a custom field, override sql_type() to return "
+                f"the appropriate SQL column type string for the target dialect."
+            ),
+        )
 
     def sql_column_def(self, dialect: str = "sqlite") -> str:
         """Generate the full ``CREATE TABLE``-style column definition for this field.
@@ -2704,6 +2713,22 @@ class OneToOneField(ForeignKey[TModel], Generic[TModel]):
             **kwargs,
         )
 
+    # Re-declare __get__ overloads explicitly so type checkers (Pylance,
+    # Pyright, mypy) resolve the return type from *this* class's own generic
+    # parameter rather than relying on inheritance propagation through the
+    # double-generic base ``ForeignKey[TModel], Generic[TModel]`` -- which
+    # several checkers fail to thread correctly, causing the instance-access
+    # type to degrade to ``Any``.
+    @overload
+    def __get__(self, instance: None, owner: type | None = None) -> OneToOneField[TModel]: ...
+    @overload
+    def __get__(self, instance: Model, owner: type | None = None) -> Related[TModel]: ...
+
+    def __get__(self, instance: Model | None, owner: type | None = None) -> Any:  # type: ignore[override]
+        if instance is None:
+            return self
+        return instance.__dict__.get(self.attr_name)
+
 
 class ManyToManyField(RelationField):
     """
@@ -2732,6 +2757,7 @@ class ManyToManyField(RelationField):
             auto-generated one from ``junction_table_name``.
 
     Usage:
+
         class Post(Model):
             tags = ManyToManyField("Tag", related_name="posts")
     """

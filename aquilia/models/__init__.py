@@ -101,6 +101,7 @@ Map of this package's public surface (grouped by why you'd reach for it):
 # Re-export model-specific faults for convenience
 from ..faults.domains import (
     DatabaseConnectionFault,
+    ManagerInstanceAccessFault,
     MigrationConflictFault,
     MigrationFault,
     ModelFault,
@@ -262,6 +263,7 @@ from .fields_module import (
     RangeField,
     RelationField,
     SlugField,
+    SmallAutoField,
     SmallIntegerField,
     TextField,
     TimeField,
@@ -348,6 +350,7 @@ from .query import Q as QueryBuilder
 
 # New split-module exports (available but not replacing base.py)
 from .registry import ModelRegistry as NewModelRegistry
+from .relations import Related, RelatedNotLoaded
 from .schema_snapshot import (
     ModelDiff,
     SchemaDiff,
@@ -444,6 +447,10 @@ __all__ = [
     "OneToOneField",
     "ManyToManyField",
     "RelationField",
+    "SmallAutoField",
+    # Relation type helpers
+    "Related",
+    "RelatedNotLoaded",
     "GenericIPAddressField",
     "InetAddressField",
     "FileField",
@@ -616,4 +623,5 @@ __all__ = [
     "QueryFault",
     "DatabaseConnectionFault",
     "SchemaFault",
+    "ManagerInstanceAccessFault",
 ]
