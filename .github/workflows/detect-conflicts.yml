@@ -1,0 +1,21 @@
+name: "Conflict detector"
+on:
+  push:
+  pull_request_target: # zizmor: ignore[dangerous-triggers]
+    types: [synchronize]
+
+permissions: {}
+
+jobs:
+  main:
+    permissions:
+      contents: read
+      pull-requests: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check if PRs have merge conflicts
+        uses: eps1lon/actions-label-merge-conflict@v3
+        with:
+          dirtyLabel: "conflicting"
+          repoToken: "${{ secrets.GITHUB_TOKEN }}"
