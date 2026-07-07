@@ -10,7 +10,7 @@ from dataclasses import MISSING, fields, is_dataclass
 from pathlib import Path
 from typing import Any, get_args, get_origin, get_type_hints
 
-from aquilia.faults.domains import ConfigInvalidFault
+from aquilia.faults.domains import ConfigFault, ConfigInvalidFault
 
 log = logging.getLogger(__name__)
 
@@ -56,10 +56,15 @@ class Config:
     pass
 
 
-class ConfigError(Exception):
+class ConfigError(ConfigFault):
     """Raised when configuration validation fails."""
 
-    pass
+    def __init__(self, message: str, **kwargs):
+        super().__init__(
+            code="CONFIG_VALIDATION_ERROR",
+            message=message,
+            **kwargs,
+        )
 
 
 class ConfigLoader:

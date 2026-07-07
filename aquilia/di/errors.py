@@ -4,11 +4,18 @@ DI-specific error types with rich diagnostics.
 
 from typing import Any
 
+from aquilia.faults.domains import DIFault
 
-class DIError(Exception):
+
+class DIError(DIFault):
     """Base exception for DI errors."""
 
-    pass
+    def __init__(self, message: str, code: str = "DI_ERROR", metadata: dict[str, Any] | None = None):
+        super().__init__(
+            code=code,
+            message=message,
+            metadata=metadata,
+        )
 
 
 class ProviderNotFoundError(DIError):
@@ -48,7 +55,17 @@ class ProviderNotFoundError(DIError):
             if candidates:
                 msg += "\n  - Add Inject(tag='...') to disambiguate"
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="PROVIDER_NOT_FOUND",
+            metadata={
+                "token": token,
+                "tag": tag,
+                "candidates": candidates,
+                "requested_by": requested_by,
+                "location": f"{location[0]}:{location[1]}" if location else None,
+            },
+        )
 
 
 class DependencyCycleError(DIError):
@@ -79,7 +96,14 @@ class DependencyCycleError(DIError):
         msg += "\n  - Extract interface to decouple directionally"
         msg += "\n  - Restructure dependencies to remove cycle"
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="DEPENDENCY_CYCLE",
+            metadata={
+                "cycle": cycle,
+                "locations": {k: f"{v[0]}:{v[1]}" for k, v in self.locations.items()},
+            },
+        )
 
 
 class ScopeViolationError(DIError):
@@ -107,7 +131,16 @@ class ScopeViolationError(DIError):
             f"\n  - Use factory/provider pattern to defer instantiation"
         )
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="SCOPE_VIOLATION",
+            metadata={
+                "provider_token": provider_token,
+                "provider_scope": provider_scope,
+                "consumer_token": consumer_token,
+                "consumer_scope": consumer_scope,
+            },
+        )
 
 
 class AmbiguousProviderError(DIError):
@@ -130,7 +163,14 @@ class AmbiguousProviderError(DIError):
         msg += "\n  - Add Inject(tag='...') to specify which provider to use"
         msg += "\n  - Remove duplicate provider registration"
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="AMBIGUOUS_PROVIDER",
+            metadata={
+                "token": token,
+                "providers": [p[0] for p in providers],
+            },
+        )
 
 
 class ManifestValidationError(DIError):
@@ -144,7 +184,14 @@ class ManifestValidationError(DIError):
         for error in errors:
             msg += f"\n  - {error}"
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="MANIFEST_VALIDATION_FAILED",
+            metadata={
+                "manifest_name": manifest_name,
+                "errors": errors,
+            },
+        )
 
 
 class CrossAppDependencyError(DIError):
@@ -168,7 +215,15 @@ class CrossAppDependencyError(DIError):
             f"\n  Add '{provider_app}' to depends_on list in {consumer_app} manifest"
         )
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="CROSS_APP_DEPENDENCY",
+            metadata={
+                "consumer_app": consumer_app,
+                "provider_app": provider_app,
+                "provider_token": provider_token,
+            },
+        )
 
 
 class CircularDependencyError(DIError):
@@ -208,7 +263,13 @@ class CircularDependencyError(DIError):
         msg += "\n  3. Extract shared dependencies into a separate service"
         msg += "\n  4. Use events/callbacks instead of direct injection"
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="CIRCULAR_DEPENDENCY",
+            metadata={
+                "cycles": cycles,
+            },
+        )
 
 
 class MissingDependencyError(DIError):
@@ -236,4 +297,12 @@ class MissingDependencyError(DIError):
         msg += "\n  3. Check for typos in the dependency name"
         msg += f"\n  4. Make the dependency optional with Optional[{dependency_token}]"
 
-        super().__init__(msg)
+        super().__init__(
+            message=msg,
+            code="MISSING_DEPENDENCY",
+            metadata={
+                "service_token": service_token,
+                "dependency_token": dependency_token,
+                "service_location": f"{service_location[0]}:{service_location[1]}" if service_location else None,
+            },
+        )

@@ -29,7 +29,9 @@ def load_manifests_from_settings(settings_path: str) -> tuple[list[Any], Any]:
 
     # SEC-DI-03: Validate the settings file actually exists and is a .py file
     if not resolved.is_file():
-        raise FileNotFoundError(f"Settings file not found: {resolved}")
+        from aquilia.faults.domains import ConfigMissingFault
+
+        raise ConfigMissingFault(key=str(resolved))
     if resolved.suffix != ".py":
         from aquilia.faults.domains import ConfigInvalidFault
 
