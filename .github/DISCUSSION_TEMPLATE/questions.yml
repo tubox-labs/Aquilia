@@ -1,0 +1,82 @@
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking a question about Aquilia! 🚀
+
+        Please follow these instructions, fill out every question, and complete all checks. 🙏
+        Providing structured context ensures that the core team and community members can assist you quickly and accurately.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: First Check
+      description: Please confirm and check all the following options.
+      options:
+        - label: I added a very descriptive title here.
+          required: true
+        - label: I searched the GitHub issues and discussions for a similar question.
+          required: true
+        - label: I searched the Aquilia documentation (GUIDE.md / README.md).
+          required: true
+        - label: I already searched online for "How to X in Aquilia" or related topics.
+          required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Example Code
+      description: |
+        Please add a self-contained, minimal reproducible example showing your setup.
+        If we can copy and run it, we can help you much faster!
+      placeholder: |
+        from aquilia.engine import RequestCtx
+        from aquilia.request import Request
+        from aquilia.response import Response
+        from aquilia.blueprints import Blueprint
+
+        # Your minimal code here
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: |
+        What is the question, problem, or unexpected behavior?
+        Write a short description explaining what you are doing, what you expect to happen, and what is currently happening.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating System
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: aquilia-version
+    attributes:
+      label: Aquilia Version
+      description: |
+        What Aquilia version are you using?
+        Run `python -c "import aquilia; print(aquilia.__version__)"` to check.
+    validations:
+      required: true
+  - type: input
+    id: python-version
+    attributes:
+      label: Python Version
+      description: |
+        What Python version are you using? (e.g. 3.12, 3.13)
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Add any additional context information, traceback/logs, or screenshots.

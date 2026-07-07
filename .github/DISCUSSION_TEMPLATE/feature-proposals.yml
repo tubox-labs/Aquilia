@@ -1,0 +1,43 @@
+labels: [idea, enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a feature idea or API design suggestion for Aquilia? We'd love to hear it! 💡
+        Please outline your proposal below so the community can discuss and iterate on the design.
+  - type: textarea
+    id: pitch
+    attributes:
+      label: Use Case / Pitch
+      description: |
+        What problem does this feature solve?
+        Describe the use case, why this feature would be useful to developers using Aquilia, and any existing limitations.
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-api
+    attributes:
+      label: Proposed API / Solution
+      description: |
+        Show an example of how you imagine the API or solution looking.
+        Sample code blocks are highly encouraged!
+      placeholder: |
+        # Example of how the new API or setting should look
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: |
+        What other approaches did you think of?
+        Are there current workarounds or third-party packages that solve this?
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Implementation Interest
+      description: |
+        Are you interested in implementing this feature yourself?
+      options:
+        - label: I would like to submit a Pull Request to implement this!
