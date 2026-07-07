@@ -91,6 +91,7 @@ from .domains import (
     # IO faults
     IOFault,
     LockedFault,
+    ManagerInstanceAccessFault,
     ManifestInvalidFault,
     MethodNotAllowedFault,
     MiddlewareFault,
@@ -232,6 +233,7 @@ __all__ = [
     "RelatedNotLoadedFault",
     "RelatedTypeMismatchFault",
     "RelatedNameConflictFault",
+    "ManagerInstanceAccessFault",
     # Security faults
     "SecurityFault",
     "AuthenticationFault",

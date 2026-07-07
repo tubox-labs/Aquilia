@@ -686,7 +686,16 @@ class Operation:
                 ``Migration.compile_downgrade`` catches this and emits an
                 explanatory SQL comment instead of failing.
         """
-        raise NotImplementedError(f"{type(self).__name__} is not reversible")
+        from ..faults.domains import MigrationFault
+
+        raise MigrationFault(
+            migration=type(self).__name__,
+            reason=(
+                f"{type(self).__name__} does not support automatic reversal. "
+                f"Override reverse_sql() on this Operation subclass to provide "
+                f"a custom downgrade SQL, or supply an explicit downgrade migration."
+            ),
+        )
 
     def describe(self) -> str:
         """Return a short, human-readable one-line description of this operation.
@@ -776,7 +785,15 @@ class DropModel(Operation):
 
     def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         """Always raises -- see class docstring for why this can't be automated."""
-        raise NotImplementedError("DropModel is not auto-reversible -- provide a CreateModel")
+        from ..faults.domains import MigrationFault
+
+        raise MigrationFault(
+            migration="DropModel",
+            reason=(
+                "DropModel is not auto-reversible -- the original table DDL is not retained. "
+                "Supply an explicit CreateModel operation as the reverse migration."
+            ),
+        )
 
     def describe(self) -> str:
         """e.g. ``"DropModel(User, table=users)"``."""
@@ -867,7 +884,16 @@ class RemoveField(Operation):
 
     def reverse_sql(self, dialect: str = "sqlite") -> list[str]:
         """Always raises -- the removed column's definition isn't retained here."""
-        raise NotImplementedError("RemoveField is not auto-reversible")
+        from ..faults.domains import MigrationFault
+
+        raise MigrationFault(
+            migration="RemoveField",
+            reason=(
+                "RemoveField is not auto-reversible -- the removed column's original type, "
+                "constraints, and default are not retained. Supply an explicit AddField "
+                "operation as the reverse migration."
+            ),
+        )
 
     def describe(self) -> str:
         """e.g. ``"RemoveField(User.legacy_flag)"``."""

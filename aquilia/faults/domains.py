@@ -946,6 +946,59 @@ class RelatedNameConflictFault(ModelFault):
         )
 
 
+class ManagerInstanceAccessFault(ModelFault, AttributeError):
+    """Attempted to access a Manager (e.g. ``.objects``) from a model instance.
+
+    Subclasses ``AttributeError`` (in addition to ``ModelFault``) using the
+    same dual-inheritance pattern as ``DeferredFieldAccessFault`` and
+    ``RelatedNotLoadedFault``, so:
+
+    * Existing ``except AttributeError`` catch sites in user code keep
+      working and degrade gracefully instead of propagating an unhandled
+      ``ModelFault``.
+    * The Aquilia fault engine sees a first-class ``Fault`` and can map it
+      to a structured response (400 Bad Request) rather than an opaque 500.
+    * ``hasattr(instance, "objects")`` / ``getattr(instance, "objects",
+      None)`` continue to evaluate to ``False`` / ``None``, as expected.
+
+    **Root cause** of the original error::
+
+        user = await token.related("user")   # returns UserModel instance
+        await user.objects.all()             # ← WRONG: .objects is a class
+                                             #   manager, not an instance attr.
+
+    **Fix** -- query via the model class, not the instance::
+
+        # If you have the instance already:
+        users = await type(user).objects.all()         # all users
+        # Or more idiomatically, store a reference to the class:
+        users = await UserModel.objects.all()
+
+        # For related rows, use the reverse manager:
+        tokens = await user.related_manager("tokens").all()
+        # or:
+        tokens = await user.related("tokens")
+    """
+
+    def __init__(self, model_name: str, manager_name: str = "objects", **kwargs):
+        super().__init__(
+            code="MANAGER_INSTANCE_ACCESS",
+            message=(
+                f"'{manager_name}' is a class-level Manager on '{model_name}' and cannot be "
+                f"accessed from an instance. Use '{model_name}.{manager_name}' (the class), "
+                f"or use `instance.related_manager(relation_name)` for per-instance reverse "
+                f"relation queries, or `type(instance).{manager_name}` if you only have the "
+                f"instance at hand."
+            ),
+            severity=Severity.ERROR,
+            metadata={
+                "model": model_name,
+                "manager": manager_name,
+                **kwargs.get("metadata", {}),
+            },
+        )
+
+
 class ProtectedDeleteFault(ModelFault):
     """Cannot delete a protected object due to PROTECT on_delete."""
 

@@ -4,6 +4,8 @@ Diagnostic errors for AquilaPatterns.
 
 from dataclasses import dataclass
 
+from aquilia.faults.domains import RoutingFault
+
 from ..compiler.ast_nodes import Span
 
 
@@ -44,38 +46,56 @@ class PatternDiagnostic:
         return "\n".join(parts)
 
 
-class PatternSyntaxError(PatternDiagnostic, Exception):
+class PatternSyntaxError(PatternDiagnostic, RoutingFault):
     """Syntax error in pattern."""
 
-    pass
+    def __init__(self, message: str, **kwargs):
+        PatternDiagnostic.__init__(self, message, **kwargs)
+        RoutingFault.__init__(
+            self,
+            code="PATTERN_SYNTAX_ERROR",
+            message=self.format(),
+            metadata={
+                "suggestions": self.suggestions,
+                "span": str(self.span) if self.span else None,
+                "file": self.file,
+            },
+        )
 
 
-class PatternSemanticError(PatternDiagnostic, Exception):
+class PatternSemanticError(PatternDiagnostic, RoutingFault):
     """Semantic error in pattern."""
 
-    pass
+    def __init__(self, message: str, **kwargs):
+        PatternDiagnostic.__init__(self, message, **kwargs)
+        RoutingFault.__init__(
+            self,
+            code="PATTERN_SEMANTIC_ERROR",
+            message=self.format(),
+            metadata={
+                "suggestions": self.suggestions,
+                "span": str(self.span) if self.span else None,
+                "file": self.file,
+            },
+        )
 
 
-class RouteAmbiguityError(PatternDiagnostic, Exception):
+class RouteAmbiguityError(PatternDiagnostic, RoutingFault):
     """Two routes have ambiguous patterns."""
 
     def __init__(self, message: str, pattern1: str, pattern2: str, specificity: int, **kwargs):
-        super().__init__(message, **kwargs)
+        PatternDiagnostic.__init__(self, message, **kwargs)
         self.pattern1 = pattern1
         self.pattern2 = pattern2
         self.specificity = specificity
-
-    def format(self) -> str:
-        """Format ambiguity error."""
-        parts = [
-            f"RouteAmbiguityError: {self.message}",
-            f"  Pattern 1: {self.pattern1} (specificity={self.specificity})",
-            f"  Pattern 2: {self.pattern2} (specificity={self.specificity})",
-        ]
-
-        if self.suggestions:
-            parts.append("\nSuggestions:")
-            for i, suggestion in enumerate(self.suggestions, 1):
-                parts.append(f"  {i}) {suggestion}")
-
-        return "\n".join(parts)
+        RoutingFault.__init__(
+            self,
+            code="ROUTE_AMBIGUITY",
+            message=self.format(),
+            metadata={
+                "pattern1": pattern1,
+                "pattern2": pattern2,
+                "specificity": specificity,
+                "suggestions": self.suggestions,
+            },
+        )
