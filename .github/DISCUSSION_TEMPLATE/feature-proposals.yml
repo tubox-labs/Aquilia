@@ -3,41 +3,48 @@ body:
   - type: markdown
     attributes:
       value: |
-        Have a feature idea or API design suggestion for Aquilia? We'd love to hear it! 💡
-        Please outline your proposal below so the community can discuss and iterate on the design.
+        ### Propose a New Capability for Aquilia 💡
+        
+        Aquilia is designed to be highly extensible, type-safe, and secure. We welcome ideas to improve our core subsystems: the DI container, ORM, blueprint engine, worker schedules, faults middleware, or ASGI adapter.
   - type: textarea
-    id: pitch
+    id: problem-statement
     attributes:
-      label: Use Case / Pitch
+      label: Problem Statement
       description: |
-        What problem does this feature solve?
-        Describe the use case, why this feature would be useful to developers using Aquilia, and any existing limitations.
+        What limitation or challenge do you currently face in Aquilia? 
+        Provide a clear explanation of the friction point, including current workarounds if any.
+      placeholder: |
+        Currently, when working with background workers...
     validations:
       required: true
   - type: textarea
-    id: proposed-api
+    id: proposed-api-design
     attributes:
-      label: Proposed API / Solution
+      label: Proposed Solution & API Design
       description: |
-        Show an example of how you imagine the API or solution looking.
-        Sample code blocks are highly encouraged!
+        Describe your proposed design. Showing a mock-up of the target developer experience (API usage, decorators, signatures) is highly encouraged.
       placeholder: |
-        # Example of how the new API or setting should look
+        # Proposed new decorator or interface configuration:
+        @task(scheduler="cron", expression="0 0 * * *")
+        async def daily_cleanup():
+            pass
       render: python
     validations:
       required: true
   - type: textarea
-    id: alternatives
+    id: subsystem-impact
     attributes:
-      label: Alternatives Considered
+      label: Subsystem Impact & Trade-offs
       description: |
-        What other approaches did you think of?
-        Are there current workarounds or third-party packages that solve this?
+        How does this proposal interact with existing Aquilia subsystems (e.g. does it require middleware changes, DI container updates, ORM modifications)?
+        Detail any performance, safety, or backward-compatibility trade-offs.
+      placeholder: |
+        This change would only affect the task worker scheduler...
+    validations:
+      required: true
   - type: checkboxes
-    id: contribution
+    id: contribution-interest
     attributes:
-      label: Implementation Interest
-      description: |
-        Are you interested in implementing this feature yourself?
+      label: Implementation Contribution
       options:
-        - label: I would like to submit a Pull Request to implement this!
+        - label: I am interested in contributing code to implement this feature.

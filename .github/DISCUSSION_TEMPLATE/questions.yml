@@ -3,80 +3,81 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for asking a question about Aquilia! 🚀
-
-        Please follow these instructions, fill out every question, and complete all checks. 🙏
-        Providing structured context ensures that the core team and community members can assist you quickly and accurately.
+        ### Welcome to the Aquilia Community! 🦅
+        
+        Before submitting your question, please take a moment to ensure all initial debugging steps have been completed. Having structured context helps other developers and maintainers diagnose your issue efficiently.
   - type: checkboxes
-    id: checks
+    id: pre-checks
     attributes:
-      label: First Check
-      description: Please confirm and check all the following options.
+      label: Diagnostic Checklist
+      description: Please verify that you have completed the following steps before submitting:
       options:
-        - label: I added a very descriptive title here.
+        - label: I searched the GitHub issues, past discussions, and repository documentation (GUIDE.md / README.md) for similar topics.
           required: true
-        - label: I searched the GitHub issues and discussions for a similar question.
-          required: true
-        - label: I searched the Aquilia documentation (GUIDE.md / README.md).
-          required: true
-        - label: I already searched online for "How to X in Aquilia" or related topics.
-          required: true
+        - label: I checked the Dependency Injection (DI) graph resolution diagnostics if this relates to provider wiring.
+          required: false
+        - label: I inspected the active Fault domain, error code, and metadata payload if an Aquilia Fault was raised.
+          required: false
+        - label: I verified my database adapter configuration and credentials if this is an ORM/database connection issue.
+          required: false
   - type: textarea
-    id: example
+    id: reproducible-example
     attributes:
-      label: Example Code
+      label: Minimal Reproducible Example
       description: |
-        Please add a self-contained, minimal reproducible example showing your setup.
-        If we can copy and run it, we can help you much faster!
+        Please provide a self-contained, minimal code snippet that reproduces the issue or demonstrates what you are trying to achieve. 
+        Use complete imports and mock data if possible.
       placeholder: |
-        from aquilia.engine import RequestCtx
-        from aquilia.request import Request
+        from aquilia.blueprints import Blueprint, ward
+        from aquilia.controller import Controller, route
         from aquilia.response import Response
-        from aquilia.blueprints import Blueprint
 
-        # Your minimal code here
+        # Define a minimal Blueprint, Controller, or Task
+        class InputSpec(Blueprint):
+            name: str
+
+            @ward
+            def validate_name(self, data):
+                if len(data.name) < 3:
+                    self.reject("name", "Too short")
+
+        class HelloController(Controller):
+            @route("/hello", methods=["POST"])
+            async def hello(self, spec: InputSpec) -> Response:
+                return Response.json({"message": f"Hello, {spec.name}!"})
       render: python
     validations:
       required: true
   - type: textarea
-    id: description
+    id: problem-description
     attributes:
-      label: Description
+      label: Problem Description & Expected Behavior
       description: |
-        What is the question, problem, or unexpected behavior?
-        Write a short description explaining what you are doing, what you expect to happen, and what is currently happening.
+        Detail what you are attempting to build, what currently happens (include traceback/logs if applicable), and what you expect the framework to do.
+      placeholder: |
+        1. Start the ASGI server with the controller registered.
+        2. Send a POST request to `/hello` with JSON payload `{"name": "ab"}`.
+        3. Expect a validation fault `BP101` with field rejection details.
+        4. Actual behavior: ...
     validations:
       required: true
   - type: dropdown
-    id: os
+    id: environment
     attributes:
-      label: Operating System
+      label: Environment Info
+      multiple: true
       options:
-        - Linux
-        - Windows
-        - macOS
-        - Other
-    validations:
-      required: true
-  - type: input
-    id: aquilia-version
-    attributes:
-      label: Aquilia Version
-      description: |
-        What Aquilia version are you using?
-        Run `python -c "import aquilia; print(aquilia.__version__)"` to check.
-    validations:
-      required: true
-  - type: input
-    id: python-version
-    attributes:
-      label: Python Version
-      description: |
-        What Python version are you using? (e.g. 3.12, 3.13)
+        - Python 3.10
+        - Python 3.11
+        - Python 3.12
+        - Python 3.13
+        - OS: Linux
+        - OS: macOS
+        - OS: Windows
     validations:
       required: true
   - type: textarea
-    id: context
+    id: additional-details
     attributes:
       label: Additional Context
-      description: Add any additional context information, traceback/logs, or screenshots.
+      description: Attach any other details, like screenshots, active middleware list, third-party libraries involved, or deployment environment settings.
