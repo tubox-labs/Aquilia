@@ -282,6 +282,8 @@ code.changelog-code {
   body {
     height: auto !important;
     overflow: visible !important;
+    background: #ffffff !important;
+    color: #18181b !important;
   }
 
   /* Force background colors to print */
@@ -296,12 +298,44 @@ code.changelog-code {
     color: inherit !important;
   }
 
+  /* Make sure primary text is dark charcoal/black */
+  p, li, a, h1, h2, h3, h4, h5, h6, td, th {
+    color: #18181b !important;
+  }
+
+  /* Deepen semantic colors for highly readable print contrast */
+  .text-blue-400,
+  .text-blue-500 {
+    color: #1d4ed8 !important;
+  }
+  .text-purple-400,
+  .text-purple-500 {
+    color: #6d28d9 !important;
+  }
+  .text-emerald-400,
+  .text-emerald-500 {
+    color: #15803d !important;
+  }
+  .text-amber-400,
+  .text-amber-500 {
+    color: #b45309 !important;
+  }
+  .text-pink-400,
+  .text-pink-500 {
+    color: #be123c !important;
+  }
+  .text-aquilia-400,
+  .text-aquilia-500 {
+    color: #16a34a !important;
+  }
+
   /* Remove text gradients and force solid text */
   .gradient-text {
     background: none !important;
     -webkit-background-clip: initial !important;
     background-clip: initial !important;
     -webkit-text-fill-color: initial !important;
+    color: #111827 !important;
   }
 
   /* Reset Framer Motion initial animation opacities to be visible in print */
@@ -312,12 +346,52 @@ code.changelog-code {
     transform: none !important;
   }
 
+  /* Clean up card boxes (features, callouts, next steps) */
+  div[class*="bg-zinc-900"],
+  div[class*="bg-zinc-950"],
+  div[class*="bg-black"],
+  div[class*="bg-zinc-800"],
+  a[class*="bg-zinc-900"],
+  a[class*="bg-zinc-950"] {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Soft backgrounds for callouts/info boxes */
+  .bg-red-50,
+  div[class*="bg-red-500"] {
+    background-color: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+  }
+
+  .bg-emerald-50,
+  div[class*="bg-emerald-500"] {
+    background-color: #f0fdf4 !important;
+    border-color: #86efac !important;
+  }
+
   .code-block-container {
     page-break-inside: auto !important;
     break-inside: auto !important;
   }
 
+  .code-block-container > div {
+    background-color: #f8fafc !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .code-block-container > div > div:first-child {
+    background-color: #f1f5f9 !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  .code-block-container > div > div:first-child span {
+    color: #475569 !important;
+  }
+
   .code-block-container pre {
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
     border: none !important;
     white-space: pre-wrap !important;
     word-wrap: break-word !important;
@@ -329,10 +403,123 @@ code.changelog-code {
     text-indent: -3rem !important;
   }
 
-  /* Keep code tokens readable background settings */
+  /* Table styling */
+  thead tr,
+  tr[class*="bg-zinc-800"] {
+    background-color: #f1f5f9 !important;
+  }
+
+  tr:nth-child(even) {
+    background-color: #f8fafc !important;
+  }
+
+  th, td {
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Inline code formatting */
+  :not(pre) > code {
+    background-color: #f4f4f5 !important;
+    border: 1px solid #d4d4d8 !important;
+    padding: 0.125rem 0.25rem !important;
+    border-radius: 0.25rem !important;
+    color: #18181b !important;
+  }
+
+  /* Set the default color for all plain text / tokens in codeblock to dark gray */
+  .code-block-container pre span {
+    color: #27272a !important;
+  }
+
+  /* Keep code tokens readable */
   .code-block-container pre span.token {
     background: transparent !important;
     text-shadow: none !important;
+  }
+  
+  .code-block-container pre span.token.comment {
+    color: #71717a !important;
+  }
+  
+  .code-block-container pre span.token.punctuation {
+    color: #52525b !important;
+  }
+  
+  .code-block-container pre span.token.property,
+  .code-block-container pre span.token.tag,
+  .code-block-container pre span.token.boolean,
+  .code-block-container pre span.token.number,
+  .code-block-container pre span.token.constant,
+  .code-block-container pre span.token.symbol,
+  .code-block-container pre span.token.deleted {
+    color: #0f766e !important;
+  }
+  
+  .code-block-container pre span.token.selector,
+  .code-block-container pre span.token.attr-name,
+  .code-block-container pre span.token.string,
+  .code-block-container pre span.token.char,
+  .code-block-container pre span.token.builtin,
+  .code-block-container pre span.token.inserted {
+    color: #15803d !important;
+  }
+  
+  .code-block-container pre span.token.operator,
+  .code-block-container pre span.token.entity,
+  .code-block-container pre span.token.url {
+    color: #b45309 !important;
+  }
+  
+  .code-block-container pre span.token.atrule,
+  .code-block-container pre span.token.attr-value,
+  .code-block-container pre span.token.keyword {
+    color: #1d4ed8 !important;
+  }
+  
+  .code-block-container pre span.token.function,
+  .code-block-container pre span.token.class-name {
+    color: #6d28d9 !important;
+  }
+  
+  .code-block-container pre span.token.regex,
+  .code-block-container pre span.token.important,
+  .code-block-container pre span.token.variable {
+    color: #be123c !important;
+  }
+
+  /* Custom token colors from CodeBlock component mapping */
+  .code-block-container pre span.code-decorator {
+    color: #15803d !important;
+  }
+  .code-block-container pre span.code-variable {
+    color: #1d4ed8 !important;
+  }
+  .code-block-container pre span.code-self {
+    color: #be185d !important;
+  }
+  .code-block-container pre span.code-class-ref {
+    color: #c2410c !important;
+  }
+  .code-block-container pre span.code-function-call {
+    color: #a16207 !important;
+  }
+  .code-block-container pre span.code-member {
+    color: #0e7490 !important;
+  }
+
+  /* Reset layout borders */
+  * {
+    border-color: #d4d4d8 !important;
+  }
+
+  /* Prevent page-breaks inside crucial components */
+  blockquote,
+  table,
+  tr,
+  img,
+  li {
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   /* Avoid headers isolated at bottom of page */
@@ -347,414 +534,6 @@ code.changelog-code {
   /* Remove scrollbars */
   ::-webkit-scrollbar {
     display: none !important;
-  }
-
-  /* ==========================================================================
-     LIGHT PRINT THEME (Default)
-     ========================================================================== */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])),
-  body:not(:has(.print-content-wrapper[data-print-theme="dark"])) {
-    background: #ffffff !important;
-    color: #18181b !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) p,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) li,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) a,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) h1,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) h2,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) h3,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) h4,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) h5,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) h6,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) td,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) th {
-    color: #18181b !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .gradient-text {
-    color: #111827 !important;
-  }
-
-  /* Deepen semantic colors for highly readable print contrast */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-blue-400,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-blue-500 {
-    color: #1d4ed8 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-purple-400,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-purple-500 {
-    color: #6d28d9 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-emerald-400,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-emerald-500 {
-    color: #15803d !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-amber-400,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-amber-500 {
-    color: #b45309 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-pink-400,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-pink-500 {
-    color: #be123c !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-aquilia-400,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .text-aquilia-500 {
-    color: #16a34a !important;
-  }
-
-  /* Clean up card boxes (features, callouts, next steps) */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) div[class*="bg-zinc-900"],
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) div[class*="bg-zinc-950"],
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) div[class*="bg-black"],
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) div[class*="bg-zinc-800"],
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) a[class*="bg-zinc-900"],
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) a[class*="bg-zinc-950"] {
-    background-color: #f8fafc !important;
-    border-color: #e2e8f0 !important;
-  }
-
-  /* Soft backgrounds for callouts/info boxes */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .bg-red-50,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) div[class*="bg-red-500"] {
-    background-color: #fef2f2 !important;
-    border-color: #fca5a5 !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .bg-emerald-50,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) div[class*="bg-emerald-500"] {
-    background-color: #f0fdf4 !important;
-    border-color: #86efac !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container > div {
-    background-color: #f8fafc !important;
-    border-color: #e2e8f0 !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container > div > div:first-child {
-    background-color: #f1f5f9 !important;
-    border-color: #e2e8f0 !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container > div > div:first-child span {
-    color: #475569 !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre {
-    background-color: #f8fafc !important;
-    color: #0f172a !important;
-  }
-
-  /* Table styling */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) thead tr,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) tr[class*="bg-zinc-800"] {
-    background-color: #f1f5f9 !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) tr:nth-child(even) {
-    background-color: #f8fafc !important;
-  }
-
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) th, 
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) td {
-    border: 1px solid #e2e8f0 !important;
-  }
-
-  /* Inline code formatting */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) :not(pre) > code {
-    background-color: #f4f4f5 !important;
-    border: 1px solid #d4d4d8 !important;
-    padding: 0.125rem 0.25rem !important;
-    border-radius: 0.25rem !important;
-    color: #18181b !important;
-  }
-
-  /* Set the default color for all plain text / tokens in codeblock to dark gray */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span {
-    color: #27272a !important;
-  }
-
-  /* Keep code tokens readable */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.comment {
-    color: #71717a !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.punctuation {
-    color: #52525b !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.property,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.tag,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.boolean,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.number,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.constant,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.symbol,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.deleted {
-    color: #0f766e !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.selector,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.attr-name,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.string,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.char,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.builtin,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.inserted {
-    color: #15803d !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.operator,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.entity,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.url {
-    color: #b45309 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.atrule,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.attr-value,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.keyword {
-    color: #1d4ed8 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.function,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.class-name {
-    color: #6d28d9 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.regex,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.important,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.token.variable {
-    color: #be123c !important;
-  }
-
-  /* Custom token colors from CodeBlock component mapping */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.code-decorator {
-    color: #15803d !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.code-variable {
-    color: #1d4ed8 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.code-self {
-    color: #be185d !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.code-class-ref {
-    color: #c2410c !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.code-function-call {
-    color: #a16207 !important;
-  }
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) .code-block-container pre span.code-member {
-    color: #0e7490 !important;
-  }
-
-  /* Reset layout borders */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) * {
-    border-color: #d4d4d8 !important;
-  }
-
-  /* Prevent page-breaks inside crucial components */
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) blockquote,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) table,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) tr,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) img,
-  html:not(:has(.print-content-wrapper[data-print-theme="dark"])) li {
-    page-break-inside: avoid;
-    break-inside: avoid;
-  }
-
-  /* ==========================================================================
-     DARK PRINT THEME
-     ========================================================================== */
-  html:has(.print-content-wrapper[data-print-theme="dark"]),
-  body:has(.print-content-wrapper[data-print-theme="dark"]) {
-    background: #09090b !important;
-    color: #e4e4e7 !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) p,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) li,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) a,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) h1,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) h2,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) h3,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) h4,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) h5,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) h6,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) td,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) th {
-    color: #e4e4e7 !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .gradient-text {
-    color: #ffffff !important;
-  }
-
-  /* Keep semantic colors vibrant in dark theme */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-blue-400,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-blue-500 {
-    color: #60a5fa !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-purple-400,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-purple-500 {
-    color: #c084fc !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-emerald-400,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-emerald-500 {
-    color: #34d399 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-amber-400,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-amber-500 {
-    color: #fbbf24 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-pink-400,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-pink-500 {
-    color: #f472b6 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-aquilia-400,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .text-aquilia-500 {
-    color: #22c55e !important;
-  }
-
-  /* Clean up card boxes in dark print */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) div[class*="bg-zinc-900"],
-  html:has(.print-content-wrapper[data-print-theme="dark"]) div[class*="bg-zinc-950"],
-  html:has(.print-content-wrapper[data-print-theme="dark"]) div[class*="bg-black"],
-  html:has(.print-content-wrapper[data-print-theme="dark"]) div[class*="bg-zinc-800"],
-  html:has(.print-content-wrapper[data-print-theme="dark"]) a[class*="bg-zinc-900"],
-  html:has(.print-content-wrapper[data-print-theme="dark"]) a[class*="bg-zinc-950"] {
-    background-color: #18181b !important;
-    border-color: #27272a !important;
-  }
-
-  /* Soft dark backgrounds for callouts/info boxes */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .bg-red-50,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) div[class*="bg-red-500"] {
-    background-color: #450a0a !important;
-    border-color: #7f1d1d !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .bg-emerald-50,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) div[class*="bg-emerald-500"] {
-    background-color: #064e3b !important;
-    border-color: #065f46 !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container > div {
-    background-color: #18181b !important;
-    border-color: #27272a !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container > div > div:first-child {
-    background-color: #27272a !important;
-    border-color: #3f3f46 !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container > div > div:first-child span {
-    color: #d4d4d8 !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre {
-    background-color: #18181b !important;
-    color: #e4e4e7 !important;
-  }
-
-  /* Table styling */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) thead tr,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) tr[class*="bg-zinc-800"] {
-    background-color: #27272a !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) tr:nth-child(even) {
-    background-color: #18181b !important;
-  }
-
-  html:has(.print-content-wrapper[data-print-theme="dark"]) th, 
-  html:has(.print-content-wrapper[data-print-theme="dark"]) td {
-    border: 1px solid #27272a !important;
-  }
-
-  /* Inline code formatting */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) :not(pre) > code {
-    background-color: rgba(255, 255, 255, 0.08) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    padding: 0.125rem 0.25rem !important;
-    border-radius: 0.25rem !important;
-    color: #e4e4e7 !important;
-  }
-
-  /* Set the default color for all plain text / tokens in codeblock to light gray */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span {
-    color: #e4e4e7 !important;
-  }
-
-  /* Keep code tokens readable in dark mode */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.comment {
-    color: #71717a !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.punctuation {
-    color: #a1a1aa !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.property,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.tag,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.boolean,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.number,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.constant,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.symbol,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.deleted {
-    color: #38bdf8 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.selector,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.attr-name,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.string,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.char,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.builtin,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.inserted {
-    color: #4ade80 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.operator,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.entity,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.url {
-    color: #f97316 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.atrule,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.attr-value,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.keyword {
-    color: #3b82f6 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.function,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.class-name {
-    color: #a855f7 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.regex,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.important,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.token.variable {
-    color: #f43f5e !important;
-  }
-
-  /* Custom token colors from CodeBlock component mapping for Dark Print */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.code-decorator {
-    color: #4ade80 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.code-variable {
-    color: #60a5fa !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.code-self {
-    color: #f472b6 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.code-class-ref {
-    color: #fb923c !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.code-function-call {
-    color: #fbbf24 !important;
-  }
-  html:has(.print-content-wrapper[data-print-theme="dark"]) .code-block-container pre span.code-member {
-    color: #22d3ee !important;
-  }
-
-  /* Reset layout borders */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) * {
-    border-color: #27272a !important;
-  }
-
-  /* Prevent page-breaks inside crucial components */
-  html:has(.print-content-wrapper[data-print-theme="dark"]) blockquote,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) table,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) tr,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) img,
-  html:has(.print-content-wrapper[data-print-theme="dark"]) li {
-    page-break-inside: avoid;
-    break-inside: avoid;
   }
 }
 
