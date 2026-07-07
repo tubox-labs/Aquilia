@@ -541,32 +541,38 @@ def atomic(
     Create an atomic transaction context manager (and/or decorator).
 
     Can be used as a context manager:
+    ```
         async with atomic():
             ...
-
+        ```
     Or with a specific database:
+    ```
         async with atomic(db=my_db):
             ...
-
+    ```
     Or with isolation level (PostgreSQL/MySQL):
+    ```
         async with atomic(isolation="SERIALIZABLE"):
             ...
-
+        ```
     Or as a decorator on an async function:
+    ```
         @atomic()
         async def transfer(src, dst, amount):
             ...
-
+    ```
     Or read-only (routes to a reader connection on SQLite instead of the
     single writer):
+    ```
         async with atomic(readonly=True):
             ...
-
+    ```
     Or with a timeout in seconds (rolled back and raised as a QueryFault if
     exceeded):
+    ```
         async with atomic(timeout=5.0):
             ...
-
+    ```
     Args:
         db: Database instance. If None, uses the default.
         savepoint: Use savepoints for nesting (default True)
