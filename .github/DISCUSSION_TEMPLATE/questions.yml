@@ -10,7 +10,7 @@ body:
     id: pre-checks
     attributes:
       label: Diagnostic Checklist
-      description: Please verify that you have completed the following steps before submitting:
+      description: "Please verify that you have completed the following steps before submitting:"
       options:
         - label: I searched the GitHub issues, past discussions, and repository documentation (GUIDE.md / README.md) for similar topics.
           required: true
@@ -71,9 +71,9 @@ body:
         - Python 3.11
         - Python 3.12
         - Python 3.13
-        - OS: Linux
-        - OS: macOS
-        - OS: Windows
+        - "OS: Linux"
+        - "OS: macOS"
+        - "OS: Windows"
     validations:
       required: true
   - type: textarea
