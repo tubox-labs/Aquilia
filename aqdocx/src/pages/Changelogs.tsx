@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { SEO } from '../components/SEO'
 
 interface ChangelogSection {
   title: string
@@ -431,9 +432,28 @@ export function Changelogs() {
   const [changelogData, setChangelogData] = useState<ChangelogEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": "https://aquilia.tubox.cloud/changelogs#webpage",
+        "name": "Changelogs & Developer Logs — Aquilia",
+        "description": "Detailed changelogs, API deprecations, migration guides, and release logs for Aquilia framework developers.",
+        "url": "https://aquilia.tubox.cloud/changelogs"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aquilia.tubox.cloud/changelogs#breadcrumbs",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Changelogs", "item": "https://aquilia.tubox.cloud/changelogs" }
+        ]
+      }
+    ]
+  }
+
   useEffect(() => {
-    document.title = "Changelogs — Aquilia"
-    
     fetch('https://raw.githubusercontent.com/tubox-labs/Aquilia/master/CHANGELOG.md')
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch CHANGELOG.md')
@@ -468,6 +488,12 @@ export function Changelogs() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
+      <SEO
+        title="Changelogs & Developer Logs — Aquilia"
+        description="Detailed changelogs, API deprecations, migration guides, and release logs for Aquilia framework developers."
+        keywords="Aquilia changelogs, API deprecations, migration guides, release notes"
+        schema={schema}
+      />
       <Navbar onToggleSidebar={() => setIsSidebarOpen(true)} />
       <div className="lg:hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

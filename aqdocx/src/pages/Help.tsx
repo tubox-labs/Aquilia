@@ -2,13 +2,57 @@ import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import { useTheme } from '../context/ThemeContext'
 import { MessageSquare, AlertCircle, HelpCircle, ArrowRight } from 'lucide-react'
+import { SEO } from '../components/SEO'
+
 
 export function HelpPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "FAQPage",
+        "@id": "https://aquilia.tubox.cloud/help#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is ScopeViolationError?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "This occurs when a SINGLETON scoped service attempts to inject a REQUEST or transient scoped dependency in its constructor. Ensure constructor injections match or use a factory method instead."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What is PatternSyntaxError?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Triggered if your URL parameter syntax is malformed. Ensure you use the updated curly brace format (e.g. {id:int}) and not the legacy chevron tags."
+            }
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aquilia.tubox.cloud/help#breadcrumbs",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Help & Support", "item": "https://aquilia.tubox.cloud/help" }
+        ]
+      }
+    ]
+  }
+
   return (
     <div className={`min-h-screen flex flex-col ${isDark ? 'bg-black text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+      <SEO
+        title="Help Center & Support — Aquilia"
+        description="Find resources, FAQs, troubleshooting guides, and community channels to resolve issues with the Aquilia Python framework."
+        keywords="Aquilia support, help center, ScopeViolationError, PatternSyntaxError, Python framework support"
+        schema={schema}
+      />
       <Navbar />
 
       <main className="flex-grow max-w-4xl mx-auto px-6 py-16 w-full space-y-16">

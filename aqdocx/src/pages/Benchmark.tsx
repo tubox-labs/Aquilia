@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Activity,
@@ -16,6 +16,7 @@ import {
 import { Navbar } from '../components/Navbar'
 import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
+import { SEO } from '../components/SEO'
 
 interface ScenarioMetric {
   scenario: string
@@ -226,9 +227,30 @@ export function BenchmarkPage() {
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
-  useEffect(() => {
-    document.title = "Benchmark — Aquilia"
-  }, [])
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "TechArticle",
+        "@id": "https://aquilia.tubox.cloud/benchmark#article",
+        "headline": "Framework Benchmarks — Aquilia vs FastAPI vs Django",
+        "description": "Compare Aquilia performance against FastAPI, Starlette, Django, and Flask. Review throughput, latency, and resource metrics.",
+        "url": "https://aquilia.tubox.cloud/benchmark",
+        "author": {
+          "@type": "Organization",
+          "name": "Aquilia Team"
+        }
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aquilia.tubox.cloud/benchmark#breadcrumbs",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Benchmarks", "item": "https://aquilia.tubox.cloud/benchmark" }
+        ]
+      }
+    ]
+  }
 
   const [activeChart, setActiveChart] = useState<string>('throughput')
 
@@ -274,6 +296,12 @@ export function BenchmarkPage() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
+      <SEO
+        title="Framework Benchmarks — Aquilia vs FastAPI vs Django"
+        description="Compare Aquilia performance against FastAPI, Starlette, Django, and Flask. Review throughput, latency, concurrency, and memory consumption metrics under high load."
+        keywords="Python benchmarks, FastAPI vs Aquilia, web framework performance, async performance, python web framework, async Python"
+        schema={schema}
+      />
       <Navbar onToggleSidebar={() => setIsSidebarOpen(true)} />
       <div className="lg:hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />

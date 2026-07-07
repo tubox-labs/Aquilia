@@ -5,20 +5,80 @@ import { Sidebar } from '../components/Sidebar'
 import { useTheme } from '../context/ThemeContext'
 import { ArrowRight, Github, BookOpen, Activity, Rocket, Copy } from 'lucide-react'
 import { PostgresSQLIcon, RedisIcon, RabbitMQIcon, SentryIcon, OpenTelemetryIcon, AwsS3Icon, ElasticsearchIcon, DockerIcon } from '../components/BrandIcons'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArchitectureDiagram } from '../components/ArchitectureDiagram'
 import { ReleaseTimeline } from '../components/ReleaseTimeline'
+import { ProductDemo } from '../components/ProductDemo'
+import { SEO } from '../components/SEO'
 
 export function LandingPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [copied, setCopied] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [openFaq, setOpenFaq] = useState<number | null>(null)
 
-  useEffect(() => {
-    document.title = "Aquilia — High-Performance Async Python Web Framework"
-  }, [])
+  const faqs = [
+    {
+      q: "What is Aquilia?",
+      a: "Aquilia is a high-performance, async-native Python web framework. It is designed to get developers from zero to production without boilerplate by automatically scanning your workspace, resolving your dependency graph, registering your routes, and bootstrapping your ASGI server."
+    },
+    {
+      q: "How does it compare to FastAPI or Django?",
+      a: "FastAPI is excellent for raw API routers, and Django is great for battery-included monoliths. Aquilia bridges this gap. It provides the performance and speed of async FastAPI but packs enterprise tools like a built-in ORM with sqlite pooling, a comprehensive dependency injection system, background task queues, and auto-generated deployment manifests."
+    },
+    {
+      q: "What does Manifest-First architecture mean?",
+      a: "In Aquilia, you declare your application architecture, services, tasks, and controllers in a central configuration (the manifest). The runtime scans your codebase, auto-discovers your files, structures dependencies, and compiles the routing graph. This eliminates boilerplate imports, decorator chaining, and manual routing registration."
+    },
+    {
+      q: "Is it ready for high-concurrency production workloads?",
+      a: "Yes. Aquilia is async-native, built on top of high-performance ASGI web servers (like Uvicorn and Hypercorn), and optimized for I/O-bound concurrency. It contains database connection pooling, caching decorators, and automated Docker/Kubernetes scaffolding to scale out of the box."
+    },
+    {
+      q: "Does it support databases other than SQLite?",
+      a: "Yes, absolutely. While Aquilia provides a highly optimized zero-config SQLite integration for local development, its Database Engine backend is pluggable and supports PostgreSQL, MySQL, and other standard SQL backends out of the box."
+    }
+  ]
+
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://aquilia.tubox.cloud/#software",
+        "name": "Aquilia",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Cross-platform",
+        "description": "Manifest-First, async-native Python web framework with zero boilerplate.",
+        "url": "https://aquilia.tubox.cloud/",
+        "downloadUrl": "https://pypi.org/project/aquilia/",
+        "softwareVersion": "1.2.2",
+        "programmingLanguage": "Python",
+        "license": "https://opensource.org/licenses/MIT",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://aquilia.tubox.cloud/#website",
+        "name": "Aquilia",
+        "url": "https://aquilia.tubox.cloud/",
+        "publisher": {
+          "@type": "Organization",
+          "name": "Aquilia Team",
+          "logo": {
+            "@type": "ImageObject",
+            "url": "https://aquilia.tubox.cloud/logo.png"
+          }
+        }
+      }
+    ]
+  }
 
   const copyCmd = () => {
     navigator.clipboard.writeText('pip install aquilia')
@@ -47,6 +107,12 @@ export function LandingPage() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
+      <SEO
+        title="Aquilia — High-Performance Async Python Web Framework"
+        description="Aquilia is a Manifest-First, async-native Python web framework with zero boilerplate. Built-in ORM, DI, auth, sessions, caching, WebSockets, Docker/K8s manifests, and admin dashboard. Production-ready from day one."
+        keywords="Python web framework, async Python, Python API framework, Python REST API, manifest-first, dependency injection Python, Python ORM, background tasks, Python microservices, Docker Kubernetes deployment, Python admin dashboard, Aquilia framework, high-performance Python"
+        schema={schema}
+      />
       <Navbar onToggleSidebar={() => setIsSidebarOpen(true)} />
       <div className="lg:hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
@@ -145,6 +211,9 @@ export function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* Product Demo Section */}
+        <ProductDemo />
 
         {/* Benchmark Snapshot Section */}
         <section className={`py-24 relative overflow-hidden border-y ${isDark ? 'bg-black border-white/5' : 'bg-gray-50 border-gray-200'}`}>
@@ -307,6 +376,59 @@ export function LandingPage() {
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQs */}
+        <section className="py-24 relative overflow-hidden border-t border-b border-transparent">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16">
+              <h2 className={`text-4xl font-bold font-mono tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                Frequently Asked Questions
+              </h2>
+              <p className={`text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Everything you need to know about the Aquilia framework architecture.
+              </p>
+            </div>
+
+            <div className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-200'}`}>
+              {faqs.map((faq, index) => {
+                const isOpen = openFaq === index;
+                return (
+                  <div key={index} className="py-6">
+                    <button
+                      onClick={() => setOpenFaq(isOpen ? null : index)}
+                      className="w-full flex items-center justify-between text-left group focus:outline-none cursor-pointer"
+                    >
+                      <span className={`text-lg font-bold font-mono transition-colors duration-200 ${
+                        isOpen 
+                          ? 'text-aquilia-400' 
+                          : isDark 
+                            ? 'text-gray-200 group-hover:text-white' 
+                            : 'text-gray-800 group-hover:text-gray-900'
+                      }`}>
+                        {faq.q}
+                      </span>
+                      <span className={`ml-6 flex-shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180 text-aquilia-400' : 'text-gray-500 group-hover:text-gray-300'}`}>
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                    </button>
+                    <motion.div
+                      initial={false}
+                      animate={{ height: isOpen ? 'auto' : 0, opacity: isOpen ? 1 : 0 }}
+                      transition={{ duration: 0.3, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <p className={`mt-4 text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        {faq.a}
+                      </p>
+                    </motion.div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>

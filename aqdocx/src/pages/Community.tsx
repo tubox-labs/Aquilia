@@ -2,13 +2,41 @@ import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import { useTheme } from '../context/ThemeContext'
 import { Github, Users, MessageSquare, ArrowRight } from 'lucide-react'
+import { SEO } from '../components/SEO'
 
 export function CommunityPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": "https://aquilia.tubox.cloud/community#webpage",
+        "name": "Developer Community & Ecosystem — Aquilia",
+        "description": "Join the Aquilia framework community. Connect on GitHub, Discord, and Slack, and contribute to the async Python ecosystem.",
+        "url": "https://aquilia.tubox.cloud/community"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aquilia.tubox.cloud/community#breadcrumbs",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Community", "item": "https://aquilia.tubox.cloud/community" }
+        ]
+      }
+    ]
+  }
+
   return (
     <div className={`min-h-screen flex flex-col ${isDark ? 'bg-black text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+      <SEO
+        title="Developer Community & Ecosystem — Aquilia"
+        description="Join the Aquilia framework community. Connect on GitHub, Discussions, and contribute to the async Python ecosystem."
+        keywords="Aquilia community, Python open source community, async Python framework community, contribute to Aquilia"
+        schema={schema}
+      />
       <Navbar />
 
       <main className="flex-grow max-w-4xl mx-auto px-6 py-16 w-full space-y-16">

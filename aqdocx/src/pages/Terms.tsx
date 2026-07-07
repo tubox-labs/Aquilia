@@ -2,13 +2,41 @@ import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import { useTheme } from '../context/ThemeContext'
 import { FileText, AlertTriangle } from 'lucide-react'
+import { SEO } from '../components/SEO'
 
 export function TermsPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebPage",
+        "@id": "https://aquilia.tubox.cloud/terms#webpage",
+        "name": "Terms of Service — Aquilia",
+        "description": "Read the terms of service and acceptable use conditions for the Aquilia documentation site and services.",
+        "url": "https://aquilia.tubox.cloud/terms"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aquilia.tubox.cloud/terms#breadcrumbs",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Terms of Service", "item": "https://aquilia.tubox.cloud/terms" }
+        ]
+      }
+    ]
+  }
+
   return (
     <div className={`min-h-screen flex flex-col ${isDark ? 'bg-black text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
+      <SEO
+        title="Terms of Service — Aquilia"
+        description="Read the terms of service for using Aquilia websites, documentation, and tools."
+        keywords="terms of service, legal, acceptable use, Aquilia framework"
+        schema={schema}
+      />
       <Navbar />
 
       <main className="flex-grow max-w-4xl mx-auto px-6 py-16 w-full space-y-12">

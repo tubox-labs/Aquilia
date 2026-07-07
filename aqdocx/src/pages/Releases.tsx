@@ -9,6 +9,7 @@ import {
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ReleaseTimeline } from '../components/ReleaseTimeline'
+import { SEO } from '../components/SEO'
 
 interface ReleaseAsset {
   name: string
@@ -364,8 +365,28 @@ export function Releases() {
     setTimeout(() => setCopiedCmd(null), 2000)
   }
 
+  const schema = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "CollectionPage",
+        "@id": "https://aquilia.tubox.cloud/releases#webpage",
+        "name": "Releases & Version History — Aquilia",
+        "description": "Stay up to date with the latest releases, features, bug fixes, and upgrades of the Aquilia Python framework.",
+        "url": "https://aquilia.tubox.cloud/releases"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://aquilia.tubox.cloud/releases#breadcrumbs",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Releases", "item": "https://aquilia.tubox.cloud/releases" }
+        ]
+      }
+    ]
+  }
+
   useEffect(() => {
-    document.title = "Releases — Aquilia"
     fetch('https://api.github.com/repos/tubox-labs/Aquilia/tags')
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch')
@@ -409,6 +430,12 @@ export function Releases() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
+      <SEO
+        title="Releases & Version History — Aquilia"
+        description="Stay up to date with the latest releases, features, performance improvements, bug fixes, and upgrade notes of the Aquilia Python framework."
+        keywords="Aquilia releases, Python web framework releases, async Python version history, Aquilia framework changelogs"
+        schema={schema}
+      />
       <Navbar onToggleSidebar={() => setIsSidebarOpen(true)} />
       <div className="lg:hidden">
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
