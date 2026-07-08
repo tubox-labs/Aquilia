@@ -40,7 +40,7 @@ export function AuthStores() {
             { icon: <Server className="w-5 h-5" />, title: 'RedisTokenStore', desc: 'Production Redis-backed store. Hash-per-token, sorted sets for expiry, set-based revocation checks. Auto-cleanup via Redis TTL.', color: '#ef4444' },
           ].map((s, i) => (
             <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
-              <div className="mt-1 p-2 rounded-lg bg-aquilia-500/10 group-hover:scale-105 transition-all" style={{ color: s.color }}>
+              <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: s.color }}>
                 {s.icon}
               </div>
               <div className="space-y-1">

@@ -149,7 +149,7 @@ if not is_valid:
             { title: 'MFACredential', desc: 'Multi-factor credential supporting TOTP, WebAuthn, SMS, and email methods with backup recovery code hashes.', link: '/docs/auth/mfa', color: '#22c55e' },
           ].map((c, i) => (
             <Link key={i} to={c.link} className="flex gap-4 p-5 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group border border-transparent hover:border-aquilia-500/10">
-              <div className="mt-1 p-2 rounded-lg bg-aquilia-500/10 group-hover:scale-105 transition-all" style={{ color: c.color }}>
+              <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: c.color }}>
                 <Shield className="w-5 h-5" />
               </div>
               <div className="space-y-1">

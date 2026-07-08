@@ -40,7 +40,7 @@ export function AuthMFA() {
             { icon: <QrCode className="w-5 h-5" />, title: 'SMS / Email OTP', desc: 'MFACredential supports sms and email types via phone_number and email fields. Requires external delivery provider.', color: '#8b5cf6' },
           ].map((m, i) => (
             <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
-              <div className="mt-1 p-2 rounded-lg bg-aquilia-500/10 group-hover:scale-105 transition-all" style={{ color: m.color }}>
+              <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: m.color }}>
                 {m.icon}
               </div>
               <div className="space-y-1">
