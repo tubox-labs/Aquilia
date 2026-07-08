@@ -70,20 +70,20 @@ class DBTxHandle(dict):
         from .db.engine import get_database
         return get_database()
 
-    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> int:
-        """Execute a query within the transaction."""
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
+        """Execute a query within the transaction. Returns a cursor-like object."""
         return await self._get_db().execute(sql, params)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]] | None = None) -> None:
         """Execute multiple queries within the transaction."""
         await self._get_db().execute_many(sql, params_list)
 
-    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[Any]:
-        """Fetch all rows within the transaction."""
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
+        """Fetch all rows within the transaction as dicts."""
         return await self._get_db().fetch_all(sql, params)
 
-    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> Any:
-        """Fetch a single row within the transaction."""
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
+        """Fetch a single row within the transaction as a dict, or None."""
         return await self._get_db().fetch_one(sql, params)
 
     async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
@@ -526,11 +526,11 @@ class CacheServiceHandle:
     async def get(self, key: str) -> Any | None:
         return await self._svc.get(key, namespace=self._ns)
 
-    async def set(self, key: str, value: Any, ttl: int | None = None):
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         await self._svc.set(key, value, ttl=ttl, namespace=self._ns)
 
-    async def delete(self, key: str):
-        await self._svc.delete(key, namespace=self._ns)
+    async def delete(self, key: str) -> bool:
+        return await self._svc.delete(key, namespace=self._ns)
 
 
 class CacheHandle:
@@ -547,13 +547,13 @@ class CacheHandle:
         """Get value from cache."""
         return self._cache.get(self._key(key))
 
-    async def set(self, key: str, value: Any, ttl: int | None = None):
+    async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
         """Set value in cache."""
         self._cache[self._key(key)] = value
 
-    async def delete(self, key: str):
+    async def delete(self, key: str) -> bool:
         """Delete value from cache."""
-        self._cache.pop(self._key(key), None)
+        return bool(self._cache.pop(self._key(key), None) is not None)
 
 
 class QueueHandle:
@@ -563,7 +563,7 @@ class QueueHandle:
         self._messages = messages
         self._topic = topic
 
-    async def publish(self, payload: Any, *, headers: dict[str, str] | None = None):
+    async def publish(self, payload: Any, *, headers: dict[str, str] | None = None) -> None:
         """Publish a message to the topic."""
         self._messages.append(
             {
@@ -574,7 +574,7 @@ class QueueHandle:
             }
         )
 
-    async def publish_batch(self, payloads: Sequence[Any]):
+    async def publish_batch(self, payloads: Sequence[Any]) -> None:
         """Publish multiple messages."""
         for payload in payloads:
             await self.publish(payload)
@@ -587,7 +587,7 @@ class TaskQueueHandle:
         self._manager = manager
         self._queue = queue
 
-    async def enqueue(self, func, *args, **kwargs) -> str:
+    async def enqueue(self, func: Any, *args: Any, **kwargs: Any) -> str:
         """
         Enqueue a task for background execution.
 
@@ -602,13 +602,13 @@ class TaskQueueHandle:
         job_id = await self._manager.enqueue(func, *args, queue=self._queue, **kwargs)
         return cast(str, job_id)
 
-    async def publish(self, payload: Any, *, headers: dict[str, str] | None = None):
+    async def publish(self, payload: Any, *, headers: dict[str, str] | None = None) -> None:
         """Compatibility with QueueHandle -- enqueue payload as a task."""
         # For generic publish, store as a no-op message
         # Real usage should call enqueue() with a @task function
         pass
 
-    async def publish_batch(self, payloads: Sequence[Any]):
+    async def publish_batch(self, payloads: Sequence[Any]) -> None:
         """Compatibility with QueueHandle."""
         pass
 
@@ -649,7 +649,7 @@ class HTTPHandle:
 class StorageHandle:
     """Handle for file/blob storage operations."""
 
-    def __init__(self, root_path: str, bucket: str, registry: Any = None):
+    def __init__(self, root_path: str, bucket: str, registry: Any | None = None) -> None:
         self._root = root_path
         self._bucket = bucket
         self._registry = registry
