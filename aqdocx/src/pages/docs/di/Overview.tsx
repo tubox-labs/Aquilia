@@ -32,10 +32,8 @@ export function DIOverview() {
           <Layers className="w-5 h-5 text-aquilia-500" />
           System Architecture
         </h2>
-        <div className="relative overflow-hidden rounded-2xl bg-white/5 border border-white/5 p-6 backdrop-blur-sm">
-          <div className="flex items-center justify-center">
-            <img src="/architecture/di.svg" alt="Dependency Injection Architecture" className="max-w-full h-auto max-h-[360px]" />
-          </div>
+        <div className="flex items-center justify-center py-6">
+          <img src="/architecture/di.svg" alt="Dependency Injection Architecture" className="max-w-full h-auto max-h-[360px]" />
         </div>
       </section>
 
@@ -92,10 +90,33 @@ export function DIOverview() {
                 ['lifecycle.py', 'DisposalStrategy, LifecycleHook, Lifecycle, LifecycleContext.'],
                 ['diagnostics.py', 'DIEventType, DIEvent, DiagnosticListener protocol, ConsoleDiagnosticListener, DIDiagnostics.'],
                 ['graph.py', 'DependencyGraph — Tarjan\'s SCC detection, Kahn\'s topological sort, DOT export, tree view.'],
-                ['errors.py', 'DIError, ProviderNotFoundError, DependencyCycleError, ScopeViolationError, AmbiguousProviderError, ManifestValidationError, CrossAppDependencyError, CircularDependencyError, MissingDependencyError.'],
+                ['errors.py', (
+                  <span>
+                    <DocTerm id="di.provider_not_found_error" className="!text-xs">DIError</DocTerm> subclasses: {['ProviderNotFoundError', 'DependencyCycleError', 'ScopeViolationError', 'AmbiguousProviderError', 'ManifestValidationError', 'CrossAppDependencyError', 'CircularDependencyError', 'MissingDependencyError'].map((err, idx) => (
+                      <span key={err}>
+                        <DocTerm id={`di.${err.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`).replace(/^_/, '')}`} className="!text-xs">
+                          {err}
+                        </DocTerm>
+                        {idx < 7 ? ', ' : '.'}
+                      </span>
+                    ))}
+                  </span>
+                )],
                 ['testing.py', 'MockProvider, TestRegistry, override_container(), pytest fixtures (di_container, request_container, mock_provider).'],
                 ['compat.py', 'RequestCtx legacy wrapper, get_request_container(), set_request_container(), clear_request_container() — ContextVar bridge.'],
-                ['cli.py', 'CLI commands: aq di-check, aq di-tree, aq di-graph, aq di-profile, aq di-manifest.'],
+                ['cli.py', (
+                  <span>
+                    CLI commands:{' '}
+                    {['aq di-check', 'aq di-tree', 'aq di-graph', 'aq di-profile', 'aq di-manifest'].map((cmd, idx) => (
+                      <span key={cmd}>
+                        <DocTerm id={`di.cli.${cmd.split(' ')[1].replace(/-/g, '_')}`} className="!text-xs">
+                          {cmd}
+                        </DocTerm>
+                        {idx < 4 ? ', ' : '.'}
+                      </span>
+                    ))}
+                  </span>
+                )],
               ].map(([mod, desc], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                   <td className="py-3.5 px-6 font-mono text-aquilia-500 text-xs">{mod}</td>
@@ -117,8 +138,8 @@ export function DIOverview() {
           {[
             { phase: 'Phase 1', title: 'Load Manifest Services', desc: 'Iterate each manifest\'s services list. Create Provider instances (ClassProvider for classes, FactoryProvider for factories). Attach ProviderMeta with scope, tags, module, line number.' },
             { phase: 'Phase 2', title: 'Build Dependency Graph', desc: 'For each provider, extract constructor dependencies via inspect.signature(). Add nodes and edges to DependencyGraph.adj_list. Supports Annotated[Type, Inject(tag="...")] for tagged lookups.' },
-            { phase: 'Phase 3', title: 'Detect Cycles (Tarjan\'s)', desc: 'Run Tarjan\'s strongly-connected-component algorithm. Filter out trivial SCCs (single node, no self-loop). Raise DependencyCycleError with cycle trace and locations. Suggest allow_lazy=True or interface extraction.' },
-            { phase: 'Phase 4', title: 'Validate Cross-App Dependencies', desc: 'When enforce_cross_app=True, verify that every inter-app dependency is declared in the consumer manifest\'s depends_on list. Raise CrossAppDependencyError with fix suggestion if violated.' },
+            { phase: 'Phase 3', title: 'Detect Cycles (Tarjan\'s)', desc: <span>Run Tarjan\'s strongly-connected-component algorithm. Filter out trivial SCCs (single node, no self-loop). Raise <DocTerm id="di.dependency_cycle_error" className="!text-xs">DependencyCycleError</DocTerm> with cycle trace and locations. Suggest allow_lazy=True or interface extraction.</span> },
+            { phase: 'Phase 4', title: 'Validate Cross-App Dependencies', desc: <span>When enforce_cross_app=True, verify that every inter-app dependency is declared in the consumer manifest\'s depends_on list. Raise <DocTerm id="di.cross_app_dependency_error" className="!text-xs">CrossAppDependencyError</DocTerm> with fix suggestion if violated.</span> },
           ].map((p, i) => (
             <div key={i} className="flex gap-4 relative pl-8 before:absolute before:left-3 before:top-8 before:bottom-0 before:w-0.5 before:bg-white/5 last:before:hidden">
               <div className="absolute left-0 flex-shrink-0 flex items-center justify-center w-6 h-6 rounded-full bg-aquilia-500/20 text-aquilia-500 text-xs font-bold ring-4 ring-aquilia-500/10">
@@ -267,13 +288,9 @@ class UserController(Controller):
               ].map(([name, desc, async_], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                   <td className="py-3.5 px-6">
-                    {name === 'ClassProvider' ? (
-                      <DocTerm id="di.class_provider">{name}</DocTerm>
-                    ) : name === 'BlueprintProvider' ? (
-                      <DocTerm id="di.blueprint_provider">{name}</DocTerm>
-                    ) : (
-                      <code className="text-aquilia-500 text-xs">{name}</code>
-                    )}
+                    <DocTerm id={`di.${name.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`).replace(/^_/, '')}`}>
+                      {name}
+                    </DocTerm>
                   </td>
                   <td className={`py-3.5 px-6 ${subtleText}`}>{desc}</td>
                   <td className={`py-3.5 px-6 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{async_}</td>
@@ -311,7 +328,11 @@ class UserController(Controller):
                 ['MissingDependencyError', 'Required dependency not in container', 'Register dependency or make it Optional[T]'],
               ].map(([name, trigger, fix], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
-                  <td className="py-3.5 px-6"><code className="text-xs text-red-400">{name}</code></td>
+                  <td className="py-3.5 px-6">
+                    <DocTerm id={`di.${name.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`).replace(/^_/, '')}`} className="!text-red-400 hover:!text-red-300 !border-red-400/30 hover:!border-red-300/60 font-mono text-xs">
+                      {name}
+                    </DocTerm>
+                  </td>
                   <td className={`py-3.5 px-6 ${subtleText}`}>{trigger}</td>
                   <td className={`py-3.5 px-6 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{fix}</td>
                 </tr>
@@ -344,7 +365,11 @@ class UserController(Controller):
                 ['aq di-manifest --settings settings.py --out di_manifest.json', 'Generates a JSON manifest for LSP integration (hover info, autocomplete, navigation).'],
               ].map(([cmd, desc], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
-                  <td className="py-3.5 px-6"><code className={`text-xs ${isDark ? 'text-green-400' : 'text-green-700'}`}>{cmd}</code></td>
+                  <td className="py-3.5 px-6">
+                    <DocTerm id={`di.cli.${cmd.split(' ')[1].replace(/-/g, '_')}`} className={`${isDark ? '!text-green-400 hover:!text-green-300 !border-green-400/30 hover:!border-green-300/60 font-mono text-xs' : '!text-green-700 hover:!text-green-600 !border-green-700/30 hover:!border-green-600/60 font-mono text-xs'}`}>
+                      {cmd}
+                    </DocTerm>
+                  </td>
                   <td className={`py-3.5 px-6 ${subtleText}`}>{desc}</td>
                 </tr>
               ))}
