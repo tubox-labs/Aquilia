@@ -6,27 +6,31 @@ import { NextSteps } from '../../../components/NextSteps'
 export function AuthFaults() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const cellClass = `px-4 py-2 text-sm ${isDark ? 'text-gray-300 border-white/5' : 'text-gray-700 border-gray-100'} border-b`
-  const headClass = `px-4 py-2 text-xs font-semibold uppercase tracking-wider ${isDark ? 'text-gray-400 border-white/10' : 'text-gray-500 border-gray-200'} border-b text-left`
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4"><AlertTriangle className="w-4 h-4" />Security &amp; Auth</div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
+    <div className="max-w-4xl mx-auto space-y-16">
+      {/* Header Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium tracking-wide">
+          <AlertTriangle className="w-4 h-4" />
+          <span>Security &amp; Auth</span>
+        </div>
+        <h1 className={`text-4xl font-extrabold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="gradient-text font-mono relative group inline-block">
             Auth Faults Reference
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
+            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia auth uses structured <code className="text-aquilia-500">Fault</code> objects for all error conditions. Each fault carries a domain, code, severity, public-safe message, and retryable flag — enabling consistent error handling across your application.
+          Aquilia auth uses structured <code className="text-aquilia-500 font-mono text-sm">Fault</code> objects for all error conditions. Each fault carries a domain, code, severity, public-safe message, and retryable flag — enabling consistent error handling across your application.
         </p>
       </div>
 
       {/* Fault Anatomy */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Fault Structure</h2>
+      <section className="space-y-4">
+        <h2 className={`text-2.5xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Fault Structure
+        </h2>
         <CodeBlock language="python" filename="Fault Anatomy">{`from aquilia.auth.faults import (
     Fault,               # base class
     raise_auth_fault,    # raise helper
@@ -35,31 +39,34 @@ export function AuthFaults() {
 
 # Every auth fault provides:
 class Fault:
-    domain: str           # e.g. "auth", "authz"
+    domain: str           # e.g. "auth"
     code: str             # e.g. "AUTH_001"
-    severity: str         # "critical", "error", "warning"
+    severity: str         # "critical" | "error" | "warning"
     message: str          # internal message (log-safe)
-    public_message: str   # user-facing message (never leaks internals)
+    public_message: str   # user-facing message
     retryable: bool       # can the client retry?
     status_code: int      # HTTP status code (401, 403, etc.)
-
-# Raise a fault with optional context
-raise_auth_fault("AUTH_001", context={"identity_id": "user_42"})
-
-# Check if an exception is an auth fault
-if is_auth_fault(exc):
-    log.warning(f"{exc.code}: {exc.message}")`}</CodeBlock>
+`}</CodeBlock>
       </section>
 
       {/* Authentication Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Lock className="w-5 h-5 text-red-500" />Authentication Faults</h2>
-        <div className={`rounded-2xl border overflow-x-auto ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full">
-            <thead className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-              <tr><th className={headClass}>Code</th><th className={headClass}>Name</th><th className={headClass}>Description</th><th className={headClass}>Status</th><th className={headClass}>Retry</th></tr>
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Lock className="w-6 h-6 text-red-500" />
+          <span>Authentication Faults</span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b ${isDark ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/6">Code</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/4">Name</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-2/5">Description</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/12">Status</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-1/12 text-center">Retry</th>
+              </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/10 dark:divide-zinc-800/50">
               {[
                 ['AUTH_001', 'InvalidCredentials', 'Password or API key verification failed', '401', '✓'],
                 ['AUTH_002', 'IdentityNotFound', 'No identity matches the provided identifier', '401', '✗'],
@@ -77,12 +84,12 @@ if is_auth_fault(exc):
                 ['AUTH_014', 'UnsupportedAuthMethod', 'Auth method not configured or not supported', '400', '✗'],
                 ['AUTH_015', 'PasswordRotationRequired', 'Password hash needs rehashing with new params', '403', '✓'],
               ].map((r, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={cellClass}><code className="text-red-400 font-mono text-xs">{r[0]}</code></td>
-                  <td className={cellClass}><code className="text-aquilia-500 text-xs">{r[1]}</code></td>
-                  <td className={cellClass}>{r[2]}</td>
-                  <td className={cellClass}><code className="text-xs">{r[3]}</code></td>
-                  <td className={cellClass + ' text-center'}>{r[4]}</td>
+                <tr key={i} className="hover:bg-aquilia-500/2 transition-colors duration-200">
+                  <td className="py-3 font-mono text-xs font-bold text-red-500/90">{r[0]}</td>
+                  <td className="py-3 font-mono text-xs font-semibold text-aquilia-500">{r[1]}</td>
+                  <td className={`py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{r[2]}</td>
+                  <td className="py-3 font-mono text-xs text-zinc-400">{r[3]}</td>
+                  <td className={`py-3 text-xs font-bold text-center ${r[4] === '✓' ? 'text-green-500' : 'text-zinc-500/40'}`}>{r[4]}</td>
                 </tr>
               ))}
             </tbody>
@@ -91,14 +98,23 @@ if is_auth_fault(exc):
       </section>
 
       {/* Authorization Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><ShieldAlert className="w-5 h-5 text-amber-500" />Authorization Faults</h2>
-        <div className={`rounded-2xl border overflow-x-auto ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full">
-            <thead className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-              <tr><th className={headClass}>Code</th><th className={headClass}>Name</th><th className={headClass}>Description</th><th className={headClass}>Status</th><th className={headClass}>Retry</th></tr>
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <ShieldAlert className="w-6 h-6 text-amber-500" />
+          <span>Authorization Faults</span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b ${isDark ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/6">Code</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/4">Name</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-2/5">Description</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/12">Status</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-1/12 text-center">Retry</th>
+              </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/10 dark:divide-zinc-800/50">
               {[
                 ['AUTHZ_001', 'InsufficientScope', 'Token lacks the required scope(s)', '403', '✗'],
                 ['AUTHZ_002', 'InsufficientRole', 'Identity does not hold the required role(s)', '403', '✗'],
@@ -106,12 +122,12 @@ if is_auth_fault(exc):
                 ['AUTHZ_004', 'TenantMismatch', 'Request targets a resource in a different tenant', '403', '✗'],
                 ['AUTHZ_005', 'PolicyEvaluationFailed', 'Policy engine encountered an error during eval', '500', '✓'],
               ].map((r, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={cellClass}><code className="text-amber-400 font-mono text-xs">{r[0]}</code></td>
-                  <td className={cellClass}><code className="text-aquilia-500 text-xs">{r[1]}</code></td>
-                  <td className={cellClass}>{r[2]}</td>
-                  <td className={cellClass}><code className="text-xs">{r[3]}</code></td>
-                  <td className={cellClass + ' text-center'}>{r[4]}</td>
+                <tr key={i} className="hover:bg-aquilia-500/2 transition-colors duration-200">
+                  <td className="py-3 font-mono text-xs font-bold text-amber-500/90">{r[0]}</td>
+                  <td className="py-3 font-mono text-xs font-semibold text-aquilia-500">{r[1]}</td>
+                  <td className={`py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{r[2]}</td>
+                  <td className={`py-3 font-mono text-xs ${r[3] === '500' ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>{r[3]}</td>
+                  <td className={`py-3 text-xs font-bold text-center ${r[4] === '✓' ? 'text-green-500' : 'text-zinc-500/40'}`}>{r[4]}</td>
                 </tr>
               ))}
             </tbody>
@@ -120,14 +136,23 @@ if is_auth_fault(exc):
       </section>
 
       {/* Credential Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><RefreshCw className="w-5 h-5 text-blue-500" />Credential Faults</h2>
-        <div className={`rounded-2xl border overflow-x-auto ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full">
-            <thead className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-              <tr><th className={headClass}>Code</th><th className={headClass}>Name</th><th className={headClass}>Description</th><th className={headClass}>Status</th><th className={headClass}>Retry</th></tr>
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <RefreshCw className="w-6 h-6 text-blue-500" />
+          <span>Credential Faults</span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b ${isDark ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/6">Code</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/4">Name</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-2/5">Description</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/12">Status</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-1/12 text-center">Retry</th>
+              </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/10 dark:divide-zinc-800/50">
               {[
                 ['AUTH_101', 'PasswordTooWeak', 'Password fails PasswordPolicy validation', '400', '✓'],
                 ['AUTH_102', 'PasswordBreached', 'Password found in HIBP breach database', '400', '✓'],
@@ -135,12 +160,12 @@ if is_auth_fault(exc):
                 ['AUTH_104', 'ApiKeyRevoked', 'API key has been revoked by owner/admin', '401', '✗'],
                 ['AUTH_105', 'ApiKeyInvalidScope', 'API key lacks scopes for this operation', '403', '✗'],
               ].map((r, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={cellClass}><code className="text-blue-400 font-mono text-xs">{r[0]}</code></td>
-                  <td className={cellClass}><code className="text-aquilia-500 text-xs">{r[1]}</code></td>
-                  <td className={cellClass}>{r[2]}</td>
-                  <td className={cellClass}><code className="text-xs">{r[3]}</code></td>
-                  <td className={cellClass + ' text-center'}>{r[4]}</td>
+                <tr key={i} className="hover:bg-aquilia-500/2 transition-colors duration-200">
+                  <td className="py-3 font-mono text-xs font-bold text-blue-500/90">{r[0]}</td>
+                  <td className="py-3 font-mono text-xs font-semibold text-aquilia-500">{r[1]}</td>
+                  <td className={`py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{r[2]}</td>
+                  <td className="py-3 font-mono text-xs text-zinc-400">{r[3]}</td>
+                  <td className={`py-3 text-xs font-bold text-center ${r[4] === '✓' ? 'text-green-500' : 'text-zinc-500/40'}`}>{r[4]}</td>
                 </tr>
               ))}
             </tbody>
@@ -149,25 +174,34 @@ if is_auth_fault(exc):
       </section>
 
       {/* Session Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Users className="w-5 h-5 text-purple-500" />Session Faults</h2>
-        <div className={`rounded-2xl border overflow-x-auto ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full">
-            <thead className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-              <tr><th className={headClass}>Code</th><th className={headClass}>Name</th><th className={headClass}>Description</th><th className={headClass}>Status</th><th className={headClass}>Retry</th></tr>
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Users className="w-6 h-6 text-purple-500" />
+          <span>Session Faults</span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b ${isDark ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/6">Code</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/4">Name</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-2/5">Description</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/12">Status</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-1/12 text-center">Retry</th>
+              </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/10 dark:divide-zinc-800/50">
               {[
                 ['AUTH_201', 'SessionNotFound', 'Session ID does not exist in the store', '401', '✗'],
                 ['AUTH_202', 'SessionExpired', 'Session has exceeded its TTL', '401', '✓'],
                 ['AUTH_203', 'SessionLimitExceeded', 'User has exceeded the max concurrent sessions', '429', '✓'],
               ].map((r, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={cellClass}><code className="text-purple-400 font-mono text-xs">{r[0]}</code></td>
-                  <td className={cellClass}><code className="text-aquilia-500 text-xs">{r[1]}</code></td>
-                  <td className={cellClass}>{r[2]}</td>
-                  <td className={cellClass}><code className="text-xs">{r[3]}</code></td>
-                  <td className={cellClass + ' text-center'}>{r[4]}</td>
+                <tr key={i} className="hover:bg-aquilia-500/2 transition-colors duration-200">
+                  <td className="py-3 font-mono text-xs font-bold text-purple-500/90">{r[0]}</td>
+                  <td className="py-3 font-mono text-xs font-semibold text-aquilia-500">{r[1]}</td>
+                  <td className={`py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{r[2]}</td>
+                  <td className="py-3 font-mono text-xs text-zinc-400">{r[3]}</td>
+                  <td className={`py-3 text-xs font-bold text-center ${r[4] === '✓' ? 'text-green-500' : 'text-zinc-500/40'}`}>{r[4]}</td>
                 </tr>
               ))}
             </tbody>
@@ -176,26 +210,35 @@ if is_auth_fault(exc):
       </section>
 
       {/* OAuth Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Globe className="w-5 h-5 text-cyan-500" />OAuth Faults</h2>
-        <div className={`rounded-2xl border overflow-x-auto ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full">
-            <thead className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-              <tr><th className={headClass}>Code</th><th className={headClass}>Name</th><th className={headClass}>Description</th><th className={headClass}>Status</th><th className={headClass}>Retry</th></tr>
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Globe className="w-6 h-6 text-cyan-500" />
+          <span>OAuth Faults</span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b ${isDark ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/6">Code</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/4">Name</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-2/5">Description</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/12">Status</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-1/12 text-center">Retry</th>
+              </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/10 dark:divide-zinc-800/50">
               {[
                 ['AUTH_301', 'OAuthClientNotFound', 'Client ID not registered in the store', '400', '✗'],
-                ['AUTH_302', 'OAuthInvalidGrant', 'Auth code is expired, consumed, or invalid', '400', '✗'],
+                ['AUTH_302', 'OAuthTargetInvalid', 'Auth code is expired, consumed, or invalid', '400', '✗'],
                 ['AUTH_303', 'OAuthPKCEFailed', 'PKCE code_verifier does not match code_challenge', '400', '✗'],
                 ['AUTH_304', 'OAuthRedirectMismatch', 'redirect_uri does not match registered URIs', '400', '✗'],
               ].map((r, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={cellClass}><code className="text-cyan-400 font-mono text-xs">{r[0]}</code></td>
-                  <td className={cellClass}><code className="text-aquilia-500 text-xs">{r[1]}</code></td>
-                  <td className={cellClass}>{r[2]}</td>
-                  <td className={cellClass}><code className="text-xs">{r[3]}</code></td>
-                  <td className={cellClass + ' text-center'}>{r[4]}</td>
+                <tr key={i} className="hover:bg-aquilia-500/2 transition-colors duration-200">
+                  <td className="py-3 font-mono text-xs font-bold text-cyan-500/90">{r[0]}</td>
+                  <td className="py-3 font-mono text-xs font-semibold text-aquilia-500">{r[1]}</td>
+                  <td className={`py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{r[2]}</td>
+                  <td className="py-3 font-mono text-xs text-zinc-400">{r[3]}</td>
+                  <td className={`py-3 text-xs font-bold text-center ${r[4] === '✓' ? 'text-green-500' : 'text-zinc-500/40'}`}>{r[4]}</td>
                 </tr>
               ))}
             </tbody>
@@ -204,14 +247,23 @@ if is_auth_fault(exc):
       </section>
 
       {/* MFA Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Fingerprint className="w-5 h-5 text-emerald-500" />MFA Faults</h2>
-        <div className={`rounded-2xl border overflow-x-auto ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full">
-            <thead className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-              <tr><th className={headClass}>Code</th><th className={headClass}>Name</th><th className={headClass}>Description</th><th className={headClass}>Status</th><th className={headClass}>Retry</th></tr>
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Fingerprint className="w-6 h-6 text-emerald-500" />
+          <span>MFA Faults</span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className={`border-b ${isDark ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/6">Code</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/4">Name</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-2/5">Description</th>
+                <th className="py-3 font-semibold text-aquilia-500 font-mono text-xs w-1/12">Status</th>
+                <th className="py-3 font-semibold text-aquilia-500 text-xs w-1/12 text-center">Retry</th>
+              </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-zinc-800/10 dark:divide-zinc-800/50">
               {[
                 ['AUTH_401', 'MFARequired', 'MFA verification needed to complete auth', '403', '✓'],
                 ['AUTH_402', 'MFAInvalidCode', 'TOTP code is incorrect or outside time window', '401', '✓'],
@@ -219,12 +271,12 @@ if is_auth_fault(exc):
                 ['AUTH_404', 'MFABackupExhausted', 'All backup codes have been consumed', '401', '✗'],
                 ['AUTH_405', 'MFAAlreadyEnrolled', 'Identity already has this MFA type enrolled', '409', '✗'],
               ].map((r, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className={cellClass}><code className="text-emerald-400 font-mono text-xs">{r[0]}</code></td>
-                  <td className={cellClass}><code className="text-aquilia-500 text-xs">{r[1]}</code></td>
-                  <td className={cellClass}>{r[2]}</td>
-                  <td className={cellClass}><code className="text-xs">{r[3]}</code></td>
-                  <td className={cellClass + ' text-center'}>{r[4]}</td>
+                <tr key={i} className="hover:bg-aquilia-500/2 transition-colors duration-200">
+                  <td className="py-3 font-mono text-xs font-bold text-emerald-500/90">{r[0]}</td>
+                  <td className="py-3 font-mono text-xs font-semibold text-aquilia-500">{r[1]}</td>
+                  <td className={`py-3 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{r[2]}</td>
+                  <td className="py-3 font-mono text-xs text-zinc-400">{r[3]}</td>
+                  <td className={`py-3 text-xs font-bold text-center ${r[4] === '✓' ? 'text-green-500' : 'text-zinc-500/40'}`}>{r[4]}</td>
                 </tr>
               ))}
             </tbody>
@@ -233,8 +285,10 @@ if is_auth_fault(exc):
       </section>
 
       {/* Handling Faults */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Handling Auth Faults</h2>
+      <section className="space-y-4">
+        <h2 className={`text-2.5xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Handling Auth Faults
+        </h2>
         <CodeBlock language="python" filename="Error Handling">{`from aquilia.auth.faults import is_auth_fault, Fault
 
 # In your route handler
@@ -246,31 +300,13 @@ async def login(request):
         )
         return json({"token": result.tokens["access_token"]})
     except Fault as fault:
-        if fault.code == "AUTH_006":
-            remaining = rate_limiter.get_remaining_attempts(fault.context.get("identity_id", ""))
-            return json({
-                "error": fault.public_message,
-                "retry_after": 60,
-            }, status=fault.status_code)
         # Generic auth fault response — always use public_message
         return json({
             "error": fault.public_message,
             "code": fault.code,
             "retryable": fault.retryable,
         }, status=fault.status_code)
-
-# In middleware — global fault handler
-async def auth_fault_middleware(request, handler):
-    try:
-        return await handler(request)
-    except Fault as fault:
-        if is_auth_fault(fault):
-            logger.warning(f"Auth fault {fault.code}: {fault.message}")
-            return json({
-                "error": fault.public_message,
-                "code": fault.code,
-            }, status=fault.status_code)
-        raise`}</CodeBlock>
+`}</CodeBlock>
       </section>
 
       <NextSteps />
