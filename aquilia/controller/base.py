@@ -14,25 +14,25 @@ Performance (v3 — scalability):
 import logging
 import time
 from contextvars import ContextVar, Token
-from typing import TYPE_CHECKING, Any, Optional, Literal, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, Optional, overload
 
 from aquilia._datastructures import Headers, MultiDict
 from aquilia._uploads import FormData
 
 if TYPE_CHECKING:
     from aquilia.auth.core import Identity
+    from aquilia.effects import (
+        CacheHandle,
+        CacheServiceHandle,
+        DBTxHandle,
+        HTTPHandle,
+        QueueHandle,
+        StorageHandle,
+        TaskQueueHandle,
+    )
     from aquilia.request import Request
     from aquilia.response import Response
     from aquilia.sessions import Session
-    from aquilia.effects import (
-        DBTxHandle,
-        CacheHandle,
-        CacheServiceHandle,
-        QueueHandle,
-        TaskQueueHandle,
-        HTTPHandle,
-        StorageHandle,
-    )
 else:
     DBTxHandle = Any
     CacheHandle = Any

@@ -31,18 +31,18 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any, Protocol, TypedDict, TypeVar, cast, Literal, Union, overload, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, TypeVar, cast, overload
 from urllib.parse import parse_qsl
 
 if TYPE_CHECKING:
     from .effects import (
-        DBTxHandle,
         CacheHandle,
         CacheServiceHandle,
-        QueueHandle,
-        TaskQueueHandle,
+        DBTxHandle,
         HTTPHandle,
+        QueueHandle,
         StorageHandle,
+        TaskQueueHandle,
     )
 else:
     DBTxHandle = Any

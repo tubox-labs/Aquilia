@@ -132,7 +132,7 @@ class _DeferredEffectRegistry:
     def __init__(self, registry_source) -> None:
         object.__setattr__(self, "_source", registry_source)
 
-    def _registry(self) -> "EffectRegistry | None":
+    def _registry(self) -> EffectRegistry | None:
         try:
             return object.__getattribute__(self, "_source")()
         except Exception:
@@ -258,7 +258,7 @@ class EffectMiddleware(Middleware):
 
     def __init__(
         self,
-        effect_registry: "EffectRegistry | _DeferredEffectRegistry | None" = None,
+        effect_registry: EffectRegistry | _DeferredEffectRegistry | None = None,
         *,
         auto_detect: bool = True,
     ):
@@ -281,10 +281,10 @@ class EffectMiddleware(Middleware):
 
     async def __call__(
         self,
-        request: "Request",
-        ctx: "RequestCtx",
-        next_handler: "Handler",
-    ) -> "Response":
+        request: Request,
+        ctx: RequestCtx,
+        next_handler: Handler,
+    ) -> Response:
         """
         Middleware entry point.
 
@@ -388,7 +388,7 @@ class EffectMiddleware(Middleware):
                 request.state.pop("effects", None)
                 request.state.pop("_effect_middleware_active", None)
 
-    def _detect_required_effects(self, request: "Request") -> set[str]:
+    def _detect_required_effects(self, request: Request) -> set[str]:
         """
         Detect required effects from route/handler metadata.
 
@@ -466,7 +466,7 @@ class EffectMiddleware(Middleware):
 
     def _get_effect_mode(
         self,
-        request: "Request",
+        request: Request,
         effect_name: str,
     ) -> str | None:
         """
@@ -570,7 +570,7 @@ class FlowContextMiddleware(Middleware):
 
     def __init__(
         self,
-        effect_registry: "EffectRegistry | _DeferredEffectRegistry | None" = None,
+        effect_registry: EffectRegistry | _DeferredEffectRegistry | None = None,
     ):
         """
         Initialise the FlowContext middleware.
@@ -585,10 +585,10 @@ class FlowContextMiddleware(Middleware):
 
     async def __call__(
         self,
-        request: "Request",
-        ctx: "RequestCtx",
-        next_handler: "Handler",
-    ) -> "Response":
+        request: Request,
+        ctx: RequestCtx,
+        next_handler: Handler,
+    ) -> Response:
         """
         Create a ``FlowContext``, attach it to ``request.state``, and
         dispose it after the handler returns (or raises).

@@ -39,23 +39,22 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    Union,
-    overload,
     TypeVar,
+    overload,
 )
 
 from .typing.effects import EffectName
 
 if TYPE_CHECKING:
     from .effects import (
-        EffectRegistry,
-        DBTxHandle,
         CacheHandle,
         CacheServiceHandle,
-        QueueHandle,
-        TaskQueueHandle,
+        DBTxHandle,
+        EffectRegistry,
         HTTPHandle,
+        QueueHandle,
         StorageHandle,
+        TaskQueueHandle,
     )
 else:
     DBTxHandle = Any

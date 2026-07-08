@@ -42,7 +42,7 @@ checking — but IDE autocompletion won't know their concrete type.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, NewType, Protocol, TypeAlias, TypeVar, Union, overload
+from typing import TYPE_CHECKING, Literal, NewType, Protocol, TypeAlias, TypeVar, Union
 
 EffectName = NewType("EffectName", str)
 EffectMode = NewType("EffectMode", str)
@@ -99,16 +99,13 @@ if TYPE_CHECKING:
     from ..effects import (
         CacheHandle,
         CacheServiceHandle,
-        DBTxHandle,
-        HTTPHandle,
         QueueHandle,
-        StorageHandle,
         TaskQueueHandle,
     )
 
     # The canonical union types for each built-in effect
-    CacheResource: TypeAlias = Union[CacheHandle, CacheServiceHandle]
-    QueueResource: TypeAlias = Union[QueueHandle, TaskQueueHandle]
+    CacheResource: TypeAlias = CacheHandle | CacheServiceHandle
+    QueueResource: TypeAlias = QueueHandle | TaskQueueHandle
 
     # Authoritative mapping: effect name → resource handle type.
     # Used by IDEs for ``get_effect()`` return type inference.

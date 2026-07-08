@@ -35,16 +35,16 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Generic, Literal, TypeAlias, TypeVar, Union, cast, overload, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
 if TYPE_CHECKING:
-    from .sqlite._cursor import AsyncCursor
     from .db.engine import AquiliaDatabase
+    from .sqlite._cursor import AsyncCursor
 else:
     AsyncCursor = Any
     AquiliaDatabase = Any
 
-from .typing.effects import EffectMap, EffectMode, EffectName
+from .typing.effects import EffectMap, EffectName
 
 T = TypeVar("T")
 
@@ -77,6 +77,7 @@ class DBTxHandle(dict):
         if self._db is not None:
             return self._db
         from .db.engine import get_database
+
         return get_database()
 
     async def execute(self, sql: str, params: Sequence[Any] | None = None) -> AsyncCursor:
@@ -121,8 +122,6 @@ class DBTxHandle(dict):
 
     def __repr__(self) -> str:
         return f"DBTxHandle(mode={self.mode!r}, connection={self.connection!r})"
-
-
 
 
 class EffectKind(Enum):
@@ -270,6 +269,7 @@ class DBTxProvider(EffectProvider):
     async def initialize(self):
         """Initialize database connection."""
         from .db.engine import AquiliaDatabase
+
         self.db = AquiliaDatabase(self.connection_string)
         await self.db.connect()
 
@@ -278,26 +278,32 @@ class DBTxProvider(EffectProvider):
         self._acquire_count += 1
         if self.db is None:
             from .db.engine import get_database
+
             try:
                 self.db = get_database()
             except Exception as exc:
                 from .faults.domains import DatabaseConnectionFault
+
                 raise DatabaseConnectionFault(
                     backend="dbtx_effect",
                     reason=f"Database connection not initialized in DBTxProvider: {exc}",
                 )
 
-        readonly = (mode == "read")
+        readonly = mode == "read"
         from .models.transactions import Atomic
+
         txn = Atomic(db=self.db, readonly=readonly)
         await txn.__aenter__()
 
-        return DBTxHandle({
-            "connection": self.db,
-            "mode": mode or "read",
-            "transaction": txn,
-            "acquired_at": time.monotonic(),
-        }, db=self.db)
+        return DBTxHandle(
+            {
+                "connection": self.db,
+                "mode": mode or "read",
+                "transaction": txn,
+                "acquired_at": time.monotonic(),
+            },
+            db=self.db,
+        )
 
     async def release(self, resource: DBTxHandle, success: bool = True) -> None:
         """Release database connection and commit/rollback transaction."""
@@ -464,6 +470,7 @@ class HTTPProvider(EffectProvider):
         """Return HTTP client handle."""
         if self.client is None:
             from .http.client import AsyncHTTPClient
+
             self.client = AsyncHTTPClient(base_url=self.base_url)
         return HTTPHandle(self.client, self.base_url)
 
@@ -894,7 +901,7 @@ class EffectRegistry:
 
     # -- DI Integration ---------------------------------------------------
 
-    def register_with_container(self, container: "Any"):
+    def register_with_container(self, container: Any):
         """
         Register this EffectRegistry and all effect providers with a DI container.
 
