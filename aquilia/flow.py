@@ -38,13 +38,33 @@ from enum import Enum
 from typing import (
     TYPE_CHECKING,
     Any,
+    Literal,
+    Union,
+    overload,
     TypeVar,
 )
 
 from .typing.effects import EffectName
 
 if TYPE_CHECKING:
-    from .effects import EffectRegistry
+    from .effects import (
+        EffectRegistry,
+        DBTxHandle,
+        CacheHandle,
+        CacheServiceHandle,
+        QueueHandle,
+        TaskQueueHandle,
+        HTTPHandle,
+        StorageHandle,
+    )
+else:
+    DBTxHandle = Any
+    CacheHandle = Any
+    CacheServiceHandle = Any
+    QueueHandle = Any
+    TaskQueueHandle = Any
+    HTTPHandle = Any
+    StorageHandle = Any
 
 logger = logging.getLogger("aquilia.flow")
 
@@ -157,24 +177,50 @@ class FlowContext:
 
     # -- Effect access shortcuts -------------------------------------------
 
+    @overload
+    def get_effect(self, name: Literal["DBTx", "db"]) -> DBTxHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Cache", "cache"]) -> CacheHandle | CacheServiceHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Queue", "queue"]) -> QueueHandle | TaskQueueHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["HTTP", "http"]) -> HTTPHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Storage", "storage"]) -> StorageHandle: ...
+
+    @overload
+    def get_effect(self, name: str) -> Any: ...
+
     def get_effect(self, name: str) -> Any:
         """Get an acquired effect resource by name.
 
+        Checks the flow context's own effect dict first, then falls back to
+        ``request.state["effects"]`` (set by ``EffectMiddleware``).
+
         Raises:
-            EffectFault: If the effect has not been acquired.
+            ``EffectNotAcquiredFault``: If the effect has not been acquired,
+            with actionable diagnostics.
         """
         if name not in self.effects:
             if self.request is not None and hasattr(self.request, "state") and isinstance(self.request.state, dict):
                 req_effects = self.request.state.get("effects", {})
                 if name in req_effects:
                     return req_effects[name]
-            from .faults.domains import EffectFault
+            from .faults.domains import EffectNotAcquiredFault
 
-            raise EffectFault(
-                code="EFFECT_NOT_ACQUIRED",
-                message=(
-                    f"Effect '{name}' not acquired. Declare it with @requires('{name}') or add it to the pipeline."
-                ),
+            middleware_active = (
+                bool(self.request.state.get("_effect_middleware_active", False))
+                if self.request is not None and hasattr(self.request, "state") and isinstance(self.request.state, dict)
+                else False
+            )
+            raise EffectNotAcquiredFault(
+                effect_name=name,
+                registered_effects=list(self.effects.keys()) or None,
+                middleware_active=middleware_active,
             )
         return self.effects[name]
 

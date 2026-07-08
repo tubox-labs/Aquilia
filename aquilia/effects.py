@@ -33,13 +33,62 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, Union, cast, overload
 
-from .typing.effects import EffectMap, EffectName
+from .typing.effects import EffectMap, EffectMode, EffectName
 
 T = TypeVar("T")
 
 logger = logging.getLogger("aquilia.effects")
+
+
+# ---------------------------------------------------------------------------
+# DBTxHandle — typed alias for the dict returned by DBTxProvider.acquire()
+# ---------------------------------------------------------------------------
+
+
+class DBTxHandle(dict):
+    """
+    Typed handle representing an acquired database transaction resource.
+
+    Subclasses ``dict`` so existing code that inspects ``resource["connection"]``
+    or ``resource["mode"]`` continues to work, while type checkers now infer
+    ``DBTxHandle`` instead of ``Any`` for ``ctx.get_effect("DBTx")``.
+
+    Keys set by ``DBTxProvider.acquire()``:
+        - ``connection``: the raw pool/connection object
+        - ``mode``: ``"read"`` or ``"write"``
+        - ``transaction``: active transaction object (or ``None``)
+        - ``acquired_at``: ``time.monotonic()`` timestamp
+
+    When Aquilia is wired against a real database backend the ``connection``
+    value is a backend-specific object (asyncpg ``Connection``, etc.).
+    """
+
+    @property
+    def connection(self) -> Any:
+        """The underlying database connection / pool handle."""
+        return self.get("connection")
+
+    @property
+    def mode(self) -> str:
+        """Transaction mode: ``"read"`` or ``"write"``."""
+        return str(self.get("mode", "read"))
+
+    @property
+    def transaction(self) -> Any:
+        """The active transaction object, or ``None`` if not started."""
+        return self.get("transaction")
+
+    @property
+    def acquired_at(self) -> float:
+        """Monotonic timestamp at which this handle was acquired."""
+        return float(self.get("acquired_at", 0.0))
+
+    def __repr__(self) -> str:
+        return f"DBTxHandle(mode={self.mode!r}, connection={self.connection!r})"
+
+
 
 
 class EffectKind(Enum):
@@ -188,15 +237,15 @@ class DBTxProvider(EffectProvider):
         """Initialize connection pool."""
         self.pool = {"initialized": True, "connection_string": self.connection_string}
 
-    async def acquire(self, mode: str | None = None):
+    async def acquire(self, mode: str | None = None) -> DBTxHandle:
         """Acquire database connection."""
         self._acquire_count += 1
-        return {
+        return DBTxHandle({
             "connection": self.pool,
             "mode": mode or "read",
             "transaction": None,
             "acquired_at": time.monotonic(),
-        }
+        })
 
     async def release(self, resource: Any, success: bool = True):
         """Release connection and commit/rollback transaction."""
@@ -715,11 +764,13 @@ class EffectRegistry:
     def get_provider(self, effect_name: str) -> EffectProvider:
         """Get provider for effect."""
         if effect_name not in self.providers:
-            from .faults.domains import EffectFault
+            from .faults.domains import EffectNotAcquiredFault
 
-            raise EffectFault(
-                code="EFFECT_NOT_REGISTERED",
-                message=f"Effect '{effect_name}' not registered",
+            raise EffectNotAcquiredFault(
+                effect_name=effect_name,
+                reason="No provider is registered for this effect name.",
+                registered_effects=list(self.providers.keys()),
+                middleware_active=False,
             )
         return self.providers[effect_name]
 

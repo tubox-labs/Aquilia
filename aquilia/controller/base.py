@@ -14,7 +14,7 @@ Performance (v3 — scalability):
 import logging
 import time
 from contextvars import ContextVar, Token
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Literal, Union, overload
 
 from aquilia._datastructures import Headers, MultiDict
 from aquilia._uploads import FormData
@@ -24,6 +24,23 @@ if TYPE_CHECKING:
     from aquilia.request import Request
     from aquilia.response import Response
     from aquilia.sessions import Session
+    from aquilia.effects import (
+        DBTxHandle,
+        CacheHandle,
+        CacheServiceHandle,
+        QueueHandle,
+        TaskQueueHandle,
+        HTTPHandle,
+        StorageHandle,
+    )
+else:
+    DBTxHandle = Any
+    CacheHandle = Any
+    CacheServiceHandle = Any
+    QueueHandle = Any
+    TaskQueueHandle = Any
+    HTTPHandle = Any
+    StorageHandle = Any
 
 logger = logging.getLogger("aquilia.controller")
 
@@ -92,11 +109,53 @@ class RequestCtx:
         self.request_id = request_id
         self._extra: dict[str, Any] | None = None
 
+    @overload
+    def get_effect(self, name: Literal["DBTx", "db"]) -> DBTxHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Cache", "cache"]) -> CacheHandle | CacheServiceHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Queue", "queue"]) -> QueueHandle | TaskQueueHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["HTTP", "http"]) -> HTTPHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Storage", "storage"]) -> StorageHandle: ...
+
+    @overload
+    def get_effect(self, name: str) -> Any: ...
+
     def get_effect(self, name: str) -> Any:
-        """Get an acquired effect resource by name."""
+        """
+        Get an acquired effect resource by name.
+
+        Delegates to ``request.get_effect(name)``.  Effects must be declared
+        with ``@requires(name)`` below the HTTP method decorator and the
+        ``EffectMiddleware`` must be active in the middleware chain.
+
+        Raises:
+            ``EffectNotAcquiredFault``: with actionable diagnostics if the
+            effect was not acquired for this request.
+
+        Examples::
+
+            @POST("/orders")
+            @requires("DBTx", "Cache")
+            async def create(self, ctx: RequestCtx):
+                db    = ctx.get_effect("DBTx")
+                cache = ctx.get_effect("Cache")
+        """
         if self.request is not None:
             return self.request.get_effect(name)
-        raise KeyError(name)
+        from ..faults.domains import EffectNotAcquiredFault
+
+        raise EffectNotAcquiredFault(
+            effect_name=name,
+            reason="No request object available in this context.",
+            middleware_active=False,
+        )
 
     def has_effect(self, name: str) -> bool:
         """Check if an effect resource is currently acquired."""

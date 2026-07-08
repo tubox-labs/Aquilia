@@ -31,8 +31,27 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from http.cookies import SimpleCookie
 from pathlib import Path
-from typing import Any, Protocol, TypedDict, TypeVar, cast
+from typing import Any, Protocol, TypedDict, TypeVar, cast, Literal, Union, overload, TYPE_CHECKING
 from urllib.parse import parse_qsl
+
+if TYPE_CHECKING:
+    from .effects import (
+        DBTxHandle,
+        CacheHandle,
+        CacheServiceHandle,
+        QueueHandle,
+        TaskQueueHandle,
+        HTTPHandle,
+        StorageHandle,
+    )
+else:
+    DBTxHandle = Any
+    CacheHandle = Any
+    CacheServiceHandle = Any
+    QueueHandle = Any
+    TaskQueueHandle = Any
+    HTTPHandle = Any
+    StorageHandle = Any
 
 from ._datastructures import (
     URL,
@@ -1781,41 +1800,94 @@ class Request:
         if lifecycle and hasattr(lifecycle, "emit"):
             await lifecycle.emit(effect_name, request=self, **data)
 
+    @overload
+    def get_effect(self, name: Literal["DBTx", "db"]) -> DBTxHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Cache", "cache"]) -> CacheHandle | CacheServiceHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Queue", "queue"]) -> QueueHandle | TaskQueueHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["HTTP", "http"]) -> HTTPHandle: ...
+
+    @overload
+    def get_effect(self, name: Literal["Storage", "storage"]) -> StorageHandle: ...
+
+    @overload
+    def get_effect(self, name: str) -> Any: ...
+
     def get_effect(self, name: str) -> Any:
         """
         Get an acquired effect resource by name.
 
-        Effects are acquired by EffectMiddleware or FlowPipeline
-        and stored in ``request.state["effects"]``.
+        Effects are acquired by ``EffectMiddleware`` (or ``FlowPipeline``)
+        and stored in ``request.state["effects"]`` before the handler runs.
 
         Args:
-            name: Effect name (e.g., "DBTx", "Cache").
+            name: Effect name (e.g., ``"DBTx"``, ``"Cache"``).
 
         Returns:
-            The acquired effect resource handle.
+            The acquired effect resource handle (e.g., a ``CacheHandle``,
+            a DB connection dict, a ``StorageHandle``).
 
         Raises:
-            KeyError: If the effect has not been acquired.
+            ``EffectNotAcquiredFault``: If the effect has not been acquired
+            for this request.  The fault contains:
+            - ``metadata.effect``: the requested effect name
+            - ``metadata.registered``: effects currently in the registry
+            - ``metadata.middleware_active``: whether EffectMiddleware ran
+            - ``metadata.hint``: an actionable remediation message
 
-        Example::
+        Notes:
+            Prefer calling this method via ``ctx.get_effect(name)`` rather
+            than directly on ``request``.  The ``RequestCtx`` wrapper
+            delegates here automatically.
 
-            @requires("DBTx", "Cache")
-            @POST("/users")
-            async def create_user(self, ctx):
-                db = ctx.request.get_effect("DBTx")
-                cache = ctx.request.get_effect("Cache")
+        Examples::
+
+            @POST("/orders")
+            @requires("DBTx", "Cache")      # must be BELOW the method decorator
+            async def create_order(self, ctx: RequestCtx):
+                db    = ctx.get_effect("DBTx")
+                cache = ctx.get_effect("Cache")
+                ...
         """
         effects = self.state.get("effects", {})
         if name not in effects:
-            # Try FlowContext
+            # Try FlowContext first (pipeline-acquired effects)
             flow_ctx = self.state.get("flow_context")
             if flow_ctx is not None and hasattr(flow_ctx, "get_effect"):
-                return flow_ctx.get_effect(name)
-            from .faults.domains import EffectFault
+                try:
+                    return flow_ctx.get_effect(name)
+                except Exception:
+                    pass
 
-            raise EffectFault(
-                code="EFFECT_NOT_ACQUIRED",
-                message=(f"Effect '{name}' not acquired. Use @requires('{name}') on your handler."),
+            # Build rich diagnostics
+            from .faults.domains import EffectNotAcquiredFault
+
+            middleware_active = bool(self.state.get("_effect_middleware_active", False))
+            # Try to get the list of registered effects from the flow_context or state
+            registered: list[str] = []
+            if flow_ctx is not None and hasattr(flow_ctx, "_registry") and flow_ctx._registry is not None:
+                try:
+                    registered = list(flow_ctx._registry.providers.keys())
+                except Exception:
+                    pass
+            # Also check state for a cached registry reference
+            if not registered:
+                _reg = self.state.get("_effect_registry")
+                if _reg is not None:
+                    try:
+                        registered = list(_reg.providers.keys())
+                    except Exception:
+                        pass
+
+            raise EffectNotAcquiredFault(
+                effect_name=name,
+                registered_effects=registered,
+                middleware_active=middleware_active,
             )
         return effects[name]
 
