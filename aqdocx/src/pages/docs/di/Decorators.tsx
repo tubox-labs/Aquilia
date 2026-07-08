@@ -1,42 +1,44 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Box, ArrowLeft, ArrowRight } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Cpu } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function DIDecorators() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const subtleText = isDark ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4"><Box className="w-4 h-4" />Dependency Injection</div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Decorators
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+    <div className="max-w-4xl mx-auto animate-fade-in select-none">
+      {/* Title Header */}
+      <div className="mb-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-aquilia-500/10 via-transparent to-transparent p-8 border border-white/5 shadow-2xl backdrop-blur-md">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+          <Cpu className="w-4 h-4" />
+          Dependency Injection / Decorators
+        </div>
+        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          DI Decorators &amp; Metadata
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia provides 6 decorators and 1 dataclass in <code className="text-aquilia-500">aquilia/di/decorators.py</code> for declarative DI configuration. These decorators attach metadata to classes and functions that the <code className="text-aquilia-500">Registry</code> reads during manifest processing.
+        <p className={`text-lg leading-relaxed ${subtleText}`}>
+          Aquilia provides clear annotations under <code className="text-aquilia-500">aquilia/di/decorators.py</code> to configure scopes, inject instances, and define factory dependencies declaratively.
         </p>
       </div>
 
       {/* Inject Dataclass */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Inject</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-500">Inject</code> is a dataclass used as metadata in <code className="text-aquilia-500">typing.Annotated</code> type hints. It tells the <code className="text-aquilia-500">ClassProvider</code> and <code className="text-aquilia-500">FactoryProvider</code> how to resolve a specific parameter — with a tag, an explicit token, or as optional.
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Inject Dataclass</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          The <code className="text-aquilia-500">Inject</code> dataclass is used within <code className="text-aquilia-500">typing.Annotated</code> hints to instruct providers on how to resolve dependencies:
         </p>
         <CodeBlock language="python" filename="Inject Dataclass">{`from dataclasses import dataclass
 from typing import Any, Optional
 
 @dataclass
 class Inject:
-    token: Optional[Any] = None     # Explicit resolution token (overrides type hint)
-    tag: Optional[str] = None       # Tag for disambiguating multiple providers
-    optional: bool = False          # If True, resolves to None instead of raising`}</CodeBlock>
+    token: Optional[Any] = None     # Override resolution token
+    tag: Optional[str] = None       # Disambiguate between multiple providers
+    optional: bool = False          # Resolves to None if unregistered`}</CodeBlock>
 
         <h3 className={`text-lg font-semibold mb-3 mt-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Usage with Annotated</h3>
         <CodeBlock language="python" filename="Inject in Type Hints">{`from typing import Annotated
@@ -45,26 +47,22 @@ from aquilia.di import Inject
 class OrderService:
     def __init__(
         self,
-        # Standard — resolved by type hint alone
+        # Resolved by parameter type hint
         repo: OrderRepository,
         
-        # Tagged — disambiguate between multiple CacheBackend providers
+        # Tagged resolution (disambiguate multiple CacheBackends)
         cache: Annotated[CacheBackend, Inject(tag="redis")],
         
-        # Optional — None if not registered
+        # Optional resolution (defaults to None if missing)
         metrics: Annotated[MetricsClient, Inject(optional=True)],
-        
-        # Explicit token — override the type hint entirely
-        notifier: Annotated[Any, Inject(token="email_notifier")],
     ):
         self.repo = repo
         self.cache = cache
-        self.metrics = metrics
-        self.notifier = notifier`}</CodeBlock>
+        self.metrics = metrics`}</CodeBlock>
 
-        <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-blue-400' : 'text-blue-800'}`}>
-            <strong>How it works internally:</strong> <code className="text-aquilia-500">ClassProvider._extract_dependencies()</code> iterates <code className="text-aquilia-500">inspect.signature(cls.__init__)</code> parameters. For each parameter with a <code className="text-aquilia-500">typing.get_type_hints()</code> annotation, it checks if the annotation is <code className="text-aquilia-500">Annotated[T, Inject(...)]</code>. If so, it extracts the token (type T or explicit token), tag, and optional flag.
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-xs text-aquilia-500/90 leading-relaxed">
+            <strong>Internal Extraction:</strong> The container uses <code className="text-xs">typing.get_type_hints(cls.__init__)</code> to extract these metadata markers during manifest processing, creating highly optimized static execution plans.
           </p>
         </div>
       </section>
@@ -72,354 +70,97 @@ class OrderService:
       {/* inject() factory */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>inject()</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A convenience factory function that creates <code className="text-aquilia-500">Inject</code> instances. Syntactic sugar for <code className="text-aquilia-500">Inject(...)</code>.
+        <p className={`mb-4 ${subtleText}`}>
+          A shorthand helper that generates <code className="text-aquilia-500">Inject</code> configurations:
         </p>
-        <CodeBlock language="python" filename="inject() Factory">{`from aquilia.di import inject
+        <CodeBlock language="python" filename="inject() Shorthand">{`from aquilia.di import inject
 
-# These are equivalent:
-cache: Annotated[CacheBackend, inject(tag="redis")]
-cache: Annotated[CacheBackend, Inject(tag="redis")]
-
-# With explicit token:
-config: Annotated[Any, inject(token="app_config")]
-
-# Optional:
-logger: Annotated[Logger, inject(optional=True)]`}</CodeBlock>
-      </section>
-
-      {/* Dep Descriptor (DI Steroids) */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Dep (Per-Request Injection)</h2>
-        <div className={`mb-6 p-4 rounded-xl border ${isDark ? 'bg-indigo-500/5 border-indigo-500/20' : 'bg-indigo-50 border-indigo-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-indigo-400' : 'text-indigo-800'}`}>
-            <strong>🚀 DI Steroids:</strong> <code className="text-aquilia-500">Dep</code> is Aquilia's modern, FastAPI-inspired approach to dependency injection. It allows you to wire dependencies inline directly within route handler signatures, bypassing the need for explicit Provider registration in maniests.
-          </p>
-        </div>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-500">Dep</code> is used within <code className="text-aquilia-500">Annotated</code> type hints to specify a callable dependency. The framework builds a per-request Directed Acyclic Graph (<code className="text-aquilia-500">RequestDAG</code>) to resolve these dependencies efficiently, deduplicating shared branches and executing them concurrently.
-        </p>
-
-        <CodeBlock language="python" filename="Dep Basics">{`from typing import Annotated
-from aquilia.di import Dep
-
-# A simple dependency callable
-async def get_db_session():
-    session = AsyncSession()
-    try:
-        yield session
-    finally:
-        await session.close()
-
-# A route handler declaring inline dependencies
-@get("/users")
-async def list_users(
-    # The DI engine will call get_db_session and inject the yielded value
-    db: Annotated[AsyncSession, Dep(get_db_session)],
-    
-    # Nested dependencies work automatically as well
-    auth: Annotated[User, Dep(get_current_user)]
-):
-    return await db.query(...)`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mb-3 mt-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>Dep Attributes</h3>
-        <div className="overflow-x-auto mb-4">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead><tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <th className="text-left py-3 pr-4 text-aquilia-500">Attribute</th>
-              <th className="text-left py-3 pr-4">Type</th>
-              <th className="text-left py-3">Description</th>
-            </tr></thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              {[
-                ['call', 'Callable | None', 'The function/callable to execute. Can be sync, async, generator, or async generator. If None, uses the parameter type hint.'],
-                ['cached', 'bool', 'If True (default), deduplicates the dependency graph. The callable is executed only once per request.'],
-                ['scope', 'str | None', 'Overrides the default "request" scope. Allows pulling singletons directly.'],
-                ['tag', 'str | None', 'For resolving explicitly tagged providers from the parent Container.'],
-                ['use_cache', 'bool', 'Legacy identical behavior to \`cached\` for backward compatibility.'],
-              ].map(([attr, type_, desc], i) => (
-                <tr key={i}>
-                  <td className="py-3 pr-4"><code className="text-aquilia-500 text-xs">{attr}</code></td>
-                  <td className="py-3 pr-4"><code className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{type_}</code></td>
-                  <td className={`py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <h3 className={`text-lg font-semibold mb-3 mt-8 ${isDark ? 'text-white' : 'text-gray-900'}`}>Generator Teardown</h3>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          If a <code className="text-aquilia-500">Dep</code> callable returns a generator (<code className="text-aquilia-500">yield</code>), Aquilia yields the value to the handler, and queues the teardown logic (code after the <code className="text-aquilia-500">yield</code>) to run <strong>after</strong> the HTTP request has finished processing. Operations are cleaned up in strict LIFO order.
-        </p>
-
-        <CodeBlock language="python" filename="Generator Teardowns">{`async def acquire_lock():
-    await redis.lock("global")
-    try:
-        yield "Lock Acquired"
-    finally:
-        # Runs after the HTTP response is sent
-        await redis.unlock("global")`}</CodeBlock>
-
-        <div className={`mt-8 mb-8 p-5 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-white border-gray-200'} shadow-sm`}>
-          <h4 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Dep vs Inject</h4>
-          <p className={`text-sm mb-4 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <code className="text-aquilia-500">Dep()</code> and <code className="text-aquilia-500">Inject()</code> solve different problems natively:
-          </p>
-          <ul className={`text-sm space-y-2 list-disc list-inside ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <li><strong className={isDark ? 'text-gray-300' : 'text-gray-800'}>Use Inject()</strong> when resolving services declared in external <code className="text-aquilia-500">Manifests</code> via <code className="text-aquilia-500">@service</code> or <code className="text-aquilia-500">@factory</code> (Application-wide graphs).</li>
-            <li><strong className={isDark ? 'text-gray-300' : 'text-gray-800'}>Use Dep()</strong> for inline, route-specific logic like extracting auth tokens, validating query scopes, or setting up per-request transactional DB sessions (Per-Request graphs).</li>
-          </ul>
-        </div>
-      </section>
-
-      {/* @service */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>@service()</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Class decorator that marks a class as a DI service. Attaches three dunder attributes that the Registry reads during manifest processing:
-        </p>
-        <div className="overflow-x-auto mb-4">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead><tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <th className="text-left py-3 pr-4 text-aquilia-500">Attribute</th>
-              <th className="text-left py-3 pr-4">Type</th>
-              <th className="text-left py-3">Description</th>
-            </tr></thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              {[
-                ['__di_scope__', 'str', 'Service scope: "singleton", "app", "request", "transient", "pooled", "ephemeral"'],
-                ['__di_tag__', 'str | None', 'Optional tag for provider disambiguation'],
-                ['__di_name__', 'str | None', 'Optional custom name (defaults to class name)'],
-              ].map(([attr, type_, desc], i) => (
-                <tr key={i}>
-                  <td className="py-3 pr-4"><code className="text-aquilia-500 text-xs">{attr}</code></td>
-                  <td className="py-3 pr-4"><code className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{type_}</code></td>
-                  <td className={`py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <CodeBlock language="python" filename="@service Examples">{`from aquilia.di import service
-
-# Basic usage — defaults to "app" scope
-@service()
-class UserRepository:
-    def __init__(self, pool: DatabasePool):
-        self.pool = pool
-
-# With explicit scope
-@service(scope="request")
-class UserService:
-    def __init__(self, repo: UserRepository):
-        self.repo = repo
-
-# With tag for disambiguation
-@service(scope="app", tag="postgres")
-class PostgresUserRepo:
-    ...
-
-@service(scope="app", tag="mongo")
-class MongoUserRepo:
-    ...
-
-# With custom name
-@service(scope="singleton", name="primary_cache")
-class RedisCacheBackend:
-    ...
-
-# The decorator returns the class unchanged — only adds attributes:
-assert hasattr(UserRepository, "__di_scope__")  # True
-assert UserRepository.__di_scope__ == "app"     # True`}</CodeBlock>
-
-        <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'bg-green-500/5 border-green-500/20' : 'bg-green-50 border-green-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-green-400' : 'text-green-800'}`}>
-            <strong>Alias:</strong> <code className="text-aquilia-500">injectable</code> is an alias for <code className="text-aquilia-500">service</code>. They are interchangeable: <code className="text-aquilia-500">@injectable(scope="request")</code> is identical to <code className="text-aquilia-500">@service(scope="request")</code>.
-          </p>
-        </div>
-      </section>
-
-      {/* @factory */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>@factory()</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Function decorator that marks a function as a DI factory. Sets the same three attributes as <code className="text-aquilia-500">@service</code> plus <code className="text-aquilia-500">__di_factory__ = True</code>, which tells the Registry to create a <code className="text-aquilia-500">FactoryProvider</code> instead of a <code className="text-aquilia-500">ClassProvider</code>.
-        </p>
-        <CodeBlock language="python" filename="@factory Examples">{`from aquilia.di import factory
-
-@factory(scope="singleton")
-async def create_database_pool(config: AppConfig) -> DatabasePool:
-    """Async factory — dependencies auto-resolved from signature."""
-    pool = await asyncpg.create_pool(
-        dsn=config.database_url,
-        min_size=config.pool_min,
-        max_size=config.pool_max,
-    )
-    return pool
-
-@factory(scope="app")
-def create_http_client(config: AppConfig) -> httpx.AsyncClient:
-    """Sync factory — also supported."""
-    return httpx.AsyncClient(
-        base_url=config.api_base_url,
-        timeout=config.http_timeout,
-    )
-
-# Attributes set:
-assert create_database_pool.__di_factory__ == True
-assert create_database_pool.__di_scope__ == "singleton"`}</CodeBlock>
-
-        <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-blue-400' : 'text-blue-800'}`}>
-            <strong>@service vs @factory:</strong> Use <code className="text-aquilia-500">@service</code> for classes with standard <code className="text-aquilia-500">__init__</code> constructors. Use <code className="text-aquilia-500">@factory</code> when creation requires custom logic, async setup, or the return type differs from the function itself (e.g., a factory function that returns a pool object).
-          </p>
-        </div>
-      </section>
-
-      {/* @provides */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500">@provides()</code></h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Function decorator that explicitly declares which token the factory provides. Sets <code className="text-aquilia-500">__di_provides__</code> on the function along with the standard factory attributes. Use this when the token should be different from the function or return type.
-        </p>
-        <CodeBlock language="python" filename="@provides Examples">{`from aquilia.di import provides
-
-@provides(DatabasePool, scope="singleton")
-async def create_pool(config: AppConfig):
-    """
-    The token registered in the container is DatabasePool,
-    not "create_pool" — explicitly declared via @provides.
-    """
-    return await asyncpg.create_pool(dsn=config.database_url)
-
-# When resolved:
-pool = await container.resolve_async(DatabasePool)
-# → Calls create_pool(config=...) internally
-
-# Attributes set:
-assert create_pool.__di_provides__ == DatabasePool
-assert create_pool.__di_factory__ == True`}</CodeBlock>
-
-        <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-yellow-400' : 'text-yellow-800'}`}>
-            <strong>When to use @provides vs @factory:</strong> Use <code className="text-aquilia-500">@factory</code> when the function name or return annotation is sufficient as the token. Use <code className="text-aquilia-500">@provides(Token)</code> when you want an explicit, unambiguous token — especially for interface binding (e.g., <code className="text-aquilia-500">@provides(IUserRepo)</code>).
-          </p>
-        </div>
-      </section>
-
-      {/* @auto_inject */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500">@auto_inject()</code></h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Function decorator that automatically resolves dependencies from the request container when the function is called. It inspects the function's parameter signature and resolves each type-hinted parameter that the caller didn't provide.
-        </p>
-        <CodeBlock language="python" filename="@auto_inject Usage">{`from aquilia.di import auto_inject
-
-@auto_inject()
-async def process_order(
-    order_id: int,                    # Provided by caller
-    service: OrderService,            # Auto-resolved from container
-    logger: Annotated[Logger, Inject(tag="order")],  # Auto-resolved with tag
-):
-    logger.info(f"Processing order {order_id}")
-    return await service.process(order_id)
-
-# Call site — only pass the non-injectable args:
-result = await process_order(order_id=42)
-# → OrderService and Logger auto-resolved from request container`}</CodeBlock>
-
-        <div className={`mt-4 p-4 rounded-xl border ${isDark ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
-          <p className={`text-sm ${isDark ? 'text-red-400' : 'text-red-800'}`}>
-            <strong>⚠️ Performance Warning:</strong> <code className="text-aquilia-500">@auto_inject</code> adds overhead on every call — it must inspect the function signature, determine which parameters need resolution, and resolve each from the container. <strong>Prefer explicit resolution</strong> via <code className="text-aquilia-500">container.resolve_async()</code> in performance-critical paths. Reserve <code className="text-aquilia-500">@auto_inject</code> for convenience in non-hot-path code like CLI commands or background tasks.
-          </p>
-        </div>
-      </section>
-
-      {/* Decorator Summary Table */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Decorator Summary</h2>
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead><tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <th className="text-left py-3 pr-4 text-aquilia-500">Decorator</th>
-              <th className="text-left py-3 pr-4">Target</th>
-              <th className="text-left py-3 pr-4">Attributes Set</th>
-              <th className="text-left py-3">Provider Type</th>
-            </tr></thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              {[
-                ['@service()', 'Class', '__di_scope__, __di_tag__, __di_name__', 'ClassProvider'],
-                ['@injectable()', 'Class', 'Same as @service (alias)', 'ClassProvider'],
-                ['@factory()', 'Function', '__di_scope__, __di_tag__, __di_name__, __di_factory__', 'FactoryProvider'],
-                ['@provides(token)', 'Function', '__di_provides__ + factory attrs', 'FactoryProvider'],
-                ['@auto_inject()', 'Function', 'Wrapper function (no dunder attrs)', 'N/A (runtime)'],
-              ].map(([dec, target, attrs, provider], i) => (
-                <tr key={i}>
-                  <td className="py-3 pr-4"><code className="text-aquilia-500 text-xs">{dec}</code></td>
-                  <td className="py-3 pr-4">{target}</td>
-                  <td className={`py-3 pr-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{attrs}</td>
-                  <td className="py-3"><code className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{provider}</code></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Complete Example */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Complete Example</h2>
-        <CodeBlock language="python" filename="Full Decorator Usage">{`from aquilia.di import service, factory, provides, inject, Inject, auto_inject
-from typing import Annotated
-
-# 1. Service decorator on classes
-@service(scope="singleton")
-class AppConfig:
-    def __init__(self):
-        self.db_url = os.environ["DATABASE_URL"]
-        self.redis_url = os.environ.get("REDIS_URL", "redis://localhost")
-
-# 2. Factory for complex initialization
-@factory(scope="singleton")
-async def create_pool(config: AppConfig) -> asyncpg.Pool:
-    return await asyncpg.create_pool(dsn=config.db_url)
-
-# 3. Provides for explicit token binding
-@provides(CacheBackend, scope="singleton", tag="redis")
-async def create_redis_cache(config: AppConfig):
-    return aioredis.from_url(config.redis_url)
-
-# 4. Service with Inject metadata
-@service(scope="request")
-class UserService:
+class OrderService:
     def __init__(
         self,
-        pool: asyncpg.Pool,                              # From factory
-        cache: Annotated[CacheBackend, Inject(tag="redis")],  # Tagged
-        metrics: Annotated[MetricsClient, Inject(optional=True)],  # Optional
+        cache: Annotated[CacheBackend, inject(tag="redis")]
     ):
-        self.pool = pool
-        self.cache = cache
-        self.metrics = metrics
+        self.cache = cache`}</CodeBlock>
+      </section>
 
-# 5. Register in manifest
-users = Manifest(
-    name="users",
-    services=[AppConfig, create_pool, create_redis_cache, UserService],
-)`}</CodeBlock>
+      {/* Dep Descriptor */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Dep (Per-Request Dependency Injection)</h2>
+        <div className="border-l-4 border-indigo-500 bg-indigo-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-xs text-indigo-500/90 leading-relaxed">
+            <strong>FastAPI-Style Injection:</strong> <code className="text-xs">Dep</code> is Aquilia's modern approach to inline route injection. It allows you to declare dependencies directly in route signatures, bypassing manifest declarations for route-specific tools.
+          </p>
+        </div>
+        <p className={`mb-4 ${subtleText}`}>
+          Dependencies declared in route signatures form a per-request Directed Acyclic Graph (DAG) resolved concurrently:
+        </p>
+        <CodeBlock language="python" filename="Inline Route Injection">{`from typing import Annotated
+from aquilia.di import Dep
+from aquilia.controller import Controller, get
+
+async def get_db_session():
+    async with db.session() as session:
+        yield session
+
+class UserController(Controller):
+    prefix = "/users"
+
+    # UserController constructor injection is still used for core services
+    def __init__(self, auth: AuthService):
+        self.auth = auth
+
+    @get("/{user_id}")
+    async def get_user(
+        self,
+        ctx,
+        db_session: Annotated[DbSession, Dep(get_db_session)] # resolved per-request
+    ):
+        user = await db_session.query(User).filter_by(id=ctx.request.params["user_id"]).first()
+        return ctx.json(user)`}</CodeBlock>
+      </section>
+
+      {/* Decorators Reference */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registration Decorators</h2>
+        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl">
+          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+            <thead>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="py-4 px-6 text-left font-semibold text-aquilia-500">Decorator</th>
+                <th className="py-4 px-6 text-left font-semibold">Scope</th>
+                <th className="py-4 px-6 text-left font-semibold">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {[
+                { d: '@service', s: 'singleton', desc: 'Registers a class as a singleton app-scoped service.' },
+                { d: '@service(scope="request")', s: 'request', desc: 'Registers a request-scoped class, created per request.' },
+                { d: '@service(scope="transient")', s: 'transient', desc: 'Registers a transient class, created fresh on every lookup.' },
+                { d: '@factory', s: 'configurable', desc: 'Registers a function as a custom service factory.' },
+                { d: '@provides(Token)', s: 'n/a', desc: 'Exposes a service instance from a custom provider method.' },
+                { d: '@auto_inject', s: 'n/a', desc: 'Enables automatic constructor injection on a class without manifests.' },
+              ].map((row, i) => (
+                <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-6 font-mono text-aquilia-500 text-xs">{row.d}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs text-yellow-500">{row.s}</td>
+                  <td className={`py-3.5 px-6 text-xs ${subtleText}`}>{row.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* Navigation */}
-      <div className={`mt-16 pt-8 border-t flex justify-between ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/di/scopes" className="flex items-center gap-2 text-aquilia-500 hover:underline font-medium">
+      <div className={`mt-16 pt-8 border-t flex justify-between ${isDark ? 'border-white/5' : 'border-gray-200'}`}>
+        <Link to="/docs/di/scopes" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition font-medium">
           <ArrowLeft className="w-4 h-4" /> Scopes
         </Link>
-        <Link to="/docs/di/lifecycle" className="flex items-center gap-2 text-aquilia-500 hover:underline font-medium">
+        <Link to="/docs/di/lifecycle" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition font-medium">
           Lifecycle <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-
+    
       <NextSteps />
     </div>
   )
