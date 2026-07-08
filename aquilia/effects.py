@@ -1,30 +1,137 @@
 """
-Effect System -- Typed Capabilities with Providers and Layers.
+Aquilia Effect System -- Explicit, Typed Capability Injection with Scoped Lifecycles.
 
-Effects represent side-effects (DB, Cache, Queue, HTTP, Storage) that handlers
-declare via ``@requires()``. The runtime automatically acquires and releases
-effect resources around handler execution.
+Philosophy & Architecture
+=========================
+The Effect System provides structured, type-safe resource injection for Aquilia
+applications. Inspired by functional effect systems (specifically Effect-TS), it
+separates *what* resource a handler requires from *how* that resource is constructed,
+accessed, and cleaned up. This pattern decouples handlers from infrastructure,
+ensuring clean boundaries, testability, and robust resource safety.
 
-Inspired by Effect-TS:
-- Effects declare requirements, not implementations (no dependency leakage)
-- Layers separate construction from usage
-- Resources have guaranteed acquire/release lifecycle
-- Type safety -- effects visible in handler signatures
+An "Effect" acts as a typed token representing a dependency (e.g. database transaction,
+cache namespace, message queue, HTTP client, or blob storage bucket). Instead of
+instantiating clients directly or pulling them from global state, handlers declare
+their required effects using the ``@requires`` decorator. The Aquilia runtime
+automatically manages the lifecycle (acquisition, verification, and releasing/committing)
+of these resources around handler invocation.
 
-Architecture:
-    Effect          -- Typed token representing a capability
-    EffectKind      -- Category enum (DB, CACHE, QUEUE, HTTP, STORAGE, CUSTOM)
-    EffectProvider  -- ABC for provider implementations (acquire/release lifecycle)
-    EffectRegistry  -- Central registry with DI integration
-    EffectScope     -- Per-request scoped resource manager
-    @requires       -- Declared on handlers/nodes (lives in flow.py)
+Core Components
+===============
+1.  **Effect** (Token):
+    A symbolic description of a capability, parameterized by a kind and an optional
+    mode (e.g., ``DBTx["read"]`` vs. ``DBTx["write"]``).
+2.  **EffectKind**:
+    Categorizes effects into standard types: ``DB``, ``CACHE``, ``QUEUE``, ``HTTP``,
+    ``STORAGE``, and ``CUSTOM``.
+3.  **EffectProvider**:
+    The abstract base class representing the implementation backend for an effect.
+    It manages the lifecycle of actual resources through a set of lifecycle methods:
+    *   ``initialize()``: One-time setup during application bootstrap.
+    *   ``acquire(mode)``: Setup executed per-request or per-scope to create a handle.
+    *   ``release(resource, success)``: Teardown executed per-request, handling commits,
+        rollbacks, or connection cleanup.
+    *   ``finalize()``: One-time shutdown cleanup when the server stops.
+    *   ``health_check()``: Aggregates capability health statistics.
+4.  **EffectRegistry**:
+    A centralized registry storing mapping of effect name to provider. It integrates
+    with the Dependency Injection (DI) system as an application-scoped singleton.
+5.  **Resource Handles**:
+    Lightweight, specialized classes that act as the interface through which handlers
+    interact with the underlying capability. For example, ``DBTxHandle``, ``CacheHandle``,
+    ``QueueHandle``, ``HTTPHandle``, and ``StorageHandle``.
 
-Integration:
-    - FlowPipeline auto-acquires effects declared by ``@requires()``
-    - EffectMiddleware acquires per-request effects from handler metadata
-    - EffectSubsystem initializes all providers at startup
-    - EffectRegistry is registered as app-scoped DI singleton
-    - Testing: MockEffectRegistry auto-stubs missing effects
+Example Usage
+=============
+
+Declaring and Using Effects in a Controller or Handler:
+-------------------------------------------------------
+.. code-block:: python
+
+    from aquilia.flow import FlowContext, requires
+    from aquilia.controller import Controller, route
+
+    class UserController(Controller):
+        @route("/users", methods=["POST"])
+        @requires("DBTx", "Cache")
+        async def create_user(self, ctx: FlowContext, payload: dict) -> dict:
+            # 1. Access the database transaction effect handle
+            db = ctx.get_effect("DBTx")  # Returns a DBTxHandle
+
+            # 2. Access the cache namespace handle
+            cache = ctx.get_effect("Cache")  # Returns a CacheServiceHandle or CacheHandle
+
+            # 3. Perform database operations safely inside the transaction
+            user_id = await db.fetch_val(
+                "INSERT INTO users (username) VALUES ($1) RETURNING id",
+                (payload["username"],)
+            )
+
+            # 4. Perform cache write operations
+            await cache.set(f"user:{user_id}", payload, ttl=300)
+
+            return {"id": user_id, "status": "created"}
+
+Defining a Custom Effect and Provider:
+--------------------------------------
+To extend the effect system with custom capability interfaces, subclass both
+``Effect`` and ``EffectProvider``:
+
+.. code-block:: python
+
+    from typing import Any
+    from aquilia.effects import Effect, EffectProvider, EffectKind
+
+    # 1. Define the custom effect token
+    class EmailEffect(Effect[str]):
+        def __init__(self, provider_type: str = "smtp"):
+            super().__init__("Email", mode=provider_type, kind=EffectKind.CUSTOM)
+
+    # 2. Define the resource handle that the handler will interact with
+    class EmailHandle:
+        def __init__(self, provider: Any):
+            self.provider = provider
+
+        async def send(self, recipient: str, subject: str, body: str) -> None:
+            await self.provider.send_email(recipient, subject, body)
+
+    # 3. Implement the lifecycle provider
+    class EmailProvider(EffectProvider):
+        def __init__(self, smtp_host: str, port: int):
+            self.smtp_host = smtp_host
+            self.port = port
+            self.client = None
+
+        async def initialize(self) -> None:
+            # Connect to SMTP server pool on startup
+            self.client = SMTPClientPool(self.smtp_host, self.port)
+            await self.client.connect()
+
+        async def acquire(self, mode: str | None = None) -> EmailHandle:
+            # Acquire a session connection from the pool
+            session = await self.client.acquire_session()
+            return EmailHandle(session)
+
+        async def release(self, resource: EmailHandle, success: bool = True) -> None:
+            # Release the session back to the pool
+            await self.client.release_session(resource.provider)
+
+        async def finalize(self) -> None:
+            # Disconnect pool on shutdown
+            await self.client.close()
+
+        async def health_check(self) -> dict[str, Any]:
+            return {"healthy": self.client.is_connected()}
+
+Registering the Custom Provider with the Application:
+-----------------------------------------------------
+Register the provider in your application config, or manually via the registry:
+
+.. code-block:: python
+
+    # Manual registration (e.g., during startup/testing)
+    registry = EffectRegistry()
+    registry.register("Email", EmailProvider(smtp_host="localhost", port=1025))
 """
 
 from __future__ import annotations
