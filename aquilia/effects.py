@@ -177,10 +177,23 @@ class DBTxHandle(dict):
     """
 
     def __init__(self, data: dict, db: Any | None = None) -> None:
+        """
+        Initialize the database transaction handle.
+
+        Args:
+            data: Raw dictionary backing containing connection metadata.
+            db: Optional associated database connection or engine instance.
+        """
         super().__init__(data)
         self._db = db
 
     def _get_db(self) -> AquiliaDatabase:
+        """
+        Retrieve the active database instance.
+
+        Returns:
+            The AquiliaDatabase instance.
+        """
         if self._db is not None:
             return self._db
         from .db.engine import get_database
@@ -188,43 +201,105 @@ class DBTxHandle(dict):
         return get_database()
 
     async def execute(self, sql: str, params: Sequence[Any] | None = None) -> AsyncCursor:
-        """Execute a query within the transaction. Returns a cursor-like object."""
+        """
+        Execute a SQL query statement within the transaction context.
+
+        Args:
+            sql: The SQL query statement to run.
+            params: Parameters to bind to the statement.
+
+        Returns:
+            An AsyncCursor object pointing to the executed query result.
+        """
         return await self._get_db().execute(sql, params)
 
     async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]] | None = None) -> None:
-        """Execute multiple queries within the transaction."""
+        """
+        Execute a SQL query statement multiple times with different parameter lists.
+
+        Args:
+            sql: The SQL query statement to run.
+            params_list: A sequence of parameter sets to execute the query with.
+        """
         await self._get_db().execute_many(sql, params_list)
 
     async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[dict[str, Any]]:
-        """Fetch all rows within the transaction as dicts."""
+        """
+        Fetch all rows returned by a query within the transaction.
+
+        Args:
+            sql: The SELECT SQL statement to run.
+            params: Parameters to bind to the statement.
+
+        Returns:
+            A list of dictionary objects representing database rows.
+        """
         return await self._get_db().fetch_all(sql, params)
 
     async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> dict[str, Any] | None:
-        """Fetch a single row within the transaction as a dict, or None."""
+        """
+        Fetch a single row returned by a query within the transaction.
+
+        Args:
+            sql: The SELECT SQL statement to run.
+            params: Parameters to bind to the statement.
+
+        Returns:
+            A dictionary representing the row, or None if no row is returned.
+        """
         return await self._get_db().fetch_one(sql, params)
 
     async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
-        """Fetch a single scalar value within the transaction."""
+        """
+        Fetch a single scalar value from the first row and column of the query results.
+
+        Args:
+            sql: The SELECT SQL statement to run.
+            params: Parameters to bind to the statement.
+
+        Returns:
+            The scalar value returned, or None.
+        """
         return await self._get_db().fetch_val(sql, params)
 
     @property
     def connection(self) -> Any:
-        """The underlying database connection / pool handle."""
+        """
+        Get the underlying database connection or pool handle.
+
+        Returns:
+            The active connection/pool instance.
+        """
         return self.get("connection")
 
     @property
     def mode(self) -> str:
-        """Transaction mode: ``"read"`` or ``"write"``."""
+        """
+        Get the transaction mode ("read" or "write").
+
+        Returns:
+            The transaction mode string.
+        """
         return str(self.get("mode", "read"))
 
     @property
     def transaction(self) -> Any:
-        """The active transaction object, or ``None`` if not started."""
+        """
+        Get the active transaction object context.
+
+        Returns:
+            The transaction context manager/object, or None if not started.
+        """
         return self.get("transaction")
 
     @property
     def acquired_at(self) -> float:
-        """Monotonic timestamp at which this handle was acquired."""
+        """
+        Get the monotonic timestamp at which this handle was acquired.
+
+        Returns:
+            Monotonic timestamp float.
+        """
         return float(self.get("acquired_at", 0.0))
 
     def __repr__(self) -> str:
@@ -636,39 +711,111 @@ class CacheServiceHandle:
     __slots__ = ("_svc", "_ns")
 
     def __init__(self, svc: Any, namespace: str):
+        """
+        Initialize the cache service handle.
+
+        Args:
+            svc: The underlying CacheService instance.
+            namespace: The specific namespace to scope operations.
+        """
         self._svc = svc
         self._ns = namespace
 
     async def get(self, key: str) -> Any | None:
+        """
+        Retrieve a value from the cache namespace.
+
+        Args:
+            key: The cache key string.
+
+        Returns:
+            The cached value, or None if the key does not exist.
+        """
         return await self._svc.get(key, namespace=self._ns)
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
+        """
+        Set a value in the cache namespace with an optional time-to-live.
+
+        Args:
+            key: The cache key string.
+            value: The data/value to store.
+            ttl: Optional time-to-live in seconds.
+        """
         await self._svc.set(key, value, ttl=ttl, namespace=self._ns)
 
     async def delete(self, key: str) -> bool:
+        """
+        Delete a value from the cache namespace.
+
+        Args:
+            key: The cache key string to delete.
+
+        Returns:
+            True if the deletion succeeded, False otherwise.
+        """
         return await self._svc.delete(key, namespace=self._ns)
 
 
 class CacheHandle:
-    """Handle for cache operations in a namespace."""
+    """Handle for cache operations in a namespace (in-memory dict fallback)."""
 
     def __init__(self, cache: dict, namespace: str):
+        """
+        Initialize the fallback in-memory cache handle.
+
+        Args:
+            cache: The dictionary acting as the in-memory cache store.
+            namespace: The namespace to isolate keys.
+        """
         self._cache = cache
         self._namespace = namespace
 
     def _key(self, key: str) -> str:
+        """
+        Construct a namespace-prefixed cache key.
+
+        Args:
+            key: Raw cache key.
+
+        Returns:
+            Namespaced cache key.
+        """
         return f"{self._namespace}:{key}"
 
     async def get(self, key: str) -> Any | None:
-        """Get value from cache."""
+        """
+        Retrieve a value from the in-memory cache.
+
+        Args:
+            key: The cache key string.
+
+        Returns:
+            The cached value, or None if not found.
+        """
         return self._cache.get(self._key(key))
 
     async def set(self, key: str, value: Any, ttl: int | None = None) -> None:
-        """Set value in cache."""
+        """
+        Set a value in the in-memory cache.
+
+        Args:
+            key: The cache key string.
+            value: The data/value to store.
+            ttl: Ignored for the in-memory fallback.
+        """
         self._cache[self._key(key)] = value
 
     async def delete(self, key: str) -> bool:
-        """Delete value from cache."""
+        """
+        Delete a value from the in-memory cache.
+
+        Args:
+            key: The cache key string to delete.
+
+        Returns:
+            True if the key was deleted, False otherwise.
+        """
         return bool(self._cache.pop(self._key(key), None) is not None)
 
 
@@ -676,11 +823,24 @@ class QueueHandle:
     """Handle for queue operations on a topic."""
 
     def __init__(self, messages: list[dict[str, Any]], topic: str):
+        """
+        Initialize the queue handle.
+
+        Args:
+            messages: Underlyling message list backing the queue.
+            topic: The message queue topic or channel name.
+        """
         self._messages = messages
         self._topic = topic
 
     async def publish(self, payload: Any, *, headers: dict[str, str] | None = None) -> None:
-        """Publish a message to the topic."""
+        """
+        Publish a single message payload to the configured topic.
+
+        Args:
+            payload: The message body to publish.
+            headers: Optional dictionary of metadata headers.
+        """
         self._messages.append(
             {
                 "topic": self._topic,
@@ -691,7 +851,12 @@ class QueueHandle:
         )
 
     async def publish_batch(self, payloads: Sequence[Any]) -> None:
-        """Publish multiple messages."""
+        """
+        Publish a sequence of message payloads to the configured topic.
+
+        Args:
+            payloads: A sequence of message bodies to publish.
+        """
         for payload in payloads:
             await self.publish(payload)
 
@@ -700,32 +865,50 @@ class TaskQueueHandle:
     """Handle for enqueuing background tasks via the TaskManager."""
 
     def __init__(self, manager: Any, queue: str):
+        """
+        Initialize the task queue handle.
+
+        Args:
+            manager: The underlying TaskManager instance.
+            queue: The name of the target queue to submit tasks.
+        """
         self._manager = manager
         self._queue = queue
 
     async def enqueue(self, func: Any, *args: Any, **kwargs: Any) -> str:
         """
-        Enqueue a task for background execution.
+        Enqueue a callable task for background execution.
 
         Args:
-            func: Async callable or @task-decorated function
-            *args: Positional arguments for the task
-            **kwargs: Keyword arguments for the task
+            func: The asynchronous callable or `@task`-decorated function.
+            *args: Positional arguments to forward to the task function.
+            **kwargs: Keyword arguments to forward to the task function.
 
         Returns:
-            Job ID string
+            The job ID string for the enqueued task.
         """
         job_id = await self._manager.enqueue(func, *args, queue=self._queue, **kwargs)
         return cast(str, job_id)
 
     async def publish(self, payload: Any, *, headers: dict[str, str] | None = None) -> None:
-        """Compatibility with QueueHandle -- enqueue payload as a task."""
+        """
+        Compatibility method to enqueue payload. Currently a no-op.
+
+        Args:
+            payload: Message payload.
+            headers: Message headers.
+        """
         # For generic publish, store as a no-op message
         # Real usage should call enqueue() with a @task function
         pass
 
     async def publish_batch(self, payloads: Sequence[Any]) -> None:
-        """Compatibility with QueueHandle."""
+        """
+        Compatibility method to enqueue multiple payloads. Currently a no-op.
+
+        Args:
+            payloads: Sequence of payloads.
+        """
         pass
 
 
@@ -733,29 +916,78 @@ class HTTPHandle:
     """Handle for outbound HTTP requests wrapping AsyncHTTPClient."""
 
     def __init__(self, client: Any, base_url: str | None = None):
+        """
+        Initialize the HTTP effect handle.
+
+        Args:
+            client: The AsyncHTTPClient instance.
+            base_url: Optional base URL prefix for requests.
+        """
         self._client = client
         self._session = client  # backward compatibility
         self._base_url = base_url
 
     async def get(self, url: str, **kwargs) -> Any:
+        """
+        Perform an HTTP GET request.
+
+        Args:
+            url: Target URL path or absolute URL.
+            **kwargs: Additional parameters forwarded to client.get().
+
+        Returns:
+            JSON decoded response, or None if client is not initialized.
+        """
         if self._client:
             resp = await self._client.get(url, **kwargs)
             return await resp.json()
         return None
 
     async def post(self, url: str, *, json: Any = None, **kwargs) -> Any:
+        """
+        Perform an HTTP POST request.
+
+        Args:
+            url: Target URL path or absolute URL.
+            json: JSON serializable object to send in body.
+            **kwargs: Additional parameters forwarded to client.post().
+
+        Returns:
+            JSON decoded response, or None if client is not initialized.
+        """
         if self._client:
             resp = await self._client.post(url, json=json, **kwargs)
             return await resp.json()
         return None
 
     async def put(self, url: str, *, json: Any = None, **kwargs) -> Any:
+        """
+        Perform an HTTP PUT request.
+
+        Args:
+            url: Target URL path or absolute URL.
+            json: JSON serializable object to send in body.
+            **kwargs: Additional parameters forwarded to client.put().
+
+        Returns:
+            JSON decoded response, or None if client is not initialized.
+        """
         if self._client:
             resp = await self._client.put(url, json=json, **kwargs)
             return await resp.json()
         return None
 
     async def delete(self, url: str, **kwargs) -> Any:
+        """
+        Perform an HTTP DELETE request.
+
+        Args:
+            url: Target URL path or absolute URL.
+            **kwargs: Additional parameters forwarded to client.delete().
+
+        Returns:
+            JSON decoded response, or None if client is not initialized.
+        """
         if self._client:
             resp = await self._client.delete(url, **kwargs)
             return await resp.json()
@@ -766,16 +998,42 @@ class StorageHandle:
     """Handle for file/blob storage operations."""
 
     def __init__(self, root_path: str, bucket: str, registry: Any | None = None) -> None:
+        """
+        Initialize the storage handle.
+
+        Args:
+            root_path: Root filesystem path directory fallback.
+            bucket: The scoped storage bucket name.
+            registry: Optional StorageRegistry to resolve cloud storage backends.
+        """
         self._root = root_path
         self._bucket = bucket
         self._registry = registry
 
     def _path(self, key: str) -> str:
+        """
+        Get the absolute local path for a storage key.
+
+        Args:
+            key: Storage object key.
+
+        Returns:
+            Local file path string.
+        """
         import os
 
         return os.path.join(self._root, self._bucket, key)
 
     async def read(self, key: str) -> bytes | None:
+        """
+        Read file contents as bytes.
+
+        Args:
+            key: The unique storage path/key.
+
+        Returns:
+            Raw file bytes if successful, None if not found or errored.
+        """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
             try:
@@ -793,6 +1051,13 @@ class StorageHandle:
             return f.read()
 
     async def write(self, key: str, data: bytes) -> None:
+        """
+        Write/save file bytes.
+
+        Args:
+            key: The unique storage path/key.
+            data: Raw file bytes to save.
+        """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
             await backend.save(key, data, overwrite=True)
@@ -806,6 +1071,15 @@ class StorageHandle:
             f.write(data)
 
     async def delete(self, key: str) -> bool:
+        """
+        Delete a file from storage.
+
+        Args:
+            key: The unique storage path/key.
+
+        Returns:
+            True if deletion was successful, False otherwise.
+        """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
             try:
@@ -823,6 +1097,15 @@ class StorageHandle:
         return False
 
     async def exists(self, key: str) -> bool:
+        """
+        Check if a file exists in storage.
+
+        Args:
+            key: The unique storage path/key.
+
+        Returns:
+            True if the file exists, False otherwise.
+        """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
             try:
