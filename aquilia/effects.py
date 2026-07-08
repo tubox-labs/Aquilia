@@ -27,13 +27,22 @@ Integration:
     - Testing: MockEffectRegistry auto-stubs missing effects
 """
 
+from __future__ import annotations
+
 import contextlib
 import logging
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from enum import Enum
-from typing import Any, Generic, Literal, TypeAlias, TypeVar, Union, cast, overload
+from typing import Any, Generic, Literal, TypeAlias, TypeVar, Union, cast, overload, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .sqlite._cursor import AsyncCursor
+    from .db.engine import AquiliaDatabase
+else:
+    AsyncCursor = Any
+    AquiliaDatabase = Any
 
 from .typing.effects import EffectMap, EffectMode, EffectName
 
@@ -64,13 +73,13 @@ class DBTxHandle(dict):
         super().__init__(data)
         self._db = db
 
-    def _get_db(self) -> Any:
+    def _get_db(self) -> AquiliaDatabase:
         if self._db is not None:
             return self._db
         from .db.engine import get_database
         return get_database()
 
-    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> Any:
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> AsyncCursor:
         """Execute a query within the transaction. Returns a cursor-like object."""
         return await self._get_db().execute(sql, params)
 
@@ -290,7 +299,7 @@ class DBTxProvider(EffectProvider):
             "acquired_at": time.monotonic(),
         }, db=self.db)
 
-    async def release(self, resource: Any, success: bool = True):
+    async def release(self, resource: DBTxHandle, success: bool = True) -> None:
         """Release database connection and commit/rollback transaction."""
         self._release_count += 1
         if isinstance(resource, dict) and "transaction" in resource:
@@ -337,14 +346,14 @@ class CacheProvider(EffectProvider):
             except Exception:
                 pass  # CacheService.initialize is idempotent
 
-    async def acquire(self, mode: str | None = None):
+    async def acquire(self, mode: str | None = None) -> CacheServiceHandle | CacheHandle:
         """Get cache handle for namespace."""
         namespace = mode or "default"
         if self._svc is not None:
             return CacheServiceHandle(self._svc, namespace)
         return CacheHandle(self._fallback, namespace)
 
-    async def release(self, resource: Any, success: bool = True):
+    async def release(self, resource: CacheServiceHandle | CacheHandle, success: bool = True) -> None:
         """Nothing to release for cache."""
         pass
 
@@ -377,12 +386,12 @@ class QueueProvider(EffectProvider):
     async def initialize(self):
         self._connected = True
 
-    async def acquire(self, mode: str | None = None):
+    async def acquire(self, mode: str | None = None) -> QueueHandle:
         """Return a queue handle for a topic/channel."""
         topic = mode or "default"
         return QueueHandle(self._messages, topic)
 
-    async def release(self, resource: Any, success: bool = True):
+    async def release(self, resource: QueueHandle, success: bool = True) -> None:
         pass
 
     async def finalize(self):
@@ -411,13 +420,13 @@ class TaskQueueProvider(EffectProvider):
     async def initialize(self):
         pass  # Manager lifecycle is managed by the server
 
-    async def acquire(self, mode: str | None = None):
+    async def acquire(self, mode: str | None = None) -> TaskQueueHandle | QueueHandle:
         queue = mode or "default"
         if self._manager is not None:
             return TaskQueueHandle(self._manager, queue)
         return QueueHandle(self._fallback_messages, queue)
 
-    async def release(self, resource: Any, success: bool = True):
+    async def release(self, resource: TaskQueueHandle | QueueHandle, success: bool = True) -> None:
         pass
 
     async def finalize(self):
@@ -451,14 +460,14 @@ class HTTPProvider(EffectProvider):
         config = HTTPClientConfig(timeout=TimeoutConfig(total=self.timeout))
         self.client = AsyncHTTPClient(base_url=self.base_url, config=config)
 
-    async def acquire(self, mode: str | None = None):
+    async def acquire(self, mode: str | None = None) -> HTTPHandle:
         """Return HTTP client handle."""
         if self.client is None:
             from .http.client import AsyncHTTPClient
             self.client = AsyncHTTPClient(base_url=self.base_url)
         return HTTPHandle(self.client, self.base_url)
 
-    async def release(self, resource: Any, success: bool = True):
+    async def release(self, resource: HTTPHandle, success: bool = True) -> None:
         pass
 
     async def finalize(self):
@@ -473,27 +482,20 @@ class StorageProvider(EffectProvider):
     Wraps local filesystem or cloud storage (S3, GCS, etc.).
     """
 
-class StorageProvider(EffectProvider):
-    """
-    File/blob storage effect provider.
-
-    Wraps local filesystem or cloud storage (S3, GCS, etc.).
-    """
-
-    def __init__(self, root_path: str = "./storage", *, storage_registry: Any = None):
+    def __init__(self, root_path: str = "./storage", *, storage_registry: Any = None) -> None:
         self.root_path = root_path
         self._registry = storage_registry
 
-    async def initialize(self):
+    async def initialize(self) -> None:
         import os
 
         os.makedirs(self.root_path, exist_ok=True)
 
-    async def acquire(self, mode: str | None = None):
+    async def acquire(self, mode: str | None = None) -> StorageHandle:
         bucket = mode or "default"
         return StorageHandle(self.root_path, bucket, registry=self._registry)
 
-    async def release(self, resource: Any, success: bool = True):
+    async def release(self, resource: StorageHandle, success: bool = True) -> None:
         pass
 
     async def health_check(self) -> dict[str, Any]:
