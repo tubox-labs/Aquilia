@@ -210,6 +210,9 @@ class DBTxHandle(dict):
 
         Returns:
             An AsyncCursor object pointing to the executed query result.
+
+        Example:
+            >>> cursor = await db.execute("UPDATE users SET active = ? WHERE id = ?", (True, 42))
         """
         return await self._get_db().execute(sql, params)
 
@@ -220,6 +223,12 @@ class DBTxHandle(dict):
         Args:
             sql: The SQL query statement to run.
             params_list: A sequence of parameter sets to execute the query with.
+
+        Example:
+            >>> await db.execute_many(
+            ...     "INSERT INTO tags (name) VALUES (?)",
+            ...     [("python",), ("rust",), ("go",)]
+            ... )
         """
         await self._get_db().execute_many(sql, params_list)
 
@@ -233,6 +242,11 @@ class DBTxHandle(dict):
 
         Returns:
             A list of dictionary objects representing database rows.
+
+        Example:
+            >>> users = await db.fetch_all("SELECT id, username FROM users WHERE role = ?", ("admin",))
+            >>> for user in users:
+            ...     print(user["username"])
         """
         return await self._get_db().fetch_all(sql, params)
 
@@ -246,6 +260,11 @@ class DBTxHandle(dict):
 
         Returns:
             A dictionary representing the row, or None if no row is returned.
+
+        Example:
+            >>> user = await db.fetch_one("SELECT * FROM users WHERE id = ?", (42,))
+            >>> if user:
+            ...     print(user["email"])
         """
         return await self._get_db().fetch_one(sql, params)
 
@@ -259,6 +278,10 @@ class DBTxHandle(dict):
 
         Returns:
             The scalar value returned, or None.
+
+        Example:
+            >>> count = await db.fetch_val("SELECT COUNT(*) FROM users")
+            >>> print(f"Total users: {count}")
         """
         return await self._get_db().fetch_val(sql, params)
 
@@ -730,6 +753,11 @@ class CacheServiceHandle:
 
         Returns:
             The cached value, or None if the key does not exist.
+
+        Example:
+            >>> user_data = await cache.get("user:42")
+            >>> if user_data:
+            ...     print(user_data["username"])
         """
         return await self._svc.get(key, namespace=self._ns)
 
@@ -741,6 +769,9 @@ class CacheServiceHandle:
             key: The cache key string.
             value: The data/value to store.
             ttl: Optional time-to-live in seconds.
+
+        Example:
+            >>> await cache.set("user:42", {"username": "alice"}, ttl=300)
         """
         await self._svc.set(key, value, ttl=ttl, namespace=self._ns)
 
@@ -753,6 +784,9 @@ class CacheServiceHandle:
 
         Returns:
             True if the deletion succeeded, False otherwise.
+
+        Example:
+            >>> succeeded = await cache.delete("user:42")
         """
         return await self._svc.delete(key, namespace=self._ns)
 
@@ -840,6 +874,12 @@ class QueueHandle:
         Args:
             payload: The message body to publish.
             headers: Optional dictionary of metadata headers.
+
+        Example:
+            >>> await queue.publish(
+            ...     {"event": "user_registered", "user_id": 42},
+            ...     headers={"source": "user_service"}
+            ... )
         """
         self._messages.append(
             {
@@ -856,6 +896,12 @@ class QueueHandle:
 
         Args:
             payloads: A sequence of message bodies to publish.
+
+        Example:
+            >>> await queue.publish_batch([
+            ...     {"event": "sync", "item": 1},
+            ...     {"event": "sync", "item": 2}
+            ... ])
         """
         for payload in payloads:
             await self.publish(payload)
@@ -886,6 +932,13 @@ class TaskQueueHandle:
 
         Returns:
             The job ID string for the enqueued task.
+
+        Example:
+            >>> job_id = await task_queue.enqueue(
+            ...     send_welcome_email,
+            ...     user_id=42,
+            ...     template="welcome_v2"
+            ... )
         """
         job_id = await self._manager.enqueue(func, *args, queue=self._queue, **kwargs)
         return cast(str, job_id)
@@ -937,6 +990,9 @@ class HTTPHandle:
 
         Returns:
             JSON decoded response, or None if client is not initialized.
+
+        Example:
+            >>> data = await http.get("/api/v1/users/42", headers={"Accept": "application/json"})
         """
         if self._client:
             resp = await self._client.get(url, **kwargs)
@@ -954,6 +1010,9 @@ class HTTPHandle:
 
         Returns:
             JSON decoded response, or None if client is not initialized.
+
+        Example:
+            >>> response = await http.post("/api/v1/users", json={"username": "bob"})
         """
         if self._client:
             resp = await self._client.post(url, json=json, **kwargs)
@@ -971,6 +1030,9 @@ class HTTPHandle:
 
         Returns:
             JSON decoded response, or None if client is not initialized.
+
+        Example:
+            >>> response = await http.put("/api/v1/users/42", json={"username": "robert"})
         """
         if self._client:
             resp = await self._client.put(url, json=json, **kwargs)
@@ -987,6 +1049,9 @@ class HTTPHandle:
 
         Returns:
             JSON decoded response, or None if client is not initialized.
+
+        Example:
+            >>> response = await http.delete("/api/v1/users/42")
         """
         if self._client:
             resp = await self._client.delete(url, **kwargs)
@@ -1033,6 +1098,9 @@ class StorageHandle:
 
         Returns:
             Raw file bytes if successful, None if not found or errored.
+
+        Example:
+            >>> content = await storage.read("documents/report.pdf")
         """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
@@ -1057,6 +1125,9 @@ class StorageHandle:
         Args:
             key: The unique storage path/key.
             data: Raw file bytes to save.
+
+        Example:
+            >>> await storage.write("documents/report.pdf", pdf_bytes)
         """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
@@ -1079,6 +1150,9 @@ class StorageHandle:
 
         Returns:
             True if deletion was successful, False otherwise.
+
+        Example:
+            >>> succeeded = await storage.delete("documents/report.pdf")
         """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
@@ -1105,6 +1179,9 @@ class StorageHandle:
 
         Returns:
             True if the file exists, False otherwise.
+
+        Example:
+            >>> is_file = await storage.exists("documents/report.pdf")
         """
         if self._registry is not None:
             backend = self._registry.get(self._bucket) or self._registry.default
