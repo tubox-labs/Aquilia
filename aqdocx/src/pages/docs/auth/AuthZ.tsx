@@ -18,23 +18,23 @@ export function AuthZPage() {
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Authorization
+            Authorization Engine &amp; DSL
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia provides a unified <code className="text-aquilia-500">AuthzEngine</code> that combines RBAC, ABAC, scopes, and tenant isolation. Default-deny ensures secure-by-default access control. Results use the <code className="text-aquilia-500">Decision</code> enum: ALLOW, DENY, or ABSTAIN.
+          Aquilia's authorization subsystem integrates RBAC, ABAC, scope checks, and tenant isolation into a unified `AuthzEngine`.
         </p>
       </div>
 
-      {/* Decision & Context */}
+      {/* Decision Model */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Decision Model</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
           {[
             { label: 'ALLOW', desc: 'Access is explicitly permitted.', color: '#22c55e' },
             { label: 'DENY', desc: 'Access is explicitly denied.', color: '#ef4444' },
-            { label: 'ABSTAIN', desc: 'No opinion — falls through to next check (default deny).', color: '#f59e0b' },
+            { label: 'ABSTAIN', desc: 'No opinion — defers evaluation to subsequent policies.', color: '#f59e0b' },
           ].map((d, i) => (
             <div key={i} className={boxClass}>
               <span className="font-mono font-bold text-sm" style={{ color: d.color }}>{d.label}</span>
@@ -42,22 +42,25 @@ export function AuthZPage() {
             </div>
           ))}
         </div>
-        <CodeBlock language="python" filename="Authorization Types">{`from aquilia.auth.authz import Decision, AuthzContext, AuthzResult
+        <CodeBlock language="python" filename="Authorization Structures">{`from aquilia.auth.authz import Decision, AuthzContext, AuthzResult
 
-# AuthzContext — input to any check
+# AuthzContext - Input data for authorization checks
 ctx = AuthzContext(
     identity=current_identity,
     resource="orders",
     action="delete",
-    resource_id="order_42",
-    environment={"ip": "1.2.3.4", "time": now()},
+    scopes=["orders:read", "orders:write"],
+    roles=["editor"],
+    tenant_id="tenant_123",
+    session_id="sess_abc",
+    attributes={"owner_id": "user_42"},
 )
 
-# AuthzResult — output from a check
+# AuthzResult - Output produced by policy evaluation
 result = AuthzResult(
     decision=Decision.ALLOW,
-    reason="Admin role grants full access",
-    matched_rules=["admin_full_access"],
+    reason="Identity is resource owner",
+    policy_id="owner_only",
 )`}</CodeBlock>
       </section>
 
@@ -65,239 +68,137 @@ result = AuthzResult(
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Cpu className="w-5 h-5 text-blue-500" />Unified AuthzEngine</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-aquilia-500">AuthzEngine</code> wraps RBAC, ABAC, and scope checking in a single API. Use <code className="text-aquilia-500">authorize()</code> for the full chain or individual check methods.
+          The <code className="text-aquilia-500">AuthzEngine</code> coordinates RBAC and ABAC checks.
         </p>
-        <CodeBlock language="python" filename="AuthzEngine">{`from aquilia.auth.authz import AuthzEngine
+        <CodeBlock language="python" filename="AuthzEngine Integration">{`from aquilia.auth.authz import AuthzEngine
 
 engine = AuthzEngine(
-    rbac_engine=rbac,
-    abac_engine=abac,
-    scope_checker=scope_checker,
+    rbac=rbac_engine,
+    abac=abac_engine,
 )
 
-# Full authorization check — runs all engines
-result = await engine.authorize(ctx)
-# result.decision → Decision.ALLOW / DENY
+# Set evaluation order for registered ABAC policies
+engine.set_policy_order(["owner_can_edit", "business_hours_only"])
 
-# Individual checks
-await engine.check_scope(identity, required=["orders:write"])
-await engine.check_role(identity, required=["admin"])
-await engine.check_permission(identity, resource="orders", action="delete")
-await engine.check_tenant(identity, resource_tenant_id="org_1")
+# Runs ABAC policies in order. Returns first non-ABSTAIN result. Default Deny.
+result = engine.check(ctx)
 
-# List all permitted actions for a resource
-actions = await engine.list_permitted_actions(identity, resource="orders")
-# → ["read", "write", "update"]  (not "delete" if denied)`}</CodeBlock>
+# Throws AUTHZ_POLICY_DENIED on Decision.DENY
+engine.authorize(ctx, raise_on_deny=True)
+
+# Individual check methods (raise relevant faults on failure)
+engine.check_scope(ctx, required_scopes=["orders:write"])
+engine.check_role(ctx, required_roles=["admin"])
+engine.check_permission(ctx, permission="orders:delete")
+engine.check_tenant(ctx, resource_tenant_id="tenant_123")
+
+# List all permitted actions
+permitted = engine.list_permitted_actions(
+    identity=current_user,
+    resource="orders",
+    actions=["read", "write", "delete"],
+)`}</CodeBlock>
       </section>
 
-      {/* RBAC */}
+      {/* RBAC Engine */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Shield className="w-5 h-5 text-green-500" />Role-Based Access Control (RBAC)</h2>
-        <CodeBlock language="python" filename="rbac.py">{`from aquilia.auth.authz import RBACEngine
+        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Shield className="w-5 h-5 text-green-500" />RBAC Engine</h2>
+        <CodeBlock language="python" filename="rbac_setup.py">{`from aquilia.auth.authz import RBACEngine
 
 rbac = RBACEngine()
 
-# Define roles with permissions
-rbac.define_role("admin", permissions=[
-    "articles:read", "articles:write", "articles:delete",
-    "users:read", "users:write", "users:delete",
-    "settings:manage",
-])
+# Define roles and permissions
+rbac.define_role("editor", permissions=["posts:read", "posts:write"])
+rbac.define_role("admin", inherits=["editor"], permissions=["posts:delete"])
 
-rbac.define_role("editor", permissions=[
-    "articles:read", "articles:write",
-    "users:read",
-])
+# Check permission against a list of roles
+allowed = rbac.check_permission(roles=["editor"], permission="posts:write") # True
 
-rbac.define_role("viewer", permissions=[
-    "articles:read", "users:read",
-])
-
-# Role inheritance with cycle detection
-rbac.define_role("super_admin", inherits=["admin"], permissions=[
-    "system:shutdown", "system:audit",
-])
-
-# Get effective permissions (follows inheritance)
-perms = rbac.get_permissions("super_admin")
-# → {"system:shutdown", "system:audit", "articles:*", "users:*", "settings:manage"}
-
-# Check permission
-allowed = await rbac.check_permission(identity, "articles:delete")
-# → Decision.ALLOW if identity has "admin" or "super_admin" role
-
-# Check via unified check()
-result = await rbac.check(identity, resource="articles", action="delete")`}</CodeBlock>
+# Evaluates against roles in AuthzContext
+result = rbac.check(ctx, permission="posts:delete") # AuthzResult`}</CodeBlock>
       </section>
 
-      {/* ABAC */}
+      {/* ABAC Engine */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Layers className="w-5 h-5 text-amber-500" />Attribute-Based Access Control (ABAC)</h2>
-        <CodeBlock language="python" filename="abac.py">{`from aquilia.auth.authz import ABACEngine
+        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Layers className="w-5 h-5 text-amber-500" />ABAC Engine</h2>
+        <CodeBlock language="python" filename="abac_setup.py">{`from aquilia.auth.authz import ABACEngine, Decision, AuthzResult
 
 abac = ABACEngine()
 
-# Register attribute-based policies
+# Register policies by ID
 abac.register_policy(
-    name="owner_can_edit",
-    condition=lambda ctx: (
-        ctx.action == "edit"
-        and ctx.resource.get("owner_id") == ctx.identity.id
-    ),
-    decision=Decision.ALLOW,
+    policy_id="owner_can_edit",
+    policy_func=lambda ctx: (
+        AuthzResult(Decision.ALLOW) if ctx.attributes.get("owner_id") == ctx.identity.id
+        else AuthzResult(Decision.ABSTAIN)
+    )
 )
 
-abac.register_policy(
-    name="business_hours_only",
-    condition=lambda ctx: (
-        ctx.action in ("write", "delete")
-        and 9 <= ctx.environment.get("hour", 0) <= 17
-    ),
-    decision=Decision.DENY,  # deny outside business hours
-)
-
-abac.register_policy(
-    name="department_access",
-    condition=lambda ctx: (
-        ctx.resource.get("department")
-        in ctx.identity.get_attribute("departments", [])
-    ),
-    decision=Decision.ALLOW,
-)
-
-# Evaluate — all matching policies are evaluated
-result = await abac.evaluate(ctx)`}</CodeBlock>
-      </section>
-
-      {/* ScopeChecker */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ScopeChecker</h2>
-        <CodeBlock language="python" filename="Scopes">{`from aquilia.auth.authz import ScopeChecker
-
-checker = ScopeChecker()
-
-# Check if identity's scopes satisfy requirements
-result = checker.check_scopes(
-    identity_scopes=["read", "write", "admin:read"],
-    required_scopes=["read", "write"],
-)
-# → Decision.ALLOW (has both)
-
-result = checker.check(identity, required=["admin:write"])
-# → Decision.DENY (missing admin:write)`}</CodeBlock>
+# Evaluate specific policy
+result = abac.evaluate(ctx, policy_id="owner_can_edit")`}</CodeBlock>
       </section>
 
       {/* PolicyBuilder */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>PolicyBuilder</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-500">PolicyBuilder</code> provides factory methods for common authorization patterns.
+          Use the static helper methods in <code className="text-aquilia-500">PolicyBuilder</code> to quickly construct ABAC policies:
         </p>
-        <CodeBlock language="python" filename="PolicyBuilder">{`from aquilia.auth.authz import PolicyBuilder
+        <CodeBlock language="python" filename="PolicyBuilder Usage">{`from aquilia.auth.authz import PolicyBuilder
 
-# Owner-only — only the resource owner can access
-policy = PolicyBuilder.owner_only(owner_field="author_id")
+# Owner-only check
+owner_policy = PolicyBuilder.owner_only(attribute="owner_id")
 
-# Admin or owner — admins + owner can access
-policy = PolicyBuilder.admin_or_owner(
-    admin_roles=["admin", "superadmin"],
-    owner_field="author_id",
+# Admin or owner check
+admin_owner_policy = PolicyBuilder.admin_or_owner(
+    admin_role="admin",
+    attribute="owner_id",
 )
 
-# Time-based — restrict access by time window
-policy = PolicyBuilder.time_based(
-    start_hour=9,
-    end_hour=17,
-    weekdays_only=True,
-)`}</CodeBlock>
+# Time-based check (allowed hours in UTC)
+business_hours_policy = PolicyBuilder.time_based(allowed_hours=(9, 17))`}</CodeBlock>
       </section>
 
       {/* Policy DSL */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Policy DSL</h2>
-        <CodeBlock language="python" filename="policy.py">{`from aquilia.auth.policy import (
-    Policy, PolicyRegistry, PolicyDecision,
-    Allow, Deny, Abstain, rule,
-)
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Declarative Policy DSL</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The <code className="text-aquilia-500">aquilia.auth.policy</code> module provides a declarative DSL for resource-based policies.
+        </p>
+        <CodeBlock language="python" filename="ArticlePolicy">{`from aquilia.auth.policy import Policy, PolicyRegistry, Allow, Deny, Abstain, rule
 
 class ArticlePolicy(Policy):
-    """Authorization rules for Article resources."""
+    resource = "article"
 
     @rule
-    async def owner_can_manage(self, identity, article, action):
-        if article.author_id == identity.id:
-            return Allow(reason="Owner has full access")
-        return Abstain()
+    def can_read(self, identity, resource):
+        return Allow("Anyone can read")
 
     @rule
-    async def editors_can_edit(self, identity, article, action):
-        if "editor" in identity.roles and action != "delete":
-            return Allow(reason="Editor access")
-        return Abstain()
+    def can_edit(self, identity, resource):
+        if resource and resource.author_id == identity.id:
+            return Allow("Author can edit")
+        if "editor" in identity.roles:
+            return Allow("Editor can edit")
+        return Deny("Must be author or editor")
 
-    @rule
-    async def deny_suspended(self, identity, article, action):
-        if identity.status == "suspended":
-            return Deny(reason="Account suspended")
-        return Abstain()
-
-# Register and evaluate (default deny if no ALLOW)
+# Register instance of Policy in Registry
 registry = PolicyRegistry()
-registry.register(ArticlePolicy)
+registry.register(ArticlePolicy())
 
-result = await registry.evaluate(
-    policy_class=ArticlePolicy,
-    identity=current_user,
-    resource=article,
+# Evaluate synchronously (returns PolicyResult)
+result = registry.evaluate(
+    resource="article",
     action="edit",
-)
-
-if result.decision == PolicyDecision.ALLOW:
-    ...  # proceed
-elif result.decision == PolicyDecision.DENY:
-    ...  # 403 Forbidden`}</CodeBlock>
-      </section>
-
-      {/* Guard Integration */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Guard Integration</h2>
-        <CodeBlock language="python" filename="guards.py">{`from aquilia.auth.guards import AuthGuard, AuthzGuard, ScopeGuard, RoleGuard
-
-class ArticleController(Controller):
-    prefix = "/api/articles"
-
-    @Get("/")
-    async def list_articles(self, ctx):
-        """Public — no guard required."""
-        ...
-
-    @Get("/{id:int}")
-    async def get_article(self, ctx, id: int):
-        """Requires authentication."""
-        guard = AuthGuard(token_manager=tm, identity_store=ids)
-        await guard.check(ctx)
-        ...
-
-    @Put("/{id:int}")
-    async def update_article(self, ctx, id: int):
-        """Requires scope + RBAC check."""
-        await ScopeGuard(required_scopes=["articles:write"]).check(ctx)
-        await AuthzGuard(
-            authz_engine=authz, resource_extractor=lambda r: r.path_params["id"],
-        ).check(ctx)
-        ...
-
-    @Delete("/{id:int}")
-    async def delete_article(self, ctx, id: int):
-        """Admin role required."""
-        await RoleGuard(roles=["admin"], require_all=True).check(ctx)
-        ...`}</CodeBlock>
+    identity=current_user,
+    resource_obj=article,
+)`}</CodeBlock>
       </section>
 
       {/* Nav */}
       <div className="flex justify-between items-center mt-16 pt-8 border-t border-white/10">
-        <Link to="/docs/auth" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition">
-          <ArrowLeft className="w-4 h-4" /> Authentication
+        <Link to="/docs/auth/guards" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition">
+          <ArrowLeft className="w-4 h-4" /> Guards
         </Link>
         <Link to="/docs/sessions" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition">
           Sessions <ArrowRight className="w-4 h-4" />

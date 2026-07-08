@@ -2,6 +2,7 @@ import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Shield, Lock, Key, Fingerprint, Database, Layers, AlertTriangle, Puzzle } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function AuthOverview() {
   const { theme } = useTheme()
@@ -19,7 +20,7 @@ export function AuthOverview() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia's auth system is built on three pillars: <code className="text-aquilia-500">Identity</code> (the principal), <code className="text-aquilia-500">Credential</code> (proof of identity), and <code className="text-aquilia-500">Guard</code> (policy enforcement). Everything is async-first and integrates with the DI system.
+          Aquilia's auth system is built on three pillars: <DocTerm id="auth.identity">Identity</DocTerm> (the principal), <code className="text-aquilia-500">Credential</code> (proof of identity), and <code className="text-aquilia-500">Guard</code> (policy enforcement). Everything is async-first and integrates with the DI system.
         </p>
       </div>
 
@@ -128,10 +129,12 @@ result = await auth_manager.authenticate_password(
     identifier="alice@example.com",
     password="S3cur3Pa$$word!",
 )
-# result.identity  → Identity
-# result.tokens    → {"access_token": "...", "refresh_token": "..."}
-# result.session   → AuthSession | None
-# result.metadata  → {"method": "password", ...}`}</CodeBlock>
+# result.identity      → Identity (wrapped in DocTerm or resolved directly)
+# result.access_token  → str
+# result.refresh_token → str
+# result.session_id    → str | None
+# result.metadata      → {"method": "password", ...}
+# This returns an instance of AuthResult.`}</CodeBlock>
       </section>
 
       <section className="mb-16">

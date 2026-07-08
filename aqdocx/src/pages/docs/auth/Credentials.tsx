@@ -61,9 +61,9 @@ hashed = hash_password("MyP@ssw0rd!")
 ok = verify_password("MyP@ssw0rd!", hashed)
 
 # Validate against policy (sync helper)
-result = validate_password("weak", policy)
-# result.valid → False
-# result.errors → ["Too short", "Missing digit", ...]`}</CodeBlock>
+is_valid, errors = validate_password("weak", policy)
+# is_valid  → False
+# errors    → ["Password must be at least 12 characters", ...]`}</CodeBlock>
       </section>
 
       {/* PasswordPolicy */}
@@ -76,18 +76,15 @@ policy = PasswordPolicy(
     require_uppercase=True,       # at least one A-Z
     require_lowercase=True,       # at least one a-z
     require_digit=True,           # at least one 0-9
-    require_special=True,         # at least one !@#$%...
-    max_repeated_chars=3,         # max 3 consecutive identical chars
-    blacklist=["password", "qwerty", "123456"],  # banned passwords
+    require_special=True,         # at least one special char
     check_breached=True,          # HIBP breach check
-    prevent_reuse=5,              # remember last 5 password hashes
 )
 
 # Validate — async because breach check calls HIBP API
-result = await policy.validate_async("MyP@ssw0rd!")
-if not result.valid:
-    print(result.errors)
-    # → ["Password found in breach database (HIBP)"]`}</CodeBlock>
+is_valid, errors = await policy.validate_async("MyP@ssw0rd!")
+if not is_valid:
+    print(errors)
+    # → ["Password has been found in data breaches"]`}</CodeBlock>
 
         <div className={`mt-4 p-4 rounded-xl border-l-4 border-amber-500 ${isDark ? 'bg-amber-500/10' : 'bg-amber-50'}`}>
           <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>

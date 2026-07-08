@@ -1,6 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Shield, Lock, Key, Layers } from 'lucide-react'
+import { Shield, Layers, Cpu } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function AuthGuards() {
@@ -14,177 +15,122 @@ export function AuthGuards() {
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4"><Shield className="w-4 h-4" />Security &amp; Auth</div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Guards
+            Guards &amp; Decorators
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Guards enforce authentication and authorization policies before route handlers execute. Aquilia provides built-in guards for Bearer tokens, API keys, RBAC/ABAC, scopes, and roles — plus decorators for quick inline protection.
+          Aquilia provides two separate guard modules: **Controller Decorators &amp; Guards** (`aquilia/auth/decorators.py`) for route handler level validation, and **Flow Pipeline Guards** (`aquilia/auth/guards.py`) for pipeline integration.
         </p>
       </div>
 
-      {/* Guard Types */}
+      {/* 1. Controller Decorators & Guards */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Built-in Guard Classes</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Layers className="w-5 h-5 text-blue-500" />1. Controller Decorators &amp; Guards</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          These decorators and guards are used directly in controller methods. They resolve identity/sessions from the active request context.
+        </p>
+
+        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Decorators</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div className={boxClass}>
+            <span className="font-mono font-bold text-sm text-aquilia-500">@authenticated</span>
+            <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Requires an authenticated identity. Can redirect browser requests if `login_url` is configured.
+            </p>
+          </div>
+          <div className={boxClass}>
+            <span className="font-mono font-bold text-sm text-aquilia-500">@require_identity</span>
+            <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Validates specific roles, scopes, or custom attributes on the identity.
+            </p>
+          </div>
+        </div>
+
+        <CodeBlock language="python" filename="Controller Decorators">{`from aquilia.auth.decorators import authenticated, require_identity
+
+@authenticated
+async def get_profile(ctx, user: Identity):
+    # user is automatically resolved and injected
+    return {"user_id": user.id}
+
+@authenticated(login_url="/login", redirect_if_html=True)
+async def dashboard(ctx, session: Session):
+    # Browser client gets redirected to /login?next=/dashboard on missing session
+    return {"theme": session.get("theme")}
+
+@require_identity(roles=["admin"], scopes=["users:write"])
+async def delete_user(ctx, identity: Identity):
+    ...`}</CodeBlock>
+
+        <h3 className={`text-lg font-semibold mt-8 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Controller Guards</h3>
+        <p className={`mb-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Guards are instances that implement a `check(identity, session)` method. They can be composed using the `@requires` decorator.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           {[
-            { icon: <Lock className="w-5 h-5" />, title: 'AuthGuard', desc: 'Validates Bearer token from Authorization header. Supports optional mode (resolves identity if present, doesn\'t block).', color: '#3b82f6' },
-            { icon: <Key className="w-5 h-5" />, title: 'ApiKeyGuard', desc: 'Validates X-API-Key header against credential store. Checks key hash, expiration, and required scopes.', color: '#f59e0b' },
-            { icon: <Shield className="w-5 h-5" />, title: 'AuthzGuard', desc: 'Full authorization with resource_extractor, scope checks, role checks, and RBAC/ABAC policy evaluation.', color: '#ef4444' },
-            { icon: <Shield className="w-5 h-5" />, title: 'ScopeGuard', desc: 'Checks that the authenticated identity\'s token has the required scopes.', color: '#22c55e' },
-            { icon: <Shield className="w-5 h-5" />, title: 'RoleGuard', desc: 'Checks identity roles. Supports require_all mode (must have ALL roles vs ANY role).', color: '#8b5cf6' },
+            { title: 'AdminGuard', desc: 'Verifies the identity or session has the "admin" role.' },
+            { title: 'VerifiedEmailGuard', desc: 'Checks if the email_verified attribute is True.' },
+            { title: 'RoleGuard(*roles, require_all=False)', desc: 'Validates roles (any matching by default, or all).' },
+            { title: 'ScopeGuard(*scopes, require_all=True)', desc: 'Validates OAuth scopes (all required by default).' },
           ].map((g, i) => (
             <div key={i} className={boxClass}>
-              <div className="flex items-center gap-2 mb-2" style={{ color: g.color }}>{g.icon}<span className="font-semibold text-sm font-mono">{g.title}</span></div>
-              <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{g.desc}</p>
+              <span className="font-mono font-bold text-sm text-green-500">{g.title}</span>
+              <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{g.desc}</p>
             </div>
           ))}
         </div>
-      </section>
 
-      {/* AuthGuard */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>AuthGuard (Bearer Token)</h2>
-        <CodeBlock language="python" filename="guards.py">{`from aquilia.auth.guards import AuthGuard
+        <CodeBlock language="python" filename="Controller Guards Composition">{`from aquilia.auth.decorators import requires, AdminGuard, VerifiedEmailGuard
 
-# Standard — blocks unauthenticated requests
-guard = AuthGuard(
-    token_manager=token_manager,
-    identity_store=identity_store,
-)
-
-# Optional mode — resolves identity if present, never blocks
-guard = AuthGuard(
-    token_manager=token_manager,
-    identity_store=identity_store,
-    optional=True,  # request.identity may be None
-)
-
-# Guard checks:
-# 1. Extract "Bearer <token>" from Authorization header
-# 2. Validate token signature via token_manager
-# 3. Resolve identity from token claims (sub)
-# 4. Verify identity is ACTIVE
-# 5. Inject identity into request context`}</CodeBlock>
-      </section>
-
-      {/* ApiKeyGuard */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ApiKeyGuard</h2>
-        <CodeBlock language="python" filename="API Key Guard">{`from aquilia.auth.guards import ApiKeyGuard
-
-guard = ApiKeyGuard(
-    credential_store=credential_store,
-    identity_store=identity_store,
-    required_scopes=["read:users"],  # optional scope check
-)
-
-# Guard checks:
-# 1. Extract key from X-API-Key header
-# 2. Hash key with SHA-256 → lookup in credential store
-# 3. Check key expiration and revocation
-# 4. Verify scopes if required_scopes specified
-# 5. Resolve identity from key's identity_id`}</CodeBlock>
-      </section>
-
-      {/* AuthzGuard */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>AuthzGuard (Full Authorization)</h2>
-        <CodeBlock language="python" filename="AuthzGuard">{`from aquilia.auth.guards import AuthzGuard
-
-guard = AuthzGuard(
-    token_manager=token_manager,
-    identity_store=identity_store,
-    authz_engine=authz_engine,
-    resource_extractor=lambda req: req.path_params.get("id"),
-    required_scopes=["orders:write"],
-    required_roles=["admin"],
-    policy_name="order_access",
-)
-
-# Guard performs full chain:
-# 1. Authenticate (Bearer token)
-# 2. Check scopes against token claims
-# 3. Check roles against identity attributes
-# 4. Extract resource from request
-# 5. Evaluate RBAC/ABAC policy via authz_engine`}</CodeBlock>
-      </section>
-
-      {/* Decorators */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Layers className="w-5 h-5 text-cyan-500" />Guard Decorators</h2>
-        <CodeBlock language="python" filename="Decorators">{`from aquilia.auth.guards import require_auth, require_scopes, require_roles
-
-# @require_auth — must be authenticated
-@require_auth
-async def protected_handler(request):
-    identity = request.identity
-    return json({"user": identity.id})
-
-# @require_scopes — check token scopes
-@require_scopes("orders:read", "orders:write")
-async def manage_orders(request):
-    ...
-
-# @require_roles — check identity roles
-@require_roles("admin", "superadmin")
-async def admin_panel(request):
+@requires(AdminGuard(), VerifiedEmailGuard())
+async def sensitive_panel(ctx):
     ...`}</CodeBlock>
       </section>
 
-      {/* Controller Pipeline */}
+      {/* 2. Flow Pipeline Guards */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Controller Pipeline</h2>
-        <CodeBlock language="python" filename="Controller Guards">{`from aquilia.controller import Controller, Get, Post, Delete
-from aquilia.auth.guards import AuthGuard, ApiKeyGuard, AuthzGuard
+        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}><Cpu className="w-5 h-5 text-orange-500" />2. Flow Pipeline Guards</h2>
+        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Flow guards are pipeline nodes that execute on a `context` dictionary. They can automatically resolve the `AuthManager` or `AuthzEngine` from the context DI container if not passed explicitly.
+        </p>
 
-class OrderController(Controller):
-    prefix = "/api/orders"
-    # Controller-level guard — applies to ALL routes
-    pipeline = [AuthGuard(token_manager=tm, identity_store=ids)]
-
-    @Get("/")
-    async def list_orders(self, ctx):
-        return ctx.json({"orders": [...]})
-
-    @Post("/")
-    async def create_order(self, ctx):
-        # Additional route-level guard
-        scope_guard = ScopeGuard(required_scopes=["orders:write"])
-        await scope_guard.check(ctx)
-        data = await ctx.request.json()
-        return ctx.json({"created": True})
-
-    @Delete("/{id}")
-    async def delete_order(self, ctx, id: str):
-        # Inline role check
-        role_guard = RoleGuard(roles=["admin"], require_all=True)
-        await role_guard.check(ctx)
-        return ctx.json({"deleted": id})`}</CodeBlock>
-        <div className={`mt-4 p-4 rounded-xl border-l-4 border-aquilia-500 ${isDark ? 'bg-aquilia-500/10' : 'bg-aquilia-50'}`}>
-          <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <strong>Pipeline execution order:</strong> Controller pipeline runs first, then route-level guards. If any guard raises a Fault, execution stops and the fault response is sent.
-          </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          {[
+            { title: 'AuthGuard(auth_manager=None, optional=False)', desc: 'Extracts Bearer token from authorization header, validates it, and injects "identity" into the flow context.' },
+            { title: 'ApiKeyGuard(auth_manager=None, required_scopes=None)', desc: 'Extracts API key from X-API-Key header and validates scopes.' },
+            { title: 'AuthzGuard(...)', desc: 'Runs full scope, role, and ABAC/RBAC policy check using the AuthzEngine.' },
+            { title: 'ScopeGuard(required_scopes)', desc: 'Asserts token_claims contains the required scopes.' },
+            { title: 'RoleGuard(required_roles, require_all=False)', desc: 'Asserts token_claims contains the required roles.' },
+          ].map((fg, i) => (
+            <div key={i} className={boxClass}>
+              <span className="font-mono font-bold text-xs text-orange-500">{fg.title}</span>
+              <p className={`mt-2 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{fg.desc}</p>
+            </div>
+          ))}
         </div>
+
+        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Flow Decorators</h3>
+        <p className={`mb-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Shorthand decorators that run the Flow-based token parsing pipeline:
+        </p>
+        <CodeBlock language="python" filename="Flow Decorators">{`from aquilia.auth.guards import require_auth, require_scopes, require_roles
+
+@require_auth(auth_manager)
+@require_scopes("orders.read")
+async def get_orders(request, identity: Identity):
+    return {"orders": []}`}</CodeBlock>
       </section>
 
-      {/* Tenant Isolation */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Tenant Isolation</h2>
-        <CodeBlock language="python" filename="Tenant Guard">{`from aquilia.auth.guards import AuthzGuard
-
-# Use AuthzGuard with tenant check via authz_engine
-guard = AuthzGuard(
-    token_manager=tm,
-    identity_store=ids,
-    authz_engine=authz_engine,
-    resource_extractor=lambda req: req.path_params.get("tenant_id"),
-)
-
-# Or use the authz engine directly for tenant checks:
-# authz_engine.check_tenant(identity, resource_tenant_id)
-# → raises AUTHZ_004 (TenantMismatch) if identity.tenant_id != resource tenant`}</CodeBlock>
-      </section>
+      {/* Navigation */}
+      <div className="flex justify-between items-center mt-16 pt-8 border-t border-white/10">
+        <Link to="/docs/auth/credentials" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition">
+          Credentials
+        </Link>
+        <Link to="/docs/authz" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition">
+          Authorization
+        </Link>
+      </div>
     
       <NextSteps />
     </div>
