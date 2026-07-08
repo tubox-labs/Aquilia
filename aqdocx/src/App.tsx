@@ -89,13 +89,21 @@ import { DIExtractors } from './pages/docs/di/Extractors'
 
 // Models
 import { ModelsOverview } from './pages/docs/models/Overview'
-import { ModelsFields } from './pages/docs/models/Fields'
+import { FieldsOverview } from './pages/docs/models/fields/FieldsOverview'
+import { NumericFields } from './pages/docs/models/fields/NumericFields'
+import { TextFields } from './pages/docs/models/fields/TextFields'
+import { DateTimeFields } from './pages/docs/models/fields/DateTimeFields'
+import { StructuredFields } from './pages/docs/models/fields/StructuredFields'
 import { ModelsQuerySet } from './pages/docs/models/QuerySet'
-import { ModelsRelationships } from './pages/docs/models/Relationships'
+import { DefiningRelationships } from './pages/docs/models/relationships/DefiningRelationships'
+import { HydrationPrimitives } from './pages/docs/models/relationships/HydrationPrimitives'
+import { ManyToManyOperations } from './pages/docs/models/relationships/ManyToManyOperations'
 import { ModelsMigrations } from './pages/docs/models/Migrations'
 import { ModelsAdvanced } from './pages/docs/models/Advanced'
 import { ModelsSignals } from './pages/docs/models/Signals'
-import { ModelsTransactions } from './pages/docs/models/Transactions'
+import { AtomicContexts } from './pages/docs/models/transactions/AtomicContexts'
+import { Savepoints } from './pages/docs/models/transactions/Savepoints'
+import { Hooks } from './pages/docs/models/transactions/Hooks'
 import { ModelsAggregation } from './pages/docs/models/Aggregation'
 
 // Blueprints
@@ -112,6 +120,7 @@ import { BlueprintsFaults } from './pages/docs/blueprints/Faults'
 // Database
 import { DatabaseOverview } from './pages/docs/database/Overview'
 import { DatabaseEngine } from './pages/docs/database/Engine'
+import { DatabaseConfigs } from './pages/docs/database/Configs'
 
 // Auth
 import { AuthOverview } from './pages/docs/auth/Overview'
@@ -359,13 +368,33 @@ export default function App() {
           <Route path="models" element={<ModelsOverview />} />
           <Route path="models/overview" element={<ModelsOverview />} />
           <Route path="models/defining" element={<ModelsOverview />} />
-          <Route path="models/fields" element={<ModelsFields />} />
+          
+          {/* Fields Subpages */}
+          <Route path="models/fields" element={<FieldsOverview />} />
+          <Route path="models/fields/overview" element={<FieldsOverview />} />
+          <Route path="models/fields/numeric" element={<NumericFields />} />
+          <Route path="models/fields/text" element={<TextFields />} />
+          <Route path="models/fields/datetime" element={<DateTimeFields />} />
+          <Route path="models/fields/structured" element={<StructuredFields />} />
+          
           <Route path="models/queryset" element={<ModelsQuerySet />} />
-          <Route path="models/relationships" element={<ModelsRelationships />} />
+          
+          {/* Relationships Subpages */}
+          <Route path="models/relationships" element={<DefiningRelationships />} />
+          <Route path="models/relationships/defining" element={<DefiningRelationships />} />
+          <Route path="models/relationships/hydration" element={<HydrationPrimitives />} />
+          <Route path="models/relationships/m2m" element={<ManyToManyOperations />} />
+          
           <Route path="models/migrations" element={<ModelsMigrations />} />
           <Route path="models/advanced" element={<ModelsAdvanced />} />
           <Route path="models/signals" element={<ModelsSignals />} />
-          <Route path="models/transactions" element={<ModelsTransactions />} />
+          
+          {/* Transactions Subpages */}
+          <Route path="models/transactions" element={<AtomicContexts />} />
+          <Route path="models/transactions/atomic" element={<AtomicContexts />} />
+          <Route path="models/transactions/savepoints" element={<Savepoints />} />
+          <Route path="models/transactions/hooks" element={<Hooks />} />
+          
           <Route path="models/aggregation" element={<ModelsAggregation />} />
 
           {/* Blueprints */}
@@ -383,6 +412,7 @@ export default function App() {
           {/* Database */}
           <Route path="database" element={<DatabaseOverview />} />
           <Route path="database/engine" element={<DatabaseEngine />} />
+          <Route path="database/configs" element={<DatabaseConfigs />} />
           <Route path="database/sqlite" element={<DatabaseOverview />} />
           <Route path="database/postgresql" element={<DatabaseOverview />} />
           <Route path="database/mysql" element={<DatabaseOverview />} />

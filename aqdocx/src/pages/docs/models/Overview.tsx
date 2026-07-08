@@ -1,69 +1,52 @@
-import { useTheme } from '../../../context/ThemeContext';
-import { CodeBlock } from '../../../components/CodeBlock';
-import { Database, ArrowRight, Box, Layers, Zap, Shield, GitBranch } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useTheme } from '../../../context/ThemeContext'
+import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview'
+import { Link } from 'react-router-dom'
+import { Database, ArrowRight } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function ModelsOverview() {
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const t = (d: string, l: string) => isDark ? d : l
 
   return (
     <div className="max-w-4xl mx-auto">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm mb-6">
+        <Link to="/docs" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Docs</Link>
+        <span className={t('text-gray-500','text-gray-400')}>/</span>
+        <span className={t('text-gray-300','text-gray-600')}>Models</span>
+      </div>
+
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 text-sm mb-4">
-          <Link to="/docs" className={isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}>Docs</Link>
-          <span className={isDark ? 'text-gray-500' : 'text-gray-400'}>/</span>
-          <span className={isDark ? 'text-gray-300' : 'text-gray-600'}>Models</span>
-        </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Models
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+      <div className="mb-10">
+        <h1 className={`text-4xl font-bold tracking-tighter mb-4 ${t('text-white','text-gray-900')}`}>
+          <span className="gradient-text font-mono">Models (ORM)</span>
         </h1>
-        <p className={`text-xl ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Pure Python, async-first ORM — define your schema as Python classes with full validation, relationships, signals, and migration support.
+        <p className={`text-xl leading-relaxed ${t('text-gray-300','text-gray-600')}`}>
+          Pure Python, async-first ORM. Subclass <DocTerm id="orm.model">Model</DocTerm> and declare fields. A metaclass collects descriptors, assigns PKs, parses <DocTerm id="orm.meta">Meta</DocTerm>, registers globally, and attaches <DocTerm id="orm.manager">Manager</DocTerm>.
         </p>
       </div>
 
       {/* Architecture callout */}
-      <div className={`rounded-lg p-6 mb-8 ${isDark ? 'bg-aquilia-500/5 border border-aquilia-500/20' : 'bg-blue-50/50 border border-blue-200/50'}`}>
+      <div className={`rounded-xl p-6 mb-10 border ${t('bg-aquilia-500/5 border-aquilia-500/20','bg-blue-50/60 border-blue-200/60')}`}>
         <div className="flex items-start gap-3">
-          <Database className={`w-6 h-6 mt-0.5 ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`} />
+          <Database className={`w-5 h-5 mt-0.5 shrink-0 ${t('text-aquilia-400','text-blue-600')}`} />
           <div>
-            <h3 className={`font-semibold mb-2 ${isDark ? 'text-aquilia-300' : 'text-blue-700'}`}>Architecture</h3>
-            <p className={isDark ? 'text-aquilia-200' : 'text-blue-700'}>
-              Aquilia's model system uses a metaclass-driven architecture. Models are plain Python classes with field descriptors.
-              A <code>ModelMeta</code> metaclass collects fields, injects auto-PKs, parses the inner <code>Meta</code> class, registers models in a global
-              registry, and attaches a default <code>Manager</code>. All terminal query methods are async — every database access returns an awaitable.
+            <h3 className={`font-semibold mb-2 ${t('text-aquilia-300','text-blue-700')}`}>Architecture</h3>
+            <p className={`text-sm leading-relaxed ${t('text-aquilia-200','text-blue-700')}`}>
+              Metaclass-driven. All database access methods return an awaitable. A global <DocTerm id="orm.registry">ModelRegistry</DocTerm> maps tables and dependencies.
             </p>
           </div>
         </div>
       </div>
 
-      {/* ORM Architecture Diagram */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ORM Architecture</h2>
-        <div className="flex items-center justify-center py-6">
-          <img src="/architecture/orm.svg" alt="ORM Architecture" className="max-w-full h-auto max-h-[360px]" />
-        </div>
-      </section>
-
       {/* Quick start */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Quick Start</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Define a model by subclassing <code>Model</code> and declaring field attributes. Set the <code>table</code> attribute to name the
-          database table, or let Aquilia generate one from the class name (lowercased).
-        </p>
-        <CodeBlock language="python" filename="models.py">
-          {`from aquilia.models import Model
-from aquilia.models.fields_module import (
-    CharField, EmailField, BooleanField, DateTimeField,
-    IntegerField, ForeignKey, Index,
-)
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Quick Start</h2>
+        <CodeBlock language="python" filename="models.py">{`from aquilia.models import Model
+from aquilia.models.fields_module import CharField, EmailField, BooleanField, DateTimeField
 
 class User(Model):
     table = "users"
@@ -74,261 +57,121 @@ class User(Model):
     created_at = DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ["-created_at"]
-        indexes = [Index(fields=["email"])]
-
-class Post(Model):
-    table = "posts"
-
-    title = CharField(max_length=200)
-    body = CharField(max_length=None, blank=True)  # TextField
-    author = ForeignKey("User", on_delete="CASCADE", related_name="posts")
-    views = IntegerField(default=0)
-    published_at = DateTimeField(null=True)`}
-        </CodeBlock>
+        ordering = ["-created_at"]`}</CodeBlock>
       </section>
 
-      {/* CRUD */}
+      {/* CRUD Operations */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>CRUD Operations</h2>
-        <CodeBlock language="python">
-          {`# CREATE — two ways
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>CRUD Operations</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Mutations use instance methods. Queries are issued through the <DocTerm id="orm.queryset">QuerySet</DocTerm> attached to the <DocTerm id="orm.manager">objects</DocTerm> manager.
+        </p>
+        <CodeBlock language="python">{`# CREATE
 user = User(name="Alice", email="alice@co.com")
-await user.save(db)          # INSERT — assigns user.id
+await user.save(db)          # INSERT — calls save()
 
+# Eager objects manager creation
 user = await User.objects.create(db, name="Bob", email="bob@co.com")
 
 # READ
-users = await User.objects.filter(active=True).order("-created_at").all()
-user  = await User.objects.get(pk=1)           # raises if missing
-user  = await User.objects.filter(id=1).first()  # None if missing
+users = await User.objects.filter(active=True).all()
+user  = await User.objects.get(id=1)           # strict one or raise
 
-# UPDATE — instance
-user.name = "Bob Smith"
-await user.save(db)          # UPDATE
+# UPDATE
+user.name = "Alice Smith"
+await user.save(db, update_fields=["name"])   # UPDATE with update_fields
 
-# UPDATE — bulk (does not fire signals)
-await User.objects.filter(active=False).update(active=True)
-
-# DELETE — instance
-await user.delete_instance(db)   # DELETE WHERE id = ?
-
-# DELETE — bulk
-await User.objects.filter(created_at__lt=cutoff).delete()`}
-        </CodeBlock>
+# DELETE
+await user.delete_instance(db)   # calls delete_instance()`}</CodeBlock>
       </section>
 
-      {/* Model instance methods */}
+      {/* Instance methods */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Instance Methods</h2>
-        <div className={`rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'} overflow-hidden mb-4`}>
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Instance Methods</h2>
+        <div className={`rounded-xl border overflow-hidden ${t('border-gray-700','border-gray-200')}`}>
           <table className="w-full text-sm">
             <thead>
-              <tr className={isDark ? 'bg-gray-800' : 'bg-gray-50'}>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Method</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
+              <tr className={t('bg-gray-800','bg-gray-50')}>
+                <th className={`px-4 py-2.5 text-left font-semibold ${t('text-gray-300','text-gray-700')}`}>Method</th>
+                <th className={`px-4 py-2.5 text-left font-semibold ${t('text-gray-300','text-gray-700')}`}>Description</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+            <tbody className={`divide-y ${t('divide-gray-700','divide-gray-200')}`}>
               {[
-                ['save(db, update_fields=None)', 'INSERT or UPDATE. Fires pre_save / post_save signals.'],
-                ['delete_instance(db)', 'DELETE this row. Fires pre_delete / post_delete signals.'],
-                ['full_clean()', 'Run all field-level validators. Raises ValidationError if invalid.'],
-                ['to_dict(fields=None, exclude=None)', 'Serialize instance to a plain dict. Optional field filtering.'],
-                ['from_row(row)', 'Class method. Construct a model instance from a DB row dict.'],
-                ['related(name)', 'Async. Load a related object (FK, O2O, M2M) by relation name.'],
-                ['attach(db, rel, ids)', 'Async. Add M2M relationships by target PKs.'],
-                ['detach(db, rel, ids)', 'Async. Remove M2M relationships by target PKs.'],
-                ['query()', 'Class method shortcut → Q (QuerySet) instance.'],
-                ['generate_create_table_sql()', 'Returns CREATE TABLE SQL for this model.'],
-                ['fingerprint()', 'SHA-256 hash of the model schema for migration diffing.'],
-              ].map(([method, desc]) => (
-                <tr key={method}>
-                  <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{method}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{desc}</td>
+                ['save(db, update_fields=None)', 'orm.model.save', 'Persist instance. Fires pre_save/post_save signals.'],
+                ['delete_instance(db)', 'orm.model.delete_instance', 'DELETE instance row. Fires pre_delete/post_delete signals.'],
+                ['full_clean()', 'orm.model.full_clean', 'Runs field-level validators. Raises ValidationError.'],
+                ['to_dict(fields=None, exclude=None)', 'orm.model.to_dict', 'Serialize instance attributes to a dict.'],
+              ].map(([m, id, d]) => (
+                <tr key={m}>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    <DocTerm id={id}>{m}</DocTerm>
+                  </td>
+                  <td className={`px-4 py-3 text-xs ${t('text-gray-300','text-gray-600')}`}>{d}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <CodeBlock language="python">
-          {`# Validation before save
-user = User(name="", email="bad-email")
-try:
-    user.full_clean()
-except ValidationError as e:
-    print(e.errors)  # {"name": ["This field cannot be blank"], ...}
-
-# to_dict
-user.to_dict()
-# → {"id": 1, "name": "Alice", "email": "alice@co.com", "active": True, ...}
-
-user.to_dict(fields=["id", "name"])
-# → {"id": 1, "name": "Alice"}
-
-user.to_dict(exclude=["created_at"])
-# → {"id": 1, "name": "Alice", "email": "...", "active": True}
-
-# update_fields — only update specific columns
-user.name = "New Name"
-await user.save(db, update_fields=["name"])
-# → UPDATE users SET name = ? WHERE id = ?`}
-        </CodeBlock>
       </section>
 
-      {/* Meta class */}
+      {/* Meta class options */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Meta Class Options</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The inner <code>Meta</code> class on a model controls table-level behavior. It is parsed by <code>ModelMeta</code> into an <code>Options</code> instance stored as <code>Model._meta</code>.
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Meta Options</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Configure table properties in <DocTerm id="orm.meta">Meta</DocTerm>:
         </p>
-        <div className={`rounded-lg border ${isDark ? 'border-gray-700' : 'border-gray-200'} overflow-hidden mb-4`}>
+        <div className={`rounded-xl border overflow-hidden ${t('border-gray-700','border-gray-200')}`}>
           <table className="w-full text-sm">
             <thead>
-              <tr className={isDark ? 'bg-gray-800' : 'bg-gray-50'}>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Option</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Type</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
+              <tr className={t('bg-gray-800','bg-gray-50')}>
+                <th className={`px-4 py-2.5 text-left font-semibold ${t('text-gray-300','text-gray-700')}`}>Option</th>
+                <th className={`px-4 py-2.5 text-left font-semibold ${t('text-gray-300','text-gray-700')}`}>Type</th>
+                <th className={`px-4 py-2.5 text-left font-semibold ${t('text-gray-300','text-gray-700')}`}>Description</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+            <tbody className={`divide-y ${t('divide-gray-700','divide-gray-200')}`}>
               {[
-                ['ordering', 'list[str]', 'Default ORDER BY. Prefix "-" for DESC.'],
-                ['indexes', 'list[Index]', 'Database indexes to create.'],
-                ['constraints', 'list', 'CheckConstraint, UniqueConstraint, etc.'],
-                ['abstract', 'bool', 'If True, no table created. Fields are inherited.'],
-                ['db_table', 'str', 'Override table name (alternative to class-level table attr).'],
-                ['unique_together', 'list[tuple]', 'Multi-column UNIQUE constraints.'],
-                ['verbose_name', 'str', 'Human-readable model name.'],
-                ['verbose_name_plural', 'str', 'Plural human-readable model name.'],
-                ['managed', 'bool', 'If False, Aquilia will not create/migrate this table.'],
-                ['primary_key', 'CompositePrimaryKey', 'Composite PK spanning multiple columns.'],
-              ].map(([opt, type_, desc]) => (
+                ['ordering', 'list[str]', 'Default ORDER BY clause.'],
+                ['indexes', 'list[Index]', 'Table-level indexes.'],
+                ['constraints', 'list[Constraint]', 'Table constraints (UniqueConstraint, CheckConstraint).'],
+                ['abstract', 'bool', 'If True, field schemas are inherited; no table created.'],
+                ['db_table', 'str', 'Explicit table name override.'],
+              ].map(([opt, type, d]) => (
                 <tr key={opt}>
-                  <td className={`px-4 py-3 font-mono ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`}>{opt}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{type_}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>{desc}</td>
+                  <td className={`px-4 py-3 font-mono text-xs ${t('text-aquilia-400','text-aquilia-600')}`}>{opt}</td>
+                  <td className={`px-4 py-3 font-mono text-xs ${t('text-gray-400','text-gray-500')}`}>{type}</td>
+                  <td className={`px-4 py-3 text-xs ${t('text-gray-300','text-gray-600')}`}>{d}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <CodeBlock language="python">
-          {`from aquilia.models.fields_module import Index, UniqueConstraint
-from aquilia.models.constraint import CheckConstraint
-
-class Article(Model):
-    table = "articles"
-    title = CharField(max_length=200)
-    status = CharField(max_length=20, default="draft")
-    price = DecimalField(max_digits=10, decimal_places=2, null=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        indexes = [
-            Index(fields=["title"]),
-            Index(fields=["status", "created_at"]),
-        ]
-        constraints = [
-            UniqueConstraint(fields=["title"], name="uq_title"),
-            CheckConstraint(check="price IS NULL OR price >= 0", name="ck_price"),
-        ]
-        verbose_name = "article"
-        verbose_name_plural = "articles"`}
-        </CodeBlock>
       </section>
 
       {/* Model Registry */}
       <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Model Registry</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Every model is automatically registered in a global <code>ModelRegistry</code> by the metaclass. The registry handles
-          table creation order (topological sort for FK dependencies) and lazy relation resolution.
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Model Registry</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Metaclass auto-registers models in <DocTerm id="orm.registry">ModelRegistry</DocTerm> for dependency mapping.
         </p>
-        <CodeBlock language="python">
-          {`from aquilia.models.registry import ModelRegistry
+        <CodeBlock language="python">{`from aquilia.models.registry import ModelRegistry
 
-# Get a registered model by name
+# Get model class
 UserModel = ModelRegistry.get("User")
 
-# List all registered models
-all_models = ModelRegistry.all_models()
-
-# Create all tables (respects FK ordering)
-await ModelRegistry.create_tables(db)
-
-# Drop all tables (reverse order)
-await ModelRegistry.drop_tables(db)
-
-# Set a database connection for a specific model
-ModelRegistry.set_database(User, db)
-
-# Resolve forward reference strings → actual model classes
-ModelRegistry._resolve_relations()`}
-        </CodeBlock>
-      </section>
-
-      {/* Abstract models */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Abstract Models</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          Mark a model with <code>abstract = True</code> in its Meta class. Abstract models share fields with subclasses but have no database table themselves.
-        </p>
-        <CodeBlock language="python">
-          {`class TimestampedModel(Model):
-    """Shared base with created_at/updated_at for all models."""
-    created_at = DateTimeField(auto_now_add=True)
-    updated_at = DateTimeField(auto_now=True)
-
-    class Meta:
-        abstract = True  # no table created
-
-class User(TimestampedModel):
-    table = "users"
-    name = CharField(max_length=150)
-    # Inherits: created_at, updated_at
-
-class Post(TimestampedModel):
-    table = "posts"
-    title = CharField(max_length=200)
-    # Inherits: created_at, updated_at`}
-        </CodeBlock>
-      </section>
-
-      {/* Features grid */}
-      <section className="mb-12">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>What's Included</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { icon: Box, title: 'Fields', desc: '40+ field types: numeric, text, date/time, JSON, UUID, PostgreSQL-specific (Array, HStore, Range, CI), and composite fields.' },
-            { icon: Layers, title: 'QuerySet', desc: 'Immutable clone-on-write async query builder: 20+ chain methods, 15+ async terminal methods, lookups, QNode composition.' },
-            { icon: GitBranch, title: 'Relationships', desc: 'ForeignKey, OneToOneField, ManyToManyField with through models. select_related (JOIN) and prefetch_related (separate query).' },
-            { icon: Zap, title: 'Migrations', desc: '4-layer system: auto-generation, DSL operations, runner with rollback, and low-level DDL ops.' },
-            { icon: Shield, title: 'Signals', desc: 'pre_save, post_save, pre_delete, post_delete, m2m_changed, class_prepared, pre/post_migrate and more.' },
-            { icon: Database, title: 'Transactions', desc: 'atomic() context manager with nested savepoints, on_commit/on_rollback hooks, isolation levels, and row-locking.' },
-          ].map(({ icon: Icon, title, desc }) => (
-            <div key={title} className={`p-4 rounded-lg border ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className={`w-5 h-5 ${isDark ? 'text-aquilia-400' : 'text-blue-600'}`} />
-                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{title}</h3>
-              </div>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{desc}</p>
-            </div>
-          ))}
-        </div>
+# Create all tables (respects FK topology order)
+await ModelRegistry.create_tables(db)`}</CodeBlock>
       </section>
 
       {/* Navigation */}
-      <div className={`flex justify-end items-center pt-8 mt-8 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-        <Link
-          to="/docs/models/fields"
-          className={`flex items-center gap-2 text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}
-        >
+      <div className={`flex justify-end items-center pt-8 mt-8 border-t ${t('border-gray-700','border-gray-200')}`}>
+        <Link to="/docs/models/fields" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
           Fields <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 
       <NextSteps />
     </div>
-  );
+  )
 }

@@ -1,362 +1,224 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview'
 import { Link } from 'react-router-dom'
-import { ArrowRight, Layers, Database, Shield, GitBranch, Eye, FileCheck } from 'lucide-react'
+import { Binary, ArrowRight, GitBranch, Shield, Layers, Zap } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+
+const stages = [
+  { step: '1', label: 'Declare', desc: 'Define Facets and Spec on a Blueprint subclass.' },
+  { step: '2', label: 'Cast', desc: 'Inbound raw values are coerced by each Facet.' },
+  { step: '3', label: 'Seal', desc: 'Facet validators + Ward cross-field checks run.' },
+  { step: '4', label: 'Imprint', desc: 'Validated data is written back to the model.' },
+  { step: '5', label: 'Mold', desc: 'Model instance is serialized through Facets → dict.' },
+]
 
 export function BlueprintsOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+  const t = (d: string, l: string) => isDark ? d : l
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Layers className="w-4 h-4" />
-          Data Layer / Blueprints
-        </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Blueprints
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm mb-6">
+        <Link to="/docs" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Docs</Link>
+        <span className={t('text-gray-500','text-gray-400')}>/</span>
+        <span className={t('text-gray-300','text-gray-600')}>Blueprints</span>
+      </div>
+
+      {/* Header */}
+      <div className="mb-10">
+        <h1 className={`text-4xl font-bold tracking-tighter mb-4 ${t('text-white','text-gray-900')}`}>
+          <span className="gradient-text font-mono">Blueprints</span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Blueprints are Aquilia's first-class data contract system. They declare the exact shape of data flowing between your Models and the outside world — handling inbound validation, outbound serialization, relational views, projections, OpenAPI schema generation, and deep integration with DI, auth, and sessions.
+        <p className={`text-xl leading-relaxed ${t('text-gray-300','text-gray-600')}`}>
+          <DocTerm id="bp.blueprint">Blueprint</DocTerm> is Aquilia's first-class model↔world contract. Not a serializer — a typed framework primitive that handles inbound validation, outbound serialization, and model persistence in one cohesive API.
         </p>
       </div>
 
-      {/* Philosophy */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Philosophy</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Unlike traditional serializers that treat validation and serialization as separate concerns, Blueprints unify the entire data lifecycle into a single, declarative contract. Every Blueprint defines:
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { icon: <Shield className="w-5 h-5" />, title: 'Cast', desc: 'Inbound type coercion — raw JSON values become typed Python objects' },
-            { icon: <FileCheck className="w-5 h-5" />, title: 'Seal', desc: 'Validation pipeline — field-level, cross-field, and async validation' },
-            { icon: <Database className="w-5 h-5" />, title: 'Imprint', desc: 'Write-back — validated data writes directly to Model instances' },
-            { icon: <Eye className="w-5 h-5" />, title: 'Mold', desc: 'Outbound shaping — Model data transforms for API responses' },
-            { icon: <GitBranch className="w-5 h-5" />, title: 'Lens', desc: 'Relational views — depth-controlled nested relationship rendering' },
-            { icon: <Eye className="w-5 h-5" />, title: 'Projection', desc: 'Named field subsets — different views of the same data' },
-          ].map((item, i) => (
-            <div key={i} className={boxClass}>
-              <div className="text-aquilia-500 mb-2">{item.icon}</div>
-              <h3 className={`font-bold text-sm mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.title}</h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{item.desc}</p>
+      {/* Core concept callout */}
+      <div className={`rounded-xl p-6 mb-10 border ${t('bg-aquilia-500/5 border-aquilia-500/20','bg-blue-50/60 border-blue-200/60')}`}>
+        <div className="flex items-start gap-3">
+          <Binary className={`w-5 h-5 mt-0.5 shrink-0 ${t('text-aquilia-400','text-blue-600')}`} />
+          <div>
+            <h3 className={`font-semibold mb-2 ${t('text-aquilia-300','text-blue-700')}`}>Blueprint ≠ Serializer</h3>
+            <p className={`text-sm leading-relaxed ${t('text-aquilia-200','text-blue-700')}`}>
+              A Blueprint declares <strong>what the world sees</strong> (<DocTerm id="bp.facet">Facets</DocTerm>), <strong>named subsets</strong> (<DocTerm id="bp.projection">Projections</DocTerm>), <strong>how data enters</strong> (Casts), <strong>integrity rules</strong> (<DocTerm id="bp.ward">@ward</DocTerm> Seals), and <strong>how data writes back</strong> (<DocTerm id="bp.imprint">imprint()</DocTerm>). A single class covers the full request/response lifecycle.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Lifecycle pipeline */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-6 ${t('text-white','text-gray-900')}`}>Lifecycle</h2>
+        <div className="flex flex-col sm:flex-row gap-2 sm:items-start">
+          {stages.map((s, i) => (
+            <div key={s.step} className="flex sm:flex-col flex-row items-center sm:items-center gap-2 sm:gap-1 flex-1">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${t('bg-aquilia-500/20 text-aquilia-300','bg-aquilia-100 text-aquilia-700')}`}>
+                {s.step}
+              </div>
+              <div className="text-center sm:px-1">
+                <div className={`font-semibold text-sm ${t('text-white','text-gray-900')}`}>{s.label}</div>
+                <div className={`text-xs mt-0.5 ${t('text-gray-400','text-gray-500')}`}>{s.desc}</div>
+              </div>
+              {i < stages.length - 1 && (
+                <ArrowRight className={`w-4 h-4 shrink-0 hidden sm:block ${t('text-gray-600','text-gray-300')}`} />
+              )}
             </div>
           ))}
         </div>
       </section>
 
-      {/* Blueprint Architecture Diagram */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Blueprint Lifecycle</h2>
-        <div className="flex items-center justify-center py-6">
-          <img src="/architecture/blueprint.svg" alt="Blueprint Lifecycle Architecture" className="max-w-full h-auto max-h-[360px]" />
-        </div>
-      </section>
+      {/* Quick start */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Quick Start</h2>
+        <CodeBlock language="python" filename="blueprints.py">{`from aquilia.blueprints import Blueprint, TextFacet, IntFacet, EmailFacet, DateTimeFacet, Computed
+from aquilia.blueprints.annotations import computed
 
-      {/* Terminology */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Terminology</h2>
-        <div className={`overflow-hidden rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={isDark ? 'bg-zinc-900' : 'bg-gray-50'}>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Term</th>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
-              </tr>
-            </thead>
-            <tbody className={isDark ? 'divide-y divide-white/5' : 'divide-y divide-gray-100'}>
-              {[
-                { term: 'Blueprint', desc: 'A declarative data contract bound to a Model (or standalone)' },
-                { term: 'Facet', desc: 'A field-level primitive — the atomic unit of a Blueprint (like TextFacet, IntFacet)' },
-                { term: 'Cast', desc: 'Inbound type coercion (str → int, ISO string → datetime, etc.)' },
-                { term: 'Seal', desc: 'Validation — field-level constraints, cross-field rules, async checks' },
-                { term: 'Imprint', desc: 'Write validated data onto a Model instance (create or update)' },
-                { term: 'Mold', desc: 'Outbound transformation — shape data for API response' },
-                { term: 'Lens', desc: 'A Facet that renders a related object through another Blueprint' },
-                { term: 'Projection', desc: 'A named subset of fields — different views of the same Blueprint' },
-                { term: 'Spec', desc: 'Inner class (like Meta) that configures model binding, field selection, projections' },
-              ].map((row, i) => (
-                <tr key={i} className={isDark ? 'bg-[#0A0A0A]' : 'bg-white'}>
-                  <td className="py-2 px-4"><code className="text-aquilia-500 font-mono text-xs">{row.term}</code></td>
-                  <td className={`py-2 px-4 text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+class UserBlueprint(Blueprint):
+    # Explicit Facets
+    name     = TextFacet(max_length=150, min_length=1)
+    email    = EmailFacet()
+    bio      = TextFacet(max_length=500, required=False, default="")
 
-      {/* Quick Start */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Quick Start</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Define a Blueprint with explicit Facet declarations or use type annotations with the <code className="text-aquilia-500">Field</code> descriptor.
-        </p>
-
-        <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Style 1: Explicit Facets</h3>
-        <CodeBlock language="python" filename="blueprints.py">{`from aquilia.blueprints import (
-    Blueprint, TextFacet, IntFacet, FloatFacet,
-    EmailFacet, BoolFacet, ChoiceFacet, ListFacet,
-)
-from myapp.models import Product
-
-
-class ProductBlueprint(Blueprint):
-    """Declares the data contract for Product."""
-
-    name = TextFacet(max_length=200, required=True, help_text="Product name")
-    price = FloatFacet(min_value=0, required=True)
-    sku = TextFacet(max_length=50, required=True, pattern=r"^[A-Z0-9-]+$")
-    description = TextFacet(max_length=2000, required=False, default="")
-    category = ChoiceFacet(choices=["electronics", "clothing", "food"])
-    is_active = BoolFacet(default=True)
-    tags = ListFacet(child=TextFacet(max_length=50), required=False)
-
-    class Spec:
-        model = Product
-        fields = ["name", "price", "sku", "description", "category", "is_active", "tags"]
-        read_only_fields = ["id"]`}</CodeBlock>
-
-        <h3 className={`text-lg font-bold mt-8 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Style 2: Type Annotations</h3>
-        <CodeBlock language="python" filename="blueprints.py">{`from aquilia.blueprints import Blueprint, Field
-from myapp.models import Product
-
-
-class ProductBlueprint(Blueprint):
-    """Same contract using Python type annotations."""
-
-    name: str = Field(max_length=200, required=True)
-    price: float = Field(ge=0, required=True)
-    sku: str = Field(max_length=50, pattern=r"^[A-Z0-9-]+$")
-    description: str = Field(max_length=2000, default="")
-    category: str = Field(choices=["electronics", "clothing", "food"])
-    is_active: bool = Field(default=True)
-    tags: list[str] = Field(required=False)
-
-    class Spec:
-        model = Product
-        fields = "__all__"
-        read_only_fields = ["id"]`}</CodeBlock>
-      </section>
-
-      {/* Lifecycle Flow */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Lifecycle Flow</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Every Blueprint follows a strict lifecycle depending on the direction of data flow:
-        </p>
-
-        <div className={`p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`}>
-          <h3 className={`font-bold text-sm mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Inbound (Request → Model)</h3>
-          <div className={`font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">1.</span> Raw JSON payload arrives
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">2.</span> <code>Cast</code> — each Facet coerces its value to the correct type
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">3.</span> <code>Seal</code> — field-level validation (min/max, patterns, etc.)
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">4.</span> <code>seal_*</code> — cross-field validators (e.g., seal_password_match)
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">5.</span> <code>validate()</code> — final object-level validation hook
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">6.</span> <code>async_seal_*</code> — async validators (DB uniqueness checks, etc.)
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-aquilia-500 font-bold">7.</span> <code>Imprint</code> — write validated data to Model instance
-            </div>
-          </div>
-        </div>
-
-        <div className={`p-6 rounded-2xl border mt-4 ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`}>
-          <h3 className={`font-bold text-sm mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Outbound (Model → Response)</h3>
-          <div className={`font-mono text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">1.</span> Model instance passed to Blueprint
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">2.</span> <code>Mold</code> — each Facet transforms the value for JSON output
-            </div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-aquilia-500 font-bold">3.</span> <code>Lens</code> — related objects rendered through nested Blueprints
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-aquilia-500 font-bold">4.</span> <code>Projection</code> — only selected fields are included in output
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Using with Controllers */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Using with Controllers</h2>
-        <CodeBlock language="python" filename="controller.py">{`from aquilia import Controller, Post, Put, Get
-from myapp.blueprints import ProductBlueprint
-
-
-class ProductController(Controller):
-    prefix = "/api/products"
-
-    @Post("/", status_code=201)
-    async def create(self, ctx, payload: ProductBlueprint):
-        # payload is auto-parsed and validated via Blueprint
-        if not payload.is_sealed():
-            return ctx.json(payload.errors, status=422)
-        
-        product = payload.imprint()  # Creates Model instance
-        await product.save()
-        
-        # Render response through same Blueprint
-        output = ProductBlueprint(instance=product)
-        return ctx.json(output.data)
-
-    @Put("/{id:int}")
-    async def update(self, ctx, id: int, payload: ProductBlueprint):
-        product = await Product.objects.get(id=id)
-        
-        if not payload.is_sealed():
-            return ctx.json(payload.errors, status=422)
-        
-        payload.imprint(instance=product, partial=True)
-        await product.save()
-        
-        return ctx.json(ProductBlueprint(instance=product).data)
-
-    @Get("/{id:int}")
-    async def detail(self, ctx, id: int):
-        product = await Product.objects.get(id=id)
-        # Use a projection for minimal response
-        return ctx.json(ProductBlueprint(instance=product, projection="summary").data)`}</CodeBlock>
-      </section>
-
-      {/* Auto-derivation from Models */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Auto-Derivation from Models</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          When a <code className="text-aquilia-500">Spec.model</code> is provided, Blueprint auto-derives Facets from Model fields. You only need to declare fields that require customization.
-        </p>
-        <CodeBlock language="python" filename="auto_derive.py">{`class ProductBlueprint(Blueprint):
-    """Auto-derives Facets from Product model fields."""
-    
-    class Spec:
-        model = Product
-        fields = "__all__"                       # All model fields
-        exclude = ["internal_notes"]              # Skip these
-        read_only_fields = ["id", "created_at"]   # Can't be written
-        write_only_fields = ["password"]          # Never in output
-
-    # Override auto-derived field with custom settings
-    sku = TextFacet(max_length=50, pattern=r"^[A-Z0-9-]+$")
-
-
-# Field mapping: Model field → Facet
-# CharField        → TextFacet
-# IntegerField     → IntFacet
-# FloatField       → FloatFacet
-# BooleanField     → BoolFacet
-# DateField        → DateFacet
-# DateTimeField    → DateTimeFacet
-# EmailField       → EmailFacet
-# URLField         → URLFacet
-# UUIDField        → UUIDFacet
-# DecimalField     → DecimalFacet
-# SlugField        → SlugFacet
-# ForeignKey       → IntFacet (PK) or Lens
-# ManyToManyField  → ListFacet(IntFacet) or Lens`}</CodeBlock>
-      </section>
-
-      {/* Validation */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Validation (Sealing)</h2>
-        <CodeBlock language="python" filename="validation.py">{`from aquilia.blueprints import Blueprint, TextFacet, EmailFacet, IntFacet
-from aquilia.blueprints.exceptions import SealFault
-
-
-class RegisterBlueprint(Blueprint):
-    username = TextFacet(min_length=3, max_length=30)
-    email = EmailFacet(required=True)
-    password = TextFacet(min_length=8)
-    password_confirm = TextFacet(min_length=8)
-    age = IntFacet(min_value=13)
+    # Computed read-only field
+    @computed
+    def display_name(self) -> str:
+        return self.instance.name.title() if self.instance else ""
 
     class Spec:
         model = User
-        fields = ["username", "email", "password", "age"]
-
-    # ── Cross-field validator ──
-    def seal_password_match(self, data):
-        """Cross-field seal — called after field-level validation."""
-        if data.get("password") != data.get("password_confirm"):
-            self.reject("password_confirm", "Passwords do not match.")
-
-    # ── Field-level validator ──
-    def seal_username(self, value):
-        """Per-field seal — called for 'username' specifically."""
-        if value.lower() in ["admin", "root", "system"]:
-            self.reject("username", "This username is reserved.")
-        return value.lower()
-
-    # ── Async validator ──
-    async def async_seal_email_unique(self, data):
-        """Async seal — runs database checks."""
-        exists = await User.objects.filter(email=data["email"]).exists()
-        if exists:
-            self.reject("email", "Email already registered.")
-
-    # ── Final validation hook ──
-    def validate(self, data):
-        """Object-level validator — last sync check."""
-        data.pop("password_confirm", None)
-        return data
-
-
-# Usage
-bp = RegisterBlueprint(data={"username": "john", "email": "john@example.com", ...})
-
-# Sync validation
-if bp.is_sealed():
-    user = bp.imprint()
-else:
-    print(bp.errors)  # {"password_confirm": ["Passwords do not match."]}
-
-# Async validation (includes async_seal_* methods)
-if await bp.is_sealed_async():
-    user = bp.imprint()
-else:
-    print(bp.errors)`}</CodeBlock>
+        projections = {
+            "public":   ["id", "name", "display_name"],
+            "profile":  ["id", "name", "email", "bio", "display_name"],
+            "admin":    "__all__",
+        }
+        read_only_fields  = ("id", "display_name")
+        write_only_fields = ("password",)
+        depth = 2`}</CodeBlock>
       </section>
 
-      {/* Sub-Pages */}
-      <section>
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Deep Dives</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Outbound — serialization */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Outbound — Model → Dict</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Pass <code>instance=</code> to serialize. Apply a projection with <code>projection=</code> or the subscript syntax:
+        </p>
+        <CodeBlock language="python">{`user = await User.objects.get(id=42)
+
+# All fields (or default_projection)
+data = UserBlueprint(instance=user).data
+
+# Named projection
+data = UserBlueprint(instance=user, projection="public").data
+
+# Subscript syntax (used with route decorators)
+data = UserBlueprint["public"](instance=user).data
+
+# List of instances
+users = await User.objects.filter(active=True).all()
+result = [UserBlueprint(instance=u, projection="public").data for u in users]`}</CodeBlock>
+      </section>
+
+      {/* Inbound — validation */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Inbound — Validate + Persist</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Pass <code>data=</code> to validate. Call <DocTerm id="bp.is_sealed">is_sealed()</DocTerm> to run all Facet validators and <DocTerm id="bp.ward">@ward</DocTerm> methods. If valid, call <DocTerm id="bp.imprint">imprint()</DocTerm> to write back.
+        </p>
+        <CodeBlock language="python">{`bp = UserBlueprint(data=request.json)
+
+if not bp.is_sealed():
+    return Response.json({"errors": bp.errors}, status=422)
+
+user = await bp.imprint(db=db)   # INSERT into users table
+return Response.json(UserBlueprint(instance=user, projection="profile").data, status=201)`}</CodeBlock>
+
+        <p className={`mt-6 mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Update an existing instance by passing it to <code>imprint()</code>:
+        </p>
+        <CodeBlock language="python">{`user = await User.objects.get(id=42)
+bp = UserBlueprint(data=request.json)
+
+if not bp.is_sealed():
+    return Response.json({"errors": bp.errors}, status=422)
+
+user = await bp.imprint(db=db, instance=user)   # UPDATE users SET ...
+return Response.json(UserBlueprint(instance=user).data)`}</CodeBlock>
+      </section>
+
+      {/* Route integration */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Route Integration</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Blueprints integrate directly with route decorators via <DocTerm id="bp.request_blueprint">request_blueprint</DocTerm> and <DocTerm id="bp.response_blueprint">response_blueprint</DocTerm>:
+        </p>
+        <CodeBlock language="python">{`from aquilia.controllers import GET, POST, PUT
+from aquilia.db import get_database
+
+@GET("/users", response_blueprint=UserBlueprint["public"])
+async def list_users(ctx):
+    return await User.objects.filter(active=True).all()
+    # Aquilia auto-serializes each User via UserBlueprint["public"]
+
+@POST("/users", request_blueprint=UserBlueprint, response_blueprint=UserBlueprint["profile"])
+async def create_user(ctx, blueprint: UserBlueprint):
+    if not blueprint.is_sealed():
+        return Response.json(blueprint.errors, status=422)
+    user = await blueprint.imprint(db=get_database())
+    return user  # auto-serialized via response_blueprint
+
+@PUT("/users/{id}", request_blueprint=UserBlueprint, response_blueprint=UserBlueprint["profile"])
+async def update_user(ctx, blueprint: UserBlueprint, id: int):
+    user = await User.objects.get(id=id)
+    if not blueprint.is_sealed():
+        return Response.json(blueprint.errors, status=422)
+    return await blueprint.imprint(db=get_database(), instance=user)`}</CodeBlock>
+      </section>
+
+      {/* Annotation-driven declarations */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Annotation-Driven Declarations</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Use Python type annotations with <DocTerm id="bp.spec">Field()</DocTerm> descriptors instead of explicit Facet classes. Aquilia auto-derives the correct Facet from the type:
+        </p>
+        <CodeBlock language="python">{`from aquilia.blueprints import Blueprint
+from aquilia.blueprints.annotations import Field, computed
+
+class ProductBlueprint(Blueprint):
+    name:    str   = Field(min_length=1, max_length=200)
+    price:   float = Field(ge=0.0)
+    sku:     str   = Field(pattern=r"^[A-Z0-9-]+$", max_length=50)
+    tags:    list[str] = Field(default_factory=list, max_items=20)
+    active:  bool  = Field(default=True)
+    notes:   str | None = None    # Optional field, no constraints
+
+    @computed
+    def price_display(self) -> str:
+        return f"\\\\\${self.instance.price:.2f}" if self.instance else ""
+
+    class Spec:
+        model = Product`}</CodeBlock>
+      </section>
+
+      {/* What's next */}
+      <section className="mb-10">
+        <h2 className={`text-2xl font-bold mb-6 ${t('text-white','text-gray-900')}`}>Explore</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {[
-            { title: 'Facets', desc: 'Complete reference for all field-level Facet types', to: '/docs/blueprints/facets' },
-            { title: 'Projections', desc: 'Named field subsets and multiple views', to: '/docs/blueprints/projections' },
-            { title: 'Lenses', desc: 'Depth-controlled relational rendering', to: '/docs/blueprints/lenses' },
-            { title: 'Seals & Validation', desc: 'Field, cross-field, and async validation patterns', to: '/docs/blueprints/seals' },
-            { title: 'Annotations & Field()', desc: 'Type-annotation-driven Blueprint declarations', to: '/docs/blueprints/annotations' },
-            { title: 'Controller Integration', desc: 'Blueprints with DI, auth, sessions, and controllers', to: '/docs/blueprints/integration' },
-            { title: 'OpenAPI Schemas', desc: 'Auto-generated JSON Schema and OpenAPI specs', to: '/docs/blueprints/schemas' },
-            { title: 'Faults', desc: 'Blueprint-specific error types and handling', to: '/docs/blueprints/faults' },
-          ].map((item, i) => (
-            <Link key={i} to={item.to} className={`group p-5 rounded-xl border transition-all hover:-translate-y-0.5 ${isDark ? 'bg-[#0A0A0A] border-white/10 hover:border-aquilia-500/30' : 'bg-white border-gray-200 hover:border-aquilia-500/30'}`}>
-              <h3 className={`font-bold text-sm mb-1 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {item.title}
-                <ArrowRight className="w-3 h-3 text-aquilia-500 opacity-0 group-hover:opacity-100 transition" />
-              </h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{item.desc}</p>
+            { label: 'Facets', desc: 'Field type catalogue', href: '/docs/blueprints/facets', icon: Layers },
+            { label: 'Projections', desc: 'Named field subsets', href: '/docs/blueprints/projections', icon: GitBranch },
+            { label: 'Seals', desc: 'Validation rules', href: '/docs/blueprints/seals', icon: Shield },
+            { label: 'Lenses', desc: 'Value transformations', href: '/docs/blueprints/lenses', icon: Zap },
+            { label: 'Annotations', desc: 'Type-driven fields', href: '/docs/blueprints/annotations', icon: Binary },
+            { label: 'Integration', desc: 'Route & response binding', href: '/docs/blueprints/integration', icon: ArrowRight },
+          ].map(({ label, desc, href, icon: Icon }) => (
+            <Link key={href} to={href} className={`group p-4 rounded-xl border transition-colors ${t('border-gray-700/60 bg-gray-900 hover:border-aquilia-500/40','border-gray-200 bg-white hover:border-aquilia-400')}`}>
+              <Icon className={`w-4 h-4 mb-2 ${t('text-aquilia-400','text-aquilia-600')}`} />
+              <div className={`font-semibold text-sm ${t('text-white','text-gray-900')}`}>{label}</div>
+              <div className={`text-xs mt-0.5 ${t('text-gray-400','text-gray-500')}`}>{desc}</div>
             </Link>
           ))}
         </div>

@@ -138,20 +138,45 @@ export const sections: SidebarSection[] = [
       {
         label: 'Models (ORM)', path: '/docs/models', icon: <Database className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Defining Models', path: '/docs/models/defining' },
-          { label: 'Fields', path: '/docs/models/fields' },
+          { label: 'Overview', path: '/docs/models/overview' },
+          {
+            label: 'Fields', path: '/docs/models/fields',
+            children: [
+              { label: 'Overview & Core', path: '/docs/models/fields/overview' },
+              { label: 'Numeric Fields', path: '/docs/models/fields/numeric' },
+              { label: 'Text & String Fields', path: '/docs/models/fields/text' },
+              { label: 'Date & Time Fields', path: '/docs/models/fields/datetime' },
+              { label: 'Structured & JSON Fields', path: '/docs/models/fields/structured' },
+            ]
+          },
           { label: 'QuerySet API', path: '/docs/models/queryset' },
-          { label: 'Relationships', path: '/docs/models/relationships' },
-          { label: 'Migrations', path: '/docs/models/migrations' },
+          {
+            label: 'Relationships', path: '/docs/models/relationships',
+            children: [
+              { label: 'Defining Relations', path: '/docs/models/relationships/defining' },
+              { label: 'Hydration Primitives', path: '/docs/models/relationships/hydration' },
+              { label: 'Many-to-Many Operations', path: '/docs/models/relationships/m2m' },
+            ]
+          },
+          {
+            label: 'Transactions', path: '/docs/models/transactions',
+            children: [
+              { label: 'Atomic & Contexts', path: '/docs/models/transactions/atomic' },
+              { label: 'Savepoints & Nesting', path: '/docs/models/transactions/savepoints' },
+              { label: 'Lifecycle Hooks', path: '/docs/models/transactions/hooks' },
+            ]
+          },
           { label: 'Signals', path: '/docs/models/signals' },
-          { label: 'Transactions', path: '/docs/models/transactions' },
           { label: 'Aggregation', path: '/docs/models/aggregation' },
+          { label: 'Migrations', path: '/docs/models/migrations' },
         ]
       },
       {
         label: 'Database Engine', path: '/docs/database', icon: <HardDrive className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/database' },
           { label: 'AquiliaDatabase', path: '/docs/database/engine' },
+          { label: 'Config Classes', path: '/docs/database/configs' },
           { label: 'SQLite Backend', path: '/docs/database/sqlite' },
           { label: 'PostgreSQL Backend', path: '/docs/database/postgresql' },
           { label: 'MySQL Backend', path: '/docs/database/mysql' },
