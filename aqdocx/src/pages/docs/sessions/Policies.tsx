@@ -22,7 +22,7 @@ export function SessionsPolicies() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A <code className="text-aquilia-500">SessionPolicy</code> defines the complete security and behavioral configuration for a session — TTL, idle timeouts, rotation rules, persistence, concurrency limits, and transport settings. Policies are composable via sub-policies and can be built using the fluent <code className="text-aquilia-500">SessionPolicyBuilder</code>.
+          A <code className="text-aquilia-500">SessionPolicy</code> defines the behavioral rules for a session. Policies govern expiration timeout windows, token rotation, multi-tenant persistence, concurrent principal session limits, and network transports.
         </p>
       </div>
 
@@ -30,180 +30,83 @@ export function SessionsPolicies() {
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SessionPolicy</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-aquilia-500">SessionPolicy</code> is a frozen dataclass containing all session configuration:
+          The <code className="text-aquilia-500">SessionPolicy</code> is a frozen dataclass representing the full session configuration:
         </p>
-        <CodeBlock language="python" filename="policy.py">{`from aquilia.sessions import SessionPolicy, SessionScope
-from datetime import timedelta
+        <CodeBlock language="python" filename="policy.py">{`from datetime import timedelta
+from aquilia.sessions import SessionPolicy, PersistencePolicy, ConcurrencyPolicy, TransportPolicy
 
 policy = SessionPolicy(
     name="web",
-    ttl=timedelta(hours=2),              # Session expires after 2 hours
-    idle_timeout=timedelta(minutes=30),   # Expire if idle for 30 minutes
-    rotate_on_use=False,                  # Don't rotate ID on every request
-    rotate_on_privilege_change=True,      # Rotate ID on login/logout
-    scope=SessionScope.USER,              # User-scoped sessions
+    ttl=timedelta(hours=2),
+    idle_timeout=timedelta(minutes=30),
+    absolute_timeout=timedelta(hours=12),
+    rotate_on_use=False,
+    rotate_on_privilege_change=True,
+    fingerprint_binding=True,
+    scope="user",
     
     # Sub-policies
     persistence=PersistencePolicy(
         enabled=True,
-        store_name="memory",
-        write_through=False,
+        store_name="default",
+        write_through=True,
         compress=False,
     ),
     concurrency=ConcurrencyPolicy(
         max_sessions_per_principal=5,
-        behavior_on_limit="evict",        # "evict" | "reject" | "ignore"
+        behavior_on_limit="evict_oldest", # "reject" | "evict_oldest" | "evict_all"
     ),
     transport=TransportPolicy(
         adapter="cookie",
-        cookie_name="aq_session",
-        cookie_path="/",
+        cookie_name="aquilia_session",
         cookie_httponly=True,
         cookie_secure=True,
         cookie_samesite="lax",
+        cookie_path="/",
         header_name="X-Session-ID",
     ),
 )`}</CodeBlock>
-      </section>
-
-      {/* Sub-Policies */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Sub-Policies</h2>
-
-        <h3 className={`text-xl font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>PersistencePolicy</h3>
-        <div className={`overflow-x-auto mb-6 ${boxClass}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-2 pr-4 font-semibold">Field</th>
-                <th className="text-left py-2 pr-4 font-semibold">Type</th>
-                <th className="text-left py-2 font-semibold">Description</th>
-              </tr>
-            </thead>
-            <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-              {[
-                ['enabled', 'bool', 'Whether sessions are persisted to a store'],
-                ['store_name', 'str', 'Name of the store backend to use'],
-                ['write_through', 'bool', 'Write to store on every mutation (not just commit)'],
-                ['compress', 'bool', 'Compress session data before storing'],
-              ].map(([field, type, desc], i) => (
-                <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                  <td className="py-2 pr-4"><code className="text-aquilia-500 text-xs">{field}</code></td>
-                  <td className="py-2 pr-4 text-xs"><code>{type}</code></td>
-                  <td className="py-2 text-xs">{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <h3 className={`text-xl font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>ConcurrencyPolicy</h3>
-        <div className={`overflow-x-auto mb-6 ${boxClass}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-2 pr-4 font-semibold">Field</th>
-                <th className="text-left py-2 pr-4 font-semibold">Type</th>
-                <th className="text-left py-2 font-semibold">Description</th>
-              </tr>
-            </thead>
-            <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-              {[
-                ['max_sessions_per_principal', 'int', 'Maximum concurrent sessions per user'],
-                ['behavior_on_limit', 'str', '"evict" oldest, "reject" new, or "ignore"'],
-              ].map(([field, type, desc], i) => (
-                <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                  <td className="py-2 pr-4"><code className="text-aquilia-500 text-xs">{field}</code></td>
-                  <td className="py-2 pr-4 text-xs"><code>{type}</code></td>
-                  <td className="py-2 text-xs">{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <h3 className={`text-xl font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>TransportPolicy</h3>
-        <div className={`overflow-x-auto ${boxClass}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-2 pr-4 font-semibold">Field</th>
-                <th className="text-left py-2 pr-4 font-semibold">Type</th>
-                <th className="text-left py-2 font-semibold">Description</th>
-              </tr>
-            </thead>
-            <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
-              {[
-                ['adapter', 'str', '"cookie" or "header"'],
-                ['cookie_name', 'str', 'Cookie name (default: "aq_session")'],
-                ['cookie_path', 'str', 'Cookie path (default: "/")'],
-                ['cookie_httponly', 'bool', 'HttpOnly flag (default: True)'],
-                ['cookie_secure', 'bool', 'Secure flag (default: True)'],
-                ['cookie_samesite', 'str', '"strict", "lax", or "none"'],
-                ['header_name', 'str', 'Header name for header transport'],
-              ].map(([field, type, desc], i) => (
-                <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                  <td className="py-2 pr-4"><code className="text-aquilia-500 text-xs">{field}</code></td>
-                  <td className="py-2 pr-4 text-xs"><code>{type}</code></td>
-                  <td className="py-2 text-xs">{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
       </section>
 
       {/* SessionPolicyBuilder */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SessionPolicyBuilder</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The fluent builder makes it easy to compose policies without constructing deeply nested dataclasses:
+          The fluent builder is used to construct <code className="text-aquilia-500">SessionPolicy</code> objects without manually defining nested sub-policy instances:
         </p>
         <CodeBlock language="python" filename="builder.py">{`from aquilia.sessions import SessionPolicyBuilder
 
 # Web application policy
 web_policy = (
-    SessionPolicyBuilder("web")
-    .lasting(hours=2)                    # TTL
-    .idle_timeout(minutes=30)            # Idle timeout
-    .rotating_on_auth()                  # Rotate ID on login/logout
-    .rotating_on_use()                   # Rotate ID every request (paranoid)
-    .scoped_to("user")                   # SessionScope.USER
-    .max_concurrent(sessions=5, behavior="evict")
-    .web_defaults()                      # Cookie: HttpOnly, Secure, SameSite=Lax
+    SessionPolicyBuilder()
+    .named("web")
+    .lasting(hours=2)
+    .idle_timeout(minutes=30)
+    .rotating_on_auth()
+    .web_defaults() # applies standard cookie options
     .build()
 )
 
 # API token policy
 api_policy = (
-    SessionPolicyBuilder("api")
+    SessionPolicyBuilder()
+    .named("api")
     .lasting(hours=24)
-    .idle_timeout(hours=1)
-    .scoped_to("user")
-    .api_defaults()                      # Header-based transport
+    .api_defaults() # applies header adapter
     .build()
 )
 
-# Mobile application policy
-mobile_policy = (
-    SessionPolicyBuilder("mobile")
-    .lasting(days=30)
-    .idle_timeout(days=7)
-    .rotating_on_auth()
-    .scoped_to("device")
-    .mobile_defaults()                   # Long-lived, device-scoped
-    .build()
-)
-
-# Admin panel policy (strict)
+# Admin policy (strict, with fingerprint binding)
 admin_policy = (
-    SessionPolicyBuilder("admin")
-    .lasting(minutes=30)
-    .idle_timeout(minutes=10)
-    .rotating_on_auth()
+    SessionPolicyBuilder()
+    .named("admin")
+    .lasting(hours=8)
+    .idle_timeout(minutes=15)
+    .absolute_timeout(hours=12)
     .rotating_on_use()
-    .max_concurrent(sessions=1, behavior="reject")
-    .admin_defaults()                    # Strictest settings
+    .with_fingerprint_binding()
+    .max_concurrent(1)
+    .admin_defaults()
     .build()
 )`}</CodeBlock>
       </section>
@@ -221,18 +124,22 @@ admin_policy = (
             </thead>
             <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
               {[
-                ['.named(name)', 'Set the policy name'],
-                ['.lasting(**kwargs)', 'Set TTL via timedelta kwargs (hours=, minutes=, days=)'],
-                ['.idle_timeout(**kwargs)', 'Set idle timeout via timedelta kwargs'],
-                ['.rotating_on_auth()', 'Enable rotation on privilege change'],
-                ['.rotating_on_use()', 'Enable rotation on every request'],
-                ['.scoped_to(scope)', 'Set session scope: "request", "connection", "user", "device"'],
-                ['.max_concurrent(sessions, behavior)', 'Set concurrency limits and behavior'],
-                ['.web_defaults()', 'Apply web browser defaults (cookie transport, secure flags)'],
-                ['.api_defaults()', 'Apply API defaults (header transport)'],
-                ['.mobile_defaults()', 'Apply mobile defaults (long TTL, device scope)'],
-                ['.admin_defaults()', 'Apply admin defaults (short TTL, strict rotation)'],
-                ['.build()', 'Finalize and return the SessionPolicy'],
+                ['.named(name: str)', 'Set the policy name.'],
+                ['.lasting(days=None, hours=None, minutes=None)', 'Set session TTL.'],
+                ['.idle_timeout(days=None, hours=None, minutes=None)', 'Set idle timeout duration.'],
+                ['.no_idle_timeout()', 'Disables idle timeouts.'],
+                ['.absolute_timeout(days=None, hours=None, minutes=None)', 'Set absolute maximum session age.'],
+                ['.with_fingerprint_binding()', 'Enable OWASP IP & User-Agent fingerprint binding.'],
+                ['.rotating_on_auth()', 'Enables token ID rotation on privilege changes.'],
+                ['.rotating_on_use()', 'Enables token ID rotation on every request.'],
+                ['.scoped_to(scope: str)', 'Set session scope level.'],
+                ['.max_concurrent(limit: int)', 'Set max concurrent sessions (applies evict_oldest on limit).'],
+                ['.unlimited_concurrent()', 'Disable concurrency limits.'],
+                ['.web_defaults()', 'Set named to web_session, lasts 7 days, max 5 concurrent.'],
+                ['.api_defaults()', 'Set named to api_session, lasts 1 hour, header adapter, unlimited concurrent.'],
+                ['.mobile_defaults()', 'Set named to mobile_session, lasts 90 days, max 3 concurrent.'],
+                ['.admin_defaults()', 'Set named to admin_session, lasts 8 hours, absolute timeout 12 hours, rotate on use, fingerprint bound, max 1 concurrent.'],
+                ['.build()', 'Build and return the final SessionPolicy.'],
               ].map(([method, desc], i) => (
                 <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
                   <td className="py-2 pr-4"><code className="text-aquilia-500 text-xs">{method}</code></td>
@@ -246,50 +153,16 @@ admin_policy = (
 
       {/* Built-in Policies */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Built-in Policies</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Built-in Policy Constants</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia ships with pre-configured policies for common use cases:
+          The following policies are pre-constructed and ready to use:
         </p>
         <CodeBlock language="python" filename="builtins.py">{`from aquilia.sessions.policy import (
-    DEFAULT_USER_POLICY,   # 2h TTL, 30min idle, cookie transport
-    API_TOKEN_POLICY,      # 24h TTL, 1h idle, header transport
-    EPHEMERAL_POLICY,      # Request-scoped, no persistence
-)
-
-# Use directly:
-engine = SessionEngine(
-    policies={
-        "web": DEFAULT_USER_POLICY,
-        "api": API_TOKEN_POLICY,
-        "temp": EPHEMERAL_POLICY,
-    },
-    # ...
+    DEFAULT_USER_POLICY,   # 7d TTL, 30m idle, cookie transport, max 5 concurrent
+    API_TOKEN_POLICY,      # 1h TTL, no idle, header transport ("X-API-Token")
+    EPHEMERAL_POLICY,      # ephemeral scope, persistence disabled, cookie transport
+    ADMIN_POLICY,          # 8h TTL, 15m idle, 12h absolute, fingerprint, max 1 concurrent
 )`}</CodeBlock>
-      </section>
-
-      {/* Multiple Policies */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Using Multiple Policies</h2>
-        <CodeBlock language="python" filename="multi_policy.py">{`from aquilia import Controller, Get, Post
-from aquilia.sessions import session
-
-
-class PublicController(Controller):
-    prefix = "/public"
-
-    @Get("/")
-    @session.ensure(policy="web")  # Use web policy (cookie, 2h TTL)
-    async def index(self, ctx, session):
-        return ctx.json({"theme": session.get("theme", "light")})
-
-
-class APIController(Controller):
-    prefix = "/api/v1"
-
-    @Get("/data")
-    @session.require(policy="api")  # Use API policy (header, 24h TTL)
-    async def get_data(self, ctx, session):
-        return ctx.json({"user": session.principal.id})`}</CodeBlock>
       </section>
 
       <NextSteps />

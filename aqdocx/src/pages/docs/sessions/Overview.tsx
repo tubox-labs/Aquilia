@@ -22,26 +22,23 @@ export function SessionsOverview() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia's session system provides server-side state management with cryptographically secure identifiers, pluggable stores, configurable transport layers, rich policy controls, and DI-integrated decorators — all built around a 7-phase lifecycle engine.
+          Aquilia's session subsystem provides server-side state management with cryptographically secure identifiers, pluggable stores, configurable transports, policies, and DI decorators.
         </p>
       </div>
 
       {/* Architecture Overview */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Architecture Overview</h2>
-        <p className={`mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The session system is composed of several layers, each responsible for a distinct concern:
-        </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
             { icon: <Zap className="w-5 h-5" />, name: 'SessionEngine', desc: 'Central orchestrator running the 7-phase lifecycle: Detection → Resolution → Validation → Binding → Mutation → Commit → Emission' },
-            { icon: <Fingerprint className="w-5 h-5" />, name: 'SessionID', desc: '32-byte cryptographically secure identifier with sess_ prefix and URL-safe base64 encoding' },
+            { icon: <Fingerprint className="w-5 h-5" />, name: 'SessionID', desc: 'Cryptographically secure 256-bit identifier with sess_ prefix and URL-safe base64 encoding' },
             { icon: <Layers className="w-5 h-5" />, name: 'Session', desc: 'Dict-like state container with dirty tracking, principal binding, scope flags, and version control' },
             { icon: <Settings className="w-5 h-5" />, name: 'SessionPolicy', desc: 'Security configuration with TTL, idle timeout, rotation rules, persistence, concurrency, and transport sub-policies' },
             { icon: <Database className="w-5 h-5" />, name: 'SessionStore', desc: 'Protocol-based pluggable backends — MemoryStore (LRU), FileStore (JSON), extensible to Redis/DB' },
             { icon: <Globe className="w-5 h-5" />, name: 'SessionTransport', desc: 'Cookie or Header-based transport layer for extracting and injecting session identifiers' },
-            { icon: <Lock className="w-5 h-5" />, name: 'SessionGuard', desc: 'Guard-based access control — AdminGuard, VerifiedEmailGuard, custom guards via @requires' },
-            { icon: <Shield className="w-5 h-5" />, name: 'SessionDecorators', desc: 'DI-integrated decorators: session.require(), session.ensure(), session.optional(), @authenticated, @stateful' },
+            { icon: <Lock className="w-5 h-5" />, name: 'SessionGuard', desc: 'Guard-based access control via @requires' },
+            { icon: <Shield className="w-5 h-5" />, name: 'SessionDecorators', desc: 'DI-integrated decorators: session.require(), session.ensure(), session.optional(), @stateful' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <div className="flex items-center gap-3 mb-2">
@@ -60,65 +57,54 @@ export function SessionsOverview() {
 
         <h3 className={`text-xl font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>SessionID</h3>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Every session is identified by a <code className="text-aquilia-500">SessionID</code> — a 32-byte token generated from <code className="text-aquilia-500">os.urandom()</code>, encoded as URL-safe base64 with a <code className="text-aquilia-500">sess_</code> prefix:
+          Every session is identified by a <code className="text-aquilia-500">SessionID</code> — a 256-bit token generated from secure random bytes, starting with a <code className="text-aquilia-500">sess_</code> prefix:
         </p>
         <CodeBlock language="python" filename="session_id.py">{`from aquilia.sessions import SessionID
 
 # Generate a new cryptographic session ID
-sid = SessionID.generate()
-print(sid)            # sess_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6...
-print(sid.value)      # Raw string value
-print(len(sid))       # 49 characters (5 prefix + 44 base64)
+sid = SessionID()
+print(str(sid))        # sess_A1b2C3d4E5f6G7h8...
+print(len(str(sid)))  # 49 characters (5 prefix + 44 base64)
 
-# Validate an existing session ID
-sid2 = SessionID("sess_A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6...")
-sid2.validate()       # Raises if invalid
-
-# SessionID is hashable and comparable
-sessions = {sid: {"user": "alice"}}
-assert sid == SessionID(sid.value)`}</CodeBlock>
+# Reconstruct from string
+sid2 = SessionID.from_string("sess_A1b2C3d4E5f6...")`}</CodeBlock>
 
         <h3 className={`text-xl font-semibold mt-8 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Session Object</h3>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-aquilia-500">Session</code> is a dataclass providing dict-like access to session data:
+          The <code className="text-aquilia-500">Session</code> is a dataclass providing dict-like access with nested mutation dirty-tracking:
         </p>
-        <CodeBlock language="python" filename="session_object.py">{`from aquilia.sessions import Session, SessionID, SessionScope, SessionFlag
+        <CodeBlock language="python" filename="session_object.py">{`from datetime import timedelta
+from aquilia.sessions import Session, SessionID, SessionScope, SessionFlag, SessionPrincipal
 
 # Session stores user-specific state
 session = Session(
-    id=SessionID.generate(),
+    id=SessionID(),
     data={"cart": [], "theme": "dark"},
     scope=SessionScope.USER,
-    flags={SessionFlag.AUTHENTICATED, SessionFlag.ROTATABLE},
+    flags={SessionFlag.AUTHENTICATED, SessionFlag.RENEWABLE},
 )
 
 # Dict-like access
-session["cart"].append({"product": "Widget", "qty": 2})
+session["cart"].append({"product": "Widget", "qty": 2}) # Sets dirty flag automatically
 session["locale"] = "en-US"
-print(session.get("theme", "light"))  # "dark"
 
-# Lifecycle
-session.touch()                     # Update last_accessed_at
-session.extend_expiry(minutes=30)   # Push expiry forward
-print(session.is_expired)           # False
-print(session.idle_duration)        # timedelta since last access
+# Lifecycle methods
+session.touch()
+session.extend_expiry(ttl=timedelta(minutes=30))
+print(session.is_expired())
+print(session.idle_duration())
 
-# Authentication markers
-session.mark_authenticated(principal_kind="user", principal_id="42")
-print(session.principal)            # SessionPrincipal(kind="user", id="42")
-session.clear_authentication()
+# Authentication principal binding
+principal = SessionPrincipal(kind="user", id="42", roles=["admin"])
+session.mark_authenticated(principal)
 
-# Dirty tracking
-print(session._dirty)               # True — data was modified
-
-# Serialization
-data = session.to_dict()            # Full JSON-serializable dict
-restored = Session.from_dict(data)  # Reconstruct from dict`}</CodeBlock>
+# Dirty tracking property
+print(session.is_dirty) # True`}</CodeBlock>
       </section>
 
       {/* Scopes and Flags */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Scopes & Flags</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Scopes &amp; Flags</h2>
 
         <h3 className={`text-xl font-semibold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>SessionScope</h3>
         <div className={`overflow-x-auto mb-6 ${boxClass}`}>
@@ -131,10 +117,12 @@ restored = Session.from_dict(data)  # Reconstruct from dict`}</CodeBlock>
             </thead>
             <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
               {[
-                ['REQUEST', 'Single request lifetime — discarded after response'],
-                ['CONNECTION', 'WebSocket connection lifetime'],
-                ['USER', 'Tied to a specific user across requests'],
-                ['DEVICE', 'Tied to a specific device (fingerprint-based)'],
+                ['SINGLETON', 'Application singleton lifetime.'],
+                ['APP', 'App instance scope.'],
+                ['REQUEST', 'Single HTTP request scope.'],
+                ['TRANSIENT', 'Short-lived ephemeral scope.'],
+                ['POOLED', 'Pooled object scope.'],
+                ['EPHEMERAL', 'Lightweight memory-only scope.'],
               ].map(([scope, desc], i) => (
                 <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
                   <td className="py-2 pr-4"><code className="text-aquilia-500">{scope}</code></td>
@@ -156,12 +144,10 @@ restored = Session.from_dict(data)  # Reconstruct from dict`}</CodeBlock>
             </thead>
             <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
               {[
-                ['AUTHENTICATED', 'Session belongs to an authenticated user'],
-                ['EPHEMERAL', 'Not persisted to store — in-memory only'],
-                ['ROTATABLE', 'Session ID can be rotated on privilege change'],
-                ['RENEWABLE', 'Session TTL can be extended'],
-                ['READ_ONLY', 'Data cannot be modified'],
-                ['LOCKED', 'Session is locked for concurrent access control'],
+                ['AUTHENTICATED', 'Session belongs to an authenticated user.'],
+                ['EPHEMERAL', 'Memory-only session that is not persisted to the store.'],
+                ['RENEWABLE', 'Session TTL can be extended on touching.'],
+                ['ROTATABLE', 'Session ID can be rotated.'],
               ].map(([flag, desc], i) => (
                 <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
                   <td className="py-2 pr-4"><code className="text-aquilia-500">{flag}</code></td>
@@ -177,44 +163,36 @@ restored = Session.from_dict(data)  # Reconstruct from dict`}</CodeBlock>
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Quick Start</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Set up sessions in your Aquilia workspace:
+          Initialize session management in your application startup:
         </p>
-        <CodeBlock language="python" filename="workspace.py">{`from aquilia import Workspace
+        <CodeBlock language="python" filename="app_setup.py">{`from datetime import timedelta
 from aquilia.sessions import (
-    SessionEngine, SessionPolicy, SessionPolicyBuilder,
+    SessionEngine, SessionPolicyBuilder,
     MemoryStore, CookieTransport
 )
 
 # 1. Build a policy
 policy = (
-    SessionPolicyBuilder("web")
-    .lasting(hours=2)
-    .idle_timeout(minutes=30)
-    .rotating_on_auth()
-    .web_defaults()
+    SessionPolicyBuilder()
+    .named("web")
+    .lasting(timedelta(hours=2))
+    .idle_timeout(timedelta(minutes=30))
     .build()
 )
 
 # 2. Create store + transport
-store = MemoryStore.web_optimized(max_sessions=10_000)
-transport = CookieTransport.for_web_browsers(domain="example.com")
+store = MemoryStore.web_optimized()
+transport = CookieTransport.for_web_browsers()
 
-# 3. Wire into the engine
+# 3. Create the engine (SessionEngine is scoped to a single policy, store, and transport)
 engine = SessionEngine(
-    policies={"web": policy},
-    stores={"memory": store},
-    transports={"cookie": transport},
-    default_policy="web",
-)
-
-# 4. Register in workspace (session middleware auto-activates)
-workspace = Workspace(
-    session_engine=engine,
+    policy=policy,
+    store=store,
+    transport=transport,
 )`}</CodeBlock>
 
         <CodeBlock language="python" filename="controller.py">{`from aquilia import Controller, Get, Post
 from aquilia.sessions import session, Session
-
 
 class CartController(Controller):
     prefix = "/cart"
@@ -222,16 +200,16 @@ class CartController(Controller):
     @Get("/")
     @session.require()
     async def view_cart(self, ctx, session: Session):
-        return ctx.json({"items": session.get("cart", [])})
+        return {"items": session.get("cart", [])}
 
     @Post("/add")
     @session.ensure()
     async def add_to_cart(self, ctx, session: Session):
-        body = await ctx.json_body()
+        body = await ctx.request.json()
         cart = session.get("cart", [])
         cart.append(body)
-        session["cart"] = cart
-        return ctx.json({"items": cart}, status=201)`}</CodeBlock>
+        session["cart"] = cart # Triggers dirty tracking
+        return {"items": cart}`}</CodeBlock>
       </section>
 
       {/* 7-Phase Lifecycle */}
@@ -247,7 +225,7 @@ class CartController(Controller):
             { phase: '3', name: 'Validation', desc: 'Check expiry, idle timeout, principal consistency' },
             { phase: '4', name: 'Binding', desc: 'Attach session to request context for handler access' },
             { phase: '5', name: 'Mutation', desc: 'Handler modifies session data (dirty tracking records changes)' },
-            { phase: '6', name: 'Commit', desc: 'If dirty, persist changes to store. Optionally rotate session ID' },
+            { phase: '6', name: 'Commit', desc: 'If dirty, persist changes to store. Concurrency limits are checked BEFORE saving.' },
             { phase: '7', name: 'Emission', desc: 'Transport injects updated session ID into response cookie/header' },
           ].map((item, i) => (
             <div key={i} className={`flex items-center gap-4 ${boxClass}`}>
@@ -263,28 +241,7 @@ class CartController(Controller):
         </div>
       </section>
 
-      {/* Deep-dive links */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Deep Dive</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { title: 'Engine', desc: 'Full 7-phase lifecycle, event system, observability', path: '/docs/sessions/engine' },
-            { title: 'Policies', desc: 'TTL, idle timeout, rotation, concurrency, transport config', path: '/docs/sessions/policies' },
-            { title: 'Stores', desc: 'MemoryStore, FileStore, custom backends', path: '/docs/sessions/stores' },
-            { title: 'Transport', desc: 'CookieTransport, HeaderTransport, factory methods', path: '/docs/sessions/transport' },
-            { title: 'Decorators', desc: 'session.require/ensure/optional, @authenticated, @stateful', path: '/docs/sessions/decorators' },
-            { title: 'State', desc: 'Typed state with Field descriptors, CartState, UserPreferencesState', path: '/docs/sessions/state' },
-            { title: 'Guards', desc: 'SessionGuard, @requires, AdminGuard, VerifiedEmailGuard', path: '/docs/sessions/guards' },
-            { title: 'Faults', desc: 'Complete fault hierarchy — 14 security-domain faults', path: '/docs/sessions/faults' },
-          ].map((item, i) => (
-            <a key={i} href={item.path} className={`${boxClass} block hover:border-aquilia-500/30 transition-colors`}>
-              <h3 className={`font-bold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.title}</h3>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
-            </a>
-          ))}
-        </div>
-      </section>
-
+      {/* Next Steps */}
       <NextSteps />
     </div>
   )
