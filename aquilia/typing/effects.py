@@ -42,7 +42,7 @@ checking — but IDE autocompletion won't know their concrete type.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, NewType, Protocol, TypeAlias, TypeVar, Union
+from typing import TYPE_CHECKING, Literal, NewType, Protocol, TypeAlias, TypeVar
 
 EffectName = NewType("EffectName", str)
 EffectMode = NewType("EffectMode", str)
@@ -110,20 +110,20 @@ if TYPE_CHECKING:
     # Authoritative mapping: effect name → resource handle type.
     # Used by IDEs for ``get_effect()`` return type inference.
     # Custom effects not in this map fall back to ``Any``.
-    EffectResourceTypeMap: TypeAlias = Union[
+    EffectResourceTypeMap: TypeAlias = (
         # DB
-        Literal["DBTx"],  # → DBTxHandle
-        Literal["db"],  # → DBTxHandle
+        Literal["DBTx"]  # → DBTxHandle
+        | Literal["db"]  # → DBTxHandle
         # Cache
-        Literal["Cache"],  # → CacheResource
-        Literal["cache"],  # → CacheResource
+        | Literal["Cache"]  # → CacheResource
+        | Literal["cache"]  # → CacheResource
         # Queue
-        Literal["Queue"],  # → QueueResource
-        Literal["queue"],  # → QueueResource
+        | Literal["Queue"]  # → QueueResource
+        | Literal["queue"]  # → QueueResource
         # HTTP
-        Literal["HTTP"],  # → HTTPHandle
-        Literal["http"],  # → HTTPHandle
+        | Literal["HTTP"]  # → HTTPHandle
+        | Literal["http"]  # → HTTPHandle
         # Storage
-        Literal["Storage"],  # → StorageHandle
-        Literal["storage"],  # → StorageHandle
-    ]
+        | Literal["Storage"]  # → StorageHandle
+        | Literal["storage"]  # → StorageHandle
+    )
