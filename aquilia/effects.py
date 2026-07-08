@@ -55,15 +55,40 @@ class DBTxHandle(dict):
     or ``resource["mode"]`` continues to work, while type checkers now infer
     ``DBTxHandle`` instead of ``Any`` for ``ctx.get_effect("DBTx")``.
 
-    Keys set by ``DBTxProvider.acquire()``:
-        - ``connection``: the raw pool/connection object
-        - ``mode``: ``"read"`` or ``"write"``
-        - ``transaction``: active transaction object (or ``None``)
-        - ``acquired_at``: ``time.monotonic()`` timestamp
-
-    When Aquilia is wired against a real database backend the ``connection``
-    value is a backend-specific object (asyncpg ``Connection``, etc.).
+    Exposes async query methods: ``execute()``, ``execute_many()``,
+    ``fetch_all()``, ``fetch_one()``, and ``fetch_val()`` that run queries
+    within the active transaction scope.
     """
+
+    def __init__(self, data: dict, db: Any | None = None) -> None:
+        super().__init__(data)
+        self._db = db
+
+    def _get_db(self) -> Any:
+        if self._db is not None:
+            return self._db
+        from .db.engine import get_database
+        return get_database()
+
+    async def execute(self, sql: str, params: Sequence[Any] | None = None) -> int:
+        """Execute a query within the transaction."""
+        return await self._get_db().execute(sql, params)
+
+    async def execute_many(self, sql: str, params_list: Sequence[Sequence[Any]] | None = None) -> None:
+        """Execute multiple queries within the transaction."""
+        await self._get_db().execute_many(sql, params_list)
+
+    async def fetch_all(self, sql: str, params: Sequence[Any] | None = None) -> list[Any]:
+        """Fetch all rows within the transaction."""
+        return await self._get_db().fetch_all(sql, params)
+
+    async def fetch_one(self, sql: str, params: Sequence[Any] | None = None) -> Any:
+        """Fetch a single row within the transaction."""
+        return await self._get_db().fetch_one(sql, params)
+
+    async def fetch_val(self, sql: str, params: Sequence[Any] | None = None) -> Any:
+        """Fetch a single scalar value within the transaction."""
+        return await self._get_db().fetch_val(sql, params)
 
     @property
     def connection(self) -> Any:
@@ -225,39 +250,66 @@ class StorageEffect(Effect):
 
 
 class DBTxProvider(EffectProvider):
-    """Database transaction provider."""
+    """Database transaction provider backed by AquiliaDatabase."""
 
     def __init__(self, connection_string: str):
         self.connection_string = connection_string
-        self.pool = None
+        self.db: Any = None
         self._acquire_count = 0
         self._release_count = 0
 
     async def initialize(self):
-        """Initialize connection pool."""
-        self.pool = {"initialized": True, "connection_string": self.connection_string}
+        """Initialize database connection."""
+        from .db.engine import AquiliaDatabase
+        self.db = AquiliaDatabase(self.connection_string)
+        await self.db.connect()
 
     async def acquire(self, mode: str | None = None) -> DBTxHandle:
-        """Acquire database connection."""
+        """Acquire database connection and start transaction."""
         self._acquire_count += 1
+        if self.db is None:
+            from .db.engine import get_database
+            try:
+                self.db = get_database()
+            except Exception as exc:
+                from .faults.domains import DatabaseConnectionFault
+                raise DatabaseConnectionFault(
+                    backend="dbtx_effect",
+                    reason=f"Database connection not initialized in DBTxProvider: {exc}",
+                )
+
+        readonly = (mode == "read")
+        from .models.transactions import Atomic
+        txn = Atomic(db=self.db, readonly=readonly)
+        await txn.__aenter__()
+
         return DBTxHandle({
-            "connection": self.pool,
+            "connection": self.db,
             "mode": mode or "read",
-            "transaction": None,
+            "transaction": txn,
             "acquired_at": time.monotonic(),
-        })
+        }, db=self.db)
 
     async def release(self, resource: Any, success: bool = True):
-        """Release connection and commit/rollback transaction."""
+        """Release database connection and commit/rollback transaction."""
         self._release_count += 1
-        if success:
-            pass  # Commit
-        else:
-            pass  # Rollback
+        if isinstance(resource, dict) and "transaction" in resource:
+            txn = resource["transaction"]
+            if txn is not None:
+                if success:
+                    await txn.__aexit__(None, None, None)
+                else:
+                    await txn.__aexit__(Exception, Exception("Effect release rollback"), None)
+
+    async def finalize(self):
+        """Disconnect database pool."""
+        if self.db is not None:
+            await self.db.disconnect()
 
     async def health_check(self) -> dict[str, Any]:
+        healthy = self.db is not None and self.db.is_connected()
         return {
-            "healthy": self.pool is not None,
+            "healthy": healthy,
             "acquire_count": self._acquire_count,
             "release_count": self._release_count,
         }
@@ -383,39 +435,35 @@ class TaskQueueProvider(EffectProvider):
 
 class HTTPProvider(EffectProvider):
     """
-    HTTP client effect provider for outbound requests.
-
-    Manages an HTTP client session with connection pooling.
+    HTTP client effect provider backed by Aquilia's native AsyncHTTPClient.
     """
 
     def __init__(self, base_url: str | None = None, *, timeout: float = 30.0):
         self.base_url = base_url
         self.timeout = timeout
-        self._session: Any = None
+        self.client: Any = None
 
     async def initialize(self):
-        """Create HTTP client session."""
-        try:
-            import aiohttp  # type: ignore[import-not-found]
+        """Create AsyncHTTPClient session."""
+        from .http.client import AsyncHTTPClient
+        from .http.config import HTTPClientConfig, TimeoutConfig
 
-            self._session = aiohttp.ClientSession(
-                base_url=self.base_url,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-            )
-        except ImportError:
-            self._session = None  # Will use fallback
+        config = HTTPClientConfig(timeout=TimeoutConfig(total=self.timeout))
+        self.client = AsyncHTTPClient(base_url=self.base_url, config=config)
 
     async def acquire(self, mode: str | None = None):
         """Return HTTP client handle."""
-        return HTTPHandle(self._session, self.base_url)
+        if self.client is None:
+            from .http.client import AsyncHTTPClient
+            self.client = AsyncHTTPClient(base_url=self.base_url)
+        return HTTPHandle(self.client, self.base_url)
 
     async def release(self, resource: Any, success: bool = True):
         pass
 
     async def finalize(self):
-        if self._session is not None:
-            with contextlib.suppress(Exception):
-                await self._session.close()
+        if self.client is not None:
+            await self.client.close()
 
 
 class StorageProvider(EffectProvider):
@@ -425,8 +473,16 @@ class StorageProvider(EffectProvider):
     Wraps local filesystem or cloud storage (S3, GCS, etc.).
     """
 
-    def __init__(self, root_path: str = "./storage"):
+class StorageProvider(EffectProvider):
+    """
+    File/blob storage effect provider.
+
+    Wraps local filesystem or cloud storage (S3, GCS, etc.).
+    """
+
+    def __init__(self, root_path: str = "./storage", *, storage_registry: Any = None):
         self.root_path = root_path
+        self._registry = storage_registry
 
     async def initialize(self):
         import os
@@ -435,7 +491,7 @@ class StorageProvider(EffectProvider):
 
     async def acquire(self, mode: str | None = None):
         bucket = mode or "default"
-        return StorageHandle(self.root_path, bucket)
+        return StorageHandle(self.root_path, bucket, registry=self._registry)
 
     async def release(self, resource: Any, success: bool = True):
         pass
@@ -443,7 +499,14 @@ class StorageProvider(EffectProvider):
     async def health_check(self) -> dict[str, Any]:
         import os
 
-        return {"healthy": os.path.isdir(self.root_path), "root": self.root_path}
+        healthy = os.path.isdir(self.root_path)
+        if self._registry is not None:
+            try:
+                # check registry health
+                healthy = all((await self._registry.health_check()).values())
+            except Exception:
+                healthy = False
+        return {"healthy": healthy, "root": self.root_path}
 
 
 # ============================================================================
@@ -551,43 +614,45 @@ class TaskQueueHandle:
 
 
 class HTTPHandle:
-    """Handle for outbound HTTP requests."""
+    """Handle for outbound HTTP requests wrapping AsyncHTTPClient."""
 
-    def __init__(self, session: Any, base_url: str | None = None):
-        self._session = session
+    def __init__(self, client: Any, base_url: str | None = None):
+        self._client = client
+        self._session = client  # backward compatibility
         self._base_url = base_url
 
     async def get(self, url: str, **kwargs) -> Any:
-        if self._session:
-            async with self._session.get(url, **kwargs) as resp:
-                return await resp.json()
+        if self._client:
+            resp = await self._client.get(url, **kwargs)
+            return await resp.json()
         return None
 
     async def post(self, url: str, *, json: Any = None, **kwargs) -> Any:
-        if self._session:
-            async with self._session.post(url, json=json, **kwargs) as resp:
-                return await resp.json()
+        if self._client:
+            resp = await self._client.post(url, json=json, **kwargs)
+            return await resp.json()
         return None
 
     async def put(self, url: str, *, json: Any = None, **kwargs) -> Any:
-        if self._session:
-            async with self._session.put(url, json=json, **kwargs) as resp:
-                return await resp.json()
+        if self._client:
+            resp = await self._client.put(url, json=json, **kwargs)
+            return await resp.json()
         return None
 
     async def delete(self, url: str, **kwargs) -> Any:
-        if self._session:
-            async with self._session.delete(url, **kwargs) as resp:
-                return await resp.json()
+        if self._client:
+            resp = await self._client.delete(url, **kwargs)
+            return await resp.json()
         return None
 
 
 class StorageHandle:
     """Handle for file/blob storage operations."""
 
-    def __init__(self, root_path: str, bucket: str):
+    def __init__(self, root_path: str, bucket: str, registry: Any = None):
         self._root = root_path
         self._bucket = bucket
+        self._registry = registry
 
     def _path(self, key: str) -> str:
         import os
@@ -595,6 +660,14 @@ class StorageHandle:
         return os.path.join(self._root, self._bucket, key)
 
     async def read(self, key: str) -> bytes | None:
+        if self._registry is not None:
+            backend = self._registry.get(self._bucket) or self._registry.default
+            try:
+                storage_file = await backend.open(key, "rb")
+                return await storage_file.read()
+            except Exception:
+                return None
+
         import os
 
         path = self._path(key)
@@ -604,6 +677,11 @@ class StorageHandle:
             return f.read()
 
     async def write(self, key: str, data: bytes) -> None:
+        if self._registry is not None:
+            backend = self._registry.get(self._bucket) or self._registry.default
+            await backend.save(key, data, overwrite=True)
+            return
+
         import os
 
         path = self._path(key)
@@ -612,6 +690,14 @@ class StorageHandle:
             f.write(data)
 
     async def delete(self, key: str) -> bool:
+        if self._registry is not None:
+            backend = self._registry.get(self._bucket) or self._registry.default
+            try:
+                await backend.delete(key)
+                return True
+            except Exception:
+                return False
+
         import os
 
         path = self._path(key)
@@ -621,6 +707,13 @@ class StorageHandle:
         return False
 
     async def exists(self, key: str) -> bool:
+        if self._registry is not None:
+            backend = self._registry.get(self._bucket) or self._registry.default
+            try:
+                return await backend.exists(key)
+            except Exception:
+                return False
+
         import os
 
         return os.path.exists(self._path(key))

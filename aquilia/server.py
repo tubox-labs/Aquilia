@@ -3670,10 +3670,11 @@ class AquiliaServer:
                                 local_root = local_cfg.get("root")
 
                     if local_root:
+                        storage_reg = getattr(self, "_storage_registry", None)
                         if "Storage" not in effect_registry.providers:
-                            effect_registry.register("Storage", StorageProvider(local_root))
+                            effect_registry.register("Storage", StorageProvider(local_root, storage_registry=storage_reg))
                         if "storage" not in effect_registry.providers:
-                            effect_registry.register("storage", StorageProvider(local_root))
+                            effect_registry.register("storage", StorageProvider(local_root, storage_registry=storage_reg))
                 except Exception as auto_reg_err:
                     self.logger.warning(f"Failed to auto-register core default effect providers: {auto_reg_err}")
 
