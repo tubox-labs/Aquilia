@@ -76,6 +76,7 @@ from .domains import (
     DIResolutionFault,
     # Effect faults
     EffectFault,
+    EffectNotAcquiredFault,
     FieldValidationFault,
     FilesystemFault,
     FlowCancelledFault,
@@ -212,6 +213,7 @@ __all__ = [
     "FlowCancelledFault",
     # Effect faults
     "EffectFault",
+    "EffectNotAcquiredFault",
     "DatabaseFault",
     "CacheFault",
     # IO faults

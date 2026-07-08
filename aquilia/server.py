@@ -1024,16 +1024,17 @@ class AquiliaServer:
 
         # Auto-inject effect_registry for EffectMiddleware / FlowContextMiddleware when not explicit
         if class_name in ("EffectMiddleware", "FlowContextMiddleware") and "effect_registry" not in kwargs:
-            registry = getattr(self, "_effect_registry", None)
-            if registry is None:
-                from .effects import EffectRegistry
+            from .middleware_ext.effect_middleware import _DeferredEffectRegistry
 
-                base_container = self._get_base_container()
-                try:
-                    registry = base_container.resolve(EffectRegistry)
-                except Exception:
-                    registry = EffectRegistry()
-            kwargs["effect_registry"] = registry
+            # Use a deferred proxy so the middleware always sees the live, fully-
+            # populated registry (built during on_startup) rather than the empty
+            # placeholder registered at server.__init__() time.
+            server_ref = self
+
+            def _get_registry():
+                return getattr(server_ref, "_effect_registry", None)
+
+            kwargs["effect_registry"] = _DeferredEffectRegistry(_get_registry)
 
         try:
             return cls(**kwargs)

@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.3.0b1] — 2026-07-07 — "Ironclad Anchor" (beta)
 
 ### Fixed
+- **`EFFECT_NOT_ACQUIRED` on all requests when using `@requires()` with a
+  manually-configured `EffectMiddleware`**: Three interacting bugs caused
+  every `ctx.get_effect("DBTx")` / `ctx.get_effect("Cache")` call to fail
+  even when the middleware was present in the workspace `MiddlewareChain`:
+
+  1. **Bootstrap ordering — empty registry at construction time**:
+     `_instantiate_middleware()` (called during `Server.__init__()`) resolved
+     the `EffectRegistry` from DI immediately — before the ASGI lifespan
+     `on_startup()` event had a chance to register `DBTx`, `Cache`, `Queue`,
+     and `Storage` providers (Step 3.5).  The result was an `EffectMiddleware`
+     instance permanently bound to an empty registry, so
+     `registry.has_effect(name)` always returned `False` and effects were
+     silently skipped. Fixed by introducing a `_DeferredEffectRegistry` proxy
+     (see *Added* below) that lazily resolves `server._effect_registry` on
+     every request instead of at construction time.
+
+  2. **`EffectSubsystem._register_middleware()` silently skipped when
+     providers were absent**: The condition `if self._registry and
+     self._registry.providers:` prevented `EffectMiddleware` from being
+     registered by the subsystem when no providers were configured in the
+     `effects.providers` config section — even though core providers
+     (DBTx, Cache, etc.) are auto-registered later in `on_startup()`.
+     The guard has been relaxed to `if self._registry:` so the middleware
+     is always registered when the subsystem is active.
+
+  3. **Opaque error message with no actionable information**: The previous
+     `EffectFault(code="EFFECT_NOT_ACQUIRED", message="... Use @requires()")` 
+     was always raised regardless of the actual root cause (missing
+     `@requires`, missing provider registration, or missing middleware),
+     making it impossible to diagnose the real issue from the error response
+     alone. Replaced with the new `EffectNotAcquiredFault` (see *Added*).
+
 - **Type inference for `Model.related(name)`**: Added `@overload` signatures to `related()`, enabling IDE autocomplete on related field model attributes (e.g. `await token.related("user", UserModel)`) without manual casting.
 - **Instance manager access error handling**: Replaced bare `AttributeError` when attempting to access class-level managers on model instances (e.g. `user.objects.all()`) with a structured `ManagerInstanceAccessFault` (subclassing both `ModelFault` and `AttributeError` for backward compatibility).
 - **ORM field `sql_type()` error handling**: Replaced `NotImplementedError` raised in custom field classes missing `sql_type()` implementations with a structured `SchemaFault`.
@@ -52,6 +84,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ignores the parameter).
 
 ### Added
+- **`EffectNotAcquiredFault`** (`aquilia.faults.domains`): New structured
+  fault subclassing `EffectFault` that replaces the bare
+  `EffectFault(code="EFFECT_NOT_ACQUIRED")` raised by `ctx.get_effect()`,
+  `FlowContext.get_effect()`, and `EffectRegistry.get_provider()`. The new
+  fault carries rich diagnostics in `metadata`:
+  - `effect`: the effect name that was requested
+  - `registered`: all effects currently in the registry
+  - `middleware_active`: whether `EffectMiddleware` ran for this request
+  - `hint`: a concise, actionable remediation message tailored to the
+    probable root cause (missing `@requires`, unregistered provider, or
+    inactive middleware)
+
+  The fault is `public=True` so the `hint` is visible in JSON error
+  responses (including in debug mode), making it trivial to self-diagnose
+  effect configuration issues.
+
+- **`_DeferredEffectRegistry`** (`aquilia.middleware_ext.effect_middleware`):
+  Lazy proxy that delegates `has_effect`, `acquire`, `release`, and
+  `providers` to a live `EffectRegistry` resolved at request time via a
+  zero-argument callable. Eliminates the need for `EffectMiddleware` to have
+  a fully-populated registry at construction time, correctly handling the
+  ASGI startup ordering where providers are registered in `on_startup()`
+  long after the middleware stack is built in `__init__()`.
+
 - **`atomic()` as a decorator**: `@atomic()` on an `async def` now wraps the whole call in its own
   transaction (Tortoise-ORM-style), constructing a fresh `Atomic` per call so concurrent calls to
   the decorated function don't share mutable transaction state.

@@ -403,6 +403,117 @@ class CacheFault(EffectFault):
         )
 
 
+class EffectNotAcquiredFault(EffectFault):
+    """
+    Raised when a handler calls ``ctx.get_effect(name)`` but the effect was
+    not acquired before the handler ran.
+
+    This happens in one of three situations:
+
+    1. **Missing ``@requires()`` decorator** — the handler did not declare the
+       effect dependency.  Add ``@requires("DBTx")`` (or the correct effect
+       name) directly below the HTTP method decorator.
+
+    2. **Provider not registered** — ``@requires()`` is present but no
+       provider for the effect is registered in the ``EffectRegistry``.
+       Configure the provider in your workspace effects section or let the
+       framework auto-register core providers (DB, Cache, Queue, Storage)
+       from your integration settings.
+
+    3. **EffectMiddleware not active** — the middleware is absent from the
+       middleware stack.  Add it via
+       ``.use("aquilia.middleware_ext.EffectMiddleware")`` in your workspace
+       ``MiddlewareChain`` (or rely on the framework's auto-registration
+       which adds it during the ASGI lifespan startup).
+
+    Attributes:
+        code:               ``"EFFECT_NOT_ACQUIRED"``
+        domain:             ``FaultDomain.EFFECT``
+        metadata.effect:    The name of the missing effect.
+        metadata.registered: Effects currently registered (debug info).
+        metadata.middleware_active: Whether EffectMiddleware was detected.
+        metadata.hint:      A short actionable remediation message.
+
+    Example JSON response (debug mode)::
+
+        {
+          "error": {
+            "code": "EFFECT_NOT_ACQUIRED",
+            "message": "Effect 'DBTx' was not acquired for this request.",
+            "domain": "effect",
+            "metadata": {
+              "effect": "DBTx",
+              "registered": ["Cache", "Queue"],
+              "middleware_active": true,
+              "hint": "Add @requires('DBTx') below the @POST decorator on your handler."
+            }
+          }
+        }
+    """
+
+    def __init__(
+        self,
+        effect_name: str,
+        *,
+        reason: str | None = None,
+        registered_effects: list[str] | None = None,
+        middleware_active: bool = False,
+    ):
+        """
+        Construct an ``EffectNotAcquiredFault``.
+
+        Args:
+            effect_name:
+                The name of the effect that could not be retrieved.
+            reason:
+                Optional free-form reason string for additional context.
+            registered_effects:
+                The list of effect names currently registered in the
+                ``EffectRegistry`` (used for diagnostic output).
+            middleware_active:
+                Whether ``EffectMiddleware`` was detected as active during
+                this request.
+        """
+        # Build a concise, actionable hint
+        if not middleware_active:
+            hint = (
+                "EffectMiddleware is not active. "
+                "Add .use('aquilia.middleware_ext.EffectMiddleware') to your "
+                "workspace MiddlewareChain, or enable the effects subsystem."
+            )
+        elif registered_effects is not None and effect_name not in registered_effects:
+            hint = (
+                f"Provider for '{effect_name}' is not registered. "
+                "Configure it under effects.providers in your workspace, "
+                "or ensure Integration.database() / CacheIntegration() are "
+                "present so the framework can auto-register core providers."
+            )
+        else:
+            hint = (
+                f"Add @requires('{effect_name}') directly below the HTTP "
+                "method decorator (@POST, @GET, etc.) on your handler method."
+            )
+
+        message = f"Effect '{effect_name}' was not acquired for this request."
+        if reason:
+            message = f"{message} Reason: {reason}"
+
+        super().__init__(
+            code="EFFECT_NOT_ACQUIRED",
+            message=message,
+            severity=Severity.ERROR,
+            retryable=False,
+            metadata={
+                "effect": effect_name,
+                "registered": registered_effects or [],
+                "middleware_active": middleware_active,
+                "hint": hint,
+            },
+        )
+        # Make public so the hint is visible in error responses
+        self.public = True
+
+
 # ============================================================================
 # IO Faults
 # ============================================================================

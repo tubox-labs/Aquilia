@@ -235,7 +235,10 @@ class EffectSubsystem(BaseSubsystem):
             self._logger.warning("Failed to register FlowContextMiddleware: %s", exc)
 
         # Register Effect middleware (acquire/release per request)
-        if self._registry and self._registry.providers:
+        # Note: Always register even when the registry is currently empty —
+        # core providers (DBTx, Cache, Queue, Storage) are auto-registered
+        # during the ASGI lifespan on_startup() *after* this point.
+        if self._registry:
             try:
                 effect_mw = EffectMiddleware(self._registry, auto_detect=auto_detect)
                 ctx.middleware_stack.add(effect_mw, scope="request", priority=priority)
