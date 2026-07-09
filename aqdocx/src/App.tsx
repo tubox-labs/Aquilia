@@ -156,6 +156,16 @@ import { MiddlewareStack } from './pages/docs/middleware/Stack'
 import { MiddlewareCORS } from './pages/docs/middleware/CORS'
 import { MiddlewareRateLimit } from './pages/docs/middleware/RateLimit'
 import { MiddlewareSecurityHeaders } from './pages/docs/middleware/SecurityHeaders'
+import { MiddlewareRequestScope } from './pages/docs/middleware/RequestScope'
+import { MiddlewareSession } from './pages/docs/middleware/Session'
+import { MiddlewareLogging } from './pages/docs/middleware/Logging'
+import { MiddlewareCSP } from './pages/docs/middleware/CSP'
+import { MiddlewareCSRF } from './pages/docs/middleware/CSRF'
+import { MiddlewareHSTS } from './pages/docs/middleware/HSTS'
+import { MiddlewareHTTPSRedirect } from './pages/docs/middleware/HTTPSRedirect'
+import { MiddlewareProxyFix } from './pages/docs/middleware/ProxyFix'
+import { MiddlewareEffect } from './pages/docs/middleware/EffectMiddleware'
+
 
 // Faults
 import { FaultsOverview } from './pages/docs/faults/Overview'
@@ -163,6 +173,8 @@ import { FaultsEngine } from './pages/docs/faults/Engine'
 import { FaultsTaxonomy } from './pages/docs/faults/Taxonomy'
 import { FaultsHandlers } from './pages/docs/faults/Handlers'
 import { FaultsDomains } from './pages/docs/faults/Domains'
+import { FaultsAdvanced } from './pages/docs/faults/Advanced'
+
 
 // Cache
 import { CacheOverview } from './pages/docs/cache/Overview'
@@ -221,6 +233,8 @@ import { MailTemplates } from './pages/docs/mail/Templates'
 import { EffectsOverview } from './pages/docs/effects/Overview'
 import { EffectsDBTx } from './pages/docs/effects/DBTx'
 import { EffectsCacheEffect } from './pages/docs/effects/CacheEffect'
+import { EffectsBuiltIn } from './pages/docs/effects/BuiltIn'
+
 
 // Aquilary
 import { AquilaryOverview } from './pages/docs/aquilary/Overview'
@@ -246,6 +260,7 @@ import { TestingOverview } from './pages/docs/testing/Overview'
 import { TestingClient } from './pages/docs/testing/Client'
 import { TestingCases } from './pages/docs/testing/Cases'
 import { TestingMocks } from './pages/docs/testing/Mocks'
+import { TestingRunner } from './pages/docs/testing/Runner'
 
 
 
@@ -455,6 +470,16 @@ export default function App() {
           <Route path="middleware/cors" element={<MiddlewareCORS />} />
           <Route path="middleware/rate-limit" element={<MiddlewareRateLimit />} />
           <Route path="middleware/security" element={<MiddlewareSecurityHeaders />} />
+          <Route path="middleware/request-scope" element={<MiddlewareRequestScope />} />
+          <Route path="middleware/session" element={<MiddlewareSession />} />
+          <Route path="middleware/logging" element={<MiddlewareLogging />} />
+          <Route path="middleware/csp" element={<MiddlewareCSP />} />
+          <Route path="middleware/csrf" element={<MiddlewareCSRF />} />
+          <Route path="middleware/hsts" element={<MiddlewareHSTS />} />
+          <Route path="middleware/https-redirect" element={<MiddlewareHTTPSRedirect />} />
+          <Route path="middleware/proxy-fix" element={<MiddlewareProxyFix />} />
+          <Route path="middleware/effect" element={<MiddlewareEffect />} />
+
 
           {/* Aquilary */}
           <Route path="aquilary" element={<AquilaryOverview />} />
@@ -466,8 +491,10 @@ export default function App() {
           {/* Effects */}
           <Route path="effects" element={<EffectsOverview />} />
           <Route path="effects/overview" element={<EffectsOverview />} />
+          <Route path="effects/built-in" element={<EffectsBuiltIn />} />
           <Route path="effects/dbtx" element={<EffectsDBTx />} />
           <Route path="effects/cache" element={<EffectsCacheEffect />} />
+
 
           {/* Faults */}
           <Route path="faults" element={<FaultsOverview />} />
@@ -475,6 +502,8 @@ export default function App() {
           <Route path="faults/engine" element={<FaultsEngine />} />
           <Route path="faults/handlers" element={<FaultsHandlers />} />
           <Route path="faults/domains" element={<FaultsDomains />} />
+          <Route path="faults/advanced" element={<FaultsAdvanced />} />
+
 
           {/* Cache */}
           <Route path="cache" element={<CacheOverview />} />
@@ -561,6 +590,7 @@ export default function App() {
           <Route path="testing/client" element={<TestingClient />} />
           <Route path="testing/cases" element={<TestingCases />} />
           <Route path="testing/mocks" element={<TestingMocks />} />
+          <Route path="testing/runner" element={<TestingRunner />} />
 
           {/* OpenAPI */}
           <Route path="openapi" element={<ControllersOpenAPI />} />
