@@ -185,6 +185,16 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
+        label: 'SQLite', path: '/docs/sqlite', icon: <Database className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/sqlite/overview' },
+          { label: 'API Reference', path: '/docs/sqlite/api' },
+          { label: 'Pool Configuration', path: '/docs/sqlite/pool' },
+          { label: 'Transactions', path: '/docs/sqlite/transactions' },
+          { label: 'Controller Guide', path: '/docs/sqlite/controller' },
+        ]
+      },
+      {
         label: 'Blueprints', path: '/docs/blueprints', icon: <Binary className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/blueprints/overview' },
@@ -242,6 +252,15 @@ export const sections: SidebarSection[] = [
           { label: 'Faults', path: '/docs/sessions/faults' },
         ]
       },
+      {
+        label: 'Signing', path: '/docs/signing', icon: <Shield className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/signing/overview' },
+          { label: 'Core Signers', path: '/docs/signing/signers' },
+          { label: 'Specialized Signers', path: '/docs/signing/specialized' },
+          { label: 'Advanced Signing', path: '/docs/signing/advanced' },
+        ]
+      },
     ]
   },
   {
@@ -268,83 +287,13 @@ export const sections: SidebarSection[] = [
           { label: 'Proxy Fix', path: '/docs/middleware/proxy-fix' },
           { label: 'Effects Acquisition', path: '/docs/middleware/effect' },
         ]
-
-
       },
     ]
   },
   {
-    title: 'Advanced',
-    icon: <Cpu className="w-3 h-3" />,
+    title: 'Realtime & Network',
+    icon: <Globe className="w-3 h-3" />,
     items: [
-      {
-        label: 'Aquilary Registry', path: '/docs/aquilary', icon: <Boxes className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/aquilary/overview' },
-          { label: 'Manifest System', path: '/docs/aquilary/manifest' },
-          { label: 'RuntimeRegistry', path: '/docs/aquilary/runtime' },
-          { label: 'Fingerprinting', path: '/docs/aquilary/fingerprint' },
-        ]
-      },
-      {
-        label: 'Subsystem', path: '/docs/subsystem', icon: <Workflow className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/subsystem/overview' },
-          { label: 'Flow Pipelines', path: '/docs/subsystem/pipelines' },
-          { label: 'Flow Context & Nodes', path: '/docs/subsystem/context-nodes' },
-          { label: 'Layers & Compositions', path: '/docs/subsystem/layers' },
-          { label: 'Built-in Effects', path: '/docs/subsystem/built-in' },
-          { label: 'DBTx Effect', path: '/docs/subsystem/dbtx' },
-          { label: 'Cache Effect', path: '/docs/subsystem/cache' },
-          { label: 'Queue & Task Effects', path: '/docs/subsystem/queue' },
-          { label: 'HTTP Client Effect', path: '/docs/subsystem/http' },
-          { label: 'Storage Effect', path: '/docs/subsystem/storage' },
-          { label: 'Custom Effects', path: '/docs/subsystem/custom' },
-        ]
-      },
-      {
-        label: 'Server-Sent Events', path: '/docs/sse', icon: <Radio className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/sse/overview' },
-          { label: 'Standard Events', path: '/docs/sse/standard' },
-          { label: 'Text & JSON Streams', path: '/docs/sse/streams' },
-          { label: 'OpenAI Streaming', path: '/docs/sse/openai' },
-          { label: 'Resource Management', path: '/docs/sse/resources' },
-        ]
-      },
-      {
-        label: 'Signing', path: '/docs/signing', icon: <Shield className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/signing/overview' },
-          { label: 'Core Signers', path: '/docs/signing/signers' },
-          { label: 'Specialized Signers', path: '/docs/signing/specialized' },
-          { label: 'Advanced Signing', path: '/docs/signing/advanced' },
-        ]
-      },
-      {
-        label: 'Fault System', path: '/docs/faults', icon: <AlertCircle className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/faults' },
-          { label: 'Fault Taxonomy', path: '/docs/faults/taxonomy' },
-          { label: 'FaultEngine', path: '/docs/faults/engine' },
-          { label: 'Fault Handlers', path: '/docs/faults/handlers' },
-          { label: 'Fault Domains', path: '/docs/faults/domains' },
-          { label: 'Advanced Handlers', path: '/docs/faults/advanced' },
-        ]
-
-      },
-      {
-        label: 'Cache', path: '/docs/cache', icon: <Gauge className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/cache' },
-          { label: 'Configuration', path: '/docs/cache/configuration' },
-          { label: 'CLI', path: '/docs/cache/cli' },
-          { label: 'CacheService', path: '/docs/cache/service' },
-          { label: 'Backends', path: '/docs/cache/backends' },
-          { label: 'Decorators', path: '/docs/cache/decorators' },
-          { label: 'API Reference', path: '/docs/cache/api-reference' },
-        ]
-      },
       {
         label: 'HTTP Client', path: '/docs/http', icon: <Globe className="w-3.5 h-3.5" />,
         children: [
@@ -370,6 +319,74 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
+        label: 'WebSockets', path: '/docs/websockets', icon: <Network className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/websockets' },
+          { label: 'Socket Controllers', path: '/docs/websockets/controllers' },
+          { label: 'Runtime', path: '/docs/websockets/runtime' },
+          { label: 'Adapters', path: '/docs/websockets/adapters' },
+        ]
+      },
+      {
+        label: 'Server-Sent Events', path: '/docs/sse', icon: <Radio className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/sse/overview' },
+          { label: 'Standard Events', path: '/docs/sse/standard' },
+          { label: 'Text & JSON Streams', path: '/docs/sse/streams' },
+          { label: 'OpenAI Streaming', path: '/docs/sse/openai' },
+          { label: 'Resource Management', path: '/docs/sse/resources' },
+        ]
+      },
+    ]
+  },
+  {
+    title: 'Caching',
+    icon: <Gauge className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Cache', path: '/docs/cache', icon: <Gauge className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/cache' },
+          { label: 'Configuration', path: '/docs/cache/configuration' },
+          { label: 'CLI', path: '/docs/cache/cli' },
+          { label: 'CacheService', path: '/docs/cache/service' },
+          { label: 'Backends', path: '/docs/cache/backends' },
+          { label: 'Decorators', path: '/docs/cache/decorators' },
+          { label: 'API Reference', path: '/docs/cache/api-reference' },
+        ]
+      },
+    ]
+  },
+  {
+    title: 'Storage & Filesystem',
+    icon: <HardDrive className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Storage', path: '/docs/storage', icon: <HardDrive className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/storage/overview' },
+          { label: 'API Reference', path: '/docs/storage/api' },
+          { label: 'Configuration', path: '/docs/storage/configuration' },
+          { label: 'Backends', path: '/docs/storage/backends' },
+          { label: 'Controller Guide', path: '/docs/storage/controller' },
+        ]
+      },
+      {
+        label: 'Filesystem', path: '/docs/filesystem', icon: <FileText className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/filesystem/overview' },
+          { label: 'API Reference', path: '/docs/filesystem/api' },
+          { label: 'Operations', path: '/docs/filesystem/operations' },
+          { label: 'Controller Guide', path: '/docs/filesystem/controller' },
+        ]
+      },
+    ]
+  },
+  {
+    title: 'Localization & i18n',
+    icon: <Languages className="w-3 h-3" />,
+    items: [
+      {
         label: 'i18n', path: '/docs/i18n', icon: <Languages className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/i18n' },
@@ -382,15 +399,12 @@ export const sections: SidebarSection[] = [
           { label: 'Troubleshooting', path: '/docs/i18n/troubleshooting' },
         ]
       },
-      {
-        label: 'WebSockets', path: '/docs/websockets', icon: <Network className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/websockets' },
-          { label: 'Socket Controllers', path: '/docs/websockets/controllers' },
-          { label: 'Runtime', path: '/docs/websockets/runtime' },
-          { label: 'Adapters', path: '/docs/websockets/adapters' },
-        ]
-      },
+    ]
+  },
+  {
+    title: 'Templates & Mail',
+    icon: <Palette className="w-3 h-3" />,
+    items: [
       {
         label: 'Templates', path: '/docs/templates', icon: <Palette className="w-3.5 h-3.5" />,
         children: [
@@ -407,6 +421,23 @@ export const sections: SidebarSection[] = [
           { label: 'MailService', path: '/docs/mail/service' },
           { label: 'Providers', path: '/docs/mail/providers' },
           { label: 'Templates', path: '/docs/mail/templates' },
+        ]
+      },
+    ]
+  },
+  {
+    title: 'Background Jobs',
+    icon: <Clock className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Tasks', path: '/docs/tasks', icon: <Clock className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/tasks/overview' },
+          { label: 'API Reference', path: '/docs/tasks/api' },
+          { label: 'Configuration', path: '/docs/tasks/configuration' },
+          { label: 'Retry Logic', path: '/docs/tasks/retry' },
+          { label: 'Scheduling', path: '/docs/tasks/scheduling' },
+          { label: 'Controller Guide', path: '/docs/tasks/controller' },
         ]
       },
     ]
@@ -445,47 +476,43 @@ export const sections: SidebarSection[] = [
     ]
   },
   {
-    title: 'Background Jobs',
-    icon: <Clock className="w-3 h-3" />,
+    title: 'Advanced',
+    icon: <Cpu className="w-3 h-3" />,
     items: [
       {
-        label: 'Tasks', path: '/docs/tasks', icon: <Clock className="w-3.5 h-3.5" />,
+        label: 'Aquilary Registry', path: '/docs/aquilary', icon: <Boxes className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Overview', path: '/docs/tasks/overview' },
-          { label: 'API Reference', path: '/docs/tasks/api' },
-          { label: 'Configuration', path: '/docs/tasks/configuration' },
-          { label: 'Retry Logic', path: '/docs/tasks/retry' },
-          { label: 'Scheduling', path: '/docs/tasks/scheduling' },
-          { label: 'Controller Guide', path: '/docs/tasks/controller' },
+          { label: 'Overview', path: '/docs/aquilary/overview' },
+          { label: 'Manifest System', path: '/docs/aquilary/manifest' },
+          { label: 'RuntimeRegistry', path: '/docs/aquilary/runtime' },
+          { label: 'Fingerprinting', path: '/docs/aquilary/fingerprint' },
         ]
       },
       {
-        label: 'Storage', path: '/docs/storage', icon: <HardDrive className="w-3.5 h-3.5" />,
+        label: 'Subsystem', path: '/docs/subsystem', icon: <Workflow className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Overview', path: '/docs/storage/overview' },
-          { label: 'API Reference', path: '/docs/storage/api' },
-          { label: 'Configuration', path: '/docs/storage/configuration' },
-          { label: 'Backends', path: '/docs/storage/backends' },
-          { label: 'Controller Guide', path: '/docs/storage/controller' },
+          { label: 'Overview', path: '/docs/subsystem/overview' },
+          { label: 'Flow Pipelines', path: '/docs/subsystem/pipelines' },
+          { label: 'Flow Context & Nodes', path: '/docs/subsystem/context-nodes' },
+          { label: 'Layers & Compositions', path: '/docs/subsystem/layers' },
+          { label: 'Built-in Effects', path: '/docs/subsystem/built-in' },
+          { label: 'DBTx Effect', path: '/docs/subsystem/dbtx' },
+          { label: 'Cache Effect', path: '/docs/subsystem/cache' },
+          { label: 'Queue & Task Effects', path: '/docs/subsystem/queue' },
+          { label: 'HTTP Client Effect', path: '/docs/subsystem/http' },
+          { label: 'Storage Effect', path: '/docs/subsystem/storage' },
+          { label: 'Custom Effects', path: '/docs/subsystem/custom' },
         ]
       },
       {
-        label: 'SQLite', path: '/docs/sqlite', icon: <Database className="w-3.5 h-3.5" />,
+        label: 'Fault System', path: '/docs/faults', icon: <AlertCircle className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Overview', path: '/docs/sqlite/overview' },
-          { label: 'API Reference', path: '/docs/sqlite/api' },
-          { label: 'Pool Configuration', path: '/docs/sqlite/pool' },
-          { label: 'Transactions', path: '/docs/sqlite/transactions' },
-          { label: 'Controller Guide', path: '/docs/sqlite/controller' },
-        ]
-      },
-      {
-        label: 'Filesystem', path: '/docs/filesystem', icon: <FileText className="w-3.5 h-3.5" />,
-        children: [
-          { label: 'Overview', path: '/docs/filesystem/overview' },
-          { label: 'API Reference', path: '/docs/filesystem/api' },
-          { label: 'Operations', path: '/docs/filesystem/operations' },
-          { label: 'Controller Guide', path: '/docs/filesystem/controller' },
+          { label: 'Overview', path: '/docs/faults' },
+          { label: 'Fault Taxonomy', path: '/docs/faults/taxonomy' },
+          { label: 'FaultEngine', path: '/docs/faults/engine' },
+          { label: 'Fault Handlers', path: '/docs/faults/handlers' },
+          { label: 'Fault Domains', path: '/docs/faults/domains' },
+          { label: 'Advanced Handlers', path: '/docs/faults/advanced' },
         ]
       },
     ]
