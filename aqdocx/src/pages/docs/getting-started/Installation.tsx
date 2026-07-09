@@ -197,24 +197,48 @@ $ aq doctor
       </section >
 
       {/* CLI entry point */}
-      < section className="mb-10" >
+      < section className="mb-14" >
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>CLI Entry Points</h2>
 
-        <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+        <p className={`mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           The CLI can be accessed via the registered script or direct module invocation:
         </p>
 
-        <div className={`rounded-xl border p-4 ${isDark ? 'bg-zinc-900/50 border-white/10' : 'bg-gray-50 border-gray-200'}`}>
-          <ul className={`space-y-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            <li className="flex items-center gap-2">
-              <Terminal className="w-4 h-4 text-aquilia-400" />
-              <code className="font-mono">aq</code> — Registered CLI command (recommended)
-            </li>
-            <li className="flex items-center gap-2">
-              <Package className="w-4 h-4 text-aquilia-400" />
-              <code className="font-mono">python -m aquilia.cli</code> — Module invocation (if entry point is not in PATH)
-            </li>
-          </ul>
+        <div className="space-y-6 relative pl-6 border-l-2 border-aquilia-500/20 dark:border-aquilia-500/10">
+          <div className="relative group">
+            {/* Pulsing indicator dot */}
+            <span className="absolute -left-[31px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-white dark:bg-zinc-950 border-2 border-aquilia-500">
+              <span className="h-1 w-1 rounded-full bg-aquilia-500" />
+            </span>
+            <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4">
+              <code className={`font-mono text-sm px-2.5 py-1 rounded bg-aquilia-500/5 text-aquilia-600 dark:text-aquilia-400 border border-aquilia-500/10`}>
+                aq
+              </code>
+              <span className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Registered CLI command <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 ml-2 font-semibold">Recommended</span>
+              </span>
+            </div>
+            <p className={`text-xs mt-1.5 max-w-2xl leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              The standard shortcut installed globally or in your virtual environment to perform workspace bootstrapping, code generation, migrations, and serving.
+            </p>
+          </div>
+
+          <div className="relative group">
+            <span className="absolute -left-[31px] top-1 flex h-3 w-3 items-center justify-center rounded-full bg-white dark:bg-zinc-950 border-2 border-gray-300 dark:border-zinc-800">
+              <span className="h-1 w-1 rounded-full bg-gray-400 dark:bg-zinc-700" />
+            </span>
+            <div className="flex flex-col md:flex-row md:items-baseline gap-2 md:gap-4">
+              <code className={`font-mono text-sm px-2.5 py-1 rounded bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800`}>
+                python -m aquilia.cli
+              </code>
+              <span className={`text-sm font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Module invocation fallback
+              </span>
+            </div>
+            <p className={`text-xs mt-1.5 max-w-2xl leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              Invokes the CLI directly through the Python interpreter. Use this fallback if the virtual environment binary path is not added to your shell's <code>$PATH</code>.
+            </p>
+          </div>
         </div>
       </section >
 
