@@ -993,251 +993,56 @@ class TestConstantTimeCompare:
     """Test constant-time comparison."""
 
     def test_equal_strings(self):
-        from aquilia.auth.hardening import constant_time_compare
+        from aquilia.auth import constant_time_compare
 
         assert constant_time_compare("hello", "hello") is True
 
     def test_unequal_strings(self):
-        from aquilia.auth.hardening import constant_time_compare
+        from aquilia.auth import constant_time_compare
 
         assert constant_time_compare("hello", "world") is False
 
     def test_equal_bytes(self):
-        from aquilia.auth.hardening import constant_time_compare
+        from aquilia.auth import constant_time_compare
 
         assert constant_time_compare(b"abc", b"abc") is True
 
     def test_empty_strings(self):
-        from aquilia.auth.hardening import constant_time_compare
+        from aquilia.auth import constant_time_compare
 
         assert constant_time_compare("", "") is True
 
     def test_mixed_types(self):
-        from aquilia.auth.hardening import constant_time_compare
+        from aquilia.auth import constant_time_compare
 
         assert constant_time_compare("abc", b"abc") is True
-
-
-class TestCSRFProtection:
-    """Test CSRF token generation and validation."""
-
-    def test_generate_token(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test-secret")
-        token = csrf.generate_token()
-        assert token
-        assert ":" in token
-
-    def test_validate_valid_token(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test-secret")
-        token = csrf.generate_token()
-        assert csrf.validate_token(token) is True
-
-    def test_validate_invalid_token(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test-secret")
-        assert csrf.validate_token("invalid") is False
-
-    def test_validate_tampered_token(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test-secret")
-        token = csrf.generate_token()
-        # Tamper with signature
-        parts = token.rsplit(":", 1)
-        tampered = parts[0] + ":0000000000"
-        assert csrf.validate_token(tampered) is False
-
-    def test_validate_expired_token(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test-secret", max_age=0)
-        token = csrf.generate_token()
-        # Token is immediately expired (max_age=0)
-        time.sleep(0.01)
-        assert csrf.validate_token(token) is False
-
-    def test_validate_empty_token(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test-secret")
-        assert csrf.validate_token("") is False
-
-    def test_requires_validation_post(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection()
-        assert csrf.requires_validation("POST") is True
-        assert csrf.requires_validation("PUT") is True
-        assert csrf.requires_validation("DELETE") is True
-
-    def test_safe_methods_skip_validation(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection()
-        assert csrf.requires_validation("GET") is False
-        assert csrf.requires_validation("HEAD") is False
-        assert csrf.requires_validation("OPTIONS") is False
-
-    def test_different_secrets_reject(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf1 = CSRFProtection(secret="secret-1")
-        csrf2 = CSRFProtection(secret="secret-2")
-        token = csrf1.generate_token()
-        assert csrf2.validate_token(token) is False
-
-
-class TestRequestFingerprint:
-    """Test request fingerprinting."""
-
-    def test_fingerprint_creation(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        request = MagicMock()
-        request.client = ("10.0.0.1", 8080)
-        request.headers = MagicMock()
-        request.headers.get = lambda key, default="": {
-            "user-agent": "TestBrowser/1.0",
-            "accept-language": "en-US",
-        }.get(key, default)
-
-        fp = RequestFingerprint.from_request(request)
-        assert fp.ip_hash
-        assert fp.ua_hash
-        assert fp.accept_hash
-
-    def test_fingerprint_match(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        fp1 = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-        fp2 = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-        assert fp1.matches(fp2, strict=True) is True
-
-    def test_fingerprint_partial_match(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        # IP changed but UA and Accept same — non-strict allows
-        fp1 = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-        fp2 = RequestFingerprint(ip_hash="x", ua_hash="b", accept_hash="c")
-        assert fp1.matches(fp2, strict=False) is True
-        assert fp1.matches(fp2, strict=True) is False
-
-    def test_fingerprint_no_match(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        fp1 = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-        fp2 = RequestFingerprint(ip_hash="x", ua_hash="y", accept_hash="z")
-        assert fp1.matches(fp2) is False
-
-    def test_fingerprint_serialization(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        fp = RequestFingerprint(ip_hash="abc", ua_hash="def", accept_hash="ghi")
-        s = fp.to_string()
-        restored = RequestFingerprint.from_string(s)
-        assert restored is not None
-        assert restored.ip_hash == "abc"
-        assert restored.ua_hash == "def"
-
-    def test_fingerprint_from_invalid_string(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        assert RequestFingerprint.from_string("invalid") is None
-
-
-class TestSecurityHeaders:
-    """Test security headers."""
-
-    def test_default_headers(self):
-        from aquilia.auth.hardening import SecurityHeaders
-
-        headers = SecurityHeaders()
-        d = headers.to_dict()
-        assert "Content-Security-Policy" in d
-        assert "Strict-Transport-Security" in d
-        assert "X-Content-Type-Options" in d
-        assert d["X-Content-Type-Options"] == "nosniff"
-        assert d["X-Frame-Options"] == "DENY"
-
-    def test_custom_csp(self):
-        from aquilia.auth.hardening import SecurityHeaders
-
-        headers = SecurityHeaders(content_security_policy="default-src 'self'; script-src 'self'")
-        assert "script-src" in headers.to_dict()["Content-Security-Policy"]
-
-    def test_apply_to_response(self):
-        from aquilia.auth.hardening import SecurityHeaders
-
-        headers = SecurityHeaders()
-        response = MagicMock()
-        response.headers = {}
-        headers.apply(response)
-        assert "X-Frame-Options" in response.headers
-
-
-class TestTokenBinder:
-    """Test token binding for proof-of-possession."""
-
-    def test_create_and_verify_binding(self):
-        from aquilia.auth.hardening import RequestFingerprint, TokenBinder
-
-        binder = TokenBinder(secret="test-secret")
-        fp = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-        token = "access_token_123"
-
-        binding = binder.create_binding(token, fp)
-        assert binder.verify_binding(token, fp, binding) is True
-
-    def test_binding_fails_different_token(self):
-        from aquilia.auth.hardening import RequestFingerprint, TokenBinder
-
-        binder = TokenBinder(secret="test-secret")
-        fp = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-
-        binding = binder.create_binding("token-1", fp)
-        assert binder.verify_binding("token-2", fp, binding) is False
-
-    def test_binding_fails_different_fingerprint(self):
-        from aquilia.auth.hardening import RequestFingerprint, TokenBinder
-
-        binder = TokenBinder(secret="test-secret")
-        fp1 = RequestFingerprint(ip_hash="a", ua_hash="b", accept_hash="c")
-        fp2 = RequestFingerprint(ip_hash="x", ua_hash="y", accept_hash="z")
-
-        binding = binder.create_binding("token", fp1)
-        assert binder.verify_binding("token", fp2, binding) is False
 
 
 class TestSecureTokenGeneration:
     """Test secure token utilities."""
 
     def test_generate_secure_token(self):
-        from aquilia.auth.hardening import generate_secure_token
+        from aquilia.auth import generate_secure_token
 
         token = generate_secure_token()
         assert len(token) > 20
 
     def test_generate_opaque_id(self):
-        from aquilia.auth.hardening import generate_opaque_id
+        from aquilia.auth import generate_opaque_id
 
         oid = generate_opaque_id("usr")
         assert oid.startswith("usr_")
         assert len(oid) > 10
 
     def test_hash_token(self):
-        from aquilia.auth.hardening import hash_token
+        from aquilia.auth import hash_token
 
         h = hash_token("my-secret-token")
         assert len(h) == 64  # SHA-256 hex
         assert h == hash_token("my-secret-token")  # Deterministic
 
     def test_hash_sensitive(self):
-        from aquilia.auth.hardening import hash_sensitive
+        from aquilia.auth import hash_sensitive
 
         h = hash_sensitive("value", salt="salt")
         assert len(h) == 64
@@ -2212,11 +2017,9 @@ class TestTopLevelExports:
 
     def test_hardening_exports(self):
         from aquilia import (
-            CSRFProtection,
             constant_time_compare,
         )
 
-        assert CSRFProtection is not None
         assert constant_time_compare("a", "a") is True
 
     def test_condition_exports(self):
@@ -2298,13 +2101,6 @@ class TestEdgeCases:
         verdict = await engine.evaluate(c, identity, None, None)
         assert verdict.granted is True
 
-    def test_csrf_token_uniqueness(self):
-        from aquilia.auth.hardening import CSRFProtection
-
-        csrf = CSRFProtection(secret="test")
-        tokens = {csrf.generate_token() for _ in range(100)}
-        assert len(tokens) == 100  # All unique
-
     @pytest.mark.asyncio
     async def test_audit_trail_with_failing_store(self):
         from aquilia.auth.audit import AuditStore, AuditTrail
@@ -2316,13 +2112,6 @@ class TestEdgeCases:
         trail = AuditTrail(stores=[FailingStore()])
         # Should not raise
         await trail.login_success("user-1")
-
-    def test_fingerprint_from_minimal_request(self):
-        from aquilia.auth.hardening import RequestFingerprint
-
-        request = MagicMock(spec=[])  # No attributes
-        fp = RequestFingerprint.from_request(request)
-        assert fp.ip_hash  # Should still produce a hash (of empty string)
 
     @pytest.mark.asyncio
     async def test_audit_query_with_time_range(self):
@@ -2352,14 +2141,6 @@ class TestEdgeCases:
         )
         results = await store.query(since=t1 + 50)
         assert len(results) == 1
-
-    def test_security_headers_cache_control(self):
-        from aquilia.auth.hardening import SecurityHeaders
-
-        h = SecurityHeaders()
-        d = h.to_dict()
-        assert "no-store" in d["Cache-Control"]
-        assert "no-cache" in d["Pragma"]
 
     @pytest.mark.asyncio
     async def test_clearance_verdict_identity_id(self):
