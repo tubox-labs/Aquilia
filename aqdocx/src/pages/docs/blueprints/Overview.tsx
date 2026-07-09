@@ -598,21 +598,42 @@ class ProductBlueprint(Blueprint):
       </section>
 
       {/* What's next */}
-      <section className="mb-10">
+      <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-6 ${t('text-white','text-gray-900')}`}>Explore</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
           {[
-            { label: 'Facets', desc: 'Field type catalogue', href: '/docs/blueprints/facets', icon: Layers },
-            { label: 'Projections', desc: 'Named field subsets', href: '/docs/blueprints/projections', icon: GitBranch },
-            { label: 'Seals', desc: 'Validation rules', href: '/docs/blueprints/seals', icon: Shield },
-            { label: 'Lenses', desc: 'Value transformations', href: '/docs/blueprints/lenses', icon: Zap },
-            { label: 'Annotations', desc: 'Type-driven fields', href: '/docs/blueprints/annotations', icon: Binary },
-            { label: 'Integration', desc: 'Route & response binding', href: '/docs/blueprints/integration', icon: ArrowRight },
-          ].map(({ label, desc, href, icon: Icon }) => (
-            <Link key={href} to={href} className={`group p-4 rounded-xl border transition-colors ${t('border-gray-700/60 bg-gray-900 hover:border-aquilia-500/40','border-gray-200 bg-white hover:border-aquilia-400')}`}>
-              <Icon className={`w-4 h-4 mb-2 ${t('text-aquilia-400','text-aquilia-600')}`} />
-              <div className={`font-semibold text-sm ${t('text-white','text-gray-900')}`}>{label}</div>
-              <div className={`text-xs mt-0.5 ${t('text-gray-400','text-gray-500')}`}>{desc}</div>
+            { label: 'Facets', desc: 'Field type catalogue', href: '/docs/blueprints/facets', icon: Layers, index: '01' },
+            { label: 'Projections', desc: 'Named field subsets', href: '/docs/blueprints/projections', icon: GitBranch, index: '02' },
+            { label: 'Seals', desc: 'Validation rules', href: '/docs/blueprints/seals', icon: Shield, index: '03' },
+            { label: 'Lenses', desc: 'Value transformations', href: '/docs/blueprints/lenses', icon: Zap, index: '04' },
+            { label: 'Annotations', desc: 'Type-driven fields', href: '/docs/blueprints/annotations', icon: Binary, index: '05' },
+            { label: 'Integration', desc: 'Route & response binding', href: '/docs/blueprints/integration', icon: ArrowRight, index: '06' },
+          ].map(({ label, desc, href, icon: Icon, index }) => (
+            <Link 
+              key={href} 
+              to={href} 
+              className={`flex items-start gap-4 py-3 group border-b transition-colors ${
+                t('border-zinc-800/40 hover:border-aquilia-400', 'border-gray-150 hover:border-aquilia-500')
+              }`}
+            >
+              <span className={`text-[9px] font-mono font-medium ${t('text-zinc-650', 'text-gray-400')} pt-0.5`}>
+                {index}
+              </span>
+              <div className="flex-1">
+                <div className="flex items-center gap-1.5">
+                  <Icon className={`w-3.5 h-3.5 transition-colors ${
+                    t('text-zinc-500 group-hover:text-aquilia-400', 'text-gray-400 group-hover:text-aquilia-500')
+                  }`} />
+                  <span className={`font-semibold text-sm transition-transform duration-200 group-hover:translate-x-1 ${
+                    t('text-white', 'text-gray-900')
+                  }`}>
+                    {label}
+                  </span>
+                </div>
+                <div className={`text-xs mt-1 font-light ${t('text-zinc-500', 'text-gray-500')}`}>
+                  {desc}
+                </div>
+              </div>
             </Link>
           ))}
         </div>
