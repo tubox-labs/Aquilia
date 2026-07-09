@@ -79,11 +79,26 @@ class SessionEngine:
         request: Request,
         container: Container | None = None,
     ) -> Session:
-        """
-        Resolve session for request (Phase 1-4).
+        """Resolve the session for an incoming request (Phase 1-4 of session lifecycle).
+
+        Extracts the session ID from the request using the configured transport
+        mechanism (cookies or headers), loads the session data from the store,
+        verifies its validity (expiration, timeouts, fingerprint), and registers
+        it into the DI container if one is provided. If no valid session exists,
+        creates a new, anonymous session.
+
+        Args:
+            request: The incoming HTTP request.
+            container: Optional DI container to bind the resolved session into.
 
         Returns:
-            Valid session (existing or new)
+            A valid ``Session`` instance (either loaded and updated, or a fresh new one).
+
+        Example::
+
+            session = await session_engine.resolve(request, container)
+            if session.is_authenticated:
+                print(f"Logged in user: {session.principal.id}")
         """
         now = datetime.now(timezone.utc)
 

@@ -429,24 +429,40 @@ class AuthManager:
         session_id: str | None = None,
         client_metadata: dict[str, Any] | None = None,
     ) -> AuthResult:
-        """
-        Authenticate using username/password.
+        """Verify username and password credentials to issue tokens.
+
+        First checks the IP and username-based rate limits to prevent brute-force
+        attacks. If verified, resolves the identity and verifies the password hash
+        using the configured ``PasswordHasher``. Finally, issues appropriate JWT
+        access and opaque refresh tokens.
 
         Args:
-            username: Username or email
-            password: Plain text password
-            scopes: Requested scopes as SessionScope/string or collection of values
-            session_id: Optional session ID to bind token to
-            client_metadata: Client info (IP, user agent, etc.)
+            username: The unique identifier (username, email, phone number, etc.).
+            password: The raw password submitted by the user.
+            scopes: Scopes requested for the session or token.
+            session_id: Optional session identifier to bind the issued token to.
+            client_metadata: Optional dict of client-specific context like IP or User-Agent.
 
         Returns:
-            AuthResult with tokens
+            An ``AuthResult`` instance containing the identity, access token, and refresh token.
 
         Raises:
-            AUTH_INVALID_CREDENTIALS: Invalid username or password
-            AUTH_ACCOUNT_LOCKED: Too many failed attempts
-            AUTH_ACCOUNT_SUSPENDED: Account is suspended
-            AUTH_MFA_REQUIRED: MFA verification needed
+            AUTH_INVALID_CREDENTIALS: If the password check fails or the username does not exist.
+            AUTH_ACCOUNT_LOCKED: If brute-force rate limit bounds are breached.
+            AUTH_ACCOUNT_SUSPENDED: If the identity status is marked as suspended.
+            AUTH_MFA_REQUIRED: If multi-factor auth is required but not yet completed.
+
+        Example::
+
+            try:
+                auth_result = await auth_manager.authenticate_password(
+                    username="user@example.com",
+                    password="my_secure_password",
+                    scopes=["read", "write"]
+                )
+                print(f"Logged in: {auth_result.identity.id}")
+            except AUTH_INVALID_CREDENTIALS:
+                print("Invalid username or password")
         """
         username = self._normalize_username_identifier(username, key="auth.authenticate_password.username")
         self._validate_password_input(password, key="auth.authenticate_password.password")
@@ -841,21 +857,34 @@ class AuthManager:
         | set[SessionScope | str]
         | None = None,
     ) -> AuthResult:
-        """
-        Authenticate using API key.
+        """Authenticate using an API key string and verify its scopes.
+
+        Validates the key's signature/hash, checks if the key is active, expired,
+        or revoked, and validates if it holds all requested scopes.
 
         Args:
-            api_key: API key string
-            required_scopes: Scopes required for this request as SessionScope/string or collection of values
+            api_key: The raw API key string (e.g., "ak_live_...").
+            required_scopes: Scopes required for this request as SessionScope/string or collection of values.
 
         Returns:
-            AuthResult with identity and scopes
+            An ``AuthResult`` containing the bound identity and key scopes.
 
         Raises:
-            AUTH_INVALID_CREDENTIALS: Invalid API key
-            AUTH_KEY_EXPIRED: API key has expired
-            AUTH_KEY_REVOKED: API key has been revoked
-            AUTH_INSUFFICIENT_SCOPE: Missing required scopes
+            AUTH_INVALID_CREDENTIALS: If the API key is invalid or prefix lookup fails.
+            AUTH_KEY_EXPIRED: If the API key's expiration date has passed.
+            AUTH_KEY_REVOKED: If the API key was explicitly revoked.
+            AUTHZ_INSUFFICIENT_SCOPE: If the key does not hold all required scopes.
+
+        Example::
+
+            try:
+                auth_result = await auth_manager.authenticate_api_key(
+                    api_key="ak_live_abcdef123...",
+                    required_scopes=["read:reports"]
+                )
+                print(f"Authenticated key for identity: {auth_result.identity.id}")
+            except AUTH_INVALID_CREDENTIALS:
+                print("Invalid API key")
         """
         # Extract prefix (first 8 chars)
         if len(api_key) < 8:
