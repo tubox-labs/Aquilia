@@ -1,6 +1,8 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Workflow } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Workflow } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function EffectsDBTx() {
@@ -8,129 +10,98 @@ export function EffectsDBTx() {
   const isDark = theme === 'dark'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Workflow className="w-4 h-4" />
-          Effects / DBTx
+          <span>EFFECTS / DBTX</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Database Transaction Effect
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Database Transaction Effect
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-400">DBTx</code> is a typed effect that represents a database transaction capability. Handlers declare whether they need read or write access, and the <code className="text-aquilia-400">DBTxProvider</code> manages connection pool acquisition, commits, and rollbacks automatically.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The <code className="text-aquilia-500">DBTx</code> effect manages database transactions. It enforces connection pool acquisition before handlers run, committing or rolling back based on the request's success.
         </p>
       </div>
 
-      {/* DBTx Effect */}
+      {/* Mode Syntax */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Effect Token</h2>
-        <CodeBlock language="python" filename="dbtx.py">{`from aquilia.effects import DBTx, EffectKind
-
-# DBTx is a typed effect with mode support
-read_tx = DBTx(mode="read")    # Read-only transaction
-write_tx = DBTx(mode="write")  # Read-write transaction
-
-# Bracket syntax
-DBTx["read"]    # Read-only
-DBTx["write"]   # Read-write
-
-# Properties
-print(read_tx.name)    # "DBTx"
-print(read_tx.kind)    # EffectKind.DB
-print(read_tx.mode)    # "read"`}</CodeBlock>
-      </section>
-
-      {/* DBTxProvider */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>DBTxProvider</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The provider manages the full lifecycle of database transactions: pool initialization, connection acquisition per-request, and commit/rollback on release.
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Token Mode Configuration</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Database transactions can be declared using mode parameters. Using Python's class indexing syntax, you can request read-only or read-write capabilities:
         </p>
-        <CodeBlock language="python" filename="provider.py">{`from aquilia.effects import DBTxProvider, EffectRegistry
 
-# Create provider with connection string
-provider = DBTxProvider(connection_string="sqlite:///db.sqlite3")
-
-# Register with effect registry
-registry = EffectRegistry()
-registry.register("DBTx", provider)
-
-# Lifecycle
-await registry.initialize_all()  # Creates connection pool
-
-# Per-request usage (handled automatically by the framework)
-resource = await provider.acquire(mode="read")
-# resource = {"connection": ..., "mode": "read", "transaction": ...}
-
-# On success → commit
-await provider.release(resource, success=True)
-
-# On failure → rollback
-await provider.release(resource, success=False)`}</CodeBlock>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 text-sm">
+          <div className="border-l-2 border-aquilia-500/20 pl-6 py-2">
+            <code className="text-white text-xs font-mono font-bold block mb-1">DBTx["read"]</code>
+            <p className="text-gray-400 leading-relaxed">
+              Acquires a connection from the pool but configures it in read-only mode (optimizing read performance and safety).
+            </p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/20 pl-6 py-2">
+            <code className="text-white text-xs font-mono font-bold block mb-1">DBTx["write"]</code>
+            <p className="text-gray-400 leading-relaxed">
+              Acquires a connection and starts a transaction. Automatically executes a SQL <code className="text-white">COMMIT</code> on success or <code className="text-white">ROLLBACK</code> on error.
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* EffectRegistry */}
+      {/* DBTxHandle API */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>EffectRegistry</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Central registry for all effect providers. Integrates with DI for lifecycle management.
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Using DBTxHandle</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          When acquired, the resource injected into the context is an instance of <DocTerm id="effects.DBTxHandle">DBTxHandle</DocTerm>. While it inherits from <code className="text-aquilia-400">dict</code> to keep metadata accessible, it wraps connection execution directly with async helper methods:
         </p>
-        <CodeBlock language="python" filename="registry.py">{`from aquilia.effects import EffectRegistry, DBTxProvider, CacheProvider
 
-registry = EffectRegistry()
-registry.register("DBTx", DBTxProvider("sqlite:///db.sqlite3"))
-registry.register("Cache", CacheProvider("memory"))
-
-# Check availability
-registry.has_effect("DBTx")       # True
-registry.has_effect("Queue")      # False
-
-# Get provider
-provider = registry.get_provider("DBTx")
-
-# DI integration
-registry.register_with_container(container)
-
-# Lifecycle hooks (called by server)
-await registry.startup()     # initialize_all
-await registry.shutdown()    # finalize_all`}</CodeBlock>
+        <div className="space-y-4 mb-8 text-sm text-gray-400">
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.execute(sql, params=None)</code> — Runs a query (insert/update/delete) and returns the raw cursor.
+          </div>
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.fetch_all(sql, params=None)</code> — Runs a select query and returns a list of dictionaries representing matching rows.
+          </div>
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.fetch_val(sql, params=None)</code> — Executes a select query and returns the value of the first column in the first row.
+          </div>
+          <div className="pb-2">
+            <code className="text-white text-xs font-mono">await handle.execute_many(sql, params_list)</code> — Optimizes batch operations by running parameter lists against a single query.
+          </div>
+        </div>
       </section>
 
-      {/* Effect Base Class */}
+      {/* Code Example */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Custom Effects</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Extend <code className="text-aquilia-400">Effect</code> and <code className="text-aquilia-400">EffectProvider</code> to create custom effects.
-        </p>
-        <CodeBlock language="python" filename="custom.py">{`from aquilia.effects import Effect, EffectProvider, EffectKind
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Code Implementation</h2>
+        <CodeBlock language="python" filename="dbtx_usage.py" highlightLines={[6, 9, 13]}>{`class UserController(Controller):
+    effects = [DBTx["write"]]
 
-class StorageEffect(Effect):
-    """Object storage effect."""
-    def __init__(self, bucket: str = "default"):
-        super().__init__("Storage", mode=bucket, kind=EffectKind.STORAGE)
-
-class S3StorageProvider(EffectProvider):
-    def __init__(self, bucket: str, region: str):
-        self.bucket = bucket
-        self.region = region
-
-    async def initialize(self):
-        # Create S3 client
-        ...
-
-    async def acquire(self, mode=None):
-        # Return S3 handle for the bucket
-        return S3Handle(self.client, mode or self.bucket)
-
-    async def release(self, resource, success=True):
-        # Nothing to release for S3
-        pass`}</CodeBlock>
+    @Post("/")
+    async def create_user(self, ctx):
+        body = await ctx.json()
+        
+        # 1. Execute SQL inside transaction scope
+        await ctx.effects.db.execute(
+            "INSERT INTO users (username, email) VALUES (?, ?)",
+            (body["username"], body["email"])
+        )
+        
+        # 2. Fetch the newly inserted identifier
+        user_id = await ctx.effects.db.fetch_val("SELECT last_insert_rowid()")
+        return ctx.json({"id": user_id}, status=201)`}</CodeBlock>
       </section>
-    
+
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <Link to="/docs/effects/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Overview
+        </Link>
+        <Link to="/docs/effects/cache" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Cache Effect <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
       <NextSteps />
     </div>
   )
