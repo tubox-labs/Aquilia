@@ -248,6 +248,10 @@ import { SSEStandardEvents } from './pages/docs/sse/StandardEvents'
 import { SSETextJsonStreams } from './pages/docs/sse/TextJsonStreams'
 import { SSEOpenAIStreaming } from './pages/docs/sse/OpenAIStreaming'
 import { SSEResourceManagement } from './pages/docs/sse/ResourceManagement'
+import { SigningOverview } from './pages/docs/signing/Overview'
+import { SigningSigners } from './pages/docs/signing/Signers'
+import { SigningSpecialized } from './pages/docs/signing/Specialized'
+import { SigningAdvanced } from './pages/docs/signing/Advanced'
 
 
 // Aquilary
@@ -529,6 +533,14 @@ export default function App() {
           <Route path="sse/streams" element={<SSETextJsonStreams />} />
           <Route path="sse/openai" element={<SSEOpenAIStreaming />} />
           <Route path="sse/resources" element={<SSEResourceManagement />} />
+
+          {/* Cryptographic Signing */}
+          <Route path="signing" element={<SigningOverview />} />
+          <Route path="signing/overview" element={<SigningOverview />} />
+          <Route path="signing/signers" element={<SigningSigners />} />
+          <Route path="signing/specialized" element={<SigningSpecialized />} />
+          <Route path="signing/advanced" element={<SigningAdvanced />} />
+
 
 
           {/* Faults */}

@@ -49,6 +49,10 @@ import { SSEStandardEvents } from './docs/sse/StandardEvents'
 import { SSETextJsonStreams } from './docs/sse/TextJsonStreams'
 import { SSEOpenAIStreaming } from './docs/sse/OpenAIStreaming'
 import { SSEResourceManagement } from './docs/sse/ResourceManagement'
+import { SigningOverview } from './docs/signing/Overview'
+import { SigningSigners } from './docs/signing/Signers'
+import { SigningSpecialized } from './docs/signing/Specialized'
+import { SigningAdvanced } from './docs/signing/Advanced'
 import { AquilaryOverview } from './docs/aquilary/Overview'
 import { AquilaryManifest } from './docs/aquilary/Manifest'
 import { AquilaryRuntime } from './docs/aquilary/Runtime'
@@ -140,6 +144,10 @@ export function PrintAllDocs() {
         <div className="print-page-break"><SSETextJsonStreams /></div>
         <div className="print-page-break"><SSEOpenAIStreaming /></div>
         <div className="print-page-break"><SSEResourceManagement /></div>
+        <div className="print-page-break"><SigningOverview /></div>
+        <div className="print-page-break"><SigningSigners /></div>
+        <div className="print-page-break"><SigningSpecialized /></div>
+        <div className="print-page-break"><SigningAdvanced /></div>
         <div className="print-page-break"><EffectsDBTx /></div>
         <div className="print-page-break"><EffectsCacheEffect /></div>
         <div className="print-page-break"><EffectsQueueEffect /></div>
