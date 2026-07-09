@@ -15,13 +15,13 @@ export function EffectsOverview() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Zap className="w-4 h-4" />
-          <span>ADVANCED / EFFECTS SYSTEM</span>
+          <span>EFFECTS &amp; FLOW / OVERVIEW</span>
         </div>
         <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Effects &amp; Composable Capabilities
+          Effects &amp; Flow System
         </h1>
         <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The Effects system provides a declarative way to request side-effects (database transactions, caching, message queues, HTTP requests, or storage access). Rather than invoking hardcoded dependencies, handlers request capability tokens, which the <DocTerm id="effects.EffectRegistry">EffectRegistry</DocTerm> resolves at request time.
+          The Effects &amp; Flow system provides a declarative way to request side-effects (database transactions, caching, message queues, HTTP requests, or storage access) and chain them into typed, composable pipelines. Rather than invoking hardcoded dependencies, handlers declare capability tokens, which the <DocTerm id="effects.EffectRegistry">EffectRegistry</DocTerm> resolves per-request.
         </p>
       </div>
 
@@ -286,6 +286,9 @@ class CorporateOrderIngestController(Controller):
           <p>
             Aquilia integrates an Effect-TS inspired <DocTerm id="effects.Layer">Layer</DocTerm> class that facilitates modular initialization. Layers specify setup factories and declare explicit dependencies. The runtime resolves the full dependency graph topologically at startup.
           </p>
+          <p>
+            For a detailed guide on managing initialization layers, composing them, and acquiring resources outside of HTTP paths, see the dedicated <Link to="/docs/effects/layers" className="text-aquilia-400 hover:underline font-medium">Layers &amp; Compositions</Link> reference.
+          </p>
         </div>
 
         <CodeBlock language="python" filename="effects_layers.py" highlightLines={[9, 15, 20]}>{`from aquilia.flow import Layer
@@ -318,8 +321,8 @@ app_layer = Layer.merge(db_layer, cache_layer)`}</CodeBlock>
         <Link to="/docs/aquilary/fingerprint" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Fingerprinting
         </Link>
-        <Link to="/docs/effects/dbtx" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
-          DBTx Effect <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/effects/pipelines" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Flow Pipelines <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 
