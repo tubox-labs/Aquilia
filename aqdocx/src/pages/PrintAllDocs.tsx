@@ -34,13 +34,16 @@ import { FaultsEngine } from './docs/faults/Engine'
 import { FaultsHandlers } from './docs/faults/Handlers'
 import { CacheOverview } from './docs/cache/Overview'
 import { HTTPOverview } from './docs/http/Overview'
-import { EffectsOverview } from './docs/effects/Overview'
-import { EffectsDBTx } from './docs/effects/DBTx'
-import { EffectsCacheEffect } from './docs/effects/CacheEffect'
-import { EffectsQueueEffect } from './docs/effects/QueueEffect'
-import { EffectsHTTPEffect } from './docs/effects/HTTPEffect'
-import { EffectsStorageEffect } from './docs/effects/StorageEffect'
-import { EffectsCustomEffects } from './docs/effects/CustomEffects'
+import { EffectsOverview } from './docs/subsystem/Overview'
+import { EffectsDBTx } from './docs/subsystem/DBTx'
+import { EffectsCacheEffect } from './docs/subsystem/CacheEffect'
+import { EffectsQueueEffect } from './docs/subsystem/QueueEffect'
+import { EffectsHTTPEffect } from './docs/subsystem/HTTPEffect'
+import { EffectsStorageEffect } from './docs/subsystem/StorageEffect'
+import { EffectsCustomEffects } from './docs/subsystem/CustomEffects'
+import { FlowPipelines } from './docs/subsystem/Pipelines'
+import { FlowContextNodes } from './docs/subsystem/ContextNodes'
+import { FlowLayers } from './docs/subsystem/Layers'
 import { AquilaryOverview } from './docs/aquilary/Overview'
 import { AquilaryManifest } from './docs/aquilary/Manifest'
 import { AquilaryRuntime } from './docs/aquilary/Runtime'
@@ -124,6 +127,9 @@ export function PrintAllDocs() {
         <div className="print-page-break"><CacheOverview /></div>
         <div className="print-page-break"><HTTPOverview /></div>
         <div className="print-page-break"><EffectsOverview /></div>
+        <div className="print-page-break"><FlowPipelines /></div>
+        <div className="print-page-break"><FlowContextNodes /></div>
+        <div className="print-page-break"><FlowLayers /></div>
         <div className="print-page-break"><EffectsDBTx /></div>
         <div className="print-page-break"><EffectsCacheEffect /></div>
         <div className="print-page-break"><EffectsQueueEffect /></div>

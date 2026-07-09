@@ -13,7 +13,7 @@ export function EffectsBuiltIn() {
       description: "Lease connections from the core application pool. Enforces transactional safety with automatic commits and rollbacks based on request outcomes.",
       token: "DBTx",
       provider: "DBTxProvider",
-      link: "/docs/effects/dbtx",
+      link: "/docs/subsystem/dbtx",
       icon: Database,
       accent: "from-emerald-500/20 to-teal-500/20"
     },
@@ -22,7 +22,7 @@ export function EffectsBuiltIn() {
       description: "Partition caching operations by namespace to prevent key overlap. Connects directly to Redis or Memcached, with dict fallbacks.",
       token: "CacheEffect",
       provider: "CacheProvider",
-      link: "/docs/effects/cache",
+      link: "/docs/subsystem/cache",
       icon: RefreshCw,
       accent: "from-green-500/20 to-emerald-500/20"
     },
@@ -31,7 +31,7 @@ export function EffectsBuiltIn() {
       description: "Publish events to brokers like RabbitMQ/Redis Streams or bridge with task workers to enqueue asynchronous background jobs.",
       token: "QueueEffect",
       provider: "QueueProvider / TaskQueueProvider",
-      link: "/docs/effects/queue",
+      link: "/docs/subsystem/queue",
       icon: Send,
       accent: "from-blue-500/20 to-indigo-500/20"
     },
@@ -40,7 +40,7 @@ export function EffectsBuiltIn() {
       description: "Acquire pooled outbound HTTP client sessions with base URLs, headers, and request timeouts managed at the framework level.",
       token: "HTTPEffect",
       provider: "HTTPProvider",
-      link: "/docs/effects/http",
+      link: "/docs/subsystem/http",
       icon: Globe,
       accent: "from-sky-500/20 to-blue-500/20"
     },
@@ -49,7 +49,7 @@ export function EffectsBuiltIn() {
       description: "Abstract cloud object buckets and local filesystem paths behind a standard read/write interface for uploads and media assets.",
       token: "StorageEffect",
       provider: "StorageProvider",
-      link: "/docs/effects/storage",
+      link: "/docs/subsystem/storage",
       icon: HardDrive,
       accent: "from-violet-500/20 to-purple-500/20"
     }
@@ -119,7 +119,7 @@ export function EffectsBuiltIn() {
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/effects/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+        <Link to="/docs/subsystem/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Overview
         </Link>
         <span />

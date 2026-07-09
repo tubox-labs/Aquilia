@@ -76,8 +76,8 @@ print(f"Active Fingerprint: {fingerprint}")
         <Link to="/docs/aquilary/runtime" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Runtime Registry
         </Link>
-        <Link to="/docs/effects" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
-          Effects System <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/subsystem" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Subsystem Overview <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
 

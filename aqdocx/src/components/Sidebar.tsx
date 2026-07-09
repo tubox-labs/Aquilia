@@ -287,19 +287,19 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'Effects & Flow System', path: '/docs/effects', icon: <Workflow className="w-3.5 h-3.5" />,
+        label: 'Subsystem', path: '/docs/subsystem', icon: <Workflow className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Overview', path: '/docs/effects/overview' },
-          { label: 'Flow Pipelines', path: '/docs/effects/pipelines' },
-          { label: 'Flow Context & Nodes', path: '/docs/effects/context-nodes' },
-          { label: 'Layers & Compositions', path: '/docs/effects/layers' },
-          { label: 'Built-in Effects', path: '/docs/effects/built-in' },
-          { label: 'DBTx Effect', path: '/docs/effects/dbtx' },
-          { label: 'Cache Effect', path: '/docs/effects/cache' },
-          { label: 'Queue & Task Effects', path: '/docs/effects/queue' },
-          { label: 'HTTP Client Effect', path: '/docs/effects/http' },
-          { label: 'Storage Effect', path: '/docs/effects/storage' },
-          { label: 'Custom Effects', path: '/docs/effects/custom' },
+          { label: 'Overview', path: '/docs/subsystem/overview' },
+          { label: 'Flow Pipelines', path: '/docs/subsystem/pipelines' },
+          { label: 'Flow Context & Nodes', path: '/docs/subsystem/context-nodes' },
+          { label: 'Layers & Compositions', path: '/docs/subsystem/layers' },
+          { label: 'Built-in Effects', path: '/docs/subsystem/built-in' },
+          { label: 'DBTx Effect', path: '/docs/subsystem/dbtx' },
+          { label: 'Cache Effect', path: '/docs/subsystem/cache' },
+          { label: 'Queue & Task Effects', path: '/docs/subsystem/queue' },
+          { label: 'HTTP Client Effect', path: '/docs/subsystem/http' },
+          { label: 'Storage Effect', path: '/docs/subsystem/storage' },
+          { label: 'Custom Effects', path: '/docs/subsystem/custom' },
         ]
       },
       {

@@ -164,7 +164,7 @@ class SlackNotificationController(Controller):
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/effects/storage" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+        <Link to="/docs/subsystem/storage" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Storage Effect
         </Link>
         <span />

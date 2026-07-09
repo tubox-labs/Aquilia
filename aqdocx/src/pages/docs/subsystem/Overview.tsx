@@ -15,13 +15,13 @@ export function EffectsOverview() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Zap className="w-4 h-4" />
-          <span>EFFECTS &amp; FLOW / OVERVIEW</span>
+          <span>SUBSYSTEM / OVERVIEW</span>
         </div>
         <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Effects &amp; Flow System
+          Subsystem Overview
         </h1>
         <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The Effects &amp; Flow system provides a declarative way to request side-effects (database transactions, caching, message queues, HTTP requests, or storage access) and chain them into typed, composable pipelines. Rather than invoking hardcoded dependencies, handlers declare capability tokens, which the <DocTerm id="effects.EffectRegistry">EffectRegistry</DocTerm> resolves per-request.
+          The Subsystem is a unified, strongly-typed architecture combining composable execution flows and declarative capability effects. It compiles request-handling steps into pipelines while lazily resolving infrastructure requirements (like databases or caches) on-demand through an extensible registry.
         </p>
       </div>
 
@@ -40,9 +40,9 @@ export function EffectsOverview() {
 
       {/* Architecture Diagram Section */}
       <section className="mb-16">
-        <h2 className="text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6">Request Lifecycle Architecture</h2>
+        <h2 className="text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6">Request Lifecycle &amp; Flow Architecture</h2>
         <p className={`mb-8 font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The diagram below illustrates how an incoming request flows through the middleware stack, resolving capability requirements lazily through the registry proxy, and releasing resources safely.
+          The diagram below illustrates how an incoming request flows through the compiled Flow pipeline phases, resolving capability requirements lazily through the registry proxy, and releasing resources safely.
         </p>
 
         {/* Premium SVG Flow-Based Architecture Diagram */}
@@ -73,19 +73,20 @@ export function EffectsOverview() {
             </defs>
 
             {/* Glowing Halos Behind Nodes */}
-            <circle cx="80" cy="160" r="50" fill="url(#glow1)" />
-            <circle cx="240" cy="100" r="50" fill="url(#glow1)" />
-            <circle cx="400" cy="80" r="50" fill="url(#glow2)" />
-            <circle cx="560" cy="220" r="50" fill="url(#glow2)" />
-            <circle cx="720" cy="180" r="50" fill="url(#glow3)" />
-            <circle cx="840" cy="160" r="50" fill="url(#glow1)" />
+            <circle cx="70" cy="160" r="50" fill="url(#glow1)" />
+            <circle cx="190" cy="100" r="50" fill="url(#glow1)" />
+            <circle cx="310" cy="80" r="50" fill="url(#glow2)" />
+            <circle cx="430" cy="220" r="50" fill="url(#glow2)" />
+            <circle cx="550" cy="180" r="50" fill="url(#glow3)" />
+            <circle cx="670" cy="120" r="50" fill="url(#glow3)" />
+            <circle cx="810" cy="160" r="50" fill="url(#glow1)" />
 
             {/* Connecting Wave Lines (Bundle of Light Fibers) */}
-            <path d="M 80 160 C 160 160, 160 100, 240 100 C 320 100, 320 80, 400 80 C 480 80, 480 220, 560 220 C 640 220, 640 180, 720 180 C 800 180, 800 160, 840 160" fill="none" stroke="url(#waveGrad)" strokeWidth="4.5" strokeLinecap="round" />
-            <path d="M 80 160 C 160 160, 160 100, 240 100 C 320 100, 320 80, 400 80 C 480 80, 480 220, 560 220 C 640 220, 640 180, 720 180 C 800 180, 800 160, 840 160" fill="none" stroke="#ffffff" strokeWidth="1" strokeOpacity="0.25" strokeDasharray="4 8" strokeLinecap="round" />
+            <path d="M 70 160 C 130 160, 130 100, 190 100 C 250 100, 250 80, 310 80 C 370 80, 370 220, 430 220 C 490 220, 490 180, 550 180 C 610 180, 610 120, 670 120 C 730 120, 750 160, 810 160" fill="none" stroke="url(#waveGrad)" strokeWidth="4.5" strokeLinecap="round" />
+            <path d="M 70 160 C 130 160, 130 100, 190 100 C 250 100, 250 80, 310 80 C 370 80, 370 220, 430 220 C 490 220, 490 180, 550 180 C 610 180, 610 120, 670 120 C 730 120, 750 160, 810 160" fill="none" stroke="#ffffff" strokeWidth="1" strokeOpacity="0.25" strokeDasharray="4 8" strokeLinecap="round" />
 
             {/* Node 1: Request Inbound */}
-            <g transform="translate(80, 160)">
+            <g transform="translate(70, 160)">
               <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#22c55e" strokeWidth="2.5" filter="url(#glowFilter)" />
               <circle cx="0" cy="0" r="4" fill="#22c55e" />
               <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">HTTP REQUEST</text>
@@ -93,43 +94,51 @@ export function EffectsOverview() {
             </g>
 
             {/* Node 2: FlowContext creation */}
-            <g transform="translate(240, 100)">
+            <g transform="translate(190, 100)">
               <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#22c55e" strokeWidth="2.5" filter="url(#glowFilter)" />
               <circle cx="0" cy="0" r="4" fill="#22c55e" />
               <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">FLOWCONTEXT</text>
               <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Scoped container</text>
             </g>
 
-            {/* Node 3: Discovery */}
-            <g transform="translate(400, 80)">
+            {/* Node 3: Guards */}
+            <g transform="translate(310, 80)">
               <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#3b82f6" strokeWidth="2.5" filter="url(#glowFilter)" />
               <circle cx="0" cy="0" r="4" fill="#3b82f6" />
-              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">@REQUIRES SCAN</text>
-              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Discovery phase</text>
+              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">GUARDS</text>
+              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Auth &amp; validation</text>
             </g>
 
-            {/* Node 4: Lazy Acquisition */}
-            <g transform="translate(560, 220)">
+            {/* Node 4: Transforms */}
+            <g transform="translate(430, 220)">
               <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#3b82f6" strokeWidth="2.5" filter="url(#glowFilter)" />
               <circle cx="0" cy="0" r="4" fill="#3b82f6" />
-              <text x="0" y="-24" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">LAZY ACQUISITION</text>
-              <text x="0" y="-12" textAnchor="middle" fontSize="8" fill="#71717a">Registry session lease</text>
+              <text x="0" y="-24" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">TRANSFORMS</text>
+              <text x="0" y="-12" textAnchor="middle" fontSize="8" fill="#71717a">Payload molding</text>
             </g>
 
-            {/* Node 5: Controller Execute */}
-            <g transform="translate(720, 180)">
+            {/* Node 5: Effect Acquisition */}
+            <g transform="translate(550, 180)">
               <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#a855f7" strokeWidth="2.5" filter="url(#glowFilter)" />
               <circle cx="0" cy="0" r="4" fill="#a855f7" />
-              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">CONTROLLER RUN</text>
-              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Leased handles bound</text>
+              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">EFFECT LEASE</text>
+              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Lazy acquisition</text>
             </g>
 
-            {/* Node 6: Release */}
-            <g transform="translate(840, 160)">
+            {/* Node 6: Primary Handler */}
+            <g transform="translate(670, 120)">
+              <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#a855f7" strokeWidth="2.5" filter="url(#glowFilter)" />
+              <circle cx="0" cy="0" r="4" fill="#a855f7" />
+              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">PIPELINE HANDLER</text>
+              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Core execution</text>
+            </g>
+
+            {/* Node 7: Hooks & Safe Release */}
+            <g transform="translate(810, 160)">
               <circle cx="0" cy="0" r="10" fill={isDark ? "#02040a" : "#ffffff"} stroke="#22c55e" strokeWidth="2.5" filter="url(#glowFilter)" />
               <circle cx="0" cy="0" r="4" fill="#22c55e" />
-              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">SAFE RELEASE</text>
-              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Commit / Rollback</text>
+              <text x="0" y="32" textAnchor="middle" fontSize="10" fill={isDark ? "#e4e4e7" : "#1f2937"} fontWeight="bold">DISPOSAL &amp; HOOKS</text>
+              <text x="0" y="44" textAnchor="middle" fontSize="8" fill="#71717a">Commit / Rollback LIFO</text>
             </g>
           </svg>
         </div>
@@ -226,26 +235,66 @@ class CorporateOrderIngestController(Controller):
             </div>
           </div>
           <p>
-            When a request comes in:
+            When a request comes in, the Flow pipeline resolves capability requirements dynamically, executes guards and transforms, matches scope permissions, and disposes of transactions on request completion.
           </p>
-          <ol className="list-decimal list-inside space-y-3 pl-2">
-            <li>
-              The middleware detects the capabilities needed by checking <code className="text-white">__flow_effects__</code> on the handler method.
-            </li>
-            <li>
-              It calls <code className="text-white">await registry.acquire(name, mode)</code>. The provider sets up any connection or client state, returning a scoped handle.
-            </li>
-            <li>
-              Handles are bound to the request's <code className="text-white">state["effects"]</code> dictionary.
-            </li>
-            <li>
-              If the request completes successfully, the middleware invokes <code className="text-white">await registry.release(name, resource, success=True)</code>.
-            </li>
-            <li>
-              If an exception is raised, it catches it and invokes <code className="text-white">await registry.release(name, resource, success=False)</code> (guaranteeing that database transactions are rolled back), before re-raising the error to be handled by the Fault system.
-            </li>
-          </ol>
         </div>
+      </section>
+
+      {/* Advanced Flow Pipelines and Compositions */}
+      <section className="mb-16">
+        <h2 className="text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6">Flow Pipeline Architecture &amp; Compositions</h2>
+        <div className={`space-y-6 font-light leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-8`}>
+          <p>
+            The Flow system enables you to chain independent callable logic blocks (guards, transforms, handlers, and hooks) into a single execution path. By leveraging the bitwise OR (<code className="text-white">|</code>) operator, you can compose pipelines dynamically, merging reusable middleware blocks with handler nodes.
+          </p>
+          <p>
+            Each phase receives a structured <DocTerm id="effects.FlowContext">FlowContext</DocTerm> containing the request, DI scope, and acquired capability effects:
+          </p>
+        </div>
+
+        <CodeBlock language="python" filename="flow_pipelines_advanced.py" highlightLines={[12, 19, 26, 32, 33, 40]}>{`from aquilia.flow import pipeline, FlowContext, requires
+from aquilia.response import Response
+
+# 1. Custom Security Guard Node
+async def check_api_clearance(ctx: FlowContext) -> bool | Response:
+    clearance = ctx.request.headers.get("X-Clearance-Level")
+    if not clearance or int(clearance) < 3:
+        # Returning a Response immediately short-circuits the pipeline
+        return Response.json({"error": "Insufficient Clearance Level"}, status=403)
+    ctx.state["clearance_level"] = int(clearance)
+    return True
+
+# 2. Reusable State Transformation Node
+async def enrich_payload(ctx: FlowContext) -> FlowContext:
+    body = await ctx.request.json()
+    ctx.state["raw_payload"] = body
+    ctx.state["processed_at"] = time.time()
+    return ctx
+
+# 3. Main Request Handler (Requires Database Capability)
+@requires("DBTx")
+async def persist_audit_log(ctx: FlowContext) -> dict:
+    db = ctx.get_effect("DBTx")
+    payload = ctx.state["raw_payload"]
+    
+    log_id = await db.fetch_val(
+        "INSERT INTO audit_logs (level, data) VALUES (?, ?) RETURNING id",
+        (ctx.state["clearance_level"], str(payload))
+    )
+    return {"log_id": log_id, "status": "persisted"}
+
+# 4. Compose pipelines using the '|' operator
+security_pipeline = pipeline("security").guard(check_api_clearance, priority=10)
+enrich_pipeline = pipeline("enrich").transform(enrich_payload)
+
+full_pipeline = security_pipeline | enrich_pipeline | pipeline("action").handler(persist_audit_log)
+
+# 5. Execution and outcome inspection
+result = await full_pipeline.execute(flow_context, effect_registry=registry)
+if result.is_success:
+    print(f"Executed handler output: {result.value}")
+elif result.is_guarded:
+    print(f"Short-circuited by guard: {result.guard.name}")`}</CodeBlock>
       </section>
 
       {/* Provider Contract */}
@@ -287,7 +336,7 @@ class CorporateOrderIngestController(Controller):
             Aquilia integrates an Effect-TS inspired <DocTerm id="effects.Layer">Layer</DocTerm> class that facilitates modular initialization. Layers specify setup factories and declare explicit dependencies. The runtime resolves the full dependency graph topologically at startup.
           </p>
           <p>
-            For a detailed guide on managing initialization layers, composing them, and acquiring resources outside of HTTP paths, see the dedicated <Link to="/docs/effects/layers" className="text-aquilia-400 hover:underline font-medium">Layers &amp; Compositions</Link> reference.
+            For a detailed guide on managing initialization layers, composing them, and acquiring resources outside of HTTP paths, see the dedicated <Link to="/docs/subsystem/layers" className="text-aquilia-400 hover:underline font-medium">Layers &amp; Compositions</Link> reference.
           </p>
         </div>
 
@@ -321,7 +370,7 @@ app_layer = Layer.merge(db_layer, cache_layer)`}</CodeBlock>
         <Link to="/docs/aquilary/fingerprint" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Fingerprinting
         </Link>
-        <Link to="/docs/effects/pipelines" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+        <Link to="/docs/subsystem/pipelines" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
           Flow Pipelines <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

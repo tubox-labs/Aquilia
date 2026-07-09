@@ -237,10 +237,10 @@ class UserController(Controller):
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
-        <Link to="/docs/effects/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+        <Link to="/docs/subsystem/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Overview
         </Link>
-        <Link to="/docs/effects/context-nodes" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+        <Link to="/docs/subsystem/context-nodes" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
           Flow Context &amp; Nodes <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

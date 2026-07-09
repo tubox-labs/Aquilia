@@ -133,10 +133,10 @@ class RegistrationController(Controller):
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/effects/cache" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+        <Link to="/docs/subsystem/cache" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Cache Effect
         </Link>
-        <Link to="/docs/effects/http" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+        <Link to="/docs/subsystem/http" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
           HTTP Effect <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

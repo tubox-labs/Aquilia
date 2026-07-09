@@ -158,7 +158,7 @@ registerDocEntities([
     signature: 'class EffectRegistry:\n    def register(self, effect_name: str, provider: EffectProvider) -> None\n    async def acquire(self, effect_name: str, mode: str | None = None) -> Any\n    async def release(self, effect_name: str, resource: Any, *, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/overview',
+    docsHref: '/docs/subsystem/overview',
     source: { file: 'aquilia/effects.py', line: 1203 },
   },
   {
@@ -169,7 +169,7 @@ registerDocEntities([
     signature: 'class EffectProvider(ABC):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> Any\n    async def release(self, resource: Any, success: bool = True) -> None\n    async def finalize(self) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/overview',
+    docsHref: '/docs/subsystem/overview',
     source: { file: 'aquilia/effects.py', line: 370 },
   },
   {
@@ -180,7 +180,7 @@ registerDocEntities([
     signature: 'class Layer:\n    name: str\n    factory: Callable\n    deps: list[str]\n    @staticmethod\n    def merge(*layers: Layer) -> LayerComposition\n    @staticmethod\n    def provide(layer: Layer, *providers: Layer) -> LayerComposition',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/overview',
+    docsHref: '/docs/subsystem/overview',
     source: { file: 'aquilia/flow.py', line: 483 },
   },
   {
@@ -191,7 +191,7 @@ registerDocEntities([
     signature: 'class DBTxHandle(dict):\n    async def execute(self, sql: str, params: Sequence | None = None) -> AsyncCursor\n    async def fetch_all(self, sql: str, params: Sequence | None = None) -> list[dict]\n    async def fetch_val(self, sql: str, params: Sequence | None = None) -> Any\n    @property\n    def mode(self) -> str',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/dbtx',
+    docsHref: '/docs/subsystem/dbtx',
     source: { file: 'aquilia/effects.py', line: 166 },
   },
   {
@@ -202,7 +202,7 @@ registerDocEntities([
     signature: 'def requires(*effect_names: str) -> Callable',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/overview',
+    docsHref: '/docs/subsystem/overview',
     source: { file: 'aquilia/flow.py', line: 442 },
   },
   {
@@ -213,7 +213,7 @@ registerDocEntities([
     signature: 'class DBTx(Effect):\n    def __init__(self, mode: str = "read")',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/dbtx',
+    docsHref: '/docs/subsystem/dbtx',
     source: { file: 'aquilia/effects.py', line: 425 },
   },
   {
@@ -224,7 +224,7 @@ registerDocEntities([
     signature: 'class CacheEffect(Effect):\n    def __init__(self, namespace: str = "default")',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/cache',
+    docsHref: '/docs/subsystem/cache',
     source: { file: 'aquilia/effects.py', line: 432 },
   },
   {
@@ -235,7 +235,7 @@ registerDocEntities([
     signature: 'class QueueEffect(Effect):\n    def __init__(self, topic: str | None = None)',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/queue',
+    docsHref: '/docs/subsystem/queue',
     source: { file: 'aquilia/effects.py', line: 439 },
   },
   {
@@ -246,7 +246,7 @@ registerDocEntities([
     signature: 'class HTTPEffect(Effect):\n    def __init__(self, service: str | None = None)',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/http',
+    docsHref: '/docs/subsystem/http',
     source: { file: 'aquilia/effects.py', line: 446 },
   },
   {
@@ -257,7 +257,7 @@ registerDocEntities([
     signature: 'class StorageEffect(Effect):\n    def __init__(self, bucket: str | None = None)',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/storage',
+    docsHref: '/docs/subsystem/storage',
     source: { file: 'aquilia/effects.py', line: 453 },
   },
   {
@@ -268,7 +268,7 @@ registerDocEntities([
     signature: 'class CacheServiceHandle:\n    async def get(self, key: str) -> Any | None\n    async def set(self, key: str, value: Any, ttl: int | None = None) -> None\n    async def delete(self, key: str) -> bool',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/cache',
+    docsHref: '/docs/subsystem/cache',
     source: { file: 'aquilia/effects.py', line: 731 },
   },
   {
@@ -279,7 +279,7 @@ registerDocEntities([
     signature: 'class CacheHandle:\n    async def get(self, key: str) -> Any | None\n    async def set(self, key: str, value: Any, ttl: int | None = None) -> None\n    async def delete(self, key: str) -> bool',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/cache',
+    docsHref: '/docs/subsystem/cache',
     source: { file: 'aquilia/effects.py', line: 794 },
   },
   {
@@ -290,7 +290,7 @@ registerDocEntities([
     signature: 'class QueueHandle:\n    async def publish(self, payload: Any, *, headers: dict | None = None) -> None\n    async def publish_batch(self, payloads: Sequence) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/queue',
+    docsHref: '/docs/subsystem/queue',
     source: { file: 'aquilia/effects.py', line: 856 },
   },
   {
@@ -301,7 +301,7 @@ registerDocEntities([
     signature: 'class TaskQueueHandle:\n    async def enqueue(self, func: Any, *args: Any, **kwargs: Any) -> str',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/queue',
+    docsHref: '/docs/subsystem/queue',
     source: { file: 'aquilia/effects.py', line: 910 },
   },
   {
@@ -312,7 +312,7 @@ registerDocEntities([
     signature: 'class HTTPHandle:\n    async def get(self, url: str, **kwargs) -> Any\n    async def post(self, url: str, *, json: Any = None, **kwargs) -> Any\n    async def put(self, url: str, *, json: Any = None, **kwargs) -> Any\n    async def delete(self, url: str, **kwargs) -> Any',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/http',
+    docsHref: '/docs/subsystem/http',
     source: { file: 'aquilia/effects.py', line: 968 },
   },
   {
@@ -323,7 +323,7 @@ registerDocEntities([
     signature: 'class StorageHandle:\n    async def read(self, key: str) -> bytes | None\n    async def write(self, key: str, data: bytes) -> None\n    async def delete(self, key: str) -> bool\n    async def exists(self, key: str) -> bool',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/storage',
+    docsHref: '/docs/subsystem/storage',
     source: { file: 'aquilia/effects.py', line: 1062 },
   },
   {
@@ -334,7 +334,7 @@ registerDocEntities([
     signature: 'class FlowPipeline:\n    def __init__(self, name: str = "pipeline", *, timeout: float | None = None)\n    def guard(self, callable_or_node: Callable | FlowNode, *, name: str | None = None, priority: int = PRIORITY_AUTH, effects: list[str] | None = None, condition: Callable | None = None) -> FlowPipeline\n    def transform(self, callable_or_node: Callable | FlowNode, *, name: str | None = None, priority: int = PRIORITY_TRANSFORM, effects: list[str] | None = None) -> FlowPipeline\n    def handler(self, callable_or_node: Callable | FlowNode, *, name: str | None = None, priority: int = PRIORITY_DEFAULT, effects: list[str] | None = None) -> FlowPipeline\n    def hook(self, callable_or_node: Callable | FlowNode, *, name: str | None = None, priority: int = PRIORITY_LOG, effects: list[str] | None = None) -> FlowPipeline\n    async def execute(self, context: FlowContext, effect_registry: EffectRegistry | None = None) -> FlowResult',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/pipelines',
+    docsHref: '/docs/subsystem/pipelines',
     source: { file: 'aquilia/flow.py', line: 662 },
   },
   {
@@ -345,7 +345,7 @@ registerDocEntities([
     signature: 'class FlowContext:\n    def __init__(self, request: Any = None, container: Any = None, *, state: dict | None = None, identity: Any = None, session: Any = None)\n    def get_effect(self, name: str) -> Any\n    def has_effect(self, name: str) -> bool\n    def add_cleanup(self, callback: Callable[[], Awaitable[None]]) -> None\n    async def dispose(self) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/context-nodes',
+    docsHref: '/docs/subsystem/context-nodes',
     source: { file: 'aquilia/flow.py', line: 117 },
   },
   {
@@ -356,7 +356,7 @@ registerDocEntities([
     signature: 'class FlowNode:\n    type: FlowNodeType\n    callable: Callable\n    name: str\n    priority: int = PRIORITY_DEFAULT\n    effects: list[str]\n    condition: Callable[[FlowContext], bool] | None\n    timeout: float | None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/context-nodes',
+    docsHref: '/docs/subsystem/context-nodes',
     source: { file: 'aquilia/flow.py', line: 350 },
   },
   {
@@ -367,7 +367,7 @@ registerDocEntities([
     signature: 'class FlowResult:\n    status: FlowStatus\n    value: Any\n    context: FlowContext | None\n    error: Exception | None\n    guard: FlowNode | None\n    timings: dict[str, float]',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/context-nodes',
+    docsHref: '/docs/subsystem/context-nodes',
     source: { file: 'aquilia/flow.py', line: 385 },
   },
   {
@@ -378,7 +378,7 @@ registerDocEntities([
     signature: 'class EffectScope:\n    def __init__(self, registry: EffectRegistry, effect_names: Sequence[str], *, context: FlowContext | None = None, modes: dict[str, str] | None = None)\n    async def __aenter__(self) -> dict[str, Any]\n    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/layers',
+    docsHref: '/docs/subsystem/layers',
     source: { file: 'aquilia/flow.py', line: 1622 },
   },
   {
@@ -389,7 +389,7 @@ registerDocEntities([
     signature: 'class DBTxProvider(EffectProvider):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> DBTxHandle\n    async def release(self, resource: DBTxHandle, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/dbtx',
+    docsHref: '/docs/subsystem/dbtx',
     source: { file: 'aquilia/effects.py', line: 465 },
   },
   {
@@ -400,7 +400,7 @@ registerDocEntities([
     signature: 'class CacheProvider(EffectProvider):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> CacheServiceHandle | CacheHandle\n    async def release(self, resource: Any, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/cache',
+    docsHref: '/docs/subsystem/cache',
     source: { file: 'aquilia/effects.py', line: 538 },
   },
   {
@@ -411,7 +411,7 @@ registerDocEntities([
     signature: 'class QueueProvider(EffectProvider):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> QueueHandle\n    async def release(self, resource: QueueHandle, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/queue',
+    docsHref: '/docs/subsystem/queue',
     source: { file: 'aquilia/effects.py', line: 585 },
   },
   {
@@ -422,7 +422,7 @@ registerDocEntities([
     signature: 'class TaskQueueProvider(EffectProvider):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> TaskQueueHandle | QueueHandle\n    async def release(self, resource: Any, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/queue',
+    docsHref: '/docs/subsystem/queue',
     source: { file: 'aquilia/effects.py', line: 615 },
   },
   {
@@ -433,7 +433,7 @@ registerDocEntities([
     signature: 'class HTTPProvider(EffectProvider):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> HTTPHandle\n    async def release(self, resource: HTTPHandle, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/http',
+    docsHref: '/docs/subsystem/http',
     source: { file: 'aquilia/effects.py', line: 656 },
   },
   {
@@ -444,7 +444,7 @@ registerDocEntities([
     signature: 'class StorageProvider(EffectProvider):\n    async def initialize(self) -> None\n    async def acquire(self, mode: str | None = None) -> StorageHandle\n    async def release(self, resource: StorageHandle, success: bool = True) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/storage',
+    docsHref: '/docs/subsystem/storage',
     source: { file: 'aquilia/effects.py', line: 690 },
   },
   {
@@ -455,7 +455,7 @@ registerDocEntities([
     signature: 'class FlowContext:\n    effects: dict[str, Any]\n    def get_effect(self, name: str) -> Any\n    def has_effect(self, name: str) -> bool\n    async def dispose(self) -> None',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/overview',
+    docsHref: '/docs/subsystem/overview',
     source: { file: 'aquilia/flow.py', line: 117 },
   },
   {
@@ -466,7 +466,7 @@ registerDocEntities([
     signature: 'class EffectMiddleware(Middleware):\n    def __init__(self, effect_registry: EffectRegistry | None = None, *, auto_detect: bool = True)\n    async def __call__(self, request: Request, ctx: RequestCtx, next_handler: Handler) -> Response',
     language: 'python',
     status: 'stable',
-    docsHref: '/docs/effects/overview',
+    docsHref: '/docs/subsystem/overview',
     source: { file: 'aquilia/middleware_ext/effect_middleware.py', line: 182 },
   },
 

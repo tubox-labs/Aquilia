@@ -231,18 +231,18 @@ import { MailService } from './pages/docs/mail/Service'
 import { MailProviders } from './pages/docs/mail/Providers'
 import { MailTemplates } from './pages/docs/mail/Templates'
 
-// Effects
-import { EffectsOverview } from './pages/docs/effects/Overview'
-import { EffectsDBTx } from './pages/docs/effects/DBTx'
-import { EffectsCacheEffect } from './pages/docs/effects/CacheEffect'
-import { EffectsBuiltIn } from './pages/docs/effects/BuiltIn'
-import { EffectsQueueEffect } from './pages/docs/effects/QueueEffect'
-import { EffectsHTTPEffect } from './pages/docs/effects/HTTPEffect'
-import { EffectsStorageEffect } from './pages/docs/effects/StorageEffect'
-import { EffectsCustomEffects } from './pages/docs/effects/CustomEffects'
-import { FlowPipelines } from './pages/docs/effects/Pipelines'
-import { FlowContextNodes } from './pages/docs/effects/ContextNodes'
-import { FlowLayers } from './pages/docs/effects/Layers'
+// Effects / Subsystem
+import { EffectsOverview } from './pages/docs/subsystem/Overview'
+import { EffectsDBTx } from './pages/docs/subsystem/DBTx'
+import { EffectsCacheEffect } from './pages/docs/subsystem/CacheEffect'
+import { EffectsBuiltIn } from './pages/docs/subsystem/BuiltIn'
+import { EffectsQueueEffect } from './pages/docs/subsystem/QueueEffect'
+import { EffectsHTTPEffect } from './pages/docs/subsystem/HTTPEffect'
+import { EffectsStorageEffect } from './pages/docs/subsystem/StorageEffect'
+import { EffectsCustomEffects } from './pages/docs/subsystem/CustomEffects'
+import { FlowPipelines } from './pages/docs/subsystem/Pipelines'
+import { FlowContextNodes } from './pages/docs/subsystem/ContextNodes'
+import { FlowLayers } from './pages/docs/subsystem/Layers'
 
 
 // Aquilary
@@ -503,19 +503,19 @@ export default function App() {
           <Route path="aquilary/runtime" element={<AquilaryRuntime />} />
           <Route path="aquilary/fingerprint" element={<AquilaryFingerprint />} />
 
-          {/* Effects */}
-          <Route path="effects" element={<EffectsOverview />} />
-          <Route path="effects/overview" element={<EffectsOverview />} />
-          <Route path="effects/built-in" element={<EffectsBuiltIn />} />
-          <Route path="effects/dbtx" element={<EffectsDBTx />} />
-          <Route path="effects/cache" element={<EffectsCacheEffect />} />
-          <Route path="effects/queue" element={<EffectsQueueEffect />} />
-          <Route path="effects/http" element={<EffectsHTTPEffect />} />
-          <Route path="effects/storage" element={<EffectsStorageEffect />} />
-          <Route path="effects/custom" element={<EffectsCustomEffects />} />
-          <Route path="effects/pipelines" element={<FlowPipelines />} />
-          <Route path="effects/context-nodes" element={<FlowContextNodes />} />
-          <Route path="effects/layers" element={<FlowLayers />} />
+          {/* Subsystem */}
+          <Route path="subsystem" element={<EffectsOverview />} />
+          <Route path="subsystem/overview" element={<EffectsOverview />} />
+          <Route path="subsystem/built-in" element={<EffectsBuiltIn />} />
+          <Route path="subsystem/dbtx" element={<EffectsDBTx />} />
+          <Route path="subsystem/cache" element={<EffectsCacheEffect />} />
+          <Route path="subsystem/queue" element={<EffectsQueueEffect />} />
+          <Route path="subsystem/http" element={<EffectsHTTPEffect />} />
+          <Route path="subsystem/storage" element={<EffectsStorageEffect />} />
+          <Route path="subsystem/custom" element={<EffectsCustomEffects />} />
+          <Route path="subsystem/pipelines" element={<FlowPipelines />} />
+          <Route path="subsystem/context-nodes" element={<FlowContextNodes />} />
+          <Route path="subsystem/layers" element={<FlowLayers />} />
 
 
           {/* Faults */}
