@@ -106,6 +106,8 @@ export function DocsLayout() {
     contentRef: printRef,
   })
 
+  const [isPrintDropdownOpen, setIsPrintDropdownOpen] = useState(false)
+
   return (
     // Lock the viewport — nothing on <body> scrolls
     <div className="h-screen overflow-hidden flex flex-col print:h-auto print:overflow-visible print:block">
@@ -153,19 +155,59 @@ export function DocsLayout() {
 
             {/* Main page content */}
             <main className="flex-1 min-w-0 px-4 sm:px-6 lg:px-10 py-12 print:px-0 print:py-0 print:m-0 print:w-full print:max-w-none print:block">
-              <div className="flex justify-end mb-6 print:hidden">
-                <button
-                  onClick={() => handlePrint()}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
-                    isDark
-                      ? 'border-white/10 text-gray-400 hover:text-aquilia-400 hover:border-aquilia-400/50 bg-white/5 hover:bg-white/10'
-                      : 'border-gray-200 text-gray-600 hover:text-aquilia-600 hover:border-aquilia-600/30 bg-gray-50 hover:bg-gray-100'
-                  }`}
-                  title="Print Article or Save as PDF"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  Print Article
-                </button>
+              <div className="flex justify-end mb-6 print:hidden relative">
+                <div className="relative">
+                  <button
+                    onClick={() => setIsPrintDropdownOpen(!isPrintDropdownOpen)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
+                      isDark
+                        ? 'border-white/10 text-gray-400 hover:text-aquilia-400 hover:border-aquilia-400/50 bg-white/5 hover:bg-white/10'
+                        : 'border-gray-200 text-gray-600 hover:text-aquilia-600 hover:border-aquilia-600/30 bg-gray-50 hover:bg-gray-100'
+                    }`}
+                    title="Print Options"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                    Print Options
+                    <span className="text-[9px] opacity-60">▼</span>
+                  </button>
+
+                  {isPrintDropdownOpen && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setIsPrintDropdownOpen(false)}
+                      />
+                      <div className={`absolute right-0 mt-1.5 w-56 rounded-xl border p-1 shadow-2xl z-20 backdrop-blur-md ${
+                        isDark 
+                          ? 'bg-[#0a0a0a]/90 border-white/10 text-gray-300' 
+                          : 'bg-white/90 border-gray-200 text-gray-700'
+                      }`}>
+                        <button
+                          onClick={() => {
+                            setIsPrintDropdownOpen(false)
+                            handlePrint()
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer ${
+                            isDark ? 'hover:bg-white/5 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900'
+                          }`}
+                        >
+                          <span>📄</span> Print This Page
+                        </button>
+                        <button
+                          onClick={() => {
+                            setIsPrintDropdownOpen(false)
+                            window.open('/print-docs', '_blank')
+                          }}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer ${
+                            isDark ? 'hover:bg-white/5 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900'
+                          }`}
+                        >
+                          <span>📚</span> Print Entire Documentation
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
               <div ref={printRef} className="max-w-4xl mx-auto w-full print-content-wrapper">
                 <Outlet />

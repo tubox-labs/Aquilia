@@ -297,6 +297,8 @@ import { FilesystemAPI } from './pages/docs/filesystem/API'
 import { FilesystemOperations } from './pages/docs/filesystem/Operations'
 import { FilesystemController } from './pages/docs/filesystem/Controller'
 
+import { PrintAllDocs } from './pages/PrintAllDocs'
+
 export default function App() {
   return (
     <ErrorBoundary>
@@ -304,6 +306,7 @@ export default function App() {
         <DocPreviewProvider>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/print-docs" element={<PrintAllDocs />} />
         <Route path="/benchmark" element={<BenchmarkPage />} />
         <Route path="/changelogs" element={<Changelogs />} />
         <Route path="/releases" element={<Releases />} />
