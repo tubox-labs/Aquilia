@@ -102,53 +102,94 @@ fast_handler = stack.build_fast_handler(final_handler=Handler)`}</CodeBlock>
 
       {/* Table of Built-in Middlewares */}
       <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Core Middleware Manifest</h2>
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Priority Reference (from AquiliaServer._setup_middleware)</h2>
+        <p className={`mb-4 leading-relaxed text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          These are the exact priority numbers <code className="text-aquilia-500">AquiliaServer</code> assigns when it wires each built-in middleware — not the fictional numbers you'll find in older docs. Lower number = wraps closer to the outside = runs first on the way in.
+        </p>
         <div className="w-full overflow-x-auto">
           <table className="w-full text-sm text-left border-collapse">
             <thead>
               <tr className="border-b border-white/10 text-aquilia-400 font-mono text-xs uppercase tracking-wider">
                 <th className="py-3 px-4">Class</th>
-                <th className="py-3 px-4">Priority Band</th>
+                <th className="py-3 px-4">Priority</th>
+                <th className="py-3 px-4">Always On?</th>
                 <th className="py-3 px-4">Fast-Path Skippable</th>
-                <th className="py-3 px-4">Purpose</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5 font-sans text-gray-400">
-              <tr className="hover:bg-white/2 transition-colors">
-                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
-                  <DocTerm id="middleware.RequestIdMiddleware">RequestIdMiddleware</DocTerm>
-                </td>
-                <td className="py-3.5 px-4 font-mono text-xs">5 (Outermost)</td>
-                <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
-                <td className="py-3.5 px-4 text-xs">Injects stable identifiers per request</td>
-              </tr>
+              {[
+                ['FaultMiddleware', '2', 'yes — internal plumbing', 'NO'],
+                ['ProxyFixMiddleware', '3', 'only if configured', 'NO'],
+                ['HTTPSRedirectMiddleware', '4', 'only if configured', 'NO'],
+                ['ServerRequestScopeMiddleware', '5', 'yes — internal plumbing', 'NO'],
+                ['VersionMiddleware', '5', 'only if versioning enabled', 'NO'],
+                ['StaticMiddleware', '6', 'only if configured', 'NO'],
+                ['SecurityHeadersMiddleware', '7', 'only if configured', 'NO'],
+                ['HSTSMiddleware', '8', 'only if configured', 'NO'],
+                ['CSPMiddleware', '9', 'only if configured', 'NO'],
+                ['CORSMiddleware', '11', 'only if configured', 'NO'],
+                ['InspectorMiddleware', '11', 'only if inspector enabled', 'NO'],
+                ['ToolbarInjectionMiddleware', '12', 'only if inspector enabled', 'NO'],
+                ['RateLimitMiddleware', '12', 'only if configured', 'NO'],
+                ['AquilAuthMiddleware / SessionMiddleware', '15', 'only if sessions/auth enabled', 'NO'],
+                ['CSRFMiddleware', '20', 'only if configured', 'NO'],
+                ['I18nMiddleware', '24', 'only if i18n enabled', 'NO'],
+                ['TemplateMiddleware', '25', 'only if templates enabled', 'NO'],
+                ['CacheMiddleware', '26', 'only if cache middleware enabled', 'NO'],
+              ].map(([name, prio, always, skip]) => (
+                <tr key={name} className="hover:bg-white/2 transition-colors">
+                  <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">{name}</td>
+                  <td className="py-3.5 px-4 font-mono text-xs">{prio}</td>
+                  <td className="py-3.5 px-4 text-xs">{always}</td>
+                  <td className={`py-3.5 px-4 text-xs font-mono ${skip === 'YES' ? 'text-green-500' : 'text-red-500'}`}>{skip}</td>
+                </tr>
+              ))}
               <tr className="hover:bg-white/2 transition-colors">
                 <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
                   <DocTerm id="middleware.ExceptionMiddleware">ExceptionMiddleware</DocTerm>
                 </td>
-                <td className="py-3.5 px-4 font-mono text-xs">10</td>
+                <td className="py-3.5 px-4 font-mono text-xs">1 <span className="text-gray-600">(hardcoded fallback, or your own chain)</span></td>
+                <td className="py-3.5 px-4 text-xs">only if no <code>.middleware()</code> chain configured</td>
                 <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
-                <td className="py-3.5 px-4 text-xs">Converts exceptions into structured HTML/JSON</td>
+              </tr>
+              <tr className="hover:bg-white/2 transition-colors">
+                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
+                  <DocTerm id="middleware.RequestIdMiddleware">RequestIdMiddleware</DocTerm>
+                </td>
+                <td className="py-3.5 px-4 font-mono text-xs">10 <span className="text-gray-600">(hardcoded fallback, or your own chain)</span></td>
+                <td className="py-3.5 px-4 text-xs">only if no <code>.middleware()</code> chain configured</td>
+                <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
               </tr>
               <tr className="hover:bg-white/2 transition-colors">
                 <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
                   <DocTerm id="middleware.TimeoutMiddleware">TimeoutMiddleware</DocTerm>
                 </td>
-                <td className="py-3.5 px-4 font-mono text-xs">15</td>
+                <td className="py-3.5 px-4 font-mono text-xs">18 <span className="text-gray-600">(MiddlewareChain.production() preset)</span></td>
+                <td className="py-3.5 px-4 text-xs">only if in your chain</td>
                 <td className="py-3.5 px-4 text-xs font-mono text-green-500">YES</td>
-                <td className="py-3.5 px-4 text-xs">Enforces processing limits; raises Faults</td>
               </tr>
               <tr className="hover:bg-white/2 transition-colors">
                 <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
                   <DocTerm id="middleware.CompressionMiddleware">CompressionMiddleware</DocTerm>
                 </td>
-                <td className="py-3.5 px-4 font-mono text-xs">40</td>
+                <td className="py-3.5 px-4 font-mono text-xs">15 <span className="text-gray-600">(MiddlewareChain.production() preset)</span></td>
+                <td className="py-3.5 px-4 text-xs">only if in your chain</td>
                 <td className="py-3.5 px-4 text-xs font-mono text-red-500">NO</td>
-                <td className="py-3.5 px-4 text-xs">Gzip thread-offloaded compression</td>
+              </tr>
+              <tr className="hover:bg-white/2 transition-colors">
+                <td className="py-3.5 px-4 font-mono text-xs text-aquilia-300">
+                  <DocTerm id="middleware.LoggingMiddleware">LoggingMiddleware</DocTerm>
+                </td>
+                <td className="py-3.5 px-4 font-mono text-xs">your choice — not auto-registered</td>
+                <td className="py-3.5 px-4 text-xs">no — must add explicitly</td>
+                <td className="py-3.5 px-4 text-xs font-mono text-green-500">YES</td>
               </tr>
             </tbody>
           </table>
         </div>
+        <p className={`mt-4 text-xs leading-relaxed ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+          Source: <code className="text-aquilia-500">aquilia/server.py</code> <code>AquiliaServer._setup_middleware()</code>, plus the individual <code>self.middleware_stack.add(...)</code> calls scattered through session/auth, templates, i18n, cache, and versioning setup. Only <code>build_fast_handler()</code>'s <code>_FAST_SKIP_NAMES</code> frozenset (<code>{'{'}"LoggingMiddleware", "TimeoutMiddleware"{'}'}</code>) is skippable on the fast path — every other middleware always runs, whether the request needs it or not.
+        </p>
       </section>
 
       {/* Navigation */}
