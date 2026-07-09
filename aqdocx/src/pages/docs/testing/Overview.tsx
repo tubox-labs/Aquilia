@@ -1,17 +1,22 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, FlaskConical } from 'lucide-react'
+import { ArrowLeft, ArrowRight, FlaskConical, Settings, Plug, Layers } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function TestingOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+
+  const sectionClass = "mb-16 scroll-mt-24"
+  const h2Class = `text-2xl font-bold mb-6 flex items-center gap-3 ${isDark ? 'text-white' : 'text-gray-900'}`
+  const pClass = `mb-4 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto pb-20">
+      {/* Header */}
+      <div className="mb-12 border-b border-gray-200 dark:border-white/10 pb-8">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <FlaskConical className="w-4 h-4" />
           Tooling / Testing
@@ -23,183 +28,117 @@ export function TestingOverview() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia provides a comprehensive, batteries-included testing module with TestClient, test case classes, DI overrides, mock providers, and testing mixins for every subsystem — auth, cache, mail, WebSockets, faults, and effects.
+          Aquilia provides a batteries-included testing framework designed to test async controllers, background jobs, DB integrations, and WebSocket endpoints. It features automated server lifecycle hooks, DI mocking containers, mock storage, and custom assertions.
         </p>
       </div>
 
-      {/* Test Cases */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Test Case Classes</h2>
-        <div className="space-y-3">
+      {/* Philosophy */}
+      <section className={sectionClass}>
+        <h2 className={h2Class}>
+          <Settings className="w-5 h-5 text-aquilia-400" />
+          Testing Architecture
+        </h2>
+        <p className={pClass}>
+          Testing in Aquilia avoids slow network calls and side effects by leveraging in-process ASGI loops. It connects your tests directly to the dependency container, permitting run-time provider swapping:
+        </p>
+        <div className="space-y-6 mt-8">
           {[
-            { name: 'AquiliaTestCase', desc: 'Base test case with automatic server lifecycle management (startup/shutdown), TestClient, and DI container access.' },
-            { name: 'TransactionTestCase', desc: 'Wraps each test in a database transaction that rolls back after the test — no data leaks between tests.' },
-            { name: 'LiveServerTestCase', desc: 'Starts a real ASGI server on a random port. Use for integration tests with real HTTP clients.' },
-            { name: 'SimpleTestCase', desc: 'Lightweight test case without server lifecycle. Use for pure unit tests of services and utilities.' },
+            {
+              title: 'In-Process ASGI Pipeline',
+              desc: 'Testing does not run TCP socket loops. The TestClient formats ASGI scope dictionary and triggers the server application directly, providing high-fidelity responses in milliseconds.'
+            },
+            {
+              title: 'Tethered Dependency Injection',
+              desc: 'Test case classes share container instances, allowing you to substitute mock repositories, email providers, or cache backends directly through context managers.'
+            },
+            {
+              title: 'Isolated Transactions',
+              desc: 'For database integration tests, Aquilia wraps each test in a database transaction block and automatically rolls it back on teardown, avoiding database leakage.'
+            }
           ].map((item, i) => (
-            <div key={i} className={boxClass}>
-              <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
-              <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+            <div key={i} className="flex items-start gap-4">
+              <div className="w-1.5 h-1.5 rounded-full bg-aquilia-500 mt-2 flex-shrink-0" />
+              <div>
+                <h3 className={`font-bold text-sm mb-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{item.title}</h3>
+                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+              </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* TestClient */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>TestClient</h2>
-        <CodeBlock language="python" filename="test_api.py">{`from aquilia.testing import AquiliaTestCase
-
+      {/* Quick Start example */}
+      <section className={sectionClass}>
+        <h2 className={h2Class}>
+          <Layers className="w-5 h-5 text-aquilia-400" />
+          Writing Your First Test
+        </h2>
+        <p className={pClass}>
+          Subclass <DocTerm id="testing.aquilia_test_case">AquiliaTestCase</DocTerm> to write an integration test. The server automatically starts up before the test runs and self-terminates on completion:
+        </p>
+        <CodeBlock language="python" filename="test_api.py" highlightLines={[6, 11, 16, 22]}>{`from aquilia.testing import AquiliaTestCase
+from myapp.manifests import users_manifest
 
 class TestUserAPI(AquiliaTestCase):
-    settings = {"debug": True, "database": {"engine": "sqlite", "name": ":memory:"}}
-
-    async def test_list_users(self):
-        response = await self.client.get("/api/users/")
-        self.assert_status(response, 200)
-        data = response.json()
-        assert isinstance(data["users"], list)
+    # Specify the manifests to load into the test server
+    manifests = [users_manifest]
+    
+    # Overwrite configuration fields
+    settings = {
+        "debug": True,
+        "database": {"url": "sqlite:///:memory:"}
+    }
 
     async def test_create_user(self):
-        response = await self.client.post("/api/users/", json={
-            "username": "testuser",
-            "email": "test@example.com",
-            "password": "secure123",
+        # Trigger an HTTP post
+        response = await self.client.post("/api/users", json={
+            "username": "testguy",
+            "email": "test@example.com"
         })
+        
+        # Use built-in assertions
         self.assert_status(response, 201)
-        data = response.json()
-        assert data["user"]["username"] == "testuser"
-
-    async def test_unauthorized_access(self):
-        response = await self.client.get("/api/admin/dashboard")
-        self.assert_status(response, 401)
-
-    async def test_authenticated_request(self):
-        # Login first
-        login = await self.client.post("/auth/login", json={
-            "email": "admin@example.com",
-            "password": "admin",
-        })
-        token = login.json()["token"]
-
-        # Use token for authenticated request
-        response = await self.client.get(
-            "/api/admin/dashboard",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        self.assert_status(response, 200)`}</CodeBlock>
+        self.assert_json_path(response, "username", "testguy")`}</CodeBlock>
       </section>
 
-      {/* DI Overrides */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>DI Overrides & Mocks</h2>
-        <CodeBlock language="python" filename="test_with_mocks.py">{`from aquilia.testing import (
-    AquiliaTestCase, TestContainer,
-    mock_provider, override_provider, spy_provider,
-)
-
-
-class TestProductController(AquiliaTestCase):
-
-    async def test_with_mock_service(self):
-        # Replace a real service with a mock
-        mock_product_service = mock_provider(ProductService, {
-            "get_all": [{"id": 1, "name": "Test Product"}],
-            "get_by_id": {"id": 1, "name": "Test Product"},
-        })
-
-        with override_provider(ProductService, mock_product_service):
-            response = await self.client.get("/api/products/")
-            self.assert_status(response, 200)
-            assert len(response.json()["products"]) == 1
-
-    async def test_with_spy(self):
-        # Spy on a real service (calls through, but records calls)
-        spy = spy_provider(EmailService)
-
-        with override_provider(EmailService, spy):
-            await self.client.post("/auth/register", json={
-                "email": "new@example.com",
-                "password": "secure123",
-            })
-
-            # Assert the spy was called
-            assert spy.was_called("send")
-            assert spy.call_args("send")[0]["to"] == "new@example.com"`}</CodeBlock>
-      </section>
-
-      {/* Testing Mixins */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Testing Mixins</h2>
-        <div className={`overflow-hidden rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={isDark ? 'bg-zinc-900' : 'bg-gray-50'}>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Mixin</th>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Provides</th>
-              </tr>
-            </thead>
-            <tbody className={isDark ? 'divide-y divide-white/5' : 'divide-y divide-gray-100'}>
-              {[
-                { m: 'AuthTestMixin', p: 'login_as(), create_test_user(), assert_authenticated(), IdentityBuilder' },
-                { m: 'CacheTestMixin', p: 'assert_cached(), assert_cache_miss(), clear_test_cache(), MockCacheBackend' },
-                { m: 'MailTestMixin', p: 'assert_mail_sent(), get_sent_mail(), clear_outbox(), CapturedMail' },
-              ].map((row, i) => (
-                <tr key={i} className={isDark ? 'bg-[#0A0A0A]' : 'bg-white'}>
-                  <td className="py-3 px-4"><code className="text-aquilia-500 font-mono text-xs">{row.m}</code></td>
-                  <td className={`py-3 px-4 ${isDark ? 'text-gray-400' : 'text-gray-600'} text-xs`}>{row.p}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Directory Sections */}
+      <section className={sectionClass}>
+        <h2 className={h2Class}>
+          <Plug className="w-5 h-5 text-aquilia-400" />
+          Framework Reference
+        </h2>
+        <div className="divide-y divide-gray-150 dark:divide-white/5">
+          {[
+            {
+              to: '/docs/testing/client',
+              title: 'TestClient & WebSockets',
+              desc: 'Details on GET, POST, PUT, DELETE requests, multipart file uploads, cookie jar tracking, and WebSocketTestClient assertions.'
+            },
+            {
+              to: '/docs/testing/cases',
+              title: 'Test Case Classes',
+              desc: 'Learn about SimpleTestCase, AquiliaTestCase, TransactionTestCase, and LiveServerTestCase with their setup toggles and DI container hooks.'
+            },
+            {
+              to: '/docs/testing/mocks',
+              title: 'Mocks, Spies & Mixins',
+              desc: 'Stub out dependencies with override_provider() and spy_provider(), intercept exceptions with MockFaultEngine, and assert on cache, auth, and mail mixins.'
+            },
+            {
+              to: '/docs/testing/runner',
+              title: 'Test Runner (aq test)',
+              desc: 'Detailed options, auto-discovery targets, code coverage metrics, and parallel worker configurations.'
+            }
+          ].map((sec, i) => (
+            <Link key={i} to={sec.to} className="group block py-5 first:pt-0 last:pb-0 transition-colors">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`font-mono font-bold text-lg group-hover:text-aquilia-500 transition-colors ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{sec.title}</span>
+                <span className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</span>
+              </div>
+              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{sec.desc}</p>
+            </Link>
+          ))}
         </div>
-      </section>
-
-      {/* WebSocket Testing */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>WebSocket Testing</h2>
-        <CodeBlock language="python" filename="test_websocket.py">{`from aquilia.testing import AquiliaTestCase, WebSocketTestClient
-
-
-class TestChatWebSocket(AquiliaTestCase):
-
-    async def test_chat_connection(self):
-        async with WebSocketTestClient(self.app, "/ws/chat") as ws:
-            # Receive welcome message
-            message = await ws.receive_event()
-            assert message["event"] == "welcome"
-
-            # Send a chat message
-            await ws.send_event("message", {
-                "text": "Hello!",
-                "room": "general",
-            })
-
-            # Receive broadcast
-            broadcast = await ws.receive_event()
-            assert broadcast["event"] == "message"
-            assert broadcast["data"]["text"] == "Hello!"`}</CodeBlock>
-      </section>
-
-      {/* Config Overrides */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Configuration Overrides</h2>
-        <CodeBlock language="python" filename="test_config.py">{`from aquilia.testing import override_settings
-
-
-class TestWithCustomConfig(AquiliaTestCase):
-
-    @override_settings(debug=True, cache={"backend": "null"})
-    async def test_debug_mode(self):
-        response = await self.client.get("/debug/info")
-        self.assert_status(response, 200)
-
-    async def test_override_context_manager(self):
-        with override_settings(rate_limit={"enabled": False}):
-            # Rate limiting is disabled in this block
-            for _ in range(100):
-                response = await self.client.get("/api/data")
-                self.assert_status(response, 200)`}</CodeBlock>
       </section>
 
       {/* Navigation */}
@@ -207,11 +146,11 @@ class TestWithCustomConfig(AquiliaTestCase):
         <Link to="/docs/cli" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
           <ArrowLeft className="w-4 h-4" /> CLI
         </Link>
-        <Link to="/docs/trace" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          Trace & Debug <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/controllers/openapi" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          OpenAPI <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-    
+
       <NextSteps />
     </div>
   )
