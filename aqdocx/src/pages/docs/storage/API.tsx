@@ -1,343 +1,293 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { BookOpen, AlertTriangle } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { NextSteps } from '../../../components/NextSteps'
+import { BookOpen, HardDrive, Layers, Terminal } from 'lucide-react'
 
 export function StorageAPI() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-
-  const registryMethods = [
-    { method: 'register(name, backend)', desc: 'Register a storage backend' },
-    { method: 'get(name)', desc: 'Get a registered backend by name' },
-    { method: 'set_default(name)', desc: 'Set the default backend' },
-    { method: 'save(path, content, backend=None)', desc: 'Save content to a file' },
-    { method: 'open(path, backend=None)', desc: 'Read file content' },
-    { method: 'delete(path, backend=None)', desc: 'Delete a file' },
-    { method: 'exists(path, backend=None)', desc: 'Check if file exists' },
-    { method: 'stat(path, backend=None)', desc: 'Get file metadata' },
-    { method: 'listdir(path, backend=None)', desc: 'List directory contents' },
-    { method: 'size(path, backend=None)', desc: 'Get file size' },
-    { method: 'url(path, expires=3600, backend=None)', desc: 'Get signed URL' },
-  ]
-
-  const backendMethods = [
-    { method: 'save(path, content)', desc: 'Save content to path', returns: 'None' },
-    { method: 'open(path)', desc: 'Read file content', returns: 'bytes' },
-    { method: 'delete(path)', desc: 'Delete file', returns: 'None' },
-    { method: 'exists(path)', desc: 'Check existence', returns: 'bool' },
-    { method: 'stat(path)', desc: 'Get metadata', returns: 'StorageMetadata' },
-    { method: 'listdir(path)', desc: 'List directory', returns: 'list[str]' },
-    { method: 'size(path)', desc: 'Get file size', returns: 'int' },
-    { method: 'url(path, expires)', desc: 'Get signed URL', returns: 'str' },
-  ]
-
-  const errors = [
-    { name: 'StorageError', desc: 'Base class for all storage errors' },
-    { name: 'FileNotFoundError', desc: 'File does not exist' },
-    { name: 'PermissionError', desc: 'No permission to access file' },
-    { name: 'PathTraversalError', desc: 'Path contains ".." or null bytes' },
-    { name: 'StorageBackendError', desc: 'Backend-specific error' },
-    { name: 'S3Error', desc: 'AWS S3 error' },
-    { name: 'GCSError', desc: 'Google Cloud Storage error' },
-    { name: 'AzureError', desc: 'Azure Blob Storage error' },
-  ]
+  const subtleText = isDark ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto animate-fade-in select-none">
+      {/* Title Header */}
+      <div className="mb-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-aquilia-500/10 via-transparent to-transparent p-8 border border-white/5 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <BookOpen className="w-4 h-4" />
-          Storage › API Reference
+          <BookOpen className="w-4 h-4 animate-pulse" />
+          Unified Storage / API Reference
         </div>
-        <h1 className={`text-4xl mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono">
-            API Reference
-          </span>
+        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          Storage API Reference
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Complete reference for the storage system API.
+        <p className={`text-lg leading-relaxed ${subtleText}`}>
+          Complete interface contract specifications for the unified storage registry, backend drivers, metadata structures, and async file handles.
         </p>
       </div>
 
-      {/* StorageRegistry */}
+      {/* Table of Contents */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          StorageRegistry
+        <div className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/5 p-6 backdrop-blur-sm shadow-xl">
+          <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-b from-aquilia-500 to-transparent opacity-50" />
+          <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Table of Contents</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {[
+              { name: 'StorageRegistry Class', hash: 'storage-registry' },
+              { name: 'StorageBackend Base Contract', hash: 'storage-backend' },
+              { name: 'StorageFile Wrapper', hash: 'storage-file' },
+              { name: 'StorageMetadata Dataclass', hash: 'storage-metadata' },
+              { name: 'Storage Fault Hierarchy', hash: 'storage-faults' },
+            ].map((item, i) => (
+              <a key={i} href={`#${item.hash}`} className="text-aquilia-500 hover:text-aquilia-400 font-medium hover:underline flex items-center gap-1.5">
+                <span className="text-aquilia-500/50">•</span> {item.name}
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* StorageRegistry */}
+      <section id="storage-registry" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <HardDrive className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="storage.StorageRegistry">StorageRegistry</DocTerm>
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Central registry for managing multiple storage backends.
+        <p className={`mb-4 ${subtleText}`}>
+          The central coordinator for registering, retrieving, and checking the health of multiple storage backends.
         </p>
 
         <CodeBlock language="python">{`class StorageRegistry:
-    def __init__(self) -> None: ...
-    
-    def register(self, name: str, backend: StorageBackend) -> None: ...
-    def get(self, name: str) -> StorageBackend: ...
-    def set_default(self, name: str) -> None: ...
-    
-    # Convenience methods (delegate to backends)
-    async def save(
-        self, path: str, content: bytes, backend: str | None = None
-    ) -> None: ...
-    
-    async def open(
-        self, path: str, backend: str | None = None
-    ) -> bytes: ...
-    
-    async def delete(
-        self, path: str, backend: str | None = None
-    ) -> None: ...
-    
-    async def exists(
-        self, path: str, backend: str | None = None
-    ) -> bool: ...
-    
-    async def stat(
-        self, path: str, backend: str | None = None
-    ) -> StorageMetadata: ...
-    
-    async def listdir(
-        self, path: str, backend: str | None = None
-    ) -> list[str]: ...
-    
-    async def size(
-        self, path: str, backend: str | None = None
-    ) -> int: ...
-    
-    async def url(
-        self, path: str, expires: int = 3600, backend: str | None = None
-    ) -> str: ...`}</CodeBlock>
+    def __init__(self) -> None:
+        """Create an empty storage registry."""
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Methods</h4>
-        <div className={`overflow-x-auto rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Method</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Description</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-200'}`}>
-              {registryMethods.map((m, i) => (
-                <tr key={i}>
-                  <td className={`px-4 py-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code>{m.method}</code></td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{m.desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    @property
+    def default(self) -> StorageBackend:
+        """Get the default registered StorageBackend instance.
+        
+        Raises StorageConfigFault if no default backend is set.
+        """
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Example</h4>
-        <CodeBlock language="python">{`from aquilia.storage import StorageRegistry, LocalStorage, S3Storage
+    def register(self, alias: str, backend: StorageBackend) -> None:
+        """Register a backend instance with the given alias name."""
 
-registry = StorageRegistry()
+    def unregister(self, alias: str) -> None:
+        """Unregister a backend by its alias name."""
 
-# Register backends
-registry.register("local", LocalStorage(root_path="./storage"))
-registry.register("s3", S3Storage(bucket="my-bucket"))
-registry.set_default("local")
+    def set_default(self, alias: str) -> None:
+        """Define which registered alias acts as the default backend."""
 
-# Use default backend
-await registry.save("file.txt", b"Hello")
-content = await registry.open("file.txt")
+    def get(self, alias: str) -> StorageBackend | None:
+        """Look up a backend instance by alias. Returns None if missing."""
 
-# Use specific backend
-await registry.save("backup.txt", b"data", backend="s3")
+    def __getitem__(self, alias: str) -> StorageBackend:
+        """Access a backend via bracket notation registry[alias].
+        
+        Raises KeyError if alias is not found.
+        """
 
-# Check if file exists
-if await registry.exists("file.txt"):
-    metadata = await registry.stat("file.txt")
-    print(f"Size: {metadata.size} bytes")`}</CodeBlock>
+    async def initialize_all(self) -> None:
+        """Run the async initialize() lifecycle hook on all registered backends."""
+
+    async def shutdown_all(self) -> None:
+        """Close/release connections on all registered backends."""
+
+    async def health_check(self) -> dict[str, bool]:
+        """Runs a ping() check on each registered backend.
+        
+        Returns a dictionary of {alias: is_healthy}.
+        """`}</CodeBlock>
       </section>
 
       {/* StorageBackend */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          StorageBackend
+      <section id="storage-backend" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="storage.StorageBackend">StorageBackend</DocTerm>
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Abstract base class that all storage backends must implement.
+        <p className={`mb-4 ${subtleText}`}>
+          Abstract Base Class establishing the contract all storage drivers (Local, S3, Memory, GCS, SFTP) must implement.
         </p>
 
         <CodeBlock language="python">{`from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator
+from typing import BinaryIO
 
 class StorageBackend(ABC):
+    @property
     @abstractmethod
-    async def save(self, path: str, content: bytes) -> None:
-        """Save content to path."""
-        
-    @abstractmethod
-    async def open(self, path: str) -> bytes:
-        """Read file content."""
-        
-    @abstractmethod
-    async def delete(self, path: str) -> None:
-        """Delete file at path."""
-        
-    @abstractmethod
-    async def exists(self, path: str) -> bool:
-        """Check if file exists."""
-        
-    @abstractmethod
-    async def stat(self, path: str) -> StorageMetadata:
-        """Get file metadata."""
-        
-    @abstractmethod
-    async def listdir(self, path: str) -> list[str]:
-        """List directory contents."""
-        
-    @abstractmethod
-    async def size(self, path: str) -> int:
-        """Get file size in bytes."""
-        
-    @abstractmethod
-    async def url(self, path: str, expires: int = 3600) -> str:
-        """Get signed URL for file access."""`}</CodeBlock>
+    def backend_name(self) -> str:
+        """Returns the driver name identifier (e.g. 'local', 's3')."""
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Methods</h4>
-        <div className={`overflow-x-auto rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Method</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Description</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Returns</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-200'}`}>
-              {backendMethods.map((m, i) => (
-                <tr key={i}>
-                  <td className={`px-4 py-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code>{m.method}</code></td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{m.desc}</td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}><code className="text-aquilia-500">{m.returns}</code></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+    async def initialize(self) -> None:
+        """Bootstrap directory structures, connections, or credential handshakes."""
 
-      {/* StorageMetadata */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          StorageMetadata
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          File metadata returned by <code className="text-aquilia-500">stat()</code>.
-        </p>
+    async def ping(self) -> bool:
+        """Verifies driver accessibility. Returns True if healthy, False otherwise."""
 
-        <CodeBlock language="python">{`@dataclass
-class StorageMetadata:
-    path: str              # File path
-    size: int              # Size in bytes
-    content_type: str      # MIME type
-    modified: datetime     # Last modified time
-    etag: str | None       # ETag (if available)
-    metadata: dict         # Backend-specific metadata`}</CodeBlock>
+    @abstractmethod
+    async def save(
+        self,
+        name: str,
+        content: bytes | BinaryIO | AsyncIterator[bytes] | StorageFile,
+        *,
+        content_type: str | None = None,
+        metadata: dict[str, str] | None = None,
+        overwrite: bool = False,
+    ) -> str:
+        """Save a file to the backend.
+        
+        Args:
+            name: Path/key target.
+            content: Raw byte content, file-like object, or async generator.
+            content_type: MIME string (auto-detected if None).
+            metadata: Custom tag key/values.
+            overwrite: Replaces the file if True, otherwise appends an increments counter.
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Example</h4>
-        <CodeBlock language="python">{`metadata = await storage.stat("document.pdf")
-print(f"Size: {metadata.size} bytes")
-print(f"Type: {metadata.content_type}")
-print(f"Modified: {metadata.modified.isoformat()}")
-print(f"ETag: {metadata.etag}")`}</CodeBlock>
+        Returns:
+            The final saved relative path string.
+        """
+
+    @abstractmethod
+    async def open(self, name: str, mode: str = "rb") -> StorageFile:
+        """Open a file handle for reading or writing.
+        
+        Returns:
+            A StorageFile wrapper.
+        """
+
+    @abstractmethod
+    async def delete(self, name: str) -> None:
+        """Deletes a file. Idempotent: does NOT raise if the file does not exist."""
+
+    @abstractmethod
+    async def exists(self, name: str) -> bool:
+        """Returns True if the file exists, False otherwise."""
+
+    @abstractmethod
+    async def stat(self, name: str) -> StorageMetadata:
+        """Returns metadata for the file. Raises FileNotFoundError if missing."""
+
+    @abstractmethod
+    async def listdir(self, path: str = "") -> tuple[list[str], list[str]]:
+        """List subdirectories and files in a path.
+        
+        Returns:
+            A tuple of (directories_list, files_list).
+        """
+
+    @abstractmethod
+    async def size(self, name: str) -> int:
+        """Returns the file size in bytes."""
+
+    @abstractmethod
+    async def url(self, name: str, expire: int | None = None) -> str:
+        """Generates a public URL or signed temporary URL.
+        
+        Args:
+            expire: URL expiration period in seconds.
+        """`}</CodeBlock>
       </section>
 
       {/* StorageFile */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          StorageFile
+      <section id="storage-file" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="storage.StorageFile">StorageFile</DocTerm>
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Streaming file handle for large files.
+        <p className={`mb-4 ${subtleText}`}>
+          An asynchronous wrapper for reading and writing files. Implements the async context manager and iterator protocols.
         </p>
 
         <CodeBlock language="python">{`class StorageFile:
-    async def read(self, size: int = -1) -> bytes:
-        """Read up to size bytes."""
-        
-    async def write(self, data: bytes) -> int:
-        """Write data to file."""
-        
-    async def seek(self, offset: int, whence: int = 0) -> int:
-        """Seek to position."""
-        
-    async def tell(self) -> int:
-        """Get current position."""
-        
-    async def close(self) -> None:
-        """Close the file."""
-        
-    async def __aenter__(self) -> 'StorageFile':
-        return self
-        
-    async def __aexit__(self, *args) -> None:
-        await self.close()`}</CodeBlock>
+    @property
+    def closed(self) -> bool:
+        """Returns True if the file has been closed."""
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Example</h4>
-        <CodeBlock language="python">{`# Stream large file
-async with await storage.open_stream("large.mp4") as f:
-    while True:
-        chunk = await f.read(65536)  # 64KB chunks
-        if not chunk:
-            break
-        await process(chunk)`}</CodeBlock>
+    async def read(self, size: int = -1) -> bytes:
+        """Read up to size bytes. If -1, reads the entire file."""
+
+    async def write(self, data: bytes) -> int:
+        """Write bytes to the file (requires a writable open mode)."""
+
+    async def seek(self, offset: int, whence: int = 0) -> int:
+        """Change the stream position relative to start (0), current (1), or end (2)."""
+
+    async def tell(self) -> int:
+        """Return the current stream position."""
+
+    async def close(self) -> None:
+        """Release underlying system handles or HTTP connections."""
+
+    async def chunks(self, chunk_size: int = 65536) -> AsyncIterator[bytes]:
+        """Stream the file in custom-sized byte chunks."""`}</CodeBlock>
       </section>
 
-      {/* Errors */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <AlertTriangle className="inline w-6 h-6 mr-2 text-amber-500" />
-          Errors
+      {/* StorageMetadata */}
+      <section id="storage-metadata" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="storage.StorageMetadata">StorageMetadata</DocTerm>
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          All storage operations raise structured exceptions.
+        <p className={`mb-4 ${subtleText}`}>
+          An immutable dataclass containing metadata for a stored file, returned by backend stat calls.
         </p>
 
-        <div className={`overflow-x-auto rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
+        <CodeBlock language="python">{`@dataclass(frozen=True)
+class StorageMetadata:
+    name: str                           # Relative path key
+    size: int = 0                       # Size in bytes
+    content_type: str = "application/octet-stream"
+    etag: str = ""                      # SHA-256 or remote MD5 hash
+    last_modified: datetime | None = None
+    created_at: datetime | None = None
+    metadata: dict[str, str] = field(default_factory=dict)
+    storage_class: str = ""             # e.g., "STANDARD", "GLACIER"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert metadata values to a serialized dictionary."""`}</CodeBlock>
+      </section>
+
+      {/* Storage Faults */}
+      <section id="storage-faults" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Terminal className="w-5 h-5 text-aquilia-500" />
+          Storage Fault Hierarchy
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Errors thrown by storage providers are normalized under the <code className="text-aquilia-500">"storage"</code> fault domain.
+        </p>
+
+        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl">
+          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             <thead>
-              <tr className={isDark ? 'bg-white/5' : 'bg-gray-50'}>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Exception</th>
-                <th className={`px-4 py-3 text-left font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Description</th>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="text-left py-4 px-6 font-semibold text-aquilia-500 w-52">Fault Class</th>
+                <th className="text-left py-4 px-6 font-semibold">Fault Code</th>
+                <th className="text-left py-4 px-6">Description</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-200'}`}>
-              {errors.map((e, i) => (
-                <tr key={i}>
-                  <td className={`px-4 py-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code>{e.name}</code></td>
-                  <td className={`px-4 py-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{e.desc}</td>
+            <tbody className="divide-y divide-white/5">
+              {[
+                ['StorageError', 'STORAGE_ERROR', 'Base class for all storage failures.'],
+                ['FileNotFoundError', 'STORAGE_FILE_NOT_FOUND', 'Raised when reading, deleting, or statting a missing file.'],
+                ['PermissionError', 'STORAGE_PERMISSION_DENIED', 'Raised when lacking local file access permissions or cloud bucket policies.'],
+                ['StorageFullError', 'STORAGE_FULL', 'Raised when local storage quota or bucket limits are exceeded.'],
+                ['BackendUnavailableError', 'STORAGE_BACKEND_UNAVAILABLE', 'Raised when remote services (S3/Azure/SFTP) are offline.'],
+                ['StorageIOFault', 'STORAGE_IO_ERROR', 'Raised when performing operations on closed files or wrong read/write modes.'],
+                ['StorageConfigFault', 'STORAGE_CONFIG_ERROR', 'Raised on incorrect backend parameters or missing registry configurations.'],
+              ].map(([fault, code, desc], i) => (
+                <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-6 font-mono text-xs font-semibold text-aquilia-400">{fault}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs text-aquilia-500">{code}</td>
+                  <td className={`py-3.5 px-6 text-xs ${subtleText}`}>{desc}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>Error Handling Example</h4>
-        <CodeBlock language="python">{`from aquilia.storage import (
-    StorageRegistry,
-    FileNotFoundError,
-    PermissionError,
-    PathTraversalError,
-    StorageError,
-)
-
-async def safe_read(storage: StorageRegistry, path: str) -> bytes | None:
-    try:
-        return await storage.open(path)
-    except PathTraversalError:
-        logger.warning(f"Path traversal attempt: {path}")
-        raise HTTPException(400, "Invalid path")
-    except FileNotFoundError:
-        return None
-    except PermissionError:
-        raise HTTPException(403, "Access denied")
-    except StorageError as e:
-        logger.error(f"Storage error: {e}")
-        raise HTTPException(500, "Storage error")`}</CodeBlock>
       </section>
+
+      <NextSteps />
     </div>
   )
 }
