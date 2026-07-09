@@ -493,13 +493,11 @@ export function IntroductionPage() {
     <div className="max-w-4xl mx-auto">
       {/* Hero */}
       <div className="relative mb-20 overflow-hidden">
-        {/* Ambient background glow */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-aquilia-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -top-12 right-0 w-64 h-64 bg-blue-500/8 rounded-full blur-3xl pointer-events-none" />
+
 
         {/* Version line */}
         <p className={`text-xs font-mono mb-8 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-          v{version} · "{codename}" · Production-ready async Python web framework
+          v{version} · "{codename}"
         </p>
 
         {/* Logo + Title */}
