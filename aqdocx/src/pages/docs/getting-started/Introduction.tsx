@@ -473,103 +473,80 @@ export function IntroductionPage() {
           Aquilia shifts framework architecture from manual configuration boilerplate to declarative autodiscovery.
         </p>
 
-        <div className="space-y-10">
-          {[
-            {
-              friction: 'Manual configuration wiring components, services, and routing topologies together.',
-              solution: 'Programmatic auto-discovery that structures the entire module and DI graph automatically.',
-              badgeFriction: 'LEGACY WIRING',
-              badgeSolution: 'AUTO-DISCOVERY'
-            },
-            {
-              friction: 'Deployment infrastructure, Dockerfiles, and deployment charts are treated as an afterthought.',
-              solution: 'First-class generators build production Render, Docker, and Kubernetes manifests natively.',
-              badgeFriction: 'MANUAL INFRA',
-              badgeSolution: 'INFRA GENERATION'
-            },
-            {
-              friction: 'Machine Learning serving and validation require building a separate, disjointed stack.',
-              solution: 'Integrated MLOps serving, experimental tracking, and pipeline plugins are supported out of the box.',
-              badgeFriction: 'FRAGILE MLOPS',
-              badgeSolution: 'INTEGRATED ML'
-            },
-            {
-              friction: 'Writing repetitive boilerplate code for clearance auth, session storage, and task queues.',
-              solution: 'Unified batteries-included modules cover clearance access levels, caching, and worker pools.',
-              badgeFriction: 'BOILERPLATE',
-              badgeSolution: 'UNIFIED MODULES'
-            }
-          ].map((row, idx) => (
-            <div key={idx} className="flex flex-col md:grid md:grid-cols-[1fr_80px_1fr] items-center gap-4 md:gap-0">
-              
-              {/* Left Column: Traditional Frictions */}
-              <div className="text-left md:text-right pr-0 md:pr-6">
-                <span className={`text-[8px] font-mono tracking-widest px-2 py-0.5 rounded font-semibold ${
-                  isDark ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400' : 'bg-rose-50 border border-rose-100 text-rose-700'
-                }`}>
-                  {row.badgeFriction}
-                </span>
-                <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
-                  {row.friction}
-                </p>
-              </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-16 gap-y-10">
+          
+          {/* Row 1 */}
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-rose-500/80 uppercase">
+              ✕ Legacy Wiring
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+              Manual configuration of components, services, and routing topologies. Wiring boilerplate accumulates as the codebase grows.
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-500 uppercase">
+              ✓ Auto-Discovery
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>
+              Programmatic registry structures the module and DI graph automatically. Sensible defaults eliminate setup overhead.
+            </p>
+          </div>
 
-              {/* Center Column: Shift Vector */}
-              <div className="hidden md:block w-[80px] h-[50px] relative">
-                <svg viewBox="0 0 80 50" className="w-full h-full bg-transparent overflow-visible">
-                  <defs>
-                    <linearGradient id={`shift-grad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#f43f5e" />
-                      <stop offset="100%" stopColor="#10b981" />
-                    </linearGradient>
-                  </defs>
-                  
-                  {/* Central Spine line */}
-                  <line 
-                    x1="40" y1="0" x2="40" y2="50" 
-                    stroke={isDark ? "#18181b" : "#f3f4f6"} 
-                    strokeWidth="1.5" 
-                    strokeDasharray="3 3" 
-                  />
+          {/* Row 2 */}
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-rose-500/80 uppercase">
+              ✕ Manual Infra
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+              Deployment infrastructure, Dockerfiles, and container charts are treated as an afterthought left to separate operations.
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-500 uppercase">
+              ✓ Infra Generation
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>
+              First-class generators build production Render, Docker, and Kubernetes configurations natively from the code topology.
+            </p>
+          </div>
 
-                  {/* Transition Vector arrow */}
-                  <path 
-                    d="M 15,25 H 65 M 57,20 L 65,25 L 57,30" 
-                    stroke={`url(#shift-grad-${idx})`} 
-                    strokeWidth="1.5" 
-                    fill="none" 
-                  />
+          {/* Row 3 */}
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-rose-500/80 uppercase">
+              ✕ Fragile MLOps
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+              Machine Learning serving, metrics, and experimental tracking require building a separate, disjointed middleware stack.
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-500 uppercase">
+              ✓ Integrated ML
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>
+              Integrated MLOps serving, experimental tracking, and pipeline plugins are supported out of the box by the runtime.
+            </p>
+          </div>
 
-                  {/* Paradigm Shift Flow dot */}
-                  <motion.circle
-                    r="2"
-                    fill="#10b981"
-                    animate={{ cx: [15, 65] }}
-                    transition={{ 
-                      repeat: Infinity, 
-                      duration: 2.5, 
-                      ease: "easeInOut", 
-                      delay: idx * 0.4 
-                    }}
-                    cy="25"
-                  />
-                </svg>
-              </div>
+          {/* Row 4 */}
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-rose-500/80 uppercase">
+              ✕ Boilerplate Overhead
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+              Writing repetitive boilerplate code for session storage, clearance guards, cache invalidation, and task queue workers.
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] font-mono font-bold tracking-widest text-emerald-500 uppercase">
+              ✓ Unified Modules
+            </span>
+            <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-200' : 'text-gray-800'}`}>
+              Unified batteries-included modules cover clearance access levels, multi-layer caching, mail, and worker pools.
+            </p>
+          </div>
 
-              {/* Right Column: Aquilia Paradigms */}
-              <div className="text-left pl-0 md:pl-6">
-                <span className={`text-[8px] font-mono tracking-widest px-2 py-0.5 rounded font-semibold ${
-                  isDark ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border border-emerald-100 text-emerald-700'
-                }`}>
-                  {row.badgeSolution}
-                </span>
-                <p className={`text-xs mt-2 font-light leading-relaxed ${isDark ? 'text-zinc-300' : 'text-gray-850'}`}>
-                  {row.solution}
-                </p>
-              </div>
-
-            </div>
-          ))}
         </div>
       </section>
 
