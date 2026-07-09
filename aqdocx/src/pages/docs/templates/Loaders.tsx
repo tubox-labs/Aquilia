@@ -1,128 +1,156 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Palette } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function TemplatesLoaders() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderMuted = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-2">
+      {/* Header */}
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Palette className="w-4 h-4" />
+          <Layers className="w-4 h-4" />
           Templates / Loaders
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Template Loaders
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-extrabold tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="gradient-text font-mono">Template Loaders & Namespaces</span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Loaders control how templates are discovered and read from the filesystem or packages. Aquilia provides <code className="text-aquilia-400">TemplateLoader</code> for filesystem loading and <code className="text-aquilia-400">PackageLoader</code> for loading from installed Python packages.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          Loaders manage how template source strings are located and read. The <DocTerm id="templates.TemplateLoader">TemplateLoader</DocTerm> class resolves template files across multiple project search paths and modules.
         </p>
       </div>
 
-      {/* TemplateLoader */}
+      {/* Namespace Resolution */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>TemplateLoader</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Filesystem-based template loading with support for multiple directories, file extensions, and encoding options.
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Namespace Resolution Formats
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          The loader determines the physical path of a template based on the naming syntax used inside controller calls or template directives:
         </p>
-        <CodeBlock language="python" filename="loader.py">{`from aquilia.templates import TemplateLoader
+        <div className="space-y-6">
+          {[
+            {
+              format: 'Relative Paths ("profile.html")',
+              desc: 'Resolved within the default module or relative to configured root search paths. Perfect for local template assets.'
+            },
+            {
+              format: 'Module-Namespaced ("users/profile.html")',
+              desc: 'Maps directly to modules/users/templates/profile.html. Simplifies module boundaries.'
+            },
+            {
+              format: 'Cross-Module Reference ("@auth/login.html")',
+              desc: 'Using the @ prefix targets specific modules directly, resolving to modules/auth/templates/login.html.'
+            },
+            {
+              format: 'Fully-Qualified ("users:profile.html")',
+              desc: 'Identical to module-namespaced, resolving users:profile.html to modules/users/templates/profile.html.'
+            }
+          ].map((item, i) => (
+            <div key={i} className="pl-4 border-l-2 border-aquilia-500/20">
+              <h4 className={`text-sm font-semibold mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.format}</h4>
+              <p className={`text-xs ${textMuted}`}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* TemplateLoader Constructor */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          TemplateLoader Configuration
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          Instantiate <DocTerm id="templates.TemplateLoader">TemplateLoader</DocTerm> with custom search paths and package mappings:
+        </p>
+        <CodeBlock
+          language="python"
+          filename="custom_loader.py"
+          highlightLines={[3, 4, 5]}
+        >{`from aquilia.templates import TemplateLoader
 
 loader = TemplateLoader(
-    search_dirs=[
-        "templates/",           # App templates
-        "shared/templates/",    # Shared templates
-    ],
-    extensions=[".html", ".jinja2", ".txt"],
-    encoding="utf-8",
-    follow_links=False,
+    search_paths=["templates", "shared_templates"],
+    package_loaders={"admin": "aquilia_admin"},
+    default_module="home"
 )`}</CodeBlock>
       </section>
 
-      {/* PackageLoader */}
+      {/* Manifest-Aware Auto-Discovery */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>PackageLoader</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Loads templates from installed Python packages. Useful for reusable component libraries.
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Manifest-Aware Loaders
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          The system can auto-discover template folders by scanning project manifests (`module.aq` or `manifest.py`). Enable this using built-in discovery functions:
         </p>
-        <CodeBlock language="python" filename="package.py">{`from aquilia.templates import PackageLoader
-
-# Load templates from an installed package
-loader = PackageLoader(
-    package_name="aquilia_admin",
-    package_path="templates",
-)
-# Resolves: aquilia_admin/templates/admin/dashboard.html`}</CodeBlock>
-      </section>
-
-      {/* Manifest-Aware Loader */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Manifest-Aware Loading</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The manifest integration auto-discovers template directories from registered Aquilary modules.
-        </p>
-        <CodeBlock language="python" filename="manifest.py">{`from aquilia.templates import (
-    discover_template_directories,
-    create_manifest_aware_loader,
-    ModuleTemplateRegistry,
+        <CodeBlock
+          language="python"
+          filename="discover_templates.py"
+          highlightLines={[5, 8]}
+        >{`from aquilia.templates.manifest_integration import (
+    discover_template_directories, create_manifest_aware_loader
 )
 
-# Auto-discover from manifests
-dirs = discover_template_directories(registry)
-# → ["modules/users/templates", "modules/products/templates", ...]
+# 1. Discover all "templates" directories relative to current path
+discovered_dirs = discover_template_directories(scan_manifests=True)
 
-# Create a loader that knows about all modules
-loader = create_manifest_aware_loader(registry)
-
-# Module template registry tracks which module owns which templates
-mod_registry = ModuleTemplateRegistry(registry)
-owner = mod_registry.get_owner("users/profile.html")
-# → "users" module`}</CodeBlock>
+# 2. Generate a ready-to-use loader targeting all discovered paths
+manifest_loader = create_manifest_aware_loader(scan_manifests=True)`}</CodeBlock>
       </section>
 
       {/* TemplateManager */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>TemplateManager</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-400">TemplateManager</code> validates templates at build time, catching errors before deployment.
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          TemplateManager
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          The <DocTerm id="templates.TemplateSandbox">TemplateManager</DocTerm> compiles template source code into bytecode files and runs automated linter audits to catch bugs prior to deployment:
         </p>
-        <CodeBlock language="python" filename="manager.py">{`from aquilia.templates import TemplateManager, TemplateLintIssue
+        <CodeBlock
+          language="python"
+          filename="manager_ops.py"
+          highlightLines={[6, 9, 13]}
+        >{`from aquilia.templates import TemplateManager
 
-manager = TemplateManager(engine)
+manager = TemplateManager(engine=engine, loader=loader)
 
-# Lint all templates
-issues: list[TemplateLintIssue] = manager.lint()
+# 1. Compile all templates to a .surp bytecode archive (Atomic write with HMAC signature)
+await manager.compile_all(output_path="artifacts/templates.surp")
+
+# 2. Run template linter (identifies syntax errors, undefined variables, disallowed filters)
+issues = await manager.lint_all(strict_undefined=True)
 for issue in issues:
-    print(f"{issue.template}:{issue.line} - {issue.message}")
+    print(issue) # Output format: template.html:line:col: severity: msg [code]
 
-# Precompile all templates to bytecode
-await manager.precompile()
-
-# List all available templates
-templates = manager.list_templates()
-# → ["base.html", "users/profile.html", ...]`}</CodeBlock>
+# 3. Retrieve a list of all template paths discovered by loader
+available_templates = loader.list_templates()`}</CodeBlock>
       </section>
 
-      {/* TemplateMiddleware */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>TemplateMiddleware</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Automatically adds template context variables (request, session, CSRF token) to every template render.
-        </p>
-        <CodeBlock language="python" filename="middleware.py">{`from aquilia.templates import TemplateMiddleware
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
+        <Link to="/docs/templates/engine" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+          <ArrowLeft className="w-4 h-4" /> TemplateEngine
+        </Link>
+        <Link to="/docs/templates/security" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          Security <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
 
-# Added automatically when templates integration is active
-workspace.middleware([
-    TemplateMiddleware(),
-])`}</CodeBlock>
-      </section>
-    
-      <NextSteps />
+      <NextSteps
+        items={[
+          { text: 'Sandboxed Security Policy', link: '/docs/templates/security' },
+          { text: 'Mail Subsystem', link: '/docs/mail' },
+          { text: 'Developer Integration Guide', link: '/docs/developer-guide' },
+        ]}
+      />
     </div>
   )
 }

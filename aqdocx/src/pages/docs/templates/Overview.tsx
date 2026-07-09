@@ -1,5 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, FileText } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
@@ -7,204 +8,209 @@ import { NextSteps } from '../../../components/NextSteps'
 export function TemplatesOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderMuted = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-2">
+      {/* Header */}
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <FileText className="w-4 h-4" />
           Advanced / Templates
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Template Engine
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-extrabold tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="gradient-text font-mono">Template Engine Overview</span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          AquilaTemplates is a first-class Jinja2-based template rendering system with async support, sandboxed execution, bytecode caching, DI integration, session/auth context injection, and hot-reload in development.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          AquilaTemplates is an async-native rendering engine built on top of Jinja2. It features sandboxed script execution, module-aware namespace loaders, precompiled bytecode caching, and auto-populated request/session contexts.
         </p>
       </div>
 
-      {/* Architecture */}
+      {/* Configuration & Setup */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Architecture</h2>
-        <div className="space-y-3">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          System Integration & Registration
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          Configure templates at the workspace level and organize directories within module structures.
+        </p>
+
+        {/* Workspace Level */}
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>1. Workspace Integration</h3>
+          <p className={`text-sm mb-4 ${textMuted}`}>
+            Register templates inside <code className="text-aquilia-400">workspace.py</code> using <DocTerm id="templates.TemplateLoader">TemplatesIntegration</DocTerm>:
+          </p>
+          <CodeBlock
+            language="python"
+            filename="workspace.py"
+            highlightLines={[6, 7]}
+          >{`from aquilia.workspace import Workspace
+from aquilia.integrations import TemplatesIntegration
+
+workspace = (
+    Workspace("myapp")
+    .integrate(TemplatesIntegration(
+        search_paths=["templates", "shared_templates"],
+        cache="memory",
+        sandbox=True,
+        sandbox_policy="strict"
+    ))
+)`}</CodeBlock>
+        </div>
+
+        {/* Manifest Level */}
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>2. Manifest Auto-Discovery & Layout</h3>
+          <p className={`text-sm mb-4 ${textMuted}`}>
+            By default, templates placed inside modules under the <code className="text-aquilia-400">templates/</code> folder are auto-discovered. You can also customize search paths inside <code className="text-aquilia-400">module.aq</code>:
+          </p>
+          <CodeBlock
+            language="json"
+            filename="modules/auth/module.aq"
+          >{`{
+  "templates": {
+    "enabled": true,
+    "search_paths": [
+      "./templates",
+      "./custom_themes"
+    ],
+    "precompile": true,
+    "cache": "surp"
+  }
+}`}</CodeBlock>
+        </div>
+      </section>
+
+      {/* Subsystem Components */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Engine Architecture
+        </h2>
+        <div className="space-y-8">
           {[
-            { name: 'TemplateEngine', desc: 'Core rendering engine. Loads templates, manages environment, renders to strings or responses.' },
-            { name: 'TemplateLoader / PackageLoader', desc: 'Discovers templates from directories or module packages. Supports multi-directory resolution.' },
-            { name: 'BytecodeCache', desc: 'Caches compiled template bytecode — InMemoryBytecodeCache or SurpBytecodeCache (artifact-backed).' },
-            { name: 'TemplateManager', desc: 'Linting, validation, and administration of templates. Reports unused variables and syntax issues.' },
-            { name: 'TemplateSandbox', desc: 'Sandboxed Jinja2 execution with SandboxPolicy for restricting what templates can access.' },
-            { name: 'TemplateContext', desc: 'Auto-injected context variables: request, session, identity, flash messages, CSRF token.' },
+            {
+              name: 'TemplateEngine',
+              id: 'templates.TemplateEngine',
+              desc: 'Core coordinator managing environment states, rendering engines, and Response construction helpers.'
+            },
+            {
+              name: 'TemplateLoader',
+              id: 'templates.TemplateLoader',
+              desc: 'Namespace-aware loader. Supports relative paths, package resources, and cross-module referencing formats (@module/path).'
+            },
+            {
+              name: 'SurpBytecodeCache',
+              id: 'templates.SurpBytecodeCache',
+              desc: 'Production-ready cache compiled into frozen .surp bytecode artifacts. Utilizes HMAC hashes for tampering detection.'
+            },
+            {
+              name: 'TemplateSandbox',
+              id: 'templates.TemplateSandbox',
+              desc: 'Execution gate enforcing a whitelist of filters, functions, globals, and operators. Disallows arbitrary Python execution.'
+            }
           ].map((item, i) => (
-            <div key={i} className={boxClass}>
-              <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
-              <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+            <div key={i} className="pl-4 border-l-2 border-aquilia-500/20 hover:border-aquilia-400 transition-colors duration-200">
+              <DocTerm id={item.id} className="text-aquilia-500 font-mono text-sm font-semibold border-b-0 hover:underline">
+                {item.name}
+              </DocTerm>
+              <p className={`text-sm mt-1 leading-relaxed ${textMuted}`}>{item.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Configuration */}
+      {/* Rendering in Controllers */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Configuration</h2>
-        <CodeBlock language="python" filename="workspace.py">{`from aquilia import Workspace, Integration
-
-workspace = Workspace(
-    integrations=[
-        Integration.templates(
-            dirs=["templates"],          # Template directories
-            auto_reload=True,            # Hot-reload in dev mode
-            auto_escape=True,            # HTML auto-escaping
-            bytecode_cache="memory",     # "memory" | "surp" | None
-            sandboxed=True,              # Enable sandbox mode
-            trim_blocks=True,
-            lstrip_blocks=True,
-            extensions=["jinja2.ext.do", "jinja2.ext.loopcontrols"],
-        ),
-    ],
-)`}</CodeBlock>
-      </section>
-
-      {/* Usage in Controllers */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Rendering Templates</h2>
-        <CodeBlock language="python" filename="controller.py">{`from aquilia import Controller, Get, Inject
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Rendering in Controllers
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          Access the template system either through controller helper methods or by direct invocation of the injected <DocTerm id="templates.TemplateEngine">TemplateEngine</DocTerm>:
+        </p>
+        <CodeBlock
+          language="python"
+          filename="controllers.py"
+          highlightLines={[12, 17, 24]}
+        >{`from aquilia import Controller, Get, Inject
 from aquilia.templates import TemplateEngine
 
-
-class PageController(Controller):
-    prefix = ""
+class WebController(Controller):
 
     @Inject()
     def __init__(self, templates: TemplateEngine):
         self.templates = templates
 
     @Get("/")
-    async def home(self, ctx):
-        """Render using Controller.render() helper."""
-        products = await Product.objects.filter(featured=True).to_list()
-        return await self.render("home.html", {
-            "title": "Home",
-            "products": products,
-        }, ctx)
+    async def index(self, ctx):
+        # 1. Convenient controller render helper (returns Response)
+        return await self.render("index.html", {"title": "Home"}, request_ctx=ctx)
 
     @Get("/profile")
     async def profile(self, ctx):
-        """Render using TemplateEngine directly."""
-        html = await self.templates.render_to_string(
-            "users/profile.html",
-            {"user": ctx.identity},
+        # 2. Render directly to string via TemplateEngine
+        html = await self.templates.render(
+            "profile.html", 
+            {"user": ctx.identity}, 
+            request_ctx=ctx
         )
         return ctx.html(html)
 
     @Get("/dashboard")
     async def dashboard(self, ctx):
-        """Render to response with custom status."""
+        # 3. Direct response generation via TemplateEngine
         return await self.templates.render_to_response(
             "dashboard.html",
             {"stats": await get_stats()},
             status=200,
+            request_ctx=ctx
         )`}</CodeBlock>
-      </section>
-
-      {/* Template Syntax */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Template Syntax</h2>
-        <CodeBlock language="html" filename="templates/base.html">{`<!DOCTYPE html>
-<html lang="en">
-<head>
-    <title>{% block title %}My App{% endblock %}</title>
-    <link rel="stylesheet" href="/static/css/app.css">
-</head>
-<body>
-    <nav>
-        {% if identity %}
-            <span>Welcome, {{ identity.username }}</span>
-            <a href="/logout">Logout</a>
-        {% else %}
-            <a href="/login">Login</a>
-        {% endif %}
-    </nav>
-
-    {% for message in get_flashed_messages() %}
-        <div class="flash flash-{{ message.category }}">
-            {{ message.message }}
-        </div>
-    {% endfor %}
-
-    <main>
-        {% block content %}{% endblock %}
-    </main>
-</body>
-</html>`}</CodeBlock>
-
-        <CodeBlock language="html" filename="templates/products/list.html">{`{% extends "base.html" %}
-
-{% block title %}Products{% endblock %}
-
-{% block content %}
-<h1>Products</h1>
-<div class="grid">
-    {% for product in products %}
-    <div class="card">
-        <h2>{{ product.name }}</h2>
-        <p class="price">\${{ "%.2f"|format(product.price) }}</p>
-        <a href="{{ url_for('ProductController.detail', id=product.id) }}">
-            View Details
-        </a>
-    </div>
-    {% else %}
-    <p>No products found.</p>
-    {% endfor %}
-</div>
-{% endblock %}`}</CodeBlock>
       </section>
 
       {/* Auto-injected Context */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Auto-Injected Context</h2>
-        <div className={`overflow-hidden rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={isDark ? 'bg-zinc-900' : 'bg-gray-50'}>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Variable</th>
-                <th className={`text-left py-3 px-4 font-semibold ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>Description</th>
-              </tr>
-            </thead>
-            <tbody className={isDark ? 'divide-y divide-white/5' : 'divide-y divide-gray-100'}>
-              {[
-                { v: 'request', d: 'The current AquiliaRequest object' },
-                { v: 'identity', d: 'The authenticated user identity (or None)' },
-                { v: 'session', d: 'The current session dict (if sessions enabled)' },
-                { v: 'csrf_token', d: 'CSRF token for forms' },
-                { v: 'get_flashed_messages()', d: 'Retrieve and clear flash messages' },
-                { v: 'url_for(handler, **params)', d: 'Reverse URL generation' },
-                { v: 'static(path)', d: 'Generate static file URL' },
-              ].map((row, i) => (
-                <tr key={i} className={isDark ? 'bg-[#0A0A0A]' : 'bg-white'}>
-                  <td className="py-3 px-4"><code className="text-aquilia-500 font-mono text-xs">{row.v}</code></td>
-                  <td className={`py-3 px-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.d}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Auto-Injected Context Variables
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          When rendering templates with <code className="text-aquilia-400">request_ctx</code> provided, the environment automatically attaches standard context helpers and objects:
+        </p>
+        <div className="space-y-4 font-sans text-sm">
+          {[
+            { variable: 'request', desc: 'The active AquiliaRequest object containing cookies, headers, query parameters, and method state.' },
+            { variable: 'identity', desc: 'The authenticated user identity resolved by guards, or None.' },
+            { variable: 'session', desc: 'Direct access to the session storage dictionary.' },
+            { variable: 'csrf_token', desc: 'A string representing the active CSRF verification token.' },
+            { variable: 'get_flashed_messages()', desc: 'Loads and flushes temporary notification messages from session state.' },
+            { variable: 'url_for(handler, **params)', desc: 'Generates URLs from controller endpoints dynamically.' },
+            { variable: 'static(path)', desc: 'Generates relative path bindings for assets, static files, and media.' }
+          ].map((item, i) => (
+            <div key={i} className="flex justify-between py-3 border-b border-white/5 last:border-0 gap-4">
+              <code className="text-aquilia-500 font-mono text-xs font-semibold flex-shrink-0">{item.variable}</code>
+              <span className={`text-right ${textMuted}`}>{item.desc}</span>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* Navigation */}
-      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/websockets" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
-          <ArrowLeft className="w-4 h-4" /> WebSockets
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
+        <Link to="/docs/websockets/adapters" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+          <ArrowLeft className="w-4 h-4" /> Adapters
         </Link>
-        <Link to="/docs/mail" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          Mail <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/templates/engine" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          TemplateEngine <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-    
-      <NextSteps />
+
+      <NextSteps
+        items={[
+          { text: 'TemplateEngine API', link: '/docs/templates/engine' },
+          { text: 'Template Loaders & Namespaces', link: '/docs/templates/loaders' },
+          { text: 'Sandboxed Security Policy', link: '/docs/templates/security' },
+        ]}
+      />
     </div>
   )
 }
