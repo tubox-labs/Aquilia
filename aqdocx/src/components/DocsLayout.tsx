@@ -8,6 +8,7 @@ import { Footer } from './Footer'
 import { useReactToPrint } from 'react-to-print'
 import { Printer, FileText, BookOpen } from 'lucide-react'
 import { SEO } from './SEO'
+import { lastUpdatedMap } from '../data/lastUpdatedDates'
 
 // Recursive helper to find page labels
 function findItemLabel(items: any[], path: string): string | null {
@@ -57,6 +58,7 @@ export function DocsLayout() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isLinkCopied, setIsLinkCopied] = useState(false)
   const printRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
 
@@ -211,6 +213,41 @@ export function DocsLayout() {
               </div>
               <div ref={printRef} className="max-w-4xl mx-auto w-full print-content-wrapper">
                 <Outlet />
+
+                {/* Document Metadata (Last Updated & Edit on GitHub) */}
+                {(() => {
+                  const getPageLastUpdated = (path: string) => {
+                    const normPath = path.toLowerCase().replace(/\/$/, '')
+                    return lastUpdatedMap[normPath] || 'July 10, 2026'
+                  }
+
+                  return (
+                    <div className={`mt-12 pt-6 border-t ${isDark ? 'border-white/5 text-zinc-500' : 'border-gray-200 text-zinc-400'} text-xs font-mono flex items-center justify-between print:hidden`}>
+                      <span>Last updated: {getPageLastUpdated(location.pathname)}</span>
+                      <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(window.location.href)
+                            setIsLinkCopied(true)
+                            setTimeout(() => setIsLinkCopied(false), 2000)
+                          }}
+                          className={`hover:underline cursor-pointer transition-colors ${isDark ? 'text-aquilia-400/80 hover:text-aquilia-400' : 'text-aquilia-600/80 hover:text-aquilia-600'}`}
+                        >
+                          {isLinkCopied ? 'Link copied!' : 'Copy page link'}
+                        </button>
+                        <span>•</span>
+                        <a 
+                          href="https://github.com/tubox-labs/Aquilia/issues/new"
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className={`hover:underline transition-colors ${isDark ? 'text-aquilia-400/80 hover:text-aquilia-400' : 'text-aquilia-600/80 hover:text-aquilia-600'}`}
+                        >
+                          Report an issue
+                        </a>
+                      </div>
+                    </div>
+                  )
+                })()}
 
                 {/* Footer */}
                 <div className="mt-12 print:hidden">

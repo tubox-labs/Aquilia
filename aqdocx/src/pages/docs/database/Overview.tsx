@@ -76,10 +76,10 @@ Integration.database(url="sqlite:///app.db")
 Integration.database(url="mysql://root:pass@localhost/mydb")`}</CodeBlock>
       </section>
 
-      {/* Backends grid */}
+      {/* Backends list (no box cards!) */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-6 ${t('text-white', 'text-gray-900')}`}>Supported Backends</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-6">
           {[
             {
               name: 'SQLite',
@@ -118,18 +118,22 @@ Integration.database(url="mysql://root:pass@localhost/mydb")`}</CodeBlock>
               href: '#',
             },
           ].map(b => (
-            <div key={b.name} className={`p-5 rounded-xl border ${t('bg-gray-900 border-gray-700/60', 'bg-white border-gray-200')}`}>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className={`font-bold text-base ${t('text-white', 'text-gray-900')}`}>{b.name}</h3>
-                <code className={`text-xs px-1.5 py-0.5 rounded ${t('bg-white/5 text-gray-400', 'bg-gray-100 text-gray-500')}`}>{b.pkg}</code>
+            <div key={b.name} className={`flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b ${t('border-white/5', 'border-gray-150')} last:border-b-0 gap-4`}>
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-1">
+                  <h3 className={`font-mono text-base font-bold ${t('text-white', 'text-gray-900')}`}>{b.name}</h3>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${t('bg-white/5 text-gray-400', 'bg-gray-100 text-gray-500')}`}>{b.pkg}</span>
+                </div>
+                <div className={`text-xs font-mono mb-2 ${t('text-aquilia-400', 'text-aquilia-600')}`}>{b.url}</div>
+                <p className={`text-sm ${t('text-gray-400', 'text-gray-500')}`}>{b.note}</p>
               </div>
-              <div className={`text-xs font-mono mb-2 ${t('text-aquilia-400', 'text-aquilia-600')}`}>{b.url}</div>
-              <p className={`text-xs mb-3 ${t('text-gray-400', 'text-gray-500')}`}>{b.note}</p>
-              <Link to={`/docs/database/configs`} className={`inline-flex items-center gap-1 text-xs font-medium ${t('text-aquilia-400 hover:text-aquilia-300', 'text-aquilia-600 hover:text-aquilia-500')}`}>
-                <DocTerm id={b.config === 'SqliteConfig' ? 'db.sqlite_config' : b.config === 'PostgresConfig' ? 'db.postgres_config' : b.config === 'MysqlConfig' ? 'db.mysql_config' : 'db.oracle_config'}>
-                  {b.config}
-                </DocTerm>
-              </Link>
+              <div className="shrink-0 flex items-center">
+                <Link to={`/docs/database/configs`} className={`inline-flex items-center gap-1 text-xs font-mono font-medium ${t('text-aquilia-400 hover:text-aquilia-300', 'text-aquilia-600 hover:text-aquilia-500')}`}>
+                  <DocTerm id={b.config === 'SqliteConfig' ? 'db.sqlite_config' : b.config === 'PostgresConfig' ? 'db.postgres_config' : b.config === 'MysqlConfig' ? 'db.mysql_config' : 'db.oracle_config'}>
+                    {b.config}
+                  </DocTerm>
+                </Link>
+              </div>
             </div>
           ))}
         </div>
