@@ -8,7 +8,6 @@ export function CacheDecorators() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const subtleBorder = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
     <div className="max-w-4xl mx-auto">

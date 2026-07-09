@@ -1,6 +1,5 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { AlertTriangle } from 'lucide-react'
 
@@ -8,7 +7,6 @@ export function I18nEdgeCases() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const validated: string[] = [
     'Deep dotted keys resolve correctly (for example a.b.c.d).',

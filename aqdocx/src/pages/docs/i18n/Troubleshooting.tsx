@@ -1,6 +1,5 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { LifeBuoy } from 'lucide-react'
 
@@ -8,7 +7,6 @@ export function I18nTroubleshooting() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const scenarios: Array<{ title: string; causes: string[]; fixes: string[] }> = [
     {

@@ -2,7 +2,7 @@ import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Link } from 'react-router-dom'
-import { ArrowRight, AlertTriangle, Workflow, Layers, Gauge } from 'lucide-react'
+import { ArrowRight, AlertTriangle, Workflow, Gauge } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function CacheOverview() {

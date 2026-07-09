@@ -1,7 +1,5 @@
 import { useTheme } from '../../../../context/ThemeContext'
 import { CodeBlock } from '../../../../components/CodeBlock'
-import { DocTerm } from '../../../../components/docPreview/DocTerm'
-import { Link } from 'react-router-dom'
 import { Globe } from 'lucide-react'
 import { NextSteps } from '../../../../components/NextSteps'
 
@@ -9,7 +7,6 @@ export function HTTPAPIStreaming() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
-  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
     <div className="max-w-4xl mx-auto">
