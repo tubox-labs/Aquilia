@@ -1,130 +1,104 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { Archive, ArrowLeft, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Archive } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function AquilaryOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Archive className="w-4 h-4" />
-          Advanced / Aquilary
+          <span>ADVANCED / AQUILARY REGISTRY</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Aquilary Registry
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Aquilary Registry
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The Aquilary is Aquilia's manifest-driven artifact and module registry. It tracks modules, controllers, providers, routes, and configuration as a deterministic dependency graph with content-addressable fingerprinting for reproducible runtime state and safe hot-reloads.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The Aquilary is Aquilia's manifest-driven module registry. It manages module declaration, resolves dependencies topologically, indexes route structures, and generates secure cryptographic fingerprints to enable deterministic hot-reloads.
         </p>
       </div>
 
-      {/* Core Concepts */}
+      {/* Core Architectural Division */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Core Concepts</h2>
-        <div className="space-y-3">
-          {[
-            { name: 'Aquilary', desc: 'Central registry class. Collects modules, resolves dependencies, compiles manifests, and generates fingerprints.' },
-            { name: 'RuntimeRegistry', desc: 'Runtime counterpart — holds live references to compiled controllers, DI containers, and route tables.' },
-            { name: 'Manifest', desc: 'Static declaration of a module\'s controllers, providers, integrations, and dependencies.' },
-            { name: 'Fingerprint', desc: 'SHA-256 hash of the compiled state — used for change detection, cache invalidation, and deployment verification.' },
-            { name: 'ArtifactStore', desc: 'Persistent storage for generated artifacts (.surp files). Used by the CLI for inspection and release tooling.' },
-          ].map((item, i) => (
-            <div key={i} className={boxClass}>
-              <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
-              <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
-            </div>
-          ))}
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Two-Phase Registry Lifecycle</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          To prevent import-time side effects and keep development tooling fast, Aquilia separates registry instantiation into two distinct phases:
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="border-l-2 border-aquilia-500/20 pl-6 py-2">
+            <span className="font-mono text-xs text-white font-bold uppercase tracking-wider">1. Static Validation Phase</span>
+            <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+              Executed by <DocTerm id="aquilary.AquilaryRegistry">AquilaryRegistry</DocTerm>. Reads manifest files without importing controllers or services. It checks route conflicts, resolves dependency cycles, and computes the load order topologically.
+            </p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/20 pl-6 py-2">
+            <span className="font-mono text-xs text-white font-bold uppercase tracking-wider">2. Lazy Compilation Phase</span>
+            <p className="text-sm text-gray-400 mt-2 leading-relaxed">
+              Managed by <DocTerm id="aquilary.RuntimeRegistry">RuntimeRegistry</DocTerm>. Active only when bootstrapping the live ASGI server. Performs runtime package scans, imports user code, compiles route trees, and builds DI containers.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* How it Works code */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>How the Aquilary Works</h2>
-        <CodeBlock language="python" filename="workspace.py">{`from aquilia import Workspace, Module
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Workspace Integration</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Your workspace structure declares the relationships between modules. Here's a clean workspace instantiation:
+        </p>
 
-# The workspace declares the module graph
+        <CodeBlock language="python" filename="workspace.py" highlightLines={[6, 9, 10]}>{`from aquilia import Workspace, Module
+from modules.users import UserController, UserService
+from modules.products import ProductController, ProductService
+
 workspace = Workspace(
     modules=[
         Module("users", controllers=[UserController], providers=[UserService]),
         Module("products", controllers=[ProductController], providers=[ProductService]),
         Module("orders",
-            controllers=[OrderController],
-            providers=[OrderService],
-            imports=["users", "products"],  # Explicit dependencies
+            controllers=["modules.orders.controllers:OrderController"],
+            providers=["modules.orders.services:OrderService"],
+            imports=["users", "products"], # Declares load dependency
         ),
     ],
-)
-
-# At startup, the Aquilary:
-# 1. Collects all modules from the workspace
-# 2. Resolves import/export dependencies
-# 3. Compiles controllers into route tables
-# 4. Registers DI providers in scoped containers
-# 5. Generates a fingerprint of the compiled state
-# 6. Writes the manifest to .aquilia/manifest.json`}</CodeBlock>
+)`}</CodeBlock>
       </section>
 
-      {/* Fingerprinting */}
+      {/* Registry Verification */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Fingerprinting</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The fingerprint is a SHA-256 hash of the entire compiled state. It changes when:
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>CLI Validation Tooling</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The CLI operates directly on the static metadata phase, inspecting the registry without importing user classes:
         </p>
-        <ul className={`space-y-2 mb-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          <li className="flex gap-2"><span className="text-aquilia-500">•</span>A controller, provider, or module is added, removed, or modified</li>
-          <li className="flex gap-2"><span className="text-aquilia-500">•</span>Route paths or methods change</li>
-          <li className="flex gap-2"><span className="text-aquilia-500">•</span>Integration configuration changes</li>
-          <li className="flex gap-2"><span className="text-aquilia-500">•</span>Model schemas are updated</li>
-        </ul>
-        <CodeBlock language="python" filename="fingerprint.py">{`from aquilia.aquilary import Aquilary
 
-registry = Aquilary(workspace)
-await registry.compile()
-
-print(registry.fingerprint)
-# → "sha256:a1b2c3d4e5f6..."
-
-# Compare with stored fingerprint
-if registry.fingerprint != stored_fingerprint:
-    print("Application has changed — recompile artifacts")
-    await registry.emit_artifacts("./artifacts/")`}</CodeBlock>
-      </section>
-
-      {/* CLI Integration */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CLI Integration</h2>
-        <CodeBlock language="shell" filename="Terminal">{`# Validate the workspace manifest
+        <CodeBlock language="shell" filename="Terminal">{`# 1. Validate manifest structure and dependency safety
 aq validate
 
-# Compile to artifacts (for production deployment)
-aq compile
+# 2. Inspect route structures
+aq inspect routes
 
-# Inspect the compiled state
-aq inspect routes        # Show all compiled routes
-aq inspect providers     # Show DI provider registry
-aq inspect modules       # Show module dependency graph
-aq inspect fingerprint   # Show current fingerprint`}</CodeBlock>
+# 3. View module dependencies
+aq inspect modules`}</CodeBlock>
       </section>
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/middleware" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+        <Link to="/docs/middleware" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Middleware
         </Link>
-        <Link to="/docs/effects" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          Effects <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/aquilary/manifest" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Manifest System <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-    
+
       <NextSteps />
     </div>
   )

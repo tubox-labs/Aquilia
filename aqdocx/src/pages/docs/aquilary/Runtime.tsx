@@ -1,6 +1,8 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Boxes } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { Archive, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function AquilaryRuntime() {
@@ -8,95 +10,73 @@ export function AquilaryRuntime() {
   const isDark = theme === 'dark'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Boxes className="w-4 h-4" />
-          Aquilary / RuntimeRegistry
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
+          <Archive className="w-4 h-4" />
+          <span>AQUILARY / RUNTIME REGISTRY</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            RuntimeRegistry
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Runtime Registry &amp; Discovery
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-400">RuntimeRegistry</code> is the live, scoped registry used at runtime. It's built from validated manifests and provides module lookup, context scoping, and hot-reload support.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The <DocTerm id="aquilary.RuntimeRegistry">RuntimeRegistry</DocTerm> class compiles the static module graph metadata into a live application server state, performing package discovery, lazily importing controllers, and building DI containers.
         </p>
       </div>
 
-      {/* Core Classes */}
+      {/* Autodiscovery Flow */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registry Hierarchy</h2>
-        <CodeBlock language="python" filename="registry.py">{`from aquilia.aquilary import Aquilary, AquilaryRegistry, RuntimeRegistry
-
-# Aquilary — top-level entry point
-aquilary = Aquilary()
-
-# AquilaryRegistry — static registry (manifests, validation)
-static_registry = AquilaryRegistry()
-static_registry.register(users_manifest)
-static_registry.register(products_manifest)
-
-# RuntimeRegistry — live runtime (after validation + compilation)
-runtime = RuntimeRegistry(static_registry)
-await runtime.initialize()`}</CodeBlock>
-      </section>
-
-      {/* AppContext */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>AppContext</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Each module gets an <code className="text-aquilia-400">AppContext</code> providing scoped access to DI, config, and effects.
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Auto-Discovery Phases</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          When calling <code className="text-aquilia-500">perform_autodiscovery()</code>, the registry scans <code className="text-white">modules.{"{module_name}"}</code> recursively up to a depth of 5, identifying and importing classes matching predicate rules:
         </p>
-        <CodeBlock language="python" filename="context.py">{`from aquilia.aquilary import AppContext
 
-# Get context for a module
-ctx = runtime.get_context("users")
-
-print(ctx.name)           # "users"
-print(ctx.version)        # "1.0.0"
-print(ctx.controllers)    # [UserController, ProfileController]
-print(ctx.models)         # [User, Profile]
-print(ctx.config)         # Module-specific config`}</CodeBlock>
+        <div className="space-y-6 mb-8">
+          <div className="border-l-2 border-aquilia-500/20 pl-4 py-1">
+            <span className="font-mono text-xs text-white font-bold">1. Controller Scanning</span>
+            <p className="text-sm text-gray-400 mt-1">Discovers classes whose names end with <code className="text-aquilia-400">"Controller"</code> or that directly inherit from <DocTerm id="controller.controller">Controller</DocTerm>.</p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/20 pl-4 py-1">
+            <span className="font-mono text-xs text-white font-bold">2. Service Scanning</span>
+            <p className="text-sm text-gray-400 mt-1">Discovers dependency injection services whose names end with <code className="text-aquilia-400">"Service"</code> or declare the <code className="text-aquilia-400">__di_scope__</code> attribute.</p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/20 pl-4 py-1">
+            <span className="font-mono text-xs text-white font-bold">3. Socket Controllers</span>
+            <p className="text-sm text-gray-400 mt-1">Scans for classes decorated with <code className="text-aquilia-400">@Socket</code> or whose names end with <code className="text-aquilia-400">"SocketController"</code>.</p>
+          </div>
+          <div className="border-l-2 border-aquilia-500/20 pl-4 py-1">
+            <span className="font-mono text-xs text-white font-bold">4. Tasks and Models</span>
+            <p className="text-sm text-gray-400 mt-1">Imports <code className="text-aquilia-400">tasks.py</code> to trigger background task registrations, and scans database models to catalog schemas.</p>
+          </div>
+        </div>
       </section>
 
-      {/* RegistryMode */}
+      {/* Code Example */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registry Modes</h2>
-        <CodeBlock language="python" filename="modes.py">{`from aquilia.aquilary import RegistryMode
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Bootstrapping</h2>
+        <CodeBlock language="python" filename="bootstrap.py" highlightLines={[6, 9]}>{`from aquilia.aquilary import RuntimeRegistry
 
-# DEVELOPMENT — hot-reload enabled, verbose logging
-# PRODUCTION — frozen manifest, optimized paths
-# TESTING — isolated, mock-friendly
+# 1. Instantiate runtime registry from compiled metadata
+runtime = RuntimeRegistry.from_metadata(registry_meta, config)
 
-registry = AquilaryRegistry(mode=RegistryMode.DEVELOPMENT)
+# 2. Perform autodiscovery package scan (depth=5)
+runtime.perform_autodiscovery()
 
-# For releases, snapshot generated artifacts when needed
-# aq freeze → generates artifacts/frozen.surp
-registry = AquilaryRegistry(mode=RegistryMode.PRODUCTION)`}</CodeBlock>
+# 3. Import controllers and build the ASGI route tables
+runtime.compile_routes()`}</CodeBlock>
       </section>
 
-      {/* RegistryFingerprint */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registry Fingerprint</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A deterministic hash of the entire registry state, used for cache invalidation and deployment verification.
-        </p>
-        <CodeBlock language="python" filename="fingerprint.py">{`from aquilia.aquilary import FingerprintGenerator, RegistryFingerprint
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <Link to="/docs/aquilary/manifest" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Manifest System
+        </Link>
+        <Link to="/docs/aquilary/fingerprint" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Fingerprinting <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
 
-gen = FingerprintGenerator()
-fingerprint: RegistryFingerprint = gen.generate(registry)
-
-print(fingerprint.hash)       # "sha256:a1b2c3d4..."
-print(fingerprint.modules)    # {"users": "sha256:...", ...}
-print(fingerprint.timestamp)  # datetime
-
-# Compare with frozen manifest
-if fingerprint != frozen_fingerprint:
-    raise FrozenManifestMismatchError(...)`}</CodeBlock>
-      </section>
-    
       <NextSteps />
     </div>
   )
