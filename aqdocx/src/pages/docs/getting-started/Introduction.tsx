@@ -128,6 +128,114 @@ const FEATURE_SPINE_DATA = [
       desc: 'Structured exception mapping with severity levels and recovery rules. The central FaultEngine translates raw uncaught exceptions into typed JSON faults.',
       color: '#f97316'
     }
+  },
+  {
+    left: {
+      id: 'admin',
+      title: 'Admin Dashboard Integration',
+      pkg: 'aquilia.admin',
+      file: 'aquilia/admin/__init__.py',
+      desc: 'Automatic admin module registration, monitoring telemetry, task status overview, user management, and security audit logs.',
+      color: '#ec4899'
+    },
+    right: {
+      id: 'db',
+      title: 'Database & Migrations',
+      pkg: 'aquilia.db',
+      file: 'aquilia/db/__init__.py',
+      desc: 'Typed DB configurations, SQLite drivers, schema snapshots, migration generation (makemigrations), status checks, and rollbacks.',
+      color: '#06b6d4'
+    }
+  },
+  {
+    left: {
+      id: 'storage',
+      title: 'Unified Cloud Storage',
+      pkg: 'aquilia.storage',
+      file: 'aquilia/storage/__init__.py',
+      desc: 'Abstractions for Local, S3, GCS, Azure, and SFTP providers, featuring streaming buffers, registry configurations, and secure write boundaries.',
+      color: '#f43f5e'
+    },
+    right: {
+      id: 'tasks',
+      title: 'Task Worker & Scheduler',
+      pkg: 'aquilia.tasks',
+      file: 'aquilia/tasks/__init__.py',
+      desc: 'Decorator-driven @task registries, task worker pools, interval loops, cron schedules, memory/Redis queues, and automatic startup initialization.',
+      color: '#eab308'
+    }
+  },
+  {
+    left: {
+      id: 'mcp',
+      title: 'Model Context Protocol (MCP)',
+      pkg: 'aquilia.mcp',
+      file: 'aquilia/mcp/__init__.py',
+      desc: 'Native Model Context Protocol (MCP) server sidecar. Exposes codebase tools, structured resources, and api schemas directly to AI agents.',
+      color: '#6366f1'
+    },
+    right: {
+      id: 'versioning',
+      title: 'API Versioning Engine',
+      pkg: 'aquilia.versioning',
+      file: 'aquilia/versioning/__init__.py',
+      desc: 'Decorator-based route versioning, version negotiation, client cookie/header version targeting, deprecation timelines, and header responders.',
+      color: '#14b8a6'
+    }
+  },
+  {
+    left: {
+      id: 'templates',
+      title: 'Sandboxed Templates & Mail',
+      pkg: 'aquilia.templates',
+      file: 'aquilia/templates/__init__.py',
+      desc: 'Sandboxed Jinja template engine loader, secure context isolation, SMTP mail providers, and structured email envelope builders.',
+      color: '#a855f7'
+    },
+    right: {
+      id: 'i18n',
+      title: 'Internationalization (i18n)',
+      pkg: 'aquilia.i18n',
+      file: 'aquilia/i18n/__init__.py',
+      desc: 'Locale translation extractors, GNU gettext catalog compilation, plural formatting rules, and middleware language negotiaton.',
+      color: '#84cc16'
+    }
+  },
+  {
+    left: {
+      id: 'otel',
+      title: 'OpenTelemetry & Observability',
+      pkg: 'aquilia.otel',
+      file: 'aquilia/otel/__init__.py',
+      desc: 'Tracing telemetry middleware, OpenTelemetry exporter integration, request metrics tracking, system CPU/memory timings, and structured logs.',
+      color: '#ef4444'
+    },
+    right: {
+      id: 'sse',
+      title: 'Server-Sent Events (SSE)',
+      pkg: 'aquilia.sse',
+      file: 'aquilia/sse/__init__.py',
+      desc: 'Async Server-Sent Events stream controller, broadcast event formatting rules, and client stream connectivity state management.',
+      color: '#3b82f6'
+    }
+  },
+  {
+    left: {
+      id: 'testing',
+      title: 'Test & Diagnostics SDK',
+      pkg: 'aquilia.testing',
+      file: 'aquilia/testing/__init__.py',
+      desc: 'Diagnostics inspection framework, AquiliaTestCase test suites, async TestClient request adapters, and WebSocketTestClient connections.',
+      color: '#10b981'
+    },
+    right: {
+      id: 'filesystem',
+      title: 'Secure Filesystem Layer',
+      pkg: 'aquilia.filesystem',
+      file: 'aquilia/filesystem/__init__.py',
+      desc: 'Async filesystem operations, secure path validation against traversal attacks, and sandboxed directory execution contexts.',
+      color: '#f97316'
+    }
   }
 ]
 
