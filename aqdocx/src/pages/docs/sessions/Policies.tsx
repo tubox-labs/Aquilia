@@ -2,37 +2,43 @@ import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Settings } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function SessionsPolicies() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+
+  const sectionHeaderClass = `text-2xl font-mono font-bold tracking-tight mb-6 flex items-center gap-3 ${
+    isDark ? 'text-white' : 'text-gray-900'
+  }`
+  const textClass = `text-sm leading-relaxed mb-6 ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+    <div className="max-w-4xl mx-auto px-4 py-8">
+      {/* Header */}
+      <div className="mb-12 border-b border-zinc-200 dark:border-zinc-800 pb-8">
+        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-aquilia-500 mb-4">
           <Settings className="w-4 h-4" />
           Sessions / Policies
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
+        <h1 className={`text-4xl font-mono ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          <span className="font-bold tracking-tighter gradient-text relative group inline-block">
             Session Policies
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A <code className="text-aquilia-500">SessionPolicy</code> defines the behavioral rules for a session. Policies govern expiration timeout windows, token rotation, multi-tenant persistence, concurrent principal session limits, and network transports.
+        <p className={`text-lg leading-relaxed ${isDark ? 'text-zinc-300' : 'text-zinc-700'}`}>
+          A <DocTerm id="sessions.policy">SessionPolicy</DocTerm> defines the rules that govern session lifetimes, timeouts, rotation, concurrency, persistence, and network transport details.
         </p>
       </div>
 
       {/* SessionPolicy */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SessionPolicy</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <code className="text-aquilia-500">SessionPolicy</code> is a frozen dataclass representing the full session configuration:
+        <h2 className={sectionHeaderClass}>SessionPolicy Data Class</h2>
+        <p className={textClass}>
+          The policy is constructed using three sub-policies: <DocTerm id="sessions.policy">PersistencePolicy</DocTerm>, <DocTerm id="sessions.policy">ConcurrencyPolicy</DocTerm>, and <DocTerm id="sessions.policy">TransportPolicy</DocTerm>.
         </p>
-        <CodeBlock language="python" filename="policy.py">{`from datetime import timedelta
+        <CodeBlock language="python" filename="policy.py" highlightLines={[3, 49, 55, 59]}>{`from datetime import timedelta
 from aquilia.sessions import SessionPolicy, PersistencePolicy, ConcurrencyPolicy, TransportPolicy
 
 policy = SessionPolicy(
@@ -70,80 +76,78 @@ policy = SessionPolicy(
 
       {/* SessionPolicyBuilder */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SessionPolicyBuilder</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The fluent builder is used to construct <code className="text-aquilia-500">SessionPolicy</code> objects without manually defining nested sub-policy instances:
+        <h2 className={sectionHeaderClass}>SessionPolicyBuilder (Fluent Interface)</h2>
+        <p className={textClass}>
+          Use the fluent builder <DocTerm id="sessions.policy_builder">SessionPolicyBuilder</DocTerm> to construct policies. 
+          <strong>Important:</strong> Call preset defaults first (such as <code className="text-aquilia-500">.web_defaults()</code> or <code className="text-aquilia-500">.admin_defaults()</code>), 
+          then chain your overrides. Calling presets at the end of the chain will override your custom values.
         </p>
-        <CodeBlock language="python" filename="builder.py">{`from aquilia.sessions import SessionPolicyBuilder
+        <CodeBlock language="python" filename="builder.py" highlightLines={[4, 5, 12, 13, 20, 21]}>{`from aquilia.sessions import SessionPolicyBuilder
 
-# Web application policy
+# Web application policy (Web defaults, custom TTL overrides)
 web_policy = (
     SessionPolicyBuilder()
-    .named("web")
-    .lasting(hours=2)
+    .web_defaults()  # Loads web defaults first
+    .lasting(hours=2) # Then overrides lasting TTL
     .idle_timeout(minutes=30)
-    .rotating_on_auth()
-    .web_defaults() # applies standard cookie options
     .build()
 )
 
-# API token policy
+# API token policy (Header transport defaults, extended lasting time)
 api_policy = (
     SessionPolicyBuilder()
-    .named("api")
-    .lasting(hours=24)
-    .api_defaults() # applies header adapter
+    .api_defaults()  # Loads API defaults first
+    .lasting(hours=24) # Customize afterward
     .build()
 )
 
-# Admin policy (strict, with fingerprint binding)
+# Admin policy (Strict single-session limit, rotated on use, fingerprint bound)
 admin_policy = (
     SessionPolicyBuilder()
-    .named("admin")
-    .lasting(hours=8)
+    .admin_defaults()  # Setup strict admin defaults first
+    .lasting(hours=8)  # Customize properties next
     .idle_timeout(minutes=15)
     .absolute_timeout(hours=12)
     .rotating_on_use()
     .with_fingerprint_binding()
     .max_concurrent(1)
-    .admin_defaults()
     .build()
 )`}</CodeBlock>
       </section>
 
-      {/* Builder Methods Reference */}
+      {/* Builder Methods Reference - Clean Table */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Builder Methods Reference</h2>
-        <div className={`overflow-x-auto ${boxClass}`}>
-          <table className="w-full text-sm">
+        <h2 className={sectionHeaderClass}>Builder Methods Reference</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-2 pr-4 font-semibold">Method</th>
-                <th className="text-left py-2 font-semibold">Description</th>
+              <tr className={`border-b-2 ${isDark ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'} font-mono text-xs font-semibold`}>
+                <th className="text-left py-3 pr-4">Method</th>
+                <th className="text-left py-3">Description</th>
               </tr>
             </thead>
-            <tbody className={isDark ? 'text-gray-400' : 'text-gray-600'}>
+            <tbody className={isDark ? 'text-zinc-300' : 'text-zinc-700'}>
               {[
-                ['.named(name: str)', 'Set the policy name.'],
-                ['.lasting(days=None, hours=None, minutes=None)', 'Set session TTL.'],
-                ['.idle_timeout(days=None, hours=None, minutes=None)', 'Set idle timeout duration.'],
-                ['.no_idle_timeout()', 'Disables idle timeouts.'],
-                ['.absolute_timeout(days=None, hours=None, minutes=None)', 'Set absolute maximum session age.'],
-                ['.with_fingerprint_binding()', 'Enable OWASP IP & User-Agent fingerprint binding.'],
-                ['.rotating_on_auth()', 'Enables token ID rotation on privilege changes.'],
-                ['.rotating_on_use()', 'Enables token ID rotation on every request.'],
-                ['.scoped_to(scope: str)', 'Set session scope level.'],
-                ['.max_concurrent(limit: int)', 'Set max concurrent sessions (applies evict_oldest on limit).'],
-                ['.unlimited_concurrent()', 'Disable concurrency limits.'],
-                ['.web_defaults()', 'Set named to web_session, lasts 7 days, max 5 concurrent.'],
-                ['.api_defaults()', 'Set named to api_session, lasts 1 hour, header adapter, unlimited concurrent.'],
-                ['.mobile_defaults()', 'Set named to mobile_session, lasts 90 days, max 3 concurrent.'],
-                ['.admin_defaults()', 'Set named to admin_session, lasts 8 hours, absolute timeout 12 hours, rotate on use, fingerprint bound, max 1 concurrent.'],
-                ['.build()', 'Build and return the final SessionPolicy.'],
+                ['.named(name: str)', 'Sets the unique policy registration identifier name.'],
+                ['.lasting(days=None, hours=None, minutes=None)', 'Configures the session time-to-live (TTL).'],
+                ['.idle_timeout(hours=None, minutes=None, days=None)', 'Configures the idle inactivity expiration timeout window.'],
+                ['.no_idle_timeout()', 'Disables the idle expiration checks.'],
+                ['.absolute_timeout(hours=None, minutes=None, days=None)', 'Sets the absolute maximum session lifetime (OWASP compliance).'],
+                ['.with_fingerprint_binding()', 'Enables IP + User-Agent fingerprint binding for hijack detection.'],
+                ['.rotating_on_auth()', 'Forces session ID rotation whenever authentication state changes.'],
+                ['.rotating_on_use()', 'Forces session ID rotation on every incoming request.'],
+                ['.scoped_to(scope: str)', 'Binds the session to a SessionScope enum value.'],
+                ['.max_concurrent(limit: int)', 'Sets the concurrent active session limits per user principal.'],
+                ['.unlimited_concurrent()', 'Disables concurrency constraints.'],
+                ['.web_defaults()', 'Web defaults: Named web_session, lasts 7 days, 2h idle, max 5 concurrent.'],
+                ['.api_defaults()', 'API defaults: Named api_session, lasts 1 hour, header adapter, unlimited concurrent.'],
+                ['.mobile_defaults()', 'Mobile defaults: Named mobile_session, lasts 90 days, 30d idle, max 3 concurrent.'],
+                ['.admin_defaults()', 'Admin defaults: Named admin_session, lasts 8h, 15m idle, 12h absolute, fingerprint, max 1 concurrent.'],
+                ['.build()', 'Constructs and returns the finalized SessionPolicy object.'],
               ].map(([method, desc], i) => (
-                <tr key={i} className={`border-b ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                  <td className="py-2 pr-4"><code className="text-aquilia-500 text-xs">{method}</code></td>
-                  <td className="py-2 text-xs">{desc}</td>
+                <tr key={i} className={`border-b ${isDark ? 'border-zinc-900/50 hover:bg-white/[0.01]' : 'border-zinc-100 hover:bg-black/[0.01]'} transition-colors`}>
+                  <td className="py-3 pr-4 font-mono text-xs"><code className="text-aquilia-500">{method}</code></td>
+                  <td className="py-3 text-xs leading-relaxed">{desc}</td>
                 </tr>
               ))}
             </tbody>
@@ -152,15 +156,15 @@ admin_policy = (
       </section>
 
       {/* Built-in Policies */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Built-in Policy Constants</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The following policies are pre-constructed and ready to use:
+      <section className="mb-16 border-t border-zinc-200 dark:border-zinc-800 pt-12">
+        <h2 className={sectionHeaderClass}>Built-in Policy Presets</h2>
+        <p className={textClass}>
+          Aquilia exports pre-configured policies to handle standard development, API, and administrative session constraints:
         </p>
-        <CodeBlock language="python" filename="builtins.py">{`from aquilia.sessions.policy import (
+        <CodeBlock language="python" filename="builtins.py" highlightLines={[2, 3, 4, 5]}>{`from aquilia.sessions.policy import (
     DEFAULT_USER_POLICY,   # 7d TTL, 30m idle, cookie transport, max 5 concurrent
     API_TOKEN_POLICY,      # 1h TTL, no idle, header transport ("X-API-Token")
-    EPHEMERAL_POLICY,      # ephemeral scope, persistence disabled, cookie transport
+    EPHEMERAL_POLICY,      # Request-scoped, persistence disabled, cookie transport
     ADMIN_POLICY,          # 8h TTL, 15m idle, 12h absolute, fingerprint, max 1 concurrent
 )`}</CodeBlock>
       </section>

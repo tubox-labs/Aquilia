@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { useState, useEffect } from 'react'
+import { useVersion } from '../hooks/useVersion'
 import {
   BookOpen, Download, Rocket, Zap, Layers, Database, Shield, Settings,
   AlertCircle, Terminal, GitBranch, ChevronDown, ChevronRight,
@@ -230,6 +231,7 @@ export const sections: SidebarSection[] = [
         label: 'Sessions', path: '/docs/sessions', icon: <Cog className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/sessions/overview' },
+          { label: 'Workspace Integration', path: '/docs/sessions/integration' },
           { label: 'Engine', path: '/docs/sessions/engine' },
           { label: 'Policies', path: '/docs/sessions/policies' },
           { label: 'Stores', path: '/docs/sessions/stores' },
@@ -478,6 +480,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   const location = useLocation()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
 
   // State for expanded items
   // We initialize based on current location to expand relevant sections
@@ -680,7 +683,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
               <img src="/logo.png" alt="Aquilia" className="w-8 h-8 rounded-lg shadow-lg shadow-aquilia-500/20" />
               <div>
                 <div className={`font-bold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Aquilia Framework</div>
-                <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.2.2 • Latest</div>
+                <div className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v{version} • Latest</div>
               </div>
             </div>
           </div>

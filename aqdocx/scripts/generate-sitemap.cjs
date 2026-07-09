@@ -191,6 +191,7 @@ const docSections = [
         label: 'Sessions', path: '/docs/sessions',
         children: [
           { label: 'Overview', path: '/docs/sessions/overview' },
+          { label: 'Workspace Integration', path: '/docs/sessions/integration' },
           { label: 'Engine', path: '/docs/sessions/engine' },
           { label: 'Policies', path: '/docs/sessions/policies' },
           { label: 'Stores', path: '/docs/sessions/stores' },

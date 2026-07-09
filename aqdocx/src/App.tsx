@@ -140,6 +140,7 @@ import { AuthIntegration } from './pages/docs/auth/Integration'
 
 // Sessions
 import { SessionsOverview } from './pages/docs/sessions/Overview'
+import { SessionsIntegration } from './pages/docs/sessions/Integration'
 import { SessionsEngine } from './pages/docs/sessions/Engine'
 import { SessionsPolicies } from './pages/docs/sessions/Policies'
 import { SessionsStores } from './pages/docs/sessions/Stores'
@@ -462,6 +463,7 @@ export default function App() {
           {/* Sessions */}
           <Route path="sessions" element={<SessionsOverview />} />
           <Route path="sessions/overview" element={<SessionsOverview />} />
+          <Route path="sessions/integration" element={<SessionsIntegration />} />
           <Route path="sessions/engine" element={<SessionsEngine />} />
           <Route path="sessions/policies" element={<SessionsPolicies />} />
           <Route path="sessions/stores" element={<SessionsStores />} />
