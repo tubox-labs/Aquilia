@@ -1,165 +1,118 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Cloud, Container, Server, FileText, Activity } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+import { FileCode, Settings } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function CLIGenerators() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
-  // Styles
   const sectionClass = "mb-16 scroll-mt-24"
   const h2Class = `text-2xl font-bold mb-6 flex items-center gap-3 ${isDark ? 'text-white' : 'text-gray-900'}`
   const h3Class = `text-lg font-semibold mt-8 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`
   const pClass = `mb-4 leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`
-  const codeClass = "text-xs font-mono bg-black/5 dark:bg-white/10 px-1.5 py-0.5 rounded text-aquilia-600 dark:text-aquilia-400"
-
-  const Table = ({ children }: { children: React.ReactNode }) => (
-    <div className={`overflow-hidden border rounded-lg mb-6 ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-      <table className="w-full text-sm text-left">
-        <thead className={`text-xs uppercase ${isDark ? 'bg-white/5 text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
-          <tr>
-            <th className="px-4 py-3 font-medium">Option</th>
-            <th className="px-4 py-3 font-medium">Description</th>
-            <th className="px-4 py-3 font-medium w-32">Default</th>
-          </tr>
-        </thead>
-        <tbody className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-200'}`}>
-          {children}
-        </tbody>
-      </table>
-    </div>
-  )
-
-  const Row = ({ opt, desc, def }: { opt: string, desc: string, def?: string }) => (
-    <tr className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-      <td className="px-4 py-3 font-mono text-aquilia-500">{opt}</td>
-      <td className={`px-4 py-3 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{desc}</td>
-      <td className={`px-4 py-3 font-mono text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{def || '-'}</td>
-    </tr>
-  )
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
       {/* Header */}
       <div className="mb-12 border-b border-gray-200 dark:border-white/10 pb-8">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Cloud className="w-4 h-4" />
+          <FileCode className="w-4 h-4" />
           CLI / Generators
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Deploy Generators
+            Code Scaffolding &amp; Generators
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Production-ready infrastructure generation. The <code className="text-aquilia-500">aq deploy</code> suite inspects your workspace and generates tailored Dockerfiles, Kubernetes manifests, CI pipelines, and more.
+        <p className={`text-lg leading-relaxed mt-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Scaffolding utilities automatically structure workspaces, create new isolation modules, and wire up controllers from templates, reducing boilerplate code.
         </p>
       </div>
 
-      {/* Docker */}
-      <section id="docker" className={sectionClass}>
-        <h2 className={h2Class}><Container className="w-6 h-6 text-blue-500" /> Docker & Compose</h2>
-
-        <h3 className={h3Class}>Dockerfile</h3>
+      {/* aq init workspace */}
+      <section id="init-workspace" className={sectionClass}>
+        <h2 className={h2Class}><Settings className="w-5 h-5 text-aquilia-400" /> Workspace Generator</h2>
         <p className={pClass}>
-          Generates optimized multi-stage Dockerfiles.
+          The <DocTerm id="cli.init_workspace">aq init workspace</DocTerm> command bootstraps a standardized project layout. It generates configurations, helper scripts, and base files:
         </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy dockerfile [OPTIONS]
-        </CodeBlock>
-        <Table>
-          <Row opt="--dev" desc="Generate development Dockerfile (hot-reload)" def="false" />
-          <Row opt="--mlops" desc="Generate MLOps model serving Dockerfile" def="false" />
-          <Row opt="--output, -o" desc="Output directory" def="." />
-        </Table>
-
-        <h3 className={h3Class}>Docker Compose</h3>
-        <p className={pClass}>
-          Generates <span className={codeClass}>docker-compose.yml</span> with auto-detected services (Postgres, Redis, etc.).
-        </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy compose [OPTIONS]
-        </CodeBlock>
-        <Table>
-          <Row opt="--dev" desc="Include docker-compose.dev.yml override" def="false" />
-          <Row opt="--monitoring" desc="Include Prometheus & Grafana services" def="false" />
-        </Table>
+        <CodeBlock language="bash" filename="Terminal">aq init workspace my_project --template=api</CodeBlock>
+        
+        <h3 className={h3Class}>Scaffold Output Structure</h3>
+        <div className={`p-4 font-mono text-xs rounded-xl ${isDark ? 'bg-zinc-900/50 text-gray-300' : 'bg-gray-50 text-gray-700'} mb-6`}>
+          {`my_project/
+├── workspace.py           # Central workspace definition & configuration
+├── starter.py             # Landing controller welcome handler
+├── requirements.txt       # Project python dependencies
+├── pyproject.toml         # Packaging metadata
+├── modules/               # Composable modules folder
+└── artifacts/             # Compiled route & DI schema bundles`}
+        </div>
       </section>
 
-      {/* Kubernetes */}
-      <section id="k8s" className={sectionClass}>
-        <h2 className={h2Class}><Cloud className="w-6 h-6 text-indigo-500" /> Kubernetes</h2>
+      {/* aq add module */}
+      <section id="add-module" className={sectionClass}>
+        <h2 className={h2Class}><Settings className="w-5 h-5 text-aquilia-400" /> Module Scaffolding</h2>
         <p className={pClass}>
-          Generates a full suite of K8s manifests (Deployment, Service, Ingress, HPA, ConfigMap, Secret) and Kustomize configuration.
+          The <DocTerm id="cli.add_module">aq add module</DocTerm> command creates self-contained directories under <code className="text-aquilia-500 font-mono">modules/</code>, appending the module configuration details automatically:
         </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy kubernetes [OPTIONS]
-        </CodeBlock>
-        <Table>
-          <Row opt="--output, -o" desc="Output directory" def="k8s" />
-          <Row opt="--mlops" desc="Force include MLOps manifests" def="auto" />
-        </Table>
+        <CodeBlock language="bash" filename="Terminal">aq add module billing --depends-on=users --route-prefix=/v1/billing</CodeBlock>
+
+        <h3 className={h3Class}>Scaffold Output Structure</h3>
+        <div className={`p-4 font-mono text-xs rounded-xl ${isDark ? 'bg-zinc-900/50 text-gray-300' : 'bg-gray-50 text-gray-700'} mb-6`}>
+          {`modules/billing/
+├── __init__.py
+├── manifest.py           # Module service & controller registry manifest
+├── controllers.py        # Controller implementations
+├── models.py             # Database ORM models
+├── schemas.py            # Input validation blueprints
+├── services.py           # Business service providers
+└── tests/                # Module test suites`}
+        </div>
       </section>
 
-      {/* CI/CD */}
-      <section id="ci" className={sectionClass}>
-        <h2 className={h2Class}><Activity className="w-6 h-6 text-green-500" /> CI/CD Pipelines</h2>
+      {/* aq generate controller */}
+      <section id="generate-controller" className={sectionClass}>
+        <h2 className={h2Class}><FileCode className="w-5 h-5 text-aquilia-400" /> Controller Generator</h2>
         <p className={pClass}>
-          Generates workflow files for GitHub Actions or GitLab CI.
+          The <DocTerm id="cli.generate_controller">aq generate controller</DocTerm> command scaffolds new controller class files containing routing endpoint templates, status code returns, and lifecycle hooks:
         </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy ci [OPTIONS]
-        </CodeBlock>
-        <Table>
-          <Row opt="--provider" desc="CI Provider (github, gitlab)" def="github" />
-          <Row opt="--output, -o" desc="Output directory" def="auto" />
-        </Table>
+        <CodeBlock language="bash" filename="Terminal">{`# Scaffolds CRUD endpoints for User resource
+aq generate controller Users --resource=User --with-lifecycle
+
+# Scaffolds simple controller
+aq generate controller Health --simple`}</CodeBlock>
+
+        <h3 className={h3Class}>Scaffolding Options</h3>
+        <div className="overflow-x-auto py-2 mb-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 text-left">
+                <th className="px-4 py-3 font-semibold">Option</th>
+                <th className="px-4 py-3 font-semibold">Description</th>
+              </tr>
+            </thead>
+            <tbody className={`divide-y ${isDark ? 'divide-white/5 text-gray-300' : 'divide-gray-150 text-gray-700'}`}>
+              {[
+                ['--prefix', 'Explicit route prefix (defaults to /[name]).'],
+                ['--resource', 'Resource model name used to scaffold REST CRUD routes.'],
+                ['--simple', 'Generate a simple hello world endpoint without extra methods.'],
+                ['--with-lifecycle', 'Scaffolds on_startup, on_request, and on_response hook methods.'],
+                ['--test', 'Generates a demo controller containing example route guards and validation schemas.'],
+                ['--output', 'Path destination for the generated controller file (defaults to controllers/).']
+              ].map(([opt, desc], i) => (
+                <tr key={i} className="hover:bg-aquilia-500/5 transition-colors">
+                  <td className="px-4 py-2 font-mono text-xs text-aquilia-500 font-semibold">{opt}</td>
+                  <td className="px-4 py-2 text-xs">{desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      {/* Infrastructure */}
-      <section id="infra" className={sectionClass}>
-        <h2 className={h2Class}><Server className="w-6 h-6 text-purple-500" /> Infrastructure</h2>
-
-        <h3 className={h3Class}>Nginx</h3>
-        <p className={pClass}>
-          Generates a production-ready Nginx reverse proxy configuration with security headers and SSL placeholders.
-        </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy nginx
-        </CodeBlock>
-
-        <h3 className={h3Class}>Monitoring</h3>
-        <p className={pClass}>
-          Generates Prometheus configuration and Grafana dashboards tailored to your app's metrics.
-        </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy monitoring
-        </CodeBlock>
-      </section>
-
-      {/* Utilities */}
-      <section id="utils" className={sectionClass}>
-        <h2 className={h2Class}><FileText className="w-6 h-6 text-gray-500" /> Utilities</h2>
-
-        <h3 className={h3Class}>Environment Template</h3>
-        <p className={pClass}>
-          Generates a <span className={codeClass}>.env.example</span> file based on your workspace configuration.
-        </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy env
-        </CodeBlock>
-
-        <h3 className={h3Class}>All-in-One</h3>
-        <p className={pClass}>
-          Generates the entire deployment suite at once.
-        </p>
-        <CodeBlock language="bash" filename="terminal">
-          aq deploy all --monitoring --ci-provider=github --force
-        </CodeBlock>
-      </section>
-    
       <NextSteps />
     </div>
   )
