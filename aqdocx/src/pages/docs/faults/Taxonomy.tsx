@@ -4,7 +4,6 @@ import { AlertTriangle, ArrowLeft, ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 
-
 export function FaultsTaxonomy() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -15,7 +14,7 @@ export function FaultsTaxonomy() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <AlertTriangle className="w-4 h-4" />
-          <span>FAULTS / TAXONOMY & RESULTS</span>
+          <span>FAULTS / TAXONOMY &amp; RESULTS</span>
         </div>
         <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Fault Taxonomy &amp; Outcomes
@@ -59,22 +58,22 @@ export function FaultsTaxonomy() {
           A custom fault handler determines propagation by returning one of three frozen dataclasses that comprise the <code className="text-aquilia-500">FaultResult</code> type:
         </p>
 
-        <div className="space-y-6 mb-8 text-sm">
+        <div className="space-y-8 mb-8 text-sm">
           <div className="border-b border-white/5 pb-4">
-            <code className="text-white text-xs font-mono font-bold block mb-1">Resolved(response)</code>
-            <p className="text-gray-400 mt-1">
+            <CodeBlock language="python" compact showLineNumbers={false}>{"Resolved(response: Any)"}</CodeBlock>
+            <p className="text-gray-400 mt-2 font-light">
               Instructs the engine that the fault is handled. It stops propagation and returns the enclosed <code className="text-aquilia-300">Response</code> object directly.
             </p>
           </div>
           <div className="border-b border-white/5 pb-4">
-            <code className="text-white text-xs font-mono font-bold block mb-1">Transformed(new_fault, preserve_context=True)</code>
-            <p className="text-gray-400 mt-1">
+            <CodeBlock language="python" compact showLineNumbers={false}>{"Transformed(new_fault: Fault, preserve_context: bool = True)"}</CodeBlock>
+            <p className="text-gray-400 mt-2 font-light">
               Transforms the active error into a new fault class and continues bubbling it up the handler chain.
             </p>
           </div>
           <div className="pb-4">
-            <code className="text-white text-xs font-mono font-bold block mb-1">Escalate()</code>
-            <p className="text-gray-400 mt-1">
+            <CodeBlock language="python" compact showLineNumbers={false}>{"Escalate()"}</CodeBlock>
+            <p className="text-gray-400 mt-2 font-light">
               Declines handling the fault. It escalates the error to the next outer handler in the parent scope.
             </p>
           </div>
@@ -98,7 +97,7 @@ def handle_error(fault, ctx) -> FaultResult:
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/faults/taxonomy" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+        <Link to="/docs/faults/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4" /> Overview
         </Link>
         <Link to="/docs/faults/engine" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">

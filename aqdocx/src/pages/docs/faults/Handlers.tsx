@@ -32,17 +32,16 @@ export function FaultsHandlers() {
           Every custom handler must inherit from <DocTerm id="faults.FaultHandler">FaultHandler</DocTerm> and implement exactly two methods:
         </p>
 
-        <div className="space-y-6 mb-8 text-sm">
+        <div className="space-y-8 mb-8 text-sm">
           <div className="border-l-2 border-aquilia-500/20 pl-4 py-1">
-            <code className="text-white text-xs font-mono font-bold block mb-1">{"can_handle(ctx) -> bool"}</code>
-            <p className="text-gray-400 mt-1">
+            <CodeBlock language="python" compact showLineNumbers={false}>{"can_handle(ctx: FaultContext) -> bool"}</CodeBlock>
+            <p className="text-gray-400 mt-2 font-light">
               Evaluates the <DocTerm id="faults.FaultContext">FaultContext</DocTerm> predicate. Returns <code className="text-white">True</code> if this handler claims responsibility for the fault, allowing <code className="text-white">.handle()</code> to run.
             </p>
           </div>
           <div className="border-l-2 border-aquilia-500/20 pl-4 py-1">
-            <code className="text-white text-xs font-mono font-bold block mb-1">{"handle(ctx) -> FaultResult"}</code>
-
-            <p className="text-gray-400 mt-1">
+            <CodeBlock language="python" compact showLineNumbers={false}>{"handle(ctx: FaultContext) -> FaultResult"}</CodeBlock>
+            <p className="text-gray-400 mt-2 font-light">
               Executes the resolution logic. Must return <code className="text-white">Resolved(response)</code>, <code className="text-white">Transformed(new_fault)</code>, or <code className="text-white">Escalate()</code>.
             </p>
           </div>
