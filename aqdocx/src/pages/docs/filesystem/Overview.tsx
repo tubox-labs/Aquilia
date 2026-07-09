@@ -1,6 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { FileText, Zap, Shield, Layers, Settings, Box, Lock } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 
 export function FilesystemOverview() {
   const { theme } = useTheme()
@@ -92,7 +93,7 @@ export function FilesystemOverview() {
           Quick Example
         </h2>
 
-        <CodeBlock language="python">{`from aquilia.filesystem import FileSystem, async_open, read_file, write_file
+        <CodeBlock language="python" highlightLines={[4, 5, 8, 9, 10, 13, 14]}>{`from aquilia.filesystem import FileSystem, async_open, read_file, write_file
 
 # Simple file operations
 content = await read_file("config.json")
@@ -116,17 +117,18 @@ for file in files:
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Key Features
         </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {features.map((feature, i) => (
-            <div
-              key={i}
-              className={`p-5 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-white border-gray-200'}`}
-            >
-              <div className="flex items-center gap-3 mb-3">
+            <div key={i} className="group relative flex flex-col items-start">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-aquilia-500/10 text-aquilia-400 mb-4 group-hover:scale-110 transition-transform duration-300">
                 {feature.icon}
-                <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>{feature.title}</h3>
               </div>
-              <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{feature.desc}</p>
+              <h3 className={`text-base font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                {feature.title}
+              </h3>
+              <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                {feature.desc}
+              </p>
             </div>
           ))}
         </div>
@@ -138,7 +140,7 @@ for file in files:
           API Overview
         </h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The module provides standalone functions and a <code className="text-aquilia-500">FileSystem</code> service class:
+          The module provides standalone functions and a <DocTerm id="filesystem.FileSystem">FileSystem</DocTerm> service class:
         </p>
 
         <div className={`overflow-x-auto rounded-xl border ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
@@ -150,12 +152,19 @@ for file in files:
               </tr>
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/10' : 'divide-gray-200'}`}>
-              {apiOverview.map((row, i) => (
-                <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
-                  <td className="px-4 py-3"><code className="text-aquilia-500 text-sm">{row.fn}</code></td>
-                  <td className={`px-4 py-3 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.desc}</td>
-                </tr>
-              ))}
+              {apiOverview.map((row, i) => {
+                const fnName = row.fn.split('(')[0]
+                return (
+                  <tr key={i} className={isDark ? 'hover:bg-white/5' : 'hover:bg-gray-50'}>
+                    <td className="px-4 py-3 font-mono text-sm">
+                      <DocTerm id={`filesystem.${fnName}`}>
+                        {row.fn}
+                      </DocTerm>
+                    </td>
+                    <td className={`px-4 py-3 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{row.desc}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -170,7 +179,7 @@ for file in files:
           By default, <code className="text-aquilia-500">write_file()</code> performs atomic writes to prevent data corruption:
         </p>
 
-        <CodeBlock language="python">{`# This is safe even if the process crashes mid-write
+        <CodeBlock language="python" highlightLines={[2, 11]}>{`# This is safe even if the process crashes mid-write
 await write_file("config.json", new_config)
 
 # How it works internally:
@@ -196,32 +205,50 @@ await write_file("log.txt", data, atomic=False)`}</CodeBlock>
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Security Features
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          All path operations are automatically validated for security:
+        <p className={`mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          All path operations are automatically validated for security at the lowest layer:
         </p>
 
-        <div className={`p-6 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-white border-gray-200'}`}>
-          <ul className={`space-y-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <li className="flex items-start gap-2">
-              <Shield className="w-4 h-4 text-aquilia-500 mt-1 shrink-0" />
-              <span><strong>Path Traversal Protection</strong> — Rejects paths containing <code>..</code> segments</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Shield className="w-4 h-4 text-aquilia-500 mt-1 shrink-0" />
-              <span><strong>Null Byte Rejection</strong> — Rejects paths containing <code>\x00</code> (C string terminator attack)</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Shield className="w-4 h-4 text-aquilia-500 mt-1 shrink-0" />
-              <span><strong>Path Length Limits</strong> — Rejects paths longer than configurable limit (default: 4096)</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <Shield className="w-4 h-4 text-aquilia-500 mt-1 shrink-0" />
-              <span><strong>Filename Sanitization</strong> — <code className="text-aquilia-500">sanitize_filename()</code> removes dangerous characters</span>
-            </li>
-          </ul>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+          <div className="relative pl-6">
+            <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-aquilia-500" />
+            <h4 className={`text-base font-bold mb-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              Path Traversal Protection
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              Strict validation rejects any paths containing parent traversal patterns (e.g., <code className="text-aquilia-400">..</code>) to keep file reads sandboxed.
+            </p>
+          </div>
+          <div className="relative pl-6">
+            <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-aquilia-500" />
+            <h4 className={`text-base font-bold mb-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              Null Byte Rejection
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              Detects and raises a fault on C-style null bytes (<code className="text-aquilia-400">\x00</code>) to prevent extension spoofing and file truncation exploits.
+            </p>
+          </div>
+          <div className="relative pl-6">
+            <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-aquilia-500" />
+            <h4 className={`text-base font-bold mb-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              Path Length Limits
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              Applies length constraints on inputs (defaulting to 4096 characters) to stop denial of service buffer overflow attempts.
+            </p>
+          </div>
+          <div className="relative pl-6">
+            <div className="absolute left-0 top-1.5 w-1.5 h-1.5 rounded-full bg-aquilia-500" />
+            <h4 className={`text-base font-bold mb-1 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
+              Filename Sanitization
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+              The <code className="text-aquilia-500">sanitize_filename()</code> utility strips dangerous control tags and symbols to sanitize client uploads.
+            </p>
+          </div>
         </div>
 
-        <CodeBlock language="python">{`from aquilia.filesystem import read_file, validate_path, sanitize_filename
+        <CodeBlock language="python" highlightLines={[5, 6, 10, 11, 15]}>{`from aquilia.filesystem import read_file, validate_path, sanitize_filename
 from aquilia.filesystem import PathTraversalFault
 
 # These will raise PathTraversalFault:
@@ -247,7 +274,7 @@ safe_name = sanitize_filename("my../file\\x00.txt")  # "my_file_.txt"`}</CodeBlo
           For more control, use <code className="text-aquilia-500">async_open()</code> to get an async file handle:
         </p>
 
-        <CodeBlock language="python">{`from aquilia.filesystem import async_open
+        <CodeBlock language="python" highlightLines={[4, 5, 10, 11, 16, 20, 21]}>{`from aquilia.filesystem import async_open
 
 # Read mode
 async with await async_open("data.txt", "r") as f:
