@@ -357,6 +357,7 @@ export const sections: SidebarSection[] = [
       {
         label: 'WebSockets', path: '/docs/websockets', icon: <Network className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/websockets' },
           { label: 'Socket Controllers', path: '/docs/websockets/controllers' },
           { label: 'Runtime', path: '/docs/websockets/runtime' },
           { label: 'Adapters', path: '/docs/websockets/adapters' },
@@ -365,6 +366,7 @@ export const sections: SidebarSection[] = [
       {
         label: 'Templates', path: '/docs/templates', icon: <Palette className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/templates' },
           { label: 'TemplateEngine', path: '/docs/templates/engine' },
           { label: 'Loaders', path: '/docs/templates/loaders' },
           { label: 'Security', path: '/docs/templates/security' },
@@ -373,6 +375,7 @@ export const sections: SidebarSection[] = [
       {
         label: 'Mail', path: '/docs/mail', icon: <Mail className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/mail' },
           { label: 'MailService', path: '/docs/mail/service' },
           { label: 'Providers', path: '/docs/mail/providers' },
           { label: 'Templates', path: '/docs/mail/templates' },
