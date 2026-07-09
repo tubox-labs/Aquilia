@@ -44,6 +44,11 @@ import { EffectsCustomEffects } from './docs/subsystem/CustomEffects'
 import { FlowPipelines } from './docs/subsystem/Pipelines'
 import { FlowContextNodes } from './docs/subsystem/ContextNodes'
 import { FlowLayers } from './docs/subsystem/Layers'
+import { SSEOverview } from './docs/sse/Overview'
+import { SSEStandardEvents } from './docs/sse/StandardEvents'
+import { SSETextJsonStreams } from './docs/sse/TextJsonStreams'
+import { SSEOpenAIStreaming } from './docs/sse/OpenAIStreaming'
+import { SSEResourceManagement } from './docs/sse/ResourceManagement'
 import { AquilaryOverview } from './docs/aquilary/Overview'
 import { AquilaryManifest } from './docs/aquilary/Manifest'
 import { AquilaryRuntime } from './docs/aquilary/Runtime'
@@ -130,6 +135,11 @@ export function PrintAllDocs() {
         <div className="print-page-break"><FlowPipelines /></div>
         <div className="print-page-break"><FlowContextNodes /></div>
         <div className="print-page-break"><FlowLayers /></div>
+        <div className="print-page-break"><SSEOverview /></div>
+        <div className="print-page-break"><SSEStandardEvents /></div>
+        <div className="print-page-break"><SSETextJsonStreams /></div>
+        <div className="print-page-break"><SSEOpenAIStreaming /></div>
+        <div className="print-page-break"><SSEResourceManagement /></div>
         <div className="print-page-break"><EffectsDBTx /></div>
         <div className="print-page-break"><EffectsCacheEffect /></div>
         <div className="print-page-break"><EffectsQueueEffect /></div>

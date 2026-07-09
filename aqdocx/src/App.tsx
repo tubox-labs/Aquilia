@@ -243,6 +243,11 @@ import { EffectsCustomEffects } from './pages/docs/subsystem/CustomEffects'
 import { FlowPipelines } from './pages/docs/subsystem/Pipelines'
 import { FlowContextNodes } from './pages/docs/subsystem/ContextNodes'
 import { FlowLayers } from './pages/docs/subsystem/Layers'
+import { SSEOverview } from './pages/docs/sse/Overview'
+import { SSEStandardEvents } from './pages/docs/sse/StandardEvents'
+import { SSETextJsonStreams } from './pages/docs/sse/TextJsonStreams'
+import { SSEOpenAIStreaming } from './pages/docs/sse/OpenAIStreaming'
+import { SSEResourceManagement } from './pages/docs/sse/ResourceManagement'
 
 
 // Aquilary
@@ -516,6 +521,14 @@ export default function App() {
           <Route path="subsystem/pipelines" element={<FlowPipelines />} />
           <Route path="subsystem/context-nodes" element={<FlowContextNodes />} />
           <Route path="subsystem/layers" element={<FlowLayers />} />
+
+          {/* Server-Sent Events (SSE) */}
+          <Route path="sse" element={<SSEOverview />} />
+          <Route path="sse/overview" element={<SSEOverview />} />
+          <Route path="sse/standard" element={<SSEStandardEvents />} />
+          <Route path="sse/streams" element={<SSETextJsonStreams />} />
+          <Route path="sse/openai" element={<SSEOpenAIStreaming />} />
+          <Route path="sse/resources" element={<SSEResourceManagement />} />
 
 
           {/* Faults */}

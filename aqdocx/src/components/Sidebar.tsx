@@ -8,7 +8,7 @@ import {
   Server, Box, Mail, Palette, TestTube, Plug,
   FileCode, Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
   Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages,
-  Clock, FileText
+  Clock, FileText, Radio
 } from 'lucide-react'
 
 interface SidebarSection {
@@ -300,6 +300,16 @@ export const sections: SidebarSection[] = [
           { label: 'HTTP Client Effect', path: '/docs/subsystem/http' },
           { label: 'Storage Effect', path: '/docs/subsystem/storage' },
           { label: 'Custom Effects', path: '/docs/subsystem/custom' },
+        ]
+      },
+      {
+        label: 'Server-Sent Events', path: '/docs/sse', icon: <Radio className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/sse/overview' },
+          { label: 'Standard Events', path: '/docs/sse/standard' },
+          { label: 'Text & JSON Streams', path: '/docs/sse/streams' },
+          { label: 'OpenAI Streaming', path: '/docs/sse/openai' },
+          { label: 'Resource Management', path: '/docs/sse/resources' },
         ]
       },
       {
