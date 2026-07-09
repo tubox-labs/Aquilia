@@ -1,120 +1,119 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Boxes } from 'lucide-react'
+import { Archive, ArrowLeft, ArrowRight } from 'lucide-react'
+
+import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function AquilaryManifest() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Boxes className="w-4 h-4" />
-          Aquilary / Manifest System
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
+          <Archive className="w-4 h-4" />
+          <span>AQUILARY / MANIFEST SYSTEM</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Manifest System
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Manifest Loading &amp; Validation
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The manifest system provides safe, import-free module discovery. <code className="text-aquilia-400">ManifestLoader</code> reads manifest files, validates them, and builds the module dependency graph without executing any module code.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The manifest system provides safe, import-free module discovery. By loading declarations lazily, Aquilia compiles dependency layouts without executing user module imports.
         </p>
       </div>
 
-      {/* ManifestLoader */}
+      {/* ManifestLoader API */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ManifestLoader</h2>
-        <CodeBlock language="python" filename="loader.py">{`from aquilia.aquilary import ManifestLoader, ManifestSource
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>ManifestLoader</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The <code className="text-aquilia-500">ManifestLoader</code> class parses manifest specifications from multiple sources. It accepts a list of sources—which can be direct Python manifest classes, absolute/relative paths to Python manifest files, or DSL (YAML/JSON) files:
+        </p>
 
-# Load manifests from a directory
+        <CodeBlock language="python" filename="manifest_load.py" highlightLines={[6, 9]}>{`from aquilia.aquilary import ManifestLoader
+
 loader = ManifestLoader()
-manifests = loader.load(
-    source=ManifestSource.DIRECTORY,
-    path="modules/",
+
+# Load multiple modules from mixed sources (safe, no import side effects)
+manifests = loader.load_manifests(
+    sources=[
+        "modules/auth/manifest.py",
+        "modules/users/manifest.yaml", # DSL config support
+    ],
+    allow_fs_autodiscovery=True # Scan standard directories
 )
 
-# Each manifest describes a module:
-# - name, version, dependencies
-# - controllers, models, services
-# - middleware, effects, routes
-# - config schema
-
-for manifest in manifests:
-    print(f"{manifest.name} v{manifest.version}")
-    print(f"  deps: {manifest.dependencies}")
-    print(f"  controllers: {manifest.controllers}")
-    print(f"  models: {manifest.models}")`}</CodeBlock>
+for m in manifests:
+    print(f"Loaded: {m.name} v{m.version} [Origin: {m.__source__}]")`}</CodeBlock>
       </section>
 
       {/* RegistryValidator */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>RegistryValidator</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Validates the entire manifest graph for conflicts, missing dependencies, and schema violations.
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Registry Validation</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Once loaded, the <code className="text-aquilia-500">RegistryValidator</code> inspects the manifest declarations. It compiles a validation report covering schema compatibility, route collisions, and duplicate app declarations:
         </p>
-        <CodeBlock language="python" filename="validator.py">{`from aquilia.aquilary import RegistryValidator, ValidationReport
 
-validator = RegistryValidator()
-report: ValidationReport = validator.validate(registry)
+        <CodeBlock language="python" filename="validate_registry.py" highlightLines={[6]}>{`from aquilia.aquilary import RegistryValidator, RegistryMode
 
-if report.is_valid:
-    print("All manifests valid!")
-else:
-    for error in report.errors:
-        print(f"ERROR: {error.message}")
-    for warning in report.warnings:
-        print(f"WARN: {warning.message}")`}</CodeBlock>
+validator = RegistryValidator(mode=RegistryMode.PROD)
+
+# Run validations on manifests
+report = validator.validate_manifests(
+    manifests,
+    config,
+    workspace_modules=workspace_modules_config
+)
+
+if report.has_errors():
+    raise Exception(report.to_exception())`}</CodeBlock>
       </section>
 
-      {/* DependencyGraph */}
+      {/* Validation Checks Table */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Dependency Graph</h2>
-        <CodeBlock language="python" filename="graph.py">{`from aquilia.aquilary import DependencyGraph, GraphNode
-
-graph = DependencyGraph(manifests)
-
-# Topological sort — deterministic load order
-order = graph.topological_sort()
-# → ["core", "auth", "users", "products", "orders"]
-
-# Detect cycles
-cycles = graph.detect_cycles()
-if cycles:
-    raise DependencyCycleError(cycles)
-
-# Get dependencies for a module
-deps = graph.get_dependencies("orders")
-# → {"users", "products"}`}</CodeBlock>
-      </section>
-
-      {/* Errors */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registry Errors</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { name: 'RegistryError', desc: 'Base registry error' },
-            { name: 'DependencyCycleError', desc: 'Circular dependency detected' },
-            { name: 'RouteConflictError', desc: 'Duplicate route across modules' },
-            { name: 'ConfigValidationError', desc: 'Manifest config schema invalid' },
-            { name: 'CrossAppUsageError', desc: 'Module accessing another module\u0027s internals' },
-            { name: 'ManifestValidationError', desc: 'Manifest file structure invalid' },
-            { name: 'DuplicateAppError', desc: 'Two modules with same name' },
-            { name: 'FrozenManifestMismatchError', desc: 'Frozen manifest differs from live' },
-            { name: 'HotReloadError', desc: 'Error during hot-reload' },
-          ].map((e, i) => (
-            <div key={i} className={box}>
-              <h3 className={`font-mono font-bold text-xs mb-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>{e.name}</h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{e.desc}</p>
-            </div>
-          ))}
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Core Validation Rules</h2>
+        <div className="w-full overflow-x-auto font-sans">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className="border-b border-white/10 text-aquilia-400 font-mono text-xs uppercase tracking-wider">
+                <th className="py-3 px-4">Validation Code</th>
+                <th className="py-3 px-4">Focus</th>
+                <th className="py-3 px-4">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 text-gray-400 text-xs">
+              <tr className="hover:bg-white/2 transition-colors">
+                <td className="py-3.5 px-4 font-mono text-aquilia-300">DuplicateAppError</td>
+                <td className="py-3.5 px-4">Uniqueness</td>
+                <td className="py-3.5 px-4">Triggers if two modules declare the exact same name.</td>
+              </tr>
+              <tr className="hover:bg-white/2 transition-colors">
+                <td className="py-3.5 px-4 font-mono text-aquilia-300">RouteConflictError</td>
+                <td className="py-3.5 px-4">Routing</td>
+                <td className="py-3.5 px-4">Flags overlapping paths or colliding HTTP endpoint route templates.</td>
+              </tr>
+              <tr className="hover:bg-white/2 transition-colors">
+                <td className="py-3.5 px-4 font-mono text-aquilia-300">DependencyCycleError</td>
+                <td className="py-3.5 px-4">Topology</td>
+                <td className="py-3.5 px-4">Raised when circular dependencies exist between module imports.</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
-    
+
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <Link to="/docs/aquilary/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Overview
+        </Link>
+        <Link to="/docs/aquilary/runtime" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Runtime Registry <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
       <NextSteps />
     </div>
   )
