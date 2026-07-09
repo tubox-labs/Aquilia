@@ -90,6 +90,156 @@ class Attributes:
         self._applied: bool = False
         self._owner_name: str | None = None
 
+    def __set_name__(self, owner: type, name: str) -> None:
+        """
+        Apply buffered configuration to *owner* at class-definition time.
+
+        Called by Python's type machinery (``type.__new__``) after the class
+        namespace is applied but before the metaclass post-processing loop.
+        ``_ControllerMeta.__new__`` then copies the lists we set here, which is
+        correct behaviour (it gets a fresh defensive copy of each list).
+
+        Args:
+            owner: The Controller subclass being defined.
+            name:  The attribute name (conventionally ``"attr"``).
+        """
+        self._owner_name = owner.__name__
+
+        # Validate first so errors appear at class-definition time
+        self._validate(owner)
+
+        # Apply only the fields that were explicitly configured
+        if self._prefix is not _UNSET:
+            owner.prefix = self._prefix  # type: ignore[attr-defined]
+
+        if self._pipeline is not _UNSET:
+            owner.pipeline = list(self._pipeline)  # type: ignore[attr-defined]
+
+        if self._tags is not _UNSET:
+            owner.tags = list(self._tags)  # type: ignore[attr-defined]
+
+        if self._instantiation_mode is not _UNSET:
+            owner.instantiation_mode = self._instantiation_mode  # type: ignore[attr-defined]
+
+        if self._version is not _UNSET:
+            owner.version = self._version  # type: ignore[attr-defined]
+
+        if self._throttle is not _UNSET:
+            owner.throttle = self._throttle  # type: ignore[attr-defined]
+
+        if self._interceptors is not _UNSET:
+            owner.interceptors = list(self._interceptors)  # type: ignore[attr-defined]
+
+        if self._exception_filters is not _UNSET:
+            owner.exception_filters = list(self._exception_filters)  # type: ignore[attr-defined]
+
+        if self._timeout is not _UNSET:
+            owner.timeout = self._timeout  # type: ignore[attr-defined]
+
+        if self._max_body_size is not _UNSET:
+            owner.max_body_size = self._max_body_size  # type: ignore[attr-defined]
+
+        self._applied = True
+
+    def _validate(self, owner: type) -> None:
+        """
+        Validate all configured values.  Raises ``ConfigInvalidFault`` on
+        the first validation failure.  Called inside ``__set_name__`` so
+        errors surface at class-definition time, not at request dispatch time.
+        """
+        from aquilia.faults.domains import ConfigInvalidFault
+
+        ctx = f"Attributes() on {owner.__name__}"
+
+        # --- prefix ---
+        if self._prefix is not _UNSET:
+            v = self._prefix
+            if not isinstance(v, str):
+                raise ConfigInvalidFault(
+                    key="prefix",
+                    reason=f"{ctx}: prefix must be a str, got {type(v).__name__!r}",
+                )
+            # Allow "" (no prefix) or a path starting with "/"
+            if v != "" and not v.startswith("/"):
+                raise ConfigInvalidFault(
+                    key="prefix",
+                    reason=f"{ctx}: prefix must start with '/' or be empty, got {v!r}",
+                )
+
+        # --- pipeline ---
+        if self._pipeline is not _UNSET:
+            items = self._pipeline
+            if not hasattr(items, "__iter__"):
+                raise ConfigInvalidFault(
+                    key="pipeline",
+                    reason=f"{ctx}: pipeline must be iterable",
+                )
+            # pipeline items can be any callable or guard object — just verify iterable.
+            # Deeper type checking would require importing guard classes (circular import risk).
+
+        # --- tags ---
+        if self._tags is not _UNSET:
+            items = self._tags
+            for i, t in enumerate(items):
+                if not isinstance(t, str):
+                    raise ConfigInvalidFault(
+                        key="tags",
+                        reason=f"{ctx}: tags[{i}] must be a str, got {type(t).__name__!r}",
+                    )
+
+        # --- instantiation_mode ---
+        if self._instantiation_mode is not _UNSET:
+            v = self._instantiation_mode
+            if v not in self._VALID_MODES:
+                raise ConfigInvalidFault(
+                    key="instantiation_mode",
+                    reason=(f"{ctx}: instantiation_mode must be one of {sorted(self._VALID_MODES)}, got {v!r}"),
+                )
+
+        # --- version ---
+        if self._version is not _UNSET:
+            v = self._version
+            if isinstance(v, list):
+                for i, item in enumerate(v):
+                    if not isinstance(item, str):
+                        raise ConfigInvalidFault(
+                            key="version",
+                            reason=(f"{ctx}: version list item [{i}] must be a str, got {type(item).__name__!r}"),
+                        )
+            elif not isinstance(v, str):
+                raise ConfigInvalidFault(
+                    key="version",
+                    reason=f"{ctx}: version must be a str or list[str], got {type(v).__name__!r}",
+                )
+
+        # --- timeout ---
+        if self._timeout is not _UNSET:
+            v = self._timeout
+            if not isinstance(v, (int, float)):
+                raise ConfigInvalidFault(
+                    key="timeout",
+                    reason=f"{ctx}: timeout must be a number (seconds), got {type(v).__name__!r}",
+                )
+            if v < 0:
+                raise ConfigInvalidFault(
+                    key="timeout",
+                    reason=f"{ctx}: timeout must be >= 0, got {v!r}",
+                )
+
+        # --- max_body_size ---
+        if self._max_body_size is not _UNSET:
+            v = self._max_body_size
+            if not isinstance(v, int):
+                raise ConfigInvalidFault(
+                    key="max_body_size",
+                    reason=f"{ctx}: max_body_size must be an int (bytes), got {type(v).__name__!r}",
+                )
+            if v < 0:
+                raise ConfigInvalidFault(
+                    key="max_body_size",
+                    reason=f"{ctx}: max_body_size must be >= 0, got {v!r}",
+                )
+
     # ─── Fluent API ───────────────────────────────────────────────────────
 
     def prefix(self, value: str) -> Attributes:
