@@ -2,11 +2,13 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTheme } from '../context/ThemeContext'
 import { RefreshCw, AlertOctagon, Github } from 'lucide-react'
+import { useVersion } from '../hooks/useVersion'
 import { SEO } from '../components/SEO'
 
 export function ServerErrorPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
 
   const reloadPage = () => {
     window.location.reload()
@@ -101,7 +103,7 @@ export function ServerErrorPage() {
 
       {/* Footer hint */}
       <div className={`absolute bottom-8 left-0 right-0 text-center text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-        Aquilia Framework CLI v1.2.2 • <Link to="/help" className="hover:text-red-400 transition-colors">Troubleshooting Guide</Link>
+        Aquilia Framework CLI v{version} • <Link to="/help" className="hover:text-red-400 transition-colors">Troubleshooting Guide</Link>
       </div>
     </div>
   )

@@ -132,12 +132,24 @@ export function ReleaseTimeline({ isDark }: Props) {
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           const tags = [...data].reverse()
+          
+          let latestStable = '1.2.2'
+          for (let k = tags.length - 1; k >= 0; k--) {
+            const v = tags[k].name.replace(/^v/, '')
+            if (!/[ab]|rc|dev|pre/i.test(v)) {
+              latestStable = v
+              break
+            }
+          }
+
           const mapped = tags.map((tag: any, i) => {
             const version = tag.name.replace(/^v/, '')
             const staticMatch = roadmap.find(r => r.version === version)
             
             let defaultCodename = "Genesis"
-            if (version.startsWith('1.2')) {
+            if (version.startsWith('1.3')) {
+              defaultCodename = "Poseidon's Trident"
+            } else if (version.startsWith('1.2')) {
               defaultCodename = "Kraken's Wake"
             } else if (version.startsWith('1.1')) {
               defaultCodename = "Black Pearl"
@@ -145,14 +157,36 @@ export function ReleaseTimeline({ isDark }: Props) {
               defaultCodename = "Jolly Roger"
             }
             
+            const isPre = /[ab]|rc|dev|pre/i.test(version)
+            let branch = staticMatch?.branch
+            if (isPre) {
+              if (version.includes('a')) branch = 'alpha'
+              else if (version.includes('b')) branch = 'beta'
+              else if (version.includes('rc')) branch = 'rc'
+            }
+
+            let status: 'released' | 'current' | 'planned' | 'future' = 'released'
+            if (version === latestStable) {
+              status = 'current'
+            } else if (isPre) {
+              status = 'planned'
+            } else {
+              const latestStableIdx = tags.findIndex((t: any) => t.name.replace(/^v/, '') === latestStable)
+              if (i > latestStableIdx) {
+                status = 'planned'
+              } else {
+                status = 'released'
+              }
+            }
+
             return {
               version,
               codename: staticMatch?.codename || defaultCodename,
               date: staticMatch?.date || "Jul 2026",
-              status: (i === tags.length - 1) ? 'current' as const : 'released' as const,
+              status,
               type: staticMatch?.type || (version.endsWith('.0') ? 'minor' as const : 'patch' as const),
-              highlights: staticMatch?.highlights || ['GitHub tag release'],
-              branch: staticMatch?.branch
+              highlights: staticMatch?.highlights || (isPre ? ['Upcoming features & testing'] : ['GitHub tag release']),
+              branch
             }
           })
           setNodes(mapped)

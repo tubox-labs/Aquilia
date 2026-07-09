@@ -2,12 +2,14 @@ import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Link } from 'react-router-dom'
+import { useVersion } from '../../../hooks/useVersion'
 import { ArrowLeft, ArrowRight, Settings } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function TemplatesEngine() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
   const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
   const borderMuted = isDark ? 'border-white/5' : 'border-gray-100'
 
@@ -134,7 +136,7 @@ async def report_stream(self, ctx: RequestCtx):
               desc: 'Registers a global variable or helper function available in all templates.',
               code: `def register_application_globals(self):
     # Register global functions / values available inside all rendering contexts
-    self.templates.register_global("api_version", "v1.2.2")
+    self.templates.register_global("api_version", "v${version}")
     self.templates.register_global("check_feature_flag", lambda flag: self.flags.enabled(flag))`
             }
           ].map((item, i) => (

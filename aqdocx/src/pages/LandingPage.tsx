@@ -6,6 +6,7 @@ import { useTheme } from '../context/ThemeContext'
 import { ArrowRight, Github, BookOpen, Activity, Rocket, Copy } from 'lucide-react'
 import { PostgresSQLIcon, RedisIcon, RabbitMQIcon, SentryIcon, OpenTelemetryIcon, AwsS3Icon, ElasticsearchIcon, DockerIcon } from '../components/BrandIcons'
 import { useState } from 'react'
+import { useVersion } from '../hooks/useVersion'
 import { motion } from 'framer-motion'
 import { ArchitectureDiagram } from '../components/ArchitectureDiagram'
 import { ReleaseTimeline } from '../components/ReleaseTimeline'
@@ -15,6 +16,7 @@ import { SEO } from '../components/SEO'
 export function LandingPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
   const [copied, setCopied] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [openFaq, setOpenFaq] = useState<number | null>(null)
@@ -54,7 +56,7 @@ export function LandingPage() {
         "description": "Manifest-First, async-native Python web framework with zero boilerplate.",
         "url": "https://aquilia.tubox.cloud/",
         "downloadUrl": "https://pypi.org/project/aquilia/",
-        "softwareVersion": "1.2.2",
+        "softwareVersion": version,
         "programmingLanguage": "Python",
         "license": "https://opensource.org/licenses/MIT",
         "offers": {
@@ -278,27 +280,10 @@ export function LandingPage() {
               </p>
             </div>
 
+
             <div className="relative">
               <div className={`absolute inset-0 bg-aquilia-500/5 blur-[120px] rounded-full pointer-events-none`} />
               <ArchitectureDiagram isDark={isDark} className="max-w-4xl" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
-              <div className={`p-6 rounded-2xl border ${isDark ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-                <div className="font-mono text-aquilia-500 text-xs mb-3">PHASE 01</div>
-                <h4 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Bootstrap</h4>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Validated manifests index application metadata and services with content-addressed fingerprinting.</p>
-              </div>
-              <div className={`p-6 rounded-2xl border ${isDark ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-                <div className="font-mono text-aquilia-500 text-xs mb-3">PHASE 02</div>
-                <h4 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Compile</h4>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>Static compilation of routes, DI graphs, and model schemas into optimized runtime artifacts.</p>
-              </div>
-              <div className={`p-6 rounded-2xl border ${isDark ? 'bg-zinc-900/40 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-                <div className="font-mono text-aquilia-500 text-xs mb-3">PHASE 03</div>
-                <h4 className={`text-lg font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Serve</h4>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>High-speed ASGI delivery through localized DI scopes and deterministic execution pipelines.</p>
-              </div>
             </div>
           </div>
         </section>

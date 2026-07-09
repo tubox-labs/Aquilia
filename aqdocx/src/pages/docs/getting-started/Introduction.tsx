@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useVersion } from '../../../hooks/useVersion'
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
@@ -485,6 +486,8 @@ function FeatureArchitectureVisualizer({ isDark }: { isDark: boolean }) {
 export function IntroductionPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
+  const codename = version.startsWith('1.3') ? "Poseidon's Trident" : version.startsWith('1.2') ? "Kraken's Wake" : "Genesis"
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -501,7 +504,7 @@ export function IntroductionPage() {
                   <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
                 </span>
               </h1>
-              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v1.2.3 ("Kraken's Wake") · Production-ready async Python web framework</p>
+              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v{version} ("{codename}") · Production-ready async Python web framework</p>
             </div>
           </div>
 

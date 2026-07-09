@@ -7,6 +7,7 @@ import {
   ArrowRight, Check, Github, ExternalLink, BookOpen, Package
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useVersion } from '../hooks/useVersion'
 import { motion } from 'framer-motion'
 import { SEO } from '../components/SEO'
 
@@ -426,6 +427,7 @@ function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
 export function Changelogs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
   const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({})
@@ -471,7 +473,7 @@ export function Changelogs() {
       .catch(err => {
         console.error('Failed to load GitHub changelog, using static fallback:', err)
         setChangelogData(staticChangelogs)
-        setExpandedVersions({ '1.2.2': true })
+        setExpandedVersions({ [version]: true })
         setIsLoading(false)
       })
   }, [])

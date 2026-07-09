@@ -2,11 +2,13 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useTheme } from '../context/ThemeContext'
 import { ArrowLeft, Search, Terminal } from 'lucide-react'
+import { useVersion } from '../hooks/useVersion'
 import { SEO } from '../components/SEO'
 
 export function NotFoundPage() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const version = useVersion()
 
   return (
     <div className={`min-h-screen flex flex-col justify-center items-center px-6 relative overflow-hidden ${
@@ -86,7 +88,7 @@ export function NotFoundPage() {
 
       {/* Footer hint */}
       <div className={`absolute bottom-8 left-0 right-0 text-center text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-        Aquilia Router Compiler v1.2.2 • <a href="https://github.com/tubox-labs/Aquilia" target="_blank" rel="noopener" className="hover:text-aquilia-500 transition-colors">Submit Issue</a>
+        Aquilia Router Compiler v{version} • <a href="https://github.com/tubox-labs/Aquilia" target="_blank" rel="noopener" className="hover:text-aquilia-500 transition-colors">Submit Issue</a>
       </div>
     </div>
   )

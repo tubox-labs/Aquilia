@@ -7,6 +7,7 @@ import {
   Check, Copy, ArrowRight, ExternalLink, BookOpen, FileText, Github, Terminal, Download
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { useVersion } from '../hooks/useVersion'
 import { motion } from 'framer-motion'
 import { ReleaseTimeline } from '../components/ReleaseTimeline'
 import { SEO } from '../components/SEO'
@@ -276,12 +277,12 @@ const tagColors: Record<string, { bg: string; text: string }> = {
   'pre-release': { bg: 'bg-amber-500/10 text-amber-400 border border-amber-500/20', text: 'text-amber-400' },
 }
 
-function UpgradePath({ isDark }: { isDark: boolean }) {
+function UpgradePath({ isDark, version }: { isDark: boolean; version: string }) {
   return (
     <div className="mt-16 pt-16 border-t border-white/[0.04]">
       <div className="mb-8">
         <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Upgrade Guide</h3>
-        <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Steps to get started or upgrade to v1.2.2</p>
+        <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Steps to get started or upgrade to v{version}</p>
       </div>
 
       <div className="space-y-8">
@@ -290,7 +291,7 @@ function UpgradePath({ isDark }: { isDark: boolean }) {
             step: '01',
             title: 'Install or upgrade Aquilia',
             description: 'Install the latest stable release from PyPI.',
-            command: 'pip install aquilia==1.2.2',
+            command: `pip install aquilia==${version}`,
             note: 'For MLOps features, add the extras:',
             extras: ['pip install aquilia[mlops]', 'pip install aquilia[dev]'],
           },
@@ -354,6 +355,7 @@ function UpgradePath({ isDark }: { isDark: boolean }) {
 export function Releases() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const latestStableVersion = useVersion()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null)
   const [gitReleases, setGitReleases] = useState<ReleaseEntry[]>([])
@@ -396,6 +398,16 @@ export function Releases() {
         if (!Array.isArray(data) || data.length === 0) {
           throw new Error('Invalid tags data')
         }
+        
+        let latestStable = '1.2.2'
+        for (let k = 0; k < data.length; k++) {
+          const v = data[k].name.replace(/^v/, '')
+          if (!/[ab]|rc|dev|pre/i.test(v)) {
+            latestStable = v
+            break
+          }
+        }
+
         const enriched = data.map((tag: any) => {
           const version = tag.name.replace(/^v/, '')
           const staticMatch = staticReleases.find(r => r.version === version)
@@ -403,7 +415,7 @@ export function Releases() {
             version,
             codename: staticMatch?.codename || 'Release',
             date: staticMatch?.date || 'Jul 1, 2026',
-            tag: version === '1.2.2' ? 'latest' : tag.name.includes('a') ? 'pre-release' : 'stable',
+            tag: version === latestStable ? 'latest' as const : /[ab]|rc|dev|pre/i.test(version) ? 'pre-release' as const : 'stable' as const,
             python: ['3.10', '3.11', '3.12', '3.13'],
             license: 'MIT',
             summary: staticMatch?.summary || 'Official release details on GitHub.',
@@ -579,7 +591,7 @@ export function Releases() {
                 )}
 
                 {/* Upgrade Guide */}
-                <UpgradePath isDark={isDark} />
+                <UpgradePath isDark={isDark} version={latestStableVersion} />
               </div>
 
               {/* RIGHT — Premium sidebar (Quick Links only) */}
