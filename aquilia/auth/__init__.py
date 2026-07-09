@@ -116,19 +116,6 @@ from .faults import (
     AUTHZ_TENANT_MISMATCH,
 )
 
-# Security Hardening
-from .hardening import (
-    CSRFProtection,
-    RequestFingerprint,
-    SecurityHeaders,
-    TokenBinder,
-    constant_time_compare,
-    generate_opaque_id,
-    generate_secure_token,
-    hash_sensitive,
-    hash_token,
-)
-
 # Password hashing
 from .hashing import (
     HasherConfig,
@@ -176,6 +163,12 @@ from .tokens import (
     TokenConfig,
     TokenManager,
     TokenStore,
+    # Utility functions (relocated from hardening.py)
+    constant_time_compare,
+    generate_opaque_id,
+    generate_secure_token,
+    hash_sensitive,
+    hash_token,
 )
 
 __all__ = [
@@ -298,12 +291,8 @@ __all__ = [
     "MemoryAuditStore",
     "LoggingAuditStore",
     "AuditTrail",
-    # Security Hardening
+    # Utility functions (formerly in hardening.py)
     "constant_time_compare",
-    "CSRFProtection",
-    "RequestFingerprint",
-    "SecurityHeaders",
-    "TokenBinder",
     "generate_secure_token",
     "generate_opaque_id",
     "hash_token",

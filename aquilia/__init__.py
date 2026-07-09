@@ -85,14 +85,6 @@ from .auth.core import (
 )
 
 # Security Hardening
-from .auth.hardening import (
-    CSRFProtection,
-    RequestFingerprint,
-    SecurityHeaders,
-    TokenBinder,
-    constant_time_compare,
-    generate_secure_token,
-)
 from .auth.hashing import PasswordHasher
 
 # Auth Integration

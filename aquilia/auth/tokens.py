@@ -785,3 +785,148 @@ class TokenManager:
         """Decode URL-safe base64 as JSON."""
         json_bytes = self._base64_decode(data)
         return json.loads(json_bytes)
+
+
+# ============================================================================
+# Cryptographic Utility Functions
+# ============================================================================
+# These utilities were previously in hardening.py (now deleted).  They remain
+# part of the auth package because they are used internally by auth components
+# (ApiKeyCredential.hash_key, OAuthClient.hash_client_secret, etc.).
+
+
+def constant_time_compare(a: str | bytes, b: str | bytes) -> bool:
+    """Compare two values in constant time to prevent timing attacks.
+
+    Wraps :func:`hmac.compare_digest` with automatic ``str``→``bytes``
+    coercion so callers do not need to encode manually.
+
+    Args:
+        a: First value (``str`` or ``bytes``).
+        b: Second value (``str`` or ``bytes``).
+
+    Returns:
+        ``True`` when both values are equal; ``False`` otherwise.
+        The comparison always takes the same amount of time regardless
+        of where the values differ.
+
+    Example::
+
+        if not constant_time_compare(submitted_token, stored_token):
+            raise AUTH_TOKEN_INVALID()
+    """
+    if isinstance(a, str):
+        a = a.encode("utf-8")
+    if isinstance(b, str):
+        b = b.encode("utf-8")
+    return _hmac.compare_digest(a, b)
+
+
+def generate_secure_token(length: int = 32) -> str:
+    """Generate a cryptographically secure URL-safe random token.
+
+    Uses :func:`secrets.token_urlsafe` from the standard library, which
+    draws from the OS random source (``/dev/urandom`` on Unix).
+
+    Args:
+        length: Number of random **bytes** to generate.  The resulting
+                base64url string will be approximately
+                ``ceil(length * 4 / 3)`` characters long.
+
+    Returns:
+        A URL-safe base64-encoded string with no padding characters.
+
+    Example::
+
+        token = generate_secure_token(32)   # 43-character URL-safe string
+        api_key = f"ak_live_{token}"
+    """
+    return secrets.token_urlsafe(length)
+
+
+def generate_opaque_id(prefix: str = "aq") -> str:
+    """Generate an opaque, prefixed identifier.
+
+    Useful for generating API-facing IDs that include a human-readable
+    prefix (e.g. ``"sess_"``, ``"req_"``) for easy identification in
+    logs and dashboards, while being cryptographically random.
+
+    Args:
+        prefix: Short string prepended to the random part,
+                separated by an underscore.
+
+    Returns:
+        A string of the form ``"<prefix>_<32-hex-chars>"``.
+
+    Example::
+
+        request_id = generate_opaque_id("req")   # "req_4f9a3b..."
+        session_id = generate_opaque_id("sess")  # "sess_1c8d2e..."
+    """
+    return f"{prefix}_{secrets.token_hex(16)}"
+
+
+def hash_token(token: str) -> str:
+    """Hash a token for storage using SHA-256 (one-way).
+
+    Suitable for storing opaque tokens (e.g. API keys, reset links)
+    so that the raw secret never appears in the database.  Uses a
+    fixed algorithm — SHA-256 — for predictable, fast lookups.
+
+    Args:
+        token: Raw token string to hash.
+
+    Returns:
+        64-character lowercase hexadecimal SHA-256 digest.
+
+    Example::
+
+        stored_hash = hash_token(raw_api_key)
+        # Stored in DB; original key is never persisted
+    """
+    import hashlib
+
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def hash_sensitive(value: str, salt: str = "") -> str:
+    """Hash sensitive data with an optional salt using SHA-256.
+
+    Use this for hashing values that should never be stored in plain text
+    but do not require the full Argon2id treatment of passwords (which is
+    reserved for user passwords via :class:`~aquilia.auth.hashing.PasswordHasher`).
+
+    Args:
+        value: Sensitive string to hash.
+        salt:  Optional salt prepended to the value before hashing.
+               When empty, no salt is applied.
+
+    Returns:
+        64-character lowercase hexadecimal SHA-256 digest.
+
+    Example::
+
+        digest = hash_sensitive(email.lower(), salt=user_id)
+        # Deterministic per (user_id, email) pair
+    """
+    import hashlib
+
+    data = f"{salt}:{value}" if salt else value
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+__all__ = [
+    "KeyAlgorithm",
+    "KeyStatus",
+    "KeyDescriptor",
+    "KeyRing",
+    "TokenConfig",
+    "TokenStore",
+    "TokenManager",
+    # Utility functions
+    "constant_time_compare",
+    "generate_secure_token",
+    "generate_opaque_id",
+    "hash_token",
+    "hash_sensitive",
+]
