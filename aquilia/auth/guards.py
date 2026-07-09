@@ -404,9 +404,11 @@ def require_auth(auth_manager: AuthManager, optional: bool = False) -> Callable:
         optional: If True, don't raise on missing auth
 
     Example:
+    ```
         @require_auth(auth_manager)
         async def get_profile(request, identity: Identity):
             return {"user": identity.id}
+    ```
     """
 
     def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
@@ -447,9 +449,11 @@ def require_scopes(*scopes: str) -> Callable:
         *scopes: Required scopes
 
     Example:
+    ```
         @require_scopes("orders.read", "orders.write")
         async def create_order(request, identity: Identity):
             ...
+    ```
     """
 
     def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
@@ -485,9 +489,11 @@ def require_roles(*roles: str, require_all: bool = False) -> Callable:
         require_all: If True, require all roles; else require any
 
     Example:
+    ```
         @require_roles("admin", "moderator")
         async def ban_user(request, identity: Identity):
             ...
+    ```
     """
 
     def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:

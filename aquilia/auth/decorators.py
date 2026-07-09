@@ -404,6 +404,7 @@ def authenticated(
     Injects identity/user/principal into the function if parameter exists.
 
     Example:
+
         @authenticated
         async def profile(ctx, user: Identity):
             return {"user_id": user.id}
@@ -494,6 +495,7 @@ def require_identity(
     Decorator requiring identity with specific attributes.
 
     Example:
+
         @require_identity(roles=["admin"])
         async def admin_panel(ctx, identity: Identity):
             ...
@@ -628,6 +630,7 @@ class AuthGuard:
     Guards can be used as decorators or composed with requires().
 
     Example:
+
         class PremiumGuard(AuthGuard):
             async def check(self, identity, session) -> bool:
                 return identity.get_attribute("subscription") == "premium"
@@ -814,6 +817,7 @@ def requires(*guards: AuthGuard) -> Callable[[F], F]:
     All guards must pass for access to be granted.
 
     Example:
+
         @requires(AdminGuard(), VerifiedEmailGuard())
         async def sensitive_operation(ctx):
             ...
