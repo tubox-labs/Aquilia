@@ -254,7 +254,18 @@ export const sections: SidebarSection[] = [
           { label: 'CORS', path: '/docs/middleware/cors' },
           { label: 'Rate Limiting', path: '/docs/middleware/rate-limit' },
           { label: 'Security Headers', path: '/docs/middleware/security' },
+          { label: 'Request Scope', path: '/docs/middleware/request-scope' },
+          { label: 'Sessions', path: '/docs/middleware/session' },
+          { label: 'Access Logging', path: '/docs/middleware/logging' },
+          { label: 'CSP', path: '/docs/middleware/csp' },
+          { label: 'CSRF', path: '/docs/middleware/csrf' },
+          { label: 'HSTS', path: '/docs/middleware/hsts' },
+          { label: 'HTTPS Redirect', path: '/docs/middleware/https-redirect' },
+          { label: 'Proxy Fix', path: '/docs/middleware/proxy-fix' },
+          { label: 'Effects Acquisition', path: '/docs/middleware/effect' },
         ]
+
+
       },
     ]
   },
@@ -275,9 +286,11 @@ export const sections: SidebarSection[] = [
         label: 'Effects System', path: '/docs/effects', icon: <Workflow className="w-3.5 h-3.5" />,
         children: [
           { label: 'Effects & Providers', path: '/docs/effects/overview' },
+          { label: 'Built-in Effects', path: '/docs/effects/built-in' },
           { label: 'DBTx Effect', path: '/docs/effects/dbtx' },
           { label: 'Cache Effect', path: '/docs/effects/cache' },
         ]
+
       },
       {
         label: 'Fault System', path: '/docs/faults', icon: <AlertCircle className="w-3.5 h-3.5" />,
@@ -286,7 +299,9 @@ export const sections: SidebarSection[] = [
           { label: 'FaultEngine', path: '/docs/faults/engine' },
           { label: 'Fault Handlers', path: '/docs/faults/handlers' },
           { label: 'Fault Domains', path: '/docs/faults/domains' },
+          { label: 'Advanced Handlers', path: '/docs/faults/advanced' },
         ]
+
       },
       {
         label: 'Cache', path: '/docs/cache', icon: <Gauge className="w-3.5 h-3.5" />,
@@ -384,9 +399,11 @@ export const sections: SidebarSection[] = [
       {
         label: 'Testing', path: '/docs/testing', icon: <TestTube className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/testing' },
           { label: 'TestClient', path: '/docs/testing/client' },
           { label: 'Test Cases', path: '/docs/testing/cases' },
           { label: 'Mocks & Fixtures', path: '/docs/testing/mocks' },
+          { label: 'Test Runner (aq test)', path: '/docs/testing/runner' },
         ]
       },
       {

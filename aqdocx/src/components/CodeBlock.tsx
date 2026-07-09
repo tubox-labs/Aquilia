@@ -33,6 +33,7 @@ interface CodeBlockProps {
   title?: string
   showLineNumbers?: boolean
   compact?: boolean
+  highlightLines?: number[]
 }
 
 const CLASS_REFERENCE_PATTERN = /^([A-Z][A-Za-z0-9_]*[a-z][A-Za-z0-9_]*)$/
@@ -145,7 +146,7 @@ function getLanguageIcon(language: string) {
   return <FileCode className="w-4.5 h-4.5 text-gray-500 dark:text-gray-400 shrink-0" />
 }
 
-export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true, compact = false }: CodeBlockProps) {
+export function CodeBlock({ code, children, language = 'python', filename, title, showLineNumbers = true, compact = false, highlightLines = [] }: CodeBlockProps) {
   const [copied, setCopied] = useState(false)
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -221,9 +222,22 @@ export function CodeBlock({ code, children, language = 'python', filename, title
         {/* Code body */}
         <Highlight prism={Prism as any} theme={isDark ? aquiliaDarkTheme : aquiliaLightTheme} code={codeContent} language={prismLanguage as any}>
           {({ tokens, getLineProps, getTokenProps }) => (
-            <pre className={`${compact ? 'p-3 text-xs' : 'p-4 text-sm'} overflow-x-auto leading-relaxed font-mono ${isDark ? 'bg-black' : 'bg-[#f8fafc]'}`}>
-              {tokens.map((line, i) => (
-                <div key={i} {...getLineProps({ line })}>
+            <pre className={`${compact ? 'py-3 text-xs' : 'py-4 text-sm'} overflow-x-auto leading-relaxed font-mono ${isDark ? 'bg-black' : 'bg-[#f8fafc]'}`}>
+              {tokens.map((line, i) => {
+                const lineProps = getLineProps({ line })
+                const isHighlighted = highlightLines.includes(i + 1)
+                return (
+                  <div
+                    key={i}
+                    {...lineProps}
+                    className={`${lineProps.className || ''} ${compact ? 'px-3' : 'px-4'} ${
+                      isHighlighted
+                        ? isDark
+                          ? 'bg-aquilia-500/15 border-l-2 border-aquilia-500'
+                          : 'bg-aquilia-500/5 border-l-2 border-aquilia-500'
+                        : 'border-l-2 border-transparent'
+                    }`}
+                  >
                   {showLineNumbers && (
                     <span className={`inline-block ${compact ? 'w-6 mr-3' : 'w-8 mr-4'} text-right select-none ${isDark ? 'text-gray-700' : 'text-gray-300'}`}>
                       {i + 1}
@@ -283,7 +297,7 @@ export function CodeBlock({ code, children, language = 'python', filename, title
                     )
                   })}
                 </div>
-              ))}
+              )})}
             </pre>
           )}
         </Highlight>
