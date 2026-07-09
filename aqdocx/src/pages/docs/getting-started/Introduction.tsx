@@ -492,84 +492,138 @@ export function IntroductionPage() {
   return (
     <div className="max-w-4xl mx-auto">
       {/* Hero */}
-      <div className="relative mb-12">
-        <div className="absolute -inset-4 bg-gradient-to-r from-aquilia-500/10 via-blue-500/5 to-purple-500/10 rounded-3xl blur-2xl print:hidden" />
-        <div className="relative">
-          <div className="flex items-center gap-3 mb-4">
-            <img src="/logo.png" alt="Aquilia" className="w-12 h-12 rounded-2xl shadow-lg shadow-aquilia-500/20" />
-            <div>
-              <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-                  Aquilia Framework
-                  <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-                </span>
-              </h1>
-              <p className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>v{version} ("{codename}") · Production-ready async Python web framework</p>
-            </div>
+      <div className="relative mb-20 overflow-hidden">
+        {/* Ambient background glow */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 bg-aquilia-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-12 right-0 w-64 h-64 bg-blue-500/8 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Version badge */}
+        <div className="flex items-center gap-2 mb-8">
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-mono font-medium border ${
+            isDark
+              ? 'bg-aquilia-500/10 border-aquilia-500/20 text-aquilia-400'
+              : 'bg-aquilia-50 border-aquilia-200 text-aquilia-700'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-aquilia-500 animate-pulse" />
+            v{version} · "{codename}"
           </div>
-
-          <p className={`text-lg leading-relaxed mb-6 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-            <strong>Stop writing routing, config, and deployment boilerplate. Focus only on business logic.</strong>
-          </p>
-
-          <div className="flex flex-col items-start gap-6 mb-12">
-            <div className="flex flex-wrap gap-4">
-              <Link
-                to="/docs/quickstart"
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-aquilia-600 hover:bg-aquilia-500 text-white font-semibold shadow-lg shadow-aquilia-500/20 transition-all hover:scale-105 active:scale-95"
-              >
-                <Rocket className="w-5 h-5" />
-                Quick Start
-              </Link>
-              <Link
-                to="/docs/architecture"
-                className={`flex items-center gap-2 px-6 py-3 rounded-xl border font-semibold transition-all hover:scale-105 active:scale-95 ${isDark ? 'border-white/10 hover:bg-white/5 text-gray-300 hover:text-white' : 'border-gray-200 hover:bg-gray-50 text-gray-700'}`}
-              >
-                <Cpu className="w-5 h-5" />
-                Architecture
-              </Link>
-            </div>
-
-            {/* Quick Install */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border font-mono text-sm ${isDark ? 'bg-black/40 border-white/10 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                <span className="text-aquilia-500">$</span>
-                <span>pip install aquilia</span>
-                <button
-                  onClick={() => navigator.clipboard.writeText('pip install aquilia')}
-                  className="ml-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-500 hover:text-aquilia-400"
-                  title="Copy to clipboard"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border font-mono text-sm ${isDark ? 'bg-black/40 border-white/10 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                <span className="text-aquilia-500">$</span>
-                <span>uv pip install aquilia</span>
-                <button
-                  onClick={() => navigator.clipboard.writeText('uv pip install aquilia')}
-                  className="ml-4 p-1.5 rounded-lg hover:bg-white/10 transition-colors text-gray-500 hover:text-aquilia-400"
-                  title="Copy to clipboard"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border ${
+            isDark
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+          }`}>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Production Ready
           </div>
+        </div>
 
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 mt-8`}>
-            <div>
-              <h3 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>What is Aquilia?</h3>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Aquilia is an async-first Python framework built on an <strong>auto-discovery architecture</strong>. It features a built-in ORM, production-ready infrastructure generation, and ML deployment built-in. It removes the friction of wiring components together manually.
-              </p>
+        {/* Logo + Title */}
+        <div className="flex items-start gap-5 mb-6">
+          <div className="relative flex-shrink-0">
+            <div className="absolute inset-0 bg-aquilia-500/30 rounded-2xl blur-lg" />
+            <img src="/logo.png" alt="Aquilia" className="relative w-16 h-16 rounded-2xl shadow-2xl shadow-aquilia-500/30" />
+          </div>
+          <div>
+            <h1 className="text-5xl font-black tracking-tight leading-none mb-2">
+              <span className="gradient-text">Aquilia</span>
+              <span className={isDark ? 'text-white' : 'text-gray-900'}> Framework</span>
+            </h1>
+            <p className={`text-base font-medium ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>
+              Production-ready async Python web framework
+            </p>
+          </div>
+        </div>
+
+        {/* Tagline */}
+        <p className={`text-xl leading-relaxed mb-8 max-w-2xl font-light ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
+          Stop writing routing, config, and deployment boilerplate.{' '}
+          <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Focus only on business logic.</span>
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-wrap items-center gap-3 mb-10">
+          <Link
+            to="/docs/quickstart"
+            className="group inline-flex items-center gap-2.5 px-6 py-3 rounded-xl bg-aquilia-600 hover:bg-aquilia-500 text-white font-semibold shadow-lg shadow-aquilia-500/25 transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-aquilia-500/40"
+          >
+            <Rocket className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
+            Quick Start
+            <ArrowRight className="w-4 h-4 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+          </Link>
+          <Link
+            to="/docs/architecture"
+            className={`group inline-flex items-center gap-2.5 px-6 py-3 rounded-xl border font-semibold transition-all duration-200 hover:scale-105 active:scale-95 ${
+              isDark
+                ? 'border-white/10 hover:border-white/20 hover:bg-white/5 text-gray-300 hover:text-white'
+                : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 text-gray-700'
+            }`}
+          >
+            <Cpu className="w-4 h-4" />
+            Architecture
+          </Link>
+        </div>
+
+        {/* Install Commands */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-12">
+          {[
+            { cmd: 'pip install aquilia', label: 'pip' },
+            { cmd: 'uv pip install aquilia', label: 'uv' },
+          ].map(({ cmd, label }) => (
+            <div
+              key={label}
+              className={`group flex items-center gap-3 pl-4 pr-3 py-3 rounded-xl border font-mono text-sm transition-all duration-200 ${
+                isDark
+                  ? 'bg-zinc-950/80 border-white/8 text-zinc-400 hover:border-aquilia-500/30 hover:bg-zinc-900/80'
+                  : 'bg-gray-50/80 border-gray-200 text-gray-600 hover:border-aquilia-400/40 hover:bg-white'
+              }`}
+            >
+              <span className={`text-xs font-bold font-mono px-1.5 py-0.5 rounded-md ${
+                isDark ? 'bg-zinc-800 text-zinc-500' : 'bg-gray-200 text-gray-500'
+              }`}>{label}</span>
+              <span className="text-aquilia-500">$</span>
+              <span className="flex-1">{cmd}</span>
+              <button
+                onClick={() => navigator.clipboard.writeText(cmd)}
+                className={`p-1.5 rounded-lg transition-all duration-150 opacity-0 group-hover:opacity-100 ${
+                  isDark ? 'hover:bg-white/10 text-zinc-500 hover:text-aquilia-400' : 'hover:bg-gray-200 text-gray-400 hover:text-aquilia-600'
+                }`}
+                title="Copy to clipboard"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
             </div>
-            <div>
-              <h3 className={`font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Who is it for?</h3>
-              <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Teams building production APIs who want clean architecture, auto-discovery, and built-in deployment tooling without the wiring boilerplate of microframeworks or the bloat of legacy monoliths.
-              </p>
+          ))}
+        </div>
+
+        {/* Separator */}
+        <div className={`w-full h-px mb-10 ${isDark ? 'bg-gradient-to-r from-transparent via-white/8 to-transparent' : 'bg-gradient-to-r from-transparent via-gray-200 to-transparent'}`} />
+
+        {/* What / Who grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? 'bg-aquilia-500/10' : 'bg-aquilia-50'}`}>
+                <Zap className="w-4 h-4 text-aquilia-500" />
+              </div>
+              <h3 className={`text-sm font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>What is Aquilia?</h3>
             </div>
+            <p className={`text-sm leading-relaxed ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
+              An async-first Python framework built on an{' '}
+              <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>auto-discovery architecture</span>. It ships a built-in ORM, production-ready infrastructure generation, and ML deployment — removing the friction of wiring components together manually.
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5 mb-3">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isDark ? 'bg-blue-500/10' : 'bg-blue-50'}`}>
+                <Globe className="w-4 h-4 text-blue-500" />
+              </div>
+              <h3 className={`text-sm font-bold uppercase tracking-widest ${isDark ? 'text-zinc-400' : 'text-gray-500'}`}>Who is it for?</h3>
+            </div>
+            <p className={`text-sm leading-relaxed ${isDark ? 'text-zinc-300' : 'text-gray-600'}`}>
+              Teams building{' '}
+              <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>production APIs</span>{' '}
+              who want clean architecture, auto-discovery, and built-in deployment tooling — without the wiring boilerplate of microframeworks or the bloat of legacy monoliths.
+            </p>
           </div>
         </div>
       </div>
