@@ -1,48 +1,50 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Clock, Code2, Box, Zap, Database } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { NextSteps } from '../../../components/NextSteps'
+import { Code2, BookOpen, Layers, Terminal } from 'lucide-react'
 
 export function TasksAPI() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const subtleText = isDark ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto animate-fade-in select-none">
+      {/* Title Header */}
+      <div className="mb-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-aquilia-500/10 via-transparent to-transparent p-8 border border-white/5 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Clock className="w-4 h-4" />
-          Tasks / API Reference
+          <BookOpen className="w-4 h-4 animate-pulse" />
+          Background Tasks / API Reference
         </div>
-        <h1 className={`text-4xl mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono">
-            Complete API Reference
-          </span>
+        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          Tasks API Reference
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Full API documentation based on the actual implementation in <code>aquilia/tasks/</code>.
+        <p className={`text-lg leading-relaxed ${subtleText}`}>
+          Complete interface specifications for background task decorators, coordinates, workers, and schedulers, compiled from the actual implementation in <code className="text-aquilia-500">aquilia/tasks/</code>.
         </p>
       </div>
 
       {/* Table of Contents */}
       <section className="mb-16">
-        <div className={`p-6 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+        <div className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/5 p-6 backdrop-blur-sm shadow-xl">
+          <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-b from-aquilia-500 to-transparent opacity-50" />
           <h3 className={`font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Table of Contents</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
             {[
-              '@task Decorator',
-              'TaskManager Class',
-              'Priority Enum',
-              'JobState Enum',
-              'Job & JobResult',
-              'Schedule Helpers (every, cron)',
-              'get_registered_tasks()',
-              'get_periodic_tasks()',
-              'Integration.tasks()',
-              'Faults',
+              { name: '@task Decorator', hash: 'task-decorator' },
+              { name: 'TaskManager Class', hash: 'taskmanager-class' },
+              { name: 'Job Dataclass', hash: 'job-dataclass' },
+              { name: 'JobResult Dataclass', hash: 'jobresult-dataclass' },
+              { name: 'Priority Enum', hash: 'priority-enum' },
+              { name: 'JobState Enum', hash: 'jobstate-enum' },
+              { name: 'Schedule Helpers', hash: 'schedule-helpers' },
+              { name: 'Task Registry Queries', hash: 'registry-queries' },
+              { name: 'Integration Builder', hash: 'integration-builder' },
+              { name: 'Structured Faults', hash: 'structured-faults' },
             ].map((item, i) => (
-              <a key={i} href={`#${item.toLowerCase().replace(/[()@\s]/g, '-')}`} className="text-aquilia-500 hover:underline">
-                {item}
+              <a key={i} href={`#${item.hash}`} className="text-aquilia-500 hover:text-aquilia-400 font-medium hover:underline flex items-center gap-1.5">
+                <span className="text-aquilia-500/50">•</span> {item.name}
               </a>
             ))}
           </div>
@@ -51,14 +53,12 @@ export function TasksAPI() {
 
       {/* @task Decorator */}
       <section id="task-decorator" className="mb-16">
-        <div className="flex items-center gap-2 mb-4">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Code2 className="w-5 h-5 text-aquilia-500" />
-          <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            <code className="text-aquilia-500">@task</code>
-          </h2>
-        </div>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Decorator to register an async function as a background task.
+          <DocTerm id="tasks.task">@task</DocTerm>
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Decorator to register an async function as a background task. Can be used with or without parentheses.
         </p>
 
         <CodeBlock language="python">{`from aquilia.tasks import task, Priority, every, cron
@@ -79,469 +79,285 @@ def task(
 ) -> _TaskDescriptor`}</CodeBlock>
 
         <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Parameters</h3>
-        <div className="overflow-x-auto mb-6">
+        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl">
           <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500 w-32">Parameter</th>
-                <th className="text-left py-3 pr-4">Type</th>
-                <th className="text-left py-3 pr-4">Default</th>
-                <th className="text-left py-3">Description</th>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="text-left py-4 px-6 font-semibold text-aquilia-500 w-32">Parameter</th>
+                <th className="text-left py-4 px-6">Type</th>
+                <th className="text-left py-4 px-6">Default</th>
+                <th className="text-left py-4 px-6">Description</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">name</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">str | None</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">None</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Task identifier. Auto-generated as <code>module:qualname</code> if omitted.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">queue</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">str</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">"default"</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Queue name for job routing.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">priority</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">Priority</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">NORMAL</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Priority level (CRITICAL=0, HIGH=1, NORMAL=2, LOW=3).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">max_retries</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">int</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">3</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Maximum retry attempts on failure.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">retry_delay</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">float</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">1.0</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Base retry delay in seconds.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">retry_backoff</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">float</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">2.0</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Exponential backoff multiplier.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">retry_max_delay</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">float</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">300.0</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Maximum retry delay cap (5 minutes).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">timeout</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">float</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">300.0</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Maximum execution time (5 minutes).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">tags</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">list[str]</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">[]</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Metadata tags for filtering.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">schedule</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">Schedule</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">None</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Periodic schedule (<code>every()</code> or <code>cron()</code>). If set, scheduler auto-enqueues.</td>
-              </tr>
+            <tbody className="divide-y divide-white/5">
+              {[
+                ['name', 'str | None', 'None', 'Unique name for task. Auto-generated as module:qualname if None.'],
+                ['queue', 'str', '"default"', 'Queue name for job routing.'],
+                ['priority', 'Priority', 'Priority.NORMAL', 'Priority level.'],
+                ['max_retries', 'int', '3', 'Maximum retries before marking task as DEAD.'],
+                ['retry_delay', 'float', '1.0', 'Base delay in seconds between retries.'],
+                ['retry_backoff', 'float', '2.0', 'Exponential backoff multiplier.'],
+                ['retry_max_delay', 'float', '300.0', 'Maximum retry delay ceiling (5 minutes).'],
+                ['timeout', 'float', '300.0', 'Maximum execution time in seconds.'],
+                ['tags', 'list[str] | None', 'None', 'Metadata tags for query filtering.'],
+                ['schedule', 'Schedule | None', 'None', 'Periodic schedule config (every or cron).'],
+              ].map(([param, type, defVal, desc], i) => (
+                <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-6 font-mono font-semibold text-xs text-aquilia-400">{param}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs">{type}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs">{defVal}</td>
+                  <td className={`py-3.5 px-6 ${subtleText}`}>{desc}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Returns</h3>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-500">_TaskDescriptor</code> — A descriptor object with these methods:
-        </p>
-        <ul className={`list-disc list-inside space-y-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <li><code>async delay(*args, **kwargs) → str</code> — Enqueue task, return job ID</li>
-          <li><code>async send(*args, **kwargs) → str</code> — Alias for <code>delay()</code></li>
-          <li><code>async __call__(*args, **kwargs)</code> — Direct execution (bypass queue)</li>
-          <li><code>bind(manager: TaskManager)</code> — Bind a TaskManager (auto-called at server start)</li>
-        </ul>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Examples</h3>
-        <CodeBlock language="python">{`# Simple task
-@task
-async def simple_task():
-    print("Hello from task")
-
-# Fully configured
-@task(
-    name="email.send",
-    queue="emails",
-    priority=Priority.HIGH,
-    max_retries=5,
-    timeout=120.0,
-    tags=["email", "critical"],
-)
-async def send_email(to: str, subject: str, body: str) -> dict:
-    # Email logic
-    return {"sent": True}
-
-# Periodic task
-@task(schedule=every(minutes=5))
-async def cleanup():
-    # Runs every 5 minutes
-    pass
-
-# Cron task
-@task(schedule=cron("0 9 * * 1-5"))
-async def weekday_morning():
-    # Runs at 9 AM on weekdays
-    pass`}</CodeBlock>
       </section>
 
       {/* TaskManager */}
       <section id="taskmanager-class" className="mb-16">
-        <div className="flex items-center gap-2 mb-4">
-          <Box className="w-5 h-5 text-aquilia-500" />
-          <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            <code className="text-aquilia-500">TaskManager</code>
-          </h2>
-        </div>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Central coordinator for background task execution. Manages workers, scheduler, and job lifecycle.
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="tasks.TaskManager">TaskManager</DocTerm>
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Central coordinator for creating, routing, enqueuing, and querying background tasks.
         </p>
 
-        <CodeBlock language="python">{`from aquilia.tasks import TaskManager, MemoryBackend
-
-class TaskManager:
+        <CodeBlock language="python">{`class TaskManager:
     def __init__(
         self,
         *,
-        backend: TaskBackend | None = None,
+        backend: TaskBackend | None = None,   # MemoryBackend() by default
         num_workers: int = 4,
         default_queue: str = "default",
-        cleanup_interval: float = 300.0,   # 5 minutes
-        cleanup_max_age: float = 3600.0,   # 1 hour
-        scheduler_tick: float = 15.0,      # Periodic check interval
-    )`}</CodeBlock>
+        cleanup_interval: float = 300.0,      # Seconds between cleanup runs
+        cleanup_max_age: float = 3600.0,      # Job TTL after termination
+        scheduler_tick: float = 15.0,         # Scheduler tick frequency
+    ) -> None
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Lifecycle Methods</h3>
-        <div className="space-y-4">
-          <div>
-            <code className="text-aquilia-500">async start() → None</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Start workers, scheduler, and cleanup loop. Binds all <code>@task</code> decorators to this manager.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">async stop(timeout: float = 10.0) → None</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Gracefully stop all workers, cancel background loops, wait up to <code>timeout</code> seconds.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">is_running: bool</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Property indicating if the manager is currently running.
-            </p>
-          </div>
-        </div>
+    async def start(self) -> None:
+        """Start worker threads, cleanup loops, and scheduled task loops."""
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Enqueue API</h3>
-        <CodeBlock language="python">{`async def enqueue(
-    self,
-    func,  # Task descriptor or plain async callable
-    *args,
-    queue: str | None = None,
-    priority: Priority | None = None,
-    delay: float | None = None,
-    max_retries: int | None = None,
-    timeout: float | None = None,
-    tags: list[str] | None = None,
-    metadata: dict[str, Any] | None = None,
-    **kwargs,
-) -> str  # Returns job ID`}</CodeBlock>
-        <p className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Enqueue a task for background execution. Parameters override <code>@task</code> decorator defaults.
+    async def stop(self, timeout: float = 10.0) -> None:
+        """Gracefully stop all worker tasks and loops, waiting up to timeout."""
+
+    async def enqueue(
+        self,
+        func: Callable | _TaskDescriptor,
+        *args: Any,
+        queue: str | None = None,
+        priority: Priority | None = None,
+        delay: float | None = None,            # Delay execution in seconds
+        max_retries: int | None = None,
+        timeout: float | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Enqueue task and return job ID string."""
+
+    async def get_job(self, job_id: str) -> Job | None:
+        """Retrieve job dataclass by ID."""
+
+    async def list_jobs(
+        self,
+        *,
+        queue: str | None = None,
+        state: JobState | None = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[Job]:
+        """List jobs matching filters, ordered created_at DESC."""
+
+    async def cancel(self, job_id: str) -> bool:
+        """Cancel a pending/running job. Returns True if successful."""
+
+    async def retry_job(self, job_id: str) -> bool:
+        """Manually force-retry a failed/dead/cancelled job."""
+
+    async def flush(self, queue: str | None = None) -> int:
+        """Clear all tasks (or filtered by queue). Returns number of cleared jobs."""
+
+    async def get_stats(self) -> dict[str, Any]:
+        """Return comprehensive TaskManager metrics, uptime, and Chart.js datasets."""`}</CodeBlock>
+      </section>
+
+      {/* Job Dataclass */}
+      <section id="job-dataclass" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="tasks.Job">Job</DocTerm>
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Dataclass representing the immutable job configuration and mutable execution state.
         </p>
-        <CodeBlock language="python">{`# Using a task descriptor
-job_id = await manager.enqueue(send_email, to="user@example.com", subject="Hi")
 
-# Override queue and priority
-job_id = await manager.enqueue(
-    send_email,
-    to="user@example.com",
-    subject="Urgent",
-    queue="critical",
-    priority=Priority.CRITICAL,
-)
+        <CodeBlock language="python">{`@dataclass
+class Job:
+    id: str                                  # Hexadecimal UUID prefix (16 chars)
+    name: str                                # Human readable task name
+    queue: str = "default"
+    priority: Priority = Priority.NORMAL
+    func_ref: str = ""                       # module:qualname path
+    args: tuple[Any, ...] = ()
+    kwargs: dict[str, Any] = field(default_factory=dict)
+    state: JobState = JobState.PENDING
+    result: JobResult | None = None
+    max_retries: int = 3
+    retry_count: int = 0
+    created_at: datetime = datetime.now(timezone.utc)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    scheduled_at: datetime | None = None    # Set when executing with delay
+    timeout: float = 300.0
+    metadata: dict[str, Any] = field(default_factory=dict)
+    tags: list[str] = field(default_factory=list)
 
-# Delayed execution
-job_id = await manager.enqueue(
-    send_email,
-    to="user@example.com",
-    subject="Reminder",
-    delay=3600.0,  # Run in 1 hour
-)`}</CodeBlock>
+    @property
+    def is_terminal(self) -> bool:
+        """Returns True if state is COMPLETED, FAILED, CANCELLED, or DEAD."""
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Job Query API</h3>
-        <div className="space-y-4">
-          <div>
-            <code className="text-aquilia-500">async get_job(job_id: str) → Job | None</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Retrieve job by ID. Returns <code>None</code> if not found.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">async list_jobs(queue: str | None, state: JobState | None, limit: int = 100, offset: int = 0) → list[Job]</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              List jobs with optional filters.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">async cancel(job_id: str) → bool</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Cancel a pending/running job. Returns <code>True</code> if cancelled.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">async retry_job(job_id: str) → bool</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Manually retry a failed/dead job. Returns <code>True</code> if re-queued.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">async flush(queue: str | None = None) → int</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Remove all jobs from a queue (or all queues). Returns count removed.
-            </p>
-          </div>
-        </div>
+    @property
+    def is_runnable(self) -> bool:
+        """Returns True if job is pending/scheduled and scheduled_at has passed."""
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Monitoring API</h3>
-        <div className="space-y-4">
-          <div>
-            <code className="text-aquilia-500">async get_stats() → dict[str, Any]</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Comprehensive statistics: total jobs, states, uptime, queue count, etc.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">async get_queue_stats() → dict[str, dict[str, int]]</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Per-queue breakdown of job counts by state.
-            </p>
-          </div>
-        </div>
+    @property
+    def next_retry_delay(self) -> float:
+        """Computes next backoff delay with exponential backoff and random jitter."""
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Event Hooks</h3>
-        <CodeBlock language="python">{`def on_complete(self, callback: Callable) → None
-def on_failure(self, callback: Callable) → None
-def on_dead_letter(self, callback: Callable) → None
+    @property
+    def can_retry(self) -> bool:
+        """Returns True if retry_count < max_retries."""
 
-# Example
-def log_completion(job: Job):
-    print(f"Job {job.id} completed: {job.result}")
+    @property
+    def duration_ms(self) -> float | None:
+        """Duration of job execution in milliseconds."""
 
-manager.on_complete(log_completion)`}</CodeBlock>
+    @property
+    def fingerprint(self) -> str:
+        """SHA-256 fingerprint for enqueued parameter deduplication."""`}</CodeBlock>
+      </section>
+
+      {/* JobResult Dataclass */}
+      <section id="jobresult-dataclass" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          JobResult
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Container representing task execution outcomes, exceptions, and execution metrics.
+        </p>
+
+        <CodeBlock language="python">{`@dataclass
+class JobResult:
+    success: bool
+    value: Any = None                        # Return value (converted to repr() string on dict serialization)
+    error: str | None = None                 # Exception message
+    error_type: str | None = None           # Name of Exception class
+    traceback: str | None = None            # Formatted traceback string
+    duration_ms: float = 0.0                 # Millisecond execution time`}</CodeBlock>
       </section>
 
       {/* Priority Enum */}
       <section id="priority-enum" className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <code className="text-aquilia-500">Priority</code> Enum
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          <DocTerm id="tasks.Priority">Priority</DocTerm>
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Task priority levels. Lower integer value = higher priority.
+        <p className={`mb-4 ${subtleText}`}>
+          Integer enumeration specifying job urgency. Lower values represent higher priority.
         </p>
-        <CodeBlock language="python">{`from enum import Enum
-
-class Priority(int, Enum):
-    CRITICAL = 0  # System alerts, security events
-    HIGH = 1      # User-facing operations
-    NORMAL = 2    # Standard background work (default)
-    LOW = 3       # Maintenance, analytics, cleanup`}</CodeBlock>
+        <CodeBlock language="python">{`class Priority(int, Enum):
+    CRITICAL = 0
+    HIGH = 1
+    NORMAL = 2
+    LOW = 3`}</CodeBlock>
       </section>
 
       {/* JobState Enum */}
       <section id="jobstate-enum" className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <code className="text-aquilia-500">JobState</code> Enum
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          JobState
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Job lifecycle states.
+        <p className={`mb-4 ${subtleText}`}>
+          Lifecycle states for a task job.
         </p>
-        <CodeBlock language="python">{`from enum import Enum
-
-class JobState(str, Enum):
-    PENDING = "pending"       # Queued, waiting for worker
-    SCHEDULED = "scheduled"   # Delayed, waiting for scheduled_at
-    RUNNING = "running"       # Currently executing
-    COMPLETED = "completed"   # Finished successfully
-    FAILED = "failed"         # Threw exception (may retry)
-    RETRYING = "retrying"     # Scheduled for retry after backoff
-    CANCELLED = "cancelled"   # Manually cancelled
-    DEAD = "dead"             # Permanently failed (exhausted retries)`}</CodeBlock>
-      </section>
-
-      {/* Job & JobResult */}
-      <section id="job---jobresult" className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <code className="text-aquilia-500">Job</code> & <code className="text-aquilia-500">JobResult</code>
-        </h2>
-        
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Job Dataclass</h3>
-        <CodeBlock language="python">{`@dataclass
-class Job:
-    # Identity
-    id: str
-    name: str
-    queue: str
-    priority: Priority
-    
-    # Callable
-    func_ref: str
-    args: tuple
-    kwargs: dict
-    
-    # State
-    state: JobState
-    result: JobResult | None
-    
-    # Retry policy
-    max_retries: int
-    retry_count: int
-    retry_delay: float
-    retry_backoff: float
-    retry_max_delay: float
-    
-    # Timing
-    created_at: datetime
-    started_at: datetime | None
-    completed_at: datetime | None
-    scheduled_at: datetime | None
-    timeout: float
-    
-    # Metadata
-    metadata: dict
-    tags: list[str]
-    
-    # Properties
-    @property
-    def is_terminal(self) -> bool
-    @property
-    def can_retry(self) -> bool
-    @property
-    def next_retry_delay(self) -> float
-    @property
-    def duration_ms(self) -> float | None
-    @property
-    def fingerprint(self) -> str  # For deduplication`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>JobResult Dataclass</h3>
-        <CodeBlock language="python">{`@dataclass
-class JobResult:
-    success: bool
-    value: Any = None           # Return value if success
-    error: str | None = None    # Error message if failure
-    error_type: str | None = None
-    traceback: str | None = None
-    duration_ms: float = 0.0`}</CodeBlock>
+        <CodeBlock language="python">{`class JobState(str, Enum):
+    PENDING = "pending"          # Waiting in queue
+    SCHEDULED = "scheduled"      # Waiting for delayed timestamp
+    RUNNING = "running"          # Undergoing worker processing
+    COMPLETED = "completed"      # Executed successfully
+    FAILED = "failed"            # Failed, pending retry
+    RETRYING = "retrying"        # Rescheduled for retry
+    CANCELLED = "cancelled"      # Terminated by admin action
+    DEAD = "dead"                # Exhausted all retries (sent to dead letter)`}</CodeBlock>
       </section>
 
       {/* Schedule Helpers */}
-      <section id="schedule-helpers--every--cron-" className="mb-16">
-        <div className="flex items-center gap-2 mb-4">
-          <Zap className="w-5 h-5 text-aquilia-500" />
-          <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            Schedule Helpers: <code className="text-aquilia-500">every()</code> & <code className="text-aquilia-500">cron()</code>
-          </h2>
-        </div>
+      <section id="schedule-helpers" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Schedule Helpers
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Helper methods to generate periodic task schedules for the scheduler loop.
+        </p>
 
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>every()</h3>
-        <CodeBlock language="python">{`def every(
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-lg font-semibold mb-2"><DocTerm id="tasks.every">every()</DocTerm></h3>
+            <CodeBlock language="python">{`def every(
     *,
     seconds: float = 0,
     minutes: float = 0,
     hours: float = 0,
     days: float = 0,
-) -> IntervalSchedule
+) -> IntervalSchedule`}</CodeBlock>
+          </div>
 
-# Examples
-every(seconds=30)
-every(minutes=5)
-every(hours=1)
-every(hours=2, minutes=30)  # 2.5 hours`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>cron()</h3>
-        <CodeBlock language="python">{`def cron(expression: str) -> CronSchedule
-
-# Format: "minute hour day_of_month month day_of_week"
-cron("*/5 * * * *")     # Every 5 minutes
-cron("0 * * * *")       # Every hour at :00
-cron("0 9 * * 1-5")     # 9 AM on weekdays
-cron("0 0 1 * *")       # Midnight on 1st of month
-cron("0 3 * * 0")       # 3 AM every Sunday`}</CodeBlock>
+          <div>
+            <h3 className="text-lg font-semibold mb-2"><DocTerm id="tasks.cron">cron()</DocTerm></h3>
+            <CodeBlock language="python">{`def cron(expression: str) -> CronSchedule`}</CodeBlock>
+            <p className={`text-xs mt-2 ${subtleText}`}>
+              Accepts standard 5-field cron syntax: <code className="text-aquilia-500">"minute hour dom month dow"</code>.
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* Helper Functions */}
-      <section id="get_registered_tasks--" className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Helper Functions
+      {/* Task Registry Queries */}
+      <section id="registry-queries" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Registry Queries
         </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Access internally mapped tasks registered via decorators.
+        </p>
+        <CodeBlock language="python">{`def get_registered_tasks() -> dict[str, _TaskDescriptor]:
+    """Retrieve mapping of all task names to their descriptors."""
 
-        <div className="space-y-4">
-          <div>
-            <code className="text-aquilia-500">get_registered_tasks() → dict[str, _TaskDescriptor]</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Returns all registered task descriptors (task_name → descriptor).
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">get_task(name: str) → _TaskDescriptor | None</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Look up a specific task by name.
-            </p>
-          </div>
-          <div>
-            <code className="text-aquilia-500">get_periodic_tasks() → dict[str, _TaskDescriptor]</code>
-            <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Returns only tasks with a <code>schedule</code> set.
-            </p>
-          </div>
-        </div>
+def get_periodic_tasks() -> dict[str, _TaskDescriptor]:
+    """Retrieve mapping of only scheduled/periodic tasks."""
 
-        <CodeBlock language="python">{`from aquilia.tasks import get_registered_tasks, get_task, get_periodic_tasks
-
-# List all tasks
-all_tasks = get_registered_tasks()
-for name, descriptor in all_tasks.items():
-    print(f"{name}: queue={descriptor.queue}, priority={descriptor.priority}")
-
-# Find a specific task
-task = get_task("mymodule:send_email")
-if task:
-    print(f"Found: {task.task_name}")
-
-# List periodic tasks
-periodic = get_periodic_tasks()
-for name, descriptor in periodic.items():
-    print(f"{name}: {descriptor.schedule.human_readable}")`}</CodeBlock>
+def get_task(name: str) -> _TaskDescriptor | None:
+    """Look up a task descriptor by its registered name."""`}</CodeBlock>
       </section>
 
-      {/* Integration.tasks() */}
-      <section id="integration-tasks--" className="mb-16">
-        <div className="flex items-center gap-2 mb-4">
-          <Database className="w-5 h-5 text-aquilia-500" />
-          <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-            <code className="text-aquilia-500">Integration.tasks()</code>
-          </h2>
-        </div>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Workspace configuration builder for the task subsystem.
+      {/* Integration Builder */}
+      <section id="integration-builder" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Integration Builder Option
+        </h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Configures background tasks at the workspace level.
         </p>
-
-        <CodeBlock language="python">{`from aquilia.config_builders import Integration
-
-Integration.tasks(
+        <CodeBlock language="python">{`# from aquilia.integrations import Integration
+@staticmethod
+def tasks(
     backend: str = "memory",
     num_workers: int = 4,
     default_queue: str = "default",
@@ -554,128 +370,47 @@ Integration.tasks(
     default_timeout: float = 300.0,
     auto_start: bool = True,
     dead_letter_max: int = 1000,
-    scheduler_tick: float = 15.0,  # Periodic check interval
-) -> dict`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Usage in Workspace</h3>
-        <CodeBlock language="python">{`# workspace.py
-from aquilia import Workspace, Module
-from aquilia.config_builders import Integration
-
-workspace = (
-    Workspace("myapp", version="1.0.0")
-    .runtime(mode="dev", port=8000)
-    .module(Module("core"))
-    .integrate(Integration.tasks(
-        num_workers=8,
-        scheduler_tick=10.0,
-        cleanup_interval=600.0,
-    ))
-)`}</CodeBlock>
+    scheduler_tick: float = 15.0,
+    enabled: bool = True,
+) -> dict[str, Any]`}</CodeBlock>
       </section>
 
-      {/* Faults */}
-      <section id="faults" className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      {/* Structured Faults */}
+      <section id="structured-faults" className="mb-16">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Terminal className="w-5 h-5 text-aquilia-500" />
           Structured Faults
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          All task system errors use structured <code>Fault</code> classes from <code>aquilia.tasks.faults</code>.
+        <p className={`mb-4 ${subtleText}`}>
+          Specific errors raised by the tasks subsystem under the <code className="text-aquilia-500">"tasks"</code> fault domain.
         </p>
-
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl">
           <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Fault</th>
-                <th className="text-left py-3 pr-4">Code</th>
-                <th className="text-left py-3">When Raised</th>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="text-left py-4 px-6 font-semibold text-aquilia-500">Fault</th>
+                <th className="text-left py-4 px-6">Triggers</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">TaskScheduleFault</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">TASK_SCHEDULE_INVALID</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Invalid <code>every()</code> or <code>cron()</code> parameters</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">TaskNotBoundFault</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">TASK_NOT_BOUND</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}><code>.delay()</code> called before server started</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">TaskEnqueueFault</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">TASK_ENQUEUE_INVALID</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Invalid callable passed to <code>enqueue()</code></td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code className="text-xs">TaskResolutionFault</code></td>
-                <td className="py-3 pr-4"><code className="text-xs">TASK_RESOLUTION_FAILED</code></td>
-                <td className={isDark ? 'text-gray-400' : 'text-gray-600'}>Worker cannot resolve task from <code>func_ref</code></td>
-              </tr>
+            <tbody className="divide-y divide-white/5">
+              {[
+                ['TaskFault', 'Base class for all background task failures.'],
+                ['TaskScheduleFault', 'Raised when interval <= 0 or cron expression lacks exactly 5 fields.'],
+                ['TaskNotBoundFault', 'Raised when calling .delay() before a TaskManager is bound (startup lifecycle not run).'],
+                ['TaskEnqueueFault', 'Raised when trying to enqueue a non-callable object.'],
+                ['TaskResolutionFault', 'Raised when workers cannot find task in registry (e.g., deleted code/import issues).'],
+              ].map(([fault, desc], i) => (
+                <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-6 font-mono text-xs font-semibold text-aquilia-400">{fault}</td>
+                  <td className={`py-3.5 px-6 text-xs ${subtleText}`}>{desc}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-
-        <CodeBlock language="python">{`from aquilia.tasks.faults import TaskNotBoundFault
-
-try:
-    await my_task.delay()
-except TaskNotBoundFault as e:
-    print(f"Error: {e.message}")
-    print(f"Code: {e.code}")
-    print(f"Domain: {e.domain}")`}</CodeBlock>
       </section>
 
-      {/* Complete Example */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Complete Example
-        </h2>
-        <CodeBlock language="python">{`# workspace.py
-from aquilia import Workspace, Module
-from aquilia.config_builders import Integration
-
-workspace = (
-    Workspace("myapp", version="1.0.0")
-    .runtime(mode="dev", port=8000)
-    .module(Module("core"))
-    .integrate(Integration.tasks(num_workers=4, scheduler_tick=15.0))
-)
-
-# modules/core/tasks.py
-from aquilia.tasks import task, Priority, every
-
-@task(queue="emails", priority=Priority.HIGH, max_retries=5)
-async def send_email(to: str, subject: str, body: str) -> dict:
-    # Email logic
-    return {"sent": True}
-
-@task(schedule=every(minutes=5))
-async def cleanup_sessions():
-    # Runs every 5 minutes
-    pass
-
-# modules/core/controllers.py
-from aquilia import Controller, POST, RequestCtx, Response
-from .tasks import send_email
-
-class EmailController(Controller):
-    prefix = "/emails"
-    
-    @POST("/send")
-    async def send(self, ctx: RequestCtx) -> Response:
-        data = await ctx.json()
-        
-        # Enqueue task
-        job_id = await send_email.delay(
-            to=data["to"],
-            subject=data["subject"],
-            body=data["body"]
-        )
-        
-        return Response.json({"job_id": job_id, "status": "queued"})`}</CodeBlock>
-      </section>
+      <NextSteps />
     </div>
   )
 }

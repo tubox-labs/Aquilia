@@ -1,601 +1,213 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Clock } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { NextSteps } from '../../../components/NextSteps'
+import { Settings, ShieldAlert, Info, Terminal } from 'lucide-react'
 
 export function TasksConfiguration() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const subtleText = isDark ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto animate-fade-in select-none">
+      {/* Title Header */}
+      <div className="mb-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-aquilia-500/10 via-transparent to-transparent p-8 border border-white/5 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Clock className="w-4 h-4" />
-          Tasks / Configuration
+          <Settings className="w-4 h-4 animate-pulse" />
+          Background Tasks / Configuration
         </div>
-        <h1 className={`text-4xl mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono">
-            Configuration
-          </span>
+        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          Tasks Configuration
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Complete configuration reference for the Tasks module. Every setting, default, and environment variable.
+        <p className={`text-lg leading-relaxed ${subtleText}`}>
+          Complete configuration specifications for background tasks. Learn how to configure workers, retries, periodic intervals, and custom backends at the workspace and module levels.
         </p>
       </div>
 
-      {/* Workspace Configuration */}
+      {/* Legacy vs. Modern Integration Configuration Styles */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Workspace Configuration (Integration.tasks)
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Integration Configuration Styles
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Configure tasks via <code className="text-aquilia-500">Integration.tasks()</code> in <code>workspace.py</code>. This is automatically converted to a TaskManager instance at server startup.
+        <p className={`mb-6 ${subtleText}`}>
+          Aquilia supports two styles of declaring subsystem integrations within <code className="text-aquilia-500">workspace.py</code>: the legacy builder-class style and the modern typed-dataclass style.
         </p>
 
-        <div className="overflow-x-auto mb-6">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Parameter</th>
-                <th className="text-left py-3 pr-4">Type</th>
-                <th className="text-left py-3 pr-4">Default</th>
-                <th className="text-left py-3">Description</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4"><code>backend</code></td>
-                <td className="py-3 pr-4"><code>str</code></td>
-                <td className="py-3 pr-4"><code>"memory"</code></td>
-                <td>Backend type: <code>"memory"</code> (default) or <code>"redis"</code> (future).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>num_workers</code></td>
-                <td className="py-3 pr-4"><code>int</code></td>
-                <td className="py-3 pr-4"><code>4</code></td>
-                <td>Number of worker coroutines to spawn.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>default_queue</code></td>
-                <td className="py-3 pr-4"><code>str</code></td>
-                <td className="py-3 pr-4"><code>"default"</code></td>
-                <td>Default queue name for tasks without explicit queue.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>cleanup_interval</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>300.0</code></td>
-                <td>Seconds between cleanup sweeps (5 minutes).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>cleanup_max_age</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>3600.0</code></td>
-                <td>Max age (seconds) for terminal jobs before cleanup (1 hour).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>scheduler_tick</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>15.0</code></td>
-                <td>Seconds between periodic task evaluation ticks.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>auto_start</code></td>
-                <td className="py-3 pr-4"><code>bool</code></td>
-                <td className="py-3 pr-4"><code>True</code></td>
-                <td>Automatically start workers on server boot.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>dead_letter_max</code></td>
-                <td className="py-3 pr-4"><code>int</code></td>
-                <td className="py-3 pr-4"><code>1000</code></td>
-                <td>Maximum dead-letter queue size.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Workspace Configuration</h3>
-        <CodeBlock language="python">{`# workspace.py
+        {/* Modern Style */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <Info className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-lg font-semibold">Modern Style: Composed Dataclasses (Recommended)</h3>
+          </div>
+          <p className={`text-sm mb-4 ${subtleText}`}>
+            Construct the <DocTerm id="tasks.task">TasksIntegration</DocTerm> class directly. This ensures compile-time validation, IDE type hinting, and strict parameter checking.
+          </p>
+          <CodeBlock language="python" highlightLines={[8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22]}>{`# workspace.py
 from aquilia import Workspace, Module
-from aquilia.config_builders import Integration
+from aquilia.integrations import TasksIntegration
 
 workspace = (
-    Workspace("myapp", version="1.0.0")
-    .runtime(mode="dev", port=8000)
+    Workspace("myapp")
     .module(Module("core"))
-    .integrate(Integration.tasks(
+    .integrate(TasksIntegration(
+        backend="memory",
         num_workers=8,
-        scheduler_tick=10.0,
-        cleanup_interval=600.0,
-        cleanup_max_age=7200.0,
+        default_queue="default",
+        scheduler_tick=5.0,
+        cleanup_interval=60.0,
+        cleanup_max_age=600.0,
+        max_retries=5,
+        retry_delay=1.5,
+        retry_backoff=2.0,
+        retry_max_delay=120.0,
+        default_timeout=180.0,
+        dead_letter_max=500,
+        auto_start=True
     ))
 )`}</CodeBlock>
-
-      <h2 className={`text-2xl font-bold mt-12 mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-        Direct TaskManager Construction
-      </h2>
-      <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-        For standalone usage outside Aquilia workspace, construct <code className="text-aquilia-500">TaskManager</code> directly.
-      </p>
-
-      <div className="overflow-x-auto mb-6">
-        <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          <thead>
-            <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-              <th className="text-left py-3 pr-4 text-aquilia-500">Parameter</th>
-              <th className="text-left py-3 pr-4">Type</th>
-              <th className="text-left py-3 pr-4">Default</th>
-              <th className="text-left py-3">Description</th>
-            </tr>
-          </thead>
-          <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-            <tr>
-              <td className="py-3 pr-4"><code>backend</code></td>
-              <td className="py-3 pr-4"><code>TaskBackend</code></td>
-              <td className="py-3 pr-4"><code>MemoryBackend()</code></td>
-              <td>Backend instance. Default is in-memory heap-based queue.</td>
-            </tr>
-            <tr>
-              <td className="py-3 pr-4"><code>num_workers</code></td>
-              <td className="py-3 pr-4"><code>int</code></td>
-              <td className="py-3 pr-4"><code>4</code></td>
-              <td>Number of worker coroutines.</td>
-            </tr>
-            <tr>
-              <td className="py-3 pr-4"><code>default_queue</code></td>
-              <td className="py-3 pr-4"><code>str</code></td>
-              <td className="py-3 pr-4"><code>"default"</code></td>
-              <td>Default queue name.</td>
-            </tr>
-            <tr>
-              <td className="py-3 pr-4"><code>cleanup_interval</code></td>
-              <td className="py-3 pr-4"><code>float</code></td>
-              <td className="py-3 pr-4"><code>300.0</code></td>
-              <td>Cleanup loop interval in seconds.</td>
-            </tr>
-            <tr>
-              <td className="py-3 pr-4"><code>cleanup_max_age</code></td>
-              <td className="py-3 pr-4"><code>float</code></td>
-              <td className="py-3 pr-4"><code>3600.0</code></td>
-              <td>Max age for terminal jobs.</td>
-            </tr>
-            <tr>
-              <td className="py-3 pr-4"><code>scheduler_tick</code></td>
-              <td className="py-3 pr-4"><code>float</code></td>
-              <td className="py-3 pr-4"><code>15.0</code></td>
-              <td>Scheduler poll interval in seconds.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Standalone Usage Example</h3>
-        <CodeBlock language="python">{`from aquilia.tasks import TaskManager, MemoryBackend
-
-# Minimal configuration (all defaults)
-manager = TaskManager()
-await manager.start()
-
-# Full configuration
-manager = TaskManager(
-    backend=MemoryBackend(),
-    num_workers=8,
-    default_queue="default",
-    cleanup_interval=600.0,
-    cleanup_max_age=7200.0,
-    scheduler_tick=10.0,
-)
-await manager.start()`}</CodeBlock>
-      </section>
-
-      {/* Task Decorator Configuration */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Task Decorator Configuration
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Per-task configuration via the <code className="text-aquilia-500">@task</code> decorator.
-        </p>
-
-        <div className="overflow-x-auto mb-6">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Parameter</th>
-                <th className="text-left py-3 pr-4">Type</th>
-                <th className="text-left py-3 pr-4">Default</th>
-                <th className="text-left py-3">Description</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4"><code>name</code></td>
-                <td className="py-3 pr-4"><code>str | None</code></td>
-                <td className="py-3 pr-4"><code>module:qualname</code></td>
-                <td>Task identifier. Auto-generated from function name if not provided.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>queue</code></td>
-                <td className="py-3 pr-4"><code>str</code></td>
-                <td className="py-3 pr-4"><code>"default"</code></td>
-                <td>Queue name for job routing.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>priority</code></td>
-                <td className="py-3 pr-4"><code>Priority</code></td>
-                <td className="py-3 pr-4"><code>NORMAL</code></td>
-                <td>Job priority (CRITICAL=0, HIGH=1, NORMAL=2, LOW=3).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>max_retries</code></td>
-                <td className="py-3 pr-4"><code>int</code></td>
-                <td className="py-3 pr-4"><code>3</code></td>
-                <td>Maximum retry attempts on failure.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>retry_delay</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>1.0</code></td>
-                <td>Base retry delay in seconds.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>retry_backoff</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>2.0</code></td>
-                <td>Exponential backoff multiplier.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>retry_max_delay</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>300.0</code></td>
-                <td>Maximum retry delay cap (5 minutes).</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>timeout</code></td>
-                <td className="py-3 pr-4"><code>float</code></td>
-                <td className="py-3 pr-4"><code>300.0</code></td>
-                <td>Maximum execution time in seconds.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>tags</code></td>
-                <td className="py-3 pr-4"><code>list[str]</code></td>
-                <td className="py-3 pr-4"><code>[]</code></td>
-                <td>Metadata tags for filtering.</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>schedule</code></td>
-                <td className="py-3 pr-4"><code>Schedule</code></td>
-                <td className="py-3 pr-4"><code>None</code></td>
-                <td>Periodic schedule (every() or cron()).</td>
-              </tr>
-            </tbody>
-          </table>
         </div>
 
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>Example: High-Reliability Email Task</h3>
-        <CodeBlock language="python">{`from aquilia.tasks import task, Priority
+        {/* Legacy Style */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <ShieldAlert className="w-5 h-5 text-amber-500" />
+            <h3 className="text-lg font-semibold text-amber-500">Legacy Style: Static Integration Builders</h3>
+          </div>
+          <p className={`text-sm mb-4 ${subtleText}`}>
+            The legacy <code className="text-aquilia-500">Integration.tasks()</code> helper delegates to the modern <code className="text-aquilia-500">TasksIntegration</code> under the hood. Avoid this in new projects.
+          </p>
+          <CodeBlock language="python" highlightLines={[7, 8, 9, 10]}>{`# workspace.py (Legacy)
+from aquilia import Workspace
+from aquilia.integrations import Integration
 
-@task(
-    name="email.send",           # Explicit name
-    queue="emails",              # Dedicated queue
-    priority=Priority.HIGH,      # Higher priority
-    max_retries=5,               # More retries
-    retry_delay=2.0,             # Longer initial delay
-    retry_backoff=3.0,           # More aggressive backoff
-    retry_max_delay=600.0,       # 10 minute cap
-    timeout=120.0,               # 2 minute timeout
-    tags=["email", "critical"],  # Metadata
-)
-async def send_email(to: str, subject: str, body: str) -> bool:
-    # Email sending logic
-    return True`}</CodeBlock>
+workspace = (
+    Workspace("myapp")
+    .integrate(Integration.tasks(
+        num_workers=4,
+        scheduler_tick=15.0,
+    ))
+)`}</CodeBlock>
+          <div className="group relative overflow-hidden rounded-xl bg-amber-500/5 border border-amber-500/10 p-4 mt-3">
+            <p className="text-xs leading-relaxed text-amber-400">
+              <strong>Warning:</strong> The legacy static helper <code className="text-aquilia-500">Integration.tasks()</code> is deprecated and will be removed in a future release. Migrate to direct constructor calls using <code className="text-aquilia-500">TasksIntegration</code>.
+            </p>
+          </div>
+        </div>
       </section>
 
-      {/* Retry Configuration */}
+      {/* Integration Option Table */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Retry Behavior
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          TasksIntegration Parameters
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The retry delay is calculated using exponential backoff with jitter:
-        </p>
-
-        <CodeBlock language="python">{`# Backoff formula
-delay = min(retry_delay * (retry_backoff ** retry_count), retry_max_delay)
-delay = delay * (1.0 + random.uniform(-0.25, 0.25))  # ±25% jitter`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Example: Default Settings
-        </h3>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          With <code>retry_delay=1.0</code>, <code>retry_backoff=2.0</code>, <code>retry_max_delay=300.0</code>:
-        </p>
-
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl mb-6">
           <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
             <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Retry #</th>
-                <th className="text-left py-3 pr-4">Base Delay</th>
-                <th className="text-left py-3">With Jitter (±25%)</th>
+              <tr className="border-b border-white/5 bg-white/5">
+                <th className="text-left py-4 px-6 font-semibold text-aquilia-500 w-44">Parameter</th>
+                <th className="text-left py-4 px-6">Type</th>
+                <th className="text-left py-4 px-6">Default</th>
+                <th className="text-left py-4 px-6">Description</th>
               </tr>
             </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4">1</td>
-                <td className="py-3 pr-4">1 second</td>
-                <td>0.75 – 1.25 seconds</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">2</td>
-                <td className="py-3 pr-4">2 seconds</td>
-                <td>1.5 – 2.5 seconds</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">3</td>
-                <td className="py-3 pr-4">4 seconds</td>
-                <td>3.0 – 5.0 seconds</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">4</td>
-                <td className="py-3 pr-4">8 seconds</td>
-                <td>6.0 – 10.0 seconds</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">5</td>
-                <td className="py-3 pr-4">16 seconds</td>
-                <td>12.0 – 20.0 seconds</td>
-              </tr>
+            <tbody className="divide-y divide-white/5">
+              {[
+                ['backend', 'str', '"memory"', 'Storage backend. "memory" stores job states inside the process memory.'],
+                ['num_workers', 'int', '4', 'Number of parallel async worker loop coroutines to run.'],
+                ['default_queue', 'str', '"default"', 'Fallback queue name when queue is not explicitly declared.'],
+                ['cleanup_interval', 'float', '300.0', 'Frequency (in seconds) of sweeps to purge terminated jobs.'],
+                ['cleanup_max_age', 'float', '3600.0', 'Maximum age (in seconds) to retain terminated jobs in history.'],
+                ['max_retries', 'int', '3', 'Default maximum retry limit for failed jobs.'],
+                ['retry_delay', 'float', '1.0', 'Base backoff cooldown delay in seconds.'],
+                ['retry_backoff', 'float', '2.0', 'Multiplier factor for exponential retry backoff.'],
+                ['retry_max_delay', 'float', '300.0', 'Maximum cap for backoff delay (in seconds).'],
+                ['default_timeout', 'float', '300.0', 'Maximum execution timeout (in seconds) per job.'],
+                ['auto_start', 'bool', 'True', 'Whether to boot worker queues during server bootstrap lifecycle.'],
+                ['dead_letter_max', 'int', '1000', 'Maximum capacity of the Dead-Letter Queue (DLQ) buffer.'],
+                ['scheduler_tick', 'float', '15.0', 'Frequency (in seconds) to check and trigger scheduled tasks.'],
+              ].map(([opt, type, defVal, desc], i) => (
+                <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
+                  <td className="py-3.5 px-6 font-mono font-semibold text-xs text-aquilia-400">{opt}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs">{type}</td>
+                  <td className="py-3.5 px-6 font-mono text-xs">{defVal}</td>
+                  <td className={`py-3.5 px-6 text-xs ${subtleText}`}>{desc}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* Queue Management */}
+      {/* Module Level Manifest Integration */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Queue Management
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Module Manifest & ComponentRef
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Queues are automatically created when tasks use them. Workers process ALL known queues (tracked internally via <code>_queues</code> set).
+        <p className={`mb-4 ${subtleText}`}>
+          Instead of declaring component imports as bare string paths, Aquilia v2 recommends using the <code className="text-aquilia-500">ComponentRef</code> class inside <code className="text-aquilia-500">manifest.py</code>. This offers typed metadata checks during boot scans.
         </p>
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          How Queues Work
-        </h3>
-        <div className={`p-4 rounded-xl border ${isDark ? 'bg-[#111] border-white/10' : 'bg-gray-50 border-gray-200'} mb-4`}>
-          <ol className={`list-decimal list-inside space-y-2 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <li>Tasks declare their queue via <code>@task(queue="name")</code></li>
-            <li>When a job is enqueued, the queue is auto-registered in <code>manager._queues</code></li>
-            <li>Workers poll all registered queues in round-robin fashion</li>
-            <li>No configuration needed — queues are created dynamically</li>
-          </ol>
-        </div>
+        <CodeBlock language="python" highlightLines={[8, 9, 10, 11, 15, 16, 17, 18, 19, 20, 21, 22]}>{`# modules/core/manifest.py
+from aquilia import AppManifest, ComponentRef, ComponentKind
 
-        <CodeBlock language="python">{`# Define tasks for different queues
-@task(queue="emails")
-async def send_email(): pass
-
-@task(queue="notifications")
-async def send_notification(): pass
-
-@task(queue="analytics")
-async def track_event(): pass
-
-# Enqueue creates queues automatically
-await send_email.delay()         # Creates "emails" queue
-await send_notification.delay()  # Creates "notifications" queue
-await track_event.delay()        # Creates "analytics" queue
-
-# Workers process all queues
-manager = TaskManager(num_workers=4)
-await manager.start()  # Workers poll emails, notifications, analytics`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Dedicated Worker Pools (Advanced)
-        </h3>
-        <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          For advanced use cases, run separate TaskManager instances with shared backend:
-        </p>
-        <CodeBlock language="python">{`# Shared backend
-backend = MemoryBackend()
-
-# High-priority worker pool
-critical_manager = TaskManager(backend=backend, num_workers=4)
-
-# Low-priority worker pool
-analytics_manager = TaskManager(backend=backend, num_workers=2)
-
-await critical_manager.start()
-await analytics_manager.start()
-
-# Both managers share the same job storage
-# but can be started/stopped independently`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Recommended Queue Structure
-        </h3>
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Queue</th>
-                <th className="text-left py-3 pr-4">Workers</th>
-                <th className="text-left py-3">Use Case</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4"><code>default</code></td>
-                <td className="py-3 pr-4">2-4</td>
-                <td>General-purpose background work</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>emails</code></td>
-                <td className="py-3 pr-4">2-4</td>
-                <td>Email delivery (may have latency)</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>notifications</code></td>
-                <td className="py-3 pr-4">4-8</td>
-                <td>Push notifications, SMS (high volume)</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>analytics</code></td>
-                <td className="py-3 pr-4">1-2</td>
-                <td>Tracking, metrics (low priority)</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>critical</code></td>
-                <td className="py-3 pr-4">2-4</td>
-                <td>Security alerts, billing (high priority)</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+manifest = AppManifest(
+    name="core",
+    controllers=[
+        # Controller component references
+        ComponentRef(
+            class_path="modules.core.controllers:NotificationsController",
+            kind=ComponentKind.CONTROLLER
+        )
+    ],
+    tasks=[
+        # Task component references
+        ComponentRef(
+            class_path="modules.core.tasks:send_notification",
+            kind=ComponentKind.TASK
+        ),
+        ComponentRef(
+            class_path="modules.core.tasks:cleanup_logs",
+            kind=ComponentKind.TASK
+        )
+    ],
+)`}</CodeBlock>
       </section>
 
-      {/* Schedule Configuration */}
+      {/* Standalone/Script TaskManager Construction */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Schedule Configuration
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Terminal className="w-5 h-5 text-aquilia-500" />
+          Direct TaskManager Setup
         </h2>
-
-        <h3 className={`text-lg font-semibold mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Interval Schedule
-        </h3>
-        <CodeBlock language="python">{`from aquilia.tasks import task, every
-
-@task(schedule=every(seconds=30))   # Every 30 seconds
-async def heartbeat(): pass
-
-@task(schedule=every(minutes=5))    # Every 5 minutes
-async def check_health(): pass
-
-@task(schedule=every(hours=1))      # Every hour
-async def hourly_report(): pass
-
-@task(schedule=every(days=1))       # Daily
-async def daily_cleanup(): pass
-
-# Combined
-@task(schedule=every(hours=2, minutes=30))  # Every 2.5 hours
-async def periodic_task(): pass`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Cron Schedule
-        </h3>
-        <p className={`mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Format: <code>minute hour day_of_month month day_of_week</code>
-        </p>
-        <CodeBlock language="python">{`from aquilia.tasks import task, cron
-
-@task(schedule=cron("*/5 * * * *"))     # Every 5 minutes
-async def frequent(): pass
-
-@task(schedule=cron("0 * * * *"))       # Every hour at :00
-async def hourly(): pass
-
-@task(schedule=cron("0 9 * * 1-5"))     # 9 AM weekdays
-async def morning_digest(): pass
-
-@task(schedule=cron("0 0 1 * *"))       # Midnight on 1st
-async def monthly_report(): pass
-
-@task(schedule=cron("0 3 * * 0"))       # 3 AM Sunday
-async def weekly_maintenance(): pass`}</CodeBlock>
-
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-          Cron Expression Reference
-        </h3>
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Field</th>
-                <th className="text-left py-3 pr-4">Values</th>
-                <th className="text-left py-3">Special Characters</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4">Minute</td>
-                <td className="py-3 pr-4">0-59</td>
-                <td><code>* , - /</code></td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">Hour</td>
-                <td className="py-3 pr-4">0-23</td>
-                <td><code>* , - /</code></td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">Day of Month</td>
-                <td className="py-3 pr-4">1-31</td>
-                <td><code>* , - /</code></td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">Month</td>
-                <td className="py-3 pr-4">1-12</td>
-                <td><code>* , - /</code></td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4">Day of Week</td>
-                <td className="py-3 pr-4">0-6 (Sun=0)</td>
-                <td><code>* , - /</code></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Behavior */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Missing Configuration Behavior
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          What happens when configuration is omitted:
+        <p className={`mb-6 ${subtleText}`}>
+          To run task workers in standalone scripts, background processes, or daemon systems, construct the manager manually:
         </p>
 
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={`border-b ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-                <th className="text-left py-3 pr-4 text-aquilia-500">Missing</th>
-                <th className="text-left py-3">Behavior</th>
-              </tr>
-            </thead>
-            <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
-              <tr>
-                <td className="py-3 pr-4"><code>backend</code></td>
-                <td>Uses <code>MemoryBackend()</code> — in-memory, lost on restart</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>num_workers</code></td>
-                <td>Defaults to 4 worker coroutines</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>queues</code></td>
-                <td>Only processes <code>"default"</code> queue</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>poll_interval</code></td>
-                <td>1 second between polls when queues are empty</td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>name</code> (task)</td>
-                <td>Auto-generated from <code>module:qualname</code></td>
-              </tr>
-              <tr>
-                <td className="py-3 pr-4"><code>schedule</code> (task)</td>
-                <td>Task is on-demand only, not periodic</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <CodeBlock language="python">{`import asyncio
+from aquilia.tasks import TaskManager, MemoryBackend
+
+async def run_worker():
+    backend = MemoryBackend()
+    manager = TaskManager(
+        backend=backend,
+        num_workers=4,
+        scheduler_tick=1.0
+    )
+    
+    await manager.start()
+    try:
+        # Keep running
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        await manager.stop()
+
+if __name__ == "__main__":
+    asyncio.run(run_worker())`}</CodeBlock>
       </section>
+
+      <NextSteps />
     </div>
   )
 }
