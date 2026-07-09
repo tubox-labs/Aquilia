@@ -22,4 +22,4 @@ import './testingEntities'
 import './openapiEntities'
 import './aquiliaEntities'
 import './cacheHttpI18n'
-
+import './websocketsTemplatesMail'
