@@ -267,7 +267,6 @@ dependencies = [
     { name = "click" },
     { name = "jinja2" },
     { name = "markupsafe" },
-    { name = "surp" },
     { name = "uvicorn" },
 ]
 
@@ -288,6 +287,7 @@ all = [
     { name = "opentelemetry-sdk" },
     { name = "python-multipart" },
     { name = "redis" },
+    { name = "surp" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 auth = [
@@ -319,6 +319,7 @@ full = [
     { name = "opentelemetry-sdk" },
     { name = "python-multipart" },
     { name = "redis" },
+    { name = "surp" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 mail = [
@@ -352,6 +353,9 @@ server = [
 sqlite-compat = [
     { name = "aiosqlite" },
 ]
+surp = [
+    { name = "surp" },
+]
 template = [
     { name = "jinja2" },
     { name = "markupsafe" },
@@ -368,7 +372,7 @@ requires-dist = [
     { name = "aiobotocore", marker = "extra == 'mail-ses'", specifier = ">=2.9.0" },
     { name = "aiosmtplib", marker = "extra == 'mail'", specifier = ">=3.0.0" },
     { name = "aiosqlite", marker = "extra == 'sqlite-compat'", specifier = ">=0.20.0" },
-    { name = "aquilia", extras = ["auth", "mail", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "template"], marker = "extra == 'full'" },
+    { name = "aquilia", extras = ["auth", "mail", "mail-sendgrid", "mail-ses", "multipart", "otel", "postgres", "redis", "server", "surp", "template"], marker = "extra == 'full'" },
     { name = "aquilia", extras = ["full"], marker = "extra == 'all'" },
     { name = "aquilia", extras = ["testing"], marker = "extra == 'dev'" },
     { name = "argon2-cffi", marker = "extra == 'auth'", specifier = ">=23.1.0" },
@@ -394,11 +398,11 @@ requires-dist = [
     { name = "python-multipart", marker = "extra == 'multipart'", specifier = ">=0.0.9" },
     { name = "redis", extras = ["asyncio"], marker = "extra == 'redis'", specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.15" },
-    { name = "surp" },
+    { name = "surp", marker = "extra == 'surp'", specifier = ">=1.0.2" },
     { name = "uvicorn", specifier = ">=0.30.0" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'server'", specifier = ">=0.30.0" },
 ]
-provides-extras = ["template", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "server", "postgres", "otel", "full", "all", "testing", "dev"]
+provides-extras = ["template", "surp", "sqlite-compat", "auth", "multipart", "redis", "mail", "mail-ses", "mail-sendgrid", "server", "postgres", "otel", "full", "all", "testing", "dev"]
 
 [[package]]
 name = "argon2-cffi"
