@@ -89,16 +89,13 @@ class AuthPrincipal(SessionPrincipal):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize to dictionary."""
-        data = super().to_dict()
-        data.update(
-            {
-                "tenant_id": self.tenant_id,
-                "roles": self.roles,
-                "scopes": self.scopes,
-                "mfa_verified": self.mfa_verified,
-            }
-        )
-        return data
+        return {
+            "principal_id": self.id,
+            "tenant_id": self.tenant_id,
+            "roles": self.roles,
+            "scopes": self.scopes,
+            "mfa_verified": self.mfa_verified,
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AuthPrincipal:

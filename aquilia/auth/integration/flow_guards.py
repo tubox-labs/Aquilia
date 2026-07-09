@@ -411,7 +411,11 @@ class RequireScopesGuard(FlowGuard):
             raise AUTH_REQUIRED()
 
         # Check scopes
-        user_scopes = set(identity.scopes)
+        user_scopes = set()
+        if hasattr(identity, "scopes"):
+            user_scopes = set(identity.scopes)
+        elif hasattr(identity, "get_attribute"):
+            user_scopes = set(identity.get_attribute("scopes", []))
         required_scopes = set(self.scopes)
 
         if self.require_all:
