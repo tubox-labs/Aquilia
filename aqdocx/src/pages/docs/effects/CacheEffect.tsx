@@ -1,124 +1,95 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Workflow } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, Workflow } from 'lucide-react'
+
 import { NextSteps } from '../../../components/NextSteps'
 
 export function EffectsCacheEffect() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Workflow className="w-4 h-4" />
-          Effects / Cache Effect
+          <span>EFFECTS / CACHE EFFECT</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Cache Effect
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Cache Effect
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-400">CacheEffect</code> represents a cache namespace capability. The <code className="text-aquilia-400">CacheProvider</code> wraps the full <code className="text-aquilia-400">CacheService</code> to provide per-namespace handles with get/set/delete operations.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          The <code className="text-aquilia-500">CacheEffect</code> handles key-value caching namespaces. It delegates to the active cache integrations (Redis, Memcached, or In-Memory), allowing handlers to get, set, and expire data cleanly.
         </p>
       </div>
 
-      {/* CacheEffect Token */}
+      {/* Namespace Isolation */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Effect Token</h2>
-        <CodeBlock language="python" filename="token.py">{`from aquilia.effects import CacheEffect, EffectKind
-
-# Declare a cache effect for a namespace
-user_cache = CacheEffect(namespace="users")
-product_cache = CacheEffect(namespace="products")
-
-# Default namespace
-default_cache = CacheEffect()  # namespace="default"
-
-print(user_cache.name)     # "Cache"
-print(user_cache.kind)     # EffectKind.CACHE
-print(user_cache.mode)     # "users"`}</CodeBlock>
-      </section>
-
-      {/* CacheProvider */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CacheProvider</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          <code className="text-aquilia-400">CacheProvider</code> delegates to a <code className="text-aquilia-400">CacheService</code> when available, otherwise falls back to an in-memory dict. This makes it usable in both production and tests.
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Namespace Isolation</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Rather than mixing keys in a single flat namespace, <code className="text-aquilia-500">CacheEffect</code> partitions cache operations by namespace. At request start, the provider creates a scoped <code className="text-aquilia-400">CacheServiceHandle</code> which transparently prefixes keys with the namespace.
         </p>
-        <CodeBlock language="python" filename="provider.py">{`from aquilia.effects import CacheProvider
-from aquilia.cache import CacheService, MemoryBackend
-
-# With full CacheService (production)
-cache_svc = CacheService(backend=MemoryBackend())
-provider = CacheProvider("memory", cache_service=cache_svc)
-
-# Without CacheService (testing fallback)
-provider = CacheProvider("memory")  # uses internal dict
-
-# Register
-registry.register("Cache", provider)
-await registry.initialize_all()`}</CodeBlock>
       </section>
 
-      {/* Cache Handles */}
+      {/* CacheServiceHandle API */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Cache Handles</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          When you acquire a cache effect, you get a handle scoped to the namespace.
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Using CacheServiceHandle</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The acquired caching resource provides a structured, async interface to perform caching operations:
         </p>
-        <CodeBlock language="python" filename="handle.py">{`# Acquire a handle for the "users" namespace
-handle = await provider.acquire(mode="users")
 
-# Operations are scoped to the namespace
-await handle.set("42", {"name": "Asha", "email": "asha@test.com"})
-user = await handle.get("42")     # {"name": "Asha", ...}
-await handle.delete("42")
-
-# Release (no-op for cache, but called for consistency)
-await provider.release(handle, success=True)`}</CodeBlock>
-      </section>
-
-      {/* QueueEffect */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Other Built-in Effects</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia also provides <code className="text-aquilia-400">QueueEffect</code> for message queue capabilities.
-        </p>
-        <CodeBlock language="python" filename="queue.py">{`from aquilia.effects import QueueEffect
-
-# Queue effect for publishing messages
-notifications = QueueEffect(topic="notifications")
-analytics = QueueEffect(topic="analytics")
-
-print(notifications.name)   # "Queue"
-print(notifications.kind)   # EffectKind.QUEUE
-print(notifications.mode)   # "notifications"`}</CodeBlock>
-      </section>
-
-      {/* EffectKind */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>EffectKind Enum</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            { name: 'DB', desc: 'Database transactions' },
-            { name: 'CACHE', desc: 'Cache namespaces' },
-            { name: 'QUEUE', desc: 'Message queues' },
-            { name: 'HTTP', desc: 'External HTTP calls' },
-            { name: 'STORAGE', desc: 'Object storage' },
-            { name: 'CUSTOM', desc: 'User-defined effects' },
-          ].map((k, i) => (
-            <div key={i} className={box}>
-              <h3 className={`font-mono font-bold text-xs mb-1 ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>EffectKind.{k.name}</h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{k.desc}</p>
-            </div>
-          ))}
+        <div className="space-y-4 mb-8 text-sm text-gray-400">
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.get(key)</code> — Resolves the deserialized cache payload, or returns <code className="text-aquilia-500">None</code> on a cache miss.
+          </div>
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.set(key, value, ttl=None)</code> — Stores a value. Optional TTL specifies lifespan in seconds.
+          </div>
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.delete(key)</code> — Removes a value from the cache.
+          </div>
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.has(key)</code> — Returns a boolean indicating key existence without loading the payload.
+          </div>
+          <div className="border-b border-white/5 pb-2">
+            <code className="text-white text-xs font-mono">await handle.get_many(keys)</code> — Batch lookup, returning a key-to-value dictionary.
+          </div>
+          <div className="pb-2">
+            <code className="text-white text-xs font-mono">await handle.set_many(mapping, ttl=None)</code> — Efficiently stores multiple key-value pairs in a single operation.
+          </div>
         </div>
       </section>
-    
+
+      {/* Code Example */}
+      <section className="mb-16">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Code Implementation</h2>
+        <CodeBlock language="python" filename="cache_usage.py" highlightLines={[2, 6, 9]}>{`class ProductController(Controller):
+    effects = [CacheEffect(namespace="products")]
+
+    @Get("/:id")
+    async def get_product(self, id: int, ctx):
+        # 1. Attempt to resolve from namespace cache
+        cache_key = f"detail:{id}"
+        product = await ctx.effects.cache.get(cache_key)
+        
+        if product is None:
+            # Cache miss - load from DB and populate cache
+            product = await Product.objects.get(id=id)
+            await ctx.effects.cache.set(cache_key, product.to_dict(), ttl=600)
+            
+        return ctx.json(product)`}</CodeBlock>
+      </section>
+
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <Link to="/docs/effects/dbtx" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> DBTx Effect
+        </Link>
+        <span />
+      </div>
+
       <NextSteps />
     </div>
   )
