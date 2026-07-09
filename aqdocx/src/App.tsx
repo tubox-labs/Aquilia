@@ -240,6 +240,9 @@ import { EffectsQueueEffect } from './pages/docs/effects/QueueEffect'
 import { EffectsHTTPEffect } from './pages/docs/effects/HTTPEffect'
 import { EffectsStorageEffect } from './pages/docs/effects/StorageEffect'
 import { EffectsCustomEffects } from './pages/docs/effects/CustomEffects'
+import { FlowPipelines } from './pages/docs/effects/Pipelines'
+import { FlowContextNodes } from './pages/docs/effects/ContextNodes'
+import { FlowLayers } from './pages/docs/effects/Layers'
 
 
 // Aquilary
@@ -510,6 +513,9 @@ export default function App() {
           <Route path="effects/http" element={<EffectsHTTPEffect />} />
           <Route path="effects/storage" element={<EffectsStorageEffect />} />
           <Route path="effects/custom" element={<EffectsCustomEffects />} />
+          <Route path="effects/pipelines" element={<FlowPipelines />} />
+          <Route path="effects/context-nodes" element={<FlowContextNodes />} />
+          <Route path="effects/layers" element={<FlowLayers />} />
 
 
           {/* Faults */}

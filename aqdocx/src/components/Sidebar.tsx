@@ -287,9 +287,12 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'Effects System', path: '/docs/effects', icon: <Workflow className="w-3.5 h-3.5" />,
+        label: 'Effects & Flow System', path: '/docs/effects', icon: <Workflow className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/effects/overview' },
+          { label: 'Flow Pipelines', path: '/docs/effects/pipelines' },
+          { label: 'Flow Context & Nodes', path: '/docs/effects/context-nodes' },
+          { label: 'Layers & Compositions', path: '/docs/effects/layers' },
           { label: 'Built-in Effects', path: '/docs/effects/built-in' },
           { label: 'DBTx Effect', path: '/docs/effects/dbtx' },
           { label: 'Cache Effect', path: '/docs/effects/cache' },
@@ -298,7 +301,6 @@ export const sections: SidebarSection[] = [
           { label: 'Storage Effect', path: '/docs/effects/storage' },
           { label: 'Custom Effects', path: '/docs/effects/custom' },
         ]
-
       },
       {
         label: 'Fault System', path: '/docs/faults', icon: <AlertCircle className="w-3.5 h-3.5" />,
