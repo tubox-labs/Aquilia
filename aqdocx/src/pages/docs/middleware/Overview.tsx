@@ -164,68 +164,88 @@ const MIDDLEWARE_DATA: MiddlewareItem[] = [
 const ARCHITECTURE_DETAILS: Record<string, { title: string; subtitle: string; body: string }> = {
   workspace: {
     title: "Workspace Config Declarations",
-    subtitle: "workspace.py / Integration API",
-    body: "Middlewares are registered globally using the workspace object, typically inside `workspace.py` or configuration plugins. For instance, `workspace.integrate(Integration.cache(...))` registers caching mechanisms globally. This provides the primary baseline stack configuration."
+    subtitle: "workspace.py / Fluent MiddlewareChain API",
+    body: "Global middleware configurations are defined in workspace.py via `Workspace.middleware(MiddlewareChain())`. This registers the global baseline stack configuration. Note that the legacy `Integration.middleware_chain()` static builder is ignored at runtime due to lack of integrations fallback in the config loader."
   },
   manifest: {
-    title: "Module AppManifest declarations",
-    subtitle: "manifest.py / Module Config",
-    body: "Each local application module declares its routes, controllers, and middlewares within its `AppManifest` definition. Middlewares defined here can be scoped with parameters like `priority` and `scope` to control where they fit in the sorted execution stack."
+    title: "Module AppManifest Declarations",
+    subtitle: "manifest.py / MiddlewareConfig API",
+    body: "Local application modules declare middleware configurations in `AppManifest(middleware=[MiddlewareConfig(...)])`. The scope and priority declared here determine the sorting order in the compilation chain. While scoped (e.g., 'app'), these middlewares run globally across all routes unless internally gated."
   },
   scanner: {
     title: "Package & Manifest Scanner",
-    subtitle: "Discovery & Autoloading",
-    body: "During server bootstrap, the autodiscovery engine (using PackageScanner) walks package directories, imports manifest.py files, scans annotations, and aggregates all user-declared middleware descriptors into a central catalog."
+    subtitle: "Discovery & Autoloading Engine",
+    body: "During server bootstrap, the autodiscovery engine (PackageScanner) walks local package directories, imports manifest.py files, and aggregates descriptors into a central catalog. Unless `auto_discover=False` is specified, it auto-generates default global configurations for local middleware classes, overriding custom parameters."
   },
   sorting: {
     title: "Stack Sorting Engine",
-    subtitle: "MiddlewareStack Priority Sorting",
-    body: "The compiler sorts all registered middlewares in ascending order of `(scope_rank, priority)`. Scopes are ranked: Global (0), App (1), Controller (2), and Route (3). This ensures infrastructure components outer-wrap specific route handlers."
+    subtitle: "MiddlewareStack Deterministic Ordering",
+    body: "All registered middleware descriptors are sorted by `(scope_rank, priority)` ascending. Scope ranks are: Global (0), App (1), Controller (2), and Route (3). This ensures critical infrastructure outer-wraps module-level and route-specific handlers."
   },
   compilation: {
     title: "Closure Nesting Chain",
-    subtitle: "build_handler() Wrapping",
-    body: "The compiler wraps sorted middlewares in REVERSE order. Each middleware wraps the next as a closure, accepting `next_handler` as a parameter. Thus, the lowest priority (P1 Exception Guard) becomes the outermost boundary layer, running first on request ingress and last on response egress."
+    subtitle: "build_handler() / Traced Nesting Closures",
+    body: "The compiler wraps the sorted middlewares in reverse order as nested closures, accepting `next_handler` as a parameter. If OpenTelemetry tracing is enabled (`traced=True`), the stack wraps callables in `_wrap_middleware_traced` to record execution duration using `time.monotonic()`. It strictly validates that every returned value is a Response object."
   },
   asgi: {
     title: "ASGI Connection Ingress",
     subtitle: "ASGIAdapter / Scope Mapping",
-    body: "ASGIAdapter accepts raw ASGI events, parses HTTP headers/WS protocols, and maps them to a pool-allocated RequestCtx. It routes the request and binds it to request-scoped lifecycle hooks."
+    body: "ASGIAdapter receives raw ASGI connection events (scope, receive, send), handles HTTP/WebSocket protocols, and routes the context. It initializes the execution chain and writes the final serialized headers and body back to the client socket."
+  },
+  resolver: {
+    title: "Early Inputs Resolver",
+    subtitle: "ASGIAdapter._resolve_route_inputs",
+    body: "Extracts path and API version parameters before entering the middleware chain. This allows URL-based versioning routing matching to occur early, so the router matches paths correctly before version negotiation middleware is executed."
+  },
+  ctxpool: {
+    title: "RequestCtx Pool (Acquire)",
+    subtitle: "Zero-Allocation Context Setup",
+    body: "To optimize the framework's hot path, `asgi.py` leverages `_ctx_pool` (a thread-safe `RequestCtxPool` instance) to acquire a pre-allocated request context object. This completely avoids per-request garbage collection overhead for latency-sensitive applications."
   },
   di: {
     title: "Request DI Container",
-    subtitle: "Scoped Injection resolution",
-    body: "Spawns a child Dependency Injection container for the lifetime of this specific request, enabling controller methods and services to resolve request-scoped or module-scoped resources dynamically."
+    subtitle: "Scoped Injection & Object resolution",
+    body: "For every matched route, a request-scoped dependency injection container is spawned as a child of the module container. It binds the active Request instance and scoped services, executing container cleanup hooks upon response egress."
   },
   exception: {
     title: "Exception Guard",
-    subtitle: "Priority 1 (Infrastructure)",
-    body: "The absolute outermost middleware wrapper. It acts as a safety harness, catching any unhandled exceptions bubbling up from inner layers and translating them into developer debug interfaces or clean JSON responses."
+    subtitle: "Priority 1 / Outermost Infrastructure",
+    body: "The outermost wrapper in the stack. Catches unhandled exceptions bubbling up from inner layers. In development mode with HTML requests, it renders beautiful React-style Atlas debug pages. In production, it converts traceback leaks into clean, developer-sanitized JSON error responses."
   },
   fault: {
     title: "Fault Interceptor",
-    subtitle: "Priority 2 (Infrastructure)",
-    body: "An infrastructure gateway that catches Aquilia `Fault` exception signals. It formats and returns structured error payloads for database, auth, or validation faults, halting further routing."
+    subtitle: "Priority 2 / Framework plumbing",
+    body: "An infrastructure gateway that intercepts structured Fault domain signals (such as database, validation, or authentication exceptions) thrown by subsystems. It formats these domain exceptions into HTTP error responses, halting further stack traversal."
   },
   scope: {
     title: "Request Scope Middleware",
-    subtitle: "Priority 5 (Infrastructure)",
-    body: "Framework plumbing that manages the request DI lifecycle. It injects the request scope variables and cleans up resources once the response exits the stack."
+    subtitle: "Priority 5 / DI Container Lifecycle",
+    body: "Framework plumbing that manages the lifecycle of the request-scoped dependency injection container. It registers request context state and ensures complete cleanup of scoped resources once the response egresses."
   },
   auth: {
     title: "Auth & Session Loader",
-    subtitle: "Priority 15 (Security / State)",
-    body: "Loads sessions from state stores, parses cookies, validates tokens, and assigns the verified identity to `request.state.user`. If credentials fail clearance, it can short-circuit the request here."
+    subtitle: "Priority 15 / Cryptographic State Guard",
+    body: "Decodes and verifies session data stored in signed cookies or database backends. Activates authentication guards (Session, JWT, OAuth) to authenticate the client, populating `request.state`. If authentication fails, it short-circuits the pipeline and returns a 401/403 response."
   },
   cache: {
     title: "Response Caching",
-    subtitle: "Priority 26 (Performance / Core)",
-    body: "The innermost default middleware. Checks GET requests against caching backends. If a matching response is cached, it returns it instantly, bypassing controller execution and short-circuiting egress."
+    subtitle: "Priority 26 / High-Performance Bypass",
+    body: "The innermost core middleware. Intercepts incoming GET requests and queries active caching backends (memory or Redis). If a matching response is cached, it serves it immediately, bypassing downstream route matching and controller execution."
   },
   controller: {
     title: "Controller Target Route",
-    subtitle: "Core Route Handler Dispatch",
-    body: "The core of the execution. The ControllerRouter matches the final path, resolves the controller instance via request DI, applies module guards, filters request blueprints, and triggers the controller method."
+    subtitle: "Execution Core / Target Dispatcher",
+    body: "The execution core where the request matches a controller route. Resolves the controller instance via the request-scoped DI container, executes controller action filters, processes the request context, and returns a Response object."
+  },
+  typecheck: {
+    title: "Middleware Type Validator",
+    subtitle: "_wrap_middleware Return Check",
+    body: "An internal safety wrapper that intercepts the return value of each middleware closure. It asserts that the returned value is a valid `Response` object and not `None` or another type. If validation fails, it throws a descriptive RuntimeError or TypeError."
+  },
+  ctxrelease: {
+    title: "Context Release & Telemetry Egress",
+    subtitle: "_ctx_pool.release & Metrics Finalize",
+    body: "The final step in the request lifecycle. Returns the request context object back to the `RequestCtxPool` for reuse, decrements the active server in-flight requests count, and triggers metrics recording via `metrics.request_finished()`."
   }
 };
 
@@ -239,6 +259,22 @@ function MiddlewareArchitectureDiagram({ isDark }: { isDark: boolean }) {
   };
 
   const details = ARCHITECTURE_DETAILS[selectedNode] || ARCHITECTURE_DETAILS.workspace;
+
+  // Staggered layout list for Runtime Nodes
+  const runtimeNodes = [
+    { id: 'asgi', x: 60, y: 120, initials: "AS", title: "ASGI Adapter", subtitle: "Gateway Ingress", rail: 'middle', color: "#10b981", glow: "url(#glow-emerald)", labelY: 192, subY: 202 },
+    { id: 'resolver', x: 130, y: 80, initials: "RS", title: "Resolver", subtitle: "Early Resolution", rail: 'top', color: "#3b82f6", glow: "url(#glow-blue)", labelY: 98, subY: 107 },
+    { id: 'ctxpool', x: 200, y: 80, initials: "PL", title: "Ctx Pool", subtitle: "Acquire Context", rail: 'top', color: "#a855f7", glow: "url(#glow-purple)", labelY: 114, subY: 123 },
+    { id: 'di', x: 270, y: 80, initials: "DI", title: "Request DI", subtitle: "Scope Setup", rail: 'top', color: "#ec4899", glow: "url(#glow-rose)", labelY: 98, subY: 107 },
+    { id: 'exception', x: 340, y: 120, initials: "EX", title: "Exception Guard", subtitle: "Priority 1 (Infra)", rail: 'middle', color: "#f43f5e", glow: "url(#glow-rose)", labelY: 48, subY: 38 },
+    { id: 'fault', x: 410, y: 120, initials: "FL", title: "Fault Guard", subtitle: "Priority 2 (Infra)", rail: 'middle', color: "#f59e0b", glow: "url(#glow-orange)", labelY: 62, subY: 52 },
+    { id: 'scope', x: 480, y: 120, initials: "SC", title: "Scope Manager", subtitle: "Priority 5 (Infra)", rail: 'middle', color: "#06b6d4", glow: "url(#glow-cyan)", labelY: 48, subY: 38 },
+    { id: 'auth', x: 550, y: 120, initials: "AU", title: "Auth & Session", subtitle: "Priority 15 (State)", rail: 'middle', color: "#8b5cf6", glow: "url(#glow-purple)", labelY: 192, subY: 202 },
+    { id: 'cache', x: 620, y: 120, initials: "CH", title: "Response Cache", subtitle: "Priority 26 (Core)", rail: 'middle', color: "#f97316", glow: "url(#glow-orange)", labelY: 48, subY: 38 },
+    { id: 'controller', x: 710, y: 120, initials: "CO", title: "Controller Core", subtitle: "Route Target", rail: 'middle', color: "#eab308", glow: "url(#glow-gold)", labelY: 192, subY: 202 },
+    { id: 'typecheck', x: 410, y: 160, initials: "TC", title: "Type Validator", subtitle: "Response Check", rail: 'bottom', color: "#06b6d4", glow: "url(#glow-cyan)", labelY: 192, subY: 202 },
+    { id: 'ctxrelease', x: 200, y: 160, initials: "RL", title: "Ctx Release", subtitle: "Release & Metrics", rail: 'bottom', color: "#a855f7", glow: "url(#glow-purple)", labelY: 192, subY: 202 }
+  ];
 
   return (
     <div className="w-full my-12 pb-6 border-b border-zinc-850 font-sans">
@@ -297,122 +333,173 @@ function MiddlewareArchitectureDiagram({ isDark }: { isDark: boolean }) {
             <div className="min-w-[760px] flex justify-center py-4">
               <svg viewBox="0 0 800 240" className="w-full max-w-[800px] h-auto bg-transparent select-none">
                 <defs>
-                  <filter id="glow-emerald" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
+                  <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                   </filter>
-                  <marker id="arrow-gray" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill={isDark ? "#3f3f46" : "#cbd5e1"} />
-                  </marker>
+                  <filter id="glow-blue" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-rose" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-orange" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-purple" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <linearGradient id="build-grad-green-rose" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#10b981" />
+                    <stop offset="100%" stopColor="#f43f5e" />
+                  </linearGradient>
+                  <linearGradient id="build-grad-blue-rose" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#f43f5e" />
+                  </linearGradient>
+                  <linearGradient id="build-grad-rose-orange" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#f43f5e" />
+                    <stop offset="100%" stopColor="#f59e0b" />
+                  </linearGradient>
+                  <linearGradient id="build-grad-orange-purple" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#f59e0b" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
                 </defs>
 
-                {/* Columns layout connectors */}
-                <g opacity="0.1" stroke={isDark ? "#ffffff" : "#000000"} strokeWidth="0.5" strokeDasharray="4,4">
-                  <line x1="240" y1="30" x2="240" y2="210" />
-                  <line x1="450" y1="30" x2="450" y2="210" />
+                {/* Section grids/labels */}
+                <g opacity="0.06" stroke={isDark ? "#ffffff" : "#000000"} strokeWidth="0.5" strokeDasharray="3,3">
+                  <line x1="240" y1="20" x2="240" y2="220" />
+                  <line x1="480" y1="20" x2="480" y2="220" />
                 </g>
 
-                {/* Stages titles */}
-                <text x="135" y="25" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">CONFIG DECLARATIONS</text>
-                <text x="345" y="25" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">DISCOVERY & AGGREGATION</text>
-                <text x="625" y="25" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">COMPILED STACK</text>
+                <text x="140" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">CONFIG SOURCE</text>
+                <text x="360" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">DISCOVERY & SCANNING</text>
+                <text x="635" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">RESOLVED ENGINE STACK</text>
 
-                {/* Flows */}
-                {/* workspace -> scanner */}
-                <path d="M 190,70 H 215 C 225,70 235,80 245,95 L 265,110" fill="none" stroke={isDark ? "#3f3f46" : "#e4e4e7"} strokeWidth="1.2" strokeDasharray="3,3" />
-                {/* manifest -> scanner */}
-                <path d="M 190,170 H 215 C 225,170 235,160 245,145 L 265,130" fill="none" stroke={isDark ? "#3f3f46" : "#e4e4e7"} strokeWidth="1.2" strokeDasharray="3,3" />
-                {/* scanner -> sorting */}
-                <line x1="390" y1="120" x2="465" y2="120" stroke={isDark ? "#52525b" : "#cbd5e1"} strokeWidth="1.5" markerEnd="url(#arrow-gray)" />
-                {/* sorting -> compilation */}
-                <line x1="590" y1="120" x2="665" y2="120" stroke={isDark ? "#52525b" : "#cbd5e1"} strokeWidth="1.5" markerEnd="url(#arrow-gray)" />
+                {/* Connections with moving pulses */}
+                <path d="M 140,70 C 220,70 260,120 360,120" fill="none" stroke={isDark ? "#27272a" : "#cbd5e1"} strokeWidth="1.5" />
+                <motion.path
+                  d="M 140,70 C 220,70 260,120 360,120"
+                  fill="none"
+                  stroke="url(#build-grad-green-rose)"
+                  strokeWidth="1.8"
+                  strokeDasharray="6 12"
+                  animate={{ strokeDashoffset: [0, -36] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2 }}
+                />
 
-                {/* 1. Workspace integrations node */}
-                <g 
-                  onClick={() => setSelectedNode('workspace')}
-                  className="cursor-pointer"
-                  transform="translate(30, 48)"
-                >
-                  <rect 
-                    x="0" y="0" width="160" height="44" rx="8"
-                    fill={isDark ? "#09090b" : "#ffffff"} 
-                    stroke={selectedNode === 'workspace' ? "#10b981" : (isDark ? "#27272a" : "#e4e4e7")} 
-                    strokeWidth={selectedNode === 'workspace' ? "2" : "1"}
-                    filter={selectedNode === 'workspace' ? "url(#glow-emerald)" : "none"}
-                  />
-                  <text x="12" y="18" fill={isDark ? "#e4e4e7" : "#1f2937"} fontSize="9" fontWeight="bold" fontFamily="monospace">workspace.py</text>
-                  <text x="12" y="32" fill={isDark ? "#71717a" : "#71717a"} fontSize="8">workspace.integrate()</text>
-                  <circle cx="145" cy="22" r="4" fill="#ef4444" />
-                </g>
+                <path d="M 140,170 C 220,170 260,120 360,120" fill="none" stroke={isDark ? "#27272a" : "#cbd5e1"} strokeWidth="1.5" />
+                <motion.path
+                  d="M 140,170 C 220,170 260,120 360,120"
+                  fill="none"
+                  stroke="url(#build-grad-blue-rose)"
+                  strokeWidth="1.8"
+                  strokeDasharray="6 12"
+                  animate={{ strokeDashoffset: [0, -36] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2 }}
+                />
 
-                {/* 2. Manifest modules node */}
-                <g 
-                  onClick={() => setSelectedNode('manifest')}
-                  className="cursor-pointer"
-                  transform="translate(30, 148)"
-                >
-                  <rect 
-                    x="0" y="0" width="160" height="44" rx="8"
-                    fill={isDark ? "#09090b" : "#ffffff"} 
-                    stroke={selectedNode === 'manifest' ? "#10b981" : (isDark ? "#27272a" : "#e4e4e7")} 
-                    strokeWidth={selectedNode === 'manifest' ? "2" : "1"}
-                    filter={selectedNode === 'manifest' ? "url(#glow-emerald)" : "none"}
-                  />
-                  <text x="12" y="18" fill={isDark ? "#e4e4e7" : "#1f2937"} fontSize="9" fontWeight="bold" fontFamily="monospace">manifest.py</text>
-                  <text x="12" y="32" fill={isDark ? "#71717a" : "#71717a"} fontSize="8">AppManifest(middleware=[...])</text>
-                  <circle cx="145" cy="22" r="4" fill="#3b82f6" />
-                </g>
+                <path d="M 360,120 C 410,119.9 510,120.1 560,120" fill="none" stroke={isDark ? "#27272a" : "#cbd5e1"} strokeWidth="1.5" />
+                <motion.path
+                  d="M 360,120 C 410,119.9 510,120.1 560,120"
+                  fill="none"
+                  stroke="url(#build-grad-rose-orange)"
+                  strokeWidth="1.8"
+                  strokeDasharray="6 12"
+                  animate={{ strokeDashoffset: [0, -36] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2 }}
+                />
 
-                {/* 3. PackageScanner node */}
-                <g 
-                  onClick={() => setSelectedNode('scanner')}
-                  className="cursor-pointer"
-                  transform="translate(265, 98)"
-                >
-                  <rect 
-                    x="0" y="0" width="125" height="44" rx="8"
-                    fill={isDark ? "#09090b" : "#ffffff"} 
-                    stroke={selectedNode === 'scanner' ? "#10b981" : (isDark ? "#27272a" : "#e4e4e7")} 
-                    strokeWidth={selectedNode === 'scanner' ? "2" : "1"}
-                    filter={selectedNode === 'scanner' ? "url(#glow-emerald)" : "none"}
-                  />
-                  <text x="12" y="18" fill={isDark ? "#e4e4e7" : "#1f2937"} fontSize="9" fontWeight="bold">PackageScanner</text>
-                  <text x="12" y="32" fill={isDark ? "#71717a" : "#71717a"} fontSize="8">Collects descriptors</text>
-                </g>
+                <path d="M 560,120 C 610,119.9 660,120.1 710,120" fill="none" stroke={isDark ? "#27272a" : "#cbd5e1"} strokeWidth="1.5" />
+                <motion.path
+                  d="M 560,120 C 610,119.9 660,120.1 710,120"
+                  fill="none"
+                  stroke="url(#build-grad-orange-purple)"
+                  strokeWidth="1.8"
+                  strokeDasharray="6 12"
+                  animate={{ strokeDashoffset: [0, -36] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2 }}
+                />
 
-                {/* 4. MiddlewareStack Sorter */}
-                <g 
-                  onClick={() => setSelectedNode('sorting')}
-                  className="cursor-pointer"
-                  transform="translate(465, 98)"
-                >
-                  <rect 
-                    x="0" y="0" width="125" height="44" rx="8"
-                    fill={isDark ? "#09090b" : "#ffffff"} 
-                    stroke={selectedNode === 'sorting' ? "#10b981" : (isDark ? "#27272a" : "#e4e4e7")} 
-                    strokeWidth={selectedNode === 'sorting' ? "2" : "1"}
-                    filter={selectedNode === 'sorting' ? "url(#glow-emerald)" : "none"}
-                  />
-                  <text x="12" y="18" fill={isDark ? "#e4e4e7" : "#1f2937"} fontSize="9" fontWeight="bold">MiddlewareStack</text>
-                  <text x="12" y="32" fill={isDark ? "#10b981" : "#059669"} fontSize="8" fontWeight="bold" fontFamily="monospace">Sort: scope + priority</text>
-                </g>
-
-                {/* 5. Compilation chain output */}
-                <g 
-                  onClick={() => setSelectedNode('compilation')}
-                  className="cursor-pointer"
-                  transform="translate(665, 98)"
-                >
-                  <rect 
-                    x="0" y="0" width="105" height="44" rx="8"
-                    fill={isDark ? "#064e3b" : "#d1fae5"} 
-                    stroke={selectedNode === 'compilation' ? "#10b981" : (isDark ? "#047857" : "#a7f3d0")} 
-                    strokeWidth={selectedNode === 'compilation' ? "2" : "1"}
-                    filter={selectedNode === 'compilation' ? "url(#glow-emerald)" : "none"}
-                  />
-                  <text x="12" y="18" fill={isDark ? "#34d399" : "#065f46"} fontSize="9" fontWeight="bold" fontFamily="monospace">build_handler()</text>
-                  <text x="12" y="32" fill={isDark ? "#a7f3d0" : "#047857"} fontSize="8">Nested Callables</text>
-                </g>
+                {/* Nodes */}
+                {[
+                  { id: 'workspace', cx: 140, cy: 70, initials: "WS", color: "#10b981", glow: "url(#glow-emerald)", labelDir: 'up' as const, title: "workspace.py", sub: "Global Config" },
+                  { id: 'manifest', cx: 140, cy: 170, initials: "MF", color: "#3b82f6", glow: "url(#glow-blue)", labelDir: 'down' as const, title: "manifest.py", sub: "Module Config" },
+                  { id: 'scanner', cx: 360, cy: 120, initials: "SC", color: "#f43f5e", glow: "url(#glow-rose)", labelDir: 'down' as const, title: "PackageScanner", sub: "Autodiscovery" },
+                  { id: 'sorting', cx: 560, cy: 120, initials: "ST", color: "#f59e0b", glow: "url(#glow-orange)", labelDir: 'down' as const, title: "MiddlewareStack", sub: "Priority Sorter" },
+                  { id: 'compilation', cx: 710, cy: 120, initials: "BH", color: "#8b5cf6", glow: "url(#glow-purple)", labelDir: 'down' as const, title: "build_handler()", sub: "Closure Nesting" }
+                ].map((node) => {
+                  const isSelected = selectedNode === node.id;
+                  return (
+                    <g key={node.id} onClick={() => setSelectedNode(node.id)} className="cursor-pointer">
+                      {isSelected && (
+                        <circle
+                          cx={node.cx} cy={node.cy} r={24}
+                          fill="none"
+                          stroke={node.color}
+                          strokeWidth="1"
+                          strokeDasharray="4 3"
+                          className="animate-spin"
+                          style={{ transformOrigin: `${node.cx}px ${node.cy}px`, animationDuration: '8s' }}
+                        />
+                      )}
+                      <circle
+                        cx={node.cx} cy={node.cy} r={18}
+                        fill="none"
+                        stroke={isSelected ? node.color : "transparent"}
+                        strokeWidth="1"
+                        className="transition-all duration-300"
+                        opacity={isSelected ? 0.3 : 0}
+                      />
+                      <circle
+                        cx={node.cx} cy={node.cy} r={14}
+                        fill={isDark ? "#09090b" : "#ffffff"}
+                        stroke={isSelected ? node.color : (isDark ? "#27272a" : "#cbd5e1")}
+                        strokeWidth={isSelected ? "2.5" : "1.5"}
+                        style={{ filter: isSelected ? node.glow : 'none' }}
+                        className="transition-all duration-300"
+                      />
+                      <text
+                        x={node.cx} y={node.cy + 3}
+                        textAnchor="middle"
+                        fill={isSelected ? node.color : (isDark ? "#a1a1aa" : "#71717a")}
+                        fontSize="8.5"
+                        fontWeight="bold"
+                        fontFamily="monospace"
+                        className="pointer-events-none"
+                      >
+                        {node.initials}
+                      </text>
+                      <text
+                        x={node.cx}
+                        y={node.labelDir === 'up' ? node.cy - 22 : node.cy + 30}
+                        textAnchor="middle"
+                        fill={isSelected ? (isDark ? "#ffffff" : "#1f2937") : (isDark ? "#a1a1aa" : "#4b5563")}
+                        fontSize="8.5"
+                        fontWeight="bold"
+                        className="pointer-events-none"
+                      >
+                        {node.title}
+                      </text>
+                      <text
+                        x={node.cx}
+                        y={node.labelDir === 'up' ? node.cy - 32 : node.cy + 42}
+                        textAnchor="middle"
+                        fill={isDark ? "#52525b" : "#9ca3af"}
+                        fontSize="7.5"
+                        fontFamily="monospace"
+                        className="pointer-events-none"
+                      >
+                        {node.sub}
+                      </text>
+                    </g>
+                  );
+                })}
               </svg>
             </div>
           </motion.div>
@@ -428,142 +515,254 @@ function MiddlewareArchitectureDiagram({ isDark }: { isDark: boolean }) {
             <div className="min-w-[760px] flex justify-center py-4">
               <svg viewBox="0 0 800 260" className="w-full max-w-[800px] h-auto bg-transparent select-none">
                 <defs>
-                  <filter id="glow-blue" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="blur" />
+                  <filter id="glow-emerald" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
                     <feComposite in="SourceGraphic" in2="blur" operator="over" />
                   </filter>
-                  <marker id="arrow-green" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
-                  </marker>
-                  <marker id="arrow-blue" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#3b82f6" />
-                  </marker>
-                  <marker id="arrow-red" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
-                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
-                  </marker>
+                  <filter id="glow-blue" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-rose" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-orange" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-purple" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <filter id="glow-gold" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                  <linearGradient id="runtime-grad-orange-purple" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#f59e0b" />
+                    <stop offset="100%" stopColor="#8b5cf6" />
+                  </linearGradient>
                 </defs>
 
-                {/* Ingress boundaries */}
-                <g opacity="0.08" stroke={isDark ? "#ffffff" : "#000000"} strokeWidth="0.5" strokeDasharray="4,4">
-                  <line x1="170" y1="20" x2="170" y2="240" />
-                  <line x1="600" y1="20" x2="600" y2="240" />
+                {/* Section boundaries */}
+                <g opacity="0.04" stroke={isDark ? "#ffffff" : "#000000"} strokeWidth="0.5" strokeDasharray="3,3">
+                  <line x1="230" y1="20" x2="230" y2="240" />
+                  <line x1="660" y1="20" x2="660" y2="240" />
                 </g>
 
-                {/* Section labels */}
-                <text x="95" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">INGRESS</text>
-                <text x="385" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">TRAVERSAL PIPELINE</text>
-                <text x="700" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">CONTROLLER CORE</text>
+                <text x="130" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">INGRESS GATEWAYS</text>
+                <text x="445" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">TRAVERSAL PIPELINE (PRIORITIZED CLOSURES)</text>
+                <text x="730" y="20" textAnchor="middle" fill={isDark ? "#52525b" : "#a1a1aa"} fontSize="8" fontWeight="bold" fontFamily="monospace">ROUTE CORE</text>
 
-                {/* Top Request Path (Green, Left-to-Right) */}
-                <path d="M 30,75 H 120 C 130,75 140,75 150,75 H 560 C 570,75 580,85 590,105 L 610,145" 
-                      fill="none" stroke="#10b981" strokeWidth="1.5" markerEnd="url(#arrow-green)" />
-                
-                {/* Bottom Response Path (Blue, Right-to-Left) */}
-                <path d="M 610,145 L 590,185 C 580,205 570,215 560,215 H 150 H 120 C 110,215 100,215 90,215 H 30"
-                      fill="none" stroke="#3b82f6" strokeWidth="1.5" markerEnd="url(#arrow-blue)" />
-
-                {/* Flow dots */}
-                <motion.circle r="3" fill="#10b981"
-                  animate={{ cx: [30, 120, 560, 610], cy: [75, 75, 75, 145] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                {/* Health Bypass Path */}
+                <path
+                  d="M 60,120 C 220,15 520,15 710,120"
+                  fill="none"
+                  stroke={isDark ? "#27272a" : "#cbd5e1"}
+                  strokeWidth="1.2"
+                  strokeDasharray="4 4"
+                  opacity="0.3"
                 />
-                <motion.circle r="3" fill="#3b82f6"
-                  animate={{ cx: [610, 560, 120, 30], cy: [145, 215, 215, 215] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                <motion.path
+                  d="M 60,120 C 220,15 520,15 710,120"
+                  fill="none"
+                  stroke="#eab308"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 8"
+                  animate={{ strokeDashoffset: [0, -24] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 3 }}
+                />
+                <text x="375" y="32" textAnchor="middle" fill="#eab308" fontSize="7.5" fontWeight="bold" fontFamily="monospace" opacity="0.8">
+                  ⚡ HEALTH BYPASS (Zero-Alloc Sync Flow)
+                </text>
+
+                {/* Upper Ingress Rail */}
+                <path d="M 60,80 H 710" fill="none" stroke={isDark ? "#1f1f23" : "#e4e4e7"} strokeWidth="2" />
+                <motion.path
+                  d="M 60,80 H 710"
+                  fill="none"
+                  stroke="#10b981"
+                  strokeWidth="2.5"
+                  strokeDasharray="6 15"
+                  animate={{ strokeDashoffset: [0, -42] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2.5 }}
                 />
 
-                {/* ASGI Adapter node */}
-                <g 
-                  onClick={() => setSelectedNode('asgi')}
-                  className="cursor-pointer"
-                  transform="translate(90, 50)"
-                >
-                  <circle 
-                    cx="20" cy="25" r="16" 
-                    fill={isDark ? "#09090b" : "#ffffff"} 
-                    stroke={selectedNode === 'asgi' ? "#10b981" : (isDark ? "#27272a" : "#e4e4e7")}
-                    strokeWidth={selectedNode === 'asgi' ? "2" : "1"}
-                  />
-                  <text x="20" y="28" textAnchor="middle" fill={isDark ? "#e4e4e7" : "#1f2937"} fontSize="8" fontWeight="bold" fontFamily="monospace">ASGI</text>
-                  <text x="20" y="52" textAnchor="middle" fill={isDark ? "#71717a" : "#71717a"} fontSize="7">ASGIAdapter</text>
-                </g>
+                {/* Lower Egress Rail */}
+                <path d="M 710,160 H 60" fill="none" stroke={isDark ? "#1f1f23" : "#e4e4e7"} strokeWidth="2" />
+                <motion.path
+                  d="M 710,160 H 60"
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth="2.5"
+                  strokeDasharray="6 15"
+                  animate={{ strokeDashoffset: [0, 42] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2.5 }}
+                />
 
-                {/* Scoped DI Container setup */}
-                <g 
-                  onClick={() => setSelectedNode('di')}
-                  className="cursor-pointer"
-                  transform="translate(90, 190)"
-                >
-                  <circle 
-                    cx="20" cy="25" r="16" 
-                    fill={isDark ? "#09090b" : "#ffffff"} 
-                    stroke={selectedNode === 'di' ? "#3b82f6" : (isDark ? "#27272a" : "#e4e4e7")}
-                    strokeWidth={selectedNode === 'di' ? "2" : "1"}
-                  />
-                  <text x="20" y="28" textAnchor="middle" fill={isDark ? "#e4e4e7" : "#1f2937"} fontSize="8" fontWeight="bold" fontFamily="monospace">DI</text>
-                  <text x="20" y="52" textAnchor="middle" fill={isDark ? "#71717a" : "#71717a"} fontSize="7">Request Scope</text>
-                </g>
+                {/* Controller Loop connection */}
+                <path d="M 710,80 C 750,80 750,160 710,160" fill="none" stroke={isDark ? "#1f1f23" : "#e4e4e7"} strokeWidth="2" />
+                <motion.path
+                  d="M 710,80 C 750,80 750,160 710,160"
+                  fill="none"
+                  stroke="url(#runtime-grad-orange-purple)"
+                  strokeWidth="2.5"
+                  strokeDasharray="6 12"
+                  animate={{ strokeDashoffset: [0, -36] }}
+                  transition={{ repeat: Infinity, ease: "linear", duration: 2.5 }}
+                />
 
-                {/* Staggered Gateway Nodes */}
+                {/* Short circuits for Auth and Cache */}
                 {[
-                  { id: 'exception', x: 210, name: "Exception", prio: "P1", isTop: true },
-                  { id: 'fault', x: 290, name: "Fault", prio: "P2", isTop: false },
-                  { id: 'scope', x: 370, name: "RequestScope", prio: "P5", isTop: true },
-                  { id: 'auth', x: 450, name: "Auth/Session", prio: "P15", isTop: false },
-                  { id: 'cache', x: 530, name: "Response Cache", prio: "P26", isTop: true }
-                ].map((node) => {
+                  { id: 'auth', x: 550 },
+                  { id: 'cache', x: 620 }
+                ].map((sc) => (
+                  <g key={sc.id}>
+                    <path
+                      d={`M ${sc.x},80 C ${sc.x + 20},100 ${sc.x + 20},140 ${sc.x},160`}
+                      fill="none"
+                      stroke="#f43f5e"
+                      strokeWidth="1.2"
+                      strokeDasharray="3 3"
+                      opacity={selectedNode === sc.id ? 0.9 : 0.25}
+                      className="transition-all duration-300"
+                    />
+                    {selectedNode === sc.id && (
+                      <motion.path
+                        d={`M ${sc.x},80 C ${sc.x + 20},100 ${sc.x + 20},140 ${sc.x},160`}
+                        fill="none"
+                        stroke="#f43f5e"
+                        strokeWidth="1.5"
+                        strokeDasharray="4 4"
+                        animate={{ strokeDashoffset: [0, -16] }}
+                        transition={{ repeat: Infinity, ease: "linear", duration: 1 }}
+                      />
+                    )}
+                  </g>
+                ))}
+
+                {/* Runtime nodes */}
+                {runtimeNodes.map((node) => {
                   const isSelected = selectedNode === node.id;
-                  const circleY = 145;
-                  const labelY = node.isTop ? 108 : 192;
+                  
+                  // Determine vertical line coordinates
+                  let lineY1 = 80;
+                  let lineY2 = 160;
+                  if (node.rail === 'top') {
+                    lineY1 = 80;
+                    lineY2 = 105;
+                  } else if (node.rail === 'bottom') {
+                    lineY1 = 135;
+                    lineY2 = 160;
+                  }
 
                   return (
-                    <g key={node.id} className="cursor-pointer" onClick={() => setSelectedNode(node.id)}>
-                      {/* Vertical wrap line */}
-                      <line x1={node.x} y1="75" x2={node.x} y2="215" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="3,3" />
-                      
-                      {/* Circle node */}
-                      <circle 
-                        cx={node.x} cy={circleY} r="9" 
-                        fill={isDark ? "#09090b" : "#ffffff"} 
-                        stroke={isSelected ? "#10b981" : (isDark ? "#3f3f46" : "#cbd5e1")} 
-                        strokeWidth={isSelected ? "2" : "1.2"} 
+                    <g key={node.id} className="cursor-pointer">
+                      {/* Vertical connector line */}
+                      <line
+                        x1={node.x} y1={lineY1} x2={node.x} y2={lineY2}
+                        stroke={isSelected ? node.color : (isDark ? "#27272a" : "#cbd5e1")}
+                        strokeWidth={isSelected ? "1.8" : "1"}
+                        strokeDasharray={isSelected ? "none" : "3 3"}
+                        className="transition-all duration-300"
                       />
-                      <text x={node.x} y={circleY + 3} textAnchor="middle" fill={isDark ? "#71717a" : "#71717a"} fontSize="7" fontFamily="monospace" fontWeight="bold">{node.prio}</text>
 
-                      {/* Staggered text label to prevent horizontal collisions */}
-                      <text 
-                        x={node.x} y={labelY} textAnchor="middle" 
-                        fill={isSelected ? (isDark ? "#ffffff" : "#000000") : (isDark ? "#a1a1aa" : "#71717a")} 
-                        fontSize="8.5" fontWeight={isSelected ? "bold" : "normal"}
+                      {/* Gate dots for middle rail nodes */}
+                      {node.rail === 'middle' && (
+                        <>
+                          {/* Ingress Gate Dot */}
+                          <circle
+                            cx={node.x} cy="80" r="4.5"
+                            fill={isSelected ? node.color : (isDark ? "#09090b" : "#ffffff")}
+                            stroke={isSelected ? node.color : (isDark ? "#27272a" : "#cbd5e1")}
+                            strokeWidth="1.5"
+                            className="transition-all duration-300"
+                          />
+
+                          {/* Egress Gate Dot */}
+                          <circle
+                            cx={node.x} cy="160" r="4.5"
+                            fill={isSelected ? node.color : (isDark ? "#09090b" : "#ffffff")}
+                            stroke={isSelected ? node.color : (isDark ? "#27272a" : "#cbd5e1")}
+                            strokeWidth="1.5"
+                            className="transition-all duration-300"
+                          />
+                        </>
+                      )}
+
+                      {/* Center Target Node */}
+                      <g onClick={() => setSelectedNode(node.id)}>
+                        {isSelected && (
+                          <circle
+                            cx={node.x} cy={node.y} r={22}
+                            fill="none"
+                            stroke={node.color}
+                            strokeWidth="1"
+                            strokeDasharray="3 3"
+                            className="animate-spin"
+                            style={{ transformOrigin: `${node.x}px ${node.y}px`, animationDuration: '10s' }}
+                          />
+                        )}
+                        <circle
+                          cx={node.x} cy={node.y} r={16}
+                          fill="none"
+                          stroke={isSelected ? node.color : "transparent"}
+                          strokeWidth="1"
+                          className="transition-all duration-300"
+                          opacity={isSelected ? 0.3 : 0}
+                        />
+                        <circle
+                          cx={node.x} cy={node.y} r={13}
+                          fill={isDark ? "#09090b" : "#ffffff"}
+                          stroke={isSelected ? node.color : (isDark ? "#27272a" : "#cbd5e1")}
+                          strokeWidth={isSelected ? "2.5" : "1.5"}
+                          style={{ filter: isSelected ? node.glow : 'none' }}
+                          className="transition-all duration-300"
+                        />
+                        <text
+                          x={node.x} y={node.y + 3}
+                          textAnchor="middle"
+                          fill={isSelected ? node.color : (isDark ? "#a1a1aa" : "#71717a")}
+                          fontSize="7.5"
+                          fontWeight="bold"
+                          fontFamily="monospace"
+                          className="pointer-events-none"
+                        >
+                          {node.initials}
+                        </text>
+                      </g>
+
+                      {/* Staggered text label */}
+                      <text
+                        x={node.x}
+                        y={node.labelY}
+                        textAnchor="middle"
+                        fill={isSelected ? (isDark ? "#ffffff" : "#1f2937") : (isDark ? "#a1a1aa" : "#4b5563")}
+                        fontSize="8.5"
+                        fontWeight="bold"
+                        className="pointer-events-none"
                       >
-                        {node.name}
+                        {node.title}
                       </text>
-
-                      {/* Direction indicators */}
-                      <path d={`M ${node.x - 5},90 L ${node.x},95 L ${node.x + 5},90`} fill="none" stroke="#10b981" strokeWidth="1" opacity="0.6" />
-                      <path d={`M ${node.x - 5},200 L ${node.x},195 L ${node.x + 5},200`} fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.6" />
+                      <text
+                        x={node.x}
+                        y={node.subY}
+                        textAnchor="middle"
+                        fill={isDark ? "#52525b" : "#9ca3af"}
+                        fontSize="7.5"
+                        fontFamily="monospace"
+                        className="pointer-events-none"
+                      >
+                        {node.subtitle}
+                      </text>
                     </g>
                   );
                 })}
-
-                {/* Short-Circuit Path (Red dashed line from Auth) */}
-                <path d="M 450,75 V 110 C 450,175 480,215 450,215" fill="none" stroke="#ef4444" strokeWidth="1.2" strokeDasharray="4,2" markerEnd="url(#arrow-red)" />
-
-                {/* Controller target node */}
-                <g 
-                  onClick={() => setSelectedNode('controller')}
-                  className="cursor-pointer"
-                  transform="translate(610, 115)"
-                >
-                  <rect 
-                    x="10" y="10" width="80" height="40" rx="8"
-                    fill={isDark ? "#064e3b" : "#d1fae5"} 
-                    stroke={selectedNode === 'controller' ? "#10b981" : (isDark ? "#047857" : "#a7f3d0")} 
-                    strokeWidth={selectedNode === 'controller' ? "2" : "1"}
-                  />
-                  <text x="50" y="28" textAnchor="middle" fill={isDark ? "#34d399" : "#065f46"} fontSize="9.5" fontWeight="bold" fontFamily="monospace">CORE</text>
-                  <text x="50" y="42" textAnchor="middle" fill={isDark ? "#a7f3d0" : "#047857"} fontSize="7" uppercase="true">Controller</text>
-                </g>
               </svg>
             </div>
           </motion.div>
@@ -606,7 +805,7 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
 
   const getThemeColor = (type: string) => {
     switch (type) {
-      case 'infra': return 'text-red-500 border-red-500/20';
+      case 'infra': return 'text-rose-500 border-rose-500/20';
       case 'protocol': return 'text-blue-400 border-blue-400/20';
       case 'security': return 'text-amber-500 border-amber-500/20';
       case 'core': return 'text-emerald-500 border-emerald-500/20';
@@ -617,7 +816,7 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
   const getThemeColorHex = (type: string) => {
     switch (type) {
       case 'infra': return '#ef4444';
-      case 'protocol': return '#60a5fa';
+      case 'protocol': return '#3b82f6';
       case 'security': return '#f59e0b';
       case 'core': return '#10b981';
       default: return '#9ca3af';
@@ -625,20 +824,20 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
   };
 
   return (
-    <div className="my-12 font-sans">
+    <div className="my-16 font-sans">
       {/* Top Header & Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 pb-4 border-b border-zinc-850">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-10 pb-5 border-b border-dashed border-zinc-850">
         <div>
-          <h3 className={`text-md font-mono font-bold tracking-tight uppercase ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <h3 className={`text-xs font-mono font-bold tracking-widest uppercase ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
             Interactive Pipeline Flow
           </h3>
-          <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-            Click on any node to expand details and registration API.
+          <p className={`text-[11px] ${isDark ? 'text-zinc-600' : 'text-gray-400'}`}>
+            Explore details, import paths, and fluent configuration syntax.
           </p>
         </div>
         
         {/* Minimalist Switcher */}
-        <div className="flex items-center gap-6 text-xs font-mono">
+        <div className="flex items-center gap-6 text-xs font-mono select-none">
           <button
             onClick={() => setViewMode('timeline')}
             className={`relative py-1 cursor-pointer transition-colors ${
@@ -678,12 +877,10 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
             transition={{ duration: 0.15 }}
             className="relative pl-6"
           >
-            {/* The single vertical timeline spine line */}
-            <div className={`absolute left-[5.5px] top-2 bottom-2 w-[1px] ${
-              isDark ? 'bg-zinc-800' : 'bg-gray-200'
-            }`} />
+            {/* The single vertical timeline spine line with neon gradient */}
+            <div className={`absolute left-[5px] top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-emerald-500 via-blue-500 to-purple-500 opacity-20 shadow-[0_0_10px_rgba(16,185,129,0.2)]`} />
 
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-5">
               {MIDDLEWARE_DATA.map((mw) => {
                 const isSelected = mw.id === selectedId;
                 const themeColorClass = getThemeColor(mw.type);
@@ -694,7 +891,7 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
                     {/* The timeline dot */}
                     <div
                       onClick={() => setSelectedId(mw.id)}
-                      className={`absolute -left-[26px] top-1.5 w-3 h-3 rounded-full border-2 cursor-pointer transition-all z-10 ${
+                      className={`absolute -left-[24px] top-1.5 w-3 h-3 rounded-full border-2 cursor-pointer transition-all z-10 ${
                         isSelected 
                           ? 'scale-125' 
                           : 'opacity-60 group-hover:opacity-100'
@@ -702,16 +899,16 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
                       style={{
                         borderColor: colorHex,
                         backgroundColor: isSelected ? colorHex : (isDark ? '#000000' : '#ffffff'),
-                        boxShadow: isSelected ? `0 0 8px ${colorHex}` : 'none'
+                        boxShadow: isSelected ? `0 0 10px ${colorHex}` : 'none'
                       }}
                     />
 
                     {/* Node Header Row */}
                     <div 
                       onClick={() => setSelectedId(mw.id)}
-                      className="flex items-center gap-3 cursor-pointer select-none"
+                      className="flex items-center gap-3 cursor-pointer select-none py-1"
                     >
-                      <span className={`text-[10px] font-mono font-bold tracking-wider ${themeColorClass}`}>
+                      <span className={`text-[9px] font-mono font-bold tracking-wider px-2 py-0.5 rounded border ${themeColorClass}`}>
                         P{mw.priority.toString().padStart(2, '0')}
                       </span>
                       <span className={`text-sm font-mono font-bold transition-colors ${
@@ -721,11 +918,6 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
                       }`}>
                         {mw.name}
                       </span>
-                      {mw.isAlwaysOn && (
-                        <span className={`text-[8px] font-mono tracking-widest uppercase opacity-40 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
-                          • Always On
-                        </span>
-                      )}
                     </div>
 
                     {/* Accordion Content */}
@@ -738,19 +930,23 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
                           transition={{ duration: 0.2 }}
                           className="overflow-hidden w-full max-w-2xl"
                         >
-                          <div className={`text-xs pl-0 pr-4 pb-2 space-y-4 ${isDark ? 'text-zinc-400 font-light' : 'text-gray-600 font-normal'}`}>
+                          <div className={`text-xs pl-4 pb-4 space-y-4 ${
+                            isDark 
+                              ? 'text-zinc-400 font-light' 
+                              : 'text-gray-600 font-normal'
+                          }`}>
                             <p className="leading-relaxed">{mw.description}</p>
                             
-                            <div className="flex flex-col gap-1 font-mono text-[10px]">
+                            <div className="flex flex-col gap-1.5 font-mono text-[9.5px]">
                               <span className={isDark ? 'text-zinc-500' : 'text-gray-400'}>IMPORT PATH</span>
-                              <span className={`break-all ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>
+                              <span className={`break-all font-bold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>
                                 {mw.fullName}
                               </span>
                             </div>
 
-                            <div className="space-y-1">
-                              <span className={`font-mono text-[10px] block ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>REGISTRATION API</span>
-                              <div className="font-mono text-[9px] rounded-lg overflow-hidden bg-black/40 border border-zinc-800/40">
+                            <div className="space-y-1.5">
+                              <span className={`font-mono text-[9.5px] block ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>REGISTRATION API</span>
+                              <div className="font-mono text-[9px]">
                                 <CodeBlock language="python" filename="" showLineNumbers={false}>
                                   {mw.codeSnippet}
                                 </CodeBlock>
@@ -772,19 +968,50 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.15 }}
-            className="flex flex-col items-center gap-8 w-full"
+            className="flex flex-col md:flex-row items-center md:items-start justify-center gap-12 w-full"
           >
             {/* Concentric rings SVG container */}
-            <div className="relative w-full max-w-[340px] aspect-square">
+            <div className="relative w-full max-w-[340px] aspect-square flex-shrink-0">
               <svg viewBox="0 0 400 400" className="w-full h-full bg-transparent">
+                <defs>
+                  <linearGradient id="radar-sweep-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+
+                <style>{`
+                  @keyframes radar-sweep {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                  }
+                  .radar-sweep-line {
+                    animation: radar-sweep 12s linear infinite;
+                    transform-origin: 200px 200px;
+                  }
+                `}</style>
+
+                {/* Radar Grid Crosshairs */}
+                <line x1="200" y1="10" x2="200" y2="390" stroke={isDark ? "#27272a" : "#cbd5e1"} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.3" />
+                <line x1="10" y1="200" x2="390" y2="200" stroke={isDark ? "#27272a" : "#cbd5e1"} strokeWidth="0.5" strokeDasharray="3 3" opacity="0.3" />
+
                 {/* Concentric rings */}
-                <circle cx="200" cy="200" r="180" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="3,3" />
-                <circle cx="200" cy="200" r="135" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="3,3" />
-                <circle cx="200" cy="200" r="90" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="3,3" />
-                <circle cx="200" cy="200" r="45" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="3,3" />
+                <circle cx="200" cy="200" r="180" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="4,4" opacity="0.6" />
+                <circle cx="200" cy="200" r="135" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="4,4" opacity="0.6" />
+                <circle cx="200" cy="200" r="90" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="4,4" opacity="0.6" />
+                <circle cx="200" cy="200" r="45" fill="none" stroke={isDark ? "#27272a" : "#e4e4e7"} strokeWidth="1" strokeDasharray="4,4" opacity="0.6" />
+
+                {/* Rotating radar sweep */}
+                <g className="radar-sweep-line">
+                  <path
+                    d="M 200,200 L 200,10 A 190,190 0 0,1 334,334 Z"
+                    fill="url(#radar-sweep-grad)"
+                    className="pointer-events-none"
+                  />
+                </g>
 
                 {/* Core (Controller) */}
-                <circle cx="200" cy="200" r="24" fill={isDark ? "#064e3b" : "#d1fae5"} stroke="#10b981" strokeWidth="2" className="animate-pulse" />
+                <circle cx="200" cy="200" r="22" fill={isDark ? "#064e3b" : "#d1fae5"} stroke="#10b981" strokeWidth="2" className="animate-pulse" />
                 <text x="200" y="203" textAnchor="middle" fill="#10b981" fontSize="7" fontWeight="bold" fontFamily="monospace">CORE</text>
 
                 {/* Render nodes */}
@@ -809,22 +1036,52 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
                   return (
                     <g key={mw.id} className="cursor-pointer" onClick={() => setSelectedId(mw.id)}>
                       {isSelected && (
-                        <circle cx={x} cy={y} r="12" fill="none" stroke={colorHex} strokeWidth="1" opacity="0.6" className="animate-ping" />
+                        <>
+                          {/* Laser beam connecting Core to node */}
+                          <line
+                            x1="200" y1="200" x2={x} y2={y}
+                            stroke={colorHex}
+                            strokeWidth="1"
+                            strokeDasharray="2 3"
+                            opacity="0.5"
+                          />
+                          <motion.line
+                            x1="200" y1="200" x2={x} y2={y}
+                            stroke={colorHex}
+                            strokeWidth="1.5"
+                            strokeDasharray="4 4"
+                            animate={{ strokeDashoffset: [0, -12] }}
+                            transition={{ repeat: Infinity, ease: "linear", duration: 0.8 }}
+                            opacity="0.8"
+                          />
+                          {/* Rotating lock-on target reticle */}
+                          <circle
+                            cx={x} cy={y} r="13"
+                            fill="none"
+                            stroke={colorHex}
+                            strokeWidth="1.2"
+                            strokeDasharray="3 2"
+                            className="animate-spin"
+                            style={{ transformOrigin: `${x}px ${y}px`, animationDuration: '6s' }}
+                          />
+                          {/* Inner glowing pulse */}
+                          <circle cx={x} cy={y} r="9" fill="none" stroke={colorHex} strokeWidth="1" opacity="0.4" className="animate-ping" />
+                        </>
                       )}
                       <circle
                         cx={x}
                         cy={y}
-                        r={isSelected ? "7" : "5"}
+                        r={isSelected ? "6.5" : "4.5"}
                         fill={isSelected ? colorHex : (isDark ? "#000000" : "#ffffff")}
                         stroke={colorHex}
-                        strokeWidth={isSelected ? "2" : "1.5"}
+                        strokeWidth={isSelected ? "2.5" : "1.5"}
                       />
                       <text
                         x={x}
-                        y={y - 10}
+                        y={y - 9}
                         textAnchor="middle"
                         fill={isSelected ? (isDark ? "#ffffff" : "#000000") : (isDark ? "#a1a1aa" : "#71717a")}
-                        fontSize="8"
+                        fontSize="7.5"
                         fontWeight={isSelected ? "bold" : "normal"}
                         fontFamily="monospace"
                         className="pointer-events-none"
@@ -837,39 +1094,39 @@ function MiddlewarePipelineVisualizer({ isDark }: { isDark: boolean }) {
               </svg>
             </div>
 
-            {/* Flat typographic details display (No boxes!) */}
-            <div className="w-full max-w-xl">
-              <div className="flex justify-between items-center mb-3">
+            {/* Flat Telemetry Details Display */}
+            <div className="w-full max-w-xl md:mt-2">
+              <div className="flex justify-between items-center mb-4 pb-2 border-b border-dashed border-zinc-800/35">
                 <span className={`text-[9px] font-mono px-2 py-0.5 rounded border font-semibold ${getThemeColor(selectedItem.type)}`}>
                   {selectedItem.type.toUpperCase()}
                 </span>
-                <span className={`text-xs font-mono ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
-                  Priority {selectedItem.priority}
+                <span className={`text-[10px] font-mono ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                  PRIORITY: P{selectedItem.priority}
                 </span>
               </div>
 
-              <h4 className={`text-sm font-mono font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              <h4 className={`text-md font-mono font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
                 {selectedItem.name}
               </h4>
 
-              <p className={`text-xs leading-relaxed mb-4 ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
+              <p className={`text-xs leading-relaxed mb-6 font-light ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
                 {selectedItem.description}
               </p>
 
-              <div className="border-t border-dashed border-zinc-800/30 pt-4 mb-4">
+              <div className="border-t border-dashed border-zinc-850 pt-4 mb-4">
                 <span className={`text-[9px] font-mono block mb-1.5 ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-                  Python Dotted Path
+                  DOTTED PATH
                 </span>
-                <div className={`font-mono text-[9px] break-all ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>
+                <div className={`font-mono text-[9.5px] font-bold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>
                   {selectedItem.fullName}
                 </div>
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <span className={`text-[9px] font-mono block ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
-                  Registration Snippet
+                  REGISTRATION
                 </span>
-                <div className="font-mono text-[9px] rounded-lg overflow-hidden bg-black/40 border border-zinc-800/40">
+                <div className="font-mono text-[9px]">
                   <CodeBlock language="python" filename="" showLineNumbers={false}>
                     {selectedItem.codeSnippet || ''}
                   </CodeBlock>
