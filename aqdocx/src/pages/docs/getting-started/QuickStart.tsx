@@ -1,7 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
-import { Zap, Rocket } from 'lucide-react'
+import { Zap, Rocket, Layers, Plug, Database, Lock, Settings, Terminal, ArrowRight } from 'lucide-react'
 
 export function QuickStartPage() {
   const { theme } = useTheme()
@@ -572,28 +572,44 @@ aq test`}
       </section>
 
       {/* Next Steps */}
-      <section className="mb-10">
-        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Rocket className="w-5 h-5 text-aquilia-400" />
           Next Steps
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {[
-            { to: '/docs/controllers/overview', title: 'Controllers in Depth', desc: 'Lifecycle hooks, pipelines, OpenAPI generation' },
-            { to: '/docs/di/container', title: 'Dependency Injection', desc: 'Scopes, providers, and the Container API' },
-            { to: '/docs/models/defining', title: 'ORM & Models', desc: 'Define models, run queries, manage migrations' },
-            { to: '/docs/auth/identity', title: 'Authentication', desc: 'JWT tokens, sessions, RBAC, guards' },
-            { to: '/docs/config/workspace', title: 'Configuration', desc: 'Workspace, Module, and Integration builders' },
-            { to: '/docs/cli/commands', title: 'CLI Reference', desc: 'All aq commands and their options' },
+            { to: '/docs/controllers/overview', icon: <Layers className="w-4.5 h-4.5" />, title: 'Controllers in Depth', desc: 'Lifecycle hooks, pipelines, OpenAPI generation' },
+            { to: '/docs/di/container', icon: <Plug className="w-4.5 h-4.5" />, title: 'Dependency Injection', desc: 'Scopes, providers, and the Container API' },
+            { to: '/docs/models/defining', icon: <Database className="w-4.5 h-4.5" />, title: 'ORM & Models', desc: 'Define models, run queries, manage migrations' },
+            { to: '/docs/auth/identity', icon: <Lock className="w-4.5 h-4.5" />, title: 'Authentication', desc: 'JWT tokens, sessions, RBAC, guards' },
+            { to: '/docs/config/workspace', icon: <Settings className="w-4.5 h-4.5" />, title: 'Configuration', desc: 'Workspace, Module, and Integration builders' },
+            { to: '/docs/cli/commands', icon: <Terminal className="w-4.5 h-4.5" />, title: 'CLI Reference', desc: 'All aq commands and their options' },
           ].map((link, i) => (
             <Link
               key={i}
               to={link.to}
-              className={`p-4 rounded-xl border transition-all hover:scale-[1.01] ${isDark ? 'bg-zinc-900/50 border-white/10 hover:border-aquilia-500/30' : 'bg-white border-gray-200 hover:border-aquilia-300'}`}
+              className={`group flex items-start gap-4 p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-0.5 shadow-sm hover:shadow-md dark:shadow-none ${
+                isDark 
+                  ? 'bg-gradient-to-b from-zinc-900/40 to-zinc-950/10 border-white/5 hover:border-aquilia-500/30 hover:from-aquilia-500/[0.04] hover:to-aquilia-400/[0.01]' 
+                  : 'bg-gradient-to-b from-gray-50/50 to-white/10 border-gray-200/80 hover:border-aquilia-300 hover:from-aquilia-50/[0.04] hover:to-aquilia-400/[0.01]'
+              }`}
             >
-              <div className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>{link.title}</div>
-              <div className={`text-xs mt-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{link.desc}</div>
+              <div className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 ${
+                isDark 
+                  ? 'bg-zinc-800/40 border-white/5 text-aquilia-400 group-hover:scale-110 group-hover:bg-aquilia-500/10 group-hover:border-aquilia-500/20' 
+                  : 'bg-gray-50 border-gray-100 text-aquilia-600 group-hover:scale-110 group-hover:bg-aquilia-50/50 group-hover:border-aquilia-200'
+              }`}>
+                {link.icon}
+              </div>
+              <div className="flex-grow min-w-0">
+                <div className={`font-semibold text-sm transition-colors group-hover:text-aquilia-500 dark:group-hover:text-aquilia-400 ${isDark ? 'text-white' : 'text-gray-900'}`}>{link.title}</div>
+                <div className={`text-xs leading-relaxed mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{link.desc}</div>
+              </div>
+              <div className="flex-shrink-0 self-center opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                <ArrowRight className="w-4 h-4 text-aquilia-500 dark:text-aquilia-400" />
+              </div>
             </Link>
           ))}
         </div>
