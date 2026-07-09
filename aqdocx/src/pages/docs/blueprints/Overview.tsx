@@ -1,9 +1,11 @@
+import { useState } from 'react'
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { DocTerm } from '../../../components/docPreview'
 import { Link } from 'react-router-dom'
-import { Binary, ArrowRight, GitBranch, Shield, Layers, Zap } from 'lucide-react'
+import { Binary, ArrowRight, GitBranch, Shield, Layers, Zap, Info } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
+import { motion } from 'framer-motion'
 
 const stages = [
   { step: '1', label: 'Declare', desc: 'Define Facets and Spec on a Blueprint subclass.' },
@@ -12,6 +14,339 @@ const stages = [
   { step: '4', label: 'Imprint', desc: 'Validated data is written back to the model.' },
   { step: '5', label: 'Mold', desc: 'Model instance is serialized through Facets → dict.' },
 ]
+
+function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
+  const [hoveredStep, setHoveredStep] = useState<string | null>(null);
+
+  const stepsData = {
+    cast: {
+      title: 'Cast Pipeline',
+      role: 'Inbound Type Coercion',
+      desc: 'Intercepts raw JSON values. Each Facet (e.g. IntFacet, DateFacet) runs coercion rules, parsing strings to target native Python types recursively.',
+      file: 'aquilia/blueprints/pipeline.py',
+      color: '#10b981'
+    },
+    seal: {
+      title: 'Seal & Wards',
+      role: 'Integrity Validation',
+      desc: 'Executes individual facet validators (max_length, pattern regex) and gathers all cross-field constraints marked with the @ward decorator in a single pass.',
+      file: 'aquilia/blueprints/ward.py',
+      color: '#10b981'
+    },
+    imprint: {
+      title: 'Imprint Layer',
+      role: 'Database Writer',
+      desc: 'Executes database transaction updates. Flushes the validated clean dataset directly into target ORM models as a safe SQL INSERT or UPDATE.',
+      file: 'aquilia/blueprints/core.py',
+      color: '#059669'
+    },
+    projection: {
+      title: 'Projection Filter',
+      role: 'Field Visibility Rules',
+      desc: 'Selects the exact list of attributes to expose (e.g. blueprint["public"]). Filters out write-only/sensitive fields automatically from outbound data.',
+      file: 'aquilia/blueprints/projections.py',
+      color: '#3b82f6'
+    },
+    lens: {
+      title: 'Lens Resolution',
+      role: 'Relational Graph Resolver',
+      desc: 'Recursively resolves related model fields through nested blueprints. Controls depth limits and runs cyclic loop check guards dynamically.',
+      file: 'aquilia/blueprints/lenses.py',
+      color: '#3b82f6'
+    },
+    mold: {
+      title: 'Mold Finalization',
+      role: 'Outbound Serialization',
+      desc: 'Transforms Python model objects back to standard JSON serializable dictionaries, running custom @computed fields and constant conversions.',
+      file: 'aquilia/blueprints/facets.py',
+      color: '#2563eb'
+    }
+  };
+
+  const activeStep = hoveredStep ? stepsData[hoveredStep as keyof typeof stepsData] : null;
+
+  return (
+    <div className="my-12 w-full font-sans select-none">
+      <h2 className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>System Architecture</h2>
+      <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'} mb-8`}>
+        Dual-track request-response lifecycle loops through the central Blueprint contract.
+      </p>
+
+      {/* SVG Pipeline Map */}
+      <div className="w-full max-w-2xl mx-auto h-[260px] relative">
+        <svg viewBox="0 0 640 260" className="w-full h-full bg-transparent overflow-visible">
+          {/* Gradients */}
+          <defs>
+            <linearGradient id="inbound-pulse-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#10b981" stopOpacity="0.8" />
+              <stop offset="100%" stopColor="#059669" stopOpacity="0.2" />
+            </linearGradient>
+            <linearGradient id="outbound-pulse-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
+            </linearGradient>
+          </defs>
+
+          {/* Left Inbound path (Green) */}
+          <path
+            d="M 60,40 C 180,40 240,70 270,100 C 290,120 250,180 320,210"
+            fill="none"
+            stroke={isDark ? "#27272a" : "#e4e4e7"}
+            strokeWidth="2"
+          />
+          <motion.path
+            d="M 60,40 C 180,40 240,70 270,100 C 290,120 250,180 320,210"
+            fill="none"
+            stroke="url(#inbound-pulse-grad)"
+            strokeWidth="2.5"
+            strokeDasharray="8 25"
+            animate={{ strokeDashoffset: [200, 0] }}
+            transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+          />
+
+          {/* Right Outbound path (Blue) */}
+          <path
+            d="M 320,210 C 390,180 350,120 370,100 C 395,70 460,40 580,40"
+            fill="none"
+            stroke={isDark ? "#27272a" : "#e4e4e7"}
+            strokeWidth="2"
+          />
+          <motion.path
+            d="M 320,210 C 390,180 350,120 370,100 C 395,70 460,40 580,40"
+            fill="none"
+            stroke="url(#outbound-pulse-grad)"
+            strokeWidth="2.5"
+            strokeDasharray="8 25"
+            animate={{ strokeDashoffset: [0, 200] }}
+            transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
+          />
+
+          {/* Central Blueprint Core Ring */}
+          <circle 
+            cx="320" cy="100" r="18" 
+            fill={isDark ? "#09090b" : "#ffffff"} 
+            stroke={hoveredStep ? "#10b981" : (isDark ? "#3f3f46" : "#cbd5e1")} 
+            strokeWidth="2" 
+            className="transition-colors duration-300"
+          />
+          <text 
+            x="320" y="103" textAnchor="middle" 
+            fill={isDark ? "#a1a1aa" : "#71717a"} 
+            fontSize="8" fontWeight="bold" fontFamily="monospace"
+          >
+            CONTRACT
+          </text>
+
+          {/* Bottom DB Model Ring */}
+          <circle 
+            cx="320" cy="210" r="16" 
+            fill={isDark ? "#09090b" : "#ffffff"} 
+            stroke={hoveredStep === 'imprint' ? "#059669" : (isDark ? "#3f3f46" : "#cbd5e1")} 
+            strokeWidth="2" 
+            className="transition-colors duration-300"
+          />
+          <text 
+            x="320" y="213" textAnchor="middle" 
+            fill={isDark ? "#71717a" : "#a1a1aa"} 
+            fontSize="7" fontWeight="bold" fontFamily="monospace"
+          >
+            MODEL
+          </text>
+
+          {/* Left Endpoint: Request */}
+          <circle cx="60" cy="40" r="4" fill="#10b981" />
+          <text x="60" y="28" textAnchor="middle" fill="#10b981" fontSize="8" fontWeight="bold" fontFamily="monospace">REQUEST</text>
+
+          {/* Right Endpoint: Response */}
+          <circle cx="580" cy="40" r="4" fill="#3b82f6" />
+          <text x="580" y="28" textAnchor="middle" fill="#3b82f6" fontSize="8" fontWeight="bold" fontFamily="monospace">RESPONSE</text>
+
+          {/* INBOUND NODES */}
+          {/* Node: Cast */}
+          <g 
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredStep('cast')}
+            onMouseLeave={() => setHoveredStep(null)}
+          >
+            <circle 
+              cx="160" cy="40" 
+              r={hoveredStep === 'cast' ? "7" : "5"} 
+              fill={hoveredStep === 'cast' ? "#10b981" : (isDark ? "#18181b" : "#ffffff")} 
+              stroke="#10b981" strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            <text x="160" y="60" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">1. CAST</text>
+          </g>
+
+          {/* Node: Seal */}
+          <g 
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredStep('seal')}
+            onMouseLeave={() => setHoveredStep(null)}
+          >
+            <circle 
+              cx="255" cy="85" 
+              r={hoveredStep === 'seal' ? "7" : "5"} 
+              fill={hoveredStep === 'seal' ? "#10b981" : (isDark ? "#18181b" : "#ffffff")} 
+              stroke="#10b981" strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            <text x="235" y="102" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">2. SEAL</text>
+          </g>
+
+          {/* Node: Imprint */}
+          <g 
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredStep('imprint')}
+            onMouseLeave={() => setHoveredStep(null)}
+          >
+            <circle 
+              cx="285" cy="165" 
+              r={hoveredStep === 'imprint' ? "7" : "5"} 
+              fill={hoveredStep === 'imprint' ? "#059669" : (isDark ? "#18181b" : "#ffffff")} 
+              stroke="#059669" strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            <text x="245" y="170" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">3. IMPRINT</text>
+          </g>
+
+          {/* OUTBOUND NODES */}
+          {/* Node: Projection */}
+          <g 
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredStep('projection')}
+            onMouseLeave={() => setHoveredStep(null)}
+          >
+            <circle 
+              cx="355" cy="165" 
+              r={hoveredStep === 'projection' ? "7" : "5"} 
+              fill={hoveredStep === 'projection' ? "#3b82f6" : (isDark ? "#18181b" : "#ffffff")} 
+              stroke="#3b82f6" strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            <text x="400" y="170" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">1. PROJECT</text>
+          </g>
+
+          {/* Node: Lens */}
+          <g 
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredStep('lens')}
+            onMouseLeave={() => setHoveredStep(null)}
+          >
+            <circle 
+              cx="385" cy="85" 
+              r={hoveredStep === 'lens' ? "7" : "5"} 
+              fill={hoveredStep === 'lens' ? "#3b82f6" : (isDark ? "#18181b" : "#ffffff")} 
+              stroke="#3b82f6" strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            <text x="405" y="102" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">2. LENS</text>
+          </g>
+
+          {/* Node: Mold */}
+          <g 
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredStep('mold')}
+            onMouseLeave={() => setHoveredStep(null)}
+          >
+            <circle 
+              cx="480" cy="40" 
+              r={hoveredStep === 'mold' ? "7" : "5"} 
+              fill={hoveredStep === 'mold' ? "#2563eb" : (isDark ? "#18181b" : "#ffffff")} 
+              stroke="#2563eb" strokeWidth="2"
+              className="transition-all duration-200"
+            />
+            <text x="480" y="60" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">3. MOLD</text>
+          </g>
+        </svg>
+      </div>
+
+      {/* Coupled Detail Telemetry Info Block */}
+      <div className="min-h-[100px] mt-2 transition-all duration-300">
+        {activeStep ? (
+          <div className="flex flex-col gap-1.5 animate-fadeIn">
+            <div className="flex justify-between items-center pb-1.5 border-b border-dashed border-zinc-800/30">
+              <span className="text-[10px] font-mono font-bold" style={{ color: activeStep.color }}>
+                {activeStep.role.toUpperCase()}
+              </span>
+              <span className={`text-[9px] font-mono ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                {activeStep.file}
+              </span>
+            </div>
+            <h4 className={`text-sm font-mono font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              {activeStep.title}
+            </h4>
+            <p className={`text-xs leading-relaxed font-light ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
+              {activeStep.desc}
+            </p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 py-4 justify-center">
+            <Info className={`w-3.5 h-3.5 ${isDark ? 'text-zinc-600' : 'text-gray-400'}`} />
+            <span className={`text-xs font-mono font-light ${isDark ? 'text-zinc-500' : 'text-gray-400'}`}>
+              Hover over any numbered node in the pipeline curve to view its execution specifications.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Static Typographic Summary Columns */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 mt-8 pt-6 border-t border-dashed border-zinc-800/30">
+        <div>
+          <h3 className="text-[10px] font-mono font-bold tracking-wider text-emerald-500 uppercase mb-3">
+            Inbound Pipeline (Request Data)
+          </h3>
+          <ul className="space-y-3.5">
+            <li className="flex flex-col gap-0.5">
+              <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>1. Cast Phase</span>
+              <span className={`text-xs font-light leading-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                Coerces input dictionaries into target Python types via individual Facet casting pipelines.
+              </span>
+            </li>
+            <li className="flex flex-col gap-0.5">
+              <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>2. Seal Phase</span>
+              <span className={`text-xs font-light leading-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                Runs facet constraint validators and sweeps custom @ward cross-field integrity checks.
+              </span>
+            </li>
+            <li className="flex flex-col gap-0.5">
+              <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>3. Imprint Phase</span>
+              <span className={`text-xs font-light leading-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                Flushes valid datasets back into the ORM models to trigger SQL inserts or updates.
+              </span>
+            </li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="text-[10px] font-mono font-bold tracking-wider text-blue-500 uppercase mb-3">
+            Outbound Pipeline (Response Model)
+          </h3>
+          <ul className="space-y-3.5">
+            <li className="flex flex-col gap-0.5">
+              <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>1. Projection Selection</span>
+              <span className={`text-xs font-light leading-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                Filters attributes based on named projection limits, respecting write-only properties.
+              </span>
+            </li>
+            <li className="flex flex-col gap-0.5">
+              <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>2. Lens Resolution</span>
+              <span className={`text-xs font-light leading-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                Fetches related data through nested Lens paths, enforcing recursion and cycle limits.
+              </span>
+            </li>
+            <li className="flex flex-col gap-0.5">
+              <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-300' : 'text-gray-800'}`}>3. Mold Phase</span>
+              <span className={`text-xs font-light leading-normal ${isDark ? 'text-zinc-500' : 'text-gray-500'}`}>
+                Serializes model elements to standard native dictionaries for JSON serialization.
+              </span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function BlueprintsOverview() {
   const { theme } = useTheme()
@@ -49,6 +384,9 @@ export function BlueprintsOverview() {
           </div>
         </div>
       </div>
+
+      {/* Blueprint System Architecture */}
+      <BlueprintArchitectureVisualizer isDark={isDark} />
 
       {/* Lifecycle pipeline */}
       <section className="mb-12">
