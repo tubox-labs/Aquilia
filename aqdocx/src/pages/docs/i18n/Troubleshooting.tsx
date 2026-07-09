@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { LifeBuoy } from 'lucide-react'
 
 export function I18nTroubleshooting() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const scenarios: Array<{ title: string; causes: string[]; fixes: string[] }> = [
     {
@@ -33,7 +34,7 @@ export function I18nTroubleshooting() {
       fixes: [
         'set resolver_order explicitly and keep it stable across environments',
         'normalize and validate locale sources against available_locales',
-        'move header later if query/cookie/session overrides should win',
+        'move header resolver later if query/cookie/session overrides should win',
       ],
     },
     {
@@ -45,26 +46,6 @@ export function I18nTroubleshooting() {
       fixes: [
         'set env.globals["request_locale"] from request.state locale before rendering',
         'pass locale= explicitly in critical template helper calls',
-      ],
-    },
-    {
-      title: 'YAML locale files are ignored',
-      causes: [
-        'service boot path uses FileCatalog default extension set in non-surp mode',
-      ],
-      fixes: [
-        'prefer JSON catalog files in standard boot paths',
-        'or build a custom catalog with explicit extension handling when needed',
-      ],
-    },
-    {
-      title: 'Intermittent locale mix-up with custom lazy usage',
-      causes: [
-        'custom middleware sets lazy context without guaranteed cleanup',
-      ],
-      fixes: [
-        'always pair set_lazy_context and clear_lazy_context in try/finally',
-        'prefer default I18nMiddleware where possible',
       ],
     },
   ]
@@ -82,7 +63,7 @@ export function I18nTroubleshooting() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
           Symptom-driven diagnostics for the most common i18n runtime issues.
           Start with config visibility, then validate resolver behavior, then verify catalog content.
         </p>
@@ -90,10 +71,10 @@ export function I18nTroubleshooting() {
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Diagnostic Baseline</h2>
-        <CodeBlock language="bash" filename="Terminal">{`aq i18n inspect
+        <CodeBlock language="bash" filename="Terminal" highlightLines={[1, 2]}>{`aq i18n inspect
 aq i18n check
 aq i18n coverage --verbose`}</CodeBlock>
-        <CodeBlock language="python" filename="handler_probe.py">{`@GET("/debug/i18n")
+        <CodeBlock language="python" filename="handler_probe.py" highlightLines={[3, 4]}>{`@GET("/debug/i18n")
 async def debug_i18n(self, ctx: RequestCtx):
     state = ctx.request.state
     return {
@@ -107,18 +88,18 @@ async def debug_i18n(self, ctx: RequestCtx):
       {scenarios.map((scenario, i) => (
         <section className="mb-16" key={i}>
           <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>{scenario.title}</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className={box}>
-              <h3 className={`font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Likely Causes</h3>
-              <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
+          <div className="space-y-6">
+            <div>
+              <h3 className={`font-mono text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Likely Causes</h3>
+              <ul className={`list-disc pl-6 space-y-1 text-sm ${textMuted}`}>
                 {scenario.causes.map((cause, idx) => (
                   <li key={idx}>{cause}</li>
                 ))}
               </ul>
             </div>
-            <div className={box}>
-              <h3 className={`font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Recommended Fixes</h3>
-              <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
+            <div>
+              <h3 className={`font-mono text-sm font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Recommended Fixes</h3>
+              <ul className={`list-disc pl-6 space-y-1 text-sm ${textMuted}`}>
                 {scenario.fixes.map((fix, idx) => (
                   <li key={idx}>{fix}</li>
                 ))}
@@ -130,13 +111,10 @@ async def debug_i18n(self, ctx: RequestCtx):
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Operational Guardrails</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>Keep one canonical locale key naming convention across templates and controllers.</li>
-            <li>Run extraction and coverage checks in CI to prevent silent key drift.</li>
-            <li>Smoke test representative keys for each supported locale during startup validation.</li>
-            <li>Avoid implicit defaults for resolver order in production; configure it explicitly.</li>
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2">
+          <p>• Keep one canonical locale key naming convention across templates and controllers.</p>
+          <p>• Run extraction and coverage checks in CI to prevent silent key drift.</p>
+          <p>• Smoke test representative keys for each supported locale during startup validation.</p>
         </div>
       </section>
 

@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { AlertTriangle } from 'lucide-react'
 
 export function I18nEdgeCases() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const validated: string[] = [
     'Deep dotted keys resolve correctly (for example a.b.c.d).',
@@ -44,7 +45,7 @@ export function I18nEdgeCases() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
           This page captures behavior verified by tests plus practical implementation gaps that matter in production.
           Use it as a deployment hardening checklist.
         </p>
@@ -52,47 +53,38 @@ export function I18nEdgeCases() {
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Validated Behaviors</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            {validated.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2">
+          {validated.map((item, i) => (
+            <p key={i}>• {item}</p>
+          ))}
         </div>
       </section>
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Current Gaps and Caveats</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            {limitations.map((item, i) => (
-              <li key={i}>{item}</li>
-            ))}
-          </ul>
+        <div className="border-l-2 border-amber-500/30 pl-4 py-1 text-sm text-zinc-500 space-y-2">
+          {limitations.map((item, i) => (
+            <p key={i}>• {item}</p>
+          ))}
         </div>
       </section>
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Recommended Mitigations</h2>
-        <CodeBlock language="python" filename="hardening_checklist.py">{`# 1) keep resolver order explicit in production config
+        <CodeBlock language="python" filename="hardening_checklist.py" highlightLines={[2, 8, 14]}>{`# 1) Keep resolver order explicit in production config
 Integration.i18n(resolver_order=["query", "cookie", "session", "header"])
 
-# 2) prefer request.state locale in controllers
+# 2) Prefer request.state locale in controllers
 locale = request.state.get("locale", "en")
 
-# 3) ensure request_locale is passed to templates when needed
-env.globals["request_locale"] = request.state.get("locale", "en")
-
-# 4) pair lazy context set/clear in custom middleware via try/finally
+# 3) Pair lazy context set/clear in custom middleware via try/finally
+from aquilia.i18n import set_lazy_context, clear_lazy_context
 set_lazy_context(service, locale)
 try:
-    ...
+    # Handle request
+    pass
 finally:
     clear_lazy_context()
-
-# 5) add startup smoke check for key locales
-assert i18n.t("messages.welcome", locale="en")
-assert i18n.t("messages.welcome", locale="fr")
 `}</CodeBlock>
       </section>
 

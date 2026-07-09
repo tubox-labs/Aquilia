@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { Network } from 'lucide-react'
 
 export function I18nArchitecture() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const components: Array<[string, string, string]> = [
     ['Locale model', 'aquilia/i18n/locale.py', 'BCP 47 parsing, normalization, fallback chain, and negotiation.'],
@@ -34,15 +35,16 @@ export function I18nArchitecture() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
           Aquilia i18n bootstraps during server startup and then runs as a request-aware translation pipeline.
           The architecture combines config, catalog loading, locale resolution, formatting, and fault-aware lookup.
         </p>
       </div>
 
+      {/* Boot Sequence */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Boot Sequence</h2>
-        <CodeBlock language="python" filename="aquilia/server.py::_setup_i18n">{`# 1) Load merged runtime config
+        <CodeBlock language="python" filename="aquilia/server.py::_setup_i18n" highlightLines={[2, 5, 8]}>{`# 1) Load merged runtime config
 raw_i18n = config_loader.get_i18n_config()
 
 # 2) Convert to typed config
@@ -59,41 +61,38 @@ resolver = build_resolver(cfg)
 
 # 6) Add request middleware
 middleware_stack.add(I18nMiddleware(service, resolver), priority=24)
-
-# 7) Register template globals when env exists
-register_i18n_template_globals(template_env, service)
 `}</CodeBlock>
       </section>
 
+      {/* Subsystem Map */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Subsystem Map</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Component</th>
-                  <th className="text-left pb-3 font-semibold">Location</th>
-                  <th className="text-left pb-3 font-semibold">Role</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className={`border-b ${borderSubtle} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <th className="pb-3 font-semibold pr-4">Component</th>
+                <th className="pb-3 font-semibold pr-4">Location</th>
+                <th className="pb-3 font-semibold">Role</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {components.map(([name, file, role], i) => (
+                <tr key={i} className={`border-b ${borderSubtle} hover:bg-aquilia-50/[0.02]`}>
+                  <td className="py-2.5 font-mono text-aquilia-500 text-xs pr-4">{name}</td>
+                  <td className="py-2.5 font-mono text-xs pr-4 text-zinc-500">{file}</td>
+                  <td className="py-2.5 text-xs">{role}</td>
                 </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {components.map(([name, file, role], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-500 text-xs pr-4">{name}</td>
-                    <td className="py-2 font-mono text-xs pr-4">{file}</td>
-                    <td className="py-2 text-xs">{role}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
+      {/* Translation Lookup Pipeline */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Translation Lookup Pipeline</h2>
-        <CodeBlock language="python" filename="aquilia/i18n/service.py::I18nService._resolve">{`# t(key, locale) lookup order
+        <CodeBlock language="python" filename="aquilia/i18n/service.py::I18nService._resolve" highlightLines={[1, 7]}>{`# t(key, locale) lookup order
 1. catalog.get(key, exact_locale)
 2. locale fallback chain (for example fr-CA -> fr)
 3. catalog.get(key, fallback_locale)
@@ -102,15 +101,13 @@ register_i18n_template_globals(template_env, service)
 # tn(key, count, locale) adds plural selection
 category = select_plural(lang, count)
 value = catalog.get_plural(key, locale, category)
-if not value:
-    value = _resolve(key, locale)
-value = formatter.format(value, locale=locale, count=count, **kwargs)
 `}</CodeBlock>
       </section>
 
+      {/* Locale Resolution Pipeline */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Locale Resolution Pipeline</h2>
-        <CodeBlock language="python" filename="aquilia/i18n/middleware.py::I18nMiddleware.__call__">{`locale = config.default_locale
+        <CodeBlock language="python" filename="aquilia/i18n/middleware.py::I18nMiddleware.__call__" highlightLines={[3, 8]}>{`locale = config.default_locale
 
 resolved = chain_resolver.resolve(request)
 if resolved and service.is_available(resolved):
@@ -119,49 +116,15 @@ if resolved and service.is_available(resolved):
 request.state["locale"] = locale
 request.state["locale_obj"] = parse_locale(locale)
 request.state["i18n"] = service
-
-set_lazy_context(service, locale)
-try:
-    return await next_handler(request, ctx)
-finally:
-    clear_lazy_context()
 `}</CodeBlock>
-        <div className={box}>
-          <p className={`text-sm ${subtle}`}>
-            Resolver order is fully configuration-driven through resolver_order. ChainLocaleResolver is fail-soft and
-            continues when individual resolvers throw.
-          </p>
-        </div>
       </section>
 
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Catalog Build Strategy</h2>
-        <CodeBlock language="python" filename="aquilia/i18n/service.py::_build_catalog">{`if config.catalog_format == "surp":
-    backend = SurpCatalog([catalog_dir])
-else:
-    backend = FileCatalog([catalog_dir])
-
-if multiple_dirs:
-    catalog = MergedCatalog([backend1, backend2, ...])
-`}</CodeBlock>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>SurpCatalog can read SURP artifacts and JSON/YAML fallback sources.</li>
-            <li>Non-surp service boot path uses FileCatalog defaults, which are JSON-focused by default.</li>
-            <li>When no catalog directory exists, service falls back to empty MemoryCatalog with warning log.</li>
-          </ul>
-        </div>
-      </section>
-
+      {/* Boundaries and Contracts */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Boundaries and Contracts</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>i18n owns translation lookup, not identity or authorization decisions.</li>
-            <li>i18n may consume request/session hints for locale resolution but does not persist user preference itself.</li>
-            <li>controllers and templates should treat I18nService as the canonical translation API.</li>
-            <li>lazy translation context is request/task-local and cleaned in middleware finally blocks.</li>
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2">
+          <p>• i18n handles localization and translations, not authentication or security authorizations.</p>
+          <p>• The <DocTerm id="i18n.lazy_t">lazy_t</DocTerm> translation helper defers actual lookup until string evaluation, preventing early initialization issues during package import.</p>
         </div>
       </section>
 

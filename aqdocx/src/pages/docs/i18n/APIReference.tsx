@@ -1,53 +1,54 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { BookOpen } from 'lucide-react'
 
 export function I18nAPIReference() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const localeSymbols: Array<[string, string]> = [
-    ['Locale', 'BCP 47 locale dataclass with tag/language_tag/fallback_chain/matches helpers.'],
+    ['Locale', 'BCP 47 locale dataclass with tag, language_tag, and fallback_chain helpers.'],
     ['parse_locale(tag)', 'Parse and validate locale tags.'],
     ['normalize_locale(tag)', 'Normalize locale string or return None if invalid.'],
-    ['match_locale(requested, available)', 'Find best available Locale match.'],
-    ['parse_accept_language(header)', 'Parse weighted Accept-Language values.'],
-    ['negotiate_locale(header, available, default)', 'Negotiate best locale from request header values.'],
-    ['LOCALE_PATTERN', 'Regex pattern used for BCP 47 validation shape.'],
+    ['match_locale(requested, available)', 'Find the best available Locale match.'],
+    ['parse_accept_language(header)', 'Parse weighted Accept-Language headers.'],
+    ['negotiate_locale(header, available, default)', 'Negotiate the best locale from request headers.'],
+    ['LOCALE_PATTERN', 'Regex pattern used for BCP 47 validation.'],
   ]
 
   const catalogSymbols: Array<[string, string]> = [
-    ['TranslationCatalog', 'Abstract catalog contract: get, get_plural, has, locales, keys.'],
-    ['MemoryCatalog', 'In-memory nested dict backend with deep merge support.'],
-    ['FileCatalog', 'Filesystem catalog backend (JSON-first by default).'],
-    ['SurpCatalog', 'SURP-first backend with JSON/YAML fallback and compile support.'],
-    ['NamespacedCatalog', 'Prefixes keys by namespace for module isolation.'],
+    ['TranslationCatalog', 'Abstract catalog contract describing key and locale listings.'],
+    ['MemoryCatalog', 'In-memory nested dictionary catalog.'],
+    ['FileCatalog', 'Filesystem catalog backend supporting JSON/YAML.'],
+    ['SurpCatalog', 'SURP-first binary catalog backend.'],
+    ['NamespacedCatalog', 'Prefixes catalog keys by namespace.'],
     ['MergedCatalog', 'Layer multiple catalogs in ordered lookup sequence.'],
     ['has_surp()', 'Returns whether optional surp package is importable.'],
   ]
 
   const formatterSymbols: Array<[string, string]> = [
-    ['MessageFormatter', 'Formatter class used by service for interpolation and formatting.'],
-    ['format_message', 'Format pattern with ICU-like placeholder behavior.'],
+    ['MessageFormatter', 'Formatter class used by service for ICU-like string interpolation.'],
+    ['format_message', 'Format pattern with placeholder behavior.'],
     ['format_number', 'Locale-aware number formatting.'],
     ['format_decimal', 'Decimal formatting helper.'],
     ['format_percent', 'Percent formatting helper.'],
     ['format_currency', 'Currency formatting helper with symbol and locale conventions.'],
-    ['format_ordinal', 'Ordinal helper (language-sensitive where implemented).'],
-    ['format_date', 'Date formatting helper by style.'],
-    ['format_time', 'Time formatting helper by style.'],
+    ['format_ordinal', 'Ordinal helper.'],
+    ['format_date', 'Date formatting helper.'],
+    ['format_time', 'Time formatting helper.'],
     ['format_datetime', 'Date+time combined formatter.'],
   ]
 
   const serviceSymbols: Array<[string, string]> = [
     ['MissingKeyStrategy', 'Enum with return_key, return_empty, return_default, raise, log_and_key.'],
-    ['I18nConfig', 'Typed i18n configuration model with from_dict/to_dict helpers.'],
-    ['I18nService.t', 'Translate single key with fallback chain and optional formatting kwargs.'],
+    ['I18nConfig', 'Typed i18n configuration model.'],
+    ['I18nService.t', 'Translate single key with fallback chain and formatting kwargs.'],
     ['I18nService.tn', 'Plural-aware translation path with count injection.'],
-    ['I18nService.tp', 'Parameterized alias to t for API symmetry.'],
+    ['I18nService.tp', 'Parameterized translation alias.'],
     ['I18nService.has', 'Check key availability for locale.'],
     ['I18nService.available_locales', 'Return configured locales list.'],
     ['I18nService.negotiate', 'Header locale negotiation helper.'],
@@ -87,25 +88,29 @@ export function I18nAPIReference() {
   const renderTable = (title: string, items: Array<[string, string]>) => (
     <section className="mb-16" key={title}>
       <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>{title}</h2>
-      <div className={box}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                <th className="text-left pb-3 font-semibold">Symbol</th>
-                <th className="text-left pb-3 font-semibold">Description</th>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm text-left border-collapse">
+          <thead>
+            <tr className={`border-b ${borderSubtle} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+              <th className="pb-3 font-semibold pr-4">Symbol</th>
+              <th className="pb-3 font-semibold">Description</th>
+            </tr>
+          </thead>
+          <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+            {items.map(([name, desc], i) => (
+              <tr key={i} className={`border-b ${borderSubtle} hover:bg-aquilia-50/[0.02]`}>
+                <td className="py-2.5 font-mono text-aquilia-500 text-xs pr-4">
+                  {name.startsWith('I18nService') ? (
+                    name
+                  ) : (
+                    <DocTerm id={`i18n.${name.split('(')[0].split(' / ')[0]}`}>{name}</DocTerm>
+                  )}
+                </td>
+                <td className="py-2.5 text-xs">{desc}</td>
               </tr>
-            </thead>
-            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-              {items.map(([name, desc], i) => (
-                <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                  <td className="py-2 font-mono text-aquilia-500 text-xs pr-4">{name}</td>
-                  <td className="py-2 text-xs">{desc}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   )
@@ -123,7 +128,7 @@ export function I18nAPIReference() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
           Module-level symbol map for Aquilia i18n including locale utilities, catalog backends,
           formatting surface, runtime middleware, template wiring, DI hooks, and fault types.
         </p>
@@ -131,7 +136,7 @@ export function I18nAPIReference() {
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Top-Level Exports</h2>
-        <CodeBlock language="python" filename="aquilia/i18n/__init__.py">{`from aquilia.i18n import (
+        <CodeBlock language="python" filename="aquilia/i18n/__init__.py" highlightLines={[2, 3, 5, 6]}>{`from aquilia.i18n import (
     Locale, parse_locale, normalize_locale, parse_accept_language, negotiate_locale,
     TranslationCatalog, MemoryCatalog, FileCatalog, SurpCatalog, NamespacedCatalog, MergedCatalog,
     PluralCategory, get_plural_rule, select_plural,
@@ -155,14 +160,10 @@ export function I18nAPIReference() {
 
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Behavior Map</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>parse_locale validates and normalizes locale tags and may raise config-domain validation faults.</li>
-            <li>I18nService.t/tn can raise MissingTranslationFault when missing_key_strategy is raise.</li>
-            <li>reload_catalogs rebuilds active catalog stack from current config and replaces service catalog reference.</li>
-            <li>I18nMiddleware writes request state and guarantees lazy context cleanup in a finally block.</li>
-            <li>register_i18n_providers mutates the DI container and is intentionally tolerant of container API variation.</li>
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2">
+          <p>• <code className="text-aquilia-500">parse_locale</code> validates and normalizes locale tags and may raise config-domain validation faults.</p>
+          <p>• <DocTerm id="i18n.I18nService">I18nService.t</DocTerm>/tn can raise MissingTranslationFault when missing_key_strategy is set to raise.</p>
+          <p>• <DocTerm id="i18n.I18nMiddleware">I18nMiddleware</DocTerm> writes resolved locale information into the request state, and cleans up ContextVars in a finally block.</p>
         </div>
       </section>
 

@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { NextSteps } from '../../../components/NextSteps'
 import { Settings } from 'lucide-react'
 
 export function I18nConfiguration() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderSubtle = isDark ? 'border-white/5' : 'border-gray-100'
 
   const keys: Array<[string, string, string]> = [
     ['enabled', 'bool', 'Enable i18n boot wiring in AquiliaServer.'],
@@ -44,15 +45,16 @@ export function I18nConfiguration() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
           i18n settings can be declared through workspace builders, typed integration objects, or raw runtime config.
-          At server boot, all paths are normalized into I18nConfig.
+          At server boot, all paths are normalized into <DocTerm id="i18n.I18nConfig">I18nConfig</DocTerm>.
         </p>
       </div>
 
+      {/* Configuration Entry Points */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Configuration Entry Points</h2>
-        <CodeBlock language="python" filename="workspace.py">{`from aquilia.config_builders import Workspace, Integration
+        <CodeBlock language="python" filename="workspace.py" highlightLines={[6, 17]}>{`from aquilia.config_builders import Workspace, Integration
 from aquilia.integrations.i18n import I18nIntegration
 
 workspace = (
@@ -64,12 +66,8 @@ workspace = (
             default_locale="en",
             available_locales=["en", "fr", "de", "ja"],
             fallback_locale="en",
-            catalog_dirs=["locales", "modules/auth/locales"],
+            catalog_dirs=["locales"],
             catalog_format="surp",
-            missing_key_strategy="log_and_key",
-            resolver_order=["query", "cookie", "session", "header"],
-            cookie_name="aq_locale",
-            query_param="lang",
         )
     )
 
@@ -86,110 +84,82 @@ workspace = (
 `}</CodeBlock>
       </section>
 
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Runtime Precedence</h2>
-        <CodeBlock language="python" filename="config_resolution.py">{`# Effective flow
+      {/* Runtime Precedence */}
+      <section className="mb-16 border-l-2 border-aquilia-500/20 pl-6 py-1">
+        <h2 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Runtime Precedence</h2>
+        <CodeBlock language="python" filename="config_resolution.py" highlightLines={[2, 3]}>{`# Effective flow
 # 1) user config in i18n or integrations.i18n
 # 2) merged with ConfigLoader.get_i18n_config defaults
 # 3) converted by I18nConfig.from_dict
 # 4) consumed by create_i18n_service
 `}</CodeBlock>
-        <div className={box}>
-          <p className={`text-sm ${subtle}`}>
-            If enabled is false after merge, server setup skips i18n service creation, resolver chain construction,
-            middleware insertion, and template global registration.
-          </p>
-        </div>
+        <p className={`text-sm mt-3 ${textMuted}`}>
+          If enabled is false after merge, server setup skips <DocTerm id="i18n.I18nService">I18nService</DocTerm> creation, resolver chain construction, and middleware insertion.
+        </p>
       </section>
 
+      {/* Key Reference */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Key Reference</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Key</th>
-                  <th className="text-left pb-3 font-semibold">Type</th>
-                  <th className="text-left pb-3 font-semibold">Description</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className={`border-b ${borderSubtle} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <th className="pb-3 font-semibold pr-4">Key</th>
+                <th className="pb-3 font-semibold pr-4">Type</th>
+                <th className="pb-3 font-semibold">Description</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {keys.map(([key, type, desc], i) => (
+                <tr key={i} className={`border-b ${borderSubtle} hover:bg-aquilia-50/[0.02]`}>
+                  <td className="py-2.5 font-mono text-aquilia-500 text-xs pr-4">{key}</td>
+                  <td className="py-2.5 font-mono text-xs pr-4 text-zinc-500">{type}</td>
+                  <td className="py-2.5 text-xs">{desc}</td>
                 </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {keys.map(([key, type, desc], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-500 text-xs pr-4">{key}</td>
-                    <td className="py-2 font-mono text-xs pr-4">{type}</td>
-                    <td className="py-2 text-xs">{desc}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
+      {/* Default Value Matrix */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Default Value Matrix</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Key</th>
-                  <th className="text-left pb-3 font-semibold">ConfigLoader</th>
-                  <th className="text-left pb-3 font-semibold">Integration.i18n</th>
-                  <th className="text-left pb-3 font-semibold">I18nConfig dataclass</th>
-                  <th className="text-left pb-3 font-semibold">from_dict fallback</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className={`border-b ${borderSubtle} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <th className="pb-3 font-semibold pr-4">Key</th>
+                <th className="pb-3 font-semibold pr-4">ConfigLoader</th>
+                <th className="pb-3 font-semibold pr-4">Integration.i18n</th>
+                <th className="pb-3 font-semibold pr-4">I18nConfig dataclass</th>
+                <th className="pb-3 font-semibold">from_dict fallback</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {defaults.map(([key, loader, integration, dataclassDefault, fromDict], i) => (
+                <tr key={i} className={`border-b ${borderSubtle} hover:bg-aquilia-50/[0.02]`}>
+                  <td className="py-2.5 font-mono text-aquilia-500 text-xs pr-4">{key}</td>
+                  <td className="py-2.5 font-mono text-xs pr-4 text-zinc-500">{loader}</td>
+                  <td className="py-2.5 font-mono text-xs pr-4 text-zinc-500">{integration}</td>
+                  <td className="py-2.5 font-mono text-xs pr-4 text-zinc-500">{dataclassDefault}</td>
+                  <td className="py-2.5 font-mono text-xs">{fromDict}</td>
                 </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {defaults.map(([key, loader, integration, dataclassDefault, fromDict], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-500 text-xs pr-4">{key}</td>
-                    <td className="py-2 font-mono text-xs pr-4">{loader}</td>
-                    <td className="py-2 font-mono text-xs pr-4">{integration}</td>
-                    <td className="py-2 font-mono text-xs pr-4">{dataclassDefault}</td>
-                    <td className="py-2 font-mono text-xs">{fromDict}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
+      {/* Missing-Key Strategies */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Missing-Key Strategies</h2>
-        <CodeBlock language="python" filename="aquilia/i18n/service.py::MissingKeyStrategy">{`return_key     # returns the dotted key
+        <CodeBlock language="python" filename="aquilia/i18n/service.py::MissingKeyStrategy" highlightLines={[1, 4]}>{`return_key     # returns the dotted key
 return_empty   # returns ""
 return_default # returns default argument if present, else key
 raise          # raises MissingTranslationFault
 log_and_key    # logs warning and returns key
-`}</CodeBlock>
-        <div className={box}>
-          <p className={`text-sm ${subtle}`}>
-            Passing default to t(...) or tn(...) bypasses strategy logic and returns your explicit default value.
-          </p>
-        </div>
-      </section>
-
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Production Example</h2>
-        <CodeBlock language="python" filename="workspace.py">{`Workspace("myapp").integrate(
-    Integration.i18n(
-        enabled=True,
-        default_locale="en",
-        available_locales=["en", "fr", "de", "ja"],
-        fallback_locale="en",
-        catalog_dirs=["locales", "modules/auth/locales"],
-        catalog_format="surp",
-        missing_key_strategy="log_and_key",
-        resolver_order=["query", "cookie", "session", "header"],
-        cookie_name="aq_locale",
-        query_param="lang",
-        auto_reload=False,
-    )
-)
 `}</CodeBlock>
       </section>
 
