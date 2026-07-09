@@ -1,611 +1,172 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Settings, Play, Zap } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { NextSteps } from '../../../components/NextSteps'
+import { Code, Layers, Terminal } from 'lucide-react'
 
 export function FilesystemController() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const subtleText = isDark ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto animate-fade-in select-none">
+      {/* Title Header */}
+      <div className="mb-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-aquilia-500/10 via-transparent to-transparent p-8 border border-white/5 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Settings className="w-4 h-4" />
-          Filesystem › Controller Guide
+          <Code className="w-4 h-4 animate-pulse" />
+          Filesystem / Controller Guide
         </div>
-        <h1 className={`text-4xl mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono">
-            Controller Integration
-          </span>
+        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          Controller Integration
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Using the filesystem module in Aquilia controllers for file uploads, downloads, 
-          and file management.
+        <p className={`text-lg leading-relaxed ${subtleText}`}>
+          Learn how to inject the FileSystem service, parse and validate file uploads, stream chunked files, check folder directories safely, and handle filesystem faults.
         </p>
       </div>
 
-      {/* DI Setup */}
+      {/* Dependency Injection */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Settings className="inline w-6 h-6 mr-2 text-aquilia-500" />
-          Dependency Injection Setup
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Injecting the FileSystem Service
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Register the <code className="text-aquilia-500">FileSystem</code> service for injection:
+        <p className={`mb-6 ${subtleText}`}>
+          The <DocTerm id="filesystem.FileSystem">FileSystem</DocTerm> service handles thread pool offloading and is automatically registered in the DI container.
         </p>
 
-        <CodeBlock language="python">{`# modules/files/manifest.py
-from aquilia import AppManifest
-from aquilia.filesystem import FileSystem, FileSystemConfig
-
-manifest = AppManifest(
-    name="files",
-    providers=[
-        # Default configuration
-        FileSystem,
-        
-        # Or with custom config
-        (FileSystem, lambda: FileSystem(
-            FileSystemConfig(
-                max_path_length=4096,
-                default_encoding="utf-8",
-                atomic_writes=True,
-            )
-        )),
-    ],
-    controllers=[
-        "modules.files.controllers.FilesController",
-    ],
-)`}</CodeBlock>
-      </section>
-
-      {/* Basic Controller */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Play className="inline w-6 h-6 mr-2 text-aquilia-500" />
-          Basic File Controller
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A simple controller for reading and writing files:
+        <p className={`mb-4 ${subtleText}`}>
+          Simply declare <DocTerm id="filesystem.FileSystem">FileSystem</DocTerm> as a parameter type in your Controller constructor. Aquilia resolves it automatically using type annotations, without requiring explicit <code className="text-aquilia-500">Inject()</code> defaults:
         </p>
+        <CodeBlock language="python" highlightLines={[9, 20]}>{`# modules/files/controllers.py
+from aquilia import Controller, GET, POST, RequestCtx, Response
+from aquilia.filesystem import FileSystem, FileNotFoundFault, PathTraversalFault
 
-        <CodeBlock language="python">{`# modules/files/controllers.py
-from aquilia import Controller, GET, POST, DELETE, RequestCtx, Response
-from aquilia.filesystem import (
-    FileSystem, read_file, write_file, delete_file, file_exists,
-    FileNotFoundFault, PermissionDeniedFault, PathTraversalFault
-)
+class MediaController(Controller):
+    prefix = "/media"
 
-class FilesController(Controller):
-    prefix = "/api/files"
-    tags = ["files"]
-    
+    # Auto-wired via DI using type annotations
     def __init__(self, fs: FileSystem):
         self.fs = fs
-        self.base_path = "./storage/files"
-    
-    @GET("/{path:path}")
-    async def read_file(self, ctx: RequestCtx, path: str):
-        """Read a file by path."""
-        full_path = f"{self.base_path}/{path}"
+        self.storage_root = "./var/media"
+
+    @GET("/read/{filename:path}")
+    async def view_file(self, ctx: RequestCtx, filename: str) -> Response:
+        # Resolve path safely inside our storage root boundary
+        target_path = f"{self.storage_root}/{filename}"
         
         try:
-            content = await self.fs.read_file(full_path)
+            # FileSystem automatically validates target_path sandboxing
+            content = await self.fs.read_file(target_path, sandbox=self.storage_root)
             return Response.text(content)
         except FileNotFoundFault:
-            return Response.json(
-                {"error": "File not found"},
-                status_code=404
-            )
+            return Response.json({"error": "File does not exist"}, status=404)
         except PathTraversalFault:
-            return Response.json(
-                {"error": "Invalid path"},
-                status_code=400
-            )
-    
-    @POST("/{path:path}")
-    async def write_file(self, ctx: RequestCtx, path: str):
-        """Write content to a file."""
-        full_path = f"{self.base_path}/{path}"
-        body = await ctx.request.body()
-        
-        try:
-            await self.fs.write_file(full_path, body.decode())
-            return Response.json({"status": "created"}, status_code=201)
-        except PermissionDeniedFault:
-            return Response.json(
-                {"error": "Permission denied"},
-                status_code=403
-            )
-    
-    @DELETE("/{path:path}")
-    async def delete_file(self, ctx: RequestCtx, path: str):
-        """Delete a file."""
-        full_path = f"{self.base_path}/{path}"
-        
-        try:
-            await self.fs.delete_file(full_path)
-            return Response.json({"status": "deleted"})
-        except FileNotFoundFault:
-            return Response.json(
-                {"error": "File not found"},
-                status_code=404
-            )`}</CodeBlock>
+            return Response.json({"error": "Illegal path access blocked"}, status=400)`}</CodeBlock>
       </section>
 
-      {/* File Upload */}
+      {/* File Uploads */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          File Upload Controller
+        <h2 className={`text-2xl font-bold mb-4`}>
+          Handling File Uploads
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Handle file uploads with validation and storage:
+        <p className={`mb-6 ${subtleText}`}>
+          Process uploaded files safely by running name sanitization and writing bytes asynchronously:
         </p>
+        <CodeBlock language="python" highlightLines={[5, 10, 14, 17]}>{`from aquilia.filesystem import sanitize_filename
 
-        <CodeBlock language="python">{`from aquilia import Controller, POST, RequestCtx, Response
-from aquilia.filesystem import (
-    FileSystem, write_file, make_dir, file_exists,
-    sanitize_filename, async_tempfile
-)
-import hashlib
-import uuid
-
-class UploadController(Controller):
-    prefix = "/api/upload"
-    tags = ["uploads"]
+@POST("/upload")
+async def upload(self, ctx: RequestCtx) -> Response:
+    file = await ctx.request.file("file")
+    if not file:
+        return Response.json({"error": "Missing file"}, status=400)
+        
+    # Sanitize name to avoid malicious shell/path segments
+    safe_name = sanitize_filename(file.filename)
+    dest_path = f"{self.storage_root}/{safe_name}"
     
-    ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".pdf", ".txt"}
-    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+    # Read uploaded stream
+    content = await file.read()
     
-    def __init__(self, fs: FileSystem):
-        self.fs = fs
-        self.upload_dir = "./storage/uploads"
+    # Write atomically (dest_path parent is created if missing)
+    await self.fs.write_file(dest_path, content, atomic=True, mkdir=True)
     
-    @POST("/")
-    async def upload_file(self, ctx: RequestCtx):
-        """Upload a file with validation."""
-        form = await ctx.request.form()
-        file = form.get("file")
-        
-        if not file:
-            return Response.json(
-                {"error": "No file provided"},
-                status_code=400
-            )
-        
-        # Validate extension
-        original_name = sanitize_filename(file.filename)
-        ext = "." + original_name.rsplit(".", 1)[-1].lower() if "." in original_name else ""
-        
-        if ext not in self.ALLOWED_EXTENSIONS:
-            return Response.json(
-                {"error": f"File type not allowed: {ext}"},
-                status_code=400
-            )
-        
-        # Read file content
-        content = await file.read()
-        
-        # Validate size
-        if len(content) > self.MAX_FILE_SIZE:
-            return Response.json(
-                {"error": f"File too large (max {self.MAX_FILE_SIZE} bytes)"},
-                status_code=400
-            )
-        
-        # Generate unique filename
-        file_id = str(uuid.uuid4())
-        filename = f"{file_id}{ext}"
-        filepath = f"{self.upload_dir}/{filename}"
-        
-        # Ensure upload directory exists
-        await make_dir(self.upload_dir)
-        
-        # Calculate hash for deduplication
-        file_hash = hashlib.sha256(content).hexdigest()
-        
-        # Save file
-        await write_file(filepath, content)
-        
-        return Response.json({
-            "id": file_id,
-            "filename": filename,
-            "original_name": original_name,
-            "size": len(content),
-            "hash": file_hash,
-        }, status_code=201)
-    
-    @POST("/chunked")
-    async def upload_chunked(self, ctx: RequestCtx):
-        """Handle chunked file upload for large files."""
-        form = await ctx.request.form()
-        
-        chunk = form.get("chunk")
-        chunk_number = int(form.get("chunk_number", 0))
-        total_chunks = int(form.get("total_chunks", 1))
-        file_id = form.get("file_id")
-        
-        if not all([chunk, file_id]):
-            return Response.json({"error": "Missing required fields"}, status_code=400)
-        
-        # Save chunk
-        chunk_dir = f"{self.upload_dir}/chunks/{file_id}"
-        await make_dir(chunk_dir)
-        await write_file(f"{chunk_dir}/{chunk_number}", await chunk.read())
-        
-        # If all chunks uploaded, combine them
-        if chunk_number == total_chunks - 1:
-            await self._combine_chunks(file_id, total_chunks)
-        
-        return Response.json({
-            "file_id": file_id,
-            "chunk_number": chunk_number,
-            "total_chunks": total_chunks,
-        })
-    
-    async def _combine_chunks(self, file_id: str, total_chunks: int):
-        """Combine uploaded chunks into final file."""
-        from aquilia.filesystem import async_open, remove_tree
-        
-        chunk_dir = f"{self.upload_dir}/chunks/{file_id}"
-        final_path = f"{self.upload_dir}/{file_id}"
-        
-        async with await async_open(final_path, "wb") as outfile:
-            for i in range(total_chunks):
-                chunk_path = f"{chunk_dir}/{i}"
-                async with await async_open(chunk_path, "rb") as chunk:
-                    await outfile.write(await chunk.read())
-        
-        # Clean up chunks
-        await remove_tree(chunk_dir)`}</CodeBlock>
+    return Response.json({"filename": safe_name, "bytes": len(content)}, status=201)`}</CodeBlock>
       </section>
 
-      {/* File Download */}
+      {/* Directory Browser */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          File Download with Streaming
+        <h2 className={`text-2xl font-bold mb-4`}>
+          Directory Listing Browser
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Stream large files to avoid loading them entirely into memory:
+        <p className={`mb-6 ${subtleText}`}>
+          Build a safe file list directory endpoint using <code className="text-aquilia-500">scan_dir</code> and <code className="text-aquilia-500">validate_relative_path</code>:
         </p>
+        <CodeBlock language="python" highlightLines={[8, 16, 21]}>{`from aquilia.filesystem import validate_relative_path, file_stat
 
-        <CodeBlock language="python">{`from aquilia import Controller, GET, RequestCtx, Response
-from aquilia.filesystem import (
-    FileSystem, stream_read, file_stat, file_exists,
-    FileNotFoundFault
-)
-import mimetypes
-
-class DownloadController(Controller):
-    prefix = "/api/download"
-    tags = ["downloads"]
-    
-    def __init__(self, fs: FileSystem):
-        self.fs = fs
-        self.files_dir = "./storage/files"
-    
-    @GET("/{file_id}")
-    async def download_file(self, ctx: RequestCtx, file_id: str):
-        """Download a file with streaming."""
-        filepath = f"{self.files_dir}/{file_id}"
-        
-        if not await file_exists(filepath):
-            return Response.json(
-                {"error": "File not found"},
-                status_code=404
-            )
-        
-        # Get file info
-        stat = await file_stat(filepath)
-        mime_type, _ = mimetypes.guess_type(file_id) or ("application/octet-stream", None)
-        
-        # Stream the file
-        async def file_stream():
-            async for chunk in stream_read(filepath, chunk_size=65536):
-                yield chunk
-        
-        return Response.stream(
-            file_stream(),
-            media_type=mime_type,
-            headers={
-                "Content-Length": str(stat.size),
-                "Content-Disposition": f'attachment; filename="{file_id}"',
-            }
-        )
-    
-    @GET("/{file_id}/range")
-    async def download_range(self, ctx: RequestCtx, file_id: str):
-        """Support Range requests for video streaming."""
-        from aquilia.filesystem import async_open
-        
-        filepath = f"{self.files_dir}/{file_id}"
-        
-        if not await file_exists(filepath):
-            return Response.json({"error": "File not found"}, status_code=404)
-        
-        stat = await file_stat(filepath)
-        file_size = stat.size
-        
-        # Parse Range header
-        range_header = ctx.request.headers.get("Range")
-        if not range_header:
-            # No range, return full file
-            return await self.download_file(ctx, file_id)
-        
-        # Parse "bytes=start-end"
-        range_match = range_header.replace("bytes=", "").split("-")
-        start = int(range_match[0]) if range_match[0] else 0
-        end = int(range_match[1]) if range_match[1] else file_size - 1
-        
-        # Validate range
-        if start >= file_size or end >= file_size:
-            return Response.text("", status_code=416, headers={
-                "Content-Range": f"bytes */{file_size}"
-            })
-        
-        length = end - start + 1
-        
-        async def range_stream():
-            async with await async_open(filepath, "rb") as f:
-                await f.seek(start)
-                remaining = length
-                while remaining > 0:
-                    chunk_size = min(65536, remaining)
-                    chunk = await f.read(chunk_size)
-                    if not chunk:
-                        break
-                    remaining -= len(chunk)
-                    yield chunk
-        
-        mime_type, _ = mimetypes.guess_type(file_id) or ("application/octet-stream", None)
-        
-        return Response.stream(
-            range_stream(),
-            status_code=206,
-            media_type=mime_type,
-            headers={
-                "Content-Range": f"bytes {start}-{end}/{file_size}",
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(length),
-            }
-        )`}</CodeBlock>
-      </section>
-
-      {/* Directory Listing */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Directory Listing Controller
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Create a file browser API:
-        </p>
-
-        <CodeBlock language="python">{`from aquilia import Controller, GET, RequestCtx, Response
-from aquilia.filesystem import (
-    FileSystem, scan_dir, file_stat, file_exists,
-    NotDirectoryFault, validate_path
-)
-from datetime import datetime
-
-class BrowserController(Controller):
-    prefix = "/api/browser"
-    tags = ["browser"]
-    
-    def __init__(self, fs: FileSystem):
-        self.fs = fs
-        self.root = "./storage/files"
-    
-    @GET("/")
-    @GET("/{path:path}")
-    async def list_directory(self, ctx: RequestCtx, path: str = ""):
-        """List contents of a directory."""
-        # Validate path
+@GET("/list/{folder:path}")
+async def list_folder(self, ctx: RequestCtx, folder: str = "") -> Response:
+    # Ensure relative path has no '..' segments
+    if folder:
         try:
-            validate_path(path, allow_absolute=False)
+            folder = validate_relative_path(folder)
         except Exception:
-            return Response.json({"error": "Invalid path"}, status_code=400)
+            return Response.json({"error": "Malformed path"}, status=400)
+            
+    full_path = f"{self.storage_root}/{folder}" if folder else self.storage_root
+    
+    try:
+        # scan_dir returns a list of DirEntry dataclasses
+        entries = await self.fs.scan_dir(full_path, sandbox=self.storage_root)
         
-        full_path = f"{self.root}/{path}" if path else self.root
-        
-        if not await file_exists(full_path):
-            return Response.json({"error": "Not found"}, status_code=404)
-        
-        entries = []
-        try:
-            async for entry in scan_dir(full_path):
-                stat = await file_stat(entry.path)
-                entries.append({
-                    "name": entry.name,
-                    "type": "directory" if entry.is_dir else "file",
-                    "size": stat.size if entry.is_file else None,
-                    "modified": datetime.fromtimestamp(stat.mtime).isoformat(),
-                })
-        except NotDirectoryFault:
-            # It's a file, return file info
-            stat = await file_stat(full_path)
-            return Response.json({
-                "type": "file",
-                "name": path.split("/")[-1],
-                "size": stat.size,
-                "modified": datetime.fromtimestamp(stat.mtime).isoformat(),
+        results = []
+        for entry in entries:
+            # DirEntry holds cached boolean flags
+            entry_type = "directory" if entry.is_dir_cached else "file"
+            results.append({
+                "name": entry.name,
+                "type": entry_type,
+                "path": entry.path
             })
-        
-        # Sort: directories first, then by name
-        entries.sort(key=lambda e: (e["type"] != "directory", e["name"].lower()))
-        
-        return Response.json({
-            "path": path,
-            "entries": entries,
-            "total": len(entries),
-        })`}</CodeBlock>
+            
+        return Response.json({"folder": folder, "entries": results})
+    except FileNotFoundFault:
+        return Response.json({"error": "Directory does not exist"}, status=404)`}</CodeBlock>
       </section>
 
-      {/* Error Handling */}
+      {/* Fault Management */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Comprehensive Error Handling
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Terminal className="w-5 h-5 text-aquilia-500" />
+          Handling Filesystem Faults
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Handle all filesystem errors gracefully:
+        <p className={`mb-6 ${subtleText}`}>
+          Catch concrete filesystem faults from <code className="text-aquilia-500">aquilia.filesystem</code> to return clean status codes:
         </p>
-
         <CodeBlock language="python">{`from aquilia.filesystem import (
     FileSystemFault,
     FileNotFoundFault,
     PermissionDeniedFault,
     FileExistsFault,
-    IsDirectoryFault,
-    NotDirectoryFault,
-    DiskFullFault,
-    PathTraversalFault,
-    PathTooLongFault,
-)
-from aquilia.faults import Fault
-
-# Middleware for filesystem error handling
-class FileSystemErrorMiddleware:
-    async def __call__(self, ctx: RequestCtx, next_handler):
-        try:
-            return await next_handler(ctx)
-        except PathTraversalFault as e:
-            # Security issue - don't reveal details
-            return Response.json(
-                {"error": "Invalid path"},
-                status_code=400
-            )
-        except FileNotFoundFault as e:
-            return Response.json(
-                {"error": "File not found", "path": e.path},
-                status_code=404
-            )
-        except PermissionDeniedFault as e:
-            return Response.json(
-                {"error": "Permission denied"},
-                status_code=403
-            )
-        except FileExistsFault as e:
-            return Response.json(
-                {"error": "File already exists", "path": e.path},
-                status_code=409
-            )
-        except IsDirectoryFault:
-            return Response.json(
-                {"error": "Path is a directory"},
-                status_code=400
-            )
-        except NotDirectoryFault:
-            return Response.json(
-                {"error": "Path is not a directory"},
-                status_code=400
-            )
-        except DiskFullFault:
-            return Response.json(
-                {"error": "Storage full"},
-                status_code=507
-            )
-        except PathTooLongFault:
-            return Response.json(
-                {"error": "Path too long"},
-                status_code=400
-            )
-        except FileSystemFault as e:
-            # Generic filesystem error
-            return Response.json(
-                {"error": "Filesystem error", "code": e.code},
-                status_code=500
-            )`}</CodeBlock>
-      </section>
-
-      {/* Testing */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Zap className="inline w-6 h-6 mr-2 text-aquilia-500" />
-          Testing
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Test filesystem operations using temporary directories:
-        </p>
-
-        <CodeBlock language="python">{`import pytest
-from aquilia.testing import TestClient
-from aquilia.filesystem import (
-    FileSystem, async_tempdir, write_file, read_file
+    DiskFullFault
 )
 
-@pytest.fixture
-async def temp_fs():
-    """Provide a FileSystem with temp directory."""
-    async with await async_tempdir() as tmpdir:
-        fs = FileSystem()
-        yield fs, tmpdir
-
-@pytest.fixture
-async def client(temp_fs):
-    """Test client with temp filesystem."""
-    fs, tmpdir = temp_fs
-    
-    # Create test app with temp storage
-    from myapp import create_app
-    app = create_app(storage_path=tmpdir)
-    
-    async with TestClient(app) as client:
-        yield client, tmpdir
-
-class TestFilesController:
-    async def test_read_file(self, client):
-        client, tmpdir = client
-        
-        # Setup: create test file
-        await write_file(f"{tmpdir}/test.txt", "Hello, World!")
-        
-        # Test read
-        response = await client.get("/api/files/test.txt")
-        assert response.status_code == 200
-        assert response.text == "Hello, World!"
-    
-    async def test_read_nonexistent(self, client):
-        client, _ = client
-        
-        response = await client.get("/api/files/nonexistent.txt")
-        assert response.status_code == 404
-    
-    async def test_path_traversal_blocked(self, client):
-        client, _ = client
-        
-        response = await client.get("/api/files/../../../etc/passwd")
-        assert response.status_code == 400
-        assert "Invalid path" in response.json()["error"]
-    
-    async def test_upload_file(self, client):
-        client, tmpdir = client
-        
-        response = await client.post(
-            "/api/upload/",
-            files={"file": ("test.txt", b"content", "text/plain")}
-        )
-        
-        assert response.status_code == 201
-        data = response.json()
-        assert "id" in data
-        assert data["size"] == 7
-    
-    async def test_upload_large_file_rejected(self, client):
-        client, _ = client
-        
-        # Create 20MB file
-        large_content = b"x" * (20 * 1024 * 1024)
-        
-        response = await client.post(
-            "/api/upload/",
-            files={"file": ("large.bin", large_content, "application/octet-stream")}
-        )
-        
-        assert response.status_code == 400
-        assert "too large" in response.json()["error"]`}</CodeBlock>
+@GET("/info")
+async def info(self, ctx: RequestCtx) -> Response:
+    try:
+        stat = await self.fs.file_stat(f"{self.storage_root}/config.json")
+        return Response.json({"size": stat.size, "mtime": stat.mtime})
+    except FileNotFoundFault:
+        return Response.json({"error": "config.json does not exist"}, status=404)
+    except PermissionDeniedFault:
+        return Response.json({"error": "System read permissions denied"}, status=403)
+    except DiskFullFault:
+        return Response.json({"error": "Host disk partition is full"}, status=507)
+    except FileSystemFault as e:
+        return Response.json({"error": f"I/O error: {e.message}"}, status=500)`}</CodeBlock>
       </section>
 
-      {/* Next Steps */}
+      <NextSteps />
     </div>
   )
 }
