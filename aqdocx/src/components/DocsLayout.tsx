@@ -6,7 +6,7 @@ import { TableOfContents } from './TableOfContents'
 import { useTheme } from '../context/ThemeContext'
 import { Footer } from './Footer'
 import { useReactToPrint } from 'react-to-print'
-import { Printer } from 'lucide-react'
+import { Printer, FileText, BookOpen } from 'lucide-react'
 import { SEO } from './SEO'
 
 // Recursive helper to find page labels
@@ -191,7 +191,7 @@ export function DocsLayout() {
                             isDark ? 'hover:bg-white/5 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900'
                           }`}
                         >
-                          <span>📄</span> Print This Page
+                          <FileText className="w-3.5 h-3.5 opacity-70" /> Print This Page
                         </button>
                         <button
                           onClick={() => {
@@ -202,7 +202,7 @@ export function DocsLayout() {
                             isDark ? 'hover:bg-white/5 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900'
                           }`}
                         >
-                          <span>📚</span> Print Entire Documentation
+                          <BookOpen className="w-3.5 h-3.5 opacity-70" /> Print Entire Documentation
                         </button>
                       </div>
                     </>
