@@ -313,7 +313,7 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'Cryptographic Signing', path: '/docs/signing', icon: <Shield className="w-3.5 h-3.5" />,
+        label: 'Signing', path: '/docs/signing', icon: <Shield className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/signing/overview' },
           { label: 'Core Signers', path: '/docs/signing/signers' },
