@@ -73,8 +73,8 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
       </p>
 
       {/* SVG Pipeline Map */}
-      <div className="w-full max-w-2xl mx-auto h-[260px] relative overflow-hidden">
-        <svg viewBox="0 0 640 260" className="w-full h-full bg-transparent overflow-visible">
+      <div className="w-full max-w-2xl mx-auto h-[370px] relative overflow-hidden">
+        <svg viewBox="0 0 640 370" className="w-full h-full bg-transparent overflow-visible">
           {/* Defs & Patterns */}
           <defs>
             <pattern id="blueprint-grid" width="16" height="16" patternUnits="userSpaceOnUse">
@@ -95,7 +95,7 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
 
           {/* Central Vertical spine axis line */}
           <line 
-            x1="320" y1="0" x2="320" y2="260" 
+            x1="320" y1="0" x2="320" y2="370" 
             stroke={isDark ? "#27272a" : "#e4e4e7"} 
             strokeWidth="1" 
             strokeDasharray="4 4" 
@@ -103,13 +103,13 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
 
           {/* Left Inbound path (Green) */}
           <path
-            d="M 60,40 C 180,40 240,70 270,100 C 290,120 250,180 320,210"
+            d="M 60,60 C 180,60 240,105 270,150 C 290,180 250,270 320,315"
             fill="none"
             stroke={isDark ? "#1f1f23" : "#f1f5f9"}
             strokeWidth="1.5"
           />
           <motion.path
-            d="M 60,40 C 180,40 240,70 270,100 C 290,120 250,180 320,210"
+            d="M 60,60 C 180,60 240,105 270,150 C 290,180 250,270 320,315"
             fill="none"
             stroke="url(#inbound-pulse-grad)"
             strokeWidth="2"
@@ -120,13 +120,13 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
 
           {/* Right Outbound path (Blue) */}
           <path
-            d="M 320,210 C 390,180 350,120 370,100 C 395,70 460,40 580,40"
+            d="M 320,315 C 390,270 350,180 370,150 C 395,105 460,60 580,60"
             fill="none"
             stroke={isDark ? "#1f1f23" : "#f1f5f9"}
             strokeWidth="1.5"
           />
           <motion.path
-            d="M 320,210 C 390,180 350,120 370,100 C 395,70 460,40 580,40"
+            d="M 320,315 C 390,270 350,180 370,150 C 395,105 460,60 580,60"
             fill="none"
             stroke="url(#outbound-pulse-grad)"
             strokeWidth="2"
@@ -137,14 +137,14 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
 
           {/* Central Blueprint Core Ring */}
           <circle 
-            cx="320" cy="100" r="18" 
+            cx="320" cy="150" r="18" 
             fill={isDark ? "#09090b" : "#ffffff"} 
             stroke={hoveredStep ? "#10b981" : (isDark ? "#3f3f46" : "#cbd5e1")} 
             strokeWidth="1.5" 
             className="transition-colors duration-300"
           />
           <text 
-            x="320" y="103" textAnchor="middle" 
+            x="320" y="153" textAnchor="middle" 
             fill={isDark ? "#71717a" : "#a1a1aa"} 
             fontSize="7" fontWeight="bold" fontFamily="monospace"
           >
@@ -153,14 +153,14 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
 
           {/* Bottom DB Model Ring */}
           <circle 
-            cx="320" cy="210" r="16" 
+            cx="320" cy="315" r="16" 
             fill={isDark ? "#09090b" : "#ffffff"} 
             stroke={hoveredStep === 'imprint' ? "#059669" : (isDark ? "#3f3f46" : "#cbd5e1")} 
             strokeWidth="1.5" 
             className="transition-colors duration-300"
           />
           <text 
-            x="320" y="213" textAnchor="middle" 
+            x="320" y="318" textAnchor="middle" 
             fill={isDark ? "#52525b" : "#a1a1aa"} 
             fontSize="6" fontWeight="bold" fontFamily="monospace"
           >
@@ -168,12 +168,12 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           </text>
 
           {/* Left Endpoint: Request */}
-          <circle cx="60" cy="40" r="4" fill="#10b981" />
-          <text x="60" y="28" textAnchor="middle" fill="#10b981" fontSize="8" fontWeight="bold" fontFamily="monospace">REQUEST</text>
+          <circle cx="60" cy="60" r="4" fill="#10b981" />
+          <text x="60" y="45" textAnchor="middle" fill="#10b981" fontSize="8" fontWeight="bold" fontFamily="monospace">REQUEST</text>
 
           {/* Right Endpoint: Response */}
-          <circle cx="580" cy="40" r="4" fill="#3b82f6" />
-          <text x="580" y="28" textAnchor="middle" fill="#3b82f6" fontSize="8" fontWeight="bold" fontFamily="monospace">RESPONSE</text>
+          <circle cx="580" cy="60" r="4" fill="#3b82f6" />
+          <text x="580" y="45" textAnchor="middle" fill="#3b82f6" fontSize="8" fontWeight="bold" fontFamily="monospace">RESPONSE</text>
 
           {/* INBOUND NODES */}
           {/* Node: Cast */}
@@ -184,19 +184,19 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           >
             {/* Spinning reticle */}
             <circle 
-              cx="160" cy="47" r="8" 
+              cx="160" cy="70" r="8" 
               fill="none" stroke="#10b981" strokeWidth="0.5" strokeDasharray="2 2"
               className={hoveredStep === 'cast' ? 'animate-spin' : ''}
-              style={{ transformOrigin: '160px 47px', animationDuration: '3s' }}
+              style={{ transformOrigin: '160px 70px', animationDuration: '3s' }}
             />
             <circle 
-              cx="160" cy="47" 
+              cx="160" cy="70" 
               r="4.5" 
               fill={hoveredStep === 'cast' ? "#10b981" : (isDark ? "#09090b" : "#ffffff")} 
               stroke="#10b981" strokeWidth="1.5"
               className="transition-all duration-200"
             />
-            <text x="160" y="67" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">1. CAST</text>
+            <text x="160" y="93" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">1. CAST</text>
           </g>
 
           {/* Node: Seal */}
@@ -207,19 +207,19 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           >
             {/* Spinning reticle */}
             <circle 
-              cx="251" cy="87" r="8" 
+              cx="251" cy="130" r="8" 
               fill="none" stroke="#10b981" strokeWidth="0.5" strokeDasharray="2 2"
               className={hoveredStep === 'seal' ? 'animate-spin' : ''}
-              style={{ transformOrigin: '251px 87px', animationDuration: '3s' }}
+              style={{ transformOrigin: '251px 130px', animationDuration: '3s' }}
             />
             <circle 
-              cx="251" cy="87" 
+              cx="251" cy="130" 
               r="4.5" 
               fill={hoveredStep === 'seal' ? "#10b981" : (isDark ? "#09090b" : "#ffffff")} 
               stroke="#10b981" strokeWidth="1.5"
               className="transition-all duration-200"
             />
-            <text x="231" y="107" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">2. SEAL</text>
+            <text x="231" y="153" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">2. SEAL</text>
           </g>
 
           {/* Node: Imprint */}
@@ -230,19 +230,19 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           >
             {/* Spinning reticle */}
             <circle 
-              cx="278" cy="164" r="8" 
+              cx="278" cy="246" r="8" 
               fill="none" stroke="#059669" strokeWidth="0.5" strokeDasharray="2 2"
               className={hoveredStep === 'imprint' ? 'animate-spin' : ''}
-              style={{ transformOrigin: '278px 164px', animationDuration: '3s' }}
+              style={{ transformOrigin: '278px 246px', animationDuration: '3s' }}
             />
             <circle 
-              cx="278" cy="164" 
+              cx="278" cy="246" 
               r="4.5" 
               fill={hoveredStep === 'imprint' ? "#059669" : (isDark ? "#09090b" : "#ffffff")} 
               stroke="#059669" strokeWidth="1.5"
               className="transition-all duration-200"
             />
-            <text x="238" y="169" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">3. IMPRINT</text>
+            <text x="238" y="269" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">3. IMPRINT</text>
           </g>
 
           {/* OUTBOUND NODES */}
@@ -254,19 +254,19 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           >
             {/* Spinning reticle */}
             <circle 
-              cx="362" cy="164" r="8" 
+              cx="362" cy="246" r="8" 
               fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="2 2"
               className={hoveredStep === 'projection' ? 'animate-spin' : ''}
-              style={{ transformOrigin: '362px 164px', animationDuration: '3s' }}
+              style={{ transformOrigin: '362px 246px', animationDuration: '3s' }}
             />
             <circle 
-              cx="362" cy="164" 
+              cx="362" cy="246" 
               r="4.5" 
               fill={hoveredStep === 'projection' ? "#3b82f6" : (isDark ? "#09090b" : "#ffffff")} 
               stroke="#3b82f6" strokeWidth="1.5"
               className="transition-all duration-200"
             />
-            <text x="402" y="169" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">1. PROJECT</text>
+            <text x="402" y="269" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">1. PROJECT</text>
           </g>
 
           {/* Node: Lens */}
@@ -277,19 +277,19 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           >
             {/* Spinning reticle */}
             <circle 
-              cx="384" cy="87" r="8" 
+              cx="384" cy="130" r="8" 
               fill="none" stroke="#3b82f6" strokeWidth="0.5" strokeDasharray="2 2"
               className={hoveredStep === 'lens' ? 'animate-spin' : ''}
-              style={{ transformOrigin: '384px 87px', animationDuration: '3s' }}
+              style={{ transformOrigin: '384px 130px', animationDuration: '3s' }}
             />
             <circle 
-              cx="384" cy="87" 
+              cx="384" cy="130" 
               r="4.5" 
               fill={hoveredStep === 'lens' ? "#3b82f6" : (isDark ? "#09090b" : "#ffffff")} 
               stroke="#3b82f6" strokeWidth="1.5"
               className="transition-all duration-200"
             />
-            <text x="404" y="107" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">2. LENS</text>
+            <text x="404" y="153" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">2. LENS</text>
           </g>
 
           {/* Node: Mold */}
@@ -300,19 +300,19 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           >
             {/* Spinning reticle */}
             <circle 
-              cx="489" cy="47" r="8" 
+              cx="489" cy="70" r="8" 
               fill="none" stroke="#2563eb" strokeWidth="0.5" strokeDasharray="2 2"
               className={hoveredStep === 'mold' ? 'animate-spin' : ''}
-              style={{ transformOrigin: '489px 47px', animationDuration: '3s' }}
+              style={{ transformOrigin: '489px 70px', animationDuration: '3s' }}
             />
             <circle 
-              cx="489" cy="47" 
+              cx="489" cy="70" 
               r="4.5" 
               fill={hoveredStep === 'mold' ? "#2563eb" : (isDark ? "#09090b" : "#ffffff")} 
               stroke="#2563eb" strokeWidth="1.5"
               className="transition-all duration-200"
             />
-            <text x="489" y="67" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">3. MOLD</text>
+            <text x="489" y="93" textAnchor="middle" fill={isDark ? "#a1a1aa" : "#71717a"} fontSize="8" fontFamily="monospace">3. MOLD</text>
           </g>
         </svg>
       </div>
