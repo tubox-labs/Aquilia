@@ -1,137 +1,178 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Globe } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function WebSocketAdapters() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderMuted = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-2">
+      {/* Header */}
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Globe className="w-4 h-4" />
+          <Layers className="w-4 h-4" />
           WebSockets / Adapters
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            WebSocket Adapters
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-extrabold tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="gradient-text font-mono">Scaling Adapters</span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Adapters enable horizontal scaling by synchronizing room memberships and broadcast messages across multiple server instances. Aquilia provides three adapters out of the box.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          Adapters route events, channel subscriptions, room memberships, and messages across your application processes. This pub/sub interface enables AquilaSockets to scale horizontally from a single node to multi-server clusters.
         </p>
       </div>
 
-      {/* Adapter Comparison */}
+      {/* Adapter base class */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Adapter Comparison</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Adapter</th>
-                  <th className="text-left pb-3 font-semibold">Scaling</th>
-                  <th className="text-left pb-3 font-semibold">Dependencies</th>
-                  <th className="text-left pb-3 font-semibold">Best For</th>
-                </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {[
-                  ['InMemoryAdapter', 'Single process', 'None', 'Development, testing, single-instance deploys'],
-                  ['RedisAdapter', 'Multi-process', 'Redis 5+', 'Production horizontal scaling with Redis Pub/Sub'],
-                  ['Adapter (base)', '-', '-', 'Subclass to implement custom adapters (NATS, Kafka, etc.)'],
-                ].map(([name, scale, deps, best], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-400 text-xs">{name}</td>
-                    <td className="py-2 text-xs">{scale}</td>
-                    <td className="py-2 text-xs">{deps}</td>
-                    <td className="py-2 text-xs">{best}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          The Adapter Base Class
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          To write a custom adapter (e.g. for NATS or RabbitMQ), inherit from the base <code className="text-aquilia-400">Adapter</code> class and implement the following async signature interfaces:
+        </p>
+
+        <CodeBlock
+          language="python"
+          filename="base_adapter.py"
+          highlightLines={[7, 11, 15, 23, 27, 31]}
+        >{`from aquilia.sockets import Adapter, MessageEnvelope
+
+class CustomAdapter(Adapter):
+
+    async def initialize(self) -> None:
+        """Establish client connections to external message brokers."""
+        pass
+
+    async def shutdown(self) -> None:
+        """Close connections and flush buffers during server teardown."""
+        pass
+
+    async def publish(self, namespace: str, room: str, envelope: MessageEnvelope, exclude_connection: str | None = None) -> None:
+        """Publish a message to all members subscribing to a room across clusters."""
+        pass
+
+    async def broadcast(self, namespace: str, envelope: MessageEnvelope, exclude_connection: str | None = None) -> None:
+        """Broadcast a message to all active connections inside a namespace."""
+        pass
+
+    async def join_room(self, namespace: str, room: str, connection_id: str) -> None:
+        """Register a connection ID as a member of a room."""
+        pass
+
+    async def leave_room(self, namespace: str, room: str, connection_id: str) -> None:
+        """Unregister a connection ID from a room."""
+        pass
+
+    async def get_room_members(self, namespace: str, room: str) -> set[str]:
+        """Fetch active connection IDs inside a room across nodes."""
+        return set()
+
+    async def get_connection_count(self, namespace: str) -> int:
+        """Fetch total client count within the namespace."""
+        return 0`}</CodeBlock>
       </section>
 
       {/* InMemoryAdapter */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>InMemoryAdapter</h2>
-        <CodeBlock language="python" filename="memory.py">{`from aquilia.sockets import AquilaSockets, InMemoryAdapter
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          InMemoryAdapter (Default)
+        </h2>
+        <p className={`text-sm mb-4 ${textMuted}`}>
+          The default adapter manages connection states, room memberships, and broadcasts entirely inside the local application memory. It is optimized for single-instance applications, developer environments, and automated testing suites.
+        </p>
+        <CodeBlock
+          language="python"
+          filename="in_memory_config.py"
+          highlightLines={[3]}
+        >{`from aquilia.sockets import AquilaSockets, InMemoryAdapter
 
-sockets = AquilaSockets(adapter=InMemoryAdapter())
-# All rooms and broadcasts are in-process only.
-# Perfect for development and testing.`}</CodeBlock>
+sockets = AquilaSockets(
+    router=router,
+    adapter=InMemoryAdapter()
+)`}</CodeBlock>
       </section>
 
       {/* RedisAdapter */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>RedisAdapter</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Uses Redis Pub/Sub to synchronize broadcast messages across multiple server instances. Room membership is tracked in Redis Sets.
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          RedisAdapter (Production Scaling)
+        </h2>
+        <p className={`text-sm mb-4 ${textMuted}`}>
+          The <DocTerm id="sockets.RedisAdapter">RedisAdapter</DocTerm> uses Redis Pub/Sub channels to sync message delivery between server processes. Connection metadata and room rosters are maintained atomically inside Redis Sets and Sorted Sets:
         </p>
-        <CodeBlock language="python" filename="redis.py">{`from aquilia.sockets import AquilaSockets, RedisAdapter
+        <CodeBlock
+          language="python"
+          filename="redis_config.py"
+          highlightLines={[3, 4, 5]}
+        >{`from aquilia.sockets import AquilaSockets, RedisAdapter
 
-sockets = AquilaSockets(
-    adapter=RedisAdapter(
-        url="redis://localhost:6379/0",
-        channel_prefix="ws:",
-        pool_size=10,
-    ),
+adapter = RedisAdapter(
+    url="redis://localhost:6379/0",
+    channel_prefix="ws:",
+    pool_size=15
 )
 
-# When Server A broadcasts to room "chat:general":
-# 1. Publishes to Redis channel "ws:chat:general"
-# 2. Server B, C, etc. receive and forward to their local connections`}</CodeBlock>
+sockets = AquilaSockets(
+    router=router,
+    adapter=adapter
+)`}</CodeBlock>
       </section>
 
-      {/* Custom Adapter */}
+      {/* Custom Adapter Implementation */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Custom Adapter</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Subclass <code className="text-aquilia-400">Adapter</code> to integrate with any message broker.
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Implementing a Custom Adapter
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          To integrate with other messaging brokers like NATS or RabbitMQ, inherit from <code className="text-aquilia-400">Adapter</code>:
         </p>
-        <CodeBlock language="python" filename="custom.py">{`from aquilia.sockets import Adapter
+        <CodeBlock
+          language="python"
+          filename="custom_adapter.py"
+          highlightLines={[5, 11]}
+        >{`from aquilia.sockets import Adapter, MessageEnvelope
 
-class NATSAdapter(Adapter):
+class NatsWebSocketAdapter(Adapter):
     def __init__(self, nats_url: str):
-        self.url = nats_url
+        self.nats_url = nats_url
+        self.nc = None
 
     async def initialize(self):
-        """Connect to NATS."""
-        ...
+        import nats
+        self.nc = await nats.connect(self.nats_url)
 
-    async def publish(self, channel: str, message: bytes):
-        """Publish a message to all instances."""
-        ...
-
-    async def subscribe(self, channel: str, callback):
-        """Subscribe to receive messages from other instances."""
-        ...
-
-    async def join_room(self, room: str, connection_id: str):
-        """Track room membership."""
-        ...
-
-    async def leave_room(self, room: str, connection_id: str):
-        """Remove room membership."""
-        ...
-
-    async def get_room_members(self, room: str) -> set[str]:
-        """Get all connection IDs in a room."""
-        ...
+    async def publish(self, namespace: str, room: str, envelope: MessageEnvelope, exclude_connection: str | None = None):
+        subject = f"ws.{namespace}.{room}"
+        payload = self.codec.encode(envelope)
+        await self.nc.publish(subject, payload)
 
     async def shutdown(self):
-        """Disconnect from NATS."""
-        ...`}</CodeBlock>
+        if self.nc:
+            await self.nc.close()`}</CodeBlock>
       </section>
-    
-      <NextSteps />
+
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
+        <Link to="/docs/websockets/runtime" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+          <ArrowLeft className="w-4 h-4" /> WebSocket Runtime
+        </Link>
+        <Link to="/docs/templates" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          Templates <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
+      <NextSteps
+        items={[
+          { text: 'Templates Overview', link: '/docs/templates' },
+          { text: 'TemplateEngine API', link: '/docs/templates/engine' },
+          { text: 'Developer Integration Guide', link: '/docs/developer-guide' },
+        ]}
+      />
     </div>
   )
 }

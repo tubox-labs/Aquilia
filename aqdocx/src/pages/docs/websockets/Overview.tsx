@@ -1,184 +1,249 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Radio } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Radio, Shield, Network, Zap } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function WebSocketsOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderMuted = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-2">
+      {/* Header */}
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Radio className="w-4 h-4" />
+          <Radio className="w-4 h-4 animate-pulse" />
           Advanced / WebSockets
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            WebSockets
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-extrabold tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="gradient-text font-mono">WebSockets Overview</span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          AquilaSockets provides production-grade WebSocket support with controller-based declarative syntax, DI-scoped connections, typed message envelopes, room-based pub/sub, horizontal scaling adapters, and auth-first handshake guards.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          AquilaSockets provides production-grade WebSocket support featuring a declarative, decorator-driven syntax. Every connection is backed by its own request-scoped DI container, auth-first upgrade guards, structured message envelopes, event streaming, and horizontal scaling via message broker adapters.
         </p>
       </div>
 
-      {/* Architecture */}
+      {/* Integration Guide */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Architecture</h2>
-        <div className="space-y-3">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          System Integration & Registration
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          To activate WebSocket routing, a controller must be mounted in your module's manifest, which is in turn loaded by the workspace configuration.
+        </p>
+
+        {/* Workspace Level */}
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>1. Workspace Registration</h3>
+          <p className={`text-sm mb-4 ${textMuted}`}>
+            Register your module within the workspace builder in <code className="text-aquilia-400">workspace.py</code>:
+          </p>
+          <CodeBlock
+            language="python"
+            filename="workspace.py"
+            highlightLines={[8]}
+          >{`from aquilia.workspace import Workspace, Module
+
+workspace = (
+    Workspace("myapp")
+    .runtime(port=8000)
+    .module(
+        Module("chat")
+        .route_prefix("/chat")
+    )
+)`}</CodeBlock>
+        </div>
+
+        {/* Manifest Level */}
+        <div className="mb-8">
+          <h3 className={`text-lg font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>2. Manifest Mounting</h3>
+          <p className={`text-sm mb-4 ${textMuted}`}>
+            Mount the socket controller class inside your module's manifest file in the <code className="text-aquilia-400">socket_controllers</code> parameter:
+          </p>
+          <CodeBlock
+            language="python"
+            filename="modules/chat/manifest.py"
+            highlightLines={[7]}
+          >{`from aquilia.manifest import AppManifest
+
+manifest = AppManifest(
+    name="chat",
+    version="1.0.0",
+    controllers=[],
+    socket_controllers=[
+        "modules.chat.controllers:RoomChatController",
+    ],
+    services=[
+        "modules.chat.services:ChatService"
+    ]
+)`}</CodeBlock>
+        </div>
+      </section>
+
+      {/* Architecture Section */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Subsystem Architecture
+        </h2>
+        <p className={`text-sm mb-8 ${textMuted}`}>
+          The WebSocket module separates connection lifecycle, message codec parsing, security validation, and pub/sub distribution into distinct components:
+        </p>
+        <div className="space-y-8">
           {[
-            { name: 'SocketController', desc: 'Class-based WebSocket handler. Compiled at build time, instantiated per-connection with its own DI scope.' },
-            { name: 'Connection', desc: 'Represents a WebSocket connection with state tracking, send/receive methods, and room membership.' },
-            { name: 'MessageEnvelope', desc: 'Typed message wrapper with event name, payload, metadata, and codec (JSON by default).' },
-            { name: 'AquilaSockets', desc: 'Runtime that manages socket controllers, routing, connection lifecycle, and adapter bridging.' },
-            { name: 'Adapter', desc: 'Pluggable transport for horizontal scaling: InMemoryAdapter (default), RedisAdapter, or custom.' },
-            { name: 'SocketGuard', desc: 'Security guards for handshake auth, origin validation, message auth, and rate limiting.' },
+            {
+              name: 'SocketController',
+              id: 'sockets.SocketController',
+              desc: 'Class-based message handler compiled at build-time. It maps incoming events to async methods, instantiated inside a request-scoped DI container.'
+            },
+            {
+              name: 'Connection',
+              id: 'sockets.Connection',
+              desc: 'Active connection handle wrapping the underlying transport. Manages state dictionaries, room subscriptions, connection statistics, and async sending.'
+            },
+            {
+              name: 'MessageEnvelope',
+              id: 'sockets.MessageEnvelope',
+              desc: 'Typed message protocol mapping fields like event name, client-supplied payload, message ID (for acks), and timestamp.'
+            },
+            {
+              name: 'InMemoryAdapter',
+              id: 'sockets.InMemoryAdapter',
+              desc: 'Default single-process scaling adapter. Routes room subscribes and broadcasts internally without broker dependencies.'
+            },
+            {
+              name: 'RedisAdapter',
+              id: 'sockets.RedisAdapter',
+              desc: 'Production-ready scaling adapter using Redis Pub/Sub channels to sync events and rooms across multiple ASGI worker processes.'
+            },
+            {
+              name: 'HandshakeAuthGuard',
+              id: 'sockets.HandshakeAuthGuard',
+              desc: 'Handshake security gate. Rejects connections early (during HTTP-upgrade phase) if authorization criteria are not met.'
+            }
           ].map((item, i) => (
-            <div key={i} className={boxClass}>
-              <code className="text-aquilia-500 font-mono text-sm font-bold">{item.name}</code>
-              <p className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>{item.desc}</p>
+            <div key={i} className={`group pl-5 border-l-2 ${isDark ? 'border-aquilia-500/20 hover:border-aquilia-400' : 'border-aquilia-500/10 hover:border-aquilia-600'} transition-all duration-300`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                <DocTerm id={item.id} className="text-aquilia-500 font-mono text-sm font-semibold border-b-0 hover:underline">
+                  {item.name}
+                </DocTerm>
+              </div>
+              <p className={`text-sm leading-relaxed ${textMuted}`}>{item.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* SocketController */}
+      {/* Code Walkthrough */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Socket Controllers</h2>
-        <CodeBlock language="python" filename="chat_controller.py">{`from aquilia.sockets import (
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Extended Controller Implementation
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          WebSocket controllers are defined by inheriting from <DocTerm id="sockets.SocketController">SocketController</DocTerm> and decorating with <DocTerm id="controllers.GET">@Socket</DocTerm>:
+        </p>
+
+        <CodeBlock
+          language="python"
+          filename="chat_controller.py"
+          highlightLines={[7, 12, 17, 23, 29]}
+        >{`from aquilia.sockets import (
     SocketController, Socket, OnConnect, OnDisconnect,
-    Event, AckEvent, Subscribe, Unsubscribe, Guard,
-    Schema, Connection,
+    Event, AckEvent, Subscribe, Connection, Schema
 )
 from aquilia import Inject
 
-
-@Socket("/ws/chat")
-class ChatController(SocketController):
+@Socket("/ws/chat/:room")
+class RoomChatController(SocketController):
 
     @Inject()
     def __init__(self, chat_service: ChatService):
         self.chat = chat_service
 
     @OnConnect
-    async def on_connect(self, conn: Connection):
-        """Called when a client connects."""
-        user = conn.scope.get("identity")
-        await conn.join_room("general")
+    async def handle_connect(self, conn: Connection):
+        # Read parameters from ASGI path patterns
+        room = conn.scope.path_params.get("room")
+        await conn.join(room)
+        
+        # Inject user identity resolved from handshake auth
+        user = conn.identity
         await conn.send_event("welcome", {
-            "message": f"Welcome {user.username}!",
-            "online": await self.chat.online_count(),
+            "msg": f"Hello {user.username if user else 'Guest'}!"
         })
 
-    @OnDisconnect
-    async def on_disconnect(self, conn: Connection):
-        """Called when a client disconnects."""
-        await self.chat.set_offline(conn.scope["identity"].id)
-
-    @Event("message")
-    @Schema({"text": str, "room": str})
-    async def on_message(self, conn: Connection, data: dict):
-        """Handle incoming chat messages."""
-        message = await self.chat.save_message(
-            user_id=conn.scope["identity"].id,
-            room=data["room"],
-            text=data["text"],
-        )
+    @Event("chat.message", schema=Schema({"text": str}))
+    async def on_message(self, conn: Connection, payload: dict):
+        room = conn.scope.path_params["room"]
         # Broadcast to all connections in the room
-        await conn.broadcast_to_room(data["room"], "message", {
-            "id": message.id,
-            "text": message.text,
-            "user": message.user.username,
-            "timestamp": message.created_at.isoformat(),
+        await conn.broadcast(room, "chat.message", {
+            "sender": conn.id,
+            "text": payload["text"]
         })
 
-    @AckEvent("typing")
-    async def on_typing(self, conn: Connection, data: dict):
-        """Acknowledged event — client receives confirmation."""
-        await conn.broadcast_to_room(data["room"], "typing", {
-            "user": conn.scope["identity"].username,
-        })
-        return {"ack": True}  # Sent back to the sender
-
-    @Subscribe
-    async def on_subscribe(self, conn: Connection, room: str):
-        """Client subscribes to a room."""
-        await conn.join_room(room)
-
-    @Unsubscribe
-    async def on_unsubscribe(self, conn: Connection, room: str):
-        """Client unsubscribes from a room."""
-        await conn.leave_room(room)`}</CodeBlock>
+    @AckEvent("user.typing")
+    async def on_typing(self, conn: Connection, payload: dict):
+        room = conn.scope.path_params["room"]
+        await conn.broadcast(room, "user.typing", {"user": conn.id})
+        return {"delivered": True}  # Returned directly to the sender as an ACK`}</CodeBlock>
       </section>
 
-      {/* Guards */}
+      {/* Features Showcase */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>WebSocket Guards</h2>
-        <CodeBlock language="python" filename="guards.py">{`from aquilia.sockets import (
-    HandshakeAuthGuard, OriginGuard,
-    MessageAuthGuard, RateLimitGuard,
-)
-
-
-# Auth-first handshake — reject unauthenticated connections
-@Socket("/ws/notifications", guards=[
-    HandshakeAuthGuard(),             # JWT/session auth during upgrade
-    OriginGuard(["https://myapp.com"]),  # Restrict origins
-])
-class NotificationController(SocketController):
-
-    @Event("subscribe")
-    @Guard(MessageAuthGuard())          # Per-message auth
-    @Guard(RateLimitGuard(max_rate=10))  # 10 messages per second
-    async def subscribe_topic(self, conn: Connection, data: dict):
-        await conn.join_room(data["topic"])
-        return {"subscribed": data["topic"]}`}</CodeBlock>
-      </section>
-
-      {/* Adapters */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Horizontal Scaling Adapters</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          For multi-instance deployments, adapters synchronize events across processes:
-        </p>
-        <CodeBlock language="python" filename="workspace.py">{`from aquilia import Workspace, Integration
-
-workspace = Workspace(
-    integrations=[
-        Integration.websockets(
-            adapter="redis",            # "memory" | "redis"
-            redis_url="redis://localhost:6379/1",
-            ping_interval=25,           # Seconds between keepalive pings
-            max_message_size=1_048_576, # 1MB max message
-            max_connections=10_000,     # Per-instance limit
-        ),
-    ],
-)`}</CodeBlock>
-        <div className={`mt-4 ${boxClass}`}>
-          <h3 className={`font-bold mb-2 text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Available Adapters</h3>
-          <ul className={`space-y-1 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            <li>• <code className="text-aquilia-500">InMemoryAdapter</code> — Single-instance, zero-dependency (default)</li>
-            <li>• <code className="text-aquilia-500">RedisAdapter</code> — Redis Pub/Sub for multi-instance broadcasting</li>
-          </ul>
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Core Capabilities
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Zap className="w-4 h-4 text-aquilia-500" />
+              <h3 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>DI-Scoped Handlers</h3>
+            </div>
+            <p className={`text-xs leading-relaxed ${textMuted}`}>
+              Every connection creates its own request-scoped dependency injection container. Scoped objects are automatically created, injected, and cleaned up when the client disconnects.
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="w-4 h-4 text-aquilia-500" />
+              <h3 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Robust Handshake Security</h3>
+            </div>
+            <p className={`text-xs leading-relaxed ${textMuted}`}>
+              Authenticates connections via Authorization Bearer headers, query string tokens, or cookies, using HTTP guard logic before upgrading the connection to a WebSocket.
+            </p>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-2">
+              <Network className="w-4 h-4 text-aquilia-500" />
+              <h3 className={`font-semibold text-sm ${isDark ? 'text-white' : 'text-gray-900'}`}>Horizontal Scaling</h3>
+            </div>
+            <p className={`text-xs leading-relaxed ${textMuted}`}>
+              Pluggable broker adapters (such as <DocTerm id="sockets.RedisAdapter">RedisAdapter</DocTerm>) forward broadcast and room events across multiple servers seamlessly, ensuring instant pub/sub delivery.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* Navigation */}
-      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
         <Link to="/docs/cache" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
           <ArrowLeft className="w-4 h-4" /> Cache
         </Link>
-        <Link to="/docs/templates" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
-          Templates <ArrowRight className="w-4 h-4" />
+        <Link to="/docs/websockets/controllers" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          Socket Controllers <ArrowRight className="w-4 h-4" />
         </Link>
       </div>
-    
-      <NextSteps />
+
+      <NextSteps
+        items={[
+          { text: 'WebSocket Controllers', link: '/docs/websockets/controllers' },
+          { text: 'WebSocket Runtime Details', link: '/docs/websockets/runtime' },
+          { text: 'Scaling Adapters', link: '/docs/websockets/adapters' },
+        ]}
+      />
     </div>
   )
 }
