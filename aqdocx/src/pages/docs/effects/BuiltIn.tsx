@@ -1,13 +1,59 @@
 import { useTheme } from '../../../context/ThemeContext'
-import { CodeBlock } from '../../../components/CodeBlock'
-import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Workflow } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Workflow, Database, RefreshCw, Send, Globe, HardDrive } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function EffectsBuiltIn() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+
+  const capabilities = [
+    {
+      title: "Database Transactions",
+      description: "Lease connections from the core application pool. Enforces transactional safety with automatic commits and rollbacks based on request outcomes.",
+      token: "DBTx",
+      provider: "DBTxProvider",
+      link: "/docs/effects/dbtx",
+      icon: Database,
+      accent: "from-emerald-500/20 to-teal-500/20"
+    },
+    {
+      title: "Key-Value Caching",
+      description: "Partition caching operations by namespace to prevent key overlap. Connects directly to Redis or Memcached, with dict fallbacks.",
+      token: "CacheEffect",
+      provider: "CacheProvider",
+      link: "/docs/effects/cache",
+      icon: RefreshCw,
+      accent: "from-green-500/20 to-emerald-500/20"
+    },
+    {
+      title: "Queue & Task Workers",
+      description: "Publish events to brokers like RabbitMQ/Redis Streams or bridge with task workers to enqueue asynchronous background jobs.",
+      token: "QueueEffect",
+      provider: "QueueProvider / TaskQueueProvider",
+      link: "/docs/effects/queue",
+      icon: Send,
+      accent: "from-blue-500/20 to-indigo-500/20"
+    },
+    {
+      title: "Outbound HTTP Clients",
+      description: "Acquire pooled outbound HTTP client sessions with base URLs, headers, and request timeouts managed at the framework level.",
+      token: "HTTPEffect",
+      provider: "HTTPProvider",
+      link: "/docs/effects/http",
+      icon: Globe,
+      accent: "from-sky-500/20 to-blue-500/20"
+    },
+    {
+      title: "Unified Object Storage",
+      description: "Abstract cloud object buckets and local filesystem paths behind a standard read/write interface for uploads and media assets.",
+      token: "StorageEffect",
+      provider: "StorageProvider",
+      link: "/docs/effects/storage",
+      icon: HardDrive,
+      accent: "from-violet-500/20 to-purple-500/20"
+    }
+  ]
 
   return (
     <div className="max-w-4xl mx-auto py-6 font-sans">
@@ -15,107 +61,66 @@ export function EffectsBuiltIn() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Workflow className="w-4 h-4" />
-          <span>EFFECTS / BUILT-IN EFFECTS</span>
+          <span>EFFECTS / BUILT-IN</span>
         </div>
         <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Built-in Effects
+          Built-in Capabilities
         </h1>
         <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          In addition to database transactions and caching, Aquilia provides four built-in effects covering message queues, asynchronous task workers, outbound HTTP connections, and unified object storage.
+          Aquilia packages five core capabilities natively, covering database transactions, memory caches, messaging brokers, background task executors, HTTP clients, and unified blob storage.
         </p>
       </div>
 
-      {/* QueueEffect */}
+      {/* Catalog Grid */}
       <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>QueueEffect</h2>
-        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          Acquires a message queue publisher scoped to a specific topic or channel. The <code className="text-aquilia-500">QueueProvider</code> connects to standard brokers like RabbitMQ or Redis Streams, falling back to an in-memory collector during testing:
-        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {capabilities.map((cap, i) => {
+            const Icon = cap.icon
+            return (
+              <div 
+                key={i} 
+                className={`relative group p-6 rounded-2xl border transition-all duration-300 ${
+                  isDark 
+                    ? "bg-white/[0.01] border-white/5 hover:border-white/15 hover:bg-white/[0.03]" 
+                    : "bg-gray-50/50 border-gray-200/60 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                {/* Visual Accent Glow (Premium styling, no box layout) */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${cap.accent} opacity-0 group-hover:opacity-100 rounded-2xl blur-xl transition-opacity duration-500 -z-10`} />
 
-        <CodeBlock language="python" filename="queue_setup.py" highlightLines={[6, 9]}>{`from aquilia.effects import QueueEffect, QueueProvider
+                <div className="flex items-start gap-4 mb-4">
+                  <div className={`p-2.5 rounded-xl ${isDark ? "bg-white/5 text-aquilia-400" : "bg-gray-100 text-aquilia-600"}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className={`text-md font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{cap.title}</h3>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-aquilia-500/10 text-aquilia-400">{cap.token}</span>
+                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500"}`}>{cap.provider}</span>
+                    </div>
+                  </div>
+                </div>
 
-# 1. Register the provider
-registry.register("Queue", QueueProvider(broker_url="redis://localhost:6379/0"))
+                <p className={`text-sm leading-relaxed mb-6 font-light ${isDark ? "text-gray-400" : "text-gray-600"}`}>
+                  {cap.description}
+                </p>
 
-# 2. Require the effect on a controller/handler
-class LogController(Controller):
-    effects = [QueueEffect("system_logs")]
-
-    @Post("/")
-    async def log_event(self, ctx):
-        body = await ctx.json()
-        await ctx.effects.queue.publish(body)`}</CodeBlock>
-      </section>
-
-      {/* TaskQueueEffect */}
-      <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>TaskQueueEffect</h2>
-        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          Bridges the effect system with Aquilia's native background task runner. The <code className="text-aquilia-500">TaskQueueProvider</code> wraps the active <DocTerm id="tasks.TaskManager">TaskManager</DocTerm> to enqueue background jobs from request handlers:
-        </p>
-
-        <CodeBlock language="python" filename="task_setup.py" highlightLines={[6, 9]}>{`from aquilia.effects import TaskQueueProvider, QueueEffect
-
-registry.register("Queue", TaskQueueProvider(task_manager=task_manager))
-
-class TaskController(Controller):
-    # Triggers task queue handle acquisition
-    effects = [QueueEffect("default")]
-
-    @Post("/run")
-    async def run_job(self, ctx):
-        # Enqueues task directly via TaskManager backend
-        await ctx.effects.queue.enqueue("modules.users.tasks:send_welcome_email", user_id=42)`}</CodeBlock>
-      </section>
-
-      {/* HTTPEffect */}
-      <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>HTTPEffect</h2>
-        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          Acquires a pre-configured outbound HTTP client instance. The <code className="text-aquilia-500">HTTPProvider</code> instantiates Aquilia's native <code className="text-aquilia-400">AsyncHTTPClient</code> with request pooling, timeouts, and custom headers:
-        </p>
-
-        <CodeBlock language="python" filename="http_setup.py" highlightLines={[5, 11]}>{`from aquilia.effects import HTTPEffect, HTTPProvider
-
-# Register with target API URL
-registry.register("HTTP", HTTPProvider(base_url="https://api.github.com", timeout=10.0))
-
-class GithubController(Controller):
-    effects = [HTTPEffect()]
-
-    @Get("/repos")
-    async def list_repos(self, ctx):
-        response = await ctx.effects.http.get("/users/kuroyami/repos")
-        return ctx.json(await response.json())`}</CodeBlock>
-      </section>
-
-      {/* StorageEffect */}
-      <section className="mb-16">
-        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>StorageEffect</h2>
-        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-          Provides unified access to local or cloud storage buckets. The <code className="text-aquilia-500">StorageProvider</code> wraps registered storage backends, returning standard storage handles:
-        </p>
-
-        <CodeBlock language="python" filename="storage_setup.py" highlightLines={[5, 11]}>{`from aquilia.effects import StorageEffect, StorageProvider
-
-# Register filesystem storage provider
-registry.register("Storage", StorageProvider(root_path="./uploads"))
-
-class UploadController(Controller):
-    effects = [StorageEffect("avatars")]
-
-    @Post("/")
-    async def upload_avatar(self, ctx):
-        file = await ctx.request.file("avatar")
-        # Save file to avatars folder
-        path = await ctx.effects.storage.save(file.filename, file.content)
-        return ctx.json({"path": path})`}</CodeBlock>
+                <Link 
+                  to={cap.link} 
+                  className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-aquilia-500 hover:text-aquilia-400 transition-colors"
+                >
+                  EXPLORE API <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            )
+          })}
+        </div>
       </section>
 
       {/* Navigation */}
       <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
-        <Link to="/docs/effects/cache" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
-          <ArrowLeft className="w-4 h-4" /> Cache Effect
+        <Link to="/docs/effects/overview" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Overview
         </Link>
         <span />
       </div>

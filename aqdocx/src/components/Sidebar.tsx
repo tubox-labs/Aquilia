@@ -287,16 +287,21 @@ export const sections: SidebarSection[] = [
       {
         label: 'Effects System', path: '/docs/effects', icon: <Workflow className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Effects & Providers', path: '/docs/effects/overview' },
+          { label: 'Overview', path: '/docs/effects/overview' },
           { label: 'Built-in Effects', path: '/docs/effects/built-in' },
           { label: 'DBTx Effect', path: '/docs/effects/dbtx' },
           { label: 'Cache Effect', path: '/docs/effects/cache' },
+          { label: 'Queue & Task Effects', path: '/docs/effects/queue' },
+          { label: 'HTTP Client Effect', path: '/docs/effects/http' },
+          { label: 'Storage Effect', path: '/docs/effects/storage' },
+          { label: 'Custom Effects', path: '/docs/effects/custom' },
         ]
 
       },
       {
         label: 'Fault System', path: '/docs/faults', icon: <AlertCircle className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/faults' },
           { label: 'Fault Taxonomy', path: '/docs/faults/taxonomy' },
           { label: 'FaultEngine', path: '/docs/faults/engine' },
           { label: 'Fault Handlers', path: '/docs/faults/handlers' },

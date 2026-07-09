@@ -235,6 +235,10 @@ import { EffectsOverview } from './pages/docs/effects/Overview'
 import { EffectsDBTx } from './pages/docs/effects/DBTx'
 import { EffectsCacheEffect } from './pages/docs/effects/CacheEffect'
 import { EffectsBuiltIn } from './pages/docs/effects/BuiltIn'
+import { EffectsQueueEffect } from './pages/docs/effects/QueueEffect'
+import { EffectsHTTPEffect } from './pages/docs/effects/HTTPEffect'
+import { EffectsStorageEffect } from './pages/docs/effects/StorageEffect'
+import { EffectsCustomEffects } from './pages/docs/effects/CustomEffects'
 
 
 // Aquilary
@@ -497,6 +501,10 @@ export default function App() {
           <Route path="effects/built-in" element={<EffectsBuiltIn />} />
           <Route path="effects/dbtx" element={<EffectsDBTx />} />
           <Route path="effects/cache" element={<EffectsCacheEffect />} />
+          <Route path="effects/queue" element={<EffectsQueueEffect />} />
+          <Route path="effects/http" element={<EffectsHTTPEffect />} />
+          <Route path="effects/storage" element={<EffectsStorageEffect />} />
+          <Route path="effects/custom" element={<EffectsCustomEffects />} />
 
 
           {/* Faults */}
