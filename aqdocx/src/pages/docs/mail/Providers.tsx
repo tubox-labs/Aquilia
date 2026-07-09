@@ -1,169 +1,224 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Mail } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function MailProviders() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const borderMuted = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-2">
+      {/* Header */}
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Mail className="w-4 h-4" />
+          <Layers className="w-4 h-4" />
           Mail / Providers
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Mail Providers
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-extrabold tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <span className="gradient-text font-mono">Mail Providers & Backends</span>
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia ships with five mail provider implementations. All implement the <code className="text-aquilia-400">IMailProvider</code> protocol, making them interchangeable.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          All email backends implement the standard <DocTerm id="mail.MailIntegration">IMailProvider</DocTerm> protocol, allowing you to swap backends between local files, stdout consoles, and cloud providers (SMTP, SES, SendGrid) without changing your application code.
         </p>
       </div>
 
-      {/* Provider Comparison */}
+      {/* Provider Types */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Provider Comparison</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Provider</th>
-                  <th className="text-left pb-3 font-semibold">Use Case</th>
-                  <th className="text-left pb-3 font-semibold">Dependencies</th>
-                </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {[
-                  ['SMTPProvider', 'Production SMTP relay (Gmail, Mailgun, etc.)', 'aiosmtplib'],
-                  ['SendGridProvider', 'SendGrid API (cloud email service)', 'httpx'],
-                  ['SESProvider', 'Amazon SES (AWS email)', 'boto3'],
-                  ['ConsoleProvider', 'Development — prints emails to console', 'None'],
-                  ['FileProvider', 'Development — writes emails to files', 'None'],
-                ].map(([name, use, deps], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-400 text-xs">{name}</td>
-                    <td className="py-2 text-xs">{use}</td>
-                    <td className="py-2 text-xs font-mono">{deps}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Pluggable Backends Comparison
+        </h2>
+        <div className="space-y-6 text-sm font-sans">
+          {[
+            { name: 'SMTPProvider', deps: 'aiosmtplib', desc: 'Standard SMTP relay client. Supports SSL/TLS encryption, credentials, and connection pools.' },
+            { name: 'SESProvider', deps: 'aiobotocore', desc: 'AWS Simple Email Service integration. Interacts asynchronously via AWS IAM credentials.' },
+            { name: 'SendGridProvider', deps: 'httpx', desc: 'SendGrid Web API v3 client. Optimizes transmission speeds using HTTP request batching.' },
+            { name: 'ConsoleProvider', deps: 'None', desc: 'Development fallback. Prints raw mail payloads to standard output stream (stdout).' },
+            { name: 'FileProvider', deps: 'None', desc: 'Test and audit utility. Writes raw .eml envelopes to a local workspace folder.' }
+          ].map((item, i) => (
+            <div key={i} className="py-4 border-b border-white/5 last:border-0">
+              <div className="flex items-center justify-between gap-4 mb-2">
+                <span className="text-aquilia-400 font-mono text-sm font-semibold">{item.name}</span>
+                <span className={`flex-shrink-0 text-[10px] uppercase tracking-wider ${isDark ? 'text-gray-500' : 'text-gray-400'} font-mono`}>
+                  deps: {item.deps}
+                </span>
+              </div>
+              <p className={`text-sm ${textMuted}`}>{item.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* SMTPProvider */}
+      {/* IMailProvider Protocol API */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SMTPProvider</h2>
-        <CodeBlock language="python" filename="smtp.py">{`from aquilia.mail import SMTPProvider
-
-provider = SMTPProvider(
-    host="smtp.gmail.com",
-    port=587,
-    username="noreply@myapp.com",
-    password="app-password",
-    use_tls=True,
-    timeout=30,
-)`}</CodeBlock>
-      </section>
-
-      {/* SendGridProvider */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SendGridProvider</h2>
-        <CodeBlock language="python" filename="sendgrid.py">{`from aquilia.mail import SendGridProvider
-
-provider = SendGridProvider(
-    api_key="SG.xxxxxxxxxxxx",
-    sandbox_mode=False,
-)`}</CodeBlock>
-      </section>
-
-      {/* SESProvider */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SESProvider</h2>
-        <CodeBlock language="python" filename="ses.py">{`from aquilia.mail import SESProvider
-
-provider = SESProvider(
-    region_name="us-east-1",
-    aws_access_key_id="AKIA...",
-    aws_secret_access_key="...",
-    configuration_set="my-config-set",
-)`}</CodeBlock>
-      </section>
-
-      {/* ConsoleProvider */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ConsoleProvider (Development)</h2>
-        <CodeBlock language="python" filename="console.py">{`from aquilia.mail import ConsoleProvider
-
-# Prints email content to stdout — no actual sending
-provider = ConsoleProvider()
-
-# Output:
-# ════════════════════════════════════════════
-# Subject: Welcome!
-# From: noreply@myapp.com
-# To: user@example.com
-# ────────────────────────────────────────────
-# Thank you for signing up.
-# ════════════════════════════════════════════`}</CodeBlock>
-      </section>
-
-      {/* Custom Provider */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Custom Provider</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Implement <code className="text-aquilia-400">IMailProvider</code> to integrate with any email service.
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          IMailProvider Custom Implementation
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          To write a custom provider (e.g., Postmark API), implement the <DocTerm id="mail.MailIntegration">IMailProvider</DocTerm> interface using `httpx` async clients, error handling structures, and status code maps:
         </p>
-        <CodeBlock language="python" filename="custom.py">{`from aquilia.mail import IMailProvider, ProviderResult, ProviderResultStatus
+        <CodeBlock
+          language="python"
+          filename="custom_postmark_provider.py"
+          highlightLines={[7, 10, 20, 27, 34, 40]}
+        >{`import httpx
+from aquilia.mail.providers import IMailProvider, ProviderResult, ProviderResultStatus
+from aquilia.mail import MailEnvelope
 
-class PostmarkProvider(IMailProvider):
-    def __init__(self, server_token: str):
-        self.token = server_token
+class PostmarkMailProvider(IMailProvider):
+    name = "postmark"
+    supports_batching = False
+    max_batch_size = 1
 
-    async def send(self, envelope) -> ProviderResult:
-        # Send via Postmark API
-        response = await httpx.post(
-            "https://api.postmarkapp.com/email",
-            headers={"X-Postmark-Server-Token": self.token},
-            json={...},
+    def __init__(self, api_token: str):
+        self.api_token = api_token
+        self.client = None
+
+    async def initialize(self) -> None:
+        # Open a persistent connection pool with server credentials
+        self.client = httpx.AsyncClient(
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "X-Postmark-Server-Token": self.api_token
+            },
+            timeout=10.0
         )
-        if response.status_code == 200:
+
+    async def send(self, envelope: MailEnvelope) -> ProviderResult:
+        payload = {
+            "From": envelope.from_email,
+            "To": ",".join(envelope.to),
+            "Subject": envelope.subject,
+            "HtmlBody": envelope.body_html,
+            "TextBody": envelope.body_text
+        }
+        try:
+            response = await self.client.post("https://api.postmarkapp.com/email", json=payload)
+            
+            if response.status_code == 200:
+                data = response.json()
+                return ProviderResult(
+                    status=ProviderResultStatus.SUCCESS,
+                    provider_message_id=data.get("MessageID")
+                )
+            elif response.status_code == 422:
+                # Permanent failure (e.g. invalid recipient address format)
+                return ProviderResult(
+                    status=ProviderResultStatus.PERMANENT_FAILURE,
+                    error_message=response.text
+                )
+            elif response.status_code == 429:
+                # Rate limited, request retry backoff duration
+                return ProviderResult(
+                    status=ProviderResultStatus.RATE_LIMITED,
+                    retry_after=float(response.headers.get("Retry-After", 60))
+                )
+            else:
+                return ProviderResult(
+                    status=ProviderResultStatus.TRANSIENT_FAILURE,
+                    error_message=f"HTTP Error {response.status_code}: {response.text}"
+                )
+        except Exception as e:
+            # Handle socket/timeout exceptions as transient retry attempts
             return ProviderResult(
-                status=ProviderResultStatus.SUCCESS,
-                message_id=response.json()["MessageID"],
+                status=ProviderResultStatus.TRANSIENT_FAILURE, 
+                error_message=str(e)
             )
-        return ProviderResult(
-            status=ProviderResultStatus.FAILED,
-            error=response.text,
-        )`}</CodeBlock>
+
+    async def health_check(self) -> bool:
+        try:
+            res = await self.client.get("https://status.postmarkapp.com/api/v2/status.json")
+            return res.status_code == 200
+        except Exception:
+            return False
+
+    async def shutdown(self) -> None:
+        if self.client:
+            await self.client.aclose()`}</CodeBlock>
       </section>
 
-      {/* DI Registration */}
+      {/* Provider Configuration */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>DI Registration</h2>
-        <CodeBlock language="python" filename="di.py">{`from aquilia.mail import register_mail_providers, MailProviderRegistry
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Provider Configurations
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          Configure individual providers as list parameters inside the typed <DocTerm id="mail.MailIntegration">MailIntegration</DocTerm>:
+        </p>
+        <CodeBlock
+          language="python"
+          filename="providers_list.py"
+          highlightLines={[8, 14, 18]}
+        >{`from aquilia.integrations import (
+    MailIntegration, SmtpProvider, SesProvider, SendGridProvider
+)
 
-# Auto-register all providers based on config
-register_mail_providers(container, config)
-
-# Or manually register
-registry = MailProviderRegistry()
-registry.register("smtp", SMTPProvider(...))
-registry.register("sendgrid", SendGridProvider(...))
-
-# Resolve active provider
-provider = registry.get(config.mail.provider)  # "smtp" → SMTPProvider`}</CodeBlock>
+workspace.integrate(MailIntegration(
+    providers=[
+        # 1. Standard SMTP Server
+        SmtpProvider(
+            host="smtp.gmail.com", port=587, 
+            use_tls=True, timeout=15
+        ),
+        # 2. Amazon SES
+        SesProvider(
+            region="us-east-1",
+            aws_access_key_id="AKIA...",
+            aws_secret_access_key="secret"
+        ),
+        # 3. SendGrid
+        SendGridProvider(
+            api_key="SG.xxx"
+        )
+    ]
+))`}</CodeBlock>
       </section>
-    
-      <NextSteps />
+
+      {/* MailProviderRegistry */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold tracking-tight mb-6 pb-2 border-b ${borderMuted} ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          MailProviderRegistry & Auto-Discovery
+        </h2>
+        <p className={`text-sm mb-6 ${textMuted}`}>
+          The mail subsystem leverages Aquilia's <code className="text-aquilia-400">PackageScanner</code> to auto-discover provider classes. Register custom provider packages to make them auto-wireable:
+        </p>
+        <CodeBlock
+          language="python"
+          filename="discover_providers.py"
+          highlightLines={[5, 8]}
+        >{`from aquilia.mail.di_providers import MailProviderRegistry
+
+registry = MailProviderRegistry()
+
+# 1. Register custom package to scan for IMailProvider classes
+registry.add_scan_package("myapp.mail_providers")
+
+# 2. Discover classes and get custom mapping
+discovered_types = registry.discover()
+# Result: {"smtp": SMTPProvider, "ses": SESProvider, "custom_http": CustomHttpProvider}`}</CodeBlock>
+      </section>
+
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${borderMuted}`}>
+        <Link to="/docs/mail/service" className={`flex items-center gap-2 text-sm ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}>
+          <ArrowLeft className="w-4 h-4" /> MailService
+        </Link>
+        <Link to="/docs/mail/templates" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400">
+          Mail Templates <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
+      <NextSteps
+        items={[
+          { text: 'Aquilia Template Syntax (ATS)', link: '/docs/mail/templates' },
+          { text: 'Developer Integration Guide', link: '/docs/developer-guide' },
+        ]}
+      />
     </div>
   )
 }
