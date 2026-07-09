@@ -31,6 +31,7 @@ export const sections: SidebarSection[] = [
       { label: 'Introduction', path: '/docs', icon: <BookOpen className="w-3.5 h-3.5" /> },
       { label: 'Installation', path: '/docs/installation', icon: <Download className="w-3.5 h-3.5" /> },
       { label: 'Quick Start', path: '/docs/quickstart', icon: <Zap className="w-3.5 h-3.5" /> },
+      { label: 'Developer Guide', path: '/docs/developer-guide', icon: <Blocks className="w-3.5 h-3.5" /> },
       { label: 'Architecture', path: '/docs/architecture', icon: <Network className="w-3.5 h-3.5" /> },
       { label: 'Project Structure', path: '/docs/project-structure', icon: <Blocks className="w-3.5 h-3.5" /> },
       { label: 'Admin Panel Setup', path: '/docs/admin-panel', icon: <Settings className="w-3.5 h-3.5" /> },
@@ -244,10 +245,11 @@ export const sections: SidebarSection[] = [
   {
     title: 'Middleware',
     icon: <Layers className="w-3 h-3" />,
-    items: [
+    items: [ 
       {
         label: 'Middleware System', path: '/docs/middleware', icon: <Layers className="w-3.5 h-3.5" />,
         children: [
+          { label: "Overview", path: '/docs/middleware/overview'},
           { label: 'MiddlewareStack', path: '/docs/middleware/stack' },
           { label: 'Built-in Middleware', path: '/docs/middleware/built-in' },
           { label: 'Static Files', path: '/docs/middleware/static' },

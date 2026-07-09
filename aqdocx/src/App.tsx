@@ -23,6 +23,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { IntroductionPage } from './pages/docs/getting-started/Introduction'
 import { InstallationPage } from './pages/docs/getting-started/Installation'
 import { QuickStartPage } from './pages/docs/getting-started/QuickStart'
+import { DeveloperGuidePage } from './pages/docs/getting-started/DeveloperGuide'
 import { ArchitecturePage } from './pages/docs/getting-started/Architecture'
 import { ProjectStructurePage } from './pages/docs/getting-started/ProjectStructure'
 import { AdminSetupPage } from './pages/docs/getting-started/AdminSetup'
@@ -310,6 +311,7 @@ export default function App() {
           <Route index element={<IntroductionPage />} />
           <Route path="installation" element={<InstallationPage />} />
           <Route path="quickstart" element={<QuickStartPage />} />
+          <Route path="developer-guide" element={<DeveloperGuidePage />} />
           <Route path="architecture" element={<ArchitecturePage />} />
           <Route path="project-structure" element={<ProjectStructurePage />} />
           <Route path="admin-panel" element={<AdminSetupPage />} />
@@ -464,6 +466,7 @@ export default function App() {
 
           {/* Middleware */}
           <Route path="middleware" element={<MiddlewareOverview />} />
+          <Route path="middleware/overview" element={<MiddlewareOverview />} />
           <Route path="middleware/stack" element={<MiddlewareStack />} />
           <Route path="middleware/built-in" element={<MiddlewareBuiltIn />} />
           <Route path="middleware/static" element={<MiddlewareExtended />} />
