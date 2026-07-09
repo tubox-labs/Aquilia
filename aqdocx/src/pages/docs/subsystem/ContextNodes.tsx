@@ -17,7 +17,7 @@ export function FlowContextNodes() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Zap className="w-4 h-4" />
-          <span>EFFECTS &amp; FLOW / CONTEXT &amp; NODES</span>
+          <span>SUBSYSTEM / CONTEXT &amp; NODES</span>
         </div>
         <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Flow Context &amp; Nodes
@@ -36,62 +36,45 @@ export function FlowContextNodes() {
           </p>
         </div>
 
-        <div className={`border-t border-b ${borderMuted} divide-y ${borderMuted} mb-8`}>
-          {[
-            ['request', 'Any', 'The raw ASGI/HTTP request context (e.g. RequestCtx).'],
-            ['container', 'Any', 'The request-scoped dependency injection container.'],
-            ['state', 'dict[str, Any]', 'Arbitrary mutable key-value storage used by transforms and controllers.'],
-            ['identity', 'Any', 'The authenticated principal, typically resolved and set by auth guards.'],
-            ['session', 'Any', 'Active session state proxy if session middleware is active.'],
-            ['effects', 'dict[str, Any]', 'Acquired capability resource handles (e.g. database transaction, cache client).'],
-            ['metadata', 'dict[str, Any]', 'Telemetry logs tracking timings, executed node traces, and acquired effects.'],
-          ].map(([attr, type, desc]) => (
-            <div key={attr} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm">
-              <div className="font-mono font-bold text-aquilia-400">{attr}</div>
-              <div className="font-mono text-zinc-500 md:w-32">{type}</div>
-              <div className={`font-light md:w-1/2 ${textMuted}`}>{desc}</div>
-            </div>
-          ))}
-        </div>
+        <CodeBlock language="python" filename="flow_context_anatomy.py" compact showLineNumbers={false}>{`class FlowContext:
+    request: Any            # The raw ASGI/HTTP request context (e.g. RequestCtx).
+    container: Any          # The request-scoped dependency injection container.
+    state: dict[str, Any]   # Arbitrary mutable key-value storage used by transforms and handlers.
+    identity: Any           # The authenticated principal, typically resolved and set by auth guards.
+    session: Any            # Active session state proxy if session middleware is active.
+    effects: dict[str, Any] # Acquired capability resource handles (e.g. database transaction, cache client).
+    metadata: dict[str, Any] # Telemetry logs tracking timings, executed node traces, and acquired effects.`}</CodeBlock>
       </section>
 
       {/* FlowContext Methods */}
       <section className="mb-16">
         <h2 className="text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6">Context Method Reference</h2>
         
-        <div className="space-y-6">
-          <div className={`pb-6 border-b ${borderMuted}`}>
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              get_effect(name: str) -&gt; Any
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+        <div className="space-y-8">
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`def get_effect(self, name: str) -> Any:`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 mb-6 ${textMuted}`}>
               Retrieves an acquired capability resource. If the resource is not active, it throws an <code className="text-white">EffectNotAcquiredFault</code>. Supports type overloading for standard effects.
             </p>
           </div>
 
-          <div className={`pb-6 border-b ${borderMuted}`}>
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              has_effect(name: str) -&gt; bool
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`def has_effect(self, name: str) -> bool:`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 mb-6 ${textMuted}`}>
               Returns whether the specified effect capability is currently acquired and bound to the context.
             </p>
           </div>
 
-          <div className={`pb-6 border-b ${borderMuted}`}>
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              add_cleanup(callback: Callable[[], Awaitable[None]])
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`def add_cleanup(self, callback: Callable[[], Awaitable[None]]) -> None:`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 mb-6 ${textMuted}`}>
               Registers an asynchronous teardown callback. Cleanup actions are executed in Last-In-First-Out (LIFO) order during pipeline disposal.
             </p>
           </div>
 
-          <div className="pb-6">
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              dispose()
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`def dispose(self) -> None:`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 ${textMuted}`}>
               Drives the execution of all registered cleanup callbacks, ensuring database transactions roll back or temp files clean up on pipeline failure.
             </p>
           </div>
@@ -107,22 +90,13 @@ export function FlowContextNodes() {
           </p>
         </div>
 
-        <div className={`border-t border-b ${borderMuted} divide-y ${borderMuted} mb-8`}>
-          {[
-            ['FlowNodeType.GUARD', 'guard', 'Short-circuits execution. Used for authentication and validation.'],
-            ['FlowNodeType.TRANSFORM', 'transform', 'Modifies request properties or updates context state values.'],
-            ['FlowNodeType.HANDLER', 'handler', 'The core business logic method (usually a controller action).'],
-            ['FlowNodeType.HOOK', 'hook', 'Post-processing operations that run after the main handler.'],
-            ['FlowNodeType.EFFECT', 'effect', 'Custom node managing targeted capability resources.'],
-            ['FlowNodeType.MIDDLEWARE', 'middleware', 'Wraps the execution path of the entire pipeline.'],
-          ].map(([enumVal, stringVal, desc]) => (
-            <div key={enumVal} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm">
-              <div className="font-mono font-bold text-aquilia-400">{enumVal}</div>
-              <div className="font-mono text-zinc-500 md:w-32">"{stringVal}"</div>
-              <div className={`font-light md:w-1/2 ${textMuted}`}>{desc}</div>
-            </div>
-          ))}
-        </div>
+        <CodeBlock language="python" filename="flow_node_types.py" compact showLineNumbers={false}>{`class FlowNodeType(Enum):
+    GUARD = "guard"           # Short-circuits execution (e.g. auth / input validation).
+    TRANSFORM = "transform"   # Modifies request parameters or updates context state.
+    HANDLER = "handler"       # Core business logic method (usually a controller route).
+    HOOK = "hook"             # Post-processing hooks running after the main handler.
+    EFFECT = "effect"         # Managed capability resources acquired lazily.
+    MIDDLEWARE = "middleware" # Wraps the entire execution chain.`}</CodeBlock>
       </section>
 
       {/* requires Decorator */}
@@ -158,21 +132,12 @@ async def process_payment(ctx: FlowContext):
           </p>
         </div>
 
-        <div className={`border-t border-b ${borderMuted} divide-y ${borderMuted} mb-8`}>
-          {[
-            ['FlowStatus.SUCCESS', '"success"', 'Completed successfully. value contains the handler output.'],
-            ['FlowStatus.GUARDED', '"guarded"', 'A guard returned False or a Response, stopping subsequent nodes.'],
-            ['FlowStatus.ERROR', '"error"', 'An unhandled exception occurred, stored in error.'],
-            ['FlowStatus.TIMEOUT', '"timeout"', 'Pipeline execution exceeded the configured duration.'],
-            ['FlowStatus.CANCELLED', '"cancelled"', 'The task execution was cancelled before completing.'],
-          ].map(([statusVal, strVal, desc]) => (
-            <div key={statusVal} className="py-3 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm">
-              <div className="font-mono font-bold text-aquilia-400">{statusVal}</div>
-              <div className="font-mono text-zinc-500 md:w-32">{strVal}</div>
-              <div className={`font-light md:w-1/2 ${textMuted}`}>{desc}</div>
-            </div>
-          ))}
-        </div>
+        <CodeBlock language="python" filename="flow_status_outcomes.py" compact showLineNumbers={false}>{`class FlowStatus(Enum):
+    SUCCESS = "success"     # Completed successfully; result.value contains the handler output.
+    GUARDED = "guarded"     # Short-circuited by a guard; result.guard contains the guard node.
+    ERROR = "error"         # Unhandled exception raised; result.error contains the exception.
+    TIMEOUT = "timeout"     # Execution duration exceeded configured timeout limit.
+    CANCELLED = "cancelled" # Pipeline task cancelled before completion.`}</CodeBlock>
       </section>
 
       {/* Context Cleanup & LIFO Flow */}

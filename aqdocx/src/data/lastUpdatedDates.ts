@@ -149,7 +149,7 @@ export const lastUpdatedMap: Record<string, string> = {
   "/docs/aquilary/overview": "July 09, 2026",
   "/docs/aquilary/manifest": "July 09, 2026",
   "/docs/aquilary/runtime": "July 09, 2026",
-  "/docs/aquilary/fingerprint": "July 09, 2026",
+  "/docs/aquilary/fingerprint": "July 10, 2026",
   "/docs/subsystem": "July 10, 2026",
   "/docs/subsystem/overview": "July 10, 2026",
   "/docs/subsystem/built-in": "July 10, 2026",

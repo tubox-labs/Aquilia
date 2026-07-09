@@ -17,7 +17,7 @@ export function FlowLayers() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Zap className="w-4 h-4" />
-          <span>EFFECTS &amp; FLOW / LAYERS &amp; COMPOSITIONS</span>
+          <span>SUBSYSTEM / LAYERS &amp; COMPOSITIONS</span>
         </div>
         <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Layers &amp; Compositions
@@ -44,30 +44,27 @@ export function FlowLayers() {
       <section className="mb-16">
         <h2 className="text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6">Layer API Reference</h2>
         
-        <div className="space-y-6">
-          <div className={`pb-6 border-b ${borderMuted}`}>
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Layer(name: str, factory: Callable, deps: list[str] = [], scope: str = "app")
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
-              Constructs a composable layer. <code className="text-white">factory</code> is a callable that receives resolved dependencies as keyword arguments and returns an provider. <code className="text-white">scope</code> dictates whether the provider has application or request lifetime.
+        <div className="space-y-8">
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`class Layer:
+    def __init__(self, name: str, factory: Callable, deps: list[str] = [], scope: str = "app")`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 mb-6 ${textMuted}`}>
+              Constructs a composable layer. <code className="text-white">factory</code> is a callable that receives resolved dependencies as keyword arguments and returns a provider. <code className="text-white">scope</code> dictates whether the provider has application or request lifetime.
             </p>
           </div>
 
-          <div className={`pb-6 border-b ${borderMuted}`}>
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Layer.merge(*layers: Layer) -&gt; LayerComposition
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`@staticmethod
+def merge(*layers: Layer) -> LayerComposition`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 mb-6 ${textMuted}`}>
               Combines multiple layers into a unified composition. The compiler automatically resolves inter-layer dependencies and orders initialization topologically.
             </p>
           </div>
 
-          <div className="pb-6">
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Layer.provide(layer: Layer, *providers: Layer) -&gt; LayerComposition
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`@staticmethod
+def provide(layer: Layer, *providers: Layer) -> LayerComposition`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 ${textMuted}`}>
               Expresses dependency injections explicitly. Builds the list of <code className="text-white">providers</code> first, then feeds their constructed values as dependencies into the target <code className="text-white">layer</code>.
             </p>
           </div>
@@ -83,21 +80,17 @@ export function FlowLayers() {
           </p>
         </div>
 
-        <div className="space-y-6">
-          <div className={`pb-6 border-b ${borderMuted}`}>
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              async build_all(initial_deps: dict | None = None) -&gt; dict[str, Any]
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+        <div className="space-y-8">
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`async def build_all(self, initial_deps: dict | None = None) -> dict[str, Any]`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 mb-6 ${textMuted}`}>
               Builds all layers in computed topological order. Returns a dictionary mapping capability names to constructed provider instances. Raises <code className="text-white">FlowError</code> if circular dependencies are detected.
             </p>
           </div>
 
-          <div className="pb-6">
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              async register_with(registry: EffectRegistry, initial_deps: dict | None = None)
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`async def register_with(self, registry: EffectRegistry, initial_deps: dict | None = None) -> None`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 ${textMuted}`}>
               Builds all layers and mounts the output providers directly into the active <DocTerm id="effects.EffectRegistry">EffectRegistry</DocTerm> registry.
             </p>
           </div>
@@ -113,12 +106,11 @@ export function FlowLayers() {
           </p>
         </div>
 
-        <div className="space-y-6">
-          <div className="pb-6">
-            <h3 className={`text-lg font-mono font-semibold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              EffectScope(registry, effect_names, *, context = None, modes = None)
-            </h3>
-            <p className={`font-light text-sm mb-3 ${textMuted}`}>
+        <div className="space-y-8">
+          <div>
+            <CodeBlock language="python" compact showLineNumbers={false}>{`class EffectScope:
+    def __init__(self, registry: EffectRegistry, effect_names: list[str], *, context = None, modes = None)`}</CodeBlock>
+            <p className={`font-light text-sm mt-2 ${textMuted}`}>
               Async context manager. On enter (<code className="text-white">__aenter__</code>), it calls <code className="text-white">acquire()</code> on all listed providers. On exit (<code className="text-white">__aexit__</code>), it releases them, tracking whether exceptions occurred to trigger rollbacks or commits automatically.
             </p>
           </div>
