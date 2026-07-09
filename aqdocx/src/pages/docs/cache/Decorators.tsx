@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Gauge } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function CacheDecorators() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const subtleBorder = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -22,19 +23,19 @@ export function CacheDecorators() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
           AquilaCache includes function decorators for declarative read caching and invalidation,
           plus an HTTP response-cache middleware.
         </p>
       </div>
 
+      {/* @cached */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>@cached</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Caches function results by key. On miss it executes the function, optionally validates the result,
-          then stores with TTL and tags.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.cached">@cached</DocTerm></h2>
+        <p className={`mb-4 ${textMuted}`}>
+          Caches function results by key. On a cache miss, it executes the target function, optionally validates the result, and stores it in the cache with the specified TTL and tags.
         </p>
-        <CodeBlock language="python" filename="aquilia/cache/decorators.py">{`@cached(
+        <CodeBlock language="python" filename="aquilia/cache/decorators.py" highlightLines={[2, 3, 5]}>{`@cached(
     ttl: int = 300,
     namespace: str = "default",
     key: str | None = None,
@@ -43,7 +44,7 @@ export function CacheDecorators() {
     unless: Callable[..., bool] | None = None,    # skip caching if True
     condition: Callable[[Any], bool] | None = None, # cache only if True
 )`}</CodeBlock>
-        <CodeBlock language="python" filename="cached_usage.py">{`from aquilia.cache import cached
+        <CodeBlock language="python" filename="cached_usage.py" highlightLines={[3, 8, 14]}>{`from aquilia.cache import cached
 
 @cached(ttl=60, namespace="api")
 async def get_popular_products():
@@ -67,13 +68,13 @@ async def get_feed(user_id: str, *, no_cache: bool = False):
 `}</CodeBlock>
       </section>
 
+      {/* @cache_aside */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>@cache_aside</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Semantic alias for <code className="text-aquilia-500">@cached</code> with the same runtime behavior.
-          Use it when you want to communicate cache-aside intent explicitly.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.cache_aside">@cache_aside</DocTerm></h2>
+        <p className={`mb-4 ${textMuted}`}>
+          A semantic alias for <DocTerm id="cache.cached">@cached</DocTerm> with identical runtime behavior. Use it to indicate that the decorated function is the authoritative source of truth for the cached data.
         </p>
-        <CodeBlock language="python" filename="cache_aside.py">{`from aquilia.cache import cache_aside
+        <CodeBlock language="python" filename="cache_aside.py" highlightLines={[3]}>{`from aquilia.cache import cache_aside
 
 @cache_aside(ttl=180, namespace="products", tags=("products",))
 async def find_product(product_id: int):
@@ -81,17 +82,18 @@ async def find_product(product_id: int):
 `}</CodeBlock>
       </section>
 
+      {/* @invalidate */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>@invalidate</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Executes the wrapped function first, then invalidates explicit keys and/or tags.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.invalidate">@invalidate</DocTerm></h2>
+        <p className={`mb-4 ${textMuted}`}>
+          Executes the wrapped function first (typically a write operation), and then invalidates specified keys and/or tags.
         </p>
-        <CodeBlock language="python" filename="aquilia/cache/decorators.py">{`@invalidate(
+        <CodeBlock language="python" filename="aquilia/cache/decorators.py" highlightLines={[2, 4]}>{`@invalidate(
     *keys: str,
     namespace: str = "default",
     tags: tuple[str, ...] = (),
 )`}</CodeBlock>
-        <CodeBlock language="python" filename="invalidate_usage.py">{`from aquilia.cache import invalidate
+        <CodeBlock language="python" filename="invalidate_usage.py" highlightLines={[3, 7]}>{`from aquilia.cache import invalidate
 
 @invalidate("products:list:v1", namespace="catalog", tags=("products",))
 async def create_product(data: dict):
@@ -103,13 +105,13 @@ async def import_products(batch: list[dict]):
 `}</CodeBlock>
       </section>
 
+      {/* CacheMiddleware */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CacheMiddleware</h2>
-        <p className={`mb-4 ${subtle}`}>
-          HTTP response cache middleware in <code className="text-aquilia-500">aquilia.cache.middleware.CacheMiddleware</code>.
-          Supports GET/HEAD response caching, ETag checks, stale-while-revalidate, and secure bypass token support.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.CacheMiddleware">CacheMiddleware</DocTerm></h2>
+        <p className={`mb-4 ${textMuted}`}>
+          HTTP response cache middleware. Intercepts incoming requests, generates and validates ETags, vary headers, and serves cached response payloads for GET/HEAD methods.
         </p>
-        <CodeBlock language="python" filename="cache_middleware_signature.py">{`CacheMiddleware(
+        <CodeBlock language="python" filename="cache_middleware_signature.py" highlightLines={[2, 5]}>{`CacheMiddleware(
     cache_service,
     default_ttl: int = 60,
     cacheable_methods: tuple[str, ...] = ("GET", "HEAD"),
@@ -117,7 +119,7 @@ async def import_products(batch: list[dict]):
     namespace: str = "http_response",
     stale_while_revalidate: int = 0,
 )`}</CodeBlock>
-        <CodeBlock language="python" filename="server_setup.py">{`from aquilia.cache.middleware import CacheMiddleware
+        <CodeBlock language="python" filename="server_setup.py" highlightLines={[3]}>{`from aquilia.cache.middleware import CacheMiddleware
 
 server.middleware_stack.add(
     CacheMiddleware(
@@ -135,34 +137,22 @@ server.middleware_stack.add(
 `}</CodeBlock>
       </section>
 
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Decorator Cache Resolution</h2>
-        <div className={box}>
-          <p className={`text-sm mb-3 ${subtle}`}>
-            Decorator wrappers resolve cache service in this order:
-          </p>
-          <ol className={`list-decimal pl-6 space-y-2 text-sm ${subtle}`}>
-            <li><code className="text-aquilia-500">self.cache</code> on first argument.</li>
-            <li><code className="text-aquilia-500">self._cache</code> on first argument.</li>
-            <li>Module-level default via <code className="text-aquilia-500">set_default_cache_service(...)</code>.</li>
-          </ol>
-          <CodeBlock language="python" filename="default_cache_service.py">{`from aquilia.cache.decorators import set_default_cache_service
+      {/* Decorator Cache Resolution */}
+      <section className="mb-16 border-l-2 border-aquilia-500/20 pl-6 py-1">
+        <h2 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Decorator Cache Resolution</h2>
+        <p className={`text-sm mb-3 ${textMuted}`}>
+          Decorators automatically resolve the active <DocTerm id="cache.CacheService">CacheService</DocTerm> in the following order:
+        </p>
+        <ol className={`list-decimal pl-6 space-y-2 text-sm ${textMuted}`}>
+          <li>Checks for a <code className="text-aquilia-500">self.cache</code> attribute on the first argument (typical for controllers).</li>
+          <li>Checks for a <code className="text-aquilia-500">self._cache</code> attribute on the first argument.</li>
+          <li>Falls back to the module-level default cache service registered via <code className="text-aquilia-500">set_default_cache_service(...)</code>.</li>
+        </ol>
+        <CodeBlock language="python" filename="default_cache_service.py" highlightLines={[3]}>{`from aquilia.cache.decorators import set_default_cache_service
 
-# Optional manual setup if using decorators outside DI-bound classes
+# Optional manual setup if using decorators on standalone helper functions
 set_default_cache_service(cache_service)
 `}</CodeBlock>
-        </div>
-      </section>
-
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Important Notes</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>Current server auto-wiring for response middleware reads nested <code className="text-aquilia-500">cache.middleware</code> keys, while primary cache config is flat.</li>
-            <li>Current auto-wiring call uses <code className="text-aquilia-500">ttl=...</code> but middleware constructor expects <code className="text-aquilia-500">default_ttl=...</code>.</li>
-            <li>HTTP client middleware cache in <code className="text-aquilia-500">aquilia/http/middleware.py</code> is separate from this response cache middleware.</li>
-          </ul>
-        </div>
       </section>
 
       <NextSteps

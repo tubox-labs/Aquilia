@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { Gauge } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function CacheService() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const subtleBorder = isDark ? 'border-white/5' : 'border-gray-100'
 
   const methods = [
     ['initialize()', 'Initialize backend and start background health task (if enabled).'],
@@ -48,16 +49,16 @@ export function CacheService() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
-          <code className="text-aquilia-500">CacheService</code> is the primary app-facing API. It wraps a
-          <code className="text-aquilia-500 mx-1">CacheBackend</code>
-          with namespacing, key prefixing, TTL jitter, stampede prevention, and best-effort fault emission.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          <DocTerm id="cache.CacheService">CacheService</DocTerm> is the primary app-facing API. It wraps a{' '}
+          <DocTerm id="cache.MemoryBackend">CacheBackend</DocTerm> with namespacing, key prefixing, TTL jitter, stampede prevention, and structured fault emission.
         </p>
       </div>
 
+      {/* Constructor and Properties */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Constructor and Properties</h2>
-        <CodeBlock language="python" filename="aquilia/cache/service.py">{`from aquilia.cache import CacheService, CacheConfig
+        <CodeBlock language="python" filename="aquilia/cache/service.py" highlightLines={[3, 4, 8]}>{`from aquilia.cache import CacheService, CacheConfig
 
 service = CacheService(
     backend=my_backend,
@@ -65,44 +66,43 @@ service = CacheService(
 )
 
 # Properties
-service.backend         # CacheBackend
-service.config          # CacheConfig
+service.backend         # Returns the CacheBackend
+service.config          # Returns the CacheConfig
 service.is_distributed  # bool (delegates to backend)
-service.is_healthy      # bool (initialized + health state)
+service.is_healthy      # bool (checks initialized + health state)
 `}</CodeBlock>
       </section>
 
+      {/* Method Reference */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Method Reference</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Signature</th>
-                  <th className="text-left pb-3 font-semibold">Behavior</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className={`border-b ${subtleBorder} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <th className="pb-3 font-semibold pr-4">Signature</th>
+                <th className="pb-3 font-semibold">Behavior</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {methods.map(([signature, description], i) => (
+                <tr key={i} className={`border-b ${subtleBorder} hover:bg-aquilia-500/[0.02]`}>
+                  <td className="py-2.5 font-mono text-aquilia-500 text-xs pr-4">{signature}</td>
+                  <td className="py-2.5 text-xs">{description}</td>
                 </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {methods.map(([signature, description], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-500 text-xs pr-4">{signature}</td>
-                    <td className="py-2 text-xs">{description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
+      {/* Cache-Aside and Stampede Prevention */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Cache-Aside and Stampede Prevention</h2>
-        <p className={`mb-4 ${subtle}`}>
-          <code className="text-aquilia-500">get_or_set(...)</code> supports stampede prevention via an in-memory
-          singleflight map. Concurrent misses for the same key can wait on one loader execution.
+        <p className={`mb-4 ${textMuted}`}>
+          The <code className="text-aquilia-500">get_or_set(...)</code> pattern supports thundering-herd stampede prevention using a process-local in-memory singleflight futures map. While a key is being fetched, concurrent duplicate reads wait on the primary loader:
         </p>
-        <CodeBlock language="python" filename="modules/users/service.py">{`from aquilia.cache import CacheService
+        <CodeBlock language="python" filename="modules/users/service.py" highlightLines={[8, 12]}>{`from aquilia.cache import CacheService
 
 class UserService:
     def __init__(self, cache: CacheService, repo):
@@ -120,9 +120,10 @@ class UserService:
 `}</CodeBlock>
       </section>
 
+      {/* Batch and Invalidation Operations */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Batch and Invalidation Operations</h2>
-        <CodeBlock language="python" filename="modules/catalog/cache_ops.py">{`from aquilia.cache import CacheService
+        <CodeBlock language="python" filename="modules/catalog/cache_ops.py" highlightLines={[4, 10, 13, 16]}>{`from aquilia.cache import CacheService
 
 async def refresh_catalog(cache: CacheService, catalog_items: dict[str, dict]):
     await cache.set_many(
@@ -143,9 +144,10 @@ async def refresh_catalog(cache: CacheService, catalog_items: dict[str, dict]):
 `}</CodeBlock>
       </section>
 
+      {/* Observability and Health */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Observability and Health</h2>
-        <CodeBlock language="python" filename="cache_health.py">{`stats = await cache.stats()
+        <CodeBlock language="python" filename="cache_health.py" highlightLines={[1, 4]}>{`stats = await cache.stats()
 print(stats.to_dict())
 
 ok = await cache.health_check()
@@ -153,25 +155,29 @@ print("cache healthy:", ok)
 `}</CodeBlock>
       </section>
 
+      {/* Behavior Notes */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Behavior Notes</h2>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li><code className="text-aquilia-500">get(...)</code> returns <code className="text-aquilia-500">default</code> on backend errors instead of raising.</li>
-            <li><code className="text-aquilia-500">set(...)</code> logs backend failures and emits a cache fault (best effort), but does not raise to caller.</li>
-            <li><code className="text-aquilia-500">touch(...)</code> is implemented as read + write, so it may apply TTL jitter and may fail if key is missing.</li>
-            <li>Stampede prevention is process-local. It coalesces concurrent misses within one process, not across multiple workers.</li>
-            <li>Batch semantics depend on backend implementation. Memory and Redis implement specialized paths; others may use protocol defaults.</li>
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2">
+          <p>
+            • <code className="text-aquilia-500">get(...)</code> and <code className="text-aquilia-500">get_many(...)</code> degrade gracefully, returning default values on connection errors rather than raising exceptions.
+          </p>
+          <p>
+            • <code className="text-aquilia-500">set(...)</code> and <code className="text-aquilia-500">set_many(...)</code> log errors and emit a structured cache fault, but do not raise, ensuring data persistence errors do not block the request.
+          </p>
+          <p>
+            • Stampede prevention is local to the current python worker process. Coalescence does not occur across separate host nodes or parallel server processes.
+          </p>
         </div>
       </section>
 
+      {/* DI Example */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>DI Example</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Inject <code className="text-aquilia-500">CacheService</code> in controllers/services through Aquilia DI.
+        <p className={`mb-4 ${textMuted}`}>
+          Inject <DocTerm id="cache.CacheService">CacheService</DocTerm> directly into controllers through dependency injection:
         </p>
-        <CodeBlock language="python" filename="modules/products/controllers.py">{`from aquilia import Controller, GET
+        <CodeBlock language="python" filename="modules/products/controllers.py" highlightLines={[7, 13]}>{`from aquilia import Controller, GET
 from aquilia.cache import CacheService
 
 class ProductController(Controller):
@@ -182,7 +188,6 @@ class ProductController(Controller):
 
     @GET("/{id}")
     async def get_product(self, ctx, id: int):
-        # Cache hit returns immediately; miss triggers loader and cache set.
         product = await self.cache.get_or_set(
             f"product:{id}",
             lambda: self.repo.find(id),

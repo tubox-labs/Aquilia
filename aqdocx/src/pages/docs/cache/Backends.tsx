@@ -1,13 +1,14 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
 import { HardDrive } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
 export function CacheBackends() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
-  const subtle = isDark ? 'text-gray-400' : 'text-gray-600'
+  const textMuted = isDark ? 'text-gray-400' : 'text-gray-600'
+  const subtleBorder = isDark ? 'border-white/5' : 'border-gray-100'
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -22,51 +23,53 @@ export function CacheBackends() {
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
-        <p className={`text-lg leading-relaxed ${subtle}`}>
-          Aquilia ships four cache backends. All conform to the
-          <code className="text-aquilia-500 mx-1">CacheBackend</code>
-          contract and can be swapped behind the same <code className="text-aquilia-500">CacheService</code> API.
+        <p className={`text-lg leading-relaxed ${textMuted}`}>
+          Aquilia ships with four built-in cache backends conforming to the <code className="text-aquilia-500">CacheBackend</code> interface. All can be transparently swapped behind the same <DocTerm id="cache.CacheService">CacheService</DocTerm> instance.
         </p>
       </div>
 
+      {/* Backend Comparison */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Backend Comparison</h2>
-        <div className={box}>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className={isDark ? 'text-gray-400' : 'text-gray-500'}>
-                  <th className="text-left pb-3 font-semibold">Backend</th>
-                  <th className="text-left pb-3 font-semibold">Persistence</th>
-                  <th className="text-left pb-3 font-semibold">Distributed</th>
-                  <th className="text-left pb-3 font-semibold">Primary Strength</th>
-                  <th className="text-left pb-3 font-semibold">Best For</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left border-collapse">
+            <thead>
+              <tr className={`border-b ${subtleBorder} ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                <th className="pb-3 font-semibold pr-4">Backend</th>
+                <th className="pb-3 font-semibold pr-4">Persistence</th>
+                <th className="pb-3 font-semibold pr-4">Distributed</th>
+                <th className="pb-3 font-semibold pr-4">Primary Strength</th>
+                <th className="pb-3 font-semibold">Best For</th>
+              </tr>
+            </thead>
+            <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+              {[
+                ['MemoryBackend', 'No', 'No', 'Low-latency in-process cache', 'Single-process apps, testing, development'],
+                ['RedisBackend', 'Yes', 'Yes', 'Shared cache across workers/nodes', 'Production multi-worker deployments'],
+                ['CompositeBackend', 'L1 no + L2 yes', 'Via L2', 'Local hit speeds + shared fallback', 'High QPS with hot-key request skew'],
+                ['NullBackend', 'No', 'No', 'Intentional no-op behavior', 'Disabling cache without altering code'],
+              ].map(([name, persist, dist, strength, best], i) => (
+                <tr key={i} className={`border-b ${subtleBorder} hover:bg-aquilia-500/[0.02]`}>
+                  <td className="py-2.5 font-mono text-aquilia-400 text-xs pr-4">
+                    <DocTerm id={name === 'MemoryBackend' ? 'cache.MemoryBackend' : name === 'RedisBackend' ? 'cache.RedisBackend' : name === 'CompositeBackend' ? 'cache.CompositeBackend' : 'cache.NullBackend'}>
+                      {name}
+                    </DocTerm>
+                  </td>
+                  <td className="py-2.5 text-xs pr-4">{persist}</td>
+                  <td className="py-2.5 text-xs pr-4">{dist}</td>
+                  <td className="py-2.5 text-xs pr-4">{strength}</td>
+                  <td className="py-2.5 text-xs">{best}</td>
                 </tr>
-              </thead>
-              <tbody className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                {[
-                  ['MemoryBackend', 'No', 'No', 'Low-latency in-process cache', 'Single-process apps, tests, dev'],
-                  ['RedisBackend', 'Yes', 'Yes', 'Shared cache across workers/nodes', 'Production multi-worker deployments'],
-                  ['CompositeBackend', 'L1 no + L2 maybe', 'Via L2', 'Fast local hits + shared fallback', 'High QPS with hot-key skew'],
-                  ['NullBackend', 'No', 'No', 'Intentional no-op behavior', 'Disable cache without code changes'],
-                ].map(([name, persist, dist, strength, best], i) => (
-                  <tr key={i} className={`border-t ${isDark ? 'border-white/5' : 'border-gray-100'}`}>
-                    <td className="py-2 font-mono text-aquilia-400 text-xs">{name}</td>
-                    <td className="py-2 text-xs">{persist}</td>
-                    <td className="py-2 text-xs">{dist}</td>
-                    <td className="py-2 text-xs">{strength}</td>
-                    <td className="py-2 text-xs">{best}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
+      {/* CacheBackend Contract */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CacheBackend Contract</h2>
-        <CodeBlock language="python" filename="aquilia/cache/core.py">{`class CacheBackend(ABC):
+        <CodeBlock language="python" filename="aquilia/cache/core.py" highlightLines={[2, 3, 4, 8, 9]}>{`class CacheBackend(ABC):
     async def initialize(self) -> None: ...
     async def shutdown(self) -> None: ...
     async def get(self, key: str) -> CacheEntry | None: ...
@@ -77,7 +80,7 @@ export function CacheBackends() {
     async def keys(self, pattern: str = "*", namespace: str | None = None) -> list[str]: ...
     async def stats(self) -> CacheStats: ...
 
-    # Optional overrides with defaults in base class:
+    # Optional methods with defaults in base class:
     async def delete_by_tags(self, tags: set[str]) -> int: ...
     async def get_many(self, keys: list[str]) -> dict[str, CacheEntry | None]: ...
     async def set_many(self, items: dict[str, Any], ttl: int | None = None, namespace: str = "default") -> None: ...
@@ -93,13 +96,13 @@ export function CacheBackends() {
 `}</CodeBlock>
       </section>
 
+      {/* MemoryBackend */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>MemoryBackend</h2>
-        <p className={`mb-4 ${subtle}`}>
-          In-process cache with lock-based concurrency control, TTL sweeper task, inverted indices for tags/namespaces,
-          and configurable eviction policy (<code className="text-aquilia-500">lru</code>, <code className="text-aquilia-500">lfu</code>, <code className="text-aquilia-500">fifo</code>, <code className="text-aquilia-500">ttl</code>, <code className="text-aquilia-500">random</code>).
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.MemoryBackend">MemoryBackend</DocTerm></h2>
+        <p className={`mb-4 ${textMuted}`}>
+          In-process cache utilizing locks for concurrency control, an asynchronous sweeper task for TTL management, inverted indexes for tag-based groupings, and configurable eviction policies (<code className="text-aquilia-500">lru</code>, <code className="text-aquilia-500">lfu</code>, <code className="text-aquilia-500">fifo</code>, <code className="text-aquilia-500">ttl</code>, <code className="text-aquilia-500">random</code>).
         </p>
-        <CodeBlock language="python" filename="memory_backend.py">{`from aquilia.cache import MemoryBackend, CacheService
+        <CodeBlock language="python" filename="memory_backend.py" highlightLines={[4, 5, 8]}>{`from aquilia.cache import MemoryBackend, CacheService
 
 backend = MemoryBackend(
     max_size=10_000,
@@ -111,23 +114,19 @@ backend = MemoryBackend(
 
 cache = CacheService(backend=backend)
 await cache.initialize()`}</CodeBlock>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>Tracks per-entry metadata (<code className="text-aquilia-500">created_at</code>, <code className="text-aquilia-500">last_accessed</code>, <code className="text-aquilia-500">access_count</code>, tags, namespace, size).</li>
-            <li>Background sweeper removes expired entries from a TTL heap.</li>
-            <li>LFU policy uses frequency tracking; LRU/FIFO use ordered storage semantics.</li>
-            <li>Reports latency samples and hit/miss stats through <code className="text-aquilia-500">CacheStats</code>.</li>
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2 mt-4">
+          <p>• Stores detailed metadata for each entry, including creation times, access frequencies, namespaces, and sizes.</p>
+          <p>• The active background sweeper runs periodically to evict expired items from a sorted TTL min-heap.</p>
         </div>
       </section>
 
+      {/* RedisBackend */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>RedisBackend</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Distributed backend using <code className="text-aquilia-500">redis.asyncio</code> with connection pooling,
-          serializer support, pipelined batch operations, and set-based indexes for tags/namespaces.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.RedisBackend">RedisBackend</DocTerm></h2>
+        <p className={`mb-4 ${textMuted}`}>
+          A distributed caching backend communicating with Redis databases. Manages connection pooling, pipelined batch transactions, and uses Redis Sets for O(1) tag and namespace lookups.
         </p>
-        <CodeBlock language="python" filename="redis_backend.py">{`from aquilia.cache import RedisBackend, CacheService
+        <CodeBlock language="python" filename="redis_backend.py" highlightLines={[4, 5, 7]}>{`from aquilia.cache import RedisBackend, CacheService
 
 backend = RedisBackend(
     url="redis://localhost:6379/0",
@@ -140,22 +139,19 @@ backend = RedisBackend(
 
 cache = CacheService(backend=backend)
 await cache.initialize()`}</CodeBlock>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>Stores value payloads as serialized bytes.</li>
-            <li>Uses prefixed keys and metadata sets: <code className="text-aquilia-500">{`_tags:<tag>`}</code> and <code className="text-aquilia-500">{`_ns:<namespace>`}</code>.</li>
-            <li>Tag invalidation performs set lookup then key deletion in a pipeline.</li>
-            <li>Batch reads use <code className="text-aquilia-500">MGET</code>; batch writes use pipelined <code className="text-aquilia-500">SET/SETEX</code> and namespace indexing.</li>
-          </ul>
+        <div className="border-l-2 border-aquilia-500/20 pl-4 py-1 text-sm text-zinc-500 space-y-2 mt-4">
+          <p>• Uses namespaces and key prefix mapping. Tags are stored in Redis Sets named <code className="text-aquilia-500">{`_tags:<tag>`}</code>.</p>
+          <p>• Pluggable serialization supports JSON, Msgpack, and Pickle options.</p>
         </div>
       </section>
 
+      {/* CompositeBackend */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CompositeBackend (L1/L2)</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Two-level backend for low-latency reads with shared fallback. Read path is L1 then L2. L2 hits can be promoted to L1.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}><DocTerm id="cache.CompositeBackend">CompositeBackend</DocTerm> (L1/L2)</h2>
+        <p className={`mb-4 ${textMuted}`}>
+          Combines a fast local L1 memory cache and a distributed L2 Redis cache. Reads hit L1 first, falling back to L2. Found L2 values are promoted to L1, and writes update both levels simultaneously.
         </p>
-        <CodeBlock language="python" filename="composite_backend.py">{`from aquilia.cache import (
+        <CodeBlock language="python" filename="composite_backend.py" highlightLines={[8, 9, 13]}>{`from aquilia.cache import (
     CompositeBackend, MemoryBackend, RedisBackend, CacheService,
 )
 
@@ -170,91 +166,64 @@ backend = CompositeBackend(
 )
 
 cache = CacheService(backend=backend)
-
-# Reads: L1 → L2 → miss
-# Writes: L1 + L2 simultaneously`}</CodeBlock>
-        <div className={box}>
-          <ul className={`list-disc pl-6 space-y-2 text-sm ${subtle}`}>
-            <li>L2 read/write failures are handled with graceful degradation where possible.</li>
-            <li><code className="text-aquilia-500">l2_healthy</code> reports current L2 status.</li>
-            <li>Increment operations are L2-authoritative and then mirrored into L1.</li>
-          </ul>
-        </div>
+`}</CodeBlock>
       </section>
 
+      {/* NullBackend */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>NullBackend</h2>
-        <p className={`mb-4 ${subtle}`}>
-          No-op backend that always misses and never stores values. Useful when you want cache calls to remain in code paths
-          while effectively disabling caching.
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>NullBackend</h2>
+        <p className={`mb-4 ${textMuted}`}>
+          No-op cache backend implementation. Always misses reads and ignores write operations. Useful for testing or disabling cache systems in production without changing application code.
         </p>
-        <CodeBlock language="python" filename="null_backend.py">{`from aquilia.cache import NullBackend, CacheService
+        <CodeBlock language="python" filename="null_backend.py" highlightLines={[3]}>{`from aquilia.cache import NullBackend, CacheService
 
 cache = CacheService(backend=NullBackend())
-# All gets return None, all sets are no-ops`}</CodeBlock>
+`}</CodeBlock>
       </section>
 
+      {/* Cache Serializers */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Cache Serializers</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Serializer selection is primarily relevant for Redis/composite L2 persistence.
+        <p className={`mb-4 ${textMuted}`}>
+          Serialization formats are crucial for L2/Redis backends. Three serializers are supported:
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { name: 'JsonCacheSerializer', desc: 'Default serializer. JSON bytes, safe and interoperable.' },
-            { name: 'MsgpackCacheSerializer', desc: 'Compact binary format (requires msgpack package).' },
-            { name: 'PickleCacheSerializer', desc: 'HMAC-signed pickle payloads. Powerful but security-sensitive; requires secret_key.' },
-          ].map((s, i) => (
-            <div key={i} className={box}>
-              <h3 className={`font-mono font-bold text-xs mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{s.name}</h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{s.desc}</p>
-            </div>
-          ))}
+        <div className="space-y-4 mb-6">
+          <div>
+            <h4 className="font-mono font-bold text-xs text-aquilia-500 mb-1">JsonCacheSerializer</h4>
+            <p className="text-xs">Default option. Converts values into JSON bytes. Highly portable and secure, but limited to JSON-compatible data types.</p>
+          </div>
+          <div>
+            <h4 className="font-mono font-bold text-xs text-aquilia-500 mb-1">MsgpackCacheSerializer</h4>
+            <p className="text-xs">High-speed, compact binary representation. Requires the optional <code className="text-aquilia-500">msgpack</code> package.</p>
+          </div>
+          <div>
+            <h4 className="font-mono font-bold text-xs text-aquilia-500 mb-1">PickleCacheSerializer</h4>
+            <p className="text-xs">Standard Python pickle serialization. Supports arbitrary Python objects. Encrypted/signed using an HMAC signature via <code className="text-aquilia-500">secret_key</code> to prevent tampering.</p>
+          </div>
         </div>
-        <CodeBlock language="python" filename="serializer_factory.py">{`from aquilia.cache.serializers import get_serializer
+        <CodeBlock language="python" filename="serializer_factory.py" highlightLines={[3, 5]}>{`from aquilia.cache.serializers import get_serializer
 
 json_ser = get_serializer("json")
 msgpack_ser = get_serializer("msgpack")
-pickle_ser = get_serializer("pickle", secret_key="change-me")
+pickle_ser = get_serializer("pickle", secret_key="secure-hmac-key")
 `}</CodeBlock>
       </section>
 
+      {/* Key Builders */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Key Builders</h2>
-        <CodeBlock language="python" filename="key_builders.py">{`from aquilia.cache import DefaultKeyBuilder, HashKeyBuilder
+        <p className={`mb-4 ${textMuted}`}>
+          Key builders normalize logical keys into unique string descriptors.
+        </p>
+        <CodeBlock language="python" filename="key_builders.py" highlightLines={[3, 7]}>{`from aquilia.cache import DefaultKeyBuilder, HashKeyBuilder
 
 default_builder = DefaultKeyBuilder(version=1)
 print(default_builder.build(namespace="users", key="42", prefix="aq:"))
-# aq:v1:users:42
+# Output: aq:v1:users:42
 
 hash_builder = HashKeyBuilder(hash_length=16, version=1)
 print(hash_builder.build(namespace="search", key="long-query", prefix="aq:"))
-# aq:v1:search:<hash>
-`}</CodeBlock>
-      </section>
-
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Implementing a Custom Backend</h2>
-        <p className={`mb-4 ${subtle}`}>
-          Implement the abstract methods from <code className="text-aquilia-500">CacheBackend</code>. Keep method signatures compatible.
-        </p>
-        <CodeBlock language="python" filename="custom_backend.py">{`from typing import Any
-from aquilia.cache import CacheBackend, CacheEntry, CacheStats
-
-class DynamoBackend(CacheBackend):
-    @property
-    def name(self) -> str:
-        return "dynamo"
-
-    async def initialize(self) -> None: ...
-    async def shutdown(self) -> None: ...
-    async def get(self, key: str) -> CacheEntry | None: ...
-    async def set(self, key: str, value: Any, ttl: int | None = None, tags: tuple[str, ...] = (), namespace: str = "default") -> None: ...
-    async def delete(self, key: str) -> bool: ...
-    async def exists(self, key: str) -> bool: ...
-    async def clear(self, namespace: str | None = None) -> int: ...
-    async def keys(self, pattern: str = "*", namespace: str | None = None) -> list[str]: ...
-    async def stats(self) -> CacheStats: ...
+# Output: aq:v1:search:<hash>
 `}</CodeBlock>
       </section>
 
