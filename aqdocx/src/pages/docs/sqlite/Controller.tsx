@@ -1,364 +1,198 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Code } from 'lucide-react'
+import { DocTerm } from '../../../components/docPreview/DocTerm'
+import { NextSteps } from '../../../components/NextSteps'
+import { Code, Layers, Terminal } from 'lucide-react'
 
 export function SqliteController() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const subtleText = isDark ? 'text-gray-400' : 'text-gray-600'
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="mb-12">
+    <div className="max-w-4xl mx-auto animate-fade-in select-none">
+      {/* Title Header */}
+      <div className="mb-12 relative overflow-hidden rounded-3xl bg-gradient-to-br from-aquilia-500/10 via-transparent to-transparent p-8 border border-white/5 shadow-2xl backdrop-blur-md">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
-          <Code className="w-4 h-4" />
-          SQLite › Controller Guide
+          <Code className="w-4 h-4 animate-pulse" />
+          SQLite / Controller Guide
         </div>
-        <h1 className={`text-4xl mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono">
-            Controller Integration
-          </span>
+        <h1 className={`text-4xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'} mb-4`}>
+          Controller Integration
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Using SQLite in Aquilia controllers.
+        <p className={`text-lg leading-relaxed ${subtleText}`}>
+          Learn how to execute queries, manage transaction scopes, handle constraint exceptions, and paginate records inside your HTTP Controllers using the SqliteService.
         </p>
       </div>
 
       {/* Dependency Injection */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Dependency Injection
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Layers className="w-5 h-5 text-aquilia-500" />
+          Injecting the SqliteService
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Register the pool in the DI container.
+        <p className={`mb-6 ${subtleText}`}>
+          The <DocTerm id="sqlite.SqliteService">SqliteService</DocTerm> manages the connection pool lifecycle (opening on startup, closing on shutdown) and is registered in the DI container automatically.
         </p>
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>1. Setup in workspace</h4>
-        <CodeBlock language="python">{`# workspace.py
-from aquilia import Workspace, Module
-from aquilia.sqlite import create_pool, ConnectionPool
-
-workspace = Workspace(
-    name="myapp",
-    modules=[
-        Module(name="api", path="modules/api"),
-    ],
-)
-
-# Create pool on startup
-async def setup_db():
-    pool = await create_pool(
-        database="app.db",
-        max_readers=20,
-        journal_mode="WAL",
-    )
-    return pool
-
-# Register in DI container
-pool = await setup_db()
-workspace.container.register_singleton(ConnectionPool, lambda: pool)`}</CodeBlock>
-
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>2. Inject in controller</h4>
-        <CodeBlock language="python">{`from aquilia import Controller, GET, POST, RequestCtx, Response
-from aquilia.sqlite import ConnectionPool
+        <p className={`mb-4 ${subtleText}`}>
+          Simply declare <DocTerm id="sqlite.SqliteService">SqliteService</DocTerm> as a parameter type in your Controller constructor. Aquilia resolves it automatically using type annotations, without requiring explicit <code className="text-aquilia-500">Inject()</code> defaults:
+        </p>
+        <CodeBlock language="python" highlightLines={[9, 15, 29, 30, 32, 33, 34, 35]}>{`# modules/users/controllers.py
+from aquilia import Controller, GET, POST, RequestCtx, Response
+from aquilia.sqlite import SqliteService, SqliteIntegrityError
 
 class UsersController(Controller):
     prefix = "/users"
-    
-    def __init__(self, db: ConnectionPool):
+
+    # Auto-wired via DI using type annotations
+    def __init__(self, db: SqliteService):
         self.db = db
-    
+
     @GET("/")
-    async def list_users(self, ctx: RequestCtx):
-        rows = await self.db.fetchall("SELECT * FROM users")
-        users = [dict(row) for row in rows]
+    async def list_users(self, ctx: RequestCtx) -> Response:
+        # Access the ConnectionPool via self.db.pool
+        rows = await self.db.pool.fetch_all("SELECT id, name, email FROM users")
+        
+        # Rows behave like dictionaries:
+        users = [
+            {"id": row.id, "name": row["name"], "email": row.email}
+            for row in rows
+        ]
         return Response.json(users)
-    
+
     @POST("/")
-    async def create_user(self, ctx: RequestCtx):
-        data = await ctx.request.json()
-        
-        async with self.db.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute(
-                    "INSERT INTO users (name, email) VALUES (?, ?)",
-                    (data["name"], data["email"])
-                )
-                user_id = conn.last_insert_rowid
-        
-        return Response.json({"id": user_id}, status=201)`}</CodeBlock>
-      </section>
-
-      {/* CRUD Operations */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          CRUD Controller
-        </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Complete CRUD example.
-        </p>
-
-        <CodeBlock language="python">{`from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
-from aquilia.sqlite import ConnectionPool, SqliteIntegrityError
-
-class UsersController(Controller):
-    prefix = "/users"
-    
-    def __init__(self, db: ConnectionPool):
-        self.db = db
-    
-    @GET("/")
-    async def list_users(self, ctx: RequestCtx):
-        """List all users."""
-        rows = await self.db.fetchall("SELECT id, name, email FROM users")
-        return Response.json([dict(row) for row in rows])
-    
-    @GET("/{id}")
-    async def get_user(self, ctx: RequestCtx):
-        """Get user by ID."""
-        user_id = int(ctx.params["id"])
-        row = await self.db.fetchone(
-            "SELECT id, name, email FROM users WHERE id = ?",
-            (user_id,)
-        )
-        if not row:
-            return Response.json({"error": "User not found"}, status=404)
-        return Response.json(dict(row))
-    
-    @POST("/")
-    async def create_user(self, ctx: RequestCtx):
-        """Create a new user."""
-        data = await ctx.request.json()
+    async def create_user(self, ctx: RequestCtx) -> Response:
+        data = await ctx.json()
         
         try:
-            async with self.db.acquire() as conn:
+            async with self.db.pool.acquire(readonly=False) as conn:
                 async with conn.transaction():
-                    await conn.execute(
+                    # execute returns AsyncCursor, allowing us to read lastrowid
+                    cursor = await conn.execute(
                         "INSERT INTO users (name, email) VALUES (?, ?)",
-                        (data["name"], data["email"])
+                        [data["name"], data["email"]]
                     )
-                    user_id = conn.last_insert_rowid
-            
+                    user_id = cursor.lastrowid
+                    
             return Response.json({"id": user_id}, status=201)
         except SqliteIntegrityError:
-            return Response.json({"error": "Email already exists"}, status=400)
-    
-    @PUT("/{id}")
-    async def update_user(self, ctx: RequestCtx):
-        """Update user."""
-        user_id = int(ctx.params["id"])
-        data = await ctx.request.json()
-        
-        async with self.db.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute(
-                    "UPDATE users SET name = ?, email = ? WHERE id = ?",
-                    (data["name"], data["email"], user_id)
-                )
-                if conn.rowcount == 0:
-                    return Response.json({"error": "User not found"}, status=404)
-        
-        return Response.json({"id": user_id})
-    
-    @DELETE("/{id}")
-    async def delete_user(self, ctx: RequestCtx):
-        """Delete user."""
-        user_id = int(ctx.params["id"])
-        
-        async with self.db.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-                if conn.rowcount == 0:
-                    return Response.json({"error": "User not found"}, status=404)
-        
-        return Response.json({"deleted": True})`}</CodeBlock>
+            return Response.json({"error": "Email address already registered"}, status=400)`}</CodeBlock>
       </section>
 
-      {/* Repository Pattern */}
+      {/* CRUD Controller Example */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Repository Pattern
+        <h2 className={`text-2xl font-bold mb-4`}>
+          Complete CRUD Operations
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Separate database logic from controllers.
+        <p className={`mb-6 ${subtleText}`}>
+          A complete controller implementing standard CRUD logic, checking cursor results to return proper HTTP responses:
         </p>
+        <CodeBlock language="python" highlightLines={[7, 12, 23, 24, 36]}>{`from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
+from aquilia.sqlite import SqliteService, SqliteIntegrityError
 
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>1. Create repository</h4>
-        <CodeBlock language="python">{`# repositories/users.py
-from aquilia.sqlite import ConnectionPool
-from dataclasses import dataclass
-
-@dataclass
-class User:
-    id: int
-    name: str
-    email: str
-
-class UserRepository:
-    def __init__(self, db: ConnectionPool):
+class ItemsController(Controller):
+    prefix = "/items"
+    
+    def __init__(self, db: SqliteService):
         self.db = db
-    
-    async def find_all(self) -> list[User]:
-        rows = await self.db.fetchall("SELECT id, name, email FROM users")
-        return [User(**row) for row in rows]
-    
-    async def find_by_id(self, user_id: int) -> User | None:
-        row = await self.db.fetchone(
-            "SELECT id, name, email FROM users WHERE id = ?",
-            (user_id,)
+        
+    @GET("/{item_id:int}")
+    async def get_item(self, ctx: RequestCtx, item_id: int) -> Response:
+        row = await self.db.pool.fetch_one(
+            "SELECT id, title, description FROM items WHERE id = ?", [item_id]
         )
-        return User(**row) if row else None
-    
-    async def create(self, name: str, email: str) -> int:
-        async with self.db.acquire() as conn:
+        if not row:
+            return Response.json({"error": "Item not found"}, status=404)
+        return Response.json(dict(row))
+        
+    @PUT("/{item_id:int}")
+    async def update_item(self, ctx: RequestCtx, item_id: int) -> Response:
+        data = await ctx.json()
+        
+        async with self.db.pool.acquire(readonly=False) as conn:
             async with conn.transaction():
-                await conn.execute(
-                    "INSERT INTO users (name, email) VALUES (?, ?)",
-                    (name, email)
+                cursor = await conn.execute(
+                    "UPDATE items SET title = ?, description = ? WHERE id = ?",
+                    [data["title"], data["description"], item_id]
                 )
-                return conn.last_insert_rowid
-    
-    async def update(self, user_id: int, name: str, email: str) -> bool:
-        async with self.db.acquire() as conn:
+                if cursor.rowcount == 0:
+                    return Response.json({"error": "Item not found"}, status=404)
+                    
+        return Response.json({"id": item_id, "updated": True})
+        
+    @DELETE("/{item_id:int}")
+    async def delete_item(self, ctx: RequestCtx, item_id: int) -> Response:
+        async with self.db.pool.acquire(readonly=False) as conn:
             async with conn.transaction():
-                await conn.execute(
-                    "UPDATE users SET name = ?, email = ? WHERE id = ?",
-                    (name, email, user_id)
-                )
-                return conn.rowcount > 0
-    
-    async def delete(self, user_id: int) -> bool:
-        async with self.db.acquire() as conn:
-            async with conn.transaction():
-                await conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
-                return conn.rowcount > 0`}</CodeBlock>
-
-        <h4 className={`font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>2. Use in controller</h4>
-        <CodeBlock language="python">{`from aquilia import Controller, GET, POST, RequestCtx, Response
-from repositories.users import UserRepository
-
-class UsersController(Controller):
-    prefix = "/users"
-    
-    def __init__(self, users: UserRepository):
-        self.users = users
-    
-    @GET("/")
-    async def list_users(self, ctx: RequestCtx):
-        users = await self.users.find_all()
-        return Response.json([{"id": u.id, "name": u.name, "email": u.email} for u in users])
-    
-    @GET("/{id}")
-    async def get_user(self, ctx: RequestCtx):
-        user_id = int(ctx.params["id"])
-        user = await self.users.find_by_id(user_id)
-        if not user:
-            return Response.json({"error": "User not found"}, status=404)
-        return Response.json({"id": user.id, "name": user.name, "email": user.email})
-    
-    @POST("/")
-    async def create_user(self, ctx: RequestCtx):
-        data = await ctx.request.json()
-        user_id = await self.users.create(data["name"], data["email"])
-        return Response.json({"id": user_id}, status=201)`}</CodeBlock>
+                cursor = await conn.execute("DELETE FROM items WHERE id = ?", [item_id])
+                if cursor.rowcount == 0:
+                    return Response.json({"error": "Item not found"}, status=404)
+                    
+        return Response.json({"deleted": True})`}</CodeBlock>
       </section>
 
       {/* Pagination */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Pagination
+        <h2 className={`text-2xl font-bold mb-4`}>
+          Query Pagination
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Paginate large result sets.
+        <p className={`mb-6 ${subtleText}`}>
+          Paginate large SQL results by compiling count queries and using OFFSET parameters.
         </p>
-
-        <CodeBlock language="python">{`from aquilia import Controller, GET, RequestCtx, Response
-from aquilia.sqlite import ConnectionPool
-
-class UsersController(Controller):
-    prefix = "/users"
+        <CodeBlock language="python">{`@GET("/search")
+async def search_items(self, ctx: RequestCtx) -> Response:
+    page = int(ctx.request.query.get("page", 1))
+    per_page = int(ctx.request.query.get("per_page", 10))
+    offset = (page - 1) * per_page
     
-    def __init__(self, db: ConnectionPool):
-        self.db = db
+    # Run total count query
+    count_val = await self.db.pool.fetch_val("SELECT COUNT(*) FROM items")
+    total = count_val or 0
     
-    @GET("/")
-    async def list_users(self, ctx: RequestCtx):
-        # Get pagination params
-        page = int(ctx.request.query.get("page", 1))
-        per_page = int(ctx.request.query.get("per_page", 20))
-        offset = (page - 1) * per_page
-        
-        # Get total count
-        count_row = await self.db.fetchone("SELECT COUNT(*) as count FROM users")
-        total = count_row.count
-        
-        # Get paginated results
-        rows = await self.db.fetchall(
-            "SELECT id, name, email FROM users LIMIT ? OFFSET ?",
-            (per_page, offset)
-        )
-        
-        return Response.json({
-            "data": [dict(row) for row in rows],
-            "page": page,
-            "per_page": per_page,
-            "total": total,
-            "pages": (total + per_page - 1) // per_page,
-        })`}</CodeBlock>
+    # Fetch paginated rows
+    rows = await self.db.pool.fetch_all(
+        "SELECT id, title FROM items LIMIT ? OFFSET ?", [per_page, offset]
+    )
+    
+    return Response.json({
+        "items": [dict(row) for row in rows],
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": (total + per_page - 1) // per_page,
+    })`}</CodeBlock>
       </section>
 
       {/* Error Handling */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Error Handling
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Terminal className="w-5 h-5 text-aquilia-500" />
+          Handling SQLite Exceptions
         </h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Handle database errors gracefully.
+        <p className={`mb-6 ${subtleText}`}>
+          Catch custom SQLite exceptions to return specific, actionable API error responses.
         </p>
-
-        <CodeBlock language="python">{`from aquilia import Controller, POST, RequestCtx, Response
-from aquilia.sqlite import (
-    ConnectionPool,
+        <CodeBlock language="python">{`from aquilia.sqlite import (
     SqliteIntegrityError,
     SqliteQueryError,
-    PoolExhaustedError,
+    PoolExhaustedError
 )
 
-class UsersController(Controller):
-    prefix = "/users"
-    
-    def __init__(self, db: ConnectionPool):
-        self.db = db
-    
-    @POST("/")
-    async def create_user(self, ctx: RequestCtx):
-        data = await ctx.request.json()
-        
-        try:
-            async with self.db.acquire() as conn:
-                async with conn.transaction():
-                    await conn.execute(
-                        "INSERT INTO users (name, email) VALUES (?, ?)",
-                        (data["name"], data["email"])
-                    )
-                    user_id = conn.last_insert_rowid
-            
-            return Response.json({"id": user_id}, status=201)
-            
-        except SqliteIntegrityError as e:
-            # Constraint violation (e.g., duplicate email)
-            return Response.json({"error": "Email already exists"}, status=400)
-            
-        except SqliteQueryError as e:
-            # SQL syntax error
-            return Response.json({"error": "Invalid query"}, status=500)
-            
-        except PoolExhaustedError:
-            # No connections available
-            return Response.json({"error": "Database busy"}, status=503)`}</CodeBlock>
+@POST("/safe-action")
+async def safe_action(self, ctx: RequestCtx) -> Response:
+    try:
+        await self.db.pool.execute("INSERT INTO audit_logs DEFAULT VALUES")
+        return Response.json({"logged": True})
+    except SqliteIntegrityError as e:
+        return Response.json({"error": f"Constraint failed: {e}"}, status=400)
+    except SqliteQueryError as e:
+        return Response.json({"error": "Bad database request"}, status=500)
+    except PoolExhaustedError:
+        return Response.json({"error": "Database connection timeout"}, status=503)`}</CodeBlock>
       </section>
 
-      {/* Next Steps */}
+      <NextSteps />
     </div>
   )
 }
