@@ -1,140 +1,111 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
+
 
 export function FaultsTaxonomy() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const box = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <AlertTriangle className="w-4 h-4" />
-          Faults / Taxonomy
+          <span>FAULTS / TAXONOMY & RESULTS</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Fault Taxonomy
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Fault Taxonomy &amp; Outcomes
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia replaces exceptions with a typed fault system. Every error is a <code className="text-aquilia-400">Fault</code> with a domain, severity, context, and optional remediation. The <code className="text-aquilia-400">FaultEngine</code> processes faults through registered handlers.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Every error in Aquilia is categorized by its severity and domain, and processed by handlers returning a strict union type called <code className="text-aquilia-500">FaultResult</code>.
         </p>
       </div>
 
-      {/* Fault Base */}
+      {/* Severity Levels */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Fault Class</h2>
-        <CodeBlock language="python" filename="fault.py">{`from aquilia.faults import Fault, FaultDomain, Severity
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Severity Classification</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The <code className="text-aquilia-500">Severity</code> enum dictates logging urgency and retry capabilities:
+        </p>
 
-fault = Fault(
-    code="MODEL_NOT_FOUND",
-    message="Model 'User' does not exist",
-    domain=FaultDomain.MODEL,
-    severity=Severity.ERROR,
-    context={
-        "model_name": "User",
-        "operation": "lookup",
-    },
-    remediation="Check that the model is registered in the module manifest.",
-)
-
-print(fault.code)          # "MODEL_NOT_FOUND"
-print(fault.domain)        # FaultDomain.MODEL
-print(fault.severity)      # Severity.ERROR
-print(fault.context)       # {"model_name": "User", ...}
-print(fault.is_retryable)  # False`}</CodeBlock>
-      </section>
-
-      {/* FaultDomain */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>FaultDomain</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {[
-            { name: 'MODEL', desc: 'Model / ORM errors' },
-            { name: 'SERIALIZER', desc: 'Validation / serialization' },
-            { name: 'SECURITY', desc: 'Auth, authz, CSRF, CORS' },
-            { name: 'ROUTING', desc: 'URL resolution failures' },
-            { name: 'MIDDLEWARE', desc: 'Middleware chain errors' },
-            { name: 'DI', desc: 'Dependency injection failures' },
-            { name: 'CACHE', desc: 'Cache operations' },
-            { name: 'SOCKET', desc: 'WebSocket errors' },
-            { name: 'MAIL', desc: 'Email delivery' },
-            { name: 'TEMPLATE', desc: 'Template rendering' },
-            { name: 'SESSION', desc: 'Session management' },
-            { name: 'CONFIG', desc: 'Configuration loading' },
-            { name: 'REGISTRY', desc: 'Module registry' },
-            { name: 'EFFECT', desc: 'Effect system' },
-            { name: 'SERVER', desc: 'ASGI server errors' },
-          ].map((d, i) => (
-            <div key={i} className={box}>
-              <h3 className={`font-mono font-bold text-xs mb-1 ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>{d.name}</h3>
-              <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>{d.desc}</p>
-            </div>
-          ))}
+        <div className="space-y-4">
+          <div className="border-l-2 border-blue-500/20 pl-4 py-1">
+            <span className="text-blue-400 font-mono text-xs font-bold uppercase">Severity.INFO</span>
+            <p className="text-sm text-gray-400 mt-1">Informational incidents. Logged at info level, requires no immediate correction.</p>
+          </div>
+          <div className="border-l-2 border-yellow-500/20 pl-4 py-1">
+            <span className="text-yellow-400 font-mono text-xs font-bold uppercase">Severity.WARN</span>
+            <p className="text-sm text-gray-400 mt-1">Degraded application behavior. Does not stop request execution.</p>
+          </div>
+          <div className="border-l-2 border-orange-500/20 pl-4 py-1">
+            <span className="text-orange-400 font-mono text-xs font-bold uppercase">Severity.ERROR</span>
+            <p className="text-sm text-gray-400 mt-1">Request failed. Aborts the thread, requires handling or returns error response.</p>
+          </div>
+          <div className="border-l-2 border-red-500/20 pl-4 py-1">
+            <span className="text-red-400 font-mono text-xs font-bold uppercase">Severity.FATAL</span>
+            <p className="text-sm text-gray-400 mt-1">System-level crash. Stops the process or aborts the entire ASGI lifespan.</p>
+          </div>
         </div>
       </section>
 
-      {/* Severity */}
+      {/* FaultResult Union */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Severity Levels</h2>
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm border-collapse ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={isDark ? 'border-b border-white/10' : 'border-b border-gray-200'}>
-                <th className="py-3 px-4 text-left font-semibold">Level</th>
-                <th className="py-3 px-4 text-left font-semibold">Behavior</th>
-                <th className="py-3 px-4 text-left font-semibold">Retryable</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['DEBUG', 'Logged only, no user impact', 'N/A'],
-                ['INFO', 'Informational, may be surfaced', 'N/A'],
-                ['WARNING', 'Degraded behavior, continues', 'Sometimes'],
-                ['ERROR', 'Operation failed, request aborted', 'Sometimes'],
-                ['CRITICAL', 'System-level failure', 'No'],
-              ].map(([level, behavior, retry], i) => (
-                <tr key={i} className={isDark ? 'border-b border-white/5' : 'border-b border-gray-100'}>
-                  <td className={`py-2.5 px-4 font-mono text-xs font-bold ${
-                    level === 'CRITICAL' ? 'text-red-400' :
-                    level === 'ERROR' ? 'text-orange-400' :
-                    level === 'WARNING' ? 'text-yellow-400' :
-                    level === 'INFO' ? 'text-blue-400' : 'text-gray-400'
-                  }`}>{level}</td>
-                  <td className="py-2.5 px-4 text-xs">{behavior}</td>
-                  <td className="py-2.5 px-4 text-xs">{retry}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Handler outcomes: FaultResult</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          A custom fault handler determines propagation by returning one of three frozen dataclasses that comprise the <code className="text-aquilia-500">FaultResult</code> type:
+        </p>
+
+        <div className="space-y-6 mb-8 text-sm">
+          <div className="border-b border-white/5 pb-4">
+            <code className="text-white text-xs font-mono font-bold block mb-1">Resolved(response)</code>
+            <p className="text-gray-400 mt-1">
+              Instructs the engine that the fault is handled. It stops propagation and returns the enclosed <code className="text-aquilia-300">Response</code> object directly.
+            </p>
+          </div>
+          <div className="border-b border-white/5 pb-4">
+            <code className="text-white text-xs font-mono font-bold block mb-1">Transformed(new_fault, preserve_context=True)</code>
+            <p className="text-gray-400 mt-1">
+              Transforms the active error into a new fault class and continues bubbling it up the handler chain.
+            </p>
+          </div>
+          <div className="pb-4">
+            <code className="text-white text-xs font-mono font-bold block mb-1">Escalate()</code>
+            <p className="text-gray-400 mt-1">
+              Declines handling the fault. It escalates the error to the next outer handler in the parent scope.
+            </p>
+          </div>
         </div>
+
+        <CodeBlock language="python" filename="fault_results.py" highlightLines={[6, 9, 12]}>{`from aquilia.faults import Resolved, Transformed, Escalate, FaultResult
+from aquilia.response import Response
+
+def handle_error(fault, ctx) -> FaultResult:
+    if fault.code == "EXPIRED_SESSION":
+        # Resolve error, return 401 response
+        return Resolved(Response("Session expired", status=401))
+        
+    if fault.code == "RAW_DB_ERROR":
+        # Transform error
+        return Transformed(ApiFault("DATABASE_ERROR"))
+        
+    # Otherwise escalate
+    return Escalate()`}</CodeBlock>
       </section>
 
-      {/* FaultResult */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>FaultResult</h2>
-        <CodeBlock language="python" filename="result.py">{`from aquilia.faults import FaultResult
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <Link to="/docs/faults/taxonomy" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Overview
+        </Link>
+        <Link to="/docs/faults/engine" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          FaultEngine <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
 
-# FaultResult is a union type for handler outcomes:
-
-# Continue — fault handled, proceed normally
-result = FaultResult.continue_()
-
-# Abort — stop processing, return error response
-result = FaultResult.abort(status=422, body={"error": "Validation failed"})
-
-# Retry — retry the operation (for retryable faults)
-result = FaultResult.retry(delay_ms=100, max_retries=3)
-
-# Propagate — re-raise to the next handler
-result = FaultResult.propagate(fault)`}</CodeBlock>
-      </section>
-    
       <NextSteps />
     </div>
   )
