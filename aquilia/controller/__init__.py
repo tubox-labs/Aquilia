@@ -31,6 +31,7 @@ Example:
             return self.repo.get(id)
 """
 
+from .attrs import Attributes
 from .base import Controller, ExceptionFilter, Interceptor, RequestCtx, Throttle
 from .compiler import (
     CompiledController,
@@ -103,6 +104,7 @@ from .validation import RequestBodyValidationFault, ValidationFault, validate_bo
 __all__ = [
     # Base
     "Controller",
+    "Attributes",
     "RequestCtx",
     "ExceptionFilter",
     "Interceptor",
