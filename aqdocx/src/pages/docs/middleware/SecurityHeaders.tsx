@@ -1,126 +1,108 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Layers } from 'lucide-react'
+import { Layers, ArrowLeft, ArrowRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
+
 
 export function MiddlewareSecurityHeaders() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto py-6 font-sans">
+      {/* Header */}
       <div className="mb-12">
-        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
+        <div className="flex items-center gap-2 text-sm text-aquilia-500 font-mono mb-4">
           <Layers className="w-4 h-4" />
-          Middleware / Security Headers
+          <span>MIDDLEWARE / SECURITY</span>
         </div>
-        <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Security Headers Middleware
-            <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
-          </span>
+        <h1 className={`text-4xl font-light tracking-tight mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          Security Middleware Suite
         </h1>
-        <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A collection of middleware for CSP, CSRF, HSTS, and general security headers. Each can be used independently or combined via <code className="text-aquilia-400">SecurityHeadersMiddleware</code>.
+        <p className={`text-lg leading-relaxed font-light ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Aquilia incorporates a production-grade suite of security middlewares covering Content-Security-Policy (CSP), Cross-Site Request Forgery (CSRF), HTTP Strict Transport Security (HSTS), and Helmet-style security headers.
         </p>
       </div>
 
-      {/* SecurityHeadersMiddleware */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>SecurityHeadersMiddleware</h2>
-        <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Combines all security headers in one middleware. Adds sensible defaults for production.
-        </p>
-        <CodeBlock language="python" filename="security.py">{`from aquilia.middleware_ext import SecurityHeadersMiddleware
-
-security = SecurityHeadersMiddleware(
-    x_content_type_options="nosniff",
-    x_frame_options="DENY",
-    x_xss_protection="1; mode=block",
-    referrer_policy="strict-origin-when-cross-origin",
-    permissions_policy="camera=(), microphone=(), geolocation=()",
-)`}</CodeBlock>
-      </section>
-
       {/* CSPMiddleware */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CSPMiddleware</h2>
-        <CodeBlock language="python" filename="csp.py">{`from aquilia.middleware_ext import CSPMiddleware
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>CSPMiddleware &amp; CSPPolicy</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Content-Security-Policy is built using a fluent builder class, <code className="text-aquilia-500">CSPPolicy</code>, which is then registered via <code className="text-aquilia-500">CSPMiddleware</code>. It generates secure cryptographically random nonces (<code className="text-aquilia-500">secrets.token_urlsafe(16)</code>) per-request and injects them to <code className="text-aquilia-400">request.state["csp_nonce"]</code>.
+        </p>
 
-csp = CSPMiddleware(
-    default_src=["'self'"],
-    script_src=["'self'", "https://cdn.example.com"],
-    style_src=["'self'", "'unsafe-inline'"],
-    img_src=["'self'", "data:", "https:"],
-    font_src=["'self'", "https://fonts.gstatic.com"],
-    connect_src=["'self'", "https://api.example.com"],
-    frame_ancestors=["'none'"],
-    report_uri="/csp-report",
-    report_only=False,  # True for testing
-)`}</CodeBlock>
+        <CodeBlock language="python" filename="csp_setup.py" highlightLines={[6, 7, 8, 9, 13]}>{`from aquilia.middleware_ext import CSPMiddleware, CSPPolicy
+
+# 1. Build the policy fluently
+policy = (
+    CSPPolicy()
+    .default_src("'self'")
+    .script_src("'self'", "'nonce-{nonce}'", "https://cdn.jsdelivr.net")
+    .style_src("'self'", "'unsafe-inline'")
+    .img_src("'self'", "data:", "https:")
+)
+
+# 2. Wire into middleware
+server.middleware(CSPMiddleware(policy=policy, report_only=False))`}</CodeBlock>
       </section>
 
       {/* CSRFMiddleware */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>CSRFMiddleware</h2>
-        <CodeBlock language="python" filename="csrf.py">{`from aquilia.middleware_ext import CSRFMiddleware
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>CSRFMiddleware</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Defends against Cross-Site Request Forgery. It implements the primary <strong>Synchronizer Token Pattern</strong> using server-side sessions, falling back to a signed <strong>Double Submit Cookie</strong> fallback when sessions are disabled. It enforces constant-time string comparisons (<code className="text-aquilia-500">secrets.compare_digest</code>) to block timing attack vectors.
+        </p>
 
-csrf = CSRFMiddleware(
-    cookie_name="csrf_token",
-    header_name="X-CSRF-Token",
-    safe_methods=["GET", "HEAD", "OPTIONS"],
-    cookie_secure=True,
-    cookie_httponly=True,
-    cookie_samesite="lax",
-    exempt_routes=["/api/webhooks/"],  # Skip for webhooks
+        <CodeBlock language="python" filename="csrf_setup.py" highlightLines={[6, 7, 10]}>{`from aquilia.middleware_ext import CSRFMiddleware
+
+server.middleware(
+    CSRFMiddleware(
+        secret_key="my-secure-hmac-key", # Required for cookie fallback integrity
+        cookie_name="_csrf_cookie",
+        header_name="X-CSRF-Token",
+        cookie_secure=True,
+        cookie_httponly=False,          # Set False to let JS read it for AJAX
+        exempt_paths=["/api/v1/webhooks"] # Exempt endpoints like Stripe webhook paths
+    )
 )`}</CodeBlock>
       </section>
 
-      {/* HSTSMiddleware */}
+      {/* SecurityHeadersMiddleware */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>HSTSMiddleware</h2>
-        <CodeBlock language="python" filename="hsts.py">{`from aquilia.middleware_ext import HSTSMiddleware
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-4`}>SecurityHeadersMiddleware &amp; HSTS</h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          A Helmet-style catch-all security header middleware. It applies standard production defaults to outgoing responses:
+        </p>
 
-hsts = HSTSMiddleware(
-    max_age=31536000,              # 1 year
-    include_subdomains=True,
-    preload=True,                  # Submit to HSTS preload list
-)`}</CodeBlock>
-      </section>
-
-      {/* Headers Table */}
-      <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Headers Added</h2>
-        <div className="overflow-x-auto">
-          <table className={`w-full text-sm border-collapse ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-            <thead>
-              <tr className={isDark ? 'border-b border-white/10' : 'border-b border-gray-200'}>
-                <th className="py-3 px-4 text-left font-semibold">Header</th>
-                <th className="py-3 px-4 text-left font-semibold">Middleware</th>
-                <th className="py-3 px-4 text-left font-semibold">Default Value</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                ['Content-Security-Policy', 'CSP', "default-src 'self'"],
-                ['Strict-Transport-Security', 'HSTS', 'max-age=31536000'],
-                ['X-Content-Type-Options', 'Security', 'nosniff'],
-                ['X-Frame-Options', 'Security', 'DENY'],
-                ['X-XSS-Protection', 'Security', '1; mode=block'],
-                ['Referrer-Policy', 'Security', 'strict-origin-when-cross-origin'],
-                ['Permissions-Policy', 'Security', 'camera=(), microphone=()'],
-              ].map(([header, mw, value], i) => (
-                <tr key={i} className={isDark ? 'border-b border-white/5' : 'border-b border-gray-100'}>
-                  <td className="py-2.5 px-4 font-mono text-aquilia-400 text-xs">{header}</td>
-                  <td className="py-2.5 px-4 text-xs">{mw}</td>
-                  <td className="py-2.5 px-4 font-mono text-xs">{value}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="border-l border-white/10 pl-6 py-4 my-6 text-sm text-gray-400 space-y-2 font-mono text-xs">
+          <div>- <code className="text-white">X-Content-Type-Options: nosniff</code> (prevents MIME sniffing)</div>
+          <div>- <code className="text-white">X-Frame-Options: DENY</code> (defends against Clickjacking)</div>
+          <div>- <code className="text-white">X-XSS-Protection: 1; mode=block</code> (legacy XSS filtering)</div>
+          <div>- <code className="text-white">Strict-Transport-Security: max-age=31536000</code> (forces HTTPS connections)</div>
         </div>
+
+        <CodeBlock language="python" filename="security_headers.py" highlightLines={[4]}>{`from aquilia.middleware_ext import SecurityHeadersMiddleware
+
+server.middleware(
+    SecurityHeadersMiddleware(
+        x_content_type_options="nosniff",
+        x_frame_options="DENY",
+        referrer_policy="strict-origin-when-cross-origin"
+    )
+)`}</CodeBlock>
       </section>
-    
+
+      {/* Navigation */}
+      <div className={`flex items-center justify-between pt-8 mt-12 border-t ${isDark ? 'border-white/10' : 'border-gray-200'}`}>
+        <Link to="/docs/middleware/rate-limit" className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors">
+          <ArrowLeft className="w-4 h-4" /> Rate Limiting
+        </Link>
+        <Link to="/docs/middleware/request-scope" className="flex items-center gap-2 text-sm text-aquilia-500 font-semibold hover:text-aquilia-400 transition-colors">
+          Request Scope <ArrowRight className="w-4 h-4" />
+        </Link>
+      </div>
+
       <NextSteps />
     </div>
   )
