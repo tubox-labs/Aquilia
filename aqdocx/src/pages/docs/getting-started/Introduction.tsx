@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { Link } from 'react-router-dom'
@@ -131,8 +132,10 @@ const FEATURE_SPINE_DATA = [
 ]
 
 function FeatureArchitectureVisualizer({ isDark }: { isDark: boolean }) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   return (
-    <div className="my-12 flex flex-col items-center w-full font-sans">
+    <div className="my-12 flex flex-col items-center w-full font-sans select-none">
       {/* Central spine header */}
       <div className="hidden md:flex flex-col items-center mb-2">
         <span className={`text-[8px] font-mono tracking-widest px-2 py-0.5 rounded border ${
@@ -144,113 +147,223 @@ function FeatureArchitectureVisualizer({ isDark }: { isDark: boolean }) {
       </div>
 
       <div className="w-full space-y-8 md:space-y-0">
-        {FEATURE_SPINE_DATA.map((row, idx) => (
-          <div key={idx} className="flex flex-col md:grid md:grid-cols-[1fr_100px_1fr] items-center gap-4 md:gap-0">
-            
-            {/* Left Subsystem */}
-            <div className="text-left md:text-right pr-0 md:pr-4">
-              <div className="flex flex-col gap-1 md:items-end">
-                <span className={`text-[9px] font-mono font-semibold`} style={{ color: row.left.color }}>
-                  {row.left.pkg}
-                </span>
-                <h4 className={`text-sm font-mono font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {row.left.title}
-                </h4>
-                <p className={`text-xs leading-relaxed font-light mt-1 max-w-sm ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
-                  {row.left.desc}
-                </p>
-                <a
-                  href={`file:///Users/kuroyami/TuboxLabProject/Aquilia/${row.left.file}`}
-                  className={`font-mono text-[9px] font-medium hover:underline transition-colors mt-2 ${
-                    isDark ? 'text-zinc-500 hover:text-emerald-400' : 'text-gray-400 hover:text-emerald-600'
-                  }`}
-                >
-                  • {row.left.file}
-                </a>
+        {FEATURE_SPINE_DATA.map((row, idx) => {
+          const isLeftHovered = hoveredId === row.left.id;
+          const isRightHovered = hoveredId === row.right.id;
+          const anyHovered = hoveredId !== null;
+
+          return (
+            <div key={idx} className="flex flex-col md:grid md:grid-cols-[1fr_100px_1fr] items-center gap-4 md:gap-0">
+              
+              {/* Left Subsystem */}
+              <div 
+                onMouseEnter={() => setHoveredId(row.left.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                className={`text-left md:text-right pr-0 md:pr-6 cursor-default transition-all duration-300 transform ${
+                  isLeftHovered 
+                    ? 'scale-[1.02] md:-translate-x-1' 
+                    : anyHovered 
+                      ? 'opacity-25 scale-[0.98]' 
+                      : ''
+                }`}
+              >
+                <div className="flex flex-col gap-1 md:items-end">
+                  <span className={`text-[9px] font-mono font-semibold`} style={{ color: row.left.color }}>
+                    {row.left.pkg}
+                  </span>
+                  <h4 className={`text-sm font-mono font-bold transition-colors ${
+                    isLeftHovered 
+                      ? (isDark ? 'text-white' : 'text-gray-900') 
+                      : (isDark ? 'text-zinc-300' : 'text-gray-800')
+                  }`}>
+                    {row.left.title}
+                  </h4>
+                  <p className={`text-xs leading-relaxed font-light mt-1 max-w-sm ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
+                    {row.left.desc}
+                  </p>
+                  <a
+                    href={`file:///Users/kuroyami/TuboxLabProject/Aquilia/${row.left.file}`}
+                    className={`font-mono text-[9px] font-medium hover:underline transition-colors mt-2 ${
+                      isLeftHovered 
+                        ? 'text-emerald-400' 
+                        : (isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600')
+                    }`}
+                  >
+                    • {row.left.file}
+                  </a>
+                </div>
               </div>
-            </div>
 
-            {/* Middle Connection SVG (Visible on Desktop only) */}
-            <div className="hidden md:block w-[100px] h-[140px] relative">
-              <svg viewBox="0 0 100 140" className="w-full h-full bg-transparent overflow-visible">
-                {/* Vertical Spine segment */}
-                <line 
-                  x1="50" y1="0" x2="50" y2="140" 
-                  stroke={isDark ? "#1f1f23" : "#e4e4e7"} 
-                  strokeWidth="1.5" 
-                />
+              {/* Middle Connection SVG (Visible on Desktop only) */}
+              <div className="hidden md:block w-[100px] h-[140px] relative">
+                <svg viewBox="0 0 100 140" className="w-full h-full bg-transparent overflow-visible">
+                  <defs>
+                    <linearGradient id={`left-grad-${idx}`} x1="100%" y1="0%" x2="0%" y2="0%">
+                      <stop offset="0%" stopColor={isDark ? "#121214" : "#f3f4f6"} stopOpacity="0.2" />
+                      <stop offset="100%" stopColor={row.left.color} />
+                    </linearGradient>
+                    <linearGradient id={`right-grad-${idx}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor={isDark ? "#121214" : "#f3f4f6"} stopOpacity="0.2" />
+                      <stop offset="100%" stopColor={row.right.color} />
+                    </linearGradient>
+                  </defs>
 
-                {/* Left Branch Curve */}
-                <path 
-                  d="M 50,70 H 15" 
-                  fill="none" 
-                  stroke={isDark ? "#27272a" : "#cbd5e1"} 
-                  strokeWidth="1.2" 
-                />
-                {/* Left flowing pulse */}
-                <motion.circle
-                  r="2"
-                  fill={row.left.color}
-                  animate={{ cx: [50, 15] }}
-                  transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut", delay: idx * 0.3 }}
-                  cy="70"
-                />
-                {/* Left Tip */}
-                <circle cx="15" cy="70" r="3" fill={row.left.color} />
+                  {/* Vertical Spine segment */}
+                  <line 
+                    x1="50" y1="0" x2="50" y2="140" 
+                    stroke={isDark ? "#18181b" : "#f3f4f6"} 
+                    strokeWidth="1.5" 
+                  />
 
-                {/* Right Branch Curve */}
-                <path 
-                  d="M 50,70 H 85" 
-                  fill="none" 
-                  stroke={isDark ? "#27272a" : "#cbd5e1"} 
-                  strokeWidth="1.2" 
-                />
-                {/* Right flowing pulse */}
-                <motion.circle
-                  r="2"
-                  fill={row.right.color}
-                  animate={{ cx: [50, 85] }}
-                  transition={{ repeat: Infinity, duration: 2.2, ease: "easeInOut", delay: idx * 0.3 + 0.5 }}
-                  cy="70"
-                />
-                {/* Right Tip */}
-                <circle cx="85" cy="70" r="3" fill={row.right.color} />
+                  {/* Central Spine timeline micro-particles (Always flowing downwards) */}
+                  <motion.circle
+                    cx="50"
+                    r="1.2"
+                    fill={isDark ? "#3f3f46" : "#cbd5e1"}
+                    animate={{ cy: [0, 140] }}
+                    transition={{ repeat: Infinity, duration: 3, ease: "linear", delay: idx * 0.5 }}
+                  />
 
-                {/* Central Hub Junction dot */}
-                <circle 
-                  cx="50" cy="70" r="4.5" 
-                  fill={isDark ? "#000000" : "#ffffff"} 
-                  stroke={isDark ? "#3f3f46" : "#a1a1aa"} 
-                  strokeWidth="2" 
-                />
-              </svg>
-            </div>
+                  {/* LEFT BRANCH (Y-Curve) */}
+                  {/* Glowing aura if hovered */}
+                  {isLeftHovered && (
+                    <path 
+                      d="M 50,55 C 35,55 30,75 15,75" 
+                      fill="none" 
+                      stroke={row.left.color} 
+                      strokeWidth="5" 
+                      opacity="0.25"
+                      className="blur-[2px]"
+                    />
+                  )}
+                  <path 
+                    d="M 50,55 C 35,55 30,75 15,75" 
+                    fill="none" 
+                    stroke={isLeftHovered ? row.left.color : `url(#left-grad-${idx})`} 
+                    strokeWidth={isLeftHovered ? "1.8" : "1.2"} 
+                    opacity={isLeftHovered ? "1" : anyHovered ? "0.15" : "0.7"}
+                    className="transition-all duration-300"
+                  />
+                  {/* Left flowing pulse */}
+                  <motion.circle
+                    r={isLeftHovered ? "2.5" : "1.8"}
+                    fill={row.left.color}
+                    animate={{ cx: [50, 15] }}
+                    transition={{ 
+                      repeat: Infinity, 
+                      duration: isLeftHovered ? 1.0 : 2.2, 
+                      ease: "easeInOut", 
+                      delay: idx * 0.2 
+                    }}
+                    opacity={anyHovered && !isLeftHovered ? "0.1" : "0.8"}
+                    cy="75"
+                  />
+                  {/* Left Tip dot */}
+                  <circle 
+                    cx="15" cy="75" 
+                    r={isLeftHovered ? "4" : "2.5"} 
+                    fill={row.left.color} 
+                    opacity={anyHovered && !isLeftHovered ? "0.15" : "1"}
+                    className="transition-all duration-300"
+                  />
 
-            {/* Right Subsystem */}
-            <div className="text-left pl-0 md:pl-4">
-              <div className="flex flex-col gap-1 items-start">
-                <span className={`text-[9px] font-mono font-semibold`} style={{ color: row.right.color }}>
-                  {row.right.pkg}
-                </span>
-                <h4 className={`text-sm font-mono font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                  {row.right.title}
-                </h4>
-                <p className={`text-xs leading-relaxed font-light mt-1 max-w-sm ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
-                  {row.right.desc}
-                </p>
-                <a
-                  href={`file:///Users/kuroyami/TuboxLabProject/Aquilia/${row.right.file}`}
-                  className={`font-mono text-[9px] font-medium hover:underline transition-colors mt-2 ${
-                    isDark ? 'text-zinc-500 hover:text-emerald-400' : 'text-gray-400 hover:text-emerald-600'
-                  }`}
-                >
-                  • {row.right.file}
-                </a>
+                  {/* RIGHT BRANCH (Y-Curve) */}
+                  {/* Glowing aura if hovered */}
+                  {isRightHovered && (
+                    <path 
+                      d="M 50,55 C 65,55 70,75 85,75" 
+                      fill="none" 
+                      stroke={row.right.color} 
+                      strokeWidth="5" 
+                      opacity="0.25"
+                      className="blur-[2px]"
+                    />
+                  )}
+                  <path 
+                    d="M 50,55 C 65,55 70,75 85,75" 
+                    fill="none" 
+                    stroke={isRightHovered ? row.right.color : `url(#right-grad-${idx})`} 
+                    strokeWidth={isRightHovered ? "1.8" : "1.2"} 
+                    opacity={isRightHovered ? "1" : anyHovered ? "0.15" : "0.7"}
+                    className="transition-all duration-300"
+                  />
+                  {/* Right flowing pulse */}
+                  <motion.circle
+                    r={isRightHovered ? "2.5" : "1.8"}
+                    fill={row.right.color}
+                    animate={{ cx: [50, 85] }}
+                    transition={{ 
+                      repeat: Infinity, 
+                      duration: isRightHovered ? 1.0 : 2.2, 
+                      ease: "easeInOut", 
+                      delay: idx * 0.2 + 0.4 
+                    }}
+                    opacity={anyHovered && !isRightHovered ? "0.1" : "0.8"}
+                    cy="75"
+                  />
+                  {/* Right Tip dot */}
+                  <circle 
+                    cx="85" cy="75" 
+                    r={isRightHovered ? "4" : "2.5"} 
+                    fill={row.right.color} 
+                    opacity={anyHovered && !isRightHovered ? "0.15" : "1"}
+                    className="transition-all duration-300"
+                  />
+
+                  {/* Central Hub Junction dot */}
+                  <circle 
+                    cx="50" cy="55" 
+                    r={isLeftHovered || isRightHovered ? "5" : "3.5"} 
+                    fill={isDark ? "#000000" : "#ffffff"} 
+                    stroke={isLeftHovered ? row.left.color : isRightHovered ? row.right.color : (isDark ? "#3f3f46" : "#cbd5e1")} 
+                    strokeWidth="2" 
+                    className="transition-all duration-300"
+                  />
+                </svg>
               </div>
-            </div>
 
-          </div>
-        ))}
+              {/* Right Subsystem */}
+              <div 
+                onMouseEnter={() => setHoveredId(row.right.id)}
+                onMouseLeave={() => setHoveredId(null)}
+                className={`text-left pl-0 md:pl-6 cursor-default transition-all duration-300 transform ${
+                  isRightHovered 
+                    ? 'scale-[1.02] md:translate-x-1' 
+                    : anyHovered 
+                      ? 'opacity-25 scale-[0.98]' 
+                      : ''
+                }`}
+              >
+                <div className="flex flex-col gap-1 items-start">
+                  <span className={`text-[9px] font-mono font-semibold`} style={{ color: row.right.color }}>
+                    {row.right.pkg}
+                  </span>
+                  <h4 className={`text-sm font-mono font-bold transition-colors ${
+                    isRightHovered 
+                      ? (isDark ? 'text-white' : 'text-gray-900') 
+                      : (isDark ? 'text-zinc-300' : 'text-gray-800')
+                  }`}>
+                    {row.right.title}
+                  </h4>
+                  <p className={`text-xs leading-relaxed font-light mt-1 max-w-sm ${isDark ? 'text-zinc-400' : 'text-gray-600'}`}>
+                    {row.right.desc}
+                  </p>
+                  <a
+                    href={`file:///Users/kuroyami/TuboxLabProject/Aquilia/${row.right.file}`}
+                    className={`font-mono text-[9px] font-medium hover:underline transition-colors mt-2 ${
+                      isRightHovered 
+                        ? 'text-emerald-400' 
+                        : (isDark ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600')
+                    }`}
+                  >
+                    • {row.right.file}
+                  </a>
+                </div>
+              </div>
+
+            </div>
+          );
+        })}
       </div>
 
       {/* Central spine footer */}
