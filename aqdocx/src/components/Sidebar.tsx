@@ -39,6 +39,22 @@ export const sections: SidebarSection[] = [
     ]
   },
   {
+    title: 'Tutorials',
+    icon: <BookOpen className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Tutorials',
+        path: '/docs/tutorials',
+        icon: <BookOpen className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/tutorials/overview' },
+          { label: 'Todo Application', path: '/docs/tutorials/todo-app' },
+          { label: 'Authentication App', path: '/docs/tutorials/auth-app' },
+        ]
+      }
+    ]
+  },
+  {
     title: 'Core',
     icon: <Zap className="w-3 h-3" />,
     items: [
