@@ -179,33 +179,64 @@ export function DocsLayout() {
                         className="fixed inset-0 z-10" 
                         onClick={() => setIsPrintDropdownOpen(false)}
                       />
-                      <div className={`absolute right-0 mt-1.5 w-48 rounded-xl border p-1 shadow-2xl z-20 backdrop-blur-md ${
+                      <div className={`absolute right-0 mt-2 w-64 rounded-2xl border p-2.5 shadow-2xl z-20 backdrop-blur-xl transition-all duration-300 ${
                         isDark 
-                          ? 'bg-[#0a0a0a]/90 border-white/10 text-gray-300' 
-                          : 'bg-white/90 border-gray-200 text-gray-700'
+                          ? 'bg-black/95 border-white/10 text-gray-200 shadow-aquilia-500/5' 
+                          : 'bg-white/95 border-gray-200 text-gray-800 shadow-gray-200'
                       }`}>
-                        <button
-                          onClick={() => {
-                            setIsPrintDropdownOpen(false)
-                            handlePrint()
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer ${
-                            isDark ? 'hover:bg-white/5 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900'
-                          }`}
-                        >
-                          <FileText className="w-3.5 h-3.5 opacity-70" /> Print This Page
-                        </button>
-                        <button
-                          onClick={() => {
-                            setIsPrintDropdownOpen(false)
-                            window.open('/print-docs', '_blank')
-                          }}
-                          className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer ${
-                            isDark ? 'hover:bg-white/5 hover:text-white' : 'hover:bg-gray-100 hover:text-gray-900'
-                          }`}
-                        >
-                          <BookOpen className="w-3.5 h-3.5 opacity-70" /> Print Entire Documentation
-                        </button>
+                        <div className="px-2.5 py-1.5 mb-2 border-b border-gray-100 dark:border-white/5">
+                          <span className="text-[10px] font-bold tracking-wider uppercase opacity-50 block">
+                            Print Actions
+                          </span>
+                        </div>
+                        <div className="space-y-1.5">
+                          {[
+                            {
+                              label: 'Print This Page',
+                              desc: 'Print only the current section with default formatting.',
+                              icon: <FileText className="w-4 h-4 text-blue-500" />,
+                              bg: 'hover:bg-blue-500/5 dark:hover:bg-blue-500/10',
+                              border: 'hover:border-blue-500/30',
+                              action: () => {
+                                setIsPrintDropdownOpen(false)
+                                handlePrint()
+                              }
+                            },
+                            {
+                              label: 'Print Entire Docs',
+                              desc: 'Compile all documentation sections into a single printable handbook.',
+                              icon: <BookOpen className="w-4 h-4 text-purple-500" />,
+                              bg: 'hover:bg-purple-500/5 dark:hover:bg-purple-500/10',
+                              border: 'hover:border-purple-500/30',
+                              action: () => {
+                                setIsPrintDropdownOpen(false)
+                                window.open('/print-docs', '_blank')
+                              }
+                            }
+                          ].map((item, idx) => (
+                            <button
+                              key={idx}
+                              onClick={item.action}
+                              className={`w-full text-left p-2 rounded-xl border border-transparent transition-all duration-200 flex gap-3 items-start cursor-pointer ${item.bg} ${item.border} group`}
+                            >
+                              <div className="p-2 rounded-lg bg-gray-100 dark:bg-white/5 transition-transform duration-200 group-hover:scale-105 shrink-0">
+                                {item.icon}
+                              </div>
+                              <div className="space-y-0.5">
+                                <span className={`font-semibold text-xs transition-colors group-hover:text-aquilia-400 block ${
+                                  isDark ? 'text-white' : 'text-gray-900'
+                                }`}>
+                                  {item.label}
+                                </span>
+                                <span className={`text-[10px] leading-relaxed block ${
+                                  isDark ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  {item.desc}
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </>
                   )}
