@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Projections -- named, reusable field subsets.
+Aquilia Contract Projections -- named, reusable field subsets.
 
 A Projection is a named subset of facets -- like a SQL view over a model.
 Instead of repeating ``fields = [...]`` everywhere, define projections
@@ -25,9 +25,9 @@ __all__ = ["ProjectionRegistry"]
 
 class ProjectionRegistry:
     """
-    Manages named projections for a Blueprint class.
+    Manages named projections for a Contract class.
 
-    Projections are defined in the Blueprint's ``Spec`` inner class::
+    Projections are defined in the Contract's ``Spec`` inner class::
 
         class Spec:
             model = Product
@@ -83,7 +83,7 @@ class ProjectionRegistry:
             if fields == "__all__":
                 self._projections[name] = self._all_facets
             elif fields == "__minimal__":
-                # Just PK fields -- resolved later by the Blueprint
+                # Just PK fields -- resolved later by the Contract
                 self._projections[name] = frozenset()  # placeholder
             elif isinstance(fields, (list, tuple)):
                 # Check for exclusion syntax

@@ -1,7 +1,7 @@
 """
-Aquilia Blueprint Core -- the Blueprint metaclass and base class.
+Aquilia Contract Core -- the Contract metaclass and base class.
 
-A Blueprint is a contract between a Model and the outside world.
+A Contract is a contract between a Model and the outside world.
 It declares what the world sees (Facets), what it can send (Casts),
 how integrity is enforced (Seals), and how data is written back (Imprints).
 
@@ -24,13 +24,13 @@ from typing import (
 from ..utils.data import DataObject
 from .annotations import (
     Field,
-    LazyBlueprintFacet,
-    NestedBlueprintFacet,
+    LazyContractFacet,
+    NestedContractFacet,
     _ComputedMarker,
     introspect_annotations,
 )
 from .exceptions import (
-    BlueprintAsyncMismatchFault,
+    ContractAsyncMismatchFault,
     CastFault,
     ImprintFault,
     SealFault,
@@ -43,12 +43,12 @@ if TYPE_CHECKING:
     pass
 
 
-__all__ = ["Blueprint", "BlueprintMeta", "_blueprint_registry"]
+__all__ = ["Contract", "ContractMeta", "_contract_registry"]
 
 ModelT = TypeVar("ModelT")
 
-# Global registry for resolving forward/lazy Blueprint references by string name
-_blueprint_registry: dict[str, type[Blueprint]] = {}
+# Global registry for resolving forward/lazy Contract references by string name
+_contract_registry: dict[str, type[Contract]] = {}
 
 
 def resolve_sync_safe(container: Any, key: Any) -> Any:
@@ -115,9 +115,9 @@ def resolve_sync_safe(container: Any, key: Any) -> Any:
     return None
 
 
-class BlueprintContext(dict):
+class ContractContext(dict):
     """
-    Context dictionary for Blueprints.
+    Context dictionary for Contracts.
 
     Acts as a standard dict, but falls back to resolving string keys or type keys
     from the DI container (if present under the key 'container').
@@ -159,7 +159,7 @@ class BlueprintContext(dict):
 
 class _SpecData:
     """
-    Parsed Spec (inner class) data for a Blueprint.
+    Parsed Spec (inner class) data for a Contract.
 
     This replaces the DRF-style ``Meta`` class -- we call it ``Spec``
     to avoid collision with the Model's ``Meta``.
@@ -237,9 +237,9 @@ class _SpecData:
 # ── Metaclass ────────────────────────────────────────────────────────────
 
 
-class BlueprintMeta(type):
+class ContractMeta(type):
     """
-    Metaclass for Blueprint classes.
+    Metaclass for Contract classes.
 
     Responsibilities:
         1. Collect declared Facets from namespace + parent classes
@@ -247,7 +247,7 @@ class BlueprintMeta(type):
         3. Auto-derive Facets from Model fields (if Spec.model is set)
         4. Build the ProjectionRegistry
         5. Set up seal/async_seal method discovery
-        6. Support ``Blueprint["projection"]`` subscript syntax
+        6. Support ``Contract["projection"]`` subscript syntax
     """
 
     def __new__(
@@ -256,17 +256,17 @@ class BlueprintMeta(type):
         bases: tuple[type, ...],
         namespace: dict[str, Any],
         **kwargs,
-    ) -> BlueprintMeta:
+    ) -> ContractMeta:
         # Collect declared facets from namespace
         declared_facets: dict[str, Facet] = {}
         for key, value in list(namespace.items()):
             if isinstance(value, Facet):
                 declared_facets[key] = value
             elif isinstance(value, mcs):
-                # Auto-wrap Blueprint subclass assignments in a NestedBlueprintFacet
-                from .annotations import NestedBlueprintFacet
+                # Auto-wrap Contract subclass assignments in a NestedContractFacet
+                from .annotations import NestedContractFacet
 
-                facet = NestedBlueprintFacet(value)
+                facet = NestedContractFacet(value)
                 declared_facets[key] = facet
                 namespace[key] = facet
 
@@ -285,7 +285,7 @@ class BlueprintMeta(type):
                 declared_facets[key] = facet
                 namespace[key] = facet
 
-        # Inherit facets from parent Blueprints
+        # Inherit facets from parent Contracts
         parent_facets: dict[str, Facet] = {}
         for base in bases:
             if hasattr(base, "_declared_facets"):
@@ -301,10 +301,10 @@ class BlueprintMeta(type):
         # Parse Spec inner class
         spec_cls = namespace.pop("Spec", None)
         if "Meta" in namespace:
-            from .exceptions import BlueprintFault
+            from .exceptions import ContractFault
 
-            raise BlueprintFault(
-                f"Blueprint '{name}' defined 'class Meta'. Aquilia Blueprints "
+            raise ContractFault(
+                f"Contract '{name}' defined 'class Meta'. Aquilia Contracts "
                 f"use 'class Spec' instead of 'class Meta' to avoid collision with Model Meta. "
                 f"Please rename your configuration class to 'Spec'."
             )
@@ -357,7 +357,7 @@ class BlueprintMeta(type):
             )
         except Exception as exc:
             warnings.warn(
-                f"Blueprint '{name}': annotation introspection failed: {exc}. "
+                f"Contract '{name}': annotation introspection failed: {exc}. "
                 f"Annotation-derived facets will be unavailable.",
                 RuntimeWarning,
                 stacklevel=2,
@@ -365,8 +365,8 @@ class BlueprintMeta(type):
 
         cls._annotated_facets = annotated_facets
 
-        # Deterministic merge for nested Blueprint fields declared via both
-        # annotation and explicit NestedBlueprintFacet.
+        # Deterministic merge for nested Contract fields declared via both
+        # annotation and explicit NestedContractFacet.
         declared_facets = mcs._merge_nested_annotation_facets(
             name=name,
             annotated_facets=annotated_facets,
@@ -374,8 +374,8 @@ class BlueprintMeta(type):
         )
         cls._declared_facets = declared_facets
 
-        # If this is the base Blueprint class itself, skip model derivation and basic setup
-        if name == "Blueprint":
+        # If this is the base Contract class itself, skip model derivation and basic setup
+        if name == "Contract":
             cls._seal_methods = []
             cls._async_seal_methods = []
             return cls
@@ -447,26 +447,26 @@ class BlueprintMeta(type):
 
         cls._sigil = build_sigil(cls)
 
-        # Register the Blueprint in the global registry for forward references
-        # Only register if it's an actual defined Blueprint, not a base
-        if name != "Blueprint":
-            _blueprint_registry[name] = cls
+        # Register the Contract in the global registry for forward references
+        # Only register if it's an actual defined Contract, not a base
+        if name != "Contract":
+            _contract_registry[name] = cls
 
         return cls
 
     @staticmethod
     def _facet_target_tokens(facet: Facet) -> set[str]:
-        """Return normalized target identifiers for nested-blueprint facets."""
+        """Return normalized target identifiers for nested-contract facets."""
         tokens: set[str] = set()
 
-        if isinstance(facet, NestedBlueprintFacet):
+        if isinstance(facet, NestedContractFacet):
             target = facet.target
             tokens.add(target.__name__)
             tokens.add(target.__qualname__)
             tokens.add(f"{target.__module__}.{target.__qualname__}")
             return tokens
 
-        if isinstance(facet, LazyBlueprintFacet):
+        if isinstance(facet, LazyContractFacet):
             ref = facet.ref
             tokens.add(ref)
             if "." in ref:
@@ -492,8 +492,8 @@ class BlueprintMeta(type):
             if annotated is None:
                 continue
 
-            declared_is_nested = isinstance(declared, (NestedBlueprintFacet, LazyBlueprintFacet))
-            annotated_is_nested = isinstance(annotated, (NestedBlueprintFacet, LazyBlueprintFacet))
+            declared_is_nested = isinstance(declared, (NestedContractFacet, LazyContractFacet))
+            annotated_is_nested = isinstance(annotated, (NestedContractFacet, LazyContractFacet))
 
             if not declared_is_nested and not annotated_is_nested:
                 # Backward-compatible behavior for non-nested overlaps:
@@ -502,28 +502,28 @@ class BlueprintMeta(type):
 
             if declared_is_nested != annotated_is_nested:
                 raise ConfigInvalidFault(
-                    key=f"blueprints.{name}.{field_name}",
+                    key=f"contracts.{name}.{field_name}",
                     reason=(
                         f"Conflicting field '{field_name}' definitions: annotation and explicit facet "
-                        "must both define a nested Blueprint field when combined."
+                        "must both define a nested Contract field when combined."
                     ),
                 )
 
             # Both sides are nested facets. Annotation defines structure.
             if declared.many != annotated.many:
                 raise ConfigInvalidFault(
-                    key=f"blueprints.{name}.{field_name}",
+                    key=f"contracts.{name}.{field_name}",
                     reason=(
                         f"Nested field '{field_name}' has conflicting cardinality: annotation implies "
                         f"many={annotated.many}, explicit facet sets many={declared.many}."
                     ),
                 )
 
-            declared_tokens = BlueprintMeta._facet_target_tokens(declared)
-            annotated_tokens = BlueprintMeta._facet_target_tokens(annotated)
+            declared_tokens = ContractMeta._facet_target_tokens(declared)
+            annotated_tokens = ContractMeta._facet_target_tokens(annotated)
             if not (declared_tokens & annotated_tokens):
                 raise ConfigInvalidFault(
-                    key=f"blueprints.{name}.{field_name}",
+                    key=f"contracts.{name}.{field_name}",
                     reason=(
                         f"Nested field '{field_name}' annotation/facet type mismatch: "
                         f"annotation={sorted(annotated_tokens)} facet={sorted(declared_tokens)}"
@@ -609,39 +609,39 @@ class BlueprintMeta(type):
 
     def __getitem__(cls, projection: Any) -> Any:
         """
-        Enable projection refs for concrete Blueprints while preserving typing subscripts.
+        Enable projection refs for concrete Contracts while preserving typing subscripts.
 
         Returns a _ProjectedRef that can be passed to Lens or used
-        as a response_blueprint in route decorators.
+        as a response_contract in route decorators.
         """
-        if isinstance(projection, str) and cls.__name__ != "Blueprint":
+        if isinstance(projection, str) and cls.__name__ != "Contract":
             return _ProjectedRef(cls, projection)
 
-        # Defer non-projection subscripts (e.g., Blueprint[UserModel]) to typing.
+        # Defer non-projection subscripts (e.g., Contract[UserModel]) to typing.
         class_getitem = getattr(cls, "__class_getitem__", None)
         if callable(class_getitem):
             return class_getitem(projection)
 
-        raise TypeError(f"Unsupported Blueprint subscript: {projection!r}")
+        raise TypeError(f"Unsupported Contract subscript: {projection!r}")
 
     def __repr__(cls) -> str:
         model_name = cls._spec.model.__name__ if cls._spec and cls._spec.model else "None"
-        return f"<Blueprint '{cls.__name__}' model={model_name}>"
+        return f"<Contract '{cls.__name__}' model={model_name}>"
 
     def __or__(cls, other: Any) -> Any:
-        from .core import Blueprint, BlueprintUnion
+        from .core import Contract, ContractUnion
 
-        if isinstance(other, type) and issubclass(other, Blueprint):
-            return BlueprintUnion((cls, other))
-        if isinstance(other, BlueprintUnion):
-            return BlueprintUnion((cls, *other.members))
+        if isinstance(other, type) and issubclass(other, Contract):
+            return ContractUnion((cls, other))
+        if isinstance(other, ContractUnion):
+            return ContractUnion((cls, *other.members))
         return NotImplemented
 
     def __ror__(cls, other: Any) -> Any:
-        from .core import Blueprint, BlueprintUnion
+        from .core import Contract, ContractUnion
 
-        if isinstance(other, type) and issubclass(other, Blueprint):
-            return BlueprintUnion((other, cls))
+        if isinstance(other, type) and issubclass(other, Contract):
+            return ContractUnion((other, cls))
         return NotImplemented
 
 
@@ -671,11 +671,11 @@ def _derive_relation_facet(model_field: Any, name: str, spec: _SpecData) -> Face
     return facet
 
 
-# ── BlueprintUnion ────────────────────────────────────────────────────────
+# ── ContractUnion ────────────────────────────────────────────────────────
 
 
-class BlueprintUnion:
-    """Compiled discriminated union wrapper constructed via | operator on Blueprints."""
+class ContractUnion:
+    """Compiled discriminated union wrapper constructed via | operator on Contracts."""
 
     __slots__ = ("members", "discriminator_field", "_dispatch")
 
@@ -771,12 +771,12 @@ class BlueprintUnion:
             return {"__union__": ["No member matched"]}, {}
 
     def __or__(self, other):
-        if isinstance(other, BlueprintUnion):
-            return BlueprintUnion((*self.members, *other.members))
-        return BlueprintUnion((*self.members, other))
+        if isinstance(other, ContractUnion):
+            return ContractUnion((*self.members, *other.members))
+        return ContractUnion((*self.members, other))
 
     def __ror__(self, other):
-        return BlueprintUnion((other, *self.members))
+        return ContractUnion((other, *self.members))
 
     def to_json_schema(self) -> dict:
         choices_schemas = []
@@ -788,10 +788,10 @@ class BlueprintUnion:
         return sch
 
 
-# ── Blueprint Base Class ─────────────────────────────────────────────────
+# ── Contract Base Class ─────────────────────────────────────────────────
 
 
-class BlueprintSerializationDescriptor:
+class ContractSerializationDescriptor:
     """Descriptor to support calling to_dict/to_dict_many as class methods or instance methods."""
 
     def __init__(self, name: str):
@@ -799,13 +799,13 @@ class BlueprintSerializationDescriptor:
 
     def __get__(self, instance, owner):
         if instance is None:
-            # Accessed on the class, e.g., ComplexUserBlueprint.to_dict
+            # Accessed on the class, e.g., ComplexUserContract.to_dict
             if self.name == "to_dict":
 
                 def class_to_dict(obj, *, _depth: int = 0, _seen: set | None = None):
-                    from aquilia.blueprints.core import Blueprint
+                    from aquilia.contracts.core import Contract
 
-                    if isinstance(obj, Blueprint):
+                    if isinstance(obj, Contract):
                         return obj.to_dict(_depth=_depth, _seen=_seen)
                     return owner(instance=obj).to_dict(_depth=_depth, _seen=_seen)
 
@@ -813,9 +813,9 @@ class BlueprintSerializationDescriptor:
             elif self.name == "to_dict_many":
 
                 def class_to_dict_many(objs, *, _depth: int = 0, _seen: set | None = None):
-                    from aquilia.blueprints.core import Blueprint
+                    from aquilia.contracts.core import Contract
 
-                    if isinstance(objs, Blueprint):
+                    if isinstance(objs, Contract):
                         return objs.to_dict_many(_depth=_depth, _seen=_seen)
                     return owner(many=True).to_dict_many(objs, _depth=_depth, _seen=_seen)
 
@@ -824,13 +824,13 @@ class BlueprintSerializationDescriptor:
         return getattr(instance, f"_{self.name}_instance")
 
 
-class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
-    to_dict = BlueprintSerializationDescriptor("to_dict")
-    to_dict_many = BlueprintSerializationDescriptor("to_dict_many")
+class Contract(Generic[ModelT], metaclass=ContractMeta):
+    to_dict = ContractSerializationDescriptor("to_dict")
+    to_dict_many = ContractSerializationDescriptor("to_dict_many")
     """
-    The Blueprint -- a contract between a Model and the outside world.
+    The Contract -- a contract between a Model and the outside world.
 
-    A Blueprint declares:
+    A Contract declares:
         - **Facets**: what data points are visible/writable
         - **Projections**: named subsets of facets
         - **Seals**: validation rules (field, cross-field, async)
@@ -838,7 +838,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
     Usage::
 
-        class ProductBlueprint(Blueprint):
+        class ProductContract(Contract):
             class Spec:
                 model = Product
                 projections = {
@@ -847,11 +847,11 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
                 }
 
         # Outbound: Model → dict
-        bp = ProductBlueprint(instance=product)
+        bp = ProductContract(instance=product)
         data = bp.to_dict()
 
         # Inbound: dict → validated data
-        bp = ProductBlueprint(data={"name": "Widget", "price": 9.99})
+        bp = ProductContract(data={"name": "Widget", "price": 9.99})
         if bp.is_sealed():
             product = await bp.imprint()
 
@@ -885,10 +885,10 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         self.many = many
         self.partial = partial
         self._projection_name = projection
-        if context is not None and (hasattr(context, "container") or type(context).__name__ == "BlueprintContext"):
+        if context is not None and (hasattr(context, "container") or type(context).__name__ == "ContractContext"):
             self.context = context
         else:
-            self.context = BlueprintContext(context) if context is not None else BlueprintContext()
+            self.context = ContractContext(context) if context is not None else ContractContext()
 
         # State
         self._validated_data: DataObject | list[DataObject] | None = None
@@ -902,7 +902,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
 
     @property
     def has_async_wards(self) -> bool:
-        """Check if this blueprint has async ward methods or legacy async seal methods."""
+        """Check if this contract has async ward methods or legacy async seal methods."""
         return any(wm.mode == "async" for wm in self.__class__._ward_methods) or bool(
             getattr(self.__class__, "_async_seal_methods", [])
         )
@@ -1006,7 +1006,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         _seen: set | None = None,
     ) -> list[dict[str, Any]]:
         """Mold multiple instances."""
-        if isinstance(instances, Blueprint):
+        if isinstance(instances, Contract):
             return instances.to_dict_many(_depth=_depth, _seen=_seen)
         return [self.to_dict(instance=obj, _depth=_depth, _seen=_seen) for obj in instances]
 
@@ -1023,20 +1023,20 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             4. Object-level validate: ``validate()``
 
         Args:
-            raise_fault: If True, raise BlueprintFault on failure.
+            raise_fault: If True, raise ContractFault on failure.
 
         Returns:
             True if data passes all seals.
         """
         if not _bypass_async_check and self.has_async_wards:
-            raise BlueprintAsyncMismatchFault(
-                "Blueprint contains async wards (is async but called from sync context) and must be validated using is_sealed_async()."
+            raise ContractAsyncMismatchFault(
+                "Contract contains async wards (is async but called from sync context) and must be validated using is_sealed_async()."
             )
 
         if self._is_sealed is not None:
             if raise_fault and not self._is_sealed:
                 raise SealFault(
-                    message="Blueprint validation failed",
+                    message="Contract validation failed",
                     errors=self._errors,
                 )
             return self._is_sealed
@@ -1093,7 +1093,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         if self._errors:
             self._is_sealed = False
             if raise_fault:
-                raise SealFault(message="Blueprint validation failed", errors=self._errors)
+                raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
         # Phase 3: Cross-field seals (ward methods)
@@ -1113,7 +1113,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         if self._errors:
             self._is_sealed = False
             if raise_fault:
-                raise SealFault(message="Blueprint validation failed", errors=self._errors)
+                raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
         # Phase 4: Object-level validate
@@ -1135,7 +1135,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         if self._errors:
             self._is_sealed = False
             if raise_fault:
-                raise SealFault(message="Blueprint validation failed", errors=self._errors)
+                raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
         self._validated_data = validated
@@ -1149,7 +1149,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         # Run sync pipeline (which skips async wards)
         if not self.is_sealed(raise_fault=False, _bypass_async_check=True):
             if raise_fault:
-                raise SealFault(message="Blueprint validation failed", errors=self._errors)
+                raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
         # Phase 5: Async seals and coroutine ward methods
@@ -1174,7 +1174,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             self._is_sealed = False
             self._validated_data = None
             if raise_fault:
-                raise SealFault(message="Blueprint validation failed", errors=self._errors)
+                raise SealFault(message="Contract validation failed", errors=self._errors)
             return False
 
         return True
@@ -1265,8 +1265,8 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """The validated data -- only available after successful sealing."""
         if self._is_sealed is None:
             if self.has_async_wards:
-                raise BlueprintAsyncMismatchFault(
-                    "Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
+                raise ContractAsyncMismatchFault(
+                    "Contract contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
                 )
             self.is_sealed()
         return self._validated_data
@@ -1276,8 +1276,8 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         """Validation errors -- available after sealing attempt."""
         if self._is_sealed is None:
             if self.has_async_wards:
-                raise BlueprintAsyncMismatchFault(
-                    "Blueprint contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
+                raise ContractAsyncMismatchFault(
+                    "Contract contains async wards (is async but called from sync context) and must be validated using await is_sealed_async() before accessing properties."
                 )
             self.is_sealed()
         return self._errors
@@ -1424,7 +1424,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             if source in model_attrs or key in model_attrs:
                 result[source] = value
             else:
-                # Allow through if no model (pure Blueprint)
+                # Allow through if no model (pure Contract)
                 result[key] = value
 
         return result
@@ -1439,7 +1439,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         mode: str = "output",
     ) -> dict[str, Any]:
         """
-        Generate JSON Schema for this Blueprint.
+        Generate JSON Schema for this Contract.
 
         Args:
             projection: Named projection (None = default)
@@ -1836,7 +1836,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             ListFacet,
             TextFacet,
         )
-        from .sigil import get_nested_blueprint_cls
+        from .sigil import get_nested_contract_cls
 
         result = {}
         for fname, spec in cls._sigil.fields.items():
@@ -1844,7 +1844,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             if facet.read_only:
                 continue
 
-            nested_cls = get_nested_blueprint_cls(facet)
+            nested_cls = get_nested_contract_cls(facet)
             if nested_cls is not None:
                 is_many = getattr(facet, "many", False)
                 if is_many:
@@ -1961,7 +1961,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
         try:
             from hypothesis import strategies as st
         except ImportError:
-            raise ImportError("hypothesis is not installed. pip install hypothesis to use Blueprint.strategy().")
+            raise ImportError("hypothesis is not installed. pip install hypothesis to use Contract.strategy().")
 
         import string
 
@@ -1974,7 +1974,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             ListFacet,
             TextFacet,
         )
-        from .sigil import get_nested_blueprint_cls
+        from .sigil import get_nested_contract_cls
 
         fields_strategies = {}
         for fname, spec in cls._sigil.fields.items():
@@ -1982,7 +1982,7 @@ class Blueprint(Generic[ModelT], metaclass=BlueprintMeta):
             if facet.read_only:
                 continue
 
-            nested_cls = get_nested_blueprint_cls(facet)
+            nested_cls = get_nested_contract_cls(facet)
             if nested_cls is not None:
                 is_many = getattr(facet, "many", False)
                 if is_many:

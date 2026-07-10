@@ -1,7 +1,7 @@
 """
-Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy.
+Aquilia Contract Exceptions -- Fault-domain-integrated error hierarchy.
 
-All Blueprint errors participate in Aquilia's fault domain system,
+All Contract errors participate in Aquilia's fault domain system,
 producing structured error responses with field→message mapping.
 """
 
@@ -13,26 +13,26 @@ from ..faults.core import Fault, FaultDomain, Severity
 
 # ── Fault Domain ─────────────────────────────────────────────────────────
 
-BLUEPRINT = FaultDomain(
-    name="BLUEPRINT",
-    description="Blueprint contract violations -- casting, sealing, imprinting",
+CONTRACT = FaultDomain(
+    name="CONTRACT",
+    description="Contract contract violations -- casting, sealing, imprinting",
 )
 
 
 # ── Base ─────────────────────────────────────────────────────────────────
 
 
-class BlueprintFault(Fault):
-    """Base fault for all Blueprint errors."""
+class ContractFault(Fault):
+    """Base fault for all Contract errors."""
 
-    domain = BLUEPRINT
+    domain = CONTRACT
     severity = Severity.ERROR
     code = "BP000"
     public = True
 
     def __init__(
         self,
-        message: str = "Blueprint validation failed",
+        message: str = "Contract validation failed",
         *,
         errors: dict[str, list[str]] | None = None,
         code: str | None = None,
@@ -59,7 +59,7 @@ class BlueprintFault(Fault):
 # ── Specific Faults ──────────────────────────────────────────────────────
 
 
-class CastFault(BlueprintFault):
+class CastFault(ContractFault):
     """Raised when incoming data cannot be cast to the expected type."""
 
     code = "BP100"
@@ -79,14 +79,14 @@ class CastFault(BlueprintFault):
         self.field = field
 
 
-class SealFault(BlueprintFault):
+class SealFault(ContractFault):
     """Raised when a validation seal is broken."""
 
     code = "BP200"
 
     def __init__(
         self,
-        message: str = "Blueprint validation failed",
+        message: str = "Contract validation failed",
         *,
         errors: dict[str, list[str]] | None = None,
         code: str | None = None,
@@ -108,13 +108,13 @@ class SealFault(BlueprintFault):
         super().__init__(message=message, errors=errors, code=code, metadata=meta)
 
 
-class ImprintFault(BlueprintFault):
+class ImprintFault(ContractFault):
     """Raised when a write (imprint) operation fails."""
 
     code = "BP300"
 
 
-class ProjectionFault(BlueprintFault):
+class ProjectionFault(ContractFault):
     """Raised when an invalid projection is requested."""
 
     code = "BP400"
@@ -126,7 +126,7 @@ class ProjectionFault(BlueprintFault):
         )
 
 
-class LensDepthFault(BlueprintFault):
+class LensDepthFault(ContractFault):
     """Raised when Lens traversal exceeds maximum depth."""
 
     code = "BP500"
@@ -138,7 +138,7 @@ class LensDepthFault(BlueprintFault):
         )
 
 
-class LensCycleFault(BlueprintFault):
+class LensCycleFault(ContractFault):
     """Raised when a circular Lens reference is detected."""
 
     code = "BP501"
@@ -150,11 +150,11 @@ class LensCycleFault(BlueprintFault):
         )
 
 
-class BlueprintAsyncMismatchFault(BlueprintFault, RuntimeError):
-    """Raised when an async-only blueprint/field operation is called synchronously."""
+class ContractAsyncMismatchFault(ContractFault, RuntimeError):
+    """Raised when an async-only contract/field operation is called synchronously."""
 
     code = "BP201"
 
     def __init__(self, message: str, **kwargs):
-        BlueprintFault.__init__(self, message=message, **kwargs)
+        ContractFault.__init__(self, message=message, **kwargs)
         RuntimeError.__init__(self, message)

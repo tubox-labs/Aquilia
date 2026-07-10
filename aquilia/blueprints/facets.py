@@ -1,14 +1,14 @@
 """
-Aquilia Blueprint Facets -- the field-level primitives of a Blueprint.
+Aquilia Contract Facets -- the field-level primitives of a Contract.
 
-A Facet is a single aspect of a model exposed through a Blueprint.
+A Facet is a single aspect of a model exposed through a Contract.
 Facets auto-derive from Model fields but can be overridden, composed,
 or created standalone.
 
 Naming:
     - "Facet" because each one represents a *facet* of the model
       visible to the outside world.
-    - Replaces the "SerializerField" abstraction with Blueprint-native
+    - Replaces the "SerializerField" abstraction with Contract-native
       semantics: cast (inbound), mold (outbound), seal (validate).
 """
 
@@ -27,7 +27,7 @@ from typing import (
 from .exceptions import CastFault, SealFault
 
 if TYPE_CHECKING:
-    from .core import Blueprint
+    from .core import Contract
 
 
 __all__ = [
@@ -227,7 +227,7 @@ class _FactoryProxy:
 
 class Facet(metaclass=FacetMeta):
     """
-    Base facet -- a single data point in a Blueprint.
+    Base facet -- a single data point in a Contract.
 
     Lifecycle::
 
@@ -280,7 +280,7 @@ class Facet(metaclass=FacetMeta):
 
         # Set during bind()
         self.name: str | None = None
-        self.blueprint: Blueprint | None = None
+        self.contract: Contract | None = None
         self._bound = False
 
         # Auto-increment creation order for stable ordering
@@ -301,23 +301,23 @@ class Facet(metaclass=FacetMeta):
     def required(self, value: bool) -> None:
         self._required = value
 
-    def bind(self, name: str, blueprint: Blueprint) -> None:
-        """Attach this facet to a Blueprint with a field name."""
+    def bind(self, name: str, contract: Contract) -> None:
+        """Attach this facet to a Contract with a field name."""
         self.name = name
-        self.blueprint = blueprint
+        self.contract = contract
         if self.source is None:
             self.source = name
         self._bound = True
 
     def clone(self) -> Facet:
-        """Create a shallow copy for Blueprint inheritance."""
+        """Create a shallow copy for Contract inheritance."""
         import copy
 
         new = copy.copy(self)
         new.validators = list(self.validators)
         new._bound = False
         new.name = None
-        new.blueprint = None
+        new.contract = None
         return new
 
     # ── Inbound: Cast ────────────────────────────────────────────────
@@ -380,9 +380,9 @@ class Facet(metaclass=FacetMeta):
         for part in parts:
             if obj is None:
                 return None
-            from .core import Blueprint
+            from .core import Contract
 
-            if isinstance(obj, Blueprint):
+            if isinstance(obj, Contract):
                 if obj._validated_data is not None and part in obj._validated_data:
                     obj = obj._validated_data[part]
                 else:
@@ -1461,7 +1461,7 @@ class EnumFacet(Facet):
 class PolymorphicFacet(Facet):
     """
     A Facet that attempts to cast and seal through multiple candidate Facets.
-    Useful for Union types like `Union[CatBlueprint, DogBlueprint]`.
+    Useful for Union types like `Union[CatContract, DogContract]`.
     """
 
     _type_name = "object"
@@ -1526,7 +1526,7 @@ class Computed(Facet):
     Usage::
 
         full_name = Computed(lambda user: f"{user.first_name} {user.last_name}")
-        item_count = Computed("get_item_count")  # calls method on model/blueprint
+        item_count = Computed("get_item_count")  # calls method on model/contract
     """
 
     def __init__(self, compute: Callable | str, **kwargs):
@@ -1537,9 +1537,9 @@ class Computed(Facet):
     def extract(self, instance: Any) -> Any:
         """Compute the value from the instance."""
         if isinstance(self._compute, str):
-            # Method name on the blueprint
-            if self.blueprint is not None:
-                method = getattr(self.blueprint, self._compute, None)
+            # Method name on the contract
+            if self.contract is not None:
+                method = getattr(self.contract, self._compute, None)
                 if method is not None:
                     return method(instance)
             # Method name on the instance
@@ -1555,11 +1555,11 @@ class Computed(Facet):
         try:
             sig = inspect.signature(self._compute)
             if len(sig.parameters) >= 2:
-                # Unbound method: needs (blueprint_self, instance)
-                bp = self.blueprint
+                # Unbound method: needs (contract_self, instance)
+                bp = self.contract
                 if bp is None:
-                    # Facets are class-level shared; blueprint is not bound per-instance.
-                    # Create a minimal owning Blueprint instance for method binding.
+                    # Facets are class-level shared; contract is not bound per-instance.
+                    # Create a minimal owning Contract instance for method binding.
                     qualname = getattr(self._compute, "__qualname__", "")
                     if "." in qualname:
                         cls_name = qualname.rsplit(".", 1)[0]
@@ -1653,7 +1653,7 @@ class Hidden(Facet):
 
     Usage::
 
-        class AuditBlueprint(Blueprint):
+        class AuditContract(Contract):
             created_by = Hidden(default=CurrentUserDefault())
     """
 
@@ -1674,7 +1674,7 @@ class Inject(Facet):
 
     Usage::
 
-        class OrderBlueprint(Blueprint):
+        class OrderContract(Contract):
             total = Inject(PricingService, via="calculate")
             audit_user = Inject("identity", attr="id")
 
@@ -1699,7 +1699,7 @@ class Inject(Facet):
         self.attr = attr
 
     def resolve_from_context(self, context: dict[str, Any]) -> Any:
-        """Resolve value from DI container or context in Blueprint context.
+        """Resolve value from DI container or context in Contract context.
 
         Resolution order:
         1. DI container (container.resolve(token))

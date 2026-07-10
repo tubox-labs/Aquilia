@@ -1,11 +1,11 @@
 """
-Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response.
+Aquilia Contract Integration -- hooks into Controller, DI, Request/Response.
 
 Provides:
-    - Controller auto-binding for Blueprint type annotations
+    - Controller auto-binding for Contract type annotations
     - Response rendering helpers
     - DI container integration
-    - Blueprint detection utilities
+    - Contract detection utilities
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from __future__ import annotations
 import contextlib
 from typing import TYPE_CHECKING, Any
 
-from .core import Blueprint
+from .core import Contract
 from .exceptions import SealFault
 from .lenses import _ProjectedRef
 
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 # ── Security Constants ──────────────────────────────────────────────────
 
-# Maximum request body size (bytes) before Blueprint parsing.
+# Maximum request body size (bytes) before Contract parsing.
 # Can be overridden via context["max_body_size"].
 MAX_BODY_SIZE: int = 10 * 1024 * 1024  # 10 MB
 
@@ -35,42 +35,42 @@ MAX_UNFLATTEN_KEYS: int = 1000
 
 
 __all__ = [
-    "is_blueprint_class",
-    "is_projected_blueprint",
-    "resolve_blueprint_from_annotation",
-    "bind_blueprint_to_request",
-    "render_blueprint_response",
+    "is_contract_class",
+    "is_projected_contract",
+    "resolve_contract_from_annotation",
+    "bind_contract_to_request",
+    "render_contract_response",
 ]
 
 
-def is_blueprint_class(obj: Any) -> bool:
-    """Check if an object is a Blueprint class (not instance)."""
-    return isinstance(obj, type) and issubclass(obj, Blueprint) and obj is not Blueprint
+def is_contract_class(obj: Any) -> bool:
+    """Check if an object is a Contract class (not instance)."""
+    return isinstance(obj, type) and issubclass(obj, Contract) and obj is not Contract
 
 
-def is_projected_blueprint(obj: Any) -> bool:
-    """Check if an object is a ProjectedRef (Blueprint["projection"])."""
+def is_projected_contract(obj: Any) -> bool:
+    """Check if an object is a ProjectedRef (Contract["projection"])."""
     return isinstance(obj, _ProjectedRef)
 
 
-def resolve_blueprint_from_annotation(
+def resolve_contract_from_annotation(
     annotation: Any,
-) -> tuple[type[Blueprint] | None, str | None]:
+) -> tuple[type[Contract] | None, str | None]:
     """
-    Resolve a Blueprint class and projection from a type annotation.
+    Resolve a Contract class and projection from a type annotation.
 
     Handles:
-        - ``MyBlueprint`` → (MyBlueprint, None)
-        - ``MyBlueprint["summary"]`` → (MyBlueprint, "summary")
-        - Non-Blueprint types → (None, None)
+        - ``MyContract`` → (MyContract, None)
+        - ``MyContract["summary"]`` → (MyContract, "summary")
+        - Non-Contract types → (None, None)
 
     Returns:
-        (blueprint_class, projection_name) tuple
+        (contract_class, projection_name) tuple
     """
-    if is_projected_blueprint(annotation):
-        return annotation.blueprint_cls, annotation.projection
+    if is_projected_contract(annotation):
+        return annotation.contract_cls, annotation.projection
 
-    if is_blueprint_class(annotation):
+    if is_contract_class(annotation):
         return annotation, None
 
     return None, None
@@ -114,7 +114,7 @@ def extract_value_from_request(
     body: Any,
 ) -> Any:
     """Extract field/parameter value from request using extractor metadata or default lookup order."""
-    from aquilia.blueprints.facets import UNSET, ListFacet, SetFacet, TupleFacet
+    from aquilia.contracts.facets import UNSET, ListFacet, SetFacet, TupleFacet
     from aquilia.di.dep import Body as BodyExtractor
     from aquilia.di.dep import Cookie, Header, Path, Query
 
@@ -295,29 +295,29 @@ def extract_value_from_request(
         return UNSET
 
 
-async def bind_blueprint_to_request(
-    blueprint_cls: type[Blueprint],
+async def bind_contract_to_request(
+    contract_cls: type[Contract],
     request: Any,
     *,
     projection: str | None = None,
     partial: bool = False,
     context: dict[str, Any] | None = None,
-) -> Blueprint:
+) -> Contract:
     """
-    Create and validate a Blueprint from an incoming request.
+    Create and validate a Contract from an incoming request.
 
     This is the integration point called by the controller engine
-    when it detects a Blueprint type annotation on a handler parameter.
+    when it detects a Contract type annotation on a handler parameter.
 
     Args:
-        blueprint_cls: The Blueprint class to instantiate
+        contract_cls: The Contract class to instantiate
         request: The Aquilia Request object
         projection: Optional projection name
         partial: If True, don't require all fields (PATCH)
-        context: Extra context to pass to the Blueprint
+        context: Extra context to pass to the Contract
 
     Returns:
-        A validated Blueprint instance (is_sealed() has been called)
+        A validated Contract instance (is_sealed() has been called)
     """
     import time
 
@@ -395,7 +395,7 @@ async def bind_blueprint_to_request(
     except ImportError:
         FormData = None
 
-    from aquilia.blueprints.facets import UNSET
+    from aquilia.contracts.facets import UNSET
 
     # Construct the merged mapping
     if FormData is not None and isinstance(body, FormData):
@@ -422,9 +422,9 @@ async def bind_blueprint_to_request(
                     else:
                         vals = []
 
-                    from aquilia.blueprints.facets import ListFacet, SetFacet, TupleFacet
+                    from aquilia.contracts.facets import ListFacet, SetFacet, TupleFacet
 
-                    facet = blueprint_cls._all_facets.get(k)
+                    facet = contract_cls._all_facets.get(k)
                     is_collection = isinstance(facet, (ListFacet, SetFacet, TupleFacet)) or getattr(
                         facet, "many", False
                     )
@@ -455,7 +455,7 @@ async def bind_blueprint_to_request(
                         merged_data.fields.add(k, v)
 
     # Resolve each facet using explicit extractors
-    for name, facet in getattr(blueprint_cls, "_all_facets", {}).items():
+    for name, facet in getattr(contract_cls, "_all_facets", {}).items():
         extractor = getattr(facet, "_extractor", None)
         # Fallback check for old default-based metadata
         if extractor is None:
@@ -478,7 +478,7 @@ async def bind_blueprint_to_request(
                     merged_data.fields[name] = [val]
 
     # Build context with request info
-    if context is not None and type(context).__name__ == "BlueprintContext":
+    if context is not None and type(context).__name__ == "ContractContext":
         bp_context = context
         if "request" not in bp_context:
             try:
@@ -486,13 +486,13 @@ async def bind_blueprint_to_request(
             except Exception:
                 pass
     else:
-        from aquilia.blueprints.core import BlueprintContext
+        from aquilia.contracts.core import ContractContext
 
         container = None
         if isinstance(context, dict):
             container = context.get("container")
 
-        bp_context = BlueprintContext(
+        bp_context = ContractContext(
             {
                 "request": request,
                 **(context or {}),
@@ -510,7 +510,7 @@ async def bind_blueprint_to_request(
             if hasattr(bp_context, "container") and bp_context.container is None:
                 bp_context.container = container
 
-    bp = blueprint_cls(
+    bp = contract_cls(
         data=merged_data,
         partial=partial,
         projection=projection,
@@ -526,11 +526,11 @@ async def bind_blueprint_to_request(
             dt = (time.monotonic() - t0) * 1000.0
             trace.add_span(
                 lane=Lane.VALIDATION,
-                label=f"Validate {blueprint_cls.__name__}",
+                label=f"Validate {contract_cls.__name__}",
                 start_offset_ms=(t0 - trace.started_monotonic) * 1000.0,
                 duration_ms=dt,
                 status=SpanStatus.ERROR if bp.errors else SpanStatus.OK,
-                detail={"blueprint": blueprint_cls.__name__, "errors": bp.errors or {}},
+                detail={"contract": contract_cls.__name__, "errors": bp.errors or {}},
             )
     except Exception:
         pass
@@ -538,21 +538,21 @@ async def bind_blueprint_to_request(
     return bp
 
 
-def render_blueprint_response(
-    blueprint_or_cls: Blueprint | type[Blueprint],
+def render_contract_response(
+    contract_or_cls: Contract | type[Contract],
     data: Any = None,
     *,
     projection: str | None = None,
     many: bool = False,
 ) -> Any:
     """
-    Render data through a Blueprint for response output.
+    Render data through a Contract for response output.
 
-    This is used by the controller engine when a ``response_blueprint``
+    This is used by the controller engine when a ``response_contract``
     is specified on a route.
 
     Args:
-        blueprint_or_cls: Blueprint instance or class
+        contract_or_cls: Contract instance or class
         data: The data to render (model instance or list)
         projection: Optional projection name
         many: If True, data is a list of instances
@@ -560,22 +560,22 @@ def render_blueprint_response(
     Returns:
         Dict or list of dicts ready for JSON serialization
     """
-    if isinstance(blueprint_or_cls, Blueprint):
+    if isinstance(contract_or_cls, Contract):
         # Already an instance -- use it
-        bp = blueprint_or_cls
+        bp = contract_or_cls
         if data is not None:
             bp.instance = data
             bp.many = many
         return bp.data
 
     # It's a class -- instantiate
-    bp_cls = blueprint_or_cls
+    bp_cls = contract_or_cls
     proj = projection
 
     # Handle ProjectedRef
     if isinstance(bp_cls, _ProjectedRef):
         proj = bp_cls.projection
-        bp_cls = bp_cls.blueprint_cls
+        bp_cls = bp_cls.contract_cls
 
     bp = bp_cls(instance=data, many=many, projection=proj)
     return bp.data

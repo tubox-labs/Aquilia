@@ -1,8 +1,8 @@
 """
-Aquilia Blueprint Lenses -- depth-controlled relational views.
+Aquilia Contract Lenses -- depth-controlled relational views.
 
-A Lens lets a Blueprint expose related model data through another
-Blueprint, with cycle detection, depth limits, and projection selection.
+A Lens lets a Contract expose related model data through another
+Contract, with cycle detection, depth limits, and projection selection.
 
 Naming:
     - "Lens" because it provides a focused *view* into related data,
@@ -17,7 +17,7 @@ from .exceptions import LensCycleFault
 from .facets import Facet
 
 if TYPE_CHECKING:
-    from .core import Blueprint
+    from .core import Contract
 
 
 __all__ = ["Lens"]
@@ -25,22 +25,22 @@ __all__ = ["Lens"]
 
 class Lens(Facet):
     """
-    A relational facet that views related data through another Blueprint.
+    A relational facet that views related data through another Contract.
 
     Features:
         - Depth control: limits how deep nested Lenses resolve
         - Cycle detection: prevents infinite recursion
-        - Projection selection: use a named projection of the target Blueprint
+        - Projection selection: use a named projection of the target Contract
         - Many: handles to-many relations (returns list)
 
     Usage::
 
-        class OrderBlueprint(Blueprint):
-            customer = Lens(UserBlueprint["public"])
-            items = Lens(OrderItemBlueprint, many=True, depth=2)
+        class OrderContract(Contract):
+            customer = Lens(UserContract["public"])
+            items = Lens(OrderItemContract, many=True, depth=2)
 
     Args:
-        target: Blueprint class (or ProjectedBlueprint from subscript).
+        target: Contract class (or ProjectedContract from subscript).
         many: If True, expect an iterable and mold each item.
         depth: Maximum nesting depth (default 3).
         source: Model attribute for the related object(s).
@@ -51,7 +51,7 @@ class Lens(Facet):
 
     def __init__(
         self,
-        target: type[Blueprint] | _ProjectedRef | None = None,
+        target: type[Contract] | _ProjectedRef | None = None,
         *,
         many: bool = False,
         depth: int = 3,
@@ -61,9 +61,9 @@ class Lens(Facet):
         kwargs.setdefault("read_only", True)
         super().__init__(**kwargs)
 
-        # Handle ProjectedRef (from Blueprint["projection_name"])
+        # Handle ProjectedRef (from Contract["projection_name"])
         if isinstance(target, _ProjectedRef):
-            self._target_cls = target.blueprint_cls
+            self._target_cls = target.contract_cls
             self._projection = target.projection
         else:
             self._target_cls = target
@@ -73,14 +73,14 @@ class Lens(Facet):
         self.max_depth = depth
 
     @property
-    def target(self) -> type[Blueprint] | None:
+    def target(self) -> type[Contract] | None:
         return self._target_cls
 
-    def bind(self, name: str, blueprint: Blueprint) -> None:
-        super().bind(name, blueprint)
+    def bind(self, name: str, contract: Contract) -> None:
+        super().bind(name, contract)
         # If source not explicitly set, try to match model FK attribute
-        if self.source == name and hasattr(blueprint, "_spec"):
-            spec = blueprint._spec
+        if self.source == name and hasattr(contract, "_spec"):
+            spec = contract._spec
             if spec and spec.model:
                 model_fields = getattr(spec.model, "_fields", {})
                 if name in model_fields:
@@ -92,12 +92,12 @@ class Lens(Facet):
 
     def mold(self, value: Any, *, _depth: int = 0, _seen: set | None = None) -> Any:
         """
-        Mold related data through the target Blueprint.
+        Mold related data through the target Contract.
 
         Args:
             value: Related model instance(s)
             _depth: Current nesting depth (internal)
-            _seen: Set of Blueprint class ids already in the chain (cycle detection)
+            _seen: Set of Contract class ids already in the chain (cycle detection)
         """
         if value is None:
             return None
@@ -133,9 +133,9 @@ class Lens(Facet):
         return self._mold_single(value, _depth=_depth + 1, _seen=new_seen)
 
     def _mold_single(self, instance: Any, *, _depth: int, _seen: set) -> dict[str, Any]:
-        """Mold a single related instance through the target Blueprint."""
+        """Mold a single related instance through the target Contract."""
         if self._target_cls is None:
-            # No target blueprint -- fall back to dict/PK
+            # No target contract -- fall back to dict/PK
             return self._pk_fallback(instance)
 
         bp = self._target_cls(instance=instance, projection=self._projection)
@@ -143,7 +143,7 @@ class Lens(Facet):
 
     @staticmethod
     def _pk_fallback(instance: Any) -> Any:
-        """Fall back to PK when depth is exceeded or no target Blueprint."""
+        """Fall back to PK when depth is exceeded or no target Contract."""
         if instance is None:
             return None
         if isinstance(instance, dict):
@@ -168,7 +168,7 @@ class Lens(Facet):
         return obj
 
     def to_schema(self) -> dict[str, Any]:
-        """Generate JSON Schema with $ref for the target Blueprint."""
+        """Generate JSON Schema with $ref for the target Contract."""
         if self._target_cls is None:
             return {"type": "object"}
 
@@ -186,16 +186,16 @@ class Lens(Facet):
 
 class _ProjectedRef:
     """
-    Internal: holds a Blueprint class + projection name.
+    Internal: holds a Contract class + projection name.
 
-    Created by ``Blueprint["projection_name"]`` subscript syntax.
+    Created by ``Contract["projection_name"]`` subscript syntax.
     """
 
-    __slots__ = ("blueprint_cls", "projection")
+    __slots__ = ("contract_cls", "projection")
 
-    def __init__(self, blueprint_cls: type[Blueprint], projection: str):
-        self.blueprint_cls = blueprint_cls
+    def __init__(self, contract_cls: type[Contract], projection: str):
+        self.contract_cls = contract_cls
         self.projection = projection
 
     def __repr__(self) -> str:
-        return f"{self.blueprint_cls.__name__}[{self.projection!r}]"
+        return f"{self.contract_cls.__name__}[{self.projection!r}]"

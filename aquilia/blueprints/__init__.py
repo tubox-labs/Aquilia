@@ -1,16 +1,16 @@
 """
-Aquilia Blueprints -- first-class model↔world contracts.
+Aquilia Contracts -- first-class model↔world contracts.
 
-A Blueprint declares the contract between a Model and the outside world:
+A Contract declares the contract between a Model and the outside world:
 what the world sees (Facets), named subsets (Projections), how data
 enters (Casts), how integrity is enforced (Seals), and how data is
 written back (Imprints).
 
 Quick Start::
 
-    from aquilia.blueprints import Blueprint, Facet, Lens, Computed, Constant
+    from aquilia.contracts import Contract, Facet, Lens, Computed, Constant
 
-    class ProductBlueprint(Blueprint):
+    class ProductContract(Contract):
         class Spec:
             model = Product
             projections = {
@@ -19,30 +19,30 @@ Quick Start::
             }
 
     # Outbound: Model → dict
-    bp = ProductBlueprint(instance=product)
+    bp = ProductContract(instance=product)
     data = bp.data  # respects default projection
 
     # With projection:
-    bp = ProductBlueprint(instance=product, projection="summary")
+    bp = ProductContract(instance=product, projection="summary")
     data = bp.data
 
     # Inbound: dict → validated data
-    bp = ProductBlueprint(data={"name": "Widget", "price": 9.99})
+    bp = ProductContract(data={"name": "Widget", "price": 9.99})
     if bp.is_sealed():
         product = await bp.imprint()
 
     # Route-level:
-    @GET("/products", response_blueprint=ProductBlueprint["summary"])
+    @GET("/products", response_contract=ProductContract["summary"])
     async def list_products():
         return await Product.objects.all()
 """
 
-from .annotations import Field, NestedBlueprintFacet, computed
-from .core import Blueprint, BlueprintMeta, BlueprintUnion, ColumnarReport, SealOutcome
+from .annotations import Field, NestedContractFacet, computed
+from .core import Contract, ContractMeta, ContractUnion, ColumnarReport, SealOutcome
 from .exceptions import (
-    BLUEPRINT,
-    BlueprintAsyncMismatchFault,
-    BlueprintFault,
+    CONTRACT,
+    ContractAsyncMismatchFault,
+    ContractFault,
     CastFault,
     ImprintFault,
     LensCycleFault,
@@ -96,11 +96,11 @@ from .facets import (
     derive_facet,
 )
 from .integration import (
-    bind_blueprint_to_request,
-    is_blueprint_class,
-    is_projected_blueprint,
-    render_blueprint_response,
-    resolve_blueprint_from_annotation,
+    bind_contract_to_request,
+    is_contract_class,
+    is_projected_contract,
+    render_contract_response,
+    resolve_contract_from_annotation,
 )
 from .lenses import Lens
 from .projections import ProjectionRegistry
@@ -110,15 +110,15 @@ from .ward import WardMethod, ward
 
 __all__ = [
     # Core
-    "Blueprint",
-    "BlueprintMeta",
+    "Contract",
+    "ContractMeta",
     "ward",
     "WardMethod",
     "Sigil",
     "FieldSpec",
     "SealOutcome",
     "ColumnarReport",
-    "BlueprintUnion",
+    "ContractUnion",
     # Facets
     "Facet",
     "UNSET",
@@ -158,28 +158,28 @@ __all__ = [
     # Annotations
     "Field",
     "computed",
-    "NestedBlueprintFacet",
+    "NestedContractFacet",
     # Lenses
     "Lens",
     # Projections
     "ProjectionRegistry",
     # Exceptions
-    "BlueprintFault",
-    "BlueprintAsyncMismatchFault",
+    "ContractFault",
+    "ContractAsyncMismatchFault",
     "CastFault",
     "SealFault",
     "ImprintFault",
     "ProjectionFault",
     "LensDepthFault",
     "LensCycleFault",
-    "BLUEPRINT",
+    "CONTRACT",
     # Schema
     "generate_schema",
     "generate_component_schemas",
     # Integration
-    "is_blueprint_class",
-    "is_projected_blueprint",
-    "resolve_blueprint_from_annotation",
-    "bind_blueprint_to_request",
-    "render_blueprint_response",
+    "is_contract_class",
+    "is_projected_contract",
+    "resolve_contract_from_annotation",
+    "bind_contract_to_request",
+    "render_contract_response",
 ]

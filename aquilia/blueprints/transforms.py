@@ -1,9 +1,9 @@
 """
-Aquilia Blueprint Transforms -- built-in transform callables for >> pipelines.
+Aquilia Contract Transforms -- built-in transform callables for >> pipelines.
 
 Usage::
 
-    from aquilia.blueprints.transforms import strip, lower, dasherize
+    from aquilia.contracts.transforms import strip, lower, dasherize
 
     slug: Annotated[str, Facet.text() >> strip >> lower >> dasherize >> Facet.pattern(r"^[a-z0-9-]+$")]
 

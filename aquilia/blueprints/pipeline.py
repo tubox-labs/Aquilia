@@ -1,12 +1,12 @@
 """
-Aquilia Blueprint Pipeline -- >> operator composition for transform chains.
+Aquilia Contract Pipeline -- >> operator composition for transform chains.
 
 A Pipeline is a sequence of Rune steps that run left to right.
 Runes can be plain callables (transforms) or Facets (which run .cast() + .seal()).
 
 Usage::
 
-    from aquilia.blueprints.transforms import strip, lower
+    from aquilia.contracts.transforms import strip, lower
 
     pipeline = Facet.text() >> strip >> lower
     ok, value, error = pipeline.run("  HELLO  ")

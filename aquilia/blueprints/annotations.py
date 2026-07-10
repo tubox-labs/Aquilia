@@ -1,15 +1,15 @@
 """
-Aquilia Blueprint Annotations -- type-annotation–driven schema declaration.
+Aquilia Contract Annotations -- type-annotation–driven schema declaration.
 
-Enables Blueprints to be declared using Python type annotations instead of
+Enables Contracts to be declared using Python type annotations instead of
 (or alongside) explicit Facet instantiation.  This is a first-class,
 Aquilia-native system -- no external libraries.
 
 Usage::
 
-    from aquilia.blueprints import Blueprint, Field, computed
+    from aquilia.contracts import Contract, Field, computed
 
-    class UserBlueprint(Blueprint):
+    class UserContract(Contract):
         name: str = Field(min_length=2, max_length=100)
         age: int = Field(ge=0, le=150)
         email: str = Field(pattern=r"^[\\w.+-]+@[\\w-]+\\.[\\w.]+$")
@@ -21,9 +21,9 @@ Usage::
         def full_name(self, instance) -> str:
             return f"{instance.first_name} {instance.last_name}"
 
-    class OrderBlueprint(Blueprint):
-        user: UserBlueprint            # nested Blueprint
-        items: list[ItemBlueprint]     # list of nested Blueprints
+    class OrderContract(Contract):
+        user: UserContract            # nested Contract
+        items: list[ItemContract]     # list of nested Contracts
         total: float
 """
 
@@ -75,8 +75,8 @@ from .facets import (
 __all__ = [
     "Field",
     "computed",
-    "NestedBlueprintFacet",
-    "LazyBlueprintFacet",
+    "NestedContractFacet",
+    "LazyContractFacet",
     "introspect_annotations",
     "ANNOTATION_TO_FACET",
 ]
@@ -110,7 +110,7 @@ ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
 
 class Field:
     """
-    Constraint descriptor for annotation-driven Blueprint fields.
+    Constraint descriptor for annotation-driven Contract fields.
 
     Provides the same power as explicit Facet kwargs, but in a concise
     form suitable for use as a default value alongside a type annotation.
@@ -277,11 +277,11 @@ class Field:
         return f"Field({', '.join(parts)})"
 
 
-# ── BlueprintUnionAdapterFacet ──────────────────────────────────────────
+# ── ContractUnionAdapterFacet ──────────────────────────────────────────
 
 
-class BlueprintUnionAdapterFacet(Facet):
-    """Thin adapter Facet that delegates casting and sealing to a BlueprintUnion."""
+class ContractUnionAdapterFacet(Facet):
+    """Thin adapter Facet that delegates casting and sealing to a ContractUnion."""
 
     _type_name = "object"
 
@@ -302,12 +302,12 @@ class BlueprintUnionAdapterFacet(Facet):
     def mold(self, value: Any) -> Any:
         if value is None:
             return None
-        # Try to find a member blueprint that matches the model class of value
+        # Try to find a member contract that matches the model class of value
         for member in self.union.members:
             spec = getattr(member, "_spec", None)
             if spec and spec.model and isinstance(value, spec.model):
                 return member(instance=value).to_dict()
-        # Fallback: try molding with each member blueprint
+        # Fallback: try molding with each member contract
         for member in self.union.members:
             try:
                 if isinstance(value, dict):
@@ -321,23 +321,23 @@ class BlueprintUnionAdapterFacet(Facet):
         return self.union.to_json_schema()
 
 
-# ── NestedBlueprintFacet ────────────────────────────────────────────────
+# ── NestedContractFacet ────────────────────────────────────────────────
 
 
-class NestedBlueprintFacet(Facet):
+class NestedContractFacet(Facet):
     """
-    A Facet that delegates validation to a nested Blueprint.
+    A Facet that delegates validation to a nested Contract.
 
-    Used when a type annotation references another Blueprint subclass.
+    Used when a type annotation references another Contract subclass.
     Handles both single-instance and list-of-instances nesting.
 
-    The nested Blueprint is fully sealed during the parent's seal phase,
+    The nested Contract is fully sealed during the parent's seal phase,
     producing structured, validated output.
     """
 
     _type_name = "object"
 
-    # Maximum nesting depth to prevent stack overflow from recursive Blueprints
+    # Maximum nesting depth to prevent stack overflow from recursive Contracts
     MAX_NESTING_DEPTH = 32
 
     # Thread-local nesting depth counter
@@ -345,65 +345,65 @@ class NestedBlueprintFacet(Facet):
 
     def __init__(
         self,
-        blueprint_cls: type,
+        contract_cls: type,
         *,
         many: bool = False,
         max_nesting_depth: int | None = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
-        self._blueprint_cls = blueprint_cls
+        self._contract_cls = contract_cls
         self.many = many
         self._max_depth = max_nesting_depth or self.MAX_NESTING_DEPTH
 
     def __class_getitem__(cls, params: Any) -> Any:
-        """Allow indexing with a Blueprint class to instantiate the facet.
+        """Allow indexing with a Contract class to instantiate the facet.
 
         Supports:
-            NestedBlueprintFacet[MyBlueprint]
-            NestedBlueprintFacet[MyBlueprint, True]  # sets many=True
+            NestedContractFacet[MyContract]
+            NestedContractFacet[MyContract, True]  # sets many=True
         """
         from typing import ForwardRef
 
         if isinstance(params, tuple):
             if not params:
-                raise TypeError("NestedBlueprintFacet[...] expects at least one Blueprint class argument")
-            blueprint_cls = params[0]
+                raise TypeError("NestedContractFacet[...] expects at least one Contract class argument")
+            contract_cls = params[0]
             many = params[1] if len(params) > 1 else False
         else:
-            blueprint_cls = params
+            contract_cls = params
             many = False
 
-        if isinstance(blueprint_cls, (str, ForwardRef)):
-            ref_name = _extract_ref_name(blueprint_cls)
-            return LazyBlueprintFacet(ref_name, many=bool(many))
+        if isinstance(contract_cls, (str, ForwardRef)):
+            ref_name = _extract_ref_name(contract_cls)
+            return LazyContractFacet(ref_name, many=bool(many))
 
-        return cls(blueprint_cls, many=bool(many))
+        return cls(contract_cls, many=bool(many))
 
     @property
     def target(self) -> type:
-        return self._blueprint_cls
+        return self._contract_cls
 
     def cast(self, value: Any) -> Any:
-        """Cast input through the nested Blueprint's seal pipeline."""
+        """Cast input through the nested Contract's seal pipeline."""
         # Guard against recursive nesting depth
-        NestedBlueprintFacet._current_nesting_depth += 1
+        NestedContractFacet._current_nesting_depth += 1
         try:
-            if NestedBlueprintFacet._current_nesting_depth > self._max_depth:
+            if NestedContractFacet._current_nesting_depth > self._max_depth:
                 raise CastFault(
                     self.name or "<unbound>",
-                    f"Nested Blueprint depth exceeds maximum of {self._max_depth}",
+                    f"Nested Contract depth exceeds maximum of {self._max_depth}",
                 )
             if self.many:
                 return self._cast_many(value)
             return self._cast_single(value)
         finally:
-            NestedBlueprintFacet._current_nesting_depth -= 1
+            NestedContractFacet._current_nesting_depth -= 1
 
     def _cast_single(self, value: Any) -> dict:
         """Cast a single nested value."""
         if isinstance(value, dict):
-            bp = self._blueprint_cls(data=value)
+            bp = self._contract_cls(data=value)
             if not bp.is_sealed():
                 # Collect nested errors with field prefix
                 raise CastFault(
@@ -427,7 +427,7 @@ class NestedBlueprintFacet(Facet):
         errors = {}
         for i, item in enumerate(value):
             if isinstance(item, dict):
-                bp = self._blueprint_cls(data=item)
+                bp = self._contract_cls(data=item)
                 if bp.is_sealed():
                     results.append(bp.validated_data)
                 else:
@@ -446,17 +446,17 @@ class NestedBlueprintFacet(Facet):
         return super().seal(value)
 
     def mold(self, value: Any) -> Any:
-        """Mold output through the nested Blueprint."""
+        """Mold output through the nested Contract."""
         if value is None:
             return None
         if isinstance(value, (str, int, float, bool)):
             return value
         if self.many:
             if hasattr(value, "__iter__"):
-                bp = self._blueprint_cls(instance=None, many=True)
+                bp = self._contract_cls(instance=None, many=True)
                 return bp.to_dict_many(value)
             return []
-        bp = self._blueprint_cls(instance=value)
+        bp = self._contract_cls(instance=value)
         return bp.to_dict()
 
     def extract(self, instance: Any) -> Any:
@@ -468,9 +468,9 @@ class NestedBlueprintFacet(Facet):
         for part in parts:
             if obj is None:
                 return None
-            from .core import Blueprint
+            from .core import Contract
 
-            if isinstance(obj, Blueprint):
+            if isinstance(obj, Contract):
                 if obj._validated_data is not None and part in obj._validated_data:
                     obj = obj._validated_data[part]
                 else:
@@ -480,8 +480,8 @@ class NestedBlueprintFacet(Facet):
         return obj
 
     def to_schema(self) -> dict[str, Any]:
-        """Generate JSON Schema with $ref to nested Blueprint."""
-        ref_name = self._blueprint_cls.__name__
+        """Generate JSON Schema with $ref to nested Contract."""
+        ref_name = self._contract_cls.__name__
         if self.many:
             return {
                 "type": "array",
@@ -490,12 +490,12 @@ class NestedBlueprintFacet(Facet):
         return {"$ref": f"#/components/schemas/{ref_name}"}
 
 
-# ── LazyBlueprintFacet ──────────────────────────────────────────────────
+# ── LazyContractFacet ──────────────────────────────────────────────────
 
 
-class LazyBlueprintFacet(Facet):
+class LazyContractFacet(Facet):
     """
-    A Facet that delays resolution of a Blueprint class via its string name.
+    A Facet that delays resolution of a Contract class via its string name.
     Used for self-referential tree structures or forward references.
     """
 
@@ -505,21 +505,21 @@ class LazyBlueprintFacet(Facet):
         super().__init__(**kwargs)
         self.ref = ref
         self.many = many
-        self._resolved_facet: NestedBlueprintFacet | None = None
+        self._resolved_facet: NestedContractFacet | None = None
 
-    def _get_resolved(self) -> NestedBlueprintFacet:
+    def _get_resolved(self) -> NestedContractFacet:
         if self._resolved_facet is not None:
             return self._resolved_facet
 
-        from .core import _blueprint_registry
+        from .core import _contract_registry
 
-        blueprint_cls = _blueprint_registry.get(self.ref)
-        if blueprint_cls is None:
+        contract_cls = _contract_registry.get(self.ref)
+        if contract_cls is None:
             from aquilia.faults.domains import RegistryFault
 
             raise RegistryFault(
                 code="REGISTRY_ERROR",
-                message=f"Cannot resolve forward reference '{self.ref}'. Blueprint not found.",
+                message=f"Cannot resolve forward reference '{self.ref}'. Contract not found.",
                 metadata={"name": self.ref},
             )
 
@@ -533,7 +533,7 @@ class LazyBlueprintFacet(Facet):
             "help_text": self.help_text,
             "default": self.default,
         }
-        self._resolved_facet = NestedBlueprintFacet(blueprint_cls, many=self.many, **kwargs)
+        self._resolved_facet = NestedContractFacet(contract_cls, many=self.many, **kwargs)
         self._resolved_facet.name = self.name
 
         # Merge validators if any were added to the lazy facet
@@ -584,14 +584,14 @@ class _ComputedMarker:
 
 def computed(func: Callable) -> _ComputedMarker:
     """
-    Decorator to mark a Blueprint method as a computed output field.
+    Decorator to mark a Contract method as a computed output field.
 
     The method receives ``(self, instance)`` and returns the computed value.
     The field is read-only -- never accepted as input.
 
     Usage::
 
-        class UserBlueprint(Blueprint):
+        class UserContract(Contract):
             first_name: str
             last_name: str
 
@@ -607,17 +607,17 @@ def computed(func: Callable) -> _ComputedMarker:
 from typing import ForwardRef
 
 
-def _is_blueprint_class(cls: Any) -> bool:
-    """Check if cls is a Blueprint subclass (avoiding circular import)."""
+def _is_contract_class(cls: Any) -> bool:
+    """Check if cls is a Contract subclass (avoiding circular import)."""
     if isinstance(cls, str):
         return True
     if isinstance(cls, ForwardRef):
         return True
-    # Walk MRO to find Blueprint without importing it
+    # Walk MRO to find Contract without importing it
     if not isinstance(cls, type):
         return False
     for base in cls.__mro__:
-        if base.__name__ == "Blueprint" and base.__module__.startswith("aquilia.blueprints"):
+        if base.__name__ == "Contract" and base.__module__.startswith("aquilia.contracts"):
             if cls is not base:
                 return True
     return False
@@ -675,7 +675,7 @@ def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
     Safely resolve a string annotation to a type without using eval().
 
     Handles common patterns:
-        - Simple names: "str", "int", "MyBlueprint"
+        - Simple names: "str", "int", "MyContract"
         - Generic subscripts: "list[str]", "Optional[int]", "dict[str, int]"
         - Union syntax: "str | None" (PEP 604)
         - Nested generics: "list[Optional[str]]"
@@ -891,12 +891,12 @@ def _build_facet_from_annotation_raw(
             elif isinstance(meta, Field):
                 field_spec = meta
 
-        # Check if the type is a BlueprintUnion (which handles class | class operator)
+        # Check if the type is a ContractUnion (which handles class | class operator)
         # We'll map it to a thin adapter Facet in Step 9
-        from .core import BlueprintUnion
+        from .core import ContractUnion
 
-        if isinstance(actual_type, BlueprintUnion) or (
-            hasattr(actual_type, "__origin__") and actual_type.__origin__ is BlueprintUnion
+        if isinstance(actual_type, ContractUnion) or (
+            hasattr(actual_type, "__origin__") and actual_type.__origin__ is ContractUnion
         ):
             union_kwargs = {}
             if field_spec is not None:
@@ -917,7 +917,7 @@ def _build_facet_from_annotation_raw(
             elif class_default is not UNSET and not isinstance(class_default, Field):
                 union_kwargs["default"] = class_default
                 union_kwargs["required"] = False
-            return BlueprintUnionAdapterFacet(actual_type, **union_kwargs)
+            return ContractUnionAdapterFacet(actual_type, **union_kwargs)
 
         if target_facet is not None:
             if pipeline is not None:
@@ -1014,21 +1014,21 @@ def _build_facet_from_annotation_raw(
         choice_kwargs = dict(kwargs)
         return ChoiceFacet(choices=field_spec.choices, **choice_kwargs)
 
-    # ── BlueprintUnion check ─────────────────────────────────────────
-    from .core import BlueprintUnion
+    # ── ContractUnion check ─────────────────────────────────────────
+    from .core import ContractUnion
 
-    if isinstance(inner_type, BlueprintUnion) or (
-        hasattr(inner_type, "__origin__") and inner_type.__origin__ is BlueprintUnion
+    if isinstance(inner_type, ContractUnion) or (
+        hasattr(inner_type, "__origin__") and inner_type.__origin__ is ContractUnion
     ):
-        return BlueprintUnionAdapterFacet(inner_type, **kwargs)
+        return ContractUnionAdapterFacet(inner_type, **kwargs)
 
-    # ── Nested Blueprint ─────────────────────────────────────────────
-    if _is_blueprint_class(inner_type):
+    # ── Nested Contract ─────────────────────────────────────────────
+    if _is_contract_class(inner_type):
         nested_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank",)}
         if isinstance(inner_type, (str, ForwardRef)):
             ref_name = _extract_ref_name(inner_type)
-            return LazyBlueprintFacet(ref_name, many=False, **nested_kwargs)
-        return NestedBlueprintFacet(inner_type, many=False, **nested_kwargs)
+            return LazyContractFacet(ref_name, many=False, **nested_kwargs)
+        return NestedContractFacet(inner_type, many=False, **nested_kwargs)
 
     # ── Literal / Choices handling ───────────────────────────────────
     from typing import Literal
@@ -1054,12 +1054,12 @@ def _build_facet_from_annotation_raw(
         union_args = get_args(inner_type)
         choices = []
         for arg in union_args:
-            if _is_blueprint_class(arg):
+            if _is_contract_class(arg):
                 if isinstance(arg, (str, ForwardRef)):
                     ref_name = _extract_ref_name(arg)
-                    choices.append(LazyBlueprintFacet(ref_name, many=False))
+                    choices.append(LazyContractFacet(ref_name, many=False))
                 else:
-                    choices.append(NestedBlueprintFacet(arg, many=False))
+                    choices.append(NestedContractFacet(arg, many=False))
             else:
                 arg_facet_cls = ANNOTATION_TO_FACET.get(arg)
                 if arg_facet_cls is not None:
@@ -1119,12 +1119,12 @@ def _build_facet_from_annotation_raw(
         value_facet = None
         if len(args) == 2:
             val_type = args[1]
-            if _is_blueprint_class(val_type):
+            if _is_contract_class(val_type):
                 if isinstance(val_type, (str, ForwardRef)):
                     ref_name = _extract_ref_name(val_type)
-                    value_facet = LazyBlueprintFacet(ref_name, many=False)
+                    value_facet = LazyContractFacet(ref_name, many=False)
                 else:
-                    value_facet = NestedBlueprintFacet(val_type, many=False)
+                    value_facet = NestedContractFacet(val_type, many=False)
             else:
                 child_facet_cls = ANNOTATION_TO_FACET.get(val_type)
                 if child_facet_cls is not None:
@@ -1246,9 +1246,9 @@ def introspect_annotations(
     include_explicit_facets: bool = False,
 ) -> dict[str, Facet]:
     """
-    Introspect a Blueprint class's type annotations and produce Facet instances.
+    Introspect a Contract class's type annotations and produce Facet instances.
 
-    This is called from BlueprintMeta.__new__ after explicit Facets have been
+    This is called from ContractMeta.__new__ after explicit Facets have been
     collected.  Annotation-derived facets are returned in declaration order.
 
     Handles PEP 563 (from __future__ import annotations) by resolving
@@ -1261,7 +1261,7 @@ def introspect_annotations(
         3. Plain default value → ``Facet(default=value)``.
         4. ``Optional[T]`` / ``T | None`` → ``allow_null=True, required=False``.
         5. ``list[T]`` → ``ListFacet(child=T_facet)``.
-        6. ``SomeBlueprint`` → ``NestedBlueprintFacet(SomeBlueprint)``.
+        6. ``SomeContract`` → ``NestedContractFacet(SomeContract)``.
         7. ``@computed`` methods → ``Computed`` facets.
 
     Args:
@@ -1325,7 +1325,7 @@ def introspect_annotations(
     resolve_ns["UUID"] = uuid.UUID
     resolve_ns["uuid"] = uuid
 
-    # Include the class namespace itself (for forward references to other Blueprints)
+    # Include the class namespace itself (for forward references to other Contracts)
     resolve_ns.update(namespace)
 
     # Include parent class namespaces

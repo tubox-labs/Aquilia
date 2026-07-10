@@ -1,7 +1,7 @@
 """
-Aquilia Blueprint Sigil -- compiled schema IR.
+Aquilia Contract Sigil -- compiled schema IR.
 
-A Sigil is built once per Blueprint class and stored as ``cls._sigil``.
+A Sigil is built once per Contract class and stored as ``cls._sigil``.
 It is the compiled, immutable representation of the schema.
 """
 
@@ -70,7 +70,7 @@ class FieldSpec:
         "default",
         "default_factory",
         "pipeline",
-        "is_nested_blueprint",
+        "is_nested_contract",
         "is_lens",
     )
 
@@ -82,7 +82,7 @@ class FieldSpec:
         default: Any,
         default_factory: Any,
         pipeline: Pipeline | None = None,
-        is_nested_blueprint: bool = False,
+        is_nested_contract: bool = False,
         is_lens: bool = False,
     ):
         self.name = name
@@ -91,7 +91,7 @@ class FieldSpec:
         self.default = default
         self.default_factory = default_factory
         self.pipeline = pipeline
-        self.is_nested_blueprint = is_nested_blueprint
+        self.is_nested_contract = is_nested_contract
         self.is_lens = is_lens
 
     def __repr__(self) -> str:
@@ -99,7 +99,7 @@ class FieldSpec:
 
 
 class Sigil:
-    """Immutable compiled representation of a Blueprint validation schema."""
+    """Immutable compiled representation of a Contract validation schema."""
 
     __slots__ = (
         "fields",
@@ -235,8 +235,8 @@ class Sigil:
                 errors.setdefault(fname, []).append("This field may not be null")
                 continue
 
-            # Recursive nested blueprints check
-            nested_cls = get_nested_blueprint_cls(facet)
+            # Recursive nested contracts check
+            nested_cls = get_nested_contract_cls(facet)
             if nested_cls is not None:
                 is_many = getattr(facet, "many", False)
                 if is_many:
@@ -344,7 +344,7 @@ class Sigil:
                             if k not in ("type", "title", "description") or k not in sch:
                                 sch[k] = v
 
-            nested_cls = get_nested_blueprint_cls(facet)
+            nested_cls = get_nested_contract_cls(facet)
             if nested_cls is not None:
                 cls_name = nested_cls.__name__
                 if cls_name not in defs:
@@ -403,7 +403,7 @@ class Sigil:
         return schema
 
     def diff(self, other: Sigil) -> SigilDiff:
-        """Compare constraints structurally between Blueprint versions."""
+        """Compare constraints structurally between Contract versions."""
         if self.content_hash == other.content_hash:
             return SigilDiff(added_fields=[], removed_fields=[], changed_fields={}, breaking=False)
 
@@ -530,7 +530,7 @@ def serialize_facet_shape(facet: Any) -> list[tuple[str, str]]:
     exclude = {
         "_order",
         "name",
-        "blueprint",
+        "contract",
         "_bound",
         "validators",
         "default",
@@ -636,7 +636,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
 
     if is_list_facet:
         child_facet = getattr(facet, "child", None)
-        nested_cls = get_nested_blueprint_cls(child_facet) if child_facet else None
+        nested_cls = get_nested_contract_cls(child_facet) if child_facet else None
 
         if nested_cls is not None:
             all_keys = []
@@ -737,7 +737,7 @@ def get_field_value(data: Any, fname: str, facet: Any) -> Any:
                     return data.get(k)
         return UNSET
 
-    nested_cls = get_nested_blueprint_cls(facet)
+    nested_cls = get_nested_contract_cls(facet)
     if nested_cls is not None:
         nested_val = extract_nested_mapping(data, fname)
         if nested_val is not UNSET:
@@ -925,13 +925,13 @@ def extract_flat_list_mapping(data: Any) -> list[Any] | None:
     return results
 
 
-def get_nested_blueprint_cls(facet: Any) -> type | None:
-    """Retrieve nested blueprint class if facet wraps one."""
-    from .annotations import LazyBlueprintFacet, NestedBlueprintFacet
+def get_nested_contract_cls(facet: Any) -> type | None:
+    """Retrieve nested contract class if facet wraps one."""
+    from .annotations import LazyContractFacet, NestedContractFacet
 
-    if isinstance(facet, NestedBlueprintFacet):
+    if isinstance(facet, NestedContractFacet):
         return facet.target
-    if isinstance(facet, LazyBlueprintFacet):
+    if isinstance(facet, LazyContractFacet):
         resolved = facet._get_resolved()
         if resolved is not None:
             return resolved.target
@@ -939,13 +939,13 @@ def get_nested_blueprint_cls(facet: Any) -> type | None:
 
 
 def build_sigil(cls: type) -> Sigil:
-    """Construct Sigil configuration from Blueprint class definitions."""
-    from .annotations import LazyBlueprintFacet, NestedBlueprintFacet
+    """Construct Sigil configuration from Contract class definitions."""
+    from .annotations import LazyContractFacet, NestedContractFacet
     from .lenses import Lens
 
     fields = {}
     for fname, facet in cls._all_facets.items():
-        is_nested = isinstance(facet, (NestedBlueprintFacet, LazyBlueprintFacet))
+        is_nested = isinstance(facet, (NestedContractFacet, LazyContractFacet))
         is_lens_field = isinstance(facet, Lens)
 
         # Retrieve pipeline associated if annotation parsed it
@@ -958,7 +958,7 @@ def build_sigil(cls: type) -> Sigil:
             default=facet.default,
             default_factory=getattr(facet, "default_factory", None),
             pipeline=pipeline,
-            is_nested_blueprint=is_nested,
+            is_nested_contract=is_nested,
             is_lens=is_lens_field,
         )
 

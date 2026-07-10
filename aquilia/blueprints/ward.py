@@ -1,5 +1,5 @@
 """
-Aquilia Blueprint Ward -- explicit cross-field validator registration.
+Aquilia Contract Ward -- explicit cross-field validator registration.
 
 Replaces the fragile seal_*/async_seal_* name-prefix scanning with
 explicit @ward decorator registration, discovered once at class-body
@@ -7,9 +7,9 @@ evaluation time.
 
 Usage::
 
-    from aquilia.blueprints import ward
+    from aquilia.contracts import ward
 
-    class OrderBlueprint(Blueprint):
+    class OrderContract(Contract):
         @ward
         def total_matches_items(self, data):
             computed = sum(i.price * i.qty for i in data.items)
@@ -40,7 +40,7 @@ __all__ = ["ward", "WardMethod", "collect_ward_methods"]
 
 @dataclass(frozen=True, slots=True)
 class WardMethod:
-    """Descriptor for a single cross-field validator registered on a Blueprint."""
+    """Descriptor for a single cross-field validator registered on a Contract."""
 
     name: str
     fn: object  # the callable
@@ -55,7 +55,7 @@ _VALID_MODES = frozenset({"sync", "async"})
 
 
 class ward:
-    """Decorator (and decorator-factory) for registering Blueprint ward methods.
+    """Decorator (and decorator-factory) for registering Contract ward methods.
 
     Supports two usage patterns:
 
@@ -120,7 +120,7 @@ def collect_ward_methods(
     bases: tuple[type, ...],
     namespace: dict[str, Any],
 ) -> list[WardMethod]:
-    """Collect all ward methods for a Blueprint class being constructed.
+    """Collect all ward methods for a Contract class being constructed.
 
     Called during class-body evaluation (typically from a metaclass or
     ``__init_subclass__`` hook).
