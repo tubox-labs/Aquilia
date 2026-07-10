@@ -5,7 +5,7 @@ body:
       value: |
         ### Propose a New Capability for Aquilia 💡
         
-        Aquilia is designed to be highly extensible, type-safe, and secure. We welcome ideas to improve our core subsystems: the DI container, ORM, blueprint engine, worker schedules, faults middleware, or ASGI adapter.
+        Aquilia is designed to be highly extensible, type-safe, and secure. We welcome ideas to improve our core subsystems: the DI container, ORM, contract engine, worker schedules, faults middleware, or ASGI adapter.
   - type: textarea
     id: problem-statement
     attributes:
