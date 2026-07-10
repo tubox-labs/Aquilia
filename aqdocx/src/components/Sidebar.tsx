@@ -232,6 +232,7 @@ export const sections: SidebarSection[] = [
       {
         label: 'Authorization', path: '/docs/authz', icon: <Shield className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/authz' },
           { label: 'RBAC', path: '/docs/authz/rbac' },
           { label: 'ABAC', path: '/docs/authz/abac' },
           { label: 'Policies', path: '/docs/authz/policies' },
