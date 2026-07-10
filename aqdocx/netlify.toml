@@ -5,7 +5,59 @@
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "VITE_OPENROUTER_BASE_URL,VITE_OPENROUTER_MODEL"
 
+# 1. Canonical Domain Redirection (301 redirect from www to non-www)
+[[redirects]]
+  from = "https://www.aquilia.tubox.cloud/*"
+  to = "https://aquilia.tubox.cloud/:splat"
+  status = 301
+  force = true
+
+# 2. 301 Redirects for Renamed & Typo Paths to preserve Link Equity (SEO)
+[[redirects]]
+  from = "/docs/effects/*"
+  to = "/docs/subsystem/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/docs/effects"
+  to = "/docs/subsystem"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/docs/i8n/*"
+  to = "/docs/i18n/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/docs/i8n"
+  to = "/docs/i18n"
+  status = 301
+  force = true
+
+# SPA Router Fallback (must be last, no force)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+
+# 3. Cache Control and Preconnect Headers for Core Web Vitals
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# 4. Security & Trust Headers (SEO Trust & Security Signals)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "no-referrer-when-downgrade"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+    Content-Security-Policy = "upgrade-insecure-requests"
+    # Preconnect to critical third-party resources for faster paint times (LCP improvement)
+    Link = "<https://fonts.googleapis.com>; rel=preconnect, <https://fonts.gstatic.com>; rel=preconnect, <https://www.googletagmanager.com>; rel=preconnect"

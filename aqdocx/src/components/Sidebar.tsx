@@ -187,6 +187,7 @@ export const sections: SidebarSection[] = [
           { label: 'Signals', path: '/docs/models/signals' },
           { label: 'Aggregation', path: '/docs/models/aggregation' },
           { label: 'Migrations', path: '/docs/models/migrations' },
+          { label: 'Advanced Usage', path: '/docs/models/advanced' },
         ]
       },
       {
