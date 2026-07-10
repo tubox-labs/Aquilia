@@ -63,6 +63,9 @@ export function PrintAllDocs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
+  const params = new URLSearchParams(window.location.search)
+  const pageSize = params.get('size') === 'A3' ? 'A3' : 'A4'
+
   useEffect(() => {
     // Delay slightly to allow rendering to complete before triggering print
     const timer = setTimeout(() => {
@@ -81,6 +84,9 @@ export function PrintAllDocs() {
     <div className={`min-h-screen py-16 px-8 max-w-5xl mx-auto ${isDark ? 'bg-black text-white' : 'bg-white text-gray-900'}`}>
       <style>{`
         @media print {
+          @page {
+            size: ${pageSize};
+          }
           body {
             background-color: white !important;
             color: black !important;
