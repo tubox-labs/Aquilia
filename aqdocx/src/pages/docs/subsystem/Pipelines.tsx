@@ -63,7 +63,7 @@ export function FlowPipelines() {
 
         <CodeBlock language="python" filename="priority_bands.py" compact showLineNumbers={false}>{`PRIORITY_CRITICAL  = 10  # Security checks, CORS validation, global rate limiting.
 PRIORITY_AUTH      = 20  # Authentication guards, session lookups, permission validations.
-PRIORITY_VALIDATE  = 30  # Input validation schema checks (Blueprints).
+PRIORITY_VALIDATE  = 30  # Input validation schema checks (Contracts).
 PRIORITY_TRANSFORM = 40  # Payload transformations, parameter binding.
 PRIORITY_DEFAULT   = 50  # Primary request handler execution.
 PRIORITY_ENRICH    = 60  # Response enrichment, wrapping structures.

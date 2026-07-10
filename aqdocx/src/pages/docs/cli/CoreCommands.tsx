@@ -126,7 +126,7 @@ aq validate --strict --json`}</CodeBlock>
       <section id="compile" className={sectionClass}>
         <h2 className={h2Class}><DocTerm id="cli.compile">aq compile</DocTerm></h2>
         <p className={pClass}>
-          Compiles modular controllers, routers, blueprints, and translations into a compiled directory of static `.surp` files. This is recommended before deploying to production.
+          Compiles modular controllers, routers, contracts, and translations into a compiled directory of static `.surp` files. This is recommended before deploying to production.
         </p>
         <CodeBlock language="bash" filename="Terminal" highlightLines={[2, 5]}>{`# Run compilation
 aq compile

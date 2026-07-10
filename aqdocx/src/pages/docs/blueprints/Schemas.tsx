@@ -3,7 +3,7 @@ import { CodeBlock } from '../../../components/CodeBlock'
 import { FileJson } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsSchemas() {
+export function ContractsSchemas() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -12,7 +12,7 @@ export function BlueprintsSchemas() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <FileJson className="w-4 h-4" />
-          Blueprints / OpenAPI Schemas
+          Contracts / OpenAPI Schemas
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
@@ -21,18 +21,18 @@ export function BlueprintsSchemas() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Blueprints auto-generate JSON Schema and OpenAPI component schemas. Every Facet contributes its schema fragment, and Projections produce per-view schemas — all without manual schema writing.
+          Contracts auto-generate JSON Schema and OpenAPI component schemas. Every Facet contributes its schema fragment, and Projections produce per-view schemas — all without manual schema writing.
         </p>
       </div>
 
       {/* generate_schema */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Generating JSON Schema</h2>
-        <CodeBlock language="python" filename="schema_gen.py">{`from aquilia.blueprints.schema import generate_schema
+        <CodeBlock language="python" filename="schema_gen.py">{`from aquilia.contracts.schema import generate_schema
 
 
-# Generate JSON Schema for a Blueprint
-schema = generate_schema(ProductBlueprint)
+# Generate JSON Schema for a Contract
+schema = generate_schema(ProductContract)
 print(schema)
 # {
 #   "type": "object",
@@ -50,39 +50,39 @@ print(schema)
 
 
 # Schema for a specific projection
-schema = ProductBlueprint.to_schema(projection="__minimal__")
+schema = ProductContract.to_schema(projection="__minimal__")
 # Only includes: id, name, price, slug
 
 # Schema for input mode (excludes read_only fields)
-schema = ProductBlueprint.to_schema(mode="input")
+schema = ProductContract.to_schema(mode="input")
 
 # Schema for output mode (excludes write_only fields)
-schema = ProductBlueprint.to_schema(mode="output")`}</CodeBlock>
+schema = ProductContract.to_schema(mode="output")`}</CodeBlock>
       </section>
 
       {/* generate_component_schemas */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>OpenAPI Component Schemas</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Generate OpenAPI <code className="text-aquilia-500">components.schemas</code> for multiple Blueprints at once, with per-projection variants:
+          Generate OpenAPI <code className="text-aquilia-500">components.schemas</code> for multiple Contracts at once, with per-projection variants:
         </p>
-        <CodeBlock language="python" filename="component_schemas.py">{`from aquilia.blueprints.schema import generate_component_schemas
+        <CodeBlock language="python" filename="component_schemas.py">{`from aquilia.contracts.schema import generate_component_schemas
 
 
-# Generate component schemas for all Blueprints
+# Generate component schemas for all Contracts
 components = generate_component_schemas([
-    ProductBlueprint,
-    UserBlueprint,
-    OrderBlueprint,
+    ProductContract,
+    UserContract,
+    OrderContract,
 ])
 
 print(components)
 # {
-#   "ProductBlueprint": { ... default projection schema ... },
-#   "ProductBlueprint_minimal": { ... minimal projection schema ... },
-#   "ProductBlueprint_detail": { ... detail projection schema ... },
-#   "UserBlueprint": { ... },
-#   "OrderBlueprint": { ... },
+#   "ProductContract": { ... default projection schema ... },
+#   "ProductContract_minimal": { ... minimal projection schema ... },
+#   "ProductContract_detail": { ... detail projection schema ... },
+#   "UserContract": { ... },
+#   "OrderContract": { ... },
 # }
 
 # This output slots directly into your OpenAPI spec:
@@ -134,8 +134,8 @@ print(components)
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Integration with OpenAPI Endpoint</h2>
         <CodeBlock language="python" filename="openapi_endpoint.py">{`from aquilia import Controller, Get
-from aquilia.blueprints.schema import generate_component_schemas
-from myapp.blueprints import ProductBlueprint, UserBlueprint, OrderBlueprint
+from aquilia.contracts.schema import generate_component_schemas
+from myapp.contracts import ProductContract, UserContract, OrderContract
 
 
 class OpenAPIController(Controller):
@@ -144,9 +144,9 @@ class OpenAPIController(Controller):
     @Get("/openapi.json")
     async def openapi_spec(self, ctx):
         schemas = generate_component_schemas([
-            ProductBlueprint,
-            UserBlueprint,
-            OrderBlueprint,
+            ProductContract,
+            UserContract,
+            OrderContract,
         ])
 
         spec = {

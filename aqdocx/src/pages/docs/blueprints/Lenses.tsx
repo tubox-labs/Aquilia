@@ -3,7 +3,7 @@ import { CodeBlock } from '../../../components/CodeBlock'
 import { GitBranch } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsLenses() {
+export function ContractsLenses() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
@@ -13,7 +13,7 @@ export function BlueprintsLenses() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <GitBranch className="w-4 h-4" />
-          Blueprints / Lenses
+          Contracts / Lenses
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
@@ -22,7 +22,7 @@ export function BlueprintsLenses() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Lenses are a special Facet type that renders related objects through another Blueprint. They provide depth-controlled, cycle-safe relational views — eliminating the need for manual nested serialization or N+1 query problems in your API responses.
+          Lenses are a special Facet type that renders related objects through another Contract. They provide depth-controlled, cycle-safe relational views — eliminating the need for manual nested serialization or N+1 query problems in your API responses.
         </p>
       </div>
 
@@ -30,13 +30,13 @@ export function BlueprintsLenses() {
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Core Concept</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          A Lens is a Facet that delegates serialization to another Blueprint. When the parent Blueprint renders, each Lens field creates an instance of the target Blueprint and renders the related object through it.
+          A Lens is a Facet that delegates serialization to another Contract. When the parent Contract renders, each Lens field creates an instance of the target Contract and renders the related object through it.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { title: 'Depth Control', desc: 'Maximum nesting depth prevents infinite recursion (default: 3 levels)' },
-            { title: 'Cycle Detection', desc: 'Automatically detects and prevents circular Blueprint references' },
-            { title: 'Projection Selection', desc: 'Choose which projection the nested Blueprint uses' },
+            { title: 'Cycle Detection', desc: 'Automatically detects and prevents circular Contract references' },
+            { title: 'Projection Selection', desc: 'Choose which projection the nested Contract uses' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <h3 className={`font-bold text-sm mb-1 ${isDark ? 'text-white' : 'text-gray-900'}`}>{item.title}</h3>
@@ -49,10 +49,10 @@ export function BlueprintsLenses() {
       {/* Basic Usage */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Basic Usage</h2>
-        <CodeBlock language="python" filename="lenses.py">{`from aquilia.blueprints import Blueprint, TextFacet, IntFacet, Lens
+        <CodeBlock language="python" filename="lenses.py">{`from aquilia.contracts import Contract, TextFacet, IntFacet, Lens
 
 
-class CategoryBlueprint(Blueprint):
+class CategoryContract(Contract):
     name = TextFacet(max_length=100)
     slug = TextFacet(max_length=100)
 
@@ -61,7 +61,7 @@ class CategoryBlueprint(Blueprint):
         fields = ["id", "name", "slug"]
 
 
-class ReviewBlueprint(Blueprint):
+class ReviewContract(Contract):
     rating = IntFacet(min_value=1, max_value=5)
     comment = TextFacet(max_length=500)
     author = TextFacet(source="author.username", read_only=True)
@@ -71,15 +71,15 @@ class ReviewBlueprint(Blueprint):
         fields = ["id", "rating", "comment", "author"]
 
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     name = TextFacet(max_length=200)
     price = FloatFacet()
 
     # Single related object (ForeignKey)
-    category = Lens(CategoryBlueprint)
+    category = Lens(CategoryContract)
 
     # Multiple related objects (reverse FK / M2M)
-    reviews = Lens(ReviewBlueprint, many=True)
+    reviews = Lens(ReviewContract, many=True)
 
     class Spec:
         model = Product
@@ -110,23 +110,23 @@ class ProductBlueprint(Blueprint):
           Lenses track nesting depth. When maximum depth is reached, the Lens falls back to rendering the primary key instead of the full nested object.
         </p>
         <CodeBlock language="python" filename="depth.py">{`# Default max_depth is 3
-category = Lens(CategoryBlueprint, max_depth=2)
+category = Lens(CategoryContract, max_depth=2)
 
 # At depth 0: Full nested object   {"id": 5, "name": "Electronics", "slug": "..."}
 # At depth 1: Full nested object   (still within limit)
 # At depth 2: Primary key only     5  (max_depth reached)
 
 # Custom depth for deep hierarchies
-comments = Lens(CommentBlueprint, many=True, max_depth=5)
+comments = Lens(CommentContract, many=True, max_depth=5)
 
 
 # Example: Category with subcategories
-class CategoryBlueprint(Blueprint):
+class CategoryContract(Contract):
     name = TextFacet()
     
     # Self-referential lens with depth control
-    subcategories = Lens("CategoryBlueprint", many=True, max_depth=3)
-    parent = Lens("CategoryBlueprint", max_depth=1)
+    subcategories = Lens("CategoryContract", many=True, max_depth=3)
+    parent = Lens("CategoryContract", max_depth=1)
 
     class Spec:
         model = Category
@@ -143,20 +143,20 @@ class CategoryBlueprint(Blueprint):
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Cycle Detection</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          If Blueprint A references Blueprint B which references Blueprint A, Aquilia detects this cycle and raises <code className="text-aquilia-500">LensCycleFault</code> instead of producing infinite recursion.
+          If Contract A references Contract B which references Contract A, Aquilia detects this cycle and raises <code className="text-aquilia-500">LensCycleFault</code> instead of producing infinite recursion.
         </p>
-        <CodeBlock language="python" filename="cycle.py">{`class AuthorBlueprint(Blueprint):
+        <CodeBlock language="python" filename="cycle.py">{`class AuthorContract(Contract):
     name = TextFacet()
-    books = Lens("BookBlueprint", many=True)  # Forward reference
+    books = Lens("BookContract", many=True)  # Forward reference
 
     class Spec:
         model = Author
         fields = ["id", "name", "books"]
 
 
-class BookBlueprint(Blueprint):
+class BookContract(Contract):
     title = TextFacet()
-    author = Lens(AuthorBlueprint)  # Circular reference!
+    author = Lens(AuthorContract)  # Circular reference!
 
     class Spec:
         model = Book
@@ -164,34 +164,34 @@ class BookBlueprint(Blueprint):
 
 
 # Rendering:
-# AuthorBlueprint renders → books → BookBlueprint → author → AuthorBlueprint
+# AuthorContract renders → books → BookContract → author → AuthorContract
 # At this point, cycle is detected and rendering stops with PK fallback.
 # No LensCycleFault unless max_depth is also exceeded.
 
 # If you want to catch cycles explicitly:
-from aquilia.blueprints.exceptions import LensCycleFault
+from aquilia.contracts.exceptions import LensCycleFault
 
 try:
-    data = AuthorBlueprint(instance=author).data
+    data = AuthorContract(instance=author).data
 except LensCycleFault as e:
-    print(e.blueprint_chain)  # ["AuthorBlueprint", "BookBlueprint", "AuthorBlueprint"]`}</CodeBlock>
+    print(e.contract_chain)  # ["AuthorContract", "BookContract", "AuthorContract"]`}</CodeBlock>
       </section>
 
       {/* Projection Selection */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Projection Selection with Subscript Syntax</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Use Python's subscript syntax <code className="text-aquilia-500">Blueprint["projection"]</code> to control which projection the nested Blueprint uses:
+          Use Python's subscript syntax <code className="text-aquilia-500">Contract["projection"]</code> to control which projection the nested Contract uses:
         </p>
-        <CodeBlock language="python" filename="projection_lens.py">{`class OrderBlueprint(Blueprint):
+        <CodeBlock language="python" filename="projection_lens.py">{`class OrderContract(Contract):
     # Products rendered with minimal fields (fast list)
-    items = Lens(ProductBlueprint["__minimal__"], many=True)
+    items = Lens(ProductContract["__minimal__"], many=True)
     
     # Customer rendered with public-safe fields
-    customer = Lens(CustomerBlueprint["public"])
+    customer = Lens(CustomerContract["public"])
     
     # Shipping address with full detail
-    address = Lens(AddressBlueprint["detail"])
+    address = Lens(AddressContract["detail"])
 
     class Spec:
         model = Order
@@ -213,23 +213,23 @@ except LensCycleFault as e:
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Forward References (Lazy Resolution)</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          When Blueprint classes reference each other, use string names for forward references. They resolve lazily from the global Blueprint registry:
+          When Contract classes reference each other, use string names for forward references. They resolve lazily from the global Contract registry:
         </p>
-        <CodeBlock language="python" filename="forward_ref.py">{`class AuthorBlueprint(Blueprint):
+        <CodeBlock language="python" filename="forward_ref.py">{`class AuthorContract(Contract):
     name = TextFacet()
     
-    # Forward reference — BookBlueprint hasn't been defined yet
-    books = Lens("BookBlueprint", many=True)
+    # Forward reference — BookContract hasn't been defined yet
+    books = Lens("BookContract", many=True)
 
     class Spec:
         model = Author
         fields = ["id", "name", "books"]
 
 
-# BookBlueprint defined later
-class BookBlueprint(Blueprint):
+# BookContract defined later
+class BookContract(Contract):
     title = TextFacet()
-    author = Lens(AuthorBlueprint)  # Direct reference (already defined)
+    author = Lens(AuthorContract)  # Direct reference (already defined)
 
     class Spec:
         model = Book
@@ -237,9 +237,9 @@ class BookBlueprint(Blueprint):
 
 
 # Both work:
-# Lens(AuthorBlueprint)        — Direct class reference
-# Lens("AuthorBlueprint")      — String forward reference
-# Lens("BookBlueprint")        — Resolved from _blueprint_registry`}</CodeBlock>
+# Lens(AuthorContract)        — Direct class reference
+# Lens("AuthorContract")      — String forward reference
+# Lens("BookContract")        — Resolved from _contract_registry`}</CodeBlock>
       </section>
 
       {/* Lens with Inbound Data */}
@@ -252,14 +252,14 @@ class BookBlueprint(Blueprint):
 {
     "customer_id": 42,         # FK via IntFacet (not nested object)
     "items": [1, 2, 3],        # M2M via ListFacet(IntFacet)
-    "shipping_address": {      # Nested create uses NestedBlueprintFacet
+    "shipping_address": {      # Nested create uses NestedContractFacet
         "street": "123 Main",
         "city": "NYC"
     }
 }
 
-# If you want nested write support, use NestedBlueprintFacet 
-# from aquilia.blueprints.annotations instead of Lens`}</CodeBlock>
+# If you want nested write support, use NestedContractFacet 
+# from aquilia.contracts.annotations instead of Lens`}</CodeBlock>
       </section>
 
       <NextSteps />

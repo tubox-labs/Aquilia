@@ -61,9 +61,9 @@ export function ControllersDecorators() {
         response_model: Optional[type] = None,
         status_code: int = 200,
 
-        # ── Blueprint Casting / Sealing ───────────────────────────
-        request_blueprint: Optional[type] = None,
-        response_blueprint: Optional[type] = None,
+        # ── Contract Casting / Sealing ───────────────────────────
+        request_contract: Optional[type] = None,
+        response_contract: Optional[type] = None,
 
         # ── Filtering, Search, Ordering ───────────────────────────
         filterset_class: Optional[type] = None,
@@ -107,8 +107,8 @@ export function ControllersDecorators() {
                 ['deprecated', 'bool', 'Marks route as deprecated in the OpenAPI spec.'],
                 ['response_model', 'Optional[type]', 'Expected response model type.'],
                 ['status_code', 'int', 'Default response status code. Defaults to 200.'],
-                ['request_blueprint', 'Optional[type]', 'Blueprint class for casting request body.'],
-                ['response_blueprint', 'Optional[type]', 'Blueprint class for molding response payload.'],
+                ['request_contract', 'Optional[type]', 'Contract class for casting request body.'],
+                ['response_contract', 'Optional[type]', 'Contract class for molding response payload.'],
                 ['filterset_class', 'Optional[type]', 'FilterSet subclass for query filtering.'],
                 ['filterset_fields', 'Optional[List[str] | Any]', 'List/dict shorthand for filters.'],
                 ['search_fields', 'Optional[List[str]]', 'Searchable fields.'],

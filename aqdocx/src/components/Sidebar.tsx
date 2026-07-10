@@ -195,17 +195,17 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'Blueprints', path: '/docs/blueprints', icon: <Binary className="w-3.5 h-3.5" />,
+        label: 'Contracts', path: '/docs/contracts', icon: <Binary className="w-3.5 h-3.5" />,
         children: [
-          { label: 'Overview', path: '/docs/blueprints/overview' },
-          { label: 'Facets', path: '/docs/blueprints/facets' },
-          { label: 'Projections', path: '/docs/blueprints/projections' },
-          { label: 'Lenses', path: '/docs/blueprints/lenses' },
-          { label: 'Seals (Validation)', path: '/docs/blueprints/seals' },
-          { label: 'Annotations', path: '/docs/blueprints/annotations' },
-          { label: 'Integration', path: '/docs/blueprints/integration' },
-          { label: 'Schemas', path: '/docs/blueprints/schemas' },
-          { label: 'Faults', path: '/docs/blueprints/faults' },
+          { label: 'Overview', path: '/docs/contracts/overview' },
+          { label: 'Facets', path: '/docs/contracts/facets' },
+          { label: 'Projections', path: '/docs/contracts/projections' },
+          { label: 'Lenses', path: '/docs/contracts/lenses' },
+          { label: 'Seals (Validation)', path: '/docs/contracts/seals' },
+          { label: 'Annotations', path: '/docs/contracts/annotations' },
+          { label: 'Integration', path: '/docs/contracts/integration' },
+          { label: 'Schemas', path: '/docs/contracts/schemas' },
+          { label: 'Faults', path: '/docs/contracts/faults' },
         ]
       },
     ]

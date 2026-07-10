@@ -487,61 +487,61 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/overview</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/overview</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/facets</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/facets</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/projections</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/projections</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/lenses</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/lenses</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/seals</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/seals</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/annotations</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/annotations</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/integration</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/integration</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/schemas</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/schemas</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://aquilia.tubox.cloud/docs/blueprints/faults</loc>
+    <loc>https://aquilia.tubox.cloud/docs/contracts/faults</loc>
     <lastmod>2026-07-07</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>

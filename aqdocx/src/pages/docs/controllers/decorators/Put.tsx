@@ -55,7 +55,7 @@ class UsersController(Controller):
                 </div>
                 <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                     Unlike <code>@PATCH</code>, <code>@PUT</code> expects a complete representation of the resource.
-                    Accessing <code>ctx.blueprint</code> or using <code>request_blueprint</code> will typically enforce that all required fields are present.
+                    Accessing <code>ctx.contract</code> or using <code>request_contract</code> will typically enforce that all required fields are present.
                 </p>
 
                 <div className="p-4 border-l-4 border-orange-500 bg-orange-500/5 rounded-r-xl">
@@ -64,7 +64,7 @@ class UsersController(Controller):
                         <div>
                             <h4 className={`font-semibold ${isDark ? 'text-orange-200' : 'text-orange-800'}`}>Validation Behavior</h4>
                             <p className={`text-sm ${isDark ? 'text-orange-300' : 'text-orange-700'}`}>
-                                When using <code>request_blueprint</code> with PUT, partial updates (missing required fields) will strictly fail validation.
+                                When using <code>request_contract</code> with PUT, partial updates (missing required fields) will strictly fail validation.
                                 Use <code>@PATCH</code> if you want to allow partial data.
                             </p>
                         </div>
@@ -74,8 +74,8 @@ class UsersController(Controller):
                 <CodeBlock
                     code={`@PUT(
     "/«id:int»",
-    request_blueprint=UserBlueprint,  # Strict: Requires all fields
-    response_blueprint=UserBlueprint
+    request_contract=UserContract,  # Strict: Requires all fields
+    response_contract=UserContract
 )
 async def update(self, ctx: RequestCtx, id: int, body: dict):
     user = await self.repo.update(id, body)

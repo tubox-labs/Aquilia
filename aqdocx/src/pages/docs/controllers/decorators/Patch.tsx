@@ -54,10 +54,10 @@ class UsersController(Controller):
             <section className="space-y-4">
                 <div className="flex items-center gap-2 mb-4">
                     <Edit className="w-5 h-5 text-aquilia-500" />
-                    <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Partial Updates with Blueprints</h2>
+                    <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Partial Updates with Contracts</h2>
                 </div>
                 <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    In Aquilia, partial updates are modeled using optional fields in a Blueprint or by utilizing projected references to validate a subset of fields.
+                    In Aquilia, partial updates are modeled using optional fields in a Contract or by utilizing projected references to validate a subset of fields.
                 </p>
 
                 <div className="p-4 border-l-4 border-yellow-500 bg-yellow-500/5 rounded-r-xl">
@@ -66,7 +66,7 @@ class UsersController(Controller):
                         <div>
                             <h4 className={`font-semibold ${isDark ? 'text-yellow-250' : 'text-yellow-800'}`}>Schema Tip</h4>
                             <p className={`text-sm ${isDark ? 'text-yellow-300' : 'text-yellow-700'}`}>
-                                For partial PATCH operations, define the fields in your update blueprint as optional (e.g. using <code>Field(required=False)</code> or having a default value).
+                                For partial PATCH operations, define the fields in your update contract as optional (e.g. using <code>Field(required=False)</code> or having a default value).
                             </p>
                         </div>
                     </div>
@@ -75,8 +75,8 @@ class UsersController(Controller):
                 <CodeBlock
                     code={`@PATCH(
     "/«id:int»",
-    request_blueprint=UserUpdateBlueprint,
-    response_blueprint=UserBlueprint
+    request_contract=UserUpdateContract,
+    response_contract=UserContract
 )
 async def update(self, ctx: RequestCtx, id: int, body: dict):
     user = await self.repo.patch(id, body)

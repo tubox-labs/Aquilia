@@ -23,7 +23,7 @@ import { DIOverview } from './docs/di/Overview'
 import { DIContainer } from './docs/di/Container'
 import { ModelsOverview } from './docs/models/Overview'
 import { ModelsQuerySet } from './docs/models/QuerySet'
-import { BlueprintsOverview } from './docs/blueprints/Overview'
+import { ContractsOverview } from './docs/contracts/Overview'
 import { DatabaseOverview } from './docs/database/Overview'
 import { AuthOverview } from './docs/auth/Overview'
 import { SessionsOverview } from './docs/sessions/Overview'
@@ -124,7 +124,7 @@ export function PrintAllDocs() {
         <div className="print-page-break"><DIContainer /></div>
         <div className="print-page-break"><ModelsOverview /></div>
         <div className="print-page-break"><ModelsQuerySet /></div>
-        <div className="print-page-break"><BlueprintsOverview /></div>
+        <div className="print-page-break"><ContractsOverview /></div>
         <div className="print-page-break"><DatabaseOverview /></div>
         <div className="print-page-break"><AuthOverview /></div>
         <div className="print-page-break"><SessionsOverview /></div>

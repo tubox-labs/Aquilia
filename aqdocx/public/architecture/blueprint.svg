@@ -64,7 +64,7 @@
   
   <!-- Title and Subtitle Block -->
   <g transform="translate(30, 40)">
-    <text x="0" y="0" class="title">Aquilia Blueprint Validation and Data Molding Engine</text>
+    <text x="0" y="0" class="title">Aquilia Contract Validation and Data Molding Engine</text>
   </g>
   
   
@@ -93,7 +93,7 @@
     <text x="276" y="164" class="node-text-title">validate_body Decorator</text>
     
     <!-- Description -->
-    <text x="276" y="182" class="node-text-desc">Intercepts route call;</text><text x="276" y="197" class="node-text-desc">binds Blueprint schema</text><text x="276" y="212" class="node-text-desc">to request context</text>
+    <text x="276" y="182" class="node-text-desc">Intercepts route call;</text><text x="276" y="197" class="node-text-desc">binds Contract schema</text><text x="276" y="212" class="node-text-desc">to request context</text>
     
     <!-- Badge -->
     
@@ -124,7 +124,7 @@
     <rect x="760" y="140" width="220" height="95"   class="card-bg" fill="url(#emeraldGrad)" filter="url(#handdrawn)" rx="" ry="" />
     
     <!-- Title -->
-    <text x="776" y="164" class="node-text-title">Molded Blueprint Instance</text>
+    <text x="776" y="164" class="node-text-title">Molded Contract Instance</text>
     
     <!-- Description -->
     <text x="776" y="182" class="node-text-desc">Typed object initialized;</text><text x="776" y="197" class="node-text-desc">passed as parameter</text><text x="776" y="212" class="node-text-desc">to controller method</text>

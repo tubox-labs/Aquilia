@@ -204,7 +204,7 @@ manifest = AppManifest(
                 ['socket_controllers', 'list[str | ComponentRef]', 'WebSocket controllers. Requires WebSocket/Socket integration enabled.'],
                 ['services', 'list[str | ServiceConfig | ComponentRef]', 'DI-managed services. Strings auto-promoted to ServiceConfig(scope=APP). Full control via ServiceConfig.'],
                 ['models', 'list[str | ComponentRef]', 'ORM model classes. Registered for migration scanning and QuerySet generation.'],
-                ['serializers', 'list[str | ComponentRef]', 'Blueprint serializer classes. Auto-wired for request/response schema generation.'],
+                ['serializers', 'list[str | ComponentRef]', 'Contract serializer classes. Auto-wired for request/response schema generation.'],
                 ['guards', 'list[str | ComponentRef]', 'Auth/authorization gates applied before route handlers. Evaluated in declaration order.'],
                 ['pipes', 'list[str | ComponentRef]', 'Input transformation and validation pipes. Transform incoming request data before handlers.'],
                 ['interceptors', 'list[str | ComponentRef]', 'Cross-cutting concerns (logging, caching, telemetry). Wrap route handler execution.'],
@@ -323,7 +323,7 @@ manifest = AppManifest(
                 ['MODEL',             '"model"',             'ORM model classes — registered for migrations and QuerySets'],
                 ['FAULT_HANDLER',     '"fault_handler"',     'Domain-specific error handlers'],
                 ['SOCKET_CONTROLLER', '"socket_controller"', 'WebSocket event handlers'],
-                ['SERIALIZER',        '"serializer"',        'Blueprint schema serializers'],
+                ['SERIALIZER',        '"serializer"',        'Contract schema serializers'],
                 ['TASK',              '"task"',              '@task decorated background task functions'],
                 ['EVENT_HANDLER',     '"event_handler"',     'Application event bus subscribers'],
                 ['INTEGRATION',       '"integration"',       'Subsystem integration hooks'],
@@ -404,7 +404,7 @@ manifest = AppManifest(
     # ── Pipes: input transformation and validation ────────────────────────
     # Transform and coerce incoming request data before the handler sees it.
     pipes=[
-        "modules.api.pipes:ValidationPipe",     # validate against Blueprint schema
+        "modules.api.pipes:ValidationPipe",     # validate against Contract schema
         "modules.api.pipes:SanitizationPipe",   # strip HTML/XSS from string inputs
         "modules.api.pipes:ParseIntPipe",       # coerce string IDs to int
     ],

@@ -3,7 +3,7 @@ import { CodeBlock } from '../../../components/CodeBlock'
 import { FileCode } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsAnnotations() {
+export function ContractsAnnotations() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
@@ -13,7 +13,7 @@ export function BlueprintsAnnotations() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <FileCode className="w-4 h-4" />
-          Blueprints / Annotations & Field()
+          Contracts / Annotations & Field()
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
@@ -22,7 +22,7 @@ export function BlueprintsAnnotations() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          As an alternative to explicit Facet declarations, Aquilia supports type-annotation-driven Blueprints using the <code className="text-aquilia-500">Field</code> descriptor. Write Pythonic type hints and let the metaclass derive the correct Facets automatically.
+          As an alternative to explicit Facet declarations, Aquilia supports type-annotation-driven Contracts using the <code className="text-aquilia-500">Field</code> descriptor. Write Pythonic type hints and let the metaclass derive the correct Facets automatically.
         </p>
       </div>
 
@@ -33,7 +33,7 @@ export function BlueprintsAnnotations() {
           <div className={boxClass}>
             <h3 className={`font-bold text-sm mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Explicit Facets</h3>
             <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Full control, more verbose</p>
-            <CodeBlock language="python">{`class UserBP(Blueprint):
+            <CodeBlock language="python">{`class UserBP(Contract):
     name = TextFacet(max_length=100)
     age = IntFacet(min_value=0)
     email = EmailFacet()`}</CodeBlock>
@@ -41,14 +41,14 @@ export function BlueprintsAnnotations() {
           <div className={boxClass}>
             <h3 className={`font-bold text-sm mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Type Annotations</h3>
             <p className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>Pythonic, concise, auto-derived</p>
-            <CodeBlock language="python">{`class UserBP(Blueprint):
+            <CodeBlock language="python">{`class UserBP(Contract):
     name: str = Field(max_length=100)
     age: int = Field(ge=0)
     email: str = Field()`}</CodeBlock>
           </div>
         </div>
         <p className={`mt-4 text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Both styles produce identical Blueprint behavior. You can even mix them in the same Blueprint — explicit Facets take priority over annotation-derived ones.
+          Both styles produce identical Contract behavior. You can even mix them in the same Contract — explicit Facets take priority over annotation-derived ones.
         </p>
       </section>
 
@@ -58,10 +58,10 @@ export function BlueprintsAnnotations() {
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           <code className="text-aquilia-500">Field</code> is a constraint descriptor that decorates type annotations with validation rules:
         </p>
-        <CodeBlock language="python" filename="field_descriptor.py">{`from aquilia.blueprints import Blueprint, Field
+        <CodeBlock language="python" filename="field_descriptor.py">{`from aquilia.contracts import Contract, Field
 
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     # All Field() options:
     name: str = Field(
         default=None,           # Default value if not provided
@@ -132,9 +132,9 @@ class ProductBlueprint(Blueprint):
                 { ann: 'dict', facet: 'DictFacet' },
                 { ann: 'Optional[str]', facet: 'TextFacet(allow_null=True)' },
                 { ann: 'str | None', facet: 'TextFacet(allow_null=True)' },
-                { ann: 'UserBlueprint', facet: 'NestedBlueprintFacet(UserBlueprint)' },
-                { ann: 'list[UserBlueprint]', facet: 'NestedBlueprintFacet(UserBlueprint, many=True)' },
-                { ann: '"UserBlueprint"', facet: 'LazyBlueprintFacet("UserBlueprint")' },
+                { ann: 'UserContract', facet: 'NestedContractFacet(UserContract)' },
+                { ann: 'list[UserContract]', facet: 'NestedContractFacet(UserContract, many=True)' },
+                { ann: '"UserContract"', facet: 'LazyContractFacet("UserContract")' },
                 { ann: 'str | int', facet: 'PolymorphicFacet(...)' },
               ].map((row, i) => (
                 <tr key={i} className={isDark ? 'bg-[#0A0A0A]' : 'bg-white'}>
@@ -152,11 +152,11 @@ class ProductBlueprint(Blueprint):
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Practical Examples</h2>
 
         <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>User Registration</h3>
-        <CodeBlock language="python" filename="registration.py">{`from aquilia.blueprints import Blueprint, Field
+        <CodeBlock language="python" filename="registration.py">{`from aquilia.contracts import Contract, Field
 from datetime import date
 
 
-class RegisterBlueprint(Blueprint):
+class RegisterContract(Contract):
     username: str = Field(min_length=3, max_length=30)
     email: str = Field(required=True)              # Becomes EmailFacet? No — str → TextFacet
     password: str = Field(min_length=8, write_only=True)
@@ -168,13 +168,13 @@ class RegisterBlueprint(Blueprint):
         fields = ["username", "email", "password", "birth_date"]`}</CodeBlock>
 
         <h3 className={`text-lg font-bold mt-8 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>E-Commerce Order</h3>
-        <CodeBlock language="python" filename="order.py">{`from aquilia.blueprints import Blueprint, Field
+        <CodeBlock language="python" filename="order.py">{`from aquilia.contracts import Contract, Field
 from decimal import Decimal
 from uuid import UUID
 from typing import Optional
 
 
-class OrderItemBlueprint(Blueprint):
+class OrderItemContract(Contract):
     product_id: int = Field(required=True)
     quantity: int = Field(ge=1, le=999)
     unit_price: Decimal = Field(max_digits=10, decimal_places=2)
@@ -185,10 +185,10 @@ class OrderItemBlueprint(Blueprint):
         fields = "__all__"
 
 
-class OrderBlueprint(Blueprint):
+class OrderContract(Contract):
     reference: UUID = Field(read_only=True)
     customer_name: str = Field(max_length=200)
-    items: list[OrderItemBlueprint] = Field(min_items=1)  # Nested Blueprint
+    items: list[OrderItemContract] = Field(min_items=1)  # Nested Contract
     total: Decimal = Field(max_digits=12, decimal_places=2, read_only=True)
     status: str = Field(choices=["pending", "confirmed", "shipped", "delivered"])
 
@@ -204,10 +204,10 @@ class OrderBlueprint(Blueprint):
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           Mark methods as computed output fields using <code className="text-aquilia-500">@computed</code>. These fields appear in output but never accept input:
         </p>
-        <CodeBlock language="python" filename="computed.py">{`from aquilia.blueprints import Blueprint, Field, computed
+        <CodeBlock language="python" filename="computed.py">{`from aquilia.contracts import Contract, Field, computed
 
 
-class UserBlueprint(Blueprint):
+class UserContract(Contract):
     first_name: str = Field(max_length=50)
     last_name: str = Field(max_length=50)
     email: str = Field()
@@ -250,13 +250,13 @@ class UserBlueprint(Blueprint):
 # }`}</CodeBlock>
       </section>
 
-      {/* Nested Blueprints */}
+      {/* Nested Contracts */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Nested Blueprints via Annotations</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Nested Contracts via Annotations</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          When you annotate a field with another Blueprint class, Aquilia creates a <code className="text-aquilia-500">NestedBlueprintFacet</code> that delegates validation to the nested Blueprint:
+          When you annotate a field with another Contract class, Aquilia creates a <code className="text-aquilia-500">NestedContractFacet</code> that delegates validation to the nested Contract:
         </p>
-        <CodeBlock language="python" filename="nested.py">{`class AddressBlueprint(Blueprint):
+        <CodeBlock language="python" filename="nested.py">{`class AddressContract(Contract):
     street: str = Field(max_length=200)
     city: str = Field(max_length=100)
     zip_code: str = Field(max_length=20)
@@ -267,14 +267,14 @@ class UserBlueprint(Blueprint):
         fields = "__all__"
 
 
-class CompanyBlueprint(Blueprint):
+class CompanyContract(Contract):
     name: str = Field(max_length=200)
     
-    # Single nested Blueprint
-    headquarters: AddressBlueprint = Field(required=True)
+    # Single nested Contract
+    headquarters: AddressContract = Field(required=True)
     
-    # List of nested Blueprints
-    offices: list[AddressBlueprint] = Field(required=False)
+    # List of nested Contracts
+    offices: list[AddressContract] = Field(required=False)
 
     class Spec:
         model = Company
@@ -289,39 +289,39 @@ class CompanyBlueprint(Blueprint):
 #     {"street": "456 Oak", "city": "LA", "zip_code": "90001"},
 #   ]
 # }
-# Each nested object is validated through AddressBlueprint.is_sealed()`}</CodeBlock>
+# Each nested object is validated through AddressContract.is_sealed()`}</CodeBlock>
       </section>
 
       {/* Forward References */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Lazy Forward References</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          For circular references, use string annotations. Aquilia resolves them lazily from the Blueprint registry:
+          For circular references, use string annotations. Aquilia resolves them lazily from the Contract registry:
         </p>
         <CodeBlock language="python" filename="lazy_ref.py">{`from __future__ import annotations  # Enable PEP 563
 
-class DepartmentBlueprint(Blueprint):
+class DepartmentContract(Contract):
     name: str = Field(max_length=100)
     
-    # Forward reference — EmployeeBlueprint not yet defined
-    manager: "EmployeeBlueprint" = Field(required=False)
-    employees: list["EmployeeBlueprint"] = Field(required=False)
+    # Forward reference — EmployeeContract not yet defined
+    manager: "EmployeeContract" = Field(required=False)
+    employees: list["EmployeeContract"] = Field(required=False)
 
     class Spec:
         model = Department
         fields = "__all__"
 
 
-class EmployeeBlueprint(Blueprint):
+class EmployeeContract(Contract):
     name: str = Field(max_length=100)
-    department: DepartmentBlueprint = Field()  # Direct reference (already defined)
+    department: DepartmentContract = Field()  # Direct reference (already defined)
 
     class Spec:
         model = Employee
         fields = "__all__"
 
 
-# Both resolve correctly at runtime via _blueprint_registry`}</CodeBlock>
+# Both resolve correctly at runtime via _contract_registry`}</CodeBlock>
       </section>
 
       {/* Optional & Union */}
@@ -330,7 +330,7 @@ class EmployeeBlueprint(Blueprint):
         <CodeBlock language="python" filename="optional_union.py">{`from typing import Optional, Union
 
 
-class FlexibleBlueprint(Blueprint):
+class FlexibleContract(Contract):
     # Optional — allows null
     nickname: Optional[str] = Field(max_length=50)
     # Same as: str | None = Field(...)
@@ -350,7 +350,7 @@ class FlexibleBlueprint(Blueprint):
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>PEP 563 / 649 Support</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia's <code className="text-aquilia-500">introspect_annotations()</code> fully supports deferred evaluation of annotations via <code className="text-aquilia-500">from __future__ import annotations</code> (PEP 563). String annotations are resolved against the module's globals at Blueprint class creation time.
+          Aquilia's <code className="text-aquilia-500">introspect_annotations()</code> fully supports deferred evaluation of annotations via <code className="text-aquilia-500">from __future__ import annotations</code> (PEP 563). String annotations are resolved against the module's globals at Contract class creation time.
         </p>
         <CodeBlock language="python" filename="pep563.py">{`from __future__ import annotations  # All annotations become strings
 
@@ -358,7 +358,7 @@ from datetime import datetime
 from decimal import Decimal
 
 
-class InvoiceBlueprint(Blueprint):
+class InvoiceContract(Contract):
     # These are string annotations at parse time,
     # resolved to actual types by introspect_annotations()
     amount: Decimal = Field(max_digits=10, decimal_places=2)

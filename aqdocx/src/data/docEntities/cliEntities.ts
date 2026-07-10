@@ -47,7 +47,7 @@ registerDocEntities([
     id: 'cli.generate_controller',
     type: 'cli',
     title: 'aq generate controller',
-    description: 'Generates a controller class file from a template, setting up standard routes, validation blueprints, or lifecycle hook methods.',
+    description: 'Generates a controller class file from a template, setting up standard routes, validation contracts, or lifecycle hook methods.',
     signature: 'aq generate controller NAME [--prefix VALUE] [--resource VALUE] [--simple] [--with-lifecycle]',
     language: 'bash',
     parameters: [

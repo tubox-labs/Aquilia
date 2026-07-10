@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsSeals() {
+export function ContractsSeals() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const t = (d: string, l: string) => isDark ? d : l
@@ -16,7 +16,7 @@ export function BlueprintsSeals() {
       <div className="flex items-center gap-2 text-sm mb-6">
         <Link to="/docs" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Docs</Link>
         <span className={t('text-gray-500','text-gray-400')}>/</span>
-        <Link to="/docs/blueprints/overview" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Blueprints</Link>
+        <Link to="/docs/contracts/overview" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Contracts</Link>
         <span className={t('text-gray-500','text-gray-400')}>/</span>
         <span className={t('text-gray-300','text-gray-600')}>Seals & Validation</span>
       </div>
@@ -53,7 +53,7 @@ export function BlueprintsSeals() {
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Execution</h2>
         <CodeBlock language="python">{`# Instantiate with request body
-bp = ProductBlueprint(data=request.json)
+bp = ProductContract(data=request.json)
 
 # Run validations
 if not bp.is_sealed():
@@ -69,10 +69,10 @@ product = await bp.imprint(db=db)`}</CodeBlock>
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
           Use the <DocTerm id="bp.ward">@ward</DocTerm> decorator to enforce dependencies between multiple fields:
         </p>
-        <CodeBlock language="python">{`from aquilia.blueprints import Blueprint, SealFault
-from aquilia.blueprints.ward import ward
+        <CodeBlock language="python">{`from aquilia.contracts import Contract, SealFault
+from aquilia.contracts.ward import ward
 
-class EventBlueprint(Blueprint):
+class EventContract(Contract):
     start_date = DateFacet()
     end_date = DateFacet()
 
@@ -92,7 +92,7 @@ class EventBlueprint(Blueprint):
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
           Accumulate validation errors instead of raising immediately using <code>self.reject()</code>:
         </p>
-        <CodeBlock language="python">{`class SignupBlueprint(Blueprint):
+        <CodeBlock language="python">{`class SignupContract(Contract):
     password = TextFacet(min_length=8)
     password_confirm = TextFacet()
 
@@ -106,10 +106,10 @@ class EventBlueprint(Blueprint):
 
       {/* Navigation */}
       <div className={`flex justify-between items-center pt-8 mt-8 border-t ${t('border-gray-700','border-gray-200')}`}>
-        <Link to="/docs/blueprints/facets" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
+        <Link to="/docs/contracts/facets" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
           <ArrowLeft className="w-4 h-4" /> Facets
         </Link>
-        <Link to="/docs/blueprints/projections" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
+        <Link to="/docs/contracts/projections" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
           Projections <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

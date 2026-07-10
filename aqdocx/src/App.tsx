@@ -107,16 +107,16 @@ import { Savepoints } from './pages/docs/models/transactions/Savepoints'
 import { Hooks } from './pages/docs/models/transactions/Hooks'
 import { ModelsAggregation } from './pages/docs/models/Aggregation'
 
-// Blueprints
-import { BlueprintsOverview } from './pages/docs/blueprints/Overview'
-import { BlueprintsFacets } from './pages/docs/blueprints/Facets'
-import { BlueprintsProjections } from './pages/docs/blueprints/Projections'
-import { BlueprintsLenses } from './pages/docs/blueprints/Lenses'
-import { BlueprintsSeals } from './pages/docs/blueprints/Seals'
-import { BlueprintsAnnotations } from './pages/docs/blueprints/Annotations'
-import { BlueprintsIntegration } from './pages/docs/blueprints/Integration'
-import { BlueprintsSchemas } from './pages/docs/blueprints/Schemas'
-import { BlueprintsFaults } from './pages/docs/blueprints/Faults'
+// Contracts
+import { ContractsOverview } from './pages/docs/contracts/Overview'
+import { ContractsFacets } from './pages/docs/contracts/Facets'
+import { ContractsProjections } from './pages/docs/contracts/Projections'
+import { ContractsLenses } from './pages/docs/contracts/Lenses'
+import { ContractsSeals } from './pages/docs/contracts/Seals'
+import { ContractsAnnotations } from './pages/docs/contracts/Annotations'
+import { ContractsIntegration } from './pages/docs/contracts/Integration'
+import { ContractsSchemas } from './pages/docs/contracts/Schemas'
+import { ContractsFaults } from './pages/docs/contracts/Faults'
 
 // Database
 import { DatabaseOverview } from './pages/docs/database/Overview'
@@ -437,17 +437,17 @@ export default function App() {
           
           <Route path="models/aggregation" element={<ModelsAggregation />} />
 
-          {/* Blueprints */}
-          <Route path="blueprints" element={<BlueprintsOverview />} />
-          <Route path="blueprints/overview" element={<BlueprintsOverview />} />
-          <Route path="blueprints/facets" element={<BlueprintsFacets />} />
-          <Route path="blueprints/projections" element={<BlueprintsProjections />} />
-          <Route path="blueprints/lenses" element={<BlueprintsLenses />} />
-          <Route path="blueprints/seals" element={<BlueprintsSeals />} />
-          <Route path="blueprints/annotations" element={<BlueprintsAnnotations />} />
-          <Route path="blueprints/integration" element={<BlueprintsIntegration />} />
-          <Route path="blueprints/schemas" element={<BlueprintsSchemas />} />
-          <Route path="blueprints/faults" element={<BlueprintsFaults />} />
+          {/* Contracts */}
+          <Route path="contracts" element={<ContractsOverview />} />
+          <Route path="contracts/overview" element={<ContractsOverview />} />
+          <Route path="contracts/facets" element={<ContractsFacets />} />
+          <Route path="contracts/projections" element={<ContractsProjections />} />
+          <Route path="contracts/lenses" element={<ContractsLenses />} />
+          <Route path="contracts/seals" element={<ContractsSeals />} />
+          <Route path="contracts/annotations" element={<ContractsAnnotations />} />
+          <Route path="contracts/integration" element={<ContractsIntegration />} />
+          <Route path="contracts/schemas" element={<ContractsSchemas />} />
+          <Route path="contracts/faults" element={<ContractsFaults />} />
 
           {/* Database */}
           <Route path="database" element={<DatabaseOverview />} />

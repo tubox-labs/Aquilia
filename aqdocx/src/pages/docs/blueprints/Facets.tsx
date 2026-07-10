@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsFacets() {
+export function ContractsFacets() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const t = (d: string, l: string) => isDark ? d : l
@@ -16,7 +16,7 @@ export function BlueprintsFacets() {
       <div className="flex items-center gap-2 text-sm mb-6">
         <Link to="/docs" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Docs</Link>
         <span className={t('text-gray-500','text-gray-400')}>/</span>
-        <Link to="/docs/blueprints/overview" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Blueprints</Link>
+        <Link to="/docs/contracts/overview" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Contracts</Link>
         <span className={t('text-gray-500','text-gray-400')}>/</span>
         <span className={t('text-gray-300','text-gray-600')}>Facets</span>
       </div>
@@ -27,14 +27,14 @@ export function BlueprintsFacets() {
           <span className="gradient-text font-mono">Facets</span>
         </h1>
         <p className={`text-xl leading-relaxed ${t('text-gray-300','text-gray-600')}`}>
-          Atomic field-level primitives of a Blueprint contract. Each <DocTerm id="bp.facet">Facet</DocTerm> manages type coercion (cast), validation (seal), and output representation (mold).
+          Atomic field-level primitives of a Contract contract. Each <DocTerm id="bp.facet">Facet</DocTerm> manages type coercion (cast), validation (seal), and output representation (mold).
         </p>
       </div>
 
       {/* Base Facet Options */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Base Facet Options</h2>
-        <CodeBlock language="python">{`from aquilia.blueprints import Facet
+        <CodeBlock language="python">{`from aquilia.contracts import Facet
 
 field = Facet(
     source="model_field",     # read from distinct model attribute
@@ -98,7 +98,7 @@ def display_title(self) -> str:
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
           Restricts values to a specific set. Supports lists, dicts, or tuples:
         </p>
-        <CodeBlock language="python">{`from aquilia.blueprints import ChoiceFacet
+        <CodeBlock language="python">{`from aquilia.contracts import ChoiceFacet
 
 # List choices
 status = ChoiceFacet(choices=["draft", "published"])
@@ -147,10 +147,10 @@ priority = ChoiceFacet(choices={"L": "Low", "H": "High"})`}</CodeBlock>
 
       {/* Navigation */}
       <div className={`flex justify-between items-center pt-8 mt-8 border-t ${t('border-gray-700','border-gray-200')}`}>
-        <Link to="/docs/blueprints" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
+        <Link to="/docs/contracts" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
           <ArrowLeft className="w-4 h-4" /> Overview
         </Link>
-        <Link to="/docs/blueprints/projections" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
+        <Link to="/docs/contracts/projections" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>
           Projections <ArrowRight className="w-4 h-4" />
         </Link>
       </div>

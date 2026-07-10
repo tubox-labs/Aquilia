@@ -8,14 +8,14 @@ import { NextSteps } from '../../../components/NextSteps'
 import { motion } from 'framer-motion'
 
 const stages = [
-  { step: '1', label: 'Declare', desc: 'Define Facets and Spec on a Blueprint subclass.' },
+  { step: '1', label: 'Declare', desc: 'Define Facets and Spec on a Contract subclass.' },
   { step: '2', label: 'Cast', desc: 'Inbound raw values are coerced by each Facet.' },
   { step: '3', label: 'Seal', desc: 'Facet validators + Ward cross-field checks run.' },
   { step: '4', label: 'Imprint', desc: 'Validated data is written back to the model.' },
   { step: '5', label: 'Mold', desc: 'Model instance is serialized through Facets → dict.' },
 ]
 
-function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
+function ContractArchitectureVisualizer({ isDark }: { isDark: boolean }) {
   const [hoveredStep, setHoveredStep] = useState<string | null>(null);
 
   const stepsData = {
@@ -23,42 +23,42 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
       title: 'Cast Pipeline',
       role: 'Inbound Type Coercion',
       desc: 'Intercepts raw JSON values. Each Facet (e.g. IntFacet, DateFacet) runs coercion rules, parsing strings to target native Python types recursively.',
-      file: 'aquilia/blueprints/pipeline.py',
+      file: 'aquilia/contracts/pipeline.py',
       color: '#10b981'
     },
     seal: {
       title: 'Seal & Wards',
       role: 'Integrity Validation',
       desc: 'Executes individual facet validators (max_length, pattern regex) and gathers all cross-field constraints marked with the @ward decorator in a single pass.',
-      file: 'aquilia/blueprints/ward.py',
+      file: 'aquilia/contracts/ward.py',
       color: '#10b981'
     },
     imprint: {
       title: 'Imprint Layer',
       role: 'Database Writer',
       desc: 'Executes database transaction updates. Flushes the validated clean dataset directly into target ORM models as a safe SQL INSERT or UPDATE.',
-      file: 'aquilia/blueprints/core.py',
+      file: 'aquilia/contracts/core.py',
       color: '#059669'
     },
     projection: {
       title: 'Projection Filter',
       role: 'Field Visibility Rules',
-      desc: 'Selects the exact list of attributes to expose (e.g. blueprint["public"]). Filters out write-only/sensitive fields automatically from outbound data.',
-      file: 'aquilia/blueprints/projections.py',
+      desc: 'Selects the exact list of attributes to expose (e.g. contract["public"]). Filters out write-only/sensitive fields automatically from outbound data.',
+      file: 'aquilia/contracts/projections.py',
       color: '#3b82f6'
     },
     lens: {
       title: 'Lens Resolution',
       role: 'Relational Graph Resolver',
-      desc: 'Recursively resolves related model fields through nested blueprints. Controls depth limits and runs cyclic loop check guards dynamically.',
-      file: 'aquilia/blueprints/lenses.py',
+      desc: 'Recursively resolves related model fields through nested contracts. Controls depth limits and runs cyclic loop check guards dynamically.',
+      file: 'aquilia/contracts/lenses.py',
       color: '#3b82f6'
     },
     mold: {
       title: 'Mold Finalization',
       role: 'Outbound Serialization',
       desc: 'Transforms Python model objects back to standard JSON serializable dictionaries, running custom @computed fields and constant conversions.',
-      file: 'aquilia/blueprints/facets.py',
+      file: 'aquilia/contracts/facets.py',
       color: '#2563eb'
     }
   };
@@ -69,7 +69,7 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
     <div className="my-12 w-full font-sans select-none">
       <h2 className={`text-2xl font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>System Architecture</h2>
       <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-gray-500'} mb-8`}>
-        Dual-track request-response lifecycle loops through the central Blueprint contract.
+        Dual-track request-response lifecycle loops through the central Contract contract.
       </p>
 
       {/* SVG Pipeline Map */}
@@ -77,7 +77,7 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
         <svg viewBox="0 0 640 370" className="w-full h-full bg-transparent overflow-visible">
           {/* Defs & Patterns */}
           <defs>
-            <pattern id="blueprint-grid" width="16" height="16" patternUnits="userSpaceOnUse">
+            <pattern id="contract-grid" width="16" height="16" patternUnits="userSpaceOnUse">
               <circle cx="1" cy="1" r="0.8" fill={isDark ? "#27272a" : "#cbd5e1"} />
             </pattern>
             <linearGradient id="inbound-pulse-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -91,7 +91,7 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
           </defs>
 
           {/* Background Grid Pattern */}
-          <rect width="100%" height="100%" fill="url(#blueprint-grid)" opacity="0.35" />
+          <rect width="100%" height="100%" fill="url(#contract-grid)" opacity="0.35" />
 
           {/* Central Vertical spine axis line */}
           <line 
@@ -135,7 +135,7 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
             transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
           />
 
-          {/* Central Blueprint Core Ring */}
+          {/* Central Contract Core Ring */}
           <circle 
             cx="320" cy="150" r="18" 
             fill={isDark ? "#09090b" : "#ffffff"} 
@@ -404,7 +404,7 @@ function BlueprintArchitectureVisualizer({ isDark }: { isDark: boolean }) {
   );
 }
 
-export function BlueprintsOverview() {
+export function ContractsOverview() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const t = (d: string, l: string) => isDark ? d : l
@@ -415,16 +415,16 @@ export function BlueprintsOverview() {
       <div className="flex items-center gap-2 text-sm mb-6">
         <Link to="/docs" className={t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}>Docs</Link>
         <span className={t('text-gray-500','text-gray-400')}>/</span>
-        <span className={t('text-gray-300','text-gray-600')}>Blueprints</span>
+        <span className={t('text-gray-300','text-gray-600')}>Contracts</span>
       </div>
 
       {/* Header */}
       <div className="mb-10">
         <h1 className={`text-4xl font-bold tracking-tighter mb-4 ${t('text-white','text-gray-900')}`}>
-          <span className="gradient-text font-mono">Blueprints</span>
+          <span className="gradient-text font-mono">Contracts</span>
         </h1>
         <p className={`text-xl leading-relaxed ${t('text-gray-300','text-gray-600')}`}>
-          <DocTerm id="bp.blueprint">Blueprint</DocTerm> is Aquilia's first-class model↔world contract. Not a serializer — a typed framework primitive that handles inbound validation, outbound serialization, and model persistence in one cohesive API.
+          <DocTerm id="bp.contract">Contract</DocTerm> is Aquilia's first-class model↔world contract. Not a serializer — a typed framework primitive that handles inbound validation, outbound serialization, and model persistence in one cohesive API.
         </p>
       </div>
 
@@ -433,16 +433,16 @@ export function BlueprintsOverview() {
         <div className="flex items-start gap-3">
           <Binary className={`w-5 h-5 mt-0.5 shrink-0 ${t('text-aquilia-400','text-blue-600')}`} />
           <div>
-            <h3 className={`font-semibold mb-2 ${t('text-aquilia-300','text-blue-700')}`}>Blueprint ≠ Serializer</h3>
+            <h3 className={`font-semibold mb-2 ${t('text-aquilia-300','text-blue-700')}`}>Contract ≠ Serializer</h3>
             <p className={`text-sm leading-relaxed ${t('text-aquilia-200','text-blue-700')}`}>
-              A Blueprint declares <strong>what the world sees</strong> (<DocTerm id="bp.facet">Facets</DocTerm>), <strong>named subsets</strong> (<DocTerm id="bp.projection">Projections</DocTerm>), <strong>how data enters</strong> (Casts), <strong>integrity rules</strong> (<DocTerm id="bp.ward">@ward</DocTerm> Seals), and <strong>how data writes back</strong> (<DocTerm id="bp.imprint">imprint()</DocTerm>). A single class covers the full request/response lifecycle.
+              A Contract declares <strong>what the world sees</strong> (<DocTerm id="bp.facet">Facets</DocTerm>), <strong>named subsets</strong> (<DocTerm id="bp.projection">Projections</DocTerm>), <strong>how data enters</strong> (Casts), <strong>integrity rules</strong> (<DocTerm id="bp.ward">@ward</DocTerm> Seals), and <strong>how data writes back</strong> (<DocTerm id="bp.imprint">imprint()</DocTerm>). A single class covers the full request/response lifecycle.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Blueprint System Architecture */}
-      <BlueprintArchitectureVisualizer isDark={isDark} />
+      {/* Contract System Architecture */}
+      <ContractArchitectureVisualizer isDark={isDark} />
 
       {/* Lifecycle pipeline */}
       <section className="mb-12">
@@ -468,10 +468,10 @@ export function BlueprintsOverview() {
       {/* Quick start */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Quick Start</h2>
-        <CodeBlock language="python" filename="blueprints.py">{`from aquilia.blueprints import Blueprint, TextFacet, IntFacet, EmailFacet, DateTimeFacet, Computed
-from aquilia.blueprints.annotations import computed
+        <CodeBlock language="python" filename="contracts.py">{`from aquilia.contracts import Contract, TextFacet, IntFacet, EmailFacet, DateTimeFacet, Computed
+from aquilia.contracts.annotations import computed
 
-class UserBlueprint(Blueprint):
+class UserContract(Contract):
     # Explicit Facets
     name     = TextFacet(max_length=150, min_length=1)
     email    = EmailFacet()
@@ -503,17 +503,17 @@ class UserBlueprint(Blueprint):
         <CodeBlock language="python">{`user = await User.objects.get(id=42)
 
 # All fields (or default_projection)
-data = UserBlueprint(instance=user).data
+data = UserContract(instance=user).data
 
 # Named projection
-data = UserBlueprint(instance=user, projection="public").data
+data = UserContract(instance=user, projection="public").data
 
 # Subscript syntax (used with route decorators)
-data = UserBlueprint["public"](instance=user).data
+data = UserContract["public"](instance=user).data
 
 # List of instances
 users = await User.objects.filter(active=True).all()
-result = [UserBlueprint(instance=u, projection="public").data for u in users]`}</CodeBlock>
+result = [UserContract(instance=u, projection="public").data for u in users]`}</CodeBlock>
       </section>
 
       {/* Inbound — validation */}
@@ -522,54 +522,54 @@ result = [UserBlueprint(instance=u, projection="public").data for u in users]`}<
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
           Pass <code>data=</code> to validate. Call <DocTerm id="bp.is_sealed">is_sealed()</DocTerm> to run all Facet validators and <DocTerm id="bp.ward">@ward</DocTerm> methods. If valid, call <DocTerm id="bp.imprint">imprint()</DocTerm> to write back.
         </p>
-        <CodeBlock language="python">{`bp = UserBlueprint(data=request.json)
+        <CodeBlock language="python">{`bp = UserContract(data=request.json)
 
 if not bp.is_sealed():
     return Response.json({"errors": bp.errors}, status=422)
 
 user = await bp.imprint(db=db)   # INSERT into users table
-return Response.json(UserBlueprint(instance=user, projection="profile").data, status=201)`}</CodeBlock>
+return Response.json(UserContract(instance=user, projection="profile").data, status=201)`}</CodeBlock>
 
         <p className={`mt-6 mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
           Update an existing instance by passing it to <code>imprint()</code>:
         </p>
         <CodeBlock language="python">{`user = await User.objects.get(id=42)
-bp = UserBlueprint(data=request.json)
+bp = UserContract(data=request.json)
 
 if not bp.is_sealed():
     return Response.json({"errors": bp.errors}, status=422)
 
 user = await bp.imprint(db=db, instance=user)   # UPDATE users SET ...
-return Response.json(UserBlueprint(instance=user).data)`}</CodeBlock>
+return Response.json(UserContract(instance=user).data)`}</CodeBlock>
       </section>
 
       {/* Route integration */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Route Integration</h2>
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
-          Blueprints integrate directly with route decorators via <DocTerm id="bp.request_blueprint">request_blueprint</DocTerm> and <DocTerm id="bp.response_blueprint">response_blueprint</DocTerm>:
+          Contracts integrate directly with route decorators via <DocTerm id="bp.request_contract">request_contract</DocTerm> and <DocTerm id="bp.response_contract">response_contract</DocTerm>:
         </p>
         <CodeBlock language="python">{`from aquilia.controllers import GET, POST, PUT
 from aquilia.db import get_database
 
-@GET("/users", response_blueprint=UserBlueprint["public"])
+@GET("/users", response_contract=UserContract["public"])
 async def list_users(ctx):
     return await User.objects.filter(active=True).all()
-    # Aquilia auto-serializes each User via UserBlueprint["public"]
+    # Aquilia auto-serializes each User via UserContract["public"]
 
-@POST("/users", request_blueprint=UserBlueprint, response_blueprint=UserBlueprint["profile"])
-async def create_user(ctx, blueprint: UserBlueprint):
-    if not blueprint.is_sealed():
-        return Response.json(blueprint.errors, status=422)
-    user = await blueprint.imprint(db=get_database())
-    return user  # auto-serialized via response_blueprint
+@POST("/users", request_contract=UserContract, response_contract=UserContract["profile"])
+async def create_user(ctx, contract: UserContract):
+    if not contract.is_sealed():
+        return Response.json(contract.errors, status=422)
+    user = await contract.imprint(db=get_database())
+    return user  # auto-serialized via response_contract
 
-@PUT("/users/{id}", request_blueprint=UserBlueprint, response_blueprint=UserBlueprint["profile"])
-async def update_user(ctx, blueprint: UserBlueprint, id: int):
+@PUT("/users/{id}", request_contract=UserContract, response_contract=UserContract["profile"])
+async def update_user(ctx, contract: UserContract, id: int):
     user = await User.objects.get(id=id)
-    if not blueprint.is_sealed():
-        return Response.json(blueprint.errors, status=422)
-    return await blueprint.imprint(db=get_database(), instance=user)`}</CodeBlock>
+    if not contract.is_sealed():
+        return Response.json(contract.errors, status=422)
+    return await contract.imprint(db=get_database(), instance=user)`}</CodeBlock>
       </section>
 
       {/* Annotation-driven declarations */}
@@ -578,10 +578,10 @@ async def update_user(ctx, blueprint: UserBlueprint, id: int):
         <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
           Use Python type annotations with <DocTerm id="bp.spec">Field()</DocTerm> descriptors instead of explicit Facet classes. Aquilia auto-derives the correct Facet from the type:
         </p>
-        <CodeBlock language="python">{`from aquilia.blueprints import Blueprint
-from aquilia.blueprints.annotations import Field, computed
+        <CodeBlock language="python">{`from aquilia.contracts import Contract
+from aquilia.contracts.annotations import Field, computed
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     name:    str   = Field(min_length=1, max_length=200)
     price:   float = Field(ge=0.0)
     sku:     str   = Field(pattern=r"^[A-Z0-9-]+$", max_length=50)
@@ -602,12 +602,12 @@ class ProductBlueprint(Blueprint):
         <h2 className={`text-2xl font-bold mb-6 ${t('text-white','text-gray-900')}`}>Explore</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-4">
           {[
-            { label: 'Facets', desc: 'Field type catalogue', href: '/docs/blueprints/facets', icon: Layers, index: '01' },
-            { label: 'Projections', desc: 'Named field subsets', href: '/docs/blueprints/projections', icon: GitBranch, index: '02' },
-            { label: 'Seals', desc: 'Validation rules', href: '/docs/blueprints/seals', icon: Shield, index: '03' },
-            { label: 'Lenses', desc: 'Value transformations', href: '/docs/blueprints/lenses', icon: Zap, index: '04' },
-            { label: 'Annotations', desc: 'Type-driven fields', href: '/docs/blueprints/annotations', icon: Binary, index: '05' },
-            { label: 'Integration', desc: 'Route & response binding', href: '/docs/blueprints/integration', icon: ArrowRight, index: '06' },
+            { label: 'Facets', desc: 'Field type catalogue', href: '/docs/contracts/facets', icon: Layers, index: '01' },
+            { label: 'Projections', desc: 'Named field subsets', href: '/docs/contracts/projections', icon: GitBranch, index: '02' },
+            { label: 'Seals', desc: 'Validation rules', href: '/docs/contracts/seals', icon: Shield, index: '03' },
+            { label: 'Lenses', desc: 'Value transformations', href: '/docs/contracts/lenses', icon: Zap, index: '04' },
+            { label: 'Annotations', desc: 'Type-driven fields', href: '/docs/contracts/annotations', icon: Binary, index: '05' },
+            { label: 'Integration', desc: 'Route & response binding', href: '/docs/contracts/integration', icon: ArrowRight, index: '06' },
           ].map(({ label, desc, href, icon: Icon, index }) => (
             <Link 
               key={href} 

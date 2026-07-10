@@ -3,7 +3,7 @@ import { CodeBlock } from '../../../components/CodeBlock'
 import { AlertTriangle } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsFaults() {
+export function ContractsFaults() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
@@ -13,16 +13,16 @@ export function BlueprintsFaults() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <AlertTriangle className="w-4 h-4" />
-          Blueprints / Faults
+          Contracts / Faults
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
-            Blueprint Faults
+            Contract Faults
             <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-gradient-to-r from-aquilia-500 to-aquilia-400 group-hover:w-full transition-all duration-300" />
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Blueprints use structured fault types instead of bare exceptions. All Blueprint errors are part of the <code className="text-aquilia-500">BLUEPRINT</code> fault domain and integrate seamlessly with the AquilaFaults error handling system.
+          Contracts use structured fault types instead of bare exceptions. All Contract errors are part of the <code className="text-aquilia-500">CONTRACT</code> fault domain and integrate seamlessly with the AquilaFaults error handling system.
         </p>
       </div>
 
@@ -35,8 +35,8 @@ export function BlueprintsFaults() {
             { code: 'BP200', name: 'SealFault', desc: 'Validation failed — one or more fields did not pass seal constraints', severity: 'WARN' },
             { code: 'BP210', name: 'MissingSealFault', desc: 'Required field was missing from input data', severity: 'WARN' },
             { code: 'BP300', name: 'ImprintFault', desc: 'Failed to write validated data to Model instance', severity: 'ERROR' },
-            { code: 'BP400', name: 'LensCycleFault', desc: 'Circular reference detected in Blueprint Lens chain', severity: 'ERROR' },
-            { code: 'BP500', name: 'SchemaFault', desc: 'Error generating JSON Schema for this Blueprint', severity: 'WARN' },
+            { code: 'BP400', name: 'LensCycleFault', desc: 'Circular reference detected in Contract Lens chain', severity: 'ERROR' },
+            { code: 'BP500', name: 'SchemaFault', desc: 'Error generating JSON Schema for this Contract', severity: 'WARN' },
           ].map((item, i) => (
             <div key={i} className={boxClass}>
               <div className="flex items-center gap-3">
@@ -60,10 +60,10 @@ export function BlueprintsFaults() {
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           Raised when a Facet cannot coerce a raw value to the expected Python type:
         </p>
-        <CodeBlock language="python" filename="cast_fault.py">{`from aquilia.blueprints.exceptions import CastFault
+        <CodeBlock language="python" filename="cast_fault.py">{`from aquilia.contracts.exceptions import CastFault
 
 # CastFault is raised internally during Phase 1 (Cast)
-# Typically caught by the Blueprint and added to errors dict
+# Typically caught by the Contract and added to errors dict
 
 # Example triggers:
 # IntFacet receives "not a number"
@@ -86,9 +86,9 @@ except CastFault as e:
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           Raised when validation fails — either from Facet constraints or from custom seal methods:
         </p>
-        <CodeBlock language="python" filename="seal_fault.py">{`from aquilia.blueprints.exceptions import SealFault
+        <CodeBlock language="python" filename="seal_fault.py">{`from aquilia.contracts.exceptions import SealFault
 
-bp = ProductBlueprint(data={"name": "", "price": -10})
+bp = ProductContract(data={"name": "", "price": -10})
 
 # SealFault accumulates all errors
 bp.is_sealed()
@@ -104,7 +104,7 @@ except SealFault as e:
     print(e.as_response_body())
     # {
     #   "fault_code": "BP200",
-    #   "fault_domain": "BLUEPRINT",
+    #   "fault_domain": "CONTRACT",
     #   "message": "Validation failed",
     #   "field_errors": {
     #     "name": ["This field is required."],
@@ -115,24 +115,24 @@ except SealFault as e:
 
       {/* Handling Faults */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Handling Blueprint Faults</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Handling Contract Faults</h2>
         <CodeBlock language="python" filename="handling.py">{`from aquilia import Controller, Post
 from aquilia.faults import fault_handler
-from aquilia.blueprints.exceptions import SealFault
+from aquilia.contracts.exceptions import SealFault
 
 
 class ProductController(Controller):
     prefix = "/api/products"
 
     @Post("/", status_code=201)
-    async def create(self, ctx, payload: ProductBlueprint):
+    async def create(self, ctx, payload: ProductContract):
         # Pattern 1: Check and return errors
         if not payload.is_sealed():
             return ctx.json(payload.errors, status=422)
 
         product = payload.imprint()
         await product.save()
-        return ctx.json(ProductBlueprint(instance=product).data, status=201)
+        return ctx.json(ProductContract(instance=product).data, status=201)
 
 
 # Pattern 2: Global fault handler for SealFault
@@ -150,30 +150,30 @@ class StrictProductController(Controller):
     prefix = "/api/strict/products"
 
     @Post("/")
-    async def create(self, ctx, payload: ProductBlueprint):
+    async def create(self, ctx, payload: ProductContract):
         # This raises SealFault if validation fails
         # The global fault handler catches it automatically
         payload.is_sealed(raise_fault=True)
         
         product = payload.imprint()
         await product.save()
-        return ctx.json(ProductBlueprint(instance=product).data, status=201)`}</CodeBlock>
+        return ctx.json(ProductContract(instance=product).data, status=201)`}</CodeBlock>
       </section>
 
       {/* Faults Integration */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Integration with AquilaFaults</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          All Blueprint faults inherit from <code className="text-aquilia-500">Fault</code> and integrate with Aquilia's fault engine:
+          All Contract faults inherit from <code className="text-aquilia-500">Fault</code> and integrate with Aquilia's fault engine:
         </p>
         <CodeBlock language="python" filename="integration.py">{`from aquilia.faults.core import Fault, Severity, FaultDomain
-from aquilia.blueprints.exceptions import SealFault, CastFault
+from aquilia.contracts.exceptions import SealFault, CastFault
 
-# All Blueprint faults have:
+# All Contract faults have:
 fault = SealFault(field="email", message="Invalid email")
 fault.code        # "BP200"
 fault.severity    # Severity.WARN
-fault.domain      # FaultDomain.BLUEPRINT (or VALIDATION)
+fault.domain      # FaultDomain.CONTRACT (or VALIDATION)
 fault.public      # True (safe to show to user)
 fault.retryable   # False (fix the input, don't retry)
 

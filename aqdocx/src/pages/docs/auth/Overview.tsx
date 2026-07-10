@@ -158,21 +158,21 @@ class User(Model):
           <div className="flex items-center gap-2">
             <span className="text-aquilia-500 font-bold font-mono text-lg">02.</span>
             <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-              Establish Request Validation Blueprints
+              Establish Request Validation Contracts
             </h3>
           </div>
           <p className={`text-sm pl-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Create incoming schema definitions (Blueprints) to enforce type validation, boundary checks, and sanitizer casts on incoming API requests automatically.
+            Create incoming schema definitions (Contracts) to enforce type validation, boundary checks, and sanitizer casts on incoming API requests automatically.
           </p>
           <div className="pl-8">
-            <CodeBlock language="python" filename="blueprints/auth.py">{`from aquilia.blueprints import Blueprint, Field
+            <CodeBlock language="python" filename="contracts/auth.py">{`from aquilia.contracts import Contract, Field
 
-class SignUpBlueprint(Blueprint):
+class SignUpContract(Contract):
     name = Field[str]()
     email = Field[str]()
     password = Field[str]()
 
-class SignInBlueprint(Blueprint):
+class SignInContract(Contract):
     email = Field[str]()
     password = Field[str]()
 `}</CodeBlock>
@@ -196,16 +196,16 @@ from aquilia.response import Response
 from aquilia.auth.decorators import authenticated, require_identity
 from aquilia.auth.manager import AuthManager
 from aquilia.auth.core import Identity, IdentityType, IdentityStatus
-from blueprints.auth import SignUpBlueprint, SignInBlueprint
+from contracts.auth import SignUpContract, SignInContract
 from models.user import User
 
 class AuthController(Controller):
     prefix = "/auth"
 
     @POST("/signup")
-    async def signup(self, ctx, blueprint: SignUpBlueprint):
+    async def signup(self, ctx, contract: SignUpContract):
         """Register a new user, hashing their password hash."""
-        data = blueprint.validated_data
+        data = contract.validated_data
         
         # Verify if record exists
         existing = await User.objects.filter(email=data["email"]).first()
@@ -225,9 +225,9 @@ class AuthController(Controller):
         return Response.json({"success": True, "user_id": str(user.id)})
 
     @POST("/login")
-    async def login(self, ctx, blueprint: SignInBlueprint):
+    async def login(self, ctx, contract: SignInContract):
         """Authenticate user credentials and issue security tokens."""
-        data = blueprint.validated_data
+        data = contract.validated_data
         auth_manager = ctx.container.resolve(AuthManager)
         
         user = await User.objects.filter(email=data["email"]).first()

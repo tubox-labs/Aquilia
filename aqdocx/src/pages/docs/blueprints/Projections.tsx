@@ -3,7 +3,7 @@ import { CodeBlock } from '../../../components/CodeBlock'
 import { Eye } from 'lucide-react'
 import { NextSteps } from '../../../components/NextSteps'
 
-export function BlueprintsProjections() {
+export function ContractsProjections() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const boxClass = `p-6 rounded-2xl border ${isDark ? 'bg-[#0A0A0A] border-white/10' : 'bg-white border-gray-200'}`
@@ -13,7 +13,7 @@ export function BlueprintsProjections() {
       <div className="mb-12">
         <div className="flex items-center gap-2 text-sm text-aquilia-500 font-medium mb-4">
           <Eye className="w-4 h-4" />
-          Blueprints / Projections
+          Contracts / Projections
         </div>
         <h1 className={`text-4xl ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <span className="font-bold tracking-tighter gradient-text font-mono relative group inline-block">
@@ -22,7 +22,7 @@ export function BlueprintsProjections() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Projections let you define named subsets of fields within a single Blueprint. Instead of creating separate Blueprints for list views vs detail views vs admin views, you declare projections and select them at render time.
+          Projections let you define named subsets of fields within a single Contract. Instead of creating separate Contracts for list views vs detail views vs admin views, you declare projections and select them at render time.
         </p>
       </div>
 
@@ -31,7 +31,7 @@ export function BlueprintsProjections() {
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Why Projections?</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {[
-            { title: 'One Blueprint, Many Views', desc: 'A single ProductBlueprint serves list, detail, admin, and public views' },
+            { title: 'One Contract, Many Views', desc: 'A single ProductContract serves list, detail, admin, and public views' },
             { title: 'No Duplication', desc: 'Validation rules, Facet configs, and seal methods are defined once' },
             { title: 'Security', desc: 'Sensitive fields can be excluded from specific projections' },
             { title: 'Performance', desc: 'Minimal projections skip expensive computed/lens fields' },
@@ -50,10 +50,10 @@ export function BlueprintsProjections() {
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
           Projections are declared in the <code className="text-aquilia-500">Spec</code> inner class as a dictionary mapping names to field lists.
         </p>
-        <CodeBlock language="python" filename="projections.py">{`from aquilia.blueprints import Blueprint, TextFacet, EmailFacet, FloatFacet, Computed, Lens
+        <CodeBlock language="python" filename="projections.py">{`from aquilia.contracts import Contract, TextFacet, EmailFacet, FloatFacet, Computed, Lens
 
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     name = TextFacet(max_length=200)
     slug = TextFacet(max_length=100)
     price = FloatFacet()
@@ -64,7 +64,7 @@ class ProductBlueprint(Blueprint):
     stock_count = IntFacet()
     is_active = BoolFacet()
     created_at = DateTimeFacet(read_only=True)
-    reviews = Lens("ReviewBlueprint", many=True)
+    reviews = Lens("ReviewContract", many=True)
     
     # Computed field
     display_price = Computed(lambda inst: "$%.2f" % inst.price)
@@ -130,22 +130,22 @@ class ProductBlueprint(Blueprint):
         <CodeBlock language="python" filename="usage.py">{`product = await Product.objects.get(id=1)
 
 # Use default projection ("summary")
-data = ProductBlueprint(instance=product).data
+data = ProductContract(instance=product).data
 # {"id": 1, "name": "Widget", "price": 9.99, "category": "electronics", ...}
 
 # Use minimal projection
-data = ProductBlueprint(instance=product, projection="__minimal__").data
+data = ProductContract(instance=product, projection="__minimal__").data
 # {"id": 1, "name": "Widget", "price": 9.99, "slug": "widget"}
 
 # Use detail projection (excludes internal_notes, stock_count)
-data = ProductBlueprint(instance=product, projection="detail").data
+data = ProductContract(instance=product, projection="detail").data
 
 # Use admin projection (all fields)
-data = ProductBlueprint(instance=product, projection="__all__").data
+data = ProductContract(instance=product, projection="__all__").data
 
 # Serialize many instances with projection
 products = await Product.objects.all()
-data = ProductBlueprint(instance=products, many=True, projection="__minimal__").data`}</CodeBlock>
+data = ProductContract(instance=products, many=True, projection="__minimal__").data`}</CodeBlock>
       </section>
 
       {/* Projections with Controllers */}
@@ -162,7 +162,7 @@ class ProductController(Controller):
         products = await Product.objects.all()
         # Minimal projection for list views — fast, small payload
         return ctx.json(
-            ProductBlueprint(instance=products, many=True, projection="__minimal__").data
+            ProductContract(instance=products, many=True, projection="__minimal__").data
         )
 
     @Get("/{id:int}")
@@ -170,7 +170,7 @@ class ProductController(Controller):
         product = await Product.objects.get(id=id)
         # Full detail projection
         return ctx.json(
-            ProductBlueprint(instance=product, projection="detail").data
+            ProductContract(instance=product, projection="detail").data
         )
 
     @Get("/{id:int}/admin")
@@ -178,7 +178,7 @@ class ProductController(Controller):
         product = await Product.objects.get(id=id)
         # Admin sees everything
         return ctx.json(
-            ProductBlueprint(instance=product, projection="__all__").data
+            ProductContract(instance=product, projection="__all__").data
         )`}</CodeBlock>
       </section>
 
@@ -186,42 +186,42 @@ class ProductController(Controller):
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Subscript Syntax for Lenses</h2>
         <p className={`mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          When using <code className="text-aquilia-500">Lens</code> facets, you can select which projection the nested Blueprint uses via Python's subscript syntax:
+          When using <code className="text-aquilia-500">Lens</code> facets, you can select which projection the nested Contract uses via Python's subscript syntax:
         </p>
-        <CodeBlock language="python" filename="subscript.py">{`from aquilia.blueprints import Blueprint, Lens
+        <CodeBlock language="python" filename="subscript.py">{`from aquilia.contracts import Contract, Lens
 
-class OrderBlueprint(Blueprint):
+class OrderContract(Contract):
     # Render products with their "summary" projection
-    items = Lens(ProductBlueprint["summary"], many=True)
+    items = Lens(ProductContract["summary"], many=True)
     
     # Render customer with "public" projection
-    customer = Lens(CustomerBlueprint["public"])
+    customer = Lens(CustomerContract["public"])
 
     class Spec:
         model = Order
         fields = "__all__"
 
 # This is shorthand for:
-# items = Lens(ProductBlueprint, many=True, projection="summary")`}</CodeBlock>
+# items = Lens(ProductContract, many=True, projection="summary")`}</CodeBlock>
       </section>
 
       {/* ProjectionRegistry API */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ProjectionRegistry API</h2>
         <CodeBlock language="python" filename="registry.py">{`# Inspect available projections
-print(ProductBlueprint._projections.available)
+print(ProductContract._projections.available)
 # ["__minimal__", "summary", "detail", "__all__", "public"]
 
 # Get default projection name
-print(ProductBlueprint._projections.default_name)
+print(ProductContract._projections.default_name)
 # "summary"
 
 # Resolve a projection to field names
-fields = ProductBlueprint._projections.resolve("__minimal__")
+fields = ProductContract._projections.resolve("__minimal__")
 # ["id", "name", "price", "slug"]
 
 # Resolve exclusion projection
-fields = ProductBlueprint._projections.resolve("detail")
+fields = ProductContract._projections.resolve("detail")
 # All fields except "internal_notes" and "stock_count"`}</CodeBlock>
       </section>
 

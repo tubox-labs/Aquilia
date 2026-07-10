@@ -71,7 +71,7 @@ export function ControllersOverview() {
             {/* Step 5: Parameter Binding */}
             <rect x="530" y="110" width="140" height="70" rx="10" fill={isDark ? '#18181B' : '#F4F4F5'} stroke="#EC4899" strokeWidth="2" />
             <text x="600" y="140" textAnchor="middle" fill={isDark ? '#F3F4F6' : '#111827'} fontSize="11" fontWeight="bold">4. Param Binding</text>
-            <text x="600" y="160" textAnchor="middle" fill={isDark ? '#A1A1AA' : '#71717A'} fontSize="9">Blueprint casting/seal</text>
+            <text x="600" y="160" textAnchor="middle" fill={isDark ? '#A1A1AA' : '#71717A'} fontSize="9">Contract casting/seal</text>
 
             <path d="M670 145 H700 V210 H420 V250" stroke="#71717A" strokeWidth="2" markerEnd="url(#arrow)" fill="none" />
 
