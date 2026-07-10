@@ -179,24 +179,23 @@ export function DocsLayout() {
                         className="fixed inset-0 z-10" 
                         onClick={() => setIsPrintDropdownOpen(false)}
                       />
-                      <div className={`absolute right-0 mt-2 w-64 rounded-2xl border p-2.5 shadow-2xl z-20 backdrop-blur-xl transition-all duration-300 ${
+                      <div className={`absolute right-0 mt-2 w-64 rounded-2xl p-2.5 shadow-[0_10px_40px_rgba(0,0,0,0.15)] dark:shadow-[0_10px_40px_rgba(0,0,0,0.4)] z-20 backdrop-blur-xl transition-all duration-300 overflow-hidden ${
                         isDark 
-                          ? 'bg-black/95 border-white/10 text-gray-200 shadow-aquilia-500/5' 
-                          : 'bg-white/95 border-gray-200 text-gray-800 shadow-gray-200'
+                          ? 'bg-[#0A0A0A]/95 text-gray-200' 
+                          : 'bg-white/95 text-gray-800'
                       }`}>
                         <div className="px-2.5 py-1.5 mb-2 border-b border-gray-100 dark:border-white/5">
-                          <span className="text-[10px] font-bold tracking-wider uppercase opacity-50 block">
+                          <span className="text-[10px] font-bold tracking-wider uppercase opacity-40 block">
                             Print Actions
                           </span>
                         </div>
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           {[
                             {
                               label: 'Print This Page',
                               desc: 'Print only the current section with default formatting.',
                               icon: <FileText className="w-4 h-4 text-blue-500" />,
-                              bg: 'hover:bg-blue-500/5 dark:hover:bg-blue-500/10',
-                              border: 'hover:border-blue-500/30',
+                              bg: 'hover:bg-aquilia-500/5 dark:hover:bg-white/5',
                               action: () => {
                                 setIsPrintDropdownOpen(false)
                                 handlePrint()
@@ -206,8 +205,7 @@ export function DocsLayout() {
                               label: 'Print Entire Docs',
                               desc: 'Compile all documentation sections into a single printable handbook.',
                               icon: <BookOpen className="w-4 h-4 text-purple-500" />,
-                              bg: 'hover:bg-purple-500/5 dark:hover:bg-purple-500/10',
-                              border: 'hover:border-purple-500/30',
+                              bg: 'hover:bg-aquilia-500/5 dark:hover:bg-white/5',
                               action: () => {
                                 setIsPrintDropdownOpen(false)
                                 window.open('/print-docs', '_blank')
@@ -217,7 +215,7 @@ export function DocsLayout() {
                             <button
                               key={idx}
                               onClick={item.action}
-                              className={`w-full text-left p-2 rounded-xl border border-transparent transition-all duration-200 flex gap-3 items-start cursor-pointer ${item.bg} ${item.border} group`}
+                              className={`w-full text-left p-2.5 rounded-xl transition-all duration-200 flex gap-3.5 items-start cursor-pointer ${item.bg} group`}
                             >
                               <div className="p-2 rounded-lg bg-gray-100 dark:bg-white/5 transition-transform duration-200 group-hover:scale-105 shrink-0">
                                 {item.icon}
