@@ -46,8 +46,8 @@ class RouteDecorator:
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         # ── Filtering, Searching, Ordering ───────────────────────────
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
@@ -77,10 +77,10 @@ class RouteDecorator:
             deprecated: Mark as deprecated in OpenAPI
             response_model: Response type for OpenAPI
             status_code: Default status code
-            request_blueprint: Aquilia Blueprint class for request body
+            request_contract: Aquilia Contract class for request body
                                casting and sealing
-            response_blueprint: Aquilia Blueprint class (or ProjectedRef via
-                                Blueprint["projection"]) for response molding
+            response_contract: Aquilia Contract class (or ProjectedRef via
+                                Contract["projection"]) for response molding
             filterset_class: FilterSet subclass for declarative filtering
             filterset_fields: List of field names (exact-match shorthand)
                               or dict mapping fields to lookup lists
@@ -109,8 +109,8 @@ class RouteDecorator:
         self.deprecated = deprecated
         self.response_model = response_model
         self.status_code = status_code
-        self.request_blueprint = request_blueprint
-        self.response_blueprint = response_blueprint
+        self.request_contract = request_contract
+        self.response_contract = response_contract
         self.filterset_class = filterset_class
         self.filterset_fields = filterset_fields
         self.search_fields = search_fields
@@ -149,8 +149,8 @@ class RouteDecorator:
             "status_code": self.status_code,
             "func_name": func.__name__,
             "signature": inspect.signature(func),
-            "request_blueprint": self.request_blueprint,
-            "response_blueprint": self.response_blueprint,
+            "request_contract": self.request_contract,
+            "response_contract": self.response_contract,
             "filterset_class": self.filterset_class,
             "filterset_fields": self.filterset_fields,
             "search_fields": self.search_fields,
@@ -191,8 +191,8 @@ class GET(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -213,8 +213,8 @@ class GET(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -241,8 +241,8 @@ class POST(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -263,8 +263,8 @@ class POST(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -291,8 +291,8 @@ class PUT(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -313,8 +313,8 @@ class PUT(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -341,8 +341,8 @@ class PATCH(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -363,8 +363,8 @@ class PATCH(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -391,8 +391,8 @@ class DELETE(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -413,8 +413,8 @@ class DELETE(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -441,8 +441,8 @@ class HEAD(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -463,8 +463,8 @@ class HEAD(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -491,8 +491,8 @@ class OPTIONS(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -513,8 +513,8 @@ class OPTIONS(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -541,8 +541,8 @@ class TRACE(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -563,8 +563,8 @@ class TRACE(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -591,8 +591,8 @@ class WS(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -613,8 +613,8 @@ class WS(RouteDecorator):
             deprecated=deprecated,
             response_model=response_model,
             status_code=status_code,
-            request_blueprint=request_blueprint,
-            response_blueprint=response_blueprint,
+            request_contract=request_contract,
+            response_contract=response_contract,
             filterset_class=filterset_class,
             filterset_fields=filterset_fields,
             search_fields=search_fields,
@@ -638,8 +638,8 @@ def route(
     deprecated: bool = False,
     response_model: type | None = None,
     status_code: int = 200,
-    request_blueprint: type | None = None,
-    response_blueprint: type | None = None,
+    request_contract: type | None = None,
+    response_contract: type | None = None,
     filterset_class: type | None = None,
     filterset_fields: list[str] | Any | None = None,
     search_fields: list[str] | None = None,
@@ -663,8 +663,8 @@ def route(
         deprecated: Mark as deprecated in OpenAPI
         response_model: Response type for OpenAPI
         status_code: Default status code
-        request_blueprint: Aquilia Blueprint class for request body casting and sealing
-        response_blueprint: Aquilia Blueprint class for response molding
+        request_contract: Aquilia Contract class for request body casting and sealing
+        response_contract: Aquilia Contract class for response molding
         filterset_class: FilterSet subclass for declarative filtering
         filterset_fields: List/dict shorthand for filter fields
         search_fields: List of field names for text search
@@ -721,8 +721,8 @@ def route(
                     deprecated=deprecated,
                     response_model=response_model,
                     status_code=status_code,
-                    request_blueprint=request_blueprint,
-                    response_blueprint=response_blueprint,
+                    request_contract=request_contract,
+                    response_contract=response_contract,
                     filterset_class=filterset_class,
                     filterset_fields=filterset_fields,
                     search_fields=search_fields,

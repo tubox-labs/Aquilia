@@ -469,7 +469,7 @@ class ASGIAdapter:
 
             di_container = Container(scope="request")
 
-        # Register Request instance in container for BlueprintProvider request lookup
+        # Register Request instance in container for ContractProvider request lookup
         from .di.providers import ValueProvider
         from .request import Request as RequestClass
 

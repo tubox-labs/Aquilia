@@ -6,7 +6,7 @@ surface: services, deploys, env vars, custom domains, disks,
 autoscaling, secret files, headers, redirect rules, jobs, instances,
 events, logs, metrics, postgres, key-value, projects, environments,
 env groups, registry credentials, webhooks, maintenance, notifications,
-blueprints, log streams, workspace members, and more.
+contracts, log streams, workspace members, and more.
 
 Security
 --------
@@ -42,8 +42,8 @@ from aquilia.faults.domains import (
 
 from .types import (
     RenderAuditLogEntry,
-    RenderBlueprint,
-    RenderBlueprintSync,
+    RenderContract,
+    RenderContractSync,
     RenderDeploy,
     RenderDiskSnapshot,
     RenderEnvGroup,
@@ -1045,34 +1045,34 @@ class RenderClient:
         self._request("DELETE", f"/registries/{credential_id}")
 
     # ═════════════════════════════════════════════════════════════════
-    # Blueprints / IaC
+    # Contracts / IaC
     # ═════════════════════════════════════════════════════════════════
 
-    def list_blueprints(
+    def list_contracts(
         self, *, owner_id: str | None = None, cursor: str | None = None, limit: int = 20
-    ) -> list[RenderBlueprint]:
-        """List blueprints."""
+    ) -> list[RenderContract]:
+        """List contracts."""
         params: dict[str, str] = {"limit": str(limit)}
         if owner_id:
             params["ownerId"] = owner_id
         if cursor:
             params["cursor"] = cursor
-        result = self._request("GET", "/blueprints", params=params)
+        result = self._request("GET", "/contracts", params=params)
         data = self._json(result)
         if isinstance(data, list):
-            return [self._parse_blueprint(item.get("blueprint", item)) for item in data]
+            return [self._parse_contract(item.get("contract", item)) for item in data]
         return []
 
-    def get_blueprint(self, blueprint_id: str) -> RenderBlueprint:
-        """Get a specific blueprint."""
-        result = self._request("GET", f"/blueprints/{blueprint_id}")
-        return self._parse_blueprint(self._json(result))
+    def get_contract(self, contract_id: str) -> RenderContract:
+        """Get a specific contract."""
+        result = self._request("GET", f"/contracts/{contract_id}")
+        return self._parse_contract(self._json(result))
 
-    def sync_blueprint(self, blueprint_id: str) -> RenderBlueprintSync:
-        """Trigger a blueprint sync."""
-        result = self._request("POST", f"/blueprints/{blueprint_id}/sync")
+    def sync_contract(self, contract_id: str) -> RenderContractSync:
+        """Trigger a contract sync."""
+        result = self._request("POST", f"/contracts/{contract_id}/sync")
         data = self._json(result)
-        return RenderBlueprintSync(id=data.get("id"), blueprint_id=blueprint_id, status=data.get("status"))
+        return RenderContractSync(id=data.get("id"), contract_id=contract_id, status=data.get("status"))
 
     # ═════════════════════════════════════════════════════════════════
     # Webhooks
@@ -1379,8 +1379,8 @@ class RenderClient:
         )
 
     @staticmethod
-    def _parse_blueprint(data: dict[str, Any]) -> RenderBlueprint:
-        return RenderBlueprint(
+    def _parse_contract(data: dict[str, Any]) -> RenderContract:
+        return RenderContract(
             id=data.get("id"),
             name=data.get("name", ""),
             status=data.get("status"),

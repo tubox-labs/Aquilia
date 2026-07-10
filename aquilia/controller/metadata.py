@@ -370,16 +370,16 @@ def _extract_method_params(
             # PRECEDENCE RULE: Explicit Dep(...) declarations (whether via
             # Annotated[T, Dep(...)] or as a default value ``param: T = Dep(fn)``)
             # always take precedence over implicit source detection from the
-            # type annotation (e.g. Blueprint → body, Session → di).
-            # We check for Dep in the default value first so that Blueprint-typed
+            # type annotation (e.g. Contract → body, Session → di).
+            # We check for Dep in the default value first so that Contract-typed
             # parameters with Dep defaults are classified as "dep", not "body".
             if param_name in path_params:
                 source = "path"
             elif _has_dep_default(param):
                 # Default value is a Dep(...) descriptor → resolve via RequestDAG
                 source = "dep"
-            elif _is_blueprint_type(param_type):
-                # Blueprint subclass → auto-parse request body
+            elif _is_contract_type(param_type):
+                # Contract subclass → auto-parse request body
                 source = "body"
             elif get_origin(param_type) is not None:
                 # Check for Inject/Dep annotation in Annotated types
@@ -461,7 +461,7 @@ def _has_dep_default(param: Any) -> bool:
     where the Dep descriptor is specified as the default value rather than
     via ``Annotated[T, Dep(...)]``.
 
-    This must be checked BEFORE type-based source detection (e.g. Blueprint → body)
+    This must be checked BEFORE type-based source detection (e.g. Contract → body)
     so that explicit dependency declarations always take precedence.
     """
     if param.default is inspect.Parameter.empty:
@@ -474,22 +474,22 @@ def _has_dep_default(param: Any) -> bool:
         return False
 
 
-def _is_blueprint_type(annotation: Any) -> bool:
+def _is_contract_type(annotation: Any) -> bool:
     """
-    Check if a type annotation is an Aquilia Blueprint subclass
-    or a ProjectedRef (Blueprint["projection"]).
+    Check if a type annotation is an Aquilia Contract subclass
+    or a ProjectedRef (Contract["projection"]).
 
     Used by the metadata extractor to auto-detect handler parameters
     that should be populated from the request body and sealed.
     """
     try:
-        from aquilia.blueprints.core import Blueprint
-        from aquilia.blueprints.lenses import _ProjectedRef
+        from aquilia.contracts.core import Contract
+        from aquilia.contracts.lenses import _ProjectedRef
 
         if isinstance(annotation, _ProjectedRef):
             return True
 
-        return isinstance(annotation, type) and issubclass(annotation, Blueprint) and annotation is not Blueprint
+        return isinstance(annotation, type) and issubclass(annotation, Contract) and annotation is not Contract
     except ImportError:
         return False
 

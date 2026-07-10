@@ -1,31 +1,31 @@
 """
-AquilAdmin -- Blueprints for Admin Models.
+AquilAdmin -- Contracts for Admin Models.
 
-Provides Aquilia Blueprint definitions for serialization,
+Provides Aquilia Contract definitions for serialization,
 validation, and projection of the admin models.
 
-Each Blueprint uses the ``Spec`` inner class to bind to a model
+Each Contract uses the ``Spec`` inner class to bind to a model
 and define which fields are readable, writable, and projected.
 
 Usage::
 
-    from aquilia.admin.blueprints import AdminUserBlueprint
+    from aquilia.admin.contracts import AdminUserContract
 
     # Serialize an AdminUser instance
-    data = AdminUserBlueprint.seal(user)
+    data = AdminUserContract.seal(user)
 
     # Validate input data
-    cast = AdminUserBlueprint.cast(request_data)
+    cast = AdminUserContract.cast(request_data)
 """
 
 from __future__ import annotations
 
 try:
-    from aquilia.blueprints.core import Blueprint
+    from aquilia.contracts.core import Contract
 
-    _HAS_BLUEPRINTS = True
+    _HAS_CONTRACTS = True
 except ImportError:
-    _HAS_BLUEPRINTS = False
+    _HAS_CONTRACTS = False
 
 from .models import (
     _HAS_ORM,
@@ -35,10 +35,10 @@ from .models import (
     AdminUser,
 )
 
-if _HAS_BLUEPRINTS and _HAS_ORM:
+if _HAS_CONTRACTS and _HAS_ORM:
 
-    class AdminUserBlueprint(Blueprint):
-        """Blueprint for AdminUser serialization.
+    class AdminUserContract(Contract):
+        """Contract for AdminUser serialization.
 
         Excludes ``password_hash`` from output (write_only).
         """
@@ -61,8 +61,8 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
             ]
             read_only_fields = ["id", "login_count", "last_login_at", "last_active_at", "created_at"]
 
-    class AdminUserCreateBlueprint(Blueprint):
-        """Blueprint for creating a new AdminUser (accepts password)."""
+    class AdminUserCreateContract(Contract):
+        """Contract for creating a new AdminUser (accepts password)."""
 
         class Spec:
             model = AdminUser
@@ -74,8 +74,8 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
                 "is_active",
             ]
 
-    class AdminAuditEntryBlueprint(Blueprint):
-        """Blueprint for AdminAuditEntry serialization (read-only)."""
+    class AdminAuditEntryContract(Contract):
+        """Contract for AdminAuditEntry serialization (read-only)."""
 
         class Spec:
             model = AdminAuditEntry
@@ -110,8 +110,8 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
                 "category",
             ]
 
-    class AdminAPIKeyBlueprint(Blueprint):
-        """Blueprint for AdminAPIKey serialization.
+    class AdminAPIKeyContract(Contract):
+        """Contract for AdminAPIKey serialization.
 
         Excludes ``key_hash`` — the raw key is only shown once on creation.
         """
@@ -131,8 +131,8 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
             ]
             read_only_fields = ["id", "prefix", "last_used_at", "created_at"]
 
-    class AdminPreferenceBlueprint(Blueprint):
-        """Blueprint for AdminPreference serialization."""
+    class AdminPreferenceContract(Contract):
+        """Contract for AdminPreference serialization."""
 
         class Spec:
             model = AdminPreference
@@ -140,43 +140,43 @@ if _HAS_BLUEPRINTS and _HAS_ORM:
             read_only_fields = ["id", "updated_at"]
 
 else:
-    # Stubs when blueprints or ORM are not available
-    class AdminUserBlueprint:  # type: ignore[no-redef]
+    # Stubs when contracts or ORM are not available
+    class AdminUserContract:  # type: ignore[no-redef]
         pass
 
-    class AdminUserCreateBlueprint:  # type: ignore[no-redef]
+    class AdminUserCreateContract:  # type: ignore[no-redef]
         pass
 
-    class AdminAuditEntryBlueprint:  # type: ignore[no-redef]
+    class AdminAuditEntryContract:  # type: ignore[no-redef]
         pass
 
-    class AdminAPIKeyBlueprint:  # type: ignore[no-redef]
+    class AdminAPIKeyContract:  # type: ignore[no-redef]
         pass
 
-    class AdminPreferenceBlueprint:  # type: ignore[no-redef]
+    class AdminPreferenceContract:  # type: ignore[no-redef]
         pass
 
 
 # ── Backward-compat aliases (import these names won't crash) ──────────
 
-ContentTypeBlueprint = type("ContentTypeBlueprint", (), {})
-AdminPermissionBlueprint = type("AdminPermissionBlueprint", (), {})
-AdminGroupBlueprint = type("AdminGroupBlueprint", (), {})
-AdminLogEntryBlueprint = type("AdminLogEntryBlueprint", (), {})
-AdminSessionBlueprint = type("AdminSessionBlueprint", (), {})
+ContentTypeContract = type("ContentTypeContract", (), {})
+AdminPermissionContract = type("AdminPermissionContract", (), {})
+AdminGroupContract = type("AdminGroupContract", (), {})
+AdminLogEntryContract = type("AdminLogEntryContract", (), {})
+AdminSessionContract = type("AdminSessionContract", (), {})
 
 
 __all__ = [
-    # Active blueprints
-    "AdminUserBlueprint",
-    "AdminUserCreateBlueprint",
-    "AdminAuditEntryBlueprint",
-    "AdminAPIKeyBlueprint",
-    "AdminPreferenceBlueprint",
+    # Active contracts
+    "AdminUserContract",
+    "AdminUserCreateContract",
+    "AdminAuditEntryContract",
+    "AdminAPIKeyContract",
+    "AdminPreferenceContract",
     # Backward-compat stubs
-    "ContentTypeBlueprint",
-    "AdminPermissionBlueprint",
-    "AdminGroupBlueprint",
-    "AdminLogEntryBlueprint",
-    "AdminSessionBlueprint",
+    "ContentTypeContract",
+    "AdminPermissionContract",
+    "AdminGroupContract",
+    "AdminLogEntryContract",
+    "AdminSessionContract",
 ]

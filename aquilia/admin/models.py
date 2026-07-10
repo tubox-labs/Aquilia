@@ -1188,5 +1188,5 @@ __all__ = [
     "_hash_api_key",
 ]
 
-# Alias for backward compat — registry.py and blueprints.py import _HAS_ORM
+# Alias for backward compat — registry.py and contracts.py import _HAS_ORM
 _HAS_ORM = _ORM_AVAILABLE

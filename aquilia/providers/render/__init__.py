@@ -5,7 +5,7 @@ Provides everything needed to deploy an Aquilia workspace to Render:
 
 - ``RenderClient`` — typed REST client for the FULL Render API v1
   (services, deploys, env vars, postgres, key-value, projects,
-  blueprints, webhooks, log streams, metrics, and more)
+  contracts, webhooks, log streams, metrics, and more)
 - ``RenderDeployer`` — orchestrator with rollback, preview, and metrics
 - ``RenderCredentialStore`` — military-grade AES-256-GCM credential storage
 - ``RenderDeployConfig`` — typed deployment configuration
@@ -26,10 +26,10 @@ from .store import RenderCredentialStore
 from .types import (
     RenderAuditLogEntry,
     RenderAutoscaling,
-    # Blueprint / IaC
-    RenderBlueprint,
-    RenderBlueprintSync,
-    RenderBlueprintSyncStatus,
+    # Contract / IaC
+    RenderContract,
+    RenderContractSync,
+    RenderContractSyncStatus,
     RenderCustomDomain,
     RenderDeploy,
     RenderDeployConfig,
@@ -117,7 +117,7 @@ __all__ = [
     "RenderNotificationType",
     "RenderPostgresPlan",
     "RenderKeyValuePlan",
-    "RenderBlueprintSyncStatus",
+    "RenderContractSyncStatus",
     "RenderInstanceStatus",
     # Extended resources
     "RenderSecretFile",
@@ -144,9 +144,9 @@ __all__ = [
     "RenderPostgresUser",
     "RenderKeyValueInstance",
     "RenderKeyValueConnectionInfo",
-    # Blueprint / IaC
-    "RenderBlueprint",
-    "RenderBlueprintSync",
+    # Contract / IaC
+    "RenderContract",
+    "RenderContractSync",
     # Workspace
     "RenderWorkspaceMember",
     "RenderLogStream",

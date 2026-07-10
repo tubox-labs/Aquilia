@@ -704,59 +704,59 @@ class ScopedProvider:
         await self._inner_provider.shutdown()
 
 
-class BlueprintProvider:
+class ContractProvider:
     """
-    DI Provider that creates Blueprint instances with request context.
+    DI Provider that creates Contract instances with request context.
 
     When resolved, the provider:
     1. Parses the request body (JSON or form data)
-    2. Creates the Blueprint with ``data=body`` and a context dict
+    2. Creates the Contract with ``data=body`` and a context dict
        containing ``request``, ``container``, and ``identity``
-    3. Returns the **Blueprint instance** (not yet sealed)
+    3. Returns the **Contract instance** (not yet sealed)
 
-    The handler can then call ``blueprint.is_sealed()`` and ``blueprint.imprint()``.
+    The handler can then call ``contract.is_sealed()`` and ``contract.imprint()``.
 
     Usage::
 
         from aquilia.di import Container
-        from aquilia.di.providers import BlueprintProvider
+        from aquilia.di.providers import ContractProvider
 
         container.register(
-            BlueprintProvider(UserBlueprint, scope="request")
+            ContractProvider(UserContract, scope="request")
         )
 
         # In handler:
-        async def create_user(self, ctx, blueprint: UserBlueprint):
-            blueprint.is_sealed(raise_fault=True)
-            user = await blueprint.imprint()
-            return Response.json(UserBlueprint(instance=user).data, status=201)
+        async def create_user(self, ctx, contract: UserContract):
+            contract.is_sealed(raise_fault=True)
+            user = await contract.imprint()
+            return Response.json(UserContract(instance=user).data, status=201)
     """
 
-    __slots__ = ("_meta", "_blueprint_cls", "_auto_seal")
+    __slots__ = ("_meta", "_contract_cls", "_auto_seal")
 
     def __init__(
         self,
-        blueprint_cls: type,
+        contract_cls: type,
         *,
         scope: str = "request",
         auto_seal: bool = False,
         tags: tuple[str, ...] = (),
     ):
-        self._blueprint_cls = blueprint_cls
+        self._contract_cls = contract_cls
         self._auto_seal = auto_seal
 
-        module = blueprint_cls.__module__
-        qualname = blueprint_cls.__qualname__
+        module = contract_cls.__module__
+        qualname = contract_cls.__qualname__
         token = f"{module}.{qualname}"
 
         try:
-            inspect.getsourcefile(blueprint_cls)
-            _, line = inspect.getsourcelines(blueprint_cls)
+            inspect.getsourcefile(contract_cls)
+            _, line = inspect.getsourcelines(contract_cls)
         except (TypeError, OSError):
             line = None
 
         self._meta = ProviderMeta(
-            name=blueprint_cls.__name__,
+            name=contract_cls.__name__,
             token=token,
             scope=scope,
             tags=tags,
@@ -771,11 +771,11 @@ class BlueprintProvider:
 
     async def instantiate(self, ctx: ResolveCtx) -> Any:
         """
-        Create Blueprint instance with request data from DI context.
+        Create Contract instance with request data from DI context.
 
         The provider looks for a ``Request`` instance in the container
         to parse the body.  If no request is available (e.g. testing),
-        the Blueprint is created without data.
+        the Contract is created without data.
         """
         container = ctx.container
 
@@ -791,7 +791,7 @@ class BlueprintProvider:
             # - Content-Type detection
             # - Form unflatten depth/key limits
             # - DI parameter extraction (Query, Header)
-            from aquilia.blueprints.integration import bind_blueprint_to_request
+            from aquilia.contracts.integration import bind_contract_to_request
 
             # Get identity for context
             identity = None
@@ -803,14 +803,14 @@ class BlueprintProvider:
             if identity is not None:
                 extra_context["identity"] = identity
 
-            bp_instance = await bind_blueprint_to_request(
-                self._blueprint_cls,
+            bp_instance = await bind_contract_to_request(
+                self._contract_cls,
                 request,
                 context=extra_context,
             )
         else:
-            # No request available (e.g. testing) -- create empty Blueprint
-            bp_instance = self._blueprint_cls(
+            # No request available (e.g. testing) -- create empty Contract
+            bp_instance = self._contract_cls(
                 data={},
                 context={"container": container},
             )
@@ -824,5 +824,5 @@ class BlueprintProvider:
         return bp_instance
 
     async def shutdown(self) -> None:
-        """No-op for blueprint provider."""
+        """No-op for contract provider."""
         pass
