@@ -428,6 +428,66 @@ export function ContractsOverview() {
         </p>
       </div>
 
+      {/* Premium Migration / Rename Notice */}
+      <div className="relative my-12 overflow-hidden py-8 px-2 sm:px-4 border-y border-dashed border-zinc-800/10 dark:border-white/5">
+        {/* Glow behind the text */}
+        <div className={`absolute top-1/2 left-0 -translate-y-1/2 w-64 h-64 rounded-full blur-[80px] pointer-events-none -z-10 ${
+          isDark ? 'bg-aquilia-500/5' : 'bg-aquilia-500/5'
+        }`} />
+        <div className={`absolute top-1/2 right-0 -translate-y-1/2 w-64 h-64 rounded-full blur-[80px] pointer-events-none -z-10 ${
+          isDark ? 'bg-purple-500/5' : 'bg-purple-500/5'
+        }`} />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-start relative z-10">
+          <div className="md:col-span-1">
+            <span className={`text-[10px] font-bold tracking-widest uppercase block mb-1.5 font-mono ${
+              t('text-aquilia-400', 'text-aquilia-600')
+            }`}>
+              Evolution in V1.3.0
+            </span>
+            <h2 className={`text-xl font-extrabold tracking-tight ${t('text-white', 'text-gray-900')}`}>
+              Blueprint is now Contract
+            </h2>
+            <p className={`text-xs mt-2 leading-relaxed ${t('text-zinc-400', 'text-gray-500')}`}>
+              We've renamed our core model-world data primitive. The semantics are unchanged, but the naming now perfectly reflects its behavior: a formal, bidirectional contract between models and the outside world.
+            </p>
+          </div>
+
+          <div className="md:col-span-2 flex flex-col sm:flex-row gap-8 items-stretch justify-center">
+            {/* Old naming */}
+            <div className="flex-1 flex flex-col justify-between py-2 sm:pr-8 pl-1 border-b sm:border-b-0 sm:border-r border-dashed border-zinc-850/10 dark:border-white/5 pb-6 sm:pb-2">
+              <div>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-red-400 font-semibold">Legacy (Pre v1.3)</span>
+                <div className={`text-lg font-bold font-mono mt-1.5 line-through ${t('text-zinc-500', 'text-gray-400')}`}>
+                  Blueprint
+                </div>
+              </div>
+              <p className={`text-xs mt-3 leading-relaxed ${t('text-zinc-500', 'text-gray-400')}`}>
+                Represented schemas as static templates. Required importing <code>Blueprint</code>, <code>BlueprintMeta</code>, and defining <code>class Spec</code>.
+              </p>
+            </div>
+
+            {/* New naming */}
+            <div className="flex-1 flex flex-col justify-between py-2 pl-1">
+              <div>
+                <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 font-bold inline-flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Current (v1.3+)
+                </span>
+                <div className={`text-lg font-bold font-mono mt-1.5 text-transparent bg-clip-text bg-gradient-to-r ${
+                  t('from-emerald-400 to-aquilia-400', 'from-emerald-600 to-aquilia-600')
+                }`}>
+                  Contract
+                </div>
+              </div>
+              <p className={`text-xs mt-3 leading-relaxed ${t('text-zinc-400', 'text-gray-600')}`}>
+                Expresses data validation, persistence, and serialization as a formal business agreement. Clearer APIs and unified imports.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Core concept callout */}
       <div className={`rounded-xl p-6 mb-10 border ${t('bg-aquilia-500/5 border-aquilia-500/20','bg-blue-50/60 border-blue-200/60')}`}>
         <div className="flex items-start gap-3">

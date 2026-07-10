@@ -132,10 +132,10 @@ export function DocsLayout() {
 
       {/*
         Three-column row that fills all remaining height below the navbar.
-        pt-16 offsets the fixed navbar (64px).
+        pt-[var(--navbar-height,64px)] offsets the fixed navbar dynamically.
         overflow-hidden here so only each column scrolls independently.
       */}
-      <div className="flex flex-1 overflow-hidden pt-16 print:block print:overflow-visible print:pt-0">
+      <div className="flex flex-1 overflow-hidden pt-[var(--navbar-height,64px)] print:block print:overflow-visible print:pt-0">
 
         {/* ── LEFT SIDEBAR ────────────────────────────────────────────
             Full height, scrolls independently via its own overflow-y-auto.
