@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from aquilia.blueprints import Blueprint, NestedBlueprintFacet
-from aquilia.blueprints.exceptions import SealFault
+from aquilia.contracts import Contract, NestedContractFacet
+from aquilia.contracts.exceptions import SealFault
 from aquilia.controller.base import Controller, RequestCtx
 from aquilia.controller.compiler import ControllerCompiler
 from aquilia.controller.decorators import POST
@@ -15,29 +15,29 @@ from aquilia.controller.metadata import extract_controller_metadata
 from aquilia.request import Request
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Blueprints Setup
+#  Contracts Setup
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class OrderBlueprint(Blueprint):
+class OrderContract(Contract):
     order_id: int
     item_name: str
 
 
-class ArticleBlueprint(Blueprint):
+class ArticleContract(Contract):
     article_id: int
     title: str
 
 
-class ChildBlueprint(Blueprint):
+class ChildContract(Contract):
     street: str
     city: str
 
 
-class NestedBlueprint(Blueprint):
+class NestedContract(Contract):
     name: str
-    address: ChildBlueprint
-    address = NestedBlueprintFacet(ChildBlueprint)
+    address: ChildContract
+    address = NestedContractFacet(ChildContract)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -45,21 +45,21 @@ class NestedBlueprint(Blueprint):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class MultiBlueprintController(Controller):
+class MultiContractController(Controller):
     @POST("/order")
-    async def order_async(self, ctx: RequestCtx, orders: OrderBlueprint, article: ArticleBlueprint):
+    async def order_async(self, ctx: RequestCtx, orders: OrderContract, article: ArticleContract):
         return {"orders": orders.validated_data, "article": article.validated_data}
 
     @POST("/order_sync")
-    def order_sync(self, ctx: RequestCtx, orders: OrderBlueprint, article: ArticleBlueprint):
+    def order_sync(self, ctx: RequestCtx, orders: OrderContract, article: ArticleContract):
         return {"orders": orders.validated_data, "article": article.validated_data}
 
     @POST("/single")
-    async def single(self, ctx: RequestCtx, orders: OrderBlueprint):
+    async def single(self, ctx: RequestCtx, orders: OrderContract):
         return {"orders": orders.validated_data}
 
     @POST("/nested")
-    async def nested(self, ctx: RequestCtx, orders: OrderBlueprint, profile: NestedBlueprint):
+    async def nested(self, ctx: RequestCtx, orders: OrderContract, profile: NestedContract):
         return {"orders": orders.validated_data, "profile": profile.validated_data}
 
 
@@ -104,14 +104,14 @@ def make_mock_request(
 
 
 @pytest.mark.asyncio
-async def test_single_blueprint_parameter():
-    """Verify that a handler with one blueprint parameter parses and resolves correctly."""
+async def test_single_contract_parameter():
+    """Verify that a handler with one contract parameter parses and resolves correctly."""
     payload = {"order_id": 123, "item_name": "Keyboard"}
     req = make_mock_request(body=payload)
     ctx = RequestCtx(request=req)
 
     engine = ControllerEngine(ControllerFactory())
-    meta = extract_controller_metadata(MultiBlueprintController, "test:MultiBlueprint")
+    meta = extract_controller_metadata(MultiContractController, "test:MultiContract")
 
     # Find route metadata for single
     route_meta = next(r for r in meta.routes if r.handler_name == "single")
@@ -124,8 +124,8 @@ async def test_single_blueprint_parameter():
 
 
 @pytest.mark.asyncio
-async def test_multiple_blueprint_parameters():
-    """Verify that a handler with two blueprint parameters resolves both from the same body."""
+async def test_multiple_contract_parameters():
+    """Verify that a handler with two contract parameters resolves both from the same body."""
     payload = {
         "order_id": 456,
         "item_name": "Mouse",
@@ -136,7 +136,7 @@ async def test_multiple_blueprint_parameters():
     ctx = RequestCtx(request=req)
 
     engine = ControllerEngine(ControllerFactory())
-    meta = extract_controller_metadata(MultiBlueprintController, "test:MultiBlueprint")
+    meta = extract_controller_metadata(MultiContractController, "test:MultiContract")
 
     # Find route metadata for order_async
     route_meta = next(r for r in meta.routes if r.handler_name == "order_async")
@@ -154,7 +154,7 @@ async def test_multiple_blueprint_parameters():
 
 @pytest.mark.asyncio
 async def test_invalid_payloads_consolidated_errors():
-    """Verify validation fails cleanly and consolidates errors from all failed blueprint parameters."""
+    """Verify validation fails cleanly and consolidates errors from all failed contract parameters."""
     # Invalid payloads for both: order_id is missing, item_name is missing,
     # article_id is string that can't cast to int, title is missing.
     payload = {
@@ -164,23 +164,23 @@ async def test_invalid_payloads_consolidated_errors():
     ctx = RequestCtx(request=req)
 
     engine = ControllerEngine(ControllerFactory())
-    meta = extract_controller_metadata(MultiBlueprintController, "test:MultiBlueprint")
+    meta = extract_controller_metadata(MultiContractController, "test:MultiContract")
     route_meta = next(r for r in meta.routes if r.handler_name == "order_async")
 
     with pytest.raises(SealFault) as exc_info:
         await engine._bind_parameters(route_meta, req, ctx, path_params={}, container=None)
 
     errors = exc_info.value.field_errors
-    # Should contain errors from both blueprints
-    assert "order_id" in errors  # from OrderBlueprint
-    assert "item_name" in errors  # from OrderBlueprint
-    assert "article_id" in errors  # from ArticleBlueprint
-    assert "title" in errors  # from ArticleBlueprint
+    # Should contain errors from both contracts
+    assert "order_id" in errors  # from OrderContract
+    assert "item_name" in errors  # from OrderContract
+    assert "article_id" in errors  # from ArticleContract
+    assert "title" in errors  # from ArticleContract
 
 
 @pytest.mark.asyncio
-async def test_nested_blueprint_validation():
-    """Verify that a blueprint parameter with nested fields validates successfully or raises proper nested error."""
+async def test_nested_contract_validation():
+    """Verify that a contract parameter with nested fields validates successfully or raises proper nested error."""
     payload = {
         "order_id": 111,
         "item_name": "Laptop",
@@ -194,7 +194,7 @@ async def test_nested_blueprint_validation():
     ctx = RequestCtx(request=req)
 
     engine = ControllerEngine(ControllerFactory())
-    meta = extract_controller_metadata(MultiBlueprintController, "test:MultiBlueprint")
+    meta = extract_controller_metadata(MultiContractController, "test:MultiContract")
     route_meta = next(r for r in meta.routes if r.handler_name == "nested")
 
     with pytest.raises(SealFault) as exc_info:
@@ -207,7 +207,7 @@ async def test_nested_blueprint_validation():
 
 @pytest.mark.asyncio
 async def test_engine_execution_sync_and_async():
-    """Verify the full execute cycle runs successfully for sync and async handlers with multiple blueprints."""
+    """Verify the full execute cycle runs successfully for sync and async handlers with multiple contracts."""
     payload = {
         "order_id": 456,
         "item_name": "Mouse",
@@ -216,7 +216,7 @@ async def test_engine_execution_sync_and_async():
     }
 
     compiler = ControllerCompiler()
-    compiled_controller = compiler.compile_controller(MultiBlueprintController)
+    compiled_controller = compiler.compile_controller(MultiContractController)
 
     # 1. Test async handler
     req_async = make_mock_request(body=payload)
@@ -255,20 +255,20 @@ async def test_engine_execution_sync_and_async():
 
 from typing import Annotated
 
-from aquilia.blueprints import Facet, ward
-from aquilia.blueprints.transforms import dasherize, lower, strip
+from aquilia.contracts import Facet, ward
+from aquilia.contracts.transforms import dasherize, lower, strip
 
 
-# Define User's OrderItemBlueprint
-class UserOrderItemBlueprint(Blueprint):
+# Define User's OrderItemContract
+class UserOrderItemContract(Contract):
     product_id: int
     qty: Annotated[int, Facet.int[1:]]
     price: Annotated[float, Facet.float[0:]]
 
 
-# Define User's OrderBlueprint
-class UserOrderBlueprint(Blueprint):
-    items: list[UserOrderItemBlueprint]
+# Define User's OrderContract
+class UserOrderContract(Contract):
+    items: list[UserOrderItemContract]
     total: Annotated[float, Facet.float[0:]]
     discount_code: Annotated[str | None, Facet.text()] = None
 
@@ -284,15 +284,15 @@ class UserOrderBlueprint(Blueprint):
             self.reject("discount_code", "Unknown or expired code")
 
 
-# Define User's ArticleBlueprint
-class UserArticleBlueprint(Blueprint):
+# Define User's ArticleContract
+class UserArticleContract(Contract):
     slug: Annotated[str, Facet.text() >> strip >> lower >> dasherize >> Facet.pattern(r"^[a-z0-9-]+$")]
 
 
 # Define Controller
 class UserOrderController(Controller):
     @POST("/order")
-    async def order(self, ctx: RequestCtx, orders: UserOrderBlueprint, article: UserArticleBlueprint):
+    async def order(self, ctx: RequestCtx, orders: UserOrderContract, article: UserArticleContract):
         return {"orders": orders.validated_data, "article": article.validated_data}
 
 
@@ -303,8 +303,8 @@ class PromoService:
 
 
 @pytest.mark.asyncio
-async def test_blueprint_context_di_service_resolution():
-    """Verify that a blueprint's async ward method can resolve and invoke registered services from the DI container via self.context."""
+async def test_contract_context_di_service_resolution():
+    """Verify that a contract's async ward method can resolve and invoke registered services from the DI container via self.context."""
     # Compile routes
     compiler = ControllerCompiler()
     compiled_controller = compiler.compile_controller(UserOrderController)

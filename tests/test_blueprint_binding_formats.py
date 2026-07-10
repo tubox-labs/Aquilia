@@ -10,8 +10,8 @@ import pytest
 
 from aquilia._datastructures import MultiDict
 from aquilia._uploads import FormData
-from aquilia.blueprints import Blueprint, ChoiceFacet, ListFacet, NestedBlueprintFacet, TextFacet
-from aquilia.blueprints.sigil import (
+from aquilia.contracts import Contract, ChoiceFacet, ListFacet, NestedContractFacet, TextFacet
+from aquilia.contracts.sigil import (
     extract_flat_list_mapping,
     extract_nested_mapping,
     get_field_value,
@@ -24,7 +24,7 @@ from aquilia.controller.engine import ControllerEngine
 from aquilia.request import Request
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Blueprint Definitions
+#  Contract Definitions
 # ═══════════════════════════════════════════════════════════════════════════
 
 
@@ -33,19 +33,19 @@ class StatusEnum(str, Enum):
     INACTIVE = "inactive"
 
 
-class ChildBlueprint(Blueprint):
+class ChildContract(Contract):
     street: str
     city: str
 
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     name: str
     age: int
     price: float
     tags: list[str]
 
 
-class ComprehensiveBlueprint(Blueprint):
+class ComprehensiveContract(Contract):
     # Primitives
     name: str
     age: int
@@ -66,22 +66,22 @@ class ComprehensiveBlueprint(Blueprint):
     tags: list[str]
     metadata: dict
 
-    # Nested Blueprint
-    address: ChildBlueprint
-    address = NestedBlueprintFacet(ChildBlueprint)
+    # Nested Contract
+    address: ChildContract
+    address = NestedContractFacet(ChildContract)
 
     # Optional / default / nullable
     description: str | None = None
     rating: int = 5
 
 
-class UnionMemberABlueprint(Blueprint):
+class UnionMemberAContract(Contract):
     type_field: str
     type_field = ChoiceFacet(choices=["A"])
     value_a: int
 
 
-class UnionMemberBBlueprint(Blueprint):
+class UnionMemberBContract(Contract):
     type_field: str
     type_field = ChoiceFacet(choices=["B"])
     value_b: str
@@ -222,9 +222,9 @@ def test_helper_flat_list_mapping():
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def test_blueprint_json_validation_regression():
+def test_contract_json_validation_regression():
     data = {"name": "John", "age": 25, "price": 10.5, "tags": ["a", "b"]}
-    bp = ProductBlueprint(data=data)
+    bp = ProductContract(data=data)
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "John"
     assert bp.validated_data["age"] == 25
@@ -232,7 +232,7 @@ def test_blueprint_json_validation_regression():
     assert bp.validated_data["tags"] == ["a", "b"]
 
 
-def test_blueprint_form_urlencoded_validation():
+def test_contract_form_urlencoded_validation():
     # application/x-www-form-urlencoded format
     form_data = MultiDict()
     form_data.add("name", "John")
@@ -241,7 +241,7 @@ def test_blueprint_form_urlencoded_validation():
     form_data.add("tags", "a")
     form_data.add("tags", "b")
 
-    bp = ProductBlueprint(data=form_data)
+    bp = ProductContract(data=form_data)
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "John"
     assert bp.validated_data["age"] == 25
@@ -249,7 +249,7 @@ def test_blueprint_form_urlencoded_validation():
     assert bp.validated_data["tags"] == ["a", "b"]
 
 
-def test_blueprint_multipart_form_validation():
+def test_contract_multipart_form_validation():
     # Construct a parsed multipart format
     fields = MultiDict()
     fields.add("name", "John")
@@ -259,7 +259,7 @@ def test_blueprint_multipart_form_validation():
     fields.add("tags[]", "b")
 
     form_data = FormData(fields=fields, files={})
-    bp = ProductBlueprint(data=form_data)
+    bp = ProductContract(data=form_data)
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "John"
     assert bp.validated_data["age"] == 25
@@ -288,7 +288,7 @@ def test_comprehensive_coercion_types_form():
     form_data.add("address.city", "London")
     form_data.add("description", "")  # Empty string coercion to None
 
-    bp = ComprehensiveBlueprint(data=form_data)
+    bp = ComprehensiveContract(data=form_data)
     assert bp.is_sealed() is True
     vd = bp.validated_data
     assert vd["name"] == "Ada"
@@ -309,8 +309,8 @@ def test_comprehensive_coercion_types_form():
     assert vd["rating"] == 5  # default value
 
 
-def test_blueprint_union_validation_from_form():
-    union = UnionMemberABlueprint | UnionMemberBBlueprint
+def test_contract_union_validation_from_form():
+    union = UnionMemberAContract | UnionMemberBContract
 
     # Try choice A
     form_a = MultiDict()
@@ -340,7 +340,7 @@ def test_blueprint_union_validation_from_form():
 
 class ProductController(Controller):
     @POST("/")
-    async def create(self, ctx: RequestCtx, product: ProductBlueprint):
+    async def create(self, ctx: RequestCtx, product: ProductContract):
         return product
 
 
@@ -422,7 +422,7 @@ def test_missing_and_invalid_values_form():
     form_data.add("age", "25")
     form_data.add("tags", "a")
 
-    bp = ProductBlueprint(data=form_data)
+    bp = ProductContract(data=form_data)
     assert bp.is_sealed() is False
     assert "price" in bp.errors
     assert bp.errors["price"] == ["This field is required"]
@@ -434,14 +434,14 @@ def test_missing_and_invalid_values_form():
     form_data.add("price", "10.5")
     form_data.add("tags", "a")
 
-    bp = ProductBlueprint(data=form_data)
+    bp = ProductContract(data=form_data)
     assert bp.is_sealed() is False
     assert "age" in bp.errors
     assert "integer" in "".join(bp.errors["age"]).lower()
 
 
 def test_empty_string_coercion_rules():
-    class TestEmptyStringBlueprint(Blueprint):
+    class TestEmptyStringContract(Contract):
         required_int: int
         optional_int: int | None = None
         required_str: str
@@ -452,7 +452,7 @@ def test_empty_string_coercion_rules():
     form_data.add("required_int", "")
     form_data.add("required_str", "hello")
 
-    bp = TestEmptyStringBlueprint(data=form_data)
+    bp = TestEmptyStringContract(data=form_data)
     assert bp.is_sealed() is False
     assert "required_int" in bp.errors
 
@@ -462,7 +462,7 @@ def test_empty_string_coercion_rules():
     form_data.add("optional_int", "")
     form_data.add("required_str", "hello")
 
-    bp = TestEmptyStringBlueprint(data=form_data)
+    bp = TestEmptyStringContract(data=form_data)
     assert bp.is_sealed() is True
     assert bp.validated_data["optional_int"] is None
     assert bp.validated_data["required_str"] == "hello"
@@ -474,7 +474,7 @@ def test_empty_string_coercion_rules():
 
 
 @pytest.mark.asyncio
-async def test_concurrent_blueprint_validation_stress():
+async def test_concurrent_contract_validation_stress():
     # Simulate multiple concurrent validations of form data
     async def validate_one(i: int):
         form_data = MultiDict()
@@ -484,7 +484,7 @@ async def test_concurrent_blueprint_validation_stress():
         form_data.add("tags", f"tag-{i}")
         form_data.add("tags", "all")
 
-        bp = ProductBlueprint(data=form_data)
+        bp = ProductContract(data=form_data)
         assert bp.is_sealed() is True
         assert bp.validated_data["name"] == f"Product-{i}"
         assert len(bp.validated_data["tags"]) == 2

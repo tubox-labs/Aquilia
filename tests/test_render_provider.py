@@ -2194,7 +2194,7 @@ class TestPackageExports:
             "RenderNotificationType",
             "RenderPostgresPlan",
             "RenderKeyValuePlan",
-            "RenderBlueprintSyncStatus",
+            "RenderContractSyncStatus",
             "RenderInstanceStatus",
             # Extended resources
             "RenderSecretFile",
@@ -2221,9 +2221,9 @@ class TestPackageExports:
             "RenderPostgresUser",
             "RenderKeyValueInstance",
             "RenderKeyValueConnectionInfo",
-            # Blueprint / IaC
-            "RenderBlueprint",
-            "RenderBlueprintSync",
+            # Contract / IaC
+            "RenderContract",
+            "RenderContractSync",
             # Workspace
             "RenderWorkspaceMember",
             "RenderLogStream",
@@ -2530,11 +2530,11 @@ class TestEnhancedEnums:
         assert RenderKeyValuePlan.FREE.value == "free"
         assert RenderKeyValuePlan.PRO.value == "pro"
 
-    def test_blueprint_sync_status(self):
-        from aquilia.providers.render.types import RenderBlueprintSyncStatus
+    def test_contract_sync_status(self):
+        from aquilia.providers.render.types import RenderContractSyncStatus
 
-        assert RenderBlueprintSyncStatus.SYNCED.value == "synced"
-        assert RenderBlueprintSyncStatus.FAILED.value == "failed"
+        assert RenderContractSyncStatus.SYNCED.value == "synced"
+        assert RenderContractSyncStatus.FAILED.value == "failed"
 
     def test_instance_status(self):
         from aquilia.providers.render.types import RenderInstanceStatus
@@ -2716,17 +2716,17 @@ class TestEnhancedDataclasses:
         assert ds.id == "snap-1"
         assert ds.status == "completed"
 
-    def test_blueprint_fields(self):
-        from aquilia.providers.render.types import RenderBlueprint
+    def test_contract_fields(self):
+        from aquilia.providers.render.types import RenderContract
 
-        bp = RenderBlueprint(name="my-bp", auto_sync=True, repo="org/repo")
+        bp = RenderContract(name="my-bp", auto_sync=True, repo="org/repo")
         assert bp.auto_sync is True
         assert bp.repo == "org/repo"
 
-    def test_blueprint_sync_fields(self):
-        from aquilia.providers.render.types import RenderBlueprintSync
+    def test_contract_sync_fields(self):
+        from aquilia.providers.render.types import RenderContractSync
 
-        bs = RenderBlueprintSync(status="synced", blueprint_id="bp-1")
+        bs = RenderContractSync(status="synced", contract_id="bp-1")
         assert bs.status == "synced"
 
     def test_workspace_member_fields(self):
@@ -3221,12 +3221,12 @@ class TestEnhancedClientAPI:
             assert len(creds) == 1
             assert creds[0].registry == "DOCKER"
 
-    def test_list_blueprints(self, client):
+    def test_list_contracts(self, client):
         with patch.object(client, "_request") as mock_req:
             mock_req.return_value = _RequestResult(
-                200, b'[{"blueprint":{"id":"bp-1","name":"my-bp","autoSync":true}}]', {}
+                200, b'[{"contract":{"id":"bp-1","name":"my-bp","autoSync":true}}]', {}
             )
-            bps = client.list_blueprints()
+            bps = client.list_contracts()
             assert len(bps) == 1
             assert bps[0].auto_sync is True
 
@@ -3464,15 +3464,15 @@ class TestAuditLogger:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-#  § 15  Render Blueprint Validation & Compatibility Tests
+#  § 15  Render Contract Validation & Compatibility Tests
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-class TestRenderBlueprintValidation:
-    """Test validations, seals, nesting, and serialization on converted Render Blueprints."""
+class TestRenderContractValidation:
+    """Test validations, seals, nesting, and serialization on converted Render Contracts."""
 
     def test_invalid_port_raises_fault(self):
-        from aquilia.blueprints import SealFault
+        from aquilia.contracts import SealFault
         from aquilia.providers.render.types import RenderDeployConfig
 
         with pytest.raises(SealFault) as exc_info:
@@ -3484,7 +3484,7 @@ class TestRenderBlueprintValidation:
         assert "port" in exc_info.value.field_errors
 
     def test_invalid_health_check_path_raises_fault(self):
-        from aquilia.blueprints import SealFault
+        from aquilia.contracts import SealFault
         from aquilia.providers.render.types import RenderDeployConfig
 
         with pytest.raises(SealFault) as exc_info:
@@ -3492,7 +3492,7 @@ class TestRenderBlueprintValidation:
         assert "health_check_path" in exc_info.value.field_errors
 
     def test_invalid_num_instances_raises_fault(self):
-        from aquilia.blueprints import SealFault
+        from aquilia.contracts import SealFault
         from aquilia.providers.render.types import RenderDeployConfig
 
         with pytest.raises(SealFault) as exc_info:
@@ -3500,14 +3500,14 @@ class TestRenderBlueprintValidation:
         assert "num_instances" in exc_info.value.field_errors
 
     def test_invalid_auto_deploy_raises_fault(self):
-        from aquilia.blueprints import SealFault
+        from aquilia.contracts import SealFault
         from aquilia.providers.render.types import RenderDeployConfig
 
         with pytest.raises(SealFault) as exc_info:
             RenderDeployConfig(auto_deploy="maybe")
         assert "auto_deploy" in exc_info.value.field_errors
 
-    def test_nested_blueprints_instantiation_and_sync(self):
+    def test_nested_contracts_instantiation_and_sync(self):
         from aquilia.providers.render.types import RenderAutoscaling, RenderDeployConfig, RenderDisk, RenderEnvVar
 
         cfg = RenderDeployConfig(

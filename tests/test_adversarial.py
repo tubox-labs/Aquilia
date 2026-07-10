@@ -2,21 +2,21 @@ from typing import Annotated
 
 import pytest
 
-from aquilia.blueprints import Blueprint, Facet, ward
-from aquilia.blueprints.exceptions import CastFault
+from aquilia.contracts import Contract, Facet, ward
+from aquilia.contracts.exceptions import CastFault
 
 
 def test_regex_redos_defense():
     # Defining a potentially vulnerable regex pattern should raise CastFault at definition time
     with pytest.raises(CastFault) as exc_info:
 
-        class PatternBP(Blueprint):
+        class PatternBP(Contract):
             val: Annotated[str, Facet.text(pattern=r"^(a+)+$")]
 
     assert "ReDoS risk" in str(exc_info.value)
 
     # Avoid Redos by ensuring length checks work before pattern matching (if facet constraints are used)
-    class RedosSafeBP(Blueprint):
+    class RedosSafeBP(Contract):
         val: Annotated[str, Facet.text(max_length=10, pattern=r"^[a-zA-Z0-9]+$")]
 
     # Long malicious input should be rejected by length check immediately
@@ -26,7 +26,7 @@ def test_regex_redos_defense():
 
 
 def test_unicode_validation():
-    class UnicodeBP(Blueprint):
+    class UnicodeBP(Contract):
         name: str
         emoji: str
 
@@ -41,7 +41,7 @@ def test_unicode_validation():
 
 
 def test_exceptions_inside_ward_hooks():
-    class BrokenWardBP(Blueprint):
+    class BrokenWardBP(Contract):
         name: str
 
         @ward
@@ -58,7 +58,7 @@ def test_exceptions_inside_ward_hooks():
 
 @pytest.mark.asyncio
 async def test_bad_streams_ndjson_bytes():
-    class StreamBP(Blueprint):
+    class StreamBP(Contract):
         id: int
         name: str
 

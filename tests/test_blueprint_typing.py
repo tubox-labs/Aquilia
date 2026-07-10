@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.lenses import _ProjectedRef
+from aquilia.contracts import Contract
+from aquilia.contracts.lenses import _ProjectedRef
 
 
 class _TypedModel:
@@ -14,7 +14,7 @@ class _TypedModel:
         return None
 
 
-class _TypedBlueprint(Blueprint[_TypedModel]):
+class _TypedContract(Contract[_TypedModel]):
     name: str
 
     class Spec:
@@ -23,13 +23,13 @@ class _TypedBlueprint(Blueprint[_TypedModel]):
 
 
 def test_projection_subscript_still_returns_projected_ref():
-    ref = _TypedBlueprint["summary"]
+    ref = _TypedContract["summary"]
     assert isinstance(ref, _ProjectedRef)
     assert ref.projection == "summary"
 
 
-def test_typed_blueprint_imprint_returns_model_instance():
-    bp = _TypedBlueprint(data={"name": "Ada"})
+def test_typed_contract_imprint_returns_model_instance():
+    bp = _TypedContract(data={"name": "Ada"})
     assert bp.is_sealed() is True
 
     import asyncio

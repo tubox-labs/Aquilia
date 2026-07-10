@@ -1,11 +1,11 @@
 import asyncio
 
-# --- Blueprint validation error detail regression and async seal tests ---
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.exceptions import SealFault
+# --- Contract validation error detail regression and async seal tests ---
+from aquilia.contracts import Contract
+from aquilia.contracts.exceptions import SealFault
 
 
-class DetailTestBlueprint(Blueprint):
+class DetailTestContract(Contract):
     name: str
     age: int
 
@@ -14,7 +14,7 @@ class DetailTestBlueprint(Blueprint):
             self.reject("name", "Field is required")
 
 
-class AsyncSealBlueprint(Blueprint):
+class AsyncSealContract(Contract):
     name: str
 
     async def seal_name(self, data):
@@ -23,8 +23,8 @@ class AsyncSealBlueprint(Blueprint):
         data["name"] = data["name"].upper()
 
 
-def test_blueprint_validation_error_details():
-    bp = DetailTestBlueprint(data={"age": 30})
+def test_contract_validation_error_details():
+    bp = DetailTestContract(data={"age": 30})
     assert not bp.is_sealed()
     try:
         bp.is_sealed(raise_fault=True)
@@ -35,8 +35,8 @@ def test_blueprint_validation_error_details():
         assert err["reason"] in ("Field is required", "This field is required")
 
 
-def test_blueprint_validation_error_details_multiple():
-    bp = DetailTestBlueprint(data={})
+def test_contract_validation_error_details_multiple():
+    bp = DetailTestContract(data={})
     assert not bp.is_sealed()
     try:
         bp.is_sealed(raise_fault=True)
@@ -47,7 +47,7 @@ def test_blueprint_validation_error_details_multiple():
         assert "name" in fields and "age" in fields
 
 
-def test_blueprint_validation_error_json_shape():
+def test_contract_validation_error_json_shape():
     from types import SimpleNamespace
 
     from aquilia.middleware import ExceptionMiddleware
@@ -62,7 +62,7 @@ def test_blueprint_validation_error_json_shape():
 
     req = DummyReq()
     ctx = SimpleNamespace()
-    bp = DetailTestBlueprint(data={})
+    bp = DetailTestContract(data={})
     try:
         bp.is_sealed(raise_fault=True)
     except SealFault as e:
@@ -71,36 +71,36 @@ def test_blueprint_validation_error_json_shape():
         assert error is not None
 
 
-def test_blueprint_async_seal_method_awaited():
-    bp = AsyncSealBlueprint(data={"name": "bob"})
+def test_contract_async_seal_method_awaited():
+    bp = AsyncSealContract(data={"name": "bob"})
     # Should not raise coroutine warning
     result = asyncio.run(bp.is_sealed_async())
     assert result is True
     assert bp.validated_data["name"] == "BOB"
-    # Calling sync is_sealed() on a blueprint with async seal should raise
+    # Calling sync is_sealed() on a contract with async seal should raise
     try:
         bp.is_sealed()
     except RuntimeError as e:
         assert "is async but called from sync context" in str(e)
 
 
-def test_blueprint_async_seal_method_missing_field():
-    bp = AsyncSealBlueprint(data={})
+def test_contract_async_seal_method_missing_field():
+    bp = AsyncSealContract(data={})
     result = asyncio.run(bp.is_sealed_async())
     assert result is False
     assert "name" in bp.errors
 
 
-def test_blueprint_sync_seal_method_still_works():
-    bp = DetailTestBlueprint(data={"name": "bob", "age": 22})
+def test_contract_sync_seal_method_still_works():
+    bp = DetailTestContract(data={"name": "bob", "age": 22})
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "bob"
 
 
-def test_blueprint_coroutine_warning_regression():
+def test_contract_coroutine_warning_regression():
     import warnings
 
-    bp = AsyncSealBlueprint(data={"name": "bob"})
+    bp = AsyncSealContract(data={"name": "bob"})
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         asyncio.run(bp.is_sealed_async())
@@ -109,10 +109,10 @@ def test_blueprint_coroutine_warning_regression():
 
 
 """
-Blueprint Security Test Suite — Phase 10
+Contract Security Test Suite — Phase 10
 ==========================================
 
-Validates all 13 security fixes applied during the Phase 10 blueprint audit.
+Validates all 13 security fixes applied during the Phase 10 contract audit.
 Each test class maps to a specific vulnerability identifier (BP-SEC-XXX).
 
 Vulnerability Coverage:
@@ -125,7 +125,7 @@ Vulnerability Coverage:
     BP-SEC-007  HIGH      Unknown field rejection mode
     BP-SEC-008  MEDIUM    TextFacet ReDoS protection
     BP-SEC-009  MEDIUM    _unflatten_dict depth/key limit
-    BP-SEC-010  MEDIUM    NestedBlueprintFacet nesting depth guard
+    BP-SEC-010  MEDIUM    NestedContractFacet nesting depth guard
     BP-SEC-011  MEDIUM    DictFacet key count limit
     BP-SEC-012  LOW       Metaclass warning instead of silent pass
     BP-SEC-013  LOW       Content-Type detection in request binding
@@ -139,42 +139,42 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aquilia.blueprints.annotations import (
-    NestedBlueprintFacet,
+from aquilia.contracts.annotations import (
+    NestedContractFacet,
     _safe_resolve_annotation,
     _split_type_args,
 )
-from aquilia.blueprints.core import Blueprint, _SpecData
-from aquilia.blueprints.exceptions import CastFault, SealFault
-from aquilia.blueprints.facets import (
+from aquilia.contracts.core import Contract, _SpecData
+from aquilia.contracts.exceptions import CastFault, SealFault
+from aquilia.contracts.facets import (
     DictFacet,
     FloatFacet,
     IntFacet,
     JSONFacet,
     TextFacet,
 )
-from aquilia.blueprints.integration import (
+from aquilia.contracts.integration import (
     MAX_BODY_SIZE,
     MAX_UNFLATTEN_DEPTH,
     MAX_UNFLATTEN_KEYS,
     _unflatten_dict,
-    bind_blueprint_to_request,
+    bind_contract_to_request,
 )
 
 # ════════════════════════════════════════════════════════════════════════
-# HELPERS — Minimal Blueprint subclasses for testing
+# HELPERS — Minimal Contract subclasses for testing
 # ════════════════════════════════════════════════════════════════════════
 
 
-class SimpleBlueprint(Blueprint):
-    """Minimal blueprint for basic seal tests."""
+class SimpleContract(Contract):
+    """Minimal contract for basic seal tests."""
 
     name: str
     age: int
 
 
-class StrictBlueprint(Blueprint):
-    """Blueprint with extra_fields='reject'."""
+class StrictContract(Contract):
+    """Contract with extra_fields='reject'."""
 
     name: str
     email: str
@@ -183,8 +183,8 @@ class StrictBlueprint(Blueprint):
         extra_fields = "reject"
 
 
-class LimitedManyBlueprint(Blueprint):
-    """Blueprint with a low max_many_items for testing."""
+class LimitedManyContract(Contract):
+    """Contract with a low max_many_items for testing."""
 
     value: int
 
@@ -192,14 +192,14 @@ class LimitedManyBlueprint(Blueprint):
         max_many_items = 5
 
 
-class NestedChild(Blueprint):
-    """A simple inner blueprint used for nesting tests."""
+class NestedChild(Contract):
+    """A simple inner contract used for nesting tests."""
 
     label: str
 
 
-class SelfReferencing(Blueprint):
-    """Blueprint that references itself for recursive depth test."""
+class SelfReferencing(Contract):
+    """Contract that references itself for recursive depth test."""
 
     name: str
 
@@ -290,7 +290,7 @@ class TestBPSEC002_BodySizeLimit:
         request.json = AsyncMock(return_value={})
 
         with pytest.raises(SealFault, match="Request body too large"):
-            asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
+            asyncio.run(bind_contract_to_request(SimpleContract, request))
 
     def test_valid_content_length_passes(self):
         """Request with Content-Length <= MAX_BODY_SIZE is not rejected at size check."""
@@ -302,8 +302,8 @@ class TestBPSEC002_BodySizeLimit:
         request.json = AsyncMock(return_value={"name": "ok", "age": 25})
         request.state = {}
 
-        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
-        assert isinstance(bp, SimpleBlueprint)
+        bp = asyncio.run(bind_contract_to_request(SimpleContract, request))
+        assert isinstance(bp, SimpleContract)
 
     def test_context_override_max_body_size(self):
         """Context can lower the max body size."""
@@ -312,7 +312,7 @@ class TestBPSEC002_BodySizeLimit:
         request.json = AsyncMock(return_value={})
 
         with pytest.raises(SealFault, match="Request body too large"):
-            asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request, context={"max_body_size": 1000}))
+            asyncio.run(bind_contract_to_request(SimpleContract, request, context={"max_body_size": 1000}))
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -326,19 +326,19 @@ class TestBPSEC003_ManyItemsLimit:
     def test_exceeding_spec_limit_rejected(self):
         """List exceeding Spec.max_many_items should fail."""
         items = [{"value": i} for i in range(10)]
-        bp = LimitedManyBlueprint(data=items, many=True)
+        bp = LimitedManyContract(data=items, many=True)
         assert bp.is_sealed() is False
         assert "exceeding the maximum of 5" in str(bp.errors)
 
     def test_within_limit_passes(self):
         items = [{"value": i} for i in range(5)]
-        bp = LimitedManyBlueprint(data=items, many=True)
+        bp = LimitedManyContract(data=items, many=True)
         assert bp.is_sealed() is True
 
     def test_context_override_max_many_items(self):
         """Context can further restrict max_many_items."""
         items = [{"value": i} for i in range(3)]
-        bp = LimitedManyBlueprint(data=items, many=True, context={"max_many_items": 2})
+        bp = LimitedManyContract(data=items, many=True, context={"max_many_items": 2})
         assert bp.is_sealed() is False
         assert "exceeding the maximum of 2" in str(bp.errors)
 
@@ -509,21 +509,21 @@ class TestBPSEC007_UnknownFieldRejection:
     """Verify extra_fields='reject' blocks unknown fields."""
 
     def test_strict_rejects_unknown_fields(self):
-        bp = StrictBlueprint(data={"name": "Alice", "email": "a@b.com", "hack": "yes"})
+        bp = StrictContract(data={"name": "Alice", "email": "a@b.com", "hack": "yes"})
         assert bp.is_sealed() is False
         assert "hack" in bp.errors
 
     def test_strict_accepts_known_fields(self):
-        bp = StrictBlueprint(data={"name": "Alice", "email": "a@b.com"})
+        bp = StrictContract(data={"name": "Alice", "email": "a@b.com"})
         assert bp.is_sealed() is True
 
     def test_default_ignores_unknown_fields(self):
-        bp = SimpleBlueprint(data={"name": "Alice", "age": 30, "extra": "ignored"})
+        bp = SimpleContract(data={"name": "Alice", "age": 30, "extra": "ignored"})
         assert bp.is_sealed() is True
 
     def test_context_override_to_reject(self):
         """Runtime context can switch to reject mode."""
-        bp = SimpleBlueprint(
+        bp = SimpleContract(
             data={"name": "Alice", "age": 30, "extra": "bad"},
             context={"extra_fields": "reject"},
         )
@@ -624,49 +624,49 @@ class TestBPSEC009_UnflattenLimits:
 
 
 # ════════════════════════════════════════════════════════════════════════
-# BP-SEC-010 — NestedBlueprintFacet nesting depth guard
+# BP-SEC-010 — NestedContractFacet nesting depth guard
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestBPSEC010_NestedBlueprintDepthGuard:
-    """Verify NestedBlueprintFacet enforces maximum nesting depth."""
+class TestBPSEC010_NestedContractDepthGuard:
+    """Verify NestedContractFacet enforces maximum nesting depth."""
 
     def test_max_nesting_depth_constant(self):
-        assert NestedBlueprintFacet.MAX_NESTING_DEPTH == 32
+        assert NestedContractFacet.MAX_NESTING_DEPTH == 32
 
     def test_shallow_nesting_passes(self):
-        facet = NestedBlueprintFacet(NestedChild, max_nesting_depth=10)
+        facet = NestedContractFacet(NestedChild, max_nesting_depth=10)
         facet.name = "child"
         result = facet.cast({"label": "ok"})
         assert isinstance(result, dict)
 
     def test_depth_counter_resets_after_cast(self):
         """After a successful cast the depth counter should be back to 0."""
-        facet = NestedBlueprintFacet(NestedChild, max_nesting_depth=10)
+        facet = NestedContractFacet(NestedChild, max_nesting_depth=10)
         facet.name = "child"
         facet.cast({"label": "ok"})
-        assert NestedBlueprintFacet._current_nesting_depth == 0
+        assert NestedContractFacet._current_nesting_depth == 0
 
     def test_depth_counter_resets_on_error(self):
         """Even on failure the depth counter must not leak."""
-        facet = NestedBlueprintFacet(NestedChild, max_nesting_depth=1)
+        facet = NestedContractFacet(NestedChild, max_nesting_depth=1)
         facet.name = "child"
         # Ensure counter starts at 0
-        NestedBlueprintFacet._current_nesting_depth = 0
+        NestedContractFacet._current_nesting_depth = 0
         # Force a cast on something that will work (depth=1 should be fine for a single nesting)
         # But set the counter artificially high to trigger the guard
-        NestedBlueprintFacet._current_nesting_depth = 5
+        NestedContractFacet._current_nesting_depth = 5
         try:
             with pytest.raises(CastFault, match="depth exceeds maximum"):
                 facet.cast({"label": "ok"})
         finally:
             # Verify counter decremented back by 1
-            assert NestedBlueprintFacet._current_nesting_depth == 5
+            assert NestedContractFacet._current_nesting_depth == 5
             # Reset for other tests
-            NestedBlueprintFacet._current_nesting_depth = 0
+            NestedContractFacet._current_nesting_depth = 0
 
     def test_custom_max_depth(self):
-        facet = NestedBlueprintFacet(NestedChild, max_nesting_depth=3)
+        facet = NestedContractFacet(NestedChild, max_nesting_depth=3)
         assert facet._max_depth == 3
 
 
@@ -722,7 +722,7 @@ class TestBPSEC012_MetaclassWarning:
 
     def test_import_warnings_in_core(self):
         """Verify the warnings module is imported in core.py."""
-        import aquilia.blueprints.core as core_mod
+        import aquilia.contracts.core as core_mod
 
         assert hasattr(core_mod, "warnings")
 
@@ -733,7 +733,7 @@ class TestBPSEC012_MetaclassWarning:
 
 
 class TestBPSEC013_ContentTypeDetection:
-    """Verify Content-Type header is inspected in bind_blueprint_to_request."""
+    """Verify Content-Type header is inspected in bind_contract_to_request."""
 
     def test_json_content_type_parsed(self):
         """application/json triggers request.json()."""
@@ -745,7 +745,7 @@ class TestBPSEC013_ContentTypeDetection:
         request.json = AsyncMock(return_value={"name": "Test", "age": 25})
         request.state = {}
 
-        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
+        bp = asyncio.run(bind_contract_to_request(SimpleContract, request))
         request.json.assert_called_once()
 
     def test_form_content_type_uses_form_parser(self):
@@ -763,7 +763,7 @@ class TestBPSEC013_ContentTypeDetection:
         request.form = AsyncMock(return_value=form_mock)
         request.state = {}
 
-        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
+        bp = asyncio.run(bind_contract_to_request(SimpleContract, request))
         request.form.assert_called_once()
 
     def test_missing_content_type_still_works(self):
@@ -773,8 +773,8 @@ class TestBPSEC013_ContentTypeDetection:
         request.json = AsyncMock(return_value={"name": "Test", "age": 25})
         request.state = {}
 
-        bp = asyncio.run(bind_blueprint_to_request(SimpleBlueprint, request))
-        assert isinstance(bp, SimpleBlueprint)
+        bp = asyncio.run(bind_contract_to_request(SimpleContract, request))
+        assert isinstance(bp, SimpleContract)
 
 
 # ════════════════════════════════════════════════════════════════════════
@@ -782,22 +782,22 @@ class TestBPSEC013_ContentTypeDetection:
 # ════════════════════════════════════════════════════════════════════════
 
 
-class TestBlueprintSecurityIntegration:
+class TestContractSecurityIntegration:
     """Integration tests combining multiple security features."""
 
-    def test_strict_blueprint_with_valid_data(self):
-        bp = StrictBlueprint(data={"name": "Alice", "email": "alice@example.com"})
+    def test_strict_contract_with_valid_data(self):
+        bp = StrictContract(data={"name": "Alice", "email": "alice@example.com"})
         assert bp.is_sealed() is True
 
-    def test_strict_blueprint_with_extra_field(self):
-        bp = StrictBlueprint(data={"name": "Alice", "email": "a@b.com", "is_admin": True})
+    def test_strict_contract_with_extra_field(self):
+        bp = StrictContract(data={"name": "Alice", "email": "a@b.com", "is_admin": True})
         assert bp.is_sealed() is False
         assert "is_admin" in bp.errors
 
     def test_many_with_default_limit(self):
         """Default limit of 10000 should accept reasonable lists."""
         items = [{"name": f"u{i}", "age": i} for i in range(100)]
-        bp = SimpleBlueprint(data=items, many=True)
+        bp = SimpleContract(data=items, many=True)
         assert bp.is_sealed() is True
 
     def test_json_facet_with_safe_data(self):

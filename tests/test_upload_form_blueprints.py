@@ -2,63 +2,63 @@ import pytest
 
 from aquilia._datastructures import MultiDict
 from aquilia._uploads import FormData, UploadFile, create_upload_file_from_bytes
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.integration import bind_blueprint_to_request
+from aquilia.contracts import Contract
+from aquilia.contracts.integration import bind_contract_to_request
 from aquilia.controller.validation import validate_body
 from aquilia.response import Response
 
 # ── Declarations ───────────────────────────────────────────────────────────
 
 
-class ImplicitUploadBlueprint(Blueprint):
+class ImplicitUploadContract(Contract):
     file: UploadFile
     name: FormData
 
 
-class ExplicitUploadBlueprint(Blueprint):
+class ExplicitUploadContract(Contract):
     file: UploadFile(max_size=1024, allowed_types=["image/png", "image/jpeg"])
     name: FormData(type=int, default=42)
 
 
-class OptionalUploadBlueprint(Blueprint):
+class OptionalUploadContract(Contract):
     file: UploadFile | None = None
     name: FormData | None = None
 
 
-class CollectionUploadBlueprint(Blueprint):
+class CollectionUploadContract(Contract):
     files: list[UploadFile]
     tags: list[FormData]
 
 
-class InnerBlueprint(Blueprint):
+class InnerContract(Contract):
     file: UploadFile
     title: FormData
 
 
-class NestedUploadBlueprint(Blueprint):
-    inner: InnerBlueprint
+class NestedUploadContract(Contract):
+    inner: InnerContract
     outer_name: FormData
 
 
 # ── Tests ───────────────────────────────────────────────────────────────────
 
 
-def test_implicit_blueprint_instantiation():
+def test_implicit_contract_instantiation():
     # Test with raw dictionary
     f = create_upload_file_from_bytes("test.png", b"hello", "image/png")
     data = {
         "file": f,
         "name": "Alice",
     }
-    bp = ImplicitUploadBlueprint(data=data)
+    bp = ImplicitUploadContract(data=data)
     assert bp.is_sealed() is True
     validated = bp.validated_data
     assert validated["file"] == f
     assert validated["name"] == "Alice"
 
 
-def test_explicit_blueprint_instantiation():
-    # Test explicit blueprint config and validation
+def test_explicit_contract_instantiation():
+    # Test explicit contract config and validation
     f_valid = create_upload_file_from_bytes("test.png", b"small content", "image/png")
 
     # Valid explicit fields
@@ -66,7 +66,7 @@ def test_explicit_blueprint_instantiation():
         "file": f_valid,
         "name": "100",  # Will be cast to int (100)
     }
-    bp1 = ExplicitUploadBlueprint(data=data_valid)
+    bp1 = ExplicitUploadContract(data=data_valid)
     assert bp1.is_sealed() is True
     assert bp1.validated_data["name"] == 100
     assert bp1.validated_data["file"] == f_valid
@@ -77,7 +77,7 @@ def test_explicit_blueprint_instantiation():
         "file": f_large,
         "name": "50",
     }
-    bp2 = ExplicitUploadBlueprint(data=data_large)
+    bp2 = ExplicitUploadContract(data=data_large)
     assert bp2.is_sealed() is False
     assert "file" in bp2.errors
     assert "exceeds maximum limit" in bp2.errors["file"][0]
@@ -88,29 +88,29 @@ def test_explicit_blueprint_instantiation():
         "file": f_invalid_type,
         "name": "50",
     }
-    bp3 = ExplicitUploadBlueprint(data=data_invalid_type)
+    bp3 = ExplicitUploadContract(data=data_invalid_type)
     assert bp3.is_sealed() is False
     assert "file" in bp3.errors
     assert "is not allowed" in bp3.errors["file"][0]
 
     # Test wildcard content-type validation
-    class WildcardBlueprint(Blueprint):
+    class WildcardContract(Contract):
         file: UploadFile(allowed_types=["image/*"])
 
     f_wildcard = create_upload_file_from_bytes("test.jpg", b"hello", "image/jpeg")
-    bp_wc = WildcardBlueprint(data={"file": f_wildcard})
+    bp_wc = WildcardContract(data={"file": f_wildcard})
     assert bp_wc.is_sealed() is True
 
 
 def test_optional_fields():
     # Test that optional fields permit None
-    bp1 = OptionalUploadBlueprint(data={"file": None, "name": None})
+    bp1 = OptionalUploadContract(data={"file": None, "name": None})
     assert bp1.is_sealed() is True
     assert bp1.validated_data["file"] is None
     assert bp1.validated_data["name"] is None
 
     # Test missing fields on optional also seals correctly (defaults to None)
-    bp2 = OptionalUploadBlueprint(data={})
+    bp2 = OptionalUploadContract(data={})
     assert bp2.is_sealed() is True
     assert bp2.validated_data["file"] is None
     assert bp2.validated_data["name"] is None
@@ -123,20 +123,20 @@ def test_collections():
     # Test collections of files and form data
     # Standard MultiDict structure
     form_data = FormData(fields=MultiDict([("tags", "tag1"), ("tags", "tag2")]), files={"files": [f1, f2]})
-    bp = CollectionUploadBlueprint(data=form_data)
+    bp = CollectionUploadContract(data=form_data)
     assert bp.is_sealed() is True
     assert bp.validated_data["files"] == [f1, f2]
     assert bp.validated_data["tags"] == ["tag1", "tag2"]
 
 
-def test_nested_blueprints():
+def test_nested_contracts():
     f = create_upload_file_from_bytes("nested.png", b"nested", "image/png")
 
     # Nested mapping payload
     form_data = FormData(
         fields=MultiDict([("inner.title", "Inner Title"), ("outer_name", "Outer Name")]), files={"inner.file": [f]}
     )
-    bp = NestedUploadBlueprint(data=form_data)
+    bp = NestedUploadContract(data=form_data)
     assert bp.is_sealed() is True
     assert bp.validated_data["outer_name"] == "Outer Name"
     assert bp.validated_data["inner"]["title"] == "Inner Title"
@@ -147,7 +147,7 @@ def test_nested_blueprints():
 
 
 @pytest.mark.asyncio
-async def test_bind_blueprint_to_multipart_request():
+async def test_bind_contract_to_multipart_request():
     f = create_upload_file_from_bytes("avatar.png", b"avatar bytes", "image/png")
     form_data = FormData(fields=MultiDict([("name", "Bob")]), files={"file": [f]})
 
@@ -159,15 +159,15 @@ async def test_bind_blueprint_to_multipart_request():
             return form_data
 
     # Test integration binding
-    bp = await bind_blueprint_to_request(ImplicitUploadBlueprint, MockRequest())
+    bp = await bind_contract_to_request(ImplicitUploadContract, MockRequest())
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "Bob"
     assert bp.validated_data["file"] == f
 
 
 @pytest.mark.asyncio
-async def test_bind_blueprint_to_urlencoded_request():
-    class UrlencodedBlueprint(Blueprint):
+async def test_bind_contract_to_urlencoded_request():
+    class UrlencodedContract(Contract):
         name: FormData(type=str)
         age: FormData(type=int)
         is_admin: FormData(type=bool)
@@ -181,7 +181,7 @@ async def test_bind_blueprint_to_urlencoded_request():
         async def form(self):
             return form_data
 
-    bp = await bind_blueprint_to_request(UrlencodedBlueprint, MockRequest())
+    bp = await bind_contract_to_request(UrlencodedContract, MockRequest())
     assert bp.is_sealed() is True
     assert bp.validated_data["name"] == "Bob"
     assert bp.validated_data["age"] == 30
@@ -195,7 +195,7 @@ async def test_validate_body_decorator_multipart():
 
     executed = {}
 
-    @validate_body(ImplicitUploadBlueprint)
+    @validate_body(ImplicitUploadContract)
     async def handler(self, ctx, body=None):
         executed["body"] = body
         return Response.json({"ok": True})
@@ -217,7 +217,7 @@ async def test_validate_body_decorator_multipart():
 
 @pytest.mark.asyncio
 async def test_json_validation_unchanged():
-    class SimpleJSONBlueprint(Blueprint):
+    class SimpleJSONContract(Contract):
         name: str
         age: int
 
@@ -230,7 +230,7 @@ async def test_json_validation_unchanged():
 
     executed = {}
 
-    @validate_body(SimpleJSONBlueprint)
+    @validate_body(SimpleJSONContract)
     async def handler(self, ctx, body=None):
         executed["body"] = body
         return Response.json({"ok": True})
@@ -241,14 +241,14 @@ async def test_json_validation_unchanged():
 
 
 def test_missing_required_fields():
-    bp = ImplicitUploadBlueprint(data={})
+    bp = ImplicitUploadContract(data={})
     assert bp.is_sealed() is False
     assert "file" in bp.errors
     assert "name" in bp.errors
 
 
 def test_invalid_field_types():
-    bp = ExplicitUploadBlueprint(
+    bp = ExplicitUploadContract(
         data={"file": create_upload_file_from_bytes("test.png", b"hello", "image/png"), "name": "not-an-int"}
     )
     assert bp.is_sealed() is False
@@ -257,6 +257,6 @@ def test_invalid_field_types():
 
 def test_empty_uploads():
     f_empty = create_upload_file_from_bytes("empty.png", b"", "image/png")
-    bp = ImplicitUploadBlueprint(data={"file": f_empty, "name": "Bob"})
+    bp = ImplicitUploadContract(data={"file": f_empty, "name": "Bob"})
     assert bp.is_sealed() is True
     assert bp.validated_data["file"].size == 0

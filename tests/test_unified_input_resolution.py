@@ -6,8 +6,8 @@ from typing import Annotated
 import pytest
 
 from aquilia._datastructures import MultiDict
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.integration import bind_blueprint_to_request
+from aquilia.contracts import Contract
+from aquilia.contracts.integration import bind_contract_to_request
 from aquilia.controller import GET, Controller
 from aquilia.controller.engine import ControllerEngine
 from aquilia.controller.factory import ControllerFactory
@@ -26,7 +26,7 @@ class PriorityEnum(IntEnum):
     LOW = 2
 
 
-class SearchBlueprint(Blueprint):
+class SearchContract(Contract):
     title: str
     tags: list[str]
     nums: set[int]
@@ -57,7 +57,7 @@ class MockRequest:
 
 
 @pytest.mark.asyncio
-async def test_blueprint_from_query_params():
+async def test_contract_from_query_params():
     qps = MultiDict()
     qps.add("title", "Aquilia Unified")
     qps.add("tags", "python")
@@ -67,7 +67,7 @@ async def test_blueprint_from_query_params():
     qps.add("priority", "1")  # Coerces to PriorityEnum.HIGH (IntEnum)
 
     req = MockRequest(query_params=qps)
-    bp = await bind_blueprint_to_request(SearchBlueprint, req)
+    bp = await bind_contract_to_request(SearchContract, req)
 
     assert bp.is_sealed() is True
     assert bp.title == "Aquilia Unified"

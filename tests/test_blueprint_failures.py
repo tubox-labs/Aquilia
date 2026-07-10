@@ -5,7 +5,7 @@ from typing import Annotated, Literal
 
 import pytest
 
-from aquilia.blueprints import Blueprint, Facet, ward
+from aquilia.contracts import Contract, Facet, ward
 
 
 # Enums and Types for testing
@@ -14,14 +14,14 @@ class UserRole(Enum):
     USER = "user"
 
 
-class OrderItemBlueprint(Blueprint):
+class OrderItemContract(Contract):
     product_id: int
     qty: Annotated[int, Facet.int[1:]]
     price: Annotated[float, Facet.float[0:]]
 
 
-class OrderBlueprint(Blueprint):
-    items: list[OrderItemBlueprint]
+class OrderContract(Contract):
+    items: list[OrderItemContract]
     total: Annotated[float, Facet.float[0:]]
     discount_code: Annotated[str | None, Facet.text()] = None
 
@@ -55,19 +55,19 @@ async def test_ward_validation_nested_and_async():
         "discount_code": "VALID10",
     }
 
-    bp = OrderBlueprint(data=data, context=context)
+    bp = OrderContract(data=data, context=context)
     # This should pass without raising 'builtin_function_or_method' object is not iterable
     is_ok = await bp.is_sealed_async()
     assert is_ok is True, f"Validation failed: {bp.errors}"
 
 
 # 2. Union Schema Generation Failure Reproduction
-class Circle(Blueprint):
+class Circle(Contract):
     kind: Literal["circle"] = "circle"
     radius: Annotated[float, Facet.float[0:]]
 
 
-class Square(Blueprint):
+class Square(Contract):
     kind: Literal["square"] = "square"
     side: Annotated[float, Facet.float[0:]]
 
@@ -84,7 +84,7 @@ def test_union_schema_generation():
 
 
 # 3. Serialization Reproduction
-class ComplexUserBlueprint(Blueprint):
+class ComplexUserContract(Contract):
     id: uuid.UUID
     name: str
     role: UserRole
@@ -108,7 +108,7 @@ def test_to_dict_inbound_and_outbound():
         "birthday": birth.isoformat(),
     }
 
-    bp = ComplexUserBlueprint(data=data)
+    bp = ComplexUserContract(data=data)
     assert bp.is_sealed() is True
     out_dict = bp.to_dict()
     assert out_dict["name"] == "Alice"
@@ -126,19 +126,19 @@ def test_to_dict_inbound_and_outbound():
             self.birthday = birth
 
     user_obj = _MockUser()
-    serialized = ComplexUserBlueprint.to_dict(user_obj)
+    serialized = ComplexUserContract.to_dict(user_obj)
     assert serialized["name"] == "Alice"
     assert serialized["role"] == "admin"
     assert serialized["created_at"] == now.isoformat()
     assert serialized["birthday"] == birth.isoformat()
     assert serialized["id"] == str(user_id)
 
-    serialized_list = ComplexUserBlueprint.to_dict_many([user_obj, user_obj])
+    serialized_list = ComplexUserContract.to_dict_many([user_obj, user_obj])
     assert len(serialized_list) == 2
     assert serialized_list[0]["name"] == "Alice"
 
 
-class Drawing(Blueprint):
+class Drawing(Contract):
     shape: Circle | Square
 
 
@@ -157,23 +157,23 @@ def test_union_serialization():
     assert serialized == {"shape": {"kind": "circle", "radius": 10.0}}
 
 
-def test_blueprint_as_serialization_input():
-    # Verify that a sealed blueprint instance passed to the class's to_dict
+def test_contract_as_serialization_input():
+    # Verify that a sealed contract instance passed to the class's to_dict
     # returns its validated data directly.
-    class DummyBlueprint(Blueprint):
+    class DummyContract(Contract):
         name: str
 
-    bp = DummyBlueprint(data={"name": "Alice"})
+    bp = DummyContract(data={"name": "Alice"})
     assert bp.is_sealed() is True
 
     # 1. Instance level to_dict()
     assert bp.to_dict() == {"name": "Alice"}
 
     # 2. Class level to_dict(bp)
-    assert DummyBlueprint.to_dict(bp) == {"name": "Alice"}
+    assert DummyContract.to_dict(bp) == {"name": "Alice"}
 
     # 3. Class level to_dict_many([bp])
-    assert DummyBlueprint.to_dict_many([bp]) == [{"name": "Alice"}]
+    assert DummyContract.to_dict_many([bp]) == [{"name": "Alice"}]
 
 
 def test_dataobject_dict_shadowing_and_json_serialization():
@@ -283,8 +283,8 @@ def test_dataobject_advanced_features():
 
 
 def test_field_positional_default_and_ellipsis():
-    from aquilia.blueprints import Field
-    from aquilia.blueprints.facets import UNSET
+    from aquilia.contracts import Field
+    from aquilia.contracts.facets import UNSET
     from aquilia.faults.domains import ConfigInvalidFault
 
     # 1. Test single positional default value
@@ -309,10 +309,10 @@ def test_field_positional_default_and_ellipsis():
         Field(..., default="Login Successfully")
 
 
-def test_blueprint_with_field_ellipsis_validation():
-    from aquilia.blueprints import Blueprint, Field
+def test_contract_with_field_ellipsis_validation():
+    from aquilia.contracts import Contract, Field
 
-    class UserLoginBP(Blueprint):
+    class UserLoginBP(Contract):
         username: str = Field(...)
         message: str = Field(default="Login Successfully")
 

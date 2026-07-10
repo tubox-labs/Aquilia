@@ -1,23 +1,23 @@
 import time
 
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
 
 def test_high_nesting_depth_validation():
-    # Construct a chain of nested blueprints to verify depth limits or handling
-    class Level5(Blueprint):
+    # Construct a chain of nested contracts to verify depth limits or handling
+    class Level5(Contract):
         val: int
 
-    class Level4(Blueprint):
+    class Level4(Contract):
         child: Level5
 
-    class Level3(Blueprint):
+    class Level3(Contract):
         child: Level4
 
-    class Level2(Blueprint):
+    class Level2(Contract):
         child: Level3
 
-    class Level1(Blueprint):
+    class Level1(Contract):
         child: Level2
 
     payload = {"child": {"child": {"child": {"child": {"val": 42}}}}}
@@ -28,7 +28,7 @@ def test_high_nesting_depth_validation():
 
 
 def test_concurrency_stress_parallel_validation():
-    class StressBP(Blueprint):
+    class StressBP(Contract):
         name: str
         value: int
 
