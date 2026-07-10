@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import {
-  Sun, Moon, Github, BookOpen, Menu, Tag, Activity, FileText, X, Sparkles, ArrowRight
+  Sun, Moon, Github, BookOpen, Menu, Tag, Activity, FileText, X, Megaphone, ArrowRight
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { UniversalSearch } from './UniversalSearch'
@@ -52,7 +52,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.15),transparent_45%)] pointer-events-none" />
           
           <div className="flex-grow flex flex-wrap items-center justify-center gap-x-2 gap-y-1 relative z-10 text-center">
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300 animate-pulse shrink-0 inline" />
+            <Megaphone className="w-3.5 h-3.5 text-yellow-300 animate-pulse shrink-0 inline" />
             <span className="font-medium tracking-tight">
               <span className="font-bold bg-white/20 px-1.5 py-0.5 rounded mr-1.5 text-[9px] uppercase tracking-wider inline-block">V1.3.0 Release</span>
               Aquilia's major validation/molding primitive has been renamed: <strong className="font-semibold text-yellow-200">Blueprint → Contract</strong>
