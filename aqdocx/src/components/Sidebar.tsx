@@ -545,7 +545,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           if (item.children) {
             // If the current location starts with this item's path, expand it
             // Exception: if path is just prefix for children but not exact match... logic holds.
-            if (location.pathname.startsWith(item.path)) {
+            if (location.pathname === item.path || location.pathname.startsWith(item.path + '/')) {
               openItems[item.path] = true
             }
             crawl(item.children)
@@ -570,7 +570,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   }
 
   const isActive = (path: string) => location.pathname === path
-  const isChildActive = (path: string) => location.pathname.startsWith(path) && location.pathname !== path
+  const isChildActive = (path: string) => location.pathname.startsWith(path + '/')
 
   // Recursive Item Component
   const SidebarMenuItem = ({ item, depth = 0 }: { item: SidebarItem, depth?: number }) => {
