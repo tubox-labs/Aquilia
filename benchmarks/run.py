@@ -78,7 +78,7 @@ def run_scenario(scenario: str, framework: str, duration: str, concurrency: int)
         method = "POST"
         extra_args += ["-T", "application/json", "-D", str(TEMP_PAYLOAD)]
         if framework == "Aquilia":
-            url += "/validation/blueprint"
+            url += "/validation/contract"
         elif framework in ["Flask", "Django"]:
             url += "/validation/dataclass"
         else:
@@ -362,7 +362,7 @@ def write_report(
                 "route_params": "GET `/route/params/<user_id>/orders/<order_id>` parsing path variables.",
                 "di": "GET `/di` resolving a nested dependency injection hierarchy (Leaf -> Mid -> Top).",
                 "multipart": "POST `/body/multipart` uploading a 10KB text file. (Measures multipart parsing).",
-                "validation": "POST `/validation` parsing and validating a nested payload (Blueprint vs Pydantic vs Dataclasses).",
+                "validation": "POST `/validation` parsing and validating a nested payload (Contract vs Pydantic vs Dataclasses).",
                 "stream": "GET `/response/stream` sending a 32KB chunked-encoded stream.",
                 "middleware_0": "GET `/plaintext` with 0 custom middleware layers.",
                 "middleware_5": "GET `/plaintext` with 5 stacked custom middleware layers.",

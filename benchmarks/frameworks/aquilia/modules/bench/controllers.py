@@ -6,7 +6,7 @@ import random
 from aquilia import GET, POST, Controller, RequestCtx, Response
 from aquilia.controller.validation import validate_body
 from aquilia.db import AquiliaDatabase
-from benchmarks.frameworks.shared import LARGE_PAYLOAD, UserProfileBlueprint, jinja_env
+from benchmarks.frameworks.shared import LARGE_PAYLOAD, UserProfileContract, jinja_env
 
 from .services import TopService
 
@@ -112,10 +112,10 @@ class BenchmarkController(Controller):
             results.append({"id": row_id, "randomNumber": val})
         return Response.json(results)
 
-    @POST("/validation/blueprint")
-    @validate_body(UserProfileBlueprint)
-    async def validation_blueprint(self, ctx: RequestCtx, body: UserProfileBlueprint):
-        # body is the validated and casted blueprint instance
+    @POST("/validation/contract")
+    @validate_body(UserProfileContract)
+    async def validation_contract(self, ctx: RequestCtx, body: UserProfileContract):
+        # body is the validated and casted contract instance
         return Response.json({"ok": True, "username": body.username})
 
     @GET("/route/static")

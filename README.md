@@ -109,7 +109,7 @@ As a developer, you only write code inside your modules:
 * **Controllers** (`controllers.py`): Define your HTTP and WebSocket endpoints using route decorators.
 * **Services** (`services.py`): Implement business logic, database operations, and external API calls.
 * **Models** (`models.py`): Declare your database schema using the pure Python ORM.
-* **Blueprints** (`blueprints.py` or inline): Define input and output contracts using typed validation facets.
+* **Contracts** (`contracts.py` or inline): Define input and output contracts using typed validation facets.
 
 ### What Files Aquilia Manages
 You do not touch configuration orchestrators, route tables, or deployment templates:
@@ -169,12 +169,12 @@ class UsersController(Controller):
         self.user_service = user_service
 ```
 
-### Blueprints
-Blueprints define request validation schemas. They use facets to enforce constraints on incoming bodies, query parameters, and headers.
+### Contracts
+Contracts define request validation schemas. They use facets to enforce constraints on incoming bodies, query parameters, and headers.
 ```python
-from aquilia.blueprints import Blueprint, TextFacet, EmailFacet
+from aquilia.contracts import Contract, TextFacet, EmailFacet
 
-class CreateUserBlueprint(Blueprint):
+class CreateUserContract(Contract):
     username = TextFacet(min_length=3, max_length=50)
     email = EmailFacet()
 ```
@@ -254,7 +254,7 @@ The `aq` command-line utility provides commands to scaffold projects, generate c
 Aquilia generates deployment configurations for Docker, Docker Compose, and Kubernetes. It also includes render cloud integration.
 
 ### Manifests
-The manifest file (`manifest.py`) acts as the module blueprint. It lists the controllers, services, socket connections, and task configurations within the module.
+The manifest file (`manifest.py`) acts as the module contract. It lists the controllers, services, socket connections, and task configurations within the module.
 
 ### Aquiliary
 Aquiliary is the central app registry. It maps endpoints, validates route overlaps, and manages the dependency injection container.
@@ -294,10 +294,10 @@ When an exception occurs, the interceptor catches it, maps it to a structured fa
 
 ![Aquilia Fault Architecture](assets/architecture/fault.svg)
 
-### Blueprint Lifecycle
-Blueprints intercept incoming payloads, validate data types using facets, cast raw inputs into typed models, and project outgoing responses while excluding restricted fields.
+### Contract Lifecycle
+Contracts intercept incoming payloads, validate data types using facets, cast raw inputs into typed models, and project outgoing responses while excluding restricted fields.
 
-![Aquilia Blueprint Architecture](assets/architecture/blueprint.svg)
+![Aquilia Contract Architecture](assets/architecture/contract.svg)
 
 ### Runtime Lifecycle
 The runtime orchestrator boots your application through linear gates, verifying configuration health before starting the ASGI server.
@@ -376,14 +376,14 @@ class ProductService:
 from aquilia import Controller, POST, RequestCtx, Response
 from aquilia.effects import DBTx, CacheEffect
 from aquilia.flow import requires
-from aquilia.blueprints import validate_body
-from .blueprints import InvoicePaymentBlueprint
+from aquilia.contracts import validate_body
+from .contracts import InvoicePaymentContract
 
 class BillingController(Controller):
     prefix = "/billing"
 
     @POST("/pay")
-    @validate_body(InvoicePaymentBlueprint)
+    @validate_body(InvoicePaymentContract)
     @requires(DBTx("write"), CacheEffect("invoices"))
     async def process_payment(self, ctx: RequestCtx, body: dict):
         # Database and cache effects are acquired automatically before execution
@@ -461,10 +461,10 @@ WebSocket roundtrip message throughput (messages per second). Higher is better.
 
 | Feature | Aquilia | FastAPI | Flask | Django | NestJS |
 |---|---|---|---|---|---|
-| **Programming Model** | Controllers / Services | Routers / Functions | Blueprint Functions | Class / Function Views | Controllers / Services |
+| **Programming Model** | Controllers / Services | Routers / Functions | Contract Functions | Class / Function Views | Controllers / Services |
 | **Component Wiring** | Auto-discovers everything | Manual imports / mounts | Manual register calls | Manual URL patterns list | Modules imports array |
 | **Dependency Injection** | Scoped container built-in | Function parameter DI | None (needs extensions) | None (needs extensions) | Class injection built-in |
-| **Data Contracts** | Blueprints & Lenses | Pydantic Models | None (needs extensions) | Django Forms | TypeScript DTOs |
+| **Data Contracts** | Contracts & Lenses | Pydantic Models | None (needs extensions) | Django Forms | TypeScript DTOs |
 | **Out-of-box DB/Cache** | Async ORM & Cache built-in | None (needs third party) | None (needs third party) | Synchronous Django ORM | TypeORM / Prisma (Node) |
 | **Structured Faults** | Error domains built-in | Raw HTTPExceptions | Error handler mapping | Middlewares / Exceptions | Exception filters built-in |
 | **Realtime WebSockets** | Controller events built-in | Raw ASGI adapters | Needs SocketIO extension | Channels extension | Gateways built-in |

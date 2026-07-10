@@ -21,7 +21,7 @@ Aquilia v1.0.2 has undergone a comprehensive 15-phase security audit covering al
 | **DI** | ✅ Audited | Scope isolation, cycle detection, provider leak prevention |
 | **Controller** | ✅ Audited | Filter/pagination injection protection |
 | **Sessions** | ✅ Audited | Fixation protection, secure cookie flags, transport hardening |
-| **Blueprints** | ✅ Audited | Namespace collision prevention, annotation validation |
+| **Contracts** | ✅ Audited | Namespace collision prevention, annotation validation |
 | **ORM/Models** | ✅ Audited | Parameterized queries, field validation, SQL injection prevention |
 | **Admin** | ✅ Audited | RBAC, audit logging, CSRF, rate-limiting, input sanitization |
 | **Storage** | ✅ Audited | Path traversal blocking, null byte rejection, Fault-based errors |
