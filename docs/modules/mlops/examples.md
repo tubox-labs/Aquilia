@@ -11,8 +11,8 @@ from aquilia.mlops._structures import RingBuffer
 from aquilia.mlops._structures import LRUCache
 from aquilia.mlops._types import DType
 from aquilia.mlops._types import Framework
-from aquilia.mlops.api.blueprints import TensorSpecBlueprint
-from aquilia.mlops.api.blueprints import BlobRefBlueprint
+from aquilia.mlops.api.contracts import TensorSpecContract
+from aquilia.mlops.api.contracts import BlobRefContract
 ```
 
 ## Workspace/Manifest Wiring Example

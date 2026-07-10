@@ -1,4 +1,4 @@
-# Blueprints Integration Guide
+# Contracts Integration Guide
 
 Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 

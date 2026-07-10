@@ -20,7 +20,7 @@ This page is generated from the current Python source using the AST. It lists pu
 
 ## Public Exports
 
-`DeployResult`, `ProviderAPIFault`, `ProviderAuthFault`, `ProviderRateLimitFault`, `RenderAuditLogEntry`, `RenderAutoscaling`, `RenderBlueprint`, `RenderBlueprintSync`, `RenderBlueprintSyncStatus`, `RenderClient`, `RenderCredentialStore`, `RenderCustomDomain`, `RenderDeploy`, `RenderDeployConfig`, `RenderDeployStatus`, `RenderDeployer`, `RenderDisk`, `RenderDiskSnapshot`, `RenderDomainVerificationStatus`, `RenderEnvGroup`, `RenderEnvVar`, `RenderEnvironment`, `RenderEvent`, `RenderHeaderRule`, `RenderInstance`, `RenderInstanceStatus`, `RenderJob`, `RenderJobStatus`, `RenderKeyValueConnectionInfo`, `RenderKeyValueInstance`, `RenderKeyValuePlan`, `RenderLogDirection`, `RenderLogEntry`, `RenderLogLevel`, `RenderLogStream`, `RenderLogType`, `RenderMaintenance`, `RenderMaintenanceStatus`, `RenderMetricPoint`, `RenderMetricsFilter`, `RenderNotificationSettings`, `RenderNotificationType`, `RenderOwner`, `RenderPlan`, `RenderPostgresConnectionInfo`, `RenderPostgresInstance`, `RenderPostgresPlan`, `RenderPostgresUser`, `RenderProject`, `RenderRedirectRule`, `RenderRegion`, `RenderRegistryCredential`, `RenderRouteType`, `RenderSecretFile`, `RenderService`, `RenderServiceStatus`, `RenderServiceType`, `RenderWebhook`, `RenderWebhookEventType`, `RenderWorkspaceMember`, `render`
+`DeployResult`, `ProviderAPIFault`, `ProviderAuthFault`, `ProviderRateLimitFault`, `RenderAuditLogEntry`, `RenderAutoscaling`, `RenderContract`, `RenderContractSync`, `RenderContractSyncStatus`, `RenderClient`, `RenderCredentialStore`, `RenderCustomDomain`, `RenderDeploy`, `RenderDeployConfig`, `RenderDeployStatus`, `RenderDeployer`, `RenderDisk`, `RenderDiskSnapshot`, `RenderDomainVerificationStatus`, `RenderEnvGroup`, `RenderEnvVar`, `RenderEnvironment`, `RenderEvent`, `RenderHeaderRule`, `RenderInstance`, `RenderInstanceStatus`, `RenderJob`, `RenderJobStatus`, `RenderKeyValueConnectionInfo`, `RenderKeyValueInstance`, `RenderKeyValuePlan`, `RenderLogDirection`, `RenderLogEntry`, `RenderLogLevel`, `RenderLogStream`, `RenderLogType`, `RenderMaintenance`, `RenderMaintenanceStatus`, `RenderMetricPoint`, `RenderMetricsFilter`, `RenderNotificationSettings`, `RenderNotificationType`, `RenderOwner`, `RenderPlan`, `RenderPostgresConnectionInfo`, `RenderPostgresInstance`, `RenderPostgresPlan`, `RenderPostgresUser`, `RenderProject`, `RenderRedirectRule`, `RenderRegion`, `RenderRegistryCredential`, `RenderRouteType`, `RenderSecretFile`, `RenderService`, `RenderServiceStatus`, `RenderServiceType`, `RenderWebhook`, `RenderWebhookEventType`, `RenderWorkspaceMember`, `render`
 
 ## Public Class Summary
 
@@ -46,7 +46,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `RenderNotificationType` | `aquilia/providers/render/types.py` | str, Enum | Notification delivery channels. |
 | `RenderPostgresPlan` | `aquilia/providers/render/types.py` | str, Enum | Render Postgres plans. |
 | `RenderKeyValuePlan` | `aquilia/providers/render/types.py` | str, Enum | Render Key-Value (Redis) store plans. |
-| `RenderBlueprintSyncStatus` | `aquilia/providers/render/types.py` | str, Enum | Blueprint sync / IaC sync status. |
+| `RenderContractSyncStatus` | `aquilia/providers/render/types.py` | str, Enum | Contract sync / IaC sync status. |
 | `RenderInstanceStatus` | `aquilia/providers/render/types.py` | str, Enum | Runtime instance statuses. |
 | `RenderEnvVar` | `aquilia/providers/render/types.py` | object | Environment variable — plain value or generated secret. |
 | `RenderDisk` | `aquilia/providers/render/types.py` | object | Persistent disk attached to a Render service. |
@@ -77,8 +77,8 @@ This page is generated from the current Python source using the AST. It lists pu
 | `RenderPostgresUser` | `aquilia/providers/render/types.py` | object | A user in a Render Postgres database. |
 | `RenderKeyValueInstance` | `aquilia/providers/render/types.py` | object | A Render Key-Value (Redis) store instance. |
 | `RenderKeyValueConnectionInfo` | `aquilia/providers/render/types.py` | object | Connection info for a Render Key-Value store. |
-| `RenderBlueprint` | `aquilia/providers/render/types.py` | object | A Render Blueprint (Infrastructure as Code). |
-| `RenderBlueprintSync` | `aquilia/providers/render/types.py` | object | A blueprint sync run. |
+| `RenderContract` | `aquilia/providers/render/types.py` | object | A Render Contract (Infrastructure as Code). |
+| `RenderContractSync` | `aquilia/providers/render/types.py` | object | A contract sync run. |
 | `RenderWorkspaceMember` | `aquilia/providers/render/types.py` | object | A member of a Render workspace/team. |
 | `RenderLogStream` | `aquilia/providers/render/types.py` | object | A log stream/sink for forwarding logs. |
 | `RenderMetricsFilter` | `aquilia/providers/render/types.py` | object | Filter/query parameters for the metrics API. |
@@ -228,9 +228,9 @@ Methods:
 | `list_registry_credentials` | `def list_registry_credentials(self, *, owner_id: str \| None=None)` | List private registry credentials. |
 | `create_registry_credential` | `def create_registry_credential(self, payload: dict[str, Any])` | Create a private registry credential. |
 | `delete_registry_credential` | `def delete_registry_credential(self, credential_id: str)` | Delete a registry credential. |
-| `list_blueprints` | `def list_blueprints(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List blueprints. |
-| `get_blueprint` | `def get_blueprint(self, blueprint_id: str)` | Get a specific blueprint. |
-| `sync_blueprint` | `def sync_blueprint(self, blueprint_id: str)` | Trigger a blueprint sync. |
+| `list_contracts` | `def list_contracts(self, *, owner_id: str \| None=None, cursor: str \| None=None, limit: int=20)` | List contracts. |
+| `get_contract` | `def get_contract(self, contract_id: str)` | Get a specific contract. |
+| `sync_contract` | `def sync_contract(self, contract_id: str)` | Trigger a contract sync. |
 | `list_webhooks` | `def list_webhooks(self, *, owner_id: str \| None=None)` | List webhooks. |
 | `create_webhook` | `def create_webhook(self, payload: dict[str, Any])` | Create a webhook subscription. |
 | `get_webhook` | `def get_webhook(self, webhook_id: str)` | Get a specific webhook. |
@@ -556,11 +556,11 @@ Fields and class attributes:
 | `STANDARD` | `` | `'standard'` |
 | `PRO` | `` | `'pro'` |
 
-### `RenderBlueprintSyncStatus`
+### `RenderContractSyncStatus`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `str, Enum`
-- Summary: Blueprint sync / IaC sync status.
+- Summary: Contract sync / IaC sync status.
 
 Fields and class attributes:
 
@@ -1168,11 +1168,11 @@ Fields and class attributes:
 | `port` | `int \| None` | `None` |
 | `password` | `str \| None` | `None` |
 
-### `RenderBlueprint`
+### `RenderContract`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Summary: A Render Blueprint (Infrastructure as Code).
+- Summary: A Render Contract (Infrastructure as Code).
 - Decorators: `dataclass`
 
 Fields and class attributes:
@@ -1190,11 +1190,11 @@ Fields and class attributes:
 | `updated_at` | `str \| None` | `None` |
 | `last_sync` | `dict[str, Any] \| None` | `None` |
 
-### `RenderBlueprintSync`
+### `RenderContractSync`
 
 - Source: `aquilia/providers/render/types.py`
 - Bases: `object`
-- Summary: A blueprint sync run.
+- Summary: A contract sync run.
 - Decorators: `dataclass`
 
 Fields and class attributes:
@@ -1202,7 +1202,7 @@ Fields and class attributes:
 | Name | Type | Default / Value |
 | --- | --- | --- |
 | `id` | `str \| None` | `None` |
-| `blueprint_id` | `str \| None` | `None` |
+| `contract_id` | `str \| None` | `None` |
 | `status` | `str \| None` | `None` |
 | `started_at` | `str \| None` | `None` |
 | `completed_at` | `str \| None` | `None` |

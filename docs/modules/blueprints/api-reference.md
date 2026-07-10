@@ -1,4 +1,4 @@
-# Blueprints API Reference
+# Contracts API Reference
 
 This page is generated from the current Python source using the AST. It lists public classes, public methods, public module-level functions, constants, exports, and source files.
 
@@ -6,106 +6,106 @@ This page is generated from the current Python source using the AST. It lists pu
 
 | File | Lines | Classes | Functions | Purpose |
 | --- | ---: | ---: | ---: | --- |
-| `aquilia/blueprints/__init__.py` | 162 | 0 | 0 | Aquilia Blueprints -- first-class model↔world contracts. |
-| `aquilia/blueprints/annotations.py` | 1117 | 3 | 2 | Aquilia Blueprint Annotations -- type-annotation–driven schema declaration. |
-| `aquilia/blueprints/core.py` | 1194 | 2 | 0 | Aquilia Blueprint Core -- the Blueprint metaclass and base class. |
-| `aquilia/blueprints/exceptions.py` | 150 | 7 | 0 | Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy. |
-| `aquilia/blueprints/facets.py` | 1397 | 27 | 1 | Aquilia Blueprint Facets -- the field-level primitives of a Blueprint. |
-| `aquilia/blueprints/integration.py` | 293 | 0 | 5 | Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response. |
-| `aquilia/blueprints/lenses.py` | 201 | 1 | 0 | Aquilia Blueprint Lenses -- depth-controlled relational views. |
-| `aquilia/blueprints/projections.py` | 146 | 1 | 0 | Aquilia Blueprint Projections -- named, reusable field subsets. |
-| `aquilia/blueprints/schema.py` | 68 | 0 | 2 | Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation. |
+| `aquilia/contracts/__init__.py` | 162 | 0 | 0 | Aquilia Contracts -- first-class model↔world contracts. |
+| `aquilia/contracts/annotations.py` | 1117 | 3 | 2 | Aquilia Contract Annotations -- type-annotation–driven schema declaration. |
+| `aquilia/contracts/core.py` | 1194 | 2 | 0 | Aquilia Contract Core -- the Contract metaclass and base class. |
+| `aquilia/contracts/exceptions.py` | 150 | 7 | 0 | Aquilia Contract Exceptions -- Fault-domain-integrated error hierarchy. |
+| `aquilia/contracts/facets.py` | 1397 | 27 | 1 | Aquilia Contract Facets -- the field-level primitives of a Contract. |
+| `aquilia/contracts/integration.py` | 293 | 0 | 5 | Aquilia Contract Integration -- hooks into Controller, DI, Request/Response. |
+| `aquilia/contracts/lenses.py` | 201 | 1 | 0 | Aquilia Contract Lenses -- depth-controlled relational views. |
+| `aquilia/contracts/projections.py` | 146 | 1 | 0 | Aquilia Contract Projections -- named, reusable field subsets. |
+| `aquilia/contracts/schema.py` | 68 | 0 | 2 | Aquilia Contract Schema -- OpenAPI/JSON Schema generation. |
 
 ## Public Exports
 
-`ANNOTATION_TO_FACET`, `BLUEPRINT`, `Blueprint`, `BlueprintFault`, `BlueprintMeta`, `BoolFacet`, `CastFault`, `ChoiceFacet`, `Computed`, `Constant`, `DateFacet`, `DateTimeFacet`, `DecimalFacet`, `DictFacet`, `DurationFacet`, `EmailFacet`, `Facet`, `Field`, `FileFacet`, `FloatFacet`, `Hidden`, `IPFacet`, `ImprintFault`, `Inject`, `IntFacet`, `JSONFacet`, `LazyBlueprintFacet`, `Lens`, `LensCycleFault`, `LensDepthFault`, `ListFacet`, `MODEL_FIELD_TO_FACET`, `NestedBlueprintFacet`, `ProjectionFault`, `ProjectionRegistry`, `ReadOnly`, `SealFault`, `SlugFacet`, `TextFacet`, `TimeFacet`, `UNSET`, `URLFacet`, `UUIDFacet`, `WriteOnly`, `_blueprint_registry`, `bind_blueprint_to_request`, `computed`, `derive_facet`, `generate_component_schemas`, `generate_schema`, `introspect_annotations`, `is_blueprint_class`, `is_projected_blueprint`, `render_blueprint_response`, `resolve_blueprint_from_annotation`
+`ANNOTATION_TO_FACET`, `CONTRACT`, `Contract`, `ContractFault`, `ContractMeta`, `BoolFacet`, `CastFault`, `ChoiceFacet`, `Computed`, `Constant`, `DateFacet`, `DateTimeFacet`, `DecimalFacet`, `DictFacet`, `DurationFacet`, `EmailFacet`, `Facet`, `Field`, `FileFacet`, `FloatFacet`, `Hidden`, `IPFacet`, `ImprintFault`, `Inject`, `IntFacet`, `JSONFacet`, `LazyContractFacet`, `Lens`, `LensCycleFault`, `LensDepthFault`, `ListFacet`, `MODEL_FIELD_TO_FACET`, `NestedContractFacet`, `ProjectionFault`, `ProjectionRegistry`, `ReadOnly`, `SealFault`, `SlugFacet`, `TextFacet`, `TimeFacet`, `UNSET`, `URLFacet`, `UUIDFacet`, `WriteOnly`, `_contract_registry`, `bind_contract_to_request`, `computed`, `derive_facet`, `generate_component_schemas`, `generate_schema`, `introspect_annotations`, `is_contract_class`, `is_projected_contract`, `render_contract_response`, `resolve_contract_from_annotation`
 
 ## Public Class Summary
 
 | Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
-| `Field` | `aquilia/blueprints/annotations.py` | object | Constraint descriptor for annotation-driven Blueprint fields. |
-| `NestedBlueprintFacet` | `aquilia/blueprints/annotations.py` | Facet | A Facet that delegates validation to a nested Blueprint. |
-| `LazyBlueprintFacet` | `aquilia/blueprints/annotations.py` | Facet | A Facet that delays resolution of a Blueprint class via its string name. Used for self-referential tree structures or forward references. |
-| `BlueprintMeta` | `aquilia/blueprints/core.py` | type | Metaclass for Blueprint classes. |
-| `Blueprint` | `aquilia/blueprints/core.py` | Generic[ModelT] | The Blueprint -- a contract between a Model and the outside world. |
-| `BlueprintFault` | `aquilia/blueprints/exceptions.py` | Fault | Base fault for all Blueprint errors. |
-| `CastFault` | `aquilia/blueprints/exceptions.py` | BlueprintFault | Raised when incoming data cannot be cast to the expected type. |
-| `SealFault` | `aquilia/blueprints/exceptions.py` | BlueprintFault | Raised when a validation seal is broken. |
-| `ImprintFault` | `aquilia/blueprints/exceptions.py` | BlueprintFault | Raised when a write (imprint) operation fails. |
-| `ProjectionFault` | `aquilia/blueprints/exceptions.py` | BlueprintFault | Raised when an invalid projection is requested. |
-| `LensDepthFault` | `aquilia/blueprints/exceptions.py` | BlueprintFault | Raised when Lens traversal exceeds maximum depth. |
-| `LensCycleFault` | `aquilia/blueprints/exceptions.py` | BlueprintFault | Raised when a circular Lens reference is detected. |
-| `Facet` | `aquilia/blueprints/facets.py` | object | Base facet -- a single data point in a Blueprint. |
-| `TextFacet` | `aquilia/blueprints/facets.py` | Facet | Text/string facet with length constraints. |
-| `EmailFacet` | `aquilia/blueprints/facets.py` | TextFacet | Email address facet with format validation. |
-| `URLFacet` | `aquilia/blueprints/facets.py` | TextFacet | URL facet with format validation. |
-| `SlugFacet` | `aquilia/blueprints/facets.py` | TextFacet | URL slug facet (lowercase alphanumeric + hyphens). |
-| `IPFacet` | `aquilia/blueprints/facets.py` | TextFacet | IP address facet (v4 or v6). |
-| `IntFacet` | `aquilia/blueprints/facets.py` | Facet | Integer facet with range constraints. |
-| `FloatFacet` | `aquilia/blueprints/facets.py` | Facet | Floating-point facet. |
-| `DecimalFacet` | `aquilia/blueprints/facets.py` | Facet | Decimal facet with precision constraints. |
-| `BoolFacet` | `aquilia/blueprints/facets.py` | Facet | Boolean facet with truthy/falsy coercion. |
-| `DateFacet` | `aquilia/blueprints/facets.py` | Facet | Date facet (ISO 8601). |
-| `TimeFacet` | `aquilia/blueprints/facets.py` | Facet | Time facet (ISO 8601). |
-| `DateTimeFacet` | `aquilia/blueprints/facets.py` | Facet | DateTime facet (ISO 8601). |
-| `DurationFacet` | `aquilia/blueprints/facets.py` | Facet | Duration/timedelta facet. |
-| `UUIDFacet` | `aquilia/blueprints/facets.py` | Facet | UUID facet. |
-| `ListFacet` | `aquilia/blueprints/facets.py` | Facet | List/array facet with optional child facet. |
-| `DictFacet` | `aquilia/blueprints/facets.py` | Facet | Dictionary/object facet, optionally validating all values against a specific facet. |
-| `JSONFacet` | `aquilia/blueprints/facets.py` | Facet | Arbitrary JSON facet with configurable depth and type restrictions. |
-| `FileFacet` | `aquilia/blueprints/facets.py` | Facet | File reference facet -- stores path/URL string. |
-| `ChoiceFacet` | `aquilia/blueprints/facets.py` | Facet | Facet with a fixed set of allowed values. |
-| `PolymorphicFacet` | `aquilia/blueprints/facets.py` | Facet | A Facet that attempts to cast and seal through multiple candidate Facets. Useful for Union types like `Union[CatBlueprint, DogBlueprint]`. |
-| `Computed` | `aquilia/blueprints/facets.py` | Facet | A facet whose value is computed at output time -- never accepted as input. |
-| `Constant` | `aquilia/blueprints/facets.py` | Facet | A facet that always returns a fixed value -- useful for type discriminators, API versioning, etc. |
-| `WriteOnly` | `aquilia/blueprints/facets.py` | TextFacet | Convenience: a text facet that is write-only (e.g., passwords). |
-| `ReadOnly` | `aquilia/blueprints/facets.py` | Facet | A pass-through read-only facet. |
-| `Hidden` | `aquilia/blueprints/facets.py` | Facet | A hidden facet -- populated from default/DI, never in input or output. |
-| `Inject` | `aquilia/blueprints/facets.py` | Facet | A facet that resolves its value from the DI container at validation time. |
-| `Lens` | `aquilia/blueprints/lenses.py` | Facet | A relational facet that views related data through another Blueprint. |
-| `ProjectionRegistry` | `aquilia/blueprints/projections.py` | object | Manages named projections for a Blueprint class. |
+| `Field` | `aquilia/contracts/annotations.py` | object | Constraint descriptor for annotation-driven Contract fields. |
+| `NestedContractFacet` | `aquilia/contracts/annotations.py` | Facet | A Facet that delegates validation to a nested Contract. |
+| `LazyContractFacet` | `aquilia/contracts/annotations.py` | Facet | A Facet that delays resolution of a Contract class via its string name. Used for self-referential tree structures or forward references. |
+| `ContractMeta` | `aquilia/contracts/core.py` | type | Metaclass for Contract classes. |
+| `Contract` | `aquilia/contracts/core.py` | Generic[ModelT] | The Contract -- a contract between a Model and the outside world. |
+| `ContractFault` | `aquilia/contracts/exceptions.py` | Fault | Base fault for all Contract errors. |
+| `CastFault` | `aquilia/contracts/exceptions.py` | ContractFault | Raised when incoming data cannot be cast to the expected type. |
+| `SealFault` | `aquilia/contracts/exceptions.py` | ContractFault | Raised when a validation seal is broken. |
+| `ImprintFault` | `aquilia/contracts/exceptions.py` | ContractFault | Raised when a write (imprint) operation fails. |
+| `ProjectionFault` | `aquilia/contracts/exceptions.py` | ContractFault | Raised when an invalid projection is requested. |
+| `LensDepthFault` | `aquilia/contracts/exceptions.py` | ContractFault | Raised when Lens traversal exceeds maximum depth. |
+| `LensCycleFault` | `aquilia/contracts/exceptions.py` | ContractFault | Raised when a circular Lens reference is detected. |
+| `Facet` | `aquilia/contracts/facets.py` | object | Base facet -- a single data point in a Contract. |
+| `TextFacet` | `aquilia/contracts/facets.py` | Facet | Text/string facet with length constraints. |
+| `EmailFacet` | `aquilia/contracts/facets.py` | TextFacet | Email address facet with format validation. |
+| `URLFacet` | `aquilia/contracts/facets.py` | TextFacet | URL facet with format validation. |
+| `SlugFacet` | `aquilia/contracts/facets.py` | TextFacet | URL slug facet (lowercase alphanumeric + hyphens). |
+| `IPFacet` | `aquilia/contracts/facets.py` | TextFacet | IP address facet (v4 or v6). |
+| `IntFacet` | `aquilia/contracts/facets.py` | Facet | Integer facet with range constraints. |
+| `FloatFacet` | `aquilia/contracts/facets.py` | Facet | Floating-point facet. |
+| `DecimalFacet` | `aquilia/contracts/facets.py` | Facet | Decimal facet with precision constraints. |
+| `BoolFacet` | `aquilia/contracts/facets.py` | Facet | Boolean facet with truthy/falsy coercion. |
+| `DateFacet` | `aquilia/contracts/facets.py` | Facet | Date facet (ISO 8601). |
+| `TimeFacet` | `aquilia/contracts/facets.py` | Facet | Time facet (ISO 8601). |
+| `DateTimeFacet` | `aquilia/contracts/facets.py` | Facet | DateTime facet (ISO 8601). |
+| `DurationFacet` | `aquilia/contracts/facets.py` | Facet | Duration/timedelta facet. |
+| `UUIDFacet` | `aquilia/contracts/facets.py` | Facet | UUID facet. |
+| `ListFacet` | `aquilia/contracts/facets.py` | Facet | List/array facet with optional child facet. |
+| `DictFacet` | `aquilia/contracts/facets.py` | Facet | Dictionary/object facet, optionally validating all values against a specific facet. |
+| `JSONFacet` | `aquilia/contracts/facets.py` | Facet | Arbitrary JSON facet with configurable depth and type restrictions. |
+| `FileFacet` | `aquilia/contracts/facets.py` | Facet | File reference facet -- stores path/URL string. |
+| `ChoiceFacet` | `aquilia/contracts/facets.py` | Facet | Facet with a fixed set of allowed values. |
+| `PolymorphicFacet` | `aquilia/contracts/facets.py` | Facet | A Facet that attempts to cast and seal through multiple candidate Facets. Useful for Union types like `Union[CatContract, DogContract]`. |
+| `Computed` | `aquilia/contracts/facets.py` | Facet | A facet whose value is computed at output time -- never accepted as input. |
+| `Constant` | `aquilia/contracts/facets.py` | Facet | A facet that always returns a fixed value -- useful for type discriminators, API versioning, etc. |
+| `WriteOnly` | `aquilia/contracts/facets.py` | TextFacet | Convenience: a text facet that is write-only (e.g., passwords). |
+| `ReadOnly` | `aquilia/contracts/facets.py` | Facet | A pass-through read-only facet. |
+| `Hidden` | `aquilia/contracts/facets.py` | Facet | A hidden facet -- populated from default/DI, never in input or output. |
+| `Inject` | `aquilia/contracts/facets.py` | Facet | A facet that resolves its value from the DI container at validation time. |
+| `Lens` | `aquilia/contracts/lenses.py` | Facet | A relational facet that views related data through another Contract. |
+| `ProjectionRegistry` | `aquilia/contracts/projections.py` | object | Manages named projections for a Contract class. |
 
 ## Public Function Summary
 
 | Function | Source | Signature | Summary |
 | --- | --- | --- | --- |
-| `computed` | `aquilia/blueprints/annotations.py` | `def computed(func: Callable)` | Decorator to mark a Blueprint method as a computed output field. |
-| `introspect_annotations` | `aquilia/blueprints/annotations.py` | `def introspect_annotations(cls: type, namespace: dict[str, Any], bases: tuple, *, include_explicit_facets: bool=False)` | Introspect a Blueprint class's type annotations and produce Facet instances. |
-| `derive_facet` | `aquilia/blueprints/facets.py` | `def derive_facet(model_field: Any)` | Derive a Facet instance from an Aquilia Model field. |
-| `is_blueprint_class` | `aquilia/blueprints/integration.py` | `def is_blueprint_class(obj: Any)` | Check if an object is a Blueprint class (not instance). |
-| `is_projected_blueprint` | `aquilia/blueprints/integration.py` | `def is_projected_blueprint(obj: Any)` | Check if an object is a ProjectedRef (Blueprint["projection"]). |
-| `resolve_blueprint_from_annotation` | `aquilia/blueprints/integration.py` | `def resolve_blueprint_from_annotation(annotation: Any)` | Resolve a Blueprint class and projection from a type annotation. |
-| `bind_blueprint_to_request` | `aquilia/blueprints/integration.py` | `async def bind_blueprint_to_request(blueprint_cls: type[Blueprint], request: Any, *, projection: str \| None=None, partial: bool=False, context: dict[str, Any] \| None=None)` | Create and validate a Blueprint from an incoming request. |
-| `render_blueprint_response` | `aquilia/blueprints/integration.py` | `def render_blueprint_response(blueprint_or_cls: Blueprint \| type[Blueprint], data: Any=None, *, projection: str \| None=None, many: bool=False)` | Render data through a Blueprint for response output. |
-| `generate_schema` | `aquilia/blueprints/schema.py` | `def generate_schema(blueprint_cls: type[Blueprint], *, projection: str \| None=None, mode: str='output')` | Generate a JSON Schema for a Blueprint. |
-| `generate_component_schemas` | `aquilia/blueprints/schema.py` | `def generate_component_schemas(*blueprint_classes: type[Blueprint], include_projections: bool=True)` | Generate OpenAPI component schemas for multiple Blueprints. |
+| `computed` | `aquilia/contracts/annotations.py` | `def computed(func: Callable)` | Decorator to mark a Contract method as a computed output field. |
+| `introspect_annotations` | `aquilia/contracts/annotations.py` | `def introspect_annotations(cls: type, namespace: dict[str, Any], bases: tuple, *, include_explicit_facets: bool=False)` | Introspect a Contract class's type annotations and produce Facet instances. |
+| `derive_facet` | `aquilia/contracts/facets.py` | `def derive_facet(model_field: Any)` | Derive a Facet instance from an Aquilia Model field. |
+| `is_contract_class` | `aquilia/contracts/integration.py` | `def is_contract_class(obj: Any)` | Check if an object is a Contract class (not instance). |
+| `is_projected_contract` | `aquilia/contracts/integration.py` | `def is_projected_contract(obj: Any)` | Check if an object is a ProjectedRef (Contract["projection"]). |
+| `resolve_contract_from_annotation` | `aquilia/contracts/integration.py` | `def resolve_contract_from_annotation(annotation: Any)` | Resolve a Contract class and projection from a type annotation. |
+| `bind_contract_to_request` | `aquilia/contracts/integration.py` | `async def bind_contract_to_request(contract_cls: type[Contract], request: Any, *, projection: str \| None=None, partial: bool=False, context: dict[str, Any] \| None=None)` | Create and validate a Contract from an incoming request. |
+| `render_contract_response` | `aquilia/contracts/integration.py` | `def render_contract_response(contract_or_cls: Contract \| type[Contract], data: Any=None, *, projection: str \| None=None, many: bool=False)` | Render data through a Contract for response output. |
+| `generate_schema` | `aquilia/contracts/schema.py` | `def generate_schema(contract_cls: type[Contract], *, projection: str \| None=None, mode: str='output')` | Generate a JSON Schema for a Contract. |
+| `generate_component_schemas` | `aquilia/contracts/schema.py` | `def generate_component_schemas(*contract_classes: type[Contract], include_projections: bool=True)` | Generate OpenAPI component schemas for multiple Contracts. |
 
 ## Constants And Module Flags
 
 | Name | Source | Value or Type |
 | --- | --- | --- |
-| `ANNOTATION_TO_FACET` | `aquilia/blueprints/annotations.py` | `dict[type, type[Facet]]` |
-| `BLUEPRINT` | `aquilia/blueprints/exceptions.py` | `FaultDomain(name='BLUEPRINT', description='Blueprint contract violations -- casting, sealing, imprinting')` |
-| `UNSET` | `aquilia/blueprints/facets.py` | `_Unset()` |
-| `MODEL_FIELD_TO_FACET` | `aquilia/blueprints/facets.py` | `dict[str, type[Facet]]` |
-| `MAX_BODY_SIZE` | `aquilia/blueprints/integration.py` | `int` |
-| `MAX_UNFLATTEN_DEPTH` | `aquilia/blueprints/integration.py` | `int` |
-| `MAX_UNFLATTEN_KEYS` | `aquilia/blueprints/integration.py` | `int` |
+| `ANNOTATION_TO_FACET` | `aquilia/contracts/annotations.py` | `dict[type, type[Facet]]` |
+| `CONTRACT` | `aquilia/contracts/exceptions.py` | `FaultDomain(name='CONTRACT', description='Contract contract violations -- casting, sealing, imprinting')` |
+| `UNSET` | `aquilia/contracts/facets.py` | `_Unset()` |
+| `MODEL_FIELD_TO_FACET` | `aquilia/contracts/facets.py` | `dict[str, type[Facet]]` |
+| `MAX_BODY_SIZE` | `aquilia/contracts/integration.py` | `int` |
+| `MAX_UNFLATTEN_DEPTH` | `aquilia/contracts/integration.py` | `int` |
+| `MAX_UNFLATTEN_KEYS` | `aquilia/contracts/integration.py` | `int` |
 
 ## Detailed Classes And Methods
 
 ### `Field`
 
-- Source: `aquilia/blueprints/annotations.py`
+- Source: `aquilia/contracts/annotations.py`
 - Bases: `object`
-- Summary: Constraint descriptor for annotation-driven Blueprint fields.
+- Summary: Constraint descriptor for annotation-driven Contract fields.
 
-### `NestedBlueprintFacet`
+### `NestedContractFacet`
 
-- Source: `aquilia/blueprints/annotations.py`
+- Source: `aquilia/contracts/annotations.py`
 - Bases: `Facet`
-- Summary: A Facet that delegates validation to a nested Blueprint.
+- Summary: A Facet that delegates validation to a nested Contract.
 
 Fields and class attributes:
 
@@ -118,17 +118,17 @@ Methods:
 | Method | Signature | Summary |
 | --- | --- | --- |
 | `target` | `def target(self)` |  |
-| `cast` | `def cast(self, value: Any)` | Cast input through the nested Blueprint's seal pipeline. |
+| `cast` | `def cast(self, value: Any)` | Cast input through the nested Contract's seal pipeline. |
 | `seal` | `def seal(self, value: Any)` | Already validated during cast -- pass through. |
-| `mold` | `def mold(self, value: Any)` | Mold output through the nested Blueprint. |
+| `mold` | `def mold(self, value: Any)` | Mold output through the nested Contract. |
 | `extract` | `def extract(self, instance: Any)` | Extract the nested value from a model instance. |
-| `to_schema` | `def to_schema(self)` | Generate JSON Schema with $ref to nested Blueprint. |
+| `to_schema` | `def to_schema(self)` | Generate JSON Schema with $ref to nested Contract. |
 
-### `LazyBlueprintFacet`
+### `LazyContractFacet`
 
-- Source: `aquilia/blueprints/annotations.py`
+- Source: `aquilia/contracts/annotations.py`
 - Bases: `Facet`
-- Summary: A Facet that delays resolution of a Blueprint class via its string name. Used for self-referential tree structures or forward references.
+- Summary: A Facet that delays resolution of a Contract class via its string name. Used for self-referential tree structures or forward references.
 
 Methods:
 
@@ -141,17 +141,17 @@ Methods:
 | `extract` | `def extract(self, instance: Any)` |  |
 | `to_schema` | `def to_schema(self)` |  |
 
-### `BlueprintMeta`
+### `ContractMeta`
 
-- Source: `aquilia/blueprints/core.py`
+- Source: `aquilia/contracts/core.py`
 - Bases: `type`
-- Summary: Metaclass for Blueprint classes.
+- Summary: Metaclass for Contract classes.
 
-### `Blueprint`
+### `Contract`
 
-- Source: `aquilia/blueprints/core.py`
+- Source: `aquilia/contracts/core.py`
 - Bases: `Generic[ModelT]`
-- Summary: The Blueprint -- a contract between a Model and the outside world.
+- Summary: The Contract -- a contract between a Model and the outside world.
 
 Methods:
 
@@ -170,15 +170,15 @@ Methods:
 | `imprint` | `async def imprint(self, instance: ModelT, *, partial: bool \| None=None)` |  |
 | `imprint` | `async def imprint(self, instance: list[ModelT], *, partial: bool \| None=None)` |  |
 | `imprint` | `async def imprint(self, instance: ModelT \| list[ModelT] \| None=None, *, partial: bool \| None=None)` | Write validated data back to a model instance. |
-| `to_schema` | `def to_schema(cls, *, projection: str \| None=None, mode: str='output')` | Generate JSON Schema for this Blueprint. |
+| `to_schema` | `def to_schema(cls, *, projection: str \| None=None, mode: str='output')` | Generate JSON Schema for this Contract. |
 | `facet_names` | `def facet_names(cls, *, projection: str \| None=None)` | List facet names, optionally filtered by projection. |
 | `get_facet` | `def get_facet(cls, name: str)` | Get a facet by name. |
 
-### `BlueprintFault`
+### `ContractFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
+- Source: `aquilia/contracts/exceptions.py`
 - Bases: `Fault`
-- Summary: Base fault for all Blueprint errors.
+- Summary: Base fault for all Contract errors.
 
 Fields and class attributes:
 
@@ -195,8 +195,8 @@ Methods:
 
 ### `CastFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
-- Bases: `BlueprintFault`
+- Source: `aquilia/contracts/exceptions.py`
+- Bases: `ContractFault`
 - Summary: Raised when incoming data cannot be cast to the expected type.
 
 Fields and class attributes:
@@ -207,8 +207,8 @@ Fields and class attributes:
 
 ### `SealFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
-- Bases: `BlueprintFault`
+- Source: `aquilia/contracts/exceptions.py`
+- Bases: `ContractFault`
 - Summary: Raised when a validation seal is broken.
 
 Fields and class attributes:
@@ -219,8 +219,8 @@ Fields and class attributes:
 
 ### `ImprintFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
-- Bases: `BlueprintFault`
+- Source: `aquilia/contracts/exceptions.py`
+- Bases: `ContractFault`
 - Summary: Raised when a write (imprint) operation fails.
 
 Fields and class attributes:
@@ -231,8 +231,8 @@ Fields and class attributes:
 
 ### `ProjectionFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
-- Bases: `BlueprintFault`
+- Source: `aquilia/contracts/exceptions.py`
+- Bases: `ContractFault`
 - Summary: Raised when an invalid projection is requested.
 
 Fields and class attributes:
@@ -243,8 +243,8 @@ Fields and class attributes:
 
 ### `LensDepthFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
-- Bases: `BlueprintFault`
+- Source: `aquilia/contracts/exceptions.py`
+- Bases: `ContractFault`
 - Summary: Raised when Lens traversal exceeds maximum depth.
 
 Fields and class attributes:
@@ -255,8 +255,8 @@ Fields and class attributes:
 
 ### `LensCycleFault`
 
-- Source: `aquilia/blueprints/exceptions.py`
-- Bases: `BlueprintFault`
+- Source: `aquilia/contracts/exceptions.py`
+- Bases: `ContractFault`
 - Summary: Raised when a circular Lens reference is detected.
 
 Fields and class attributes:
@@ -267,9 +267,9 @@ Fields and class attributes:
 
 ### `Facet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `object`
-- Summary: Base facet -- a single data point in a Blueprint.
+- Summary: Base facet -- a single data point in a Contract.
 
 Methods:
 
@@ -277,8 +277,8 @@ Methods:
 | --- | --- | --- |
 | `required` | `def required(self)` |  |
 | `required` | `def required(self, value: bool)` |  |
-| `bind` | `def bind(self, name: str, blueprint: Blueprint)` | Attach this facet to a Blueprint with a field name. |
-| `clone` | `def clone(self)` | Create a shallow copy for Blueprint inheritance. |
+| `bind` | `def bind(self, name: str, contract: Contract)` | Attach this facet to a Contract with a field name. |
+| `clone` | `def clone(self)` | Create a shallow copy for Contract inheritance. |
 | `cast` | `def cast(self, value: Any)` | Cast an incoming value to the internal Python type. |
 | `mold` | `def mold(self, value: Any)` | Shape an outgoing value for the response. |
 | `seal` | `def seal(self, value: Any)` | Run all field-level validators on a cast value. |
@@ -289,7 +289,7 @@ Methods:
 
 ### `TextFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Text/string facet with length constraints.
 
@@ -309,7 +309,7 @@ Methods:
 
 ### `EmailFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `TextFacet`
 - Summary: Email address facet with format validation.
 
@@ -323,7 +323,7 @@ Methods:
 
 ### `URLFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `TextFacet`
 - Summary: URL facet with format validation.
 
@@ -336,7 +336,7 @@ Methods:
 
 ### `SlugFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `TextFacet`
 - Summary: URL slug facet (lowercase alphanumeric + hyphens).
 
@@ -350,7 +350,7 @@ Methods:
 
 ### `IPFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `TextFacet`
 - Summary: IP address facet (v4 or v6).
 
@@ -363,7 +363,7 @@ Methods:
 
 ### `IntFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Integer facet with range constraints.
 
@@ -377,7 +377,7 @@ Methods:
 
 ### `FloatFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Floating-point facet.
 
@@ -391,7 +391,7 @@ Methods:
 
 ### `DecimalFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Decimal facet with precision constraints.
 
@@ -406,7 +406,7 @@ Methods:
 
 ### `BoolFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Boolean facet with truthy/falsy coercion.
 
@@ -418,7 +418,7 @@ Methods:
 
 ### `DateFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Date facet (ISO 8601).
 
@@ -432,7 +432,7 @@ Methods:
 
 ### `TimeFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Time facet (ISO 8601).
 
@@ -446,7 +446,7 @@ Methods:
 
 ### `DateTimeFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: DateTime facet (ISO 8601).
 
@@ -460,7 +460,7 @@ Methods:
 
 ### `DurationFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Duration/timedelta facet.
 
@@ -474,7 +474,7 @@ Methods:
 
 ### `UUIDFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: UUID facet.
 
@@ -488,7 +488,7 @@ Methods:
 
 ### `ListFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: List/array facet with optional child facet.
 
@@ -503,7 +503,7 @@ Methods:
 
 ### `DictFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Dictionary/object facet, optionally validating all values against a specific facet.
 
@@ -524,7 +524,7 @@ Methods:
 
 ### `JSONFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Arbitrary JSON facet with configurable depth and type restrictions.
 
@@ -543,7 +543,7 @@ Methods:
 
 ### `FileFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: File reference facet -- stores path/URL string.
 
@@ -556,7 +556,7 @@ Methods:
 
 ### `ChoiceFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: Facet with a fixed set of allowed values.
 
@@ -570,9 +570,9 @@ Methods:
 
 ### `PolymorphicFacet`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
-- Summary: A Facet that attempts to cast and seal through multiple candidate Facets. Useful for Union types like `Union[CatBlueprint, DogBlueprint]`.
+- Summary: A Facet that attempts to cast and seal through multiple candidate Facets. Useful for Union types like `Union[CatContract, DogContract]`.
 
 Methods:
 
@@ -585,7 +585,7 @@ Methods:
 
 ### `Computed`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: A facet whose value is computed at output time -- never accepted as input.
 
@@ -598,7 +598,7 @@ Methods:
 
 ### `Constant`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: A facet that always returns a fixed value -- useful for type discriminators, API versioning, etc.
 
@@ -612,13 +612,13 @@ Methods:
 
 ### `WriteOnly`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `TextFacet`
 - Summary: Convenience: a text facet that is write-only (e.g., passwords).
 
 ### `ReadOnly`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: A pass-through read-only facet.
 
@@ -630,13 +630,13 @@ Methods:
 
 ### `Hidden`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: A hidden facet -- populated from default/DI, never in input or output.
 
 ### `Inject`
 
-- Source: `aquilia/blueprints/facets.py`
+- Source: `aquilia/contracts/facets.py`
 - Bases: `Facet`
 - Summary: A facet that resolves its value from the DI container at validation time.
 
@@ -644,29 +644,29 @@ Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `resolve_from_context` | `def resolve_from_context(self, context: dict[str, Any])` | Resolve value from DI container or context in Blueprint context. |
+| `resolve_from_context` | `def resolve_from_context(self, context: dict[str, Any])` | Resolve value from DI container or context in Contract context. |
 
 ### `Lens`
 
-- Source: `aquilia/blueprints/lenses.py`
+- Source: `aquilia/contracts/lenses.py`
 - Bases: `Facet`
-- Summary: A relational facet that views related data through another Blueprint.
+- Summary: A relational facet that views related data through another Contract.
 
 Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
 | `target` | `def target(self)` |  |
-| `bind` | `def bind(self, name: str, blueprint: Blueprint)` |  |
-| `mold` | `def mold(self, value: Any, *, _depth: int=0, _seen: set \| None=None)` | Mold related data through the target Blueprint. |
+| `bind` | `def bind(self, name: str, contract: Contract)` |  |
+| `mold` | `def mold(self, value: Any, *, _depth: int=0, _seen: set \| None=None)` | Mold related data through the target Contract. |
 | `extract` | `def extract(self, instance: Any)` | Extract related data from the instance. |
-| `to_schema` | `def to_schema(self)` | Generate JSON Schema with $ref for the target Blueprint. |
+| `to_schema` | `def to_schema(self)` | Generate JSON Schema with $ref for the target Contract. |
 
 ### `ProjectionRegistry`
 
-- Source: `aquilia/blueprints/projections.py`
+- Source: `aquilia/contracts/projections.py`
 - Bases: `object`
-- Summary: Manages named projections for a Blueprint class.
+- Summary: Manages named projections for a Contract class.
 
 Methods:
 

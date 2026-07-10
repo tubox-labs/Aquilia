@@ -70,8 +70,8 @@ All `RouteDecorator` subclasses accept the following parameters in their `__init
 |-----------|------|---------|-------------|
 | `response_model` | `type \| None` | `None` | Response type for OpenAPI |
 | `status_code` | `int` | `200` | Default HTTP status code |
-| `request_blueprint` | `type \| None` | `None` | Aquilia Blueprint class for request body casting and sealing |
-| `response_blueprint` | `type \| None` | `None` | Aquilia Blueprint class (or ProjectedRef) for response molding |
+| `request_contract` | `type \| None` | `None` | Aquilia Contract class for request body casting and sealing |
+| `response_contract` | `type \| None` | `None` | Aquilia Contract class (or ProjectedRef) for response molding |
 
 ### Filtering, Searching, Ordering
 
@@ -287,18 +287,18 @@ class ArticleController(Controller):
         return None
 ```
 
-### Request/Response Blueprints
+### Request/Response Contracts
 
 ```python
-from aquilia.blueprint import Blueprint
+from aquilia.contract import Contract
 from aquilia.controller import Controller, POST, GET
 
-class CreateUserInput(Blueprint):
+class CreateUserInput(Contract):
     username: str
     email: str
     age: int
 
-class UserOutput(Blueprint):
+class UserOutput(Contract):
     id: int
     username: str
     email: str
@@ -308,8 +308,8 @@ class UserController(Controller):
     
     @POST(
         "/",
-        request_blueprint=CreateUserInput,
-        response_blueprint=UserOutput,
+        request_contract=CreateUserInput,
+        response_contract=UserOutput,
         status_code=201
     )
     async def create_user(self, ctx, body: CreateUserInput):

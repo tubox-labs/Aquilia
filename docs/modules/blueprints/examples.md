@@ -1,4 +1,4 @@
-# Blueprints Examples
+# Contracts Examples
 
 Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 
@@ -7,12 +7,12 @@ Examples here use public symbols and checked patterns from the repository. When 
 ## Source-Backed Import Examples
 
 ```python
-from aquilia.blueprints.annotations import Field
-from aquilia.blueprints.annotations import NestedBlueprintFacet
-from aquilia.blueprints.annotations import computed
-from aquilia.blueprints.core import BlueprintMeta
-from aquilia.blueprints.core import Blueprint
-from aquilia.blueprints.exceptions import BlueprintFault
+from aquilia.contracts.annotations import Field
+from aquilia.contracts.annotations import NestedContractFacet
+from aquilia.contracts.annotations import computed
+from aquilia.contracts.core import ContractMeta
+from aquilia.contracts.core import Contract
+from aquilia.contracts.exceptions import ContractFault
 ```
 
 ## Workspace/Manifest Wiring Example

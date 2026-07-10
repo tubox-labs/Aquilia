@@ -1,39 +1,39 @@
 ---
-title: "Blueprint Exceptions"
-description: "Detailed guide to the BlueprintFault error hierarchy and fault domain in Aquilia"
+title: "Contract Exceptions"
+description: "Detailed guide to the ContractFault error hierarchy and fault domain in Aquilia"
 icon: lucide/alert-triangle
 ---
 ## Overview
 
-All validation and execution errors in Blueprints participate in Aquilia's unified fault domain system. They inherit from a common base class, `BlueprintFault`, and provide structured payloads for API error responses.
+All validation and execution errors in Contracts participate in Aquilia's unified fault domain system. They inherit from a common base class, `ContractFault`, and provide structured payloads for API error responses.
 
 ---
 
-## The BLUEPRINT Fault Domain
+## The CONTRACT Fault Domain
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:16-19`
+    Evidence: `aquilia/contracts/exceptions.py:16-19`
 
 
-Aquilia groups Blueprint-related errors under a single fault domain [BLUEPRINT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L16-L19).
+Aquilia groups Contract-related errors under a single fault domain [CONTRACT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L16-L19).
 
 ```python
-BLUEPRINT = FaultDomain(
-    name="BLUEPRINT",
-    description="Blueprint contract violations -- casting, sealing, imprinting",
+CONTRACT = FaultDomain(
+    name="CONTRACT",
+    description="Contract contract violations -- casting, sealing, imprinting",
 )
 ```
 
 ---
 
-## Base Exception: BlueprintFault
+## Base Exception: ContractFault
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:25-57`
+    Evidence: `aquilia/contracts/exceptions.py:25-57`
 
 
-[BlueprintFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L25-L57) is the base exception class for all Blueprint errors. It inherits from `Fault` and exposes the following settings:
-- **Domain**: [BLUEPRINT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L16-L19)
+[ContractFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L25-L57) is the base exception class for all Contract errors. It inherits from `Fault` and exposes the following settings:
+- **Domain**: [CONTRACT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L16-L19)
 - **Severity**: `Severity.ERROR`
 - **Default Code**: `"BP000"`
 - **Public**: `True` (meaning it is safe to return to API clients)
@@ -42,7 +42,7 @@ BLUEPRINT = FaultDomain(
 ```python
 def __init__(
     self,
-    message: str = "Blueprint validation failed",
+    message: str = "Contract validation failed",
     *,
     errors: dict[str, list[str]] | None = None,
     code: str | None = None,
@@ -51,11 +51,11 @@ def __init__(
 ```
 
 ### JSON Response Format
-The [as_response_body](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L48-L56) method converts the exception into a structured payload for HTTP responses:
+The [as_response_body](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L48-L56) method converts the exception into a structured payload for HTTP responses:
 ```json
 {
   "fault": "BP000",
-  "message": "Blueprint validation failed",
+  "message": "Contract validation failed",
   "errors": {
     "field_name": ["Error message"]
   }
@@ -64,12 +64,12 @@ The [as_response_body](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquil
 
 ---
 
-## Specific Blueprint Exceptions
+## Specific Contract Exceptions
 
 ### CastFault (BP100)
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:62-80`
+    Evidence: `aquilia/contracts/exceptions.py:62-80`
 
 
 Raised when incoming data cannot be coerced into the type required by the field's Facet.
@@ -92,10 +92,10 @@ Raised when incoming data cannot be coerced into the type required by the field'
 ### SealFault (BP200)
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:82-109`
+    Evidence: `aquilia/contracts/exceptions.py:82-109`
 
 
-Raised when one or more validation constraints are broken during the blueprint sealing phase (such as custom `@ward` methods or facet validation constraints).
+Raised when one or more validation constraints are broken during the contract sealing phase (such as custom `@ward` methods or facet validation constraints).
 
 - **Fault Code**: `BP200`
 - **Key attributes**: `field_errors` (mapping of field names to their validation error lists)
@@ -106,7 +106,7 @@ Raised when one or more validation constraints are broken during the blueprint s
 ### ImprintFault (BP300)
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:111-115`
+    Evidence: `aquilia/contracts/exceptions.py:111-115`
 
 
 Raised when writing (imprinting) validated data back to the database or model instance fails.
@@ -118,10 +118,10 @@ Raised when writing (imprinting) validated data back to the database or model in
 ### ProjectionFault (BP400)
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:117-127`
+    Evidence: `aquilia/contracts/exceptions.py:117-127`
 
 
-Raised when a projection requested by name is not found in the blueprint spec.
+Raised when a projection requested by name is not found in the contract spec.
 
 - **Fault Code**: `BP400`
 - **Key attributes**: `projection` (the requested projection name), `available` (list of valid projection names configured in the Spec)
@@ -131,7 +131,7 @@ Raised when a projection requested by name is not found in the blueprint spec.
 ### LensDepthFault (BP500)
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:129-139`
+    Evidence: `aquilia/contracts/exceptions.py:129-139`
 
 
 Raised when traversing nested relationships using Lenses exceeds the configured maximum depth limit.
@@ -144,7 +144,7 @@ Raised when traversing nested relationships using Lenses exceeds the configured 
 ### LensCycleFault (BP501)
 
 !!! info
-    Evidence: `aquilia/blueprints/exceptions.py:141-150`
+    Evidence: `aquilia/contracts/exceptions.py:141-150`
 
 
 Raised when a circular reference loop is detected during Lens modeling.
@@ -156,13 +156,13 @@ Raised when a circular reference loop is detected during Lens modeling.
 
 ## Code Example
 
-Catching and responding with Blueprint validation faults:
+Catching and responding with Contract validation faults:
 
 ```python
-from aquilia.blueprints import Blueprint, IntFacet, TextFacet
-from aquilia.blueprints.exceptions import BlueprintFault
+from aquilia.contracts import Contract, IntFacet, TextFacet
+from aquilia.contracts.exceptions import ContractFault
 
-class UserBlueprint(Blueprint):
+class UserContract(Contract):
     class Spec:
         fields = {
             "id": IntFacet(),
@@ -170,16 +170,16 @@ class UserBlueprint(Blueprint):
         }
 
 try:
-    bp = UserBlueprint(data={"username": "ab"}) # Too short
+    bp = UserContract(data={"username": "ab"}) # Too short
     if not bp.is_sealed():
         # Will raise SealFault or we can raise it manually
         pass
-except BlueprintFault as fault:
+except ContractFault as fault:
     print(fault.as_response_body())
     # Output:
     # {
     #   'fault': 'BP200',
-    #   'message': 'Blueprint validation failed',
+    #   'message': 'Contract validation failed',
     #   'errors': {'username': ['Must be at least 3 characters']}
     # }
 ```

@@ -1,14 +1,14 @@
 # Mail Examples
 
-Async mail subsystem with message classes, config blueprints, providers, DI registration, templates, faults, and convenience send APIs.
+Async mail subsystem with message classes, config contracts, providers, DI registration, templates, faults, and convenience send APIs.
 
 Examples here use public symbols and checked patterns from the repository. When a module has no safe standalone constructor example, the example focuses on importing and wiring the actual source-backed API.
 
 ## Source-Backed Import Examples
 
 ```python
-from aquilia.mail.config import ProviderConfigBlueprint
-from aquilia.mail.config import MailAuthConfigBlueprint
+from aquilia.mail.config import ProviderConfigContract
+from aquilia.mail.config import MailAuthConfigContract
 from aquilia.mail.di_providers import MailConfigProvider
 from aquilia.mail.di_providers import MailServiceProvider
 from aquilia.mail.di_providers import create_mail_config

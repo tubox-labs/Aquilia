@@ -1,4 +1,4 @@
-# Blueprints Documentation
+# Contracts Documentation
 
 Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 
@@ -13,15 +13,15 @@ Model-to-world contracts for request validation, response rendering, schema gene
 
 ## Source Files Read
 
-- `aquilia/blueprints/__init__.py`: Aquilia Blueprints -- first-class model↔world contracts.
-- `aquilia/blueprints/annotations.py`: Aquilia Blueprint Annotations -- type-annotation–driven schema declaration.
-- `aquilia/blueprints/core.py`: Aquilia Blueprint Core -- the Blueprint metaclass and base class.
-- `aquilia/blueprints/exceptions.py`: Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy.
-- `aquilia/blueprints/facets.py`: Aquilia Blueprint Facets -- the field-level primitives of a Blueprint.
-- `aquilia/blueprints/integration.py`: Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response.
-- `aquilia/blueprints/lenses.py`: Aquilia Blueprint Lenses -- depth-controlled relational views.
-- `aquilia/blueprints/projections.py`: Aquilia Blueprint Projections -- named, reusable field subsets.
-- `aquilia/blueprints/schema.py`: Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation.
+- `aquilia/contracts/__init__.py`: Aquilia Contracts -- first-class model↔world contracts.
+- `aquilia/contracts/annotations.py`: Aquilia Contract Annotations -- type-annotation–driven schema declaration.
+- `aquilia/contracts/core.py`: Aquilia Contract Core -- the Contract metaclass and base class.
+- `aquilia/contracts/exceptions.py`: Aquilia Contract Exceptions -- Fault-domain-integrated error hierarchy.
+- `aquilia/contracts/facets.py`: Aquilia Contract Facets -- the field-level primitives of a Contract.
+- `aquilia/contracts/integration.py`: Aquilia Contract Integration -- hooks into Controller, DI, Request/Response.
+- `aquilia/contracts/lenses.py`: Aquilia Contract Lenses -- depth-controlled relational views.
+- `aquilia/contracts/projections.py`: Aquilia Contract Projections -- named, reusable field subsets.
+- `aquilia/contracts/schema.py`: Aquilia Contract Schema -- OpenAPI/JSON Schema generation.
 
 ## Document Map
 

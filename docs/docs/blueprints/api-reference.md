@@ -1,23 +1,23 @@
 ---
-title: "Blueprints API Reference"
-description: "Complete API reference for the Aquilia Blueprints module"
+title: "Contracts API Reference"
+description: "Complete API reference for the Aquilia Contracts module"
 icon: lucide/database
 ---
 ## Overview
 
-This is the comprehensive API reference for the `aquilia.blueprints` package. It details every class, function, decorator, and constant exported in the module's public interface, linking each back to its source code implementation.
+This is the comprehensive API reference for the `aquilia.contracts` package. It details every class, function, decorator, and constant exported in the module's public interface, linking each back to its source code implementation.
 
 ---
 
 ## 1. Core Classes & Schemas
 
-### [Blueprint](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L826-L2075)
+### [Contract](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L826-L2075)
 
 - **Summary**: The core contract definition class mapping model data to the outside world.
-- **Evidence Citation**: `aquilia/blueprints/core.py:826-2075`
+- **Evidence Citation**: `aquilia/contracts/core.py:826-2075`
 - **Class Signature**:
   ```python
-  class Blueprint(Generic[ModelT], metaclass=BlueprintMeta)
+  class Contract(Generic[ModelT], metaclass=ContractMeta)
   ```
 - **Initializer Signature**:
   ```python
@@ -42,38 +42,38 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `projection` | `str \| None` | `None` | Named projection subset of fields to serialize/deserialize. |
 | `context` | `dict[str, Any] \| None` | `None` | Context dictionary containing request container or other DI objects. |
 
-- **Return Type**: `Blueprint`
+- **Return Type**: `Contract`
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): When input values cannot be cast to target facet types.
-  - [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L82-L108): When field or cross-field validation rules fail.
-  - [ProjectionFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L117-L126): When an unknown projection name is requested.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): When input values cannot be cast to target facet types.
+  - [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L82-L108): When field or cross-field validation rules fail.
+  - [ProjectionFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L117-L126): When an unknown projection name is requested.
 
 ---
 
-### [BlueprintMeta](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L239-L644)
+### [ContractMeta](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L239-L644)
 
-- **Summary**: Metaclass for Blueprint classes handling Spec parsing, Facet collection, and model field derivation.
-- **Evidence Citation**: `aquilia/blueprints/core.py:239-644`
+- **Summary**: Metaclass for Contract classes handling Spec parsing, Facet collection, and model field derivation.
+- **Evidence Citation**: `aquilia/contracts/core.py:239-644`
 - **Signature**:
   ```python
-  class BlueprintMeta(type)
+  class ContractMeta(type)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `name` | `str` | `(None)` | Name of the class. |
-| `bases` | `tuple[type, ...]` | `(None)` | Base classes of the new Blueprint class. |
+| `bases` | `tuple[type, ...]` | `(None)` | Base classes of the new Contract class. |
 | `namespace` | `dict[str, Any]` | `(None)` | Class attributes and methods namespace dict. |
 
-- **Return Type**: `BlueprintMeta`
+- **Return Type**: `ContractMeta`
 - **Raises**: None.
 
 ---
 
-### [ward](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/ward.py#L57-L110)
+### [ward](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/ward.py#L57-L110)
 
-- **Summary**: Decorator/decorator-factory for registering cross-field validator methods on a Blueprint.
-- **Evidence Citation**: `aquilia/blueprints/ward.py:57-110`
+- **Summary**: Decorator/decorator-factory for registering cross-field validator methods on a Contract.
+- **Evidence Citation**: `aquilia/contracts/ward.py:57-110`
 - **Signature**:
   ```python
   def ward(fn: Callable[..., Any] | None = None, *, mode: str = "sync") -> Any
@@ -91,10 +91,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [WardMethod](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/ward.py#L42-L47)
+### [WardMethod](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/ward.py#L42-L47)
 
 - **Summary**: Dataclass descriptor representing a registered cross-field validator.
-- **Evidence Citation**: `aquilia/blueprints/ward.py:42-47`
+- **Evidence Citation**: `aquilia/contracts/ward.py:42-47`
 - **Signature**:
   ```python
   class WardMethod
@@ -111,10 +111,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [Sigil](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/sigil.py#L101-L498)
+### [Sigil](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/sigil.py#L101-L498)
 
-- **Summary**: Immutable compiled representation of a Blueprint's validation schema.
-- **Evidence Citation**: `aquilia/blueprints/sigil.py:101-498`
+- **Summary**: Immutable compiled representation of a Contract's validation schema.
+- **Evidence Citation**: `aquilia/contracts/sigil.py:101-498`
 - **Signature**:
   ```python
   class Sigil
@@ -135,10 +135,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [FieldSpec](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/sigil.py#L63-L98)
+### [FieldSpec](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/sigil.py#L63-L98)
 
 - **Summary**: Compiled field specification inside a Sigil schema.
-- **Evidence Citation**: `aquilia/blueprints/sigil.py:63-98`
+- **Evidence Citation**: `aquilia/contracts/sigil.py:63-98`
 - **Signature**:
   ```python
   class FieldSpec
@@ -152,7 +152,7 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `default` | `Any` | `(None)` | Static default value. |
 | `default_factory` | `Any` | `(None)` | Zero-arg callable providing dynamic default. |
 | `pipeline` | `Pipeline \| None` | `None` | Compiled transforms pipeline. |
-| `is_nested_blueprint` | `bool` | `False` | True if referencing a nested blueprint. |
+| `is_nested_contract` | `bool` | `False` | True if referencing a nested contract. |
 | `is_lens` | `bool` | `False` | True if referencing a lens. |
 
 - **Return Type**: `FieldSpec`
@@ -160,10 +160,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [SealOutcome](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L2086-L2090)
+### [SealOutcome](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L2086-L2090)
 
 - **Summary**: Dataclass representing the validation outcome of a single row in batch validation.
-- **Evidence Citation**: `aquilia/blueprints/core.py:2086-2090`
+- **Evidence Citation**: `aquilia/contracts/core.py:2086-2090`
 - **Signature**:
   ```python
   class SealOutcome
@@ -180,10 +180,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [ColumnarReport](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L2094-L2096)
+### [ColumnarReport](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L2094-L2096)
 
 - **Summary**: Columnar error summary for high-performance batch validation.
-- **Evidence Citation**: `aquilia/blueprints/core.py:2094-2096`
+- **Evidence Citation**: `aquilia/contracts/core.py:2094-2096`
 - **Signature**:
   ```python
   class ColumnarReport
@@ -198,29 +198,29 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [BlueprintUnion](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L676-L787)
+### [ContractUnion](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L676-L787)
 
-- **Summary**: Compiled wrapper for polymorphic discriminated blueprint unions constructed via standard OR `|` operator.
-- **Evidence Citation**: `aquilia/blueprints/core.py:676-787`
+- **Summary**: Compiled wrapper for polymorphic discriminated contract unions constructed via standard OR `|` operator.
+- **Evidence Citation**: `aquilia/contracts/core.py:676-787`
 - **Signature**:
   ```python
-  class BlueprintUnion
+  class ContractUnion
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `members` | `tuple` | `(None)` | Blueprint classes in this union. |
+| `members` | `tuple` | `(None)` | Contract classes in this union. |
 
-- **Return Type**: `BlueprintUnion`
+- **Return Type**: `ContractUnion`
 
 ---
 
 ## 2. Facet Base & Built-in Facets
 
-### [Facet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L228-L457)
+### [Facet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L228-L457)
 
 - **Summary**: Abstract base class representing a single field data contract point.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:228-457`
+- **Evidence Citation**: `aquilia/contracts/facets.py:228-457`
 - **Class Signature**:
   ```python
   class Facet(metaclass=FacetMeta)
@@ -260,10 +260,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [UNSET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L88)
+### [UNSET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L88)
 
 - **Summary**: Sentinel constant used to distinguish between a field explicitly passed as `None` vs. a field omitted entirely.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:88`
+- **Evidence Citation**: `aquilia/contracts/facets.py:88`
 - **Signature**:
   ```python
   UNSET = _Unset()
@@ -271,10 +271,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [TextFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L463-L540)
+### [TextFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L463-L540)
 
 - **Summary**: String facet with length limits and regex pattern checking.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:463-540`
+- **Evidence Citation**: `aquilia/contracts/facets.py:463-540`
 - **Signature**:
   ```python
   class TextFacet(Facet)
@@ -288,66 +288,66 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `pattern` | `str \| None` | `None` | Regex validation pattern (maximum length: 500). |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If value is not a string/primitive, or if regex pattern fails safety checks (ReDoS protection).
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If value is not a string/primitive, or if regex pattern fails safety checks (ReDoS protection).
 
 ---
 
-### [EmailFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L543-L560)
+### [EmailFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L543-L560)
 
 - **Summary**: String facet with RFC email validation.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:543-560`
+- **Evidence Citation**: `aquilia/contracts/facets.py:543-560`
 - **Signature**:
   ```python
   class EmailFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If format is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
 
 ---
 
-### [URLFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L563-L582)
+### [URLFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L563-L582)
 
 - **Summary**: String facet with standard URL scheme check.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:563-582`
+- **Evidence Citation**: `aquilia/contracts/facets.py:563-582`
 - **Signature**:
   ```python
   class URLFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If format is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
 
 ---
 
-### [SlugFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L585-L602)
+### [SlugFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L585-L602)
 
 - **Summary**: String facet matching lowercase alphanumeric and hyphens.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:585-602`
+- **Evidence Citation**: `aquilia/contracts/facets.py:585-602`
 - **Signature**:
   ```python
   class SlugFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If format is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If format is invalid.
 
 ---
 
-### [IPFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L605-L620)
+### [IPFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L605-L620)
 
 - **Summary**: String facet validating IPv4 or IPv6 format.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:605-620`
+- **Evidence Citation**: `aquilia/contracts/facets.py:605-620`
 - **Signature**:
   ```python
   class IPFacet(TextFacet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If address is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If address is invalid.
 
 ---
 
-### [IntFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L626-L670)
+### [IntFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L626-L670)
 
 - **Summary**: Integer facet with range limits and multipleOf validation.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:626-670`
+- **Evidence Citation**: `aquilia/contracts/facets.py:626-670`
 - **Signature**:
   ```python
   class IntFacet(Facet)
@@ -360,14 +360,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `multiple_of` | `int \| None` | `None` | Enforces value % multiple_of == 0. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If integer coercion fails or constraints are violated.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If integer coercion fails or constraints are violated.
 
 ---
 
-### [FloatFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L673-L726)
+### [FloatFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L673-L726)
 
 - **Summary**: Float facet with NaN/Infinity control.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:673-726`
+- **Evidence Citation**: `aquilia/contracts/facets.py:673-726`
 - **Signature**:
   ```python
   class FloatFacet(Facet)
@@ -382,14 +382,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `multiple_of` | `float \| None` | `None` | Multiple of constraint. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If parsing fails, or NaN/Infinity values are illegal.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If parsing fails, or NaN/Infinity values are illegal.
 
 ---
 
-### [DecimalFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L729-L783)
+### [DecimalFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L729-L783)
 
 - **Summary**: Decimal facet enforcing digit and decimal place constraints.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:729-783`
+- **Evidence Citation**: `aquilia/contracts/facets.py:729-783`
 - **Signature**:
   ```python
   class DecimalFacet(Facet)
@@ -403,92 +403,92 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `max_value` | `Decimal \| float \| None` | `None` | Max decimal value. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If invalid decimal input is passed, or precision constraints fail.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If invalid decimal input is passed, or precision constraints fail.
 
 ---
 
-### [BoolFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L789-L811)
+### [BoolFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L789-L811)
 
 - **Summary**: Boolean facet coercing common truthy/falsy values.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:789-811`
+- **Evidence Citation**: `aquilia/contracts/facets.py:789-811`
 - **Signature**:
   ```python
   class BoolFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If input is not cleanly coercible to bool.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If input is not cleanly coercible to bool.
 
 ---
 
-### [DateFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L817-L844)
+### [DateFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L817-L844)
 
 - **Summary**: ISO 8601 YYYY-MM-DD date facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:817-844`
+- **Evidence Citation**: `aquilia/contracts/facets.py:817-844`
 - **Signature**:
   ```python
   class DateFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If string format is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
 
 ---
 
-### [TimeFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L847-L872)
+### [TimeFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L847-L872)
 
 - **Summary**: ISO 8601 HH:MM:SS time facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:847-872`
+- **Evidence Citation**: `aquilia/contracts/facets.py:847-872`
 - **Signature**:
   ```python
   class TimeFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If string format is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
 
 ---
 
-### [DateTimeFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L875-L903)
+### [DateTimeFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L875-L903)
 
 - **Summary**: ISO 8601 datetime facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:875-903`
+- **Evidence Citation**: `aquilia/contracts/facets.py:875-903`
 - **Signature**:
   ```python
   class DateTimeFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If string format is invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If string format is invalid.
 
 ---
 
-### [DurationFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L906-L947)
+### [DurationFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L906-L947)
 
 - **Summary**: Timedelta facet parsing float seconds or HH:MM:SS format.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:906-947`
+- **Evidence Citation**: `aquilia/contracts/facets.py:906-947`
 - **Signature**:
   ```python
   class DurationFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If parsing fails.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If parsing fails.
 
 ---
 
-### [UUIDFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L950-L971)
+### [UUIDFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L950-L971)
 
 - **Summary**: UUID parsing facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:950-971`
+- **Evidence Citation**: `aquilia/contracts/facets.py:950-971`
 - **Signature**:
   ```python
   class UUIDFacet(Facet)
   ```
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If value cannot be parsed as UUID.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If value cannot be parsed as UUID.
 
 ---
 
-### [ListFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L977-L1040)
+### [ListFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L977-L1040)
 
 - **Summary**: Array facet delegating elements validation to a child facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:977-1040`
+- **Evidence Citation**: `aquilia/contracts/facets.py:977-1040`
 - **Signature**:
   ```python
   class ListFacet(Facet)
@@ -501,14 +501,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `max_items` | `int \| None` | `None` | Maximum items count. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If input is not list/tuple or if element validation fails.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If input is not list/tuple or if element validation fails.
 
 ---
 
-### [SetFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1043-L1107)
+### [SetFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1043-L1107)
 
 - **Summary**: Array facet with unique element checking.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1043-1107`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1043-1107`
 - **Signature**:
   ```python
   class SetFacet(Facet)
@@ -518,10 +518,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [TupleFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1110-L1173)
+### [TupleFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1110-L1173)
 
 - **Summary**: Tuple array facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1110-1173`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1110-1173`
 - **Signature**:
   ```python
   class TupleFacet(Facet)
@@ -531,10 +531,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [DictFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1176-L1258)
+### [DictFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1176-L1258)
 
 - **Summary**: Key-value map facet, optionally validating all values against a value facet.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1176-1258`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1176-1258`
 - **Signature**:
   ```python
   class DictFacet(Facet)
@@ -546,14 +546,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `max_keys` | `int \| None` | `1000` | Maximum permitted dictionary keys (protects against hash-collision DoS). |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If value is not a dict, key limit is exceeded, or key types are invalid.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If value is not a dict, key limit is exceeded, or key types are invalid.
 
 ---
 
-### [JSONFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1261-L1313)
+### [JSONFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1261-L1313)
 
 - **Summary**: Arbitrary JSON blob facet with maximum nesting depth safety check.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1261-1313`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1261-1313`
 - **Signature**:
   ```python
   class JSONFacet(Facet)
@@ -565,14 +565,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `allowed_types` | `tuple` | `(str, int, float, bool, NoneType, list, dict)` | Allowed primitive JSON types. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If depth limit or disallowed types are detected.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If depth limit or disallowed types are detected.
 
 ---
 
-### [FileFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1319-L1336)
+### [FileFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1319-L1336)
 
 - **Summary**: Base reference facet validating file pathways/URLs.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1319-1336`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1319-1336`
 - **Signature**:
   ```python
   class FileFacet(Facet)
@@ -585,10 +585,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [ChoiceFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1342-L1378)
+### [ChoiceFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1342-L1378)
 
 - **Summary**: Facet validating that values belong to a static choices collection.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1342-1378`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1342-1378`
 - **Signature**:
   ```python
   class ChoiceFacet(Facet)
@@ -599,14 +599,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `choices` | `Sequence` | `(None)` | A list/tuple of choices, or dictionary of keys. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): When validation value is not in permitted set.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): When validation value is not in permitted set.
 
 ---
 
-### [LiteralFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1381-L1386)
+### [LiteralFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1381-L1386)
 
 - **Summary**: Facet restricting validation to a single exact literal value.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1381-1386`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1381-1386`
 - **Signature**:
   ```python
   class LiteralFacet(ChoiceFacet)
@@ -619,10 +619,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [EnumFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1389-L1455)
+### [EnumFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1389-L1455)
 
 - **Summary**: Facet validating and mapping values to Python Enum members.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1389-1455`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1389-1455`
 - **Signature**:
   ```python
   class EnumFacet(Facet)
@@ -633,14 +633,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `enum_class` | `type` | `(None)` | Python Enum class definition. |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): If casting to enum fails.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): If casting to enum fails.
 
 ---
 
-### [UploadFileFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1745-L1817)
+### [UploadFileFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1745-L1817)
 
 - **Summary**: Facet wrapping uploaded file buffers with size and type checks.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1745-1817`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1745-1817`
 - **Signature**:
   ```python
   class UploadFileFacet(FileFacet)
@@ -652,14 +652,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 | `allowed_types` | `list[str] \| None` | `None` | Allowed mime type patterns (e.g. image/*). |
 
 - **Raises**:
-  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79): When input is not `UploadFile`, exceeds max_size, or violates MIME rules.
+  - [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79): When input is not `UploadFile`, exceeds max_size, or violates MIME rules.
 
 ---
 
-### [FormDataFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1820-L1866)
+### [FormDataFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1820-L1866)
 
 - **Summary**: Facet parsing data fields from URL-encoded or multi-part payloads.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1820-1866`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1820-1866`
 - **Signature**:
   ```python
   class FormDataFacet(Facet)
@@ -672,10 +672,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [Computed](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1522-L1579)
+### [Computed](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1522-L1579)
 
 - **Summary**: Read-only facet whose value is calculated dynamically on serialization.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1522-1579`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1522-1579`
 - **Signature**:
   ```python
   class Computed(Facet)
@@ -688,10 +688,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [Constant](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1582-L1607)
+### [Constant](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1582-L1607)
 
 - **Summary**: Read-only facet returning a fixed preconfigured constant value.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1582-1607`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1582-1607`
 - **Signature**:
   ```python
   class Constant(Facet)
@@ -704,10 +704,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [WriteOnly](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1610-L1621)
+### [WriteOnly](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1610-L1621)
 
 - **Summary**: Convenience subclass of `TextFacet` marked write-only.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1610-1621`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1610-1621`
 - **Signature**:
   ```python
   class WriteOnly(TextFacet)
@@ -715,10 +715,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [ReadOnly](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1624-L1647)
+### [ReadOnly](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1624-L1647)
 
 - **Summary**: Read-only passthrough facet auto-serializing standard primitives.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1624-1647`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1624-1647`
 - **Signature**:
   ```python
   class ReadOnly(Facet)
@@ -726,10 +726,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [Hidden](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1650-L1662)
+### [Hidden](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1650-L1662)
 
 - **Summary**: Facet hidden from input and output, used internally or populated via DI.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1650-1662`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1650-1662`
 - **Signature**:
   ```python
   class Hidden(Facet)
@@ -737,10 +737,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [Inject](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1668-L1742)
+### [Inject](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1668-L1742)
 
 - **Summary**: Read-only facet resolving its value from the DI container or thread context.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1668-1742`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1668-1742`
 - **Signature**:
   ```python
   class Inject(Facet)
@@ -755,10 +755,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [derive_facet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1917-L1986)
+### [derive_facet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1917-L1986)
 
 - **Summary**: Derive a Facet instance from an Aquilia Model field definition.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1917-1986`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1917-1986`
 - **Signature**:
   ```python
   def derive_facet(model_field: Any) -> Facet
@@ -772,10 +772,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [MODEL_FIELD_TO_FACET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1872-L1914)
+### [MODEL_FIELD_TO_FACET](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1872-L1914)
 
 - **Summary**: Dictionary mapping model database field names to corresponding facet classes.
-- **Evidence Citation**: `aquilia/blueprints/facets.py:1872-1914`
+- **Evidence Citation**: `aquilia/contracts/facets.py:1872-1914`
 - **Signature**:
   ```python
   MODEL_FIELD_TO_FACET: dict[str, type[Facet]] = {...}
@@ -785,10 +785,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ## 3. Annotation & Decorator Helpers
 
-### [Field](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/annotations.py#L111-L260)
+### [Field](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/annotations.py#L111-L260)
 
 - **Summary**: Constraint descriptor specifying validations and defaults for annotation-driven fields.
-- **Evidence Citation**: `aquilia/blueprints/annotations.py:111-260`
+- **Evidence Citation**: `aquilia/contracts/annotations.py:111-260`
 - **Class Signature**:
   ```python
   class Field
@@ -858,10 +858,10 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [computed](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/annotations.py#L568-L585)
+### [computed](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/annotations.py#L568-L585)
 
-- **Summary**: Decorator marking a Blueprint method as a computed read-only output field.
-- **Evidence Citation**: `aquilia/blueprints/annotations.py:568-585`
+- **Summary**: Decorator marking a Contract method as a computed read-only output field.
+- **Evidence Citation**: `aquilia/contracts/annotations.py:568-585`
 - **Signature**:
   ```python
   def computed(func: Callable) -> _ComputedMarker
@@ -869,39 +869,39 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `func` | `Callable` | `(None)` | The Blueprint method method taking (self, instance). |
+| `func` | `Callable` | `(None)` | The Contract method method taking (self, instance). |
 
 - **Return Type**: `_ComputedMarker`
 
 ---
 
-### [NestedBlueprintFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/annotations.py#L310-L473)
+### [NestedContractFacet](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/annotations.py#L310-L473)
 
-- **Summary**: Facet that delegates validation to another Blueprint class.
-- **Evidence Citation**: `aquilia/blueprints/annotations.py:310-473`
+- **Summary**: Facet that delegates validation to another Contract class.
+- **Evidence Citation**: `aquilia/contracts/annotations.py:310-473`
 - **Signature**:
   ```python
-  class NestedBlueprintFacet(Facet)
+  class NestedContractFacet(Facet)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `blueprint_cls` | `type` | `(None)` | Target Blueprint class to instantiate and validate against. |
+| `contract_cls` | `type` | `(None)` | Target Contract class to instantiate and validate against. |
 | `many` | `bool` | `False` | If True, validates a collection list of objects. |
 | `max_nesting_depth` | `int \| None` | `32` | Depth limit to avoid stack overflow recursion. |
 
-- **Return Type**: `NestedBlueprintFacet`
+- **Return Type**: `NestedContractFacet`
 - **Raises**:
-  - `TypeError`: Under subscription if MyBlueprint type arguments are invalid.
+  - `TypeError`: Under subscription if MyContract type arguments are invalid.
 
 ---
 
 ## 4. Relation Traversal & Projections
 
-### [Lens](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L26-L184)
+### [Lens](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L26-L184)
 
-- **Summary**: A relational facet viewing sub-objects through another Blueprint, with recursion guards and PK fallback.
-- **Evidence Citation**: `aquilia/blueprints/lenses.py:26-184`
+- **Summary**: A relational facet viewing sub-objects through another Contract, with recursion guards and PK fallback.
+- **Evidence Citation**: `aquilia/contracts/lenses.py:26-184`
 - **Signature**:
   ```python
   class Lens(Facet)
@@ -909,19 +909,19 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `target` | `type[Blueprint] \| _ProjectedRef \| None` | `None` | Target Blueprint or ProjectedRef to render against. |
+| `target` | `type[Contract] \| _ProjectedRef \| None` | `None` | Target Contract or ProjectedRef to render against. |
 | `many` | `bool` | `False` | Set True to render a list collection of relations. |
 | `depth` | `int` | `3` | Maximum nesting depth to prevent infinite loops. |
-| `projection` | `str \| None` | `None` | Target Blueprint named projection format. |
+| `projection` | `str \| None` | `None` | Target Contract named projection format. |
 
 - **Return Type**: `Lens`
 
 ---
 
-### [ProjectionRegistry](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L26-L146)
+### [ProjectionRegistry](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L26-L146)
 
-- **Summary**: Registry compiling and managing named subsets of field selections (projections) on a Blueprint.
-- **Evidence Citation**: `aquilia/blueprints/projections.py:26-146`
+- **Summary**: Registry compiling and managing named subsets of field selections (projections) on a Contract.
+- **Evidence Citation**: `aquilia/contracts/projections.py:26-146`
 - **Signature**:
   ```python
   class ProjectionRegistry
@@ -932,14 +932,14 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ## 5. Schema & OpenAPI Compilation
 
-### [generate_schema](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/schema.py#L19-L36)
+### [generate_schema](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/schema.py#L19-L36)
 
-- **Summary**: Generate JSON Schema for a Blueprint class projection.
-- **Evidence Citation**: `aquilia/blueprints/schema.py:19-36`
+- **Summary**: Generate JSON Schema for a Contract class projection.
+- **Evidence Citation**: `aquilia/contracts/schema.py:19-36`
 - **Signature**:
   ```python
   def generate_schema(
-      blueprint_cls: type[Blueprint],
+      contract_cls: type[Contract],
       *,
       projection: str | None = None,
       mode: str = "output",
@@ -948,7 +948,7 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `blueprint_cls` | `type[Blueprint]` | `(None)` | Blueprint class definition. |
+| `contract_cls` | `type[Contract]` | `(None)` | Contract class definition. |
 | `projection` | `str \| None` | `None` | Named projection (None = default projection). |
 | `mode` | `str` | `"output"` | OpenAPI direction: "output" (response) or "input" (request body). |
 
@@ -956,21 +956,21 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [generate_component_schemas](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/schema.py#L39-L68)
+### [generate_component_schemas](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/schema.py#L39-L68)
 
-- **Summary**: Compile OpenAPI components section dictionary for multiple Blueprints.
-- **Evidence Citation**: `aquilia/blueprints/schema.py:39-68`
+- **Summary**: Compile OpenAPI components section dictionary for multiple Contracts.
+- **Evidence Citation**: `aquilia/contracts/schema.py:39-68`
 - **Signature**:
   ```python
   def generate_component_schemas(
-      *blueprint_classes: type[Blueprint],
+      *contract_classes: type[Contract],
       include_projections: bool = True,
   ) -> dict[str, dict[str, Any]]
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `blueprint_classes` | `type[Blueprint]` | `(None)` | Variable arguments list of Blueprint class types. |
+| `contract_classes` | `type[Contract]` | `(None)` | Variable arguments list of Contract class types. |
 | `include_projections` | `bool` | `True` | Generate separate schemas for each named projection. |
 
 - **Return Type**: `dict[str, dict[str, Any]]`
@@ -979,13 +979,13 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ## 6. Integration Hooks
 
-### [is_blueprint_class](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L46-L48)
+### [is_contract_class](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L46-L48)
 
-- **Summary**: Utility checker verifying an object is a subclass of `Blueprint`.
-- **Evidence Citation**: `aquilia/blueprints/integration.py:46-48`
+- **Summary**: Utility checker verifying an object is a subclass of `Contract`.
+- **Evidence Citation**: `aquilia/contracts/integration.py:46-48`
 - **Signature**:
   ```python
-  def is_blueprint_class(obj: Any) -> bool
+  def is_contract_class(obj: Any) -> bool
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
@@ -996,13 +996,13 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [is_projected_blueprint](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L51-L53)
+### [is_projected_contract](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L51-L53)
 
 - **Summary**: Utility checker verifying an object is a subscripted `ProjectedRef` class.
-- **Evidence Citation**: `aquilia/blueprints/integration.py:51-53`
+- **Evidence Citation**: `aquilia/contracts/integration.py:51-53`
 - **Signature**:
   ```python
-  def is_projected_blueprint(obj: Any) -> bool
+  def is_projected_contract(obj: Any) -> bool
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
@@ -1013,61 +1013,61 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [resolve_blueprint_from_annotation](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L56-L76)
+### [resolve_contract_from_annotation](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L56-L76)
 
-- **Summary**: Resolve Blueprint class and projection string from standard controller type annotations.
-- **Evidence Citation**: `aquilia/blueprints/integration.py:56-76`
+- **Summary**: Resolve Contract class and projection string from standard controller type annotations.
+- **Evidence Citation**: `aquilia/contracts/integration.py:56-76`
 - **Signature**:
   ```python
-  def resolve_blueprint_from_annotation(annotation: Any) -> tuple[type[Blueprint] | None, str | None]
+  def resolve_contract_from_annotation(annotation: Any) -> tuple[type[Contract] | None, str | None]
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `annotation` | `Any` | `(None)` | The parameter type annotation. |
 
-- **Return Type**: `tuple[type[Blueprint] | None, str | None]`
+- **Return Type**: `tuple[type[Contract] | None, str | None]`
 
 ---
 
-### [bind_blueprint_to_request](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L298-L538)
+### [bind_contract_to_request](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L298-L538)
 
-- **Summary**: Instantiate and validate (seal) a Blueprint directly from an incoming request payload.
-- **Evidence Citation**: `aquilia/blueprints/integration.py:298-538`
+- **Summary**: Instantiate and validate (seal) a Contract directly from an incoming request payload.
+- **Evidence Citation**: `aquilia/contracts/integration.py:298-538`
 - **Signature**:
   ```python
-  async def bind_blueprint_to_request(
-      blueprint_cls: type[Blueprint],
+  async def bind_contract_to_request(
+      contract_cls: type[Contract],
       request: Any,
       *,
       projection: str | None = None,
       partial: bool = False,
       context: dict[str, Any] | None = None,
-  ) -> Blueprint
+  ) -> Contract
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `blueprint_cls` | `type[Blueprint]` | `(None)` | Target Blueprint class. |
+| `contract_cls` | `type[Contract]` | `(None)` | Target Contract class. |
 | `request` | `Any` | `(None)` | Incoming Request instance. |
 | `projection` | `str \| None` | `None` | Optional projection subset override. |
 | `partial` | `bool` | `False` | Allows partial payload inputs (PATCH updates). |
-| `context` | `dict[str, Any] \| None` | `None` | Extra context dictionary variables passed to the Blueprint. |
+| `context` | `dict[str, Any] \| None` | `None` | Extra context dictionary variables passed to the Contract. |
 
-- **Return Type**: `Blueprint`
+- **Return Type**: `Contract`
 - **Raises**:
-  - [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L82-L108): If validation fails.
+  - [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L82-L108): If validation fails.
 
 ---
 
-### [render_blueprint_response](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L541-L581)
+### [render_contract_response](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L541-L581)
 
-- **Summary**: Serialize database models or lists of database models through a Blueprint for JSON outputs.
-- **Evidence Citation**: `aquilia/blueprints/integration.py:541-581`
+- **Summary**: Serialize database models or lists of database models through a Contract for JSON outputs.
+- **Evidence Citation**: `aquilia/contracts/integration.py:541-581`
 - **Signature**:
   ```python
-  def render_blueprint_response(
-      blueprint_or_cls: Blueprint | type[Blueprint],
+  def render_contract_response(
+      contract_or_cls: Contract | type[Contract],
       data: Any = None,
       *,
       projection: str | None = None,
@@ -1077,7 +1077,7 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `blueprint_or_cls` | `Blueprint \| type[Blueprint]` | `(None)` | Blueprint class reference or active instance. |
+| `contract_or_cls` | `Contract \| type[Contract]` | `(None)` | Contract class reference or active instance. |
 | `data` | `Any` | `None` | Object or sequence of objects to serialize. |
 | `projection` | `str \| None` | `None` | Specific projection output schema shape. |
 | `many` | `bool` | `False` | Set True if data is a list sequence of model instances. |
@@ -1088,33 +1088,33 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ## 7. Exception Hierarchy & Fault Domain
 
-### [BlueprintFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L25-L56)
+### [ContractFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L25-L56)
 
-- **Summary**: Unified base exception class for all Blueprint errors.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:25-56`
+- **Summary**: Unified base exception class for all Contract errors.
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:25-56`
 - **Signature**:
   ```python
-  class BlueprintFault(Fault)
+  class ContractFault(Fault)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `message` | `str` | `"Blueprint validation failed"` | Error detail message. |
+| `message` | `str` | `"Contract validation failed"` | Error detail message. |
 | `errors` | `dict[str, list[str]] \| None` | `None` | Detailed errors mapped per field. |
 | `code` | `str \| None` | `None` | Fault code (defaults to BP000). |
 | `metadata` | `dict[str, Any] \| None` | `None` | Metadata logging payload dict. |
 
-- **Return Type**: `BlueprintFault`
+- **Return Type**: `ContractFault`
 
 ---
 
-### [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L62-L79)
+### [CastFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L62-L79)
 
 - **Summary**: Raised during the casting phase when inputs cannot be coerced.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:62-79`
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:62-79`
 - **Signature**:
   ```python
-  class CastFault(BlueprintFault)
+  class CastFault(ContractFault)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
@@ -1127,38 +1127,38 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L82-L108)
+### [SealFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L82-L108)
 
 - **Summary**: Raised when field or cross-field validation rules fail.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:82-108`
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:82-108`
 - **Signature**:
   ```python
-  class SealFault(BlueprintFault)
+  class SealFault(ContractFault)
   ```
-- **Parameters**: Same as `BlueprintFault`.
+- **Parameters**: Same as `ContractFault`.
 - **Return Type**: `SealFault`
 
 ---
 
-### [ImprintFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L111-L114)
+### [ImprintFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L111-L114)
 
 - **Summary**: Raised when persistent model mapping back-writes (imprinting) fail.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:111-114`
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:111-114`
 - **Signature**:
   ```python
-  class ImprintFault(BlueprintFault)
+  class ImprintFault(ContractFault)
   ```
 - **Return Type**: `ImprintFault`
 
 ---
 
-### [ProjectionFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L117-L126)
+### [ProjectionFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L117-L126)
 
 - **Summary**: Raised when an unknown or invalid projection is requested.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:117-126`
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:117-126`
 - **Signature**:
   ```python
-  class ProjectionFault(BlueprintFault)
+  class ProjectionFault(ContractFault)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
@@ -1170,13 +1170,13 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [LensDepthFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L129-L138)
+### [LensDepthFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L129-L138)
 
 - **Summary**: Raised when relation traversal depth limits are exceeded.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:129-138`
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:129-138`
 - **Signature**:
   ```python
-  class LensDepthFault(BlueprintFault)
+  class LensDepthFault(ContractFault)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
@@ -1188,13 +1188,13 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [LensCycleFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L141-L150)
+### [LensCycleFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L141-L150)
 
 - **Summary**: Raised when infinite circular relational Lens loops are detected.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py#L141-L150`
+- **Evidence Citation**: `aquilia/contracts/exceptions.py#L141-L150`
 - **Signature**:
   ```python
-  class LensCycleFault(BlueprintFault)
+  class LensCycleFault(ContractFault)
   ```
 - **Parameters**:
   | Field | Type | Default | Description |
@@ -1205,11 +1205,11 @@ This is the comprehensive API reference for the `aquilia.blueprints` package. It
 
 ---
 
-### [BLUEPRINT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/exceptions.py#L16)
+### [CONTRACT](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/exceptions.py#L16)
 
-- **Summary**: Fault domain namespace constant registering Blueprint validation errors.
-- **Evidence Citation**: `aquilia/blueprints/exceptions.py:16`
+- **Summary**: Fault domain namespace constant registering Contract validation errors.
+- **Evidence Citation**: `aquilia/contracts/exceptions.py:16`
 - **Signature**:
   ```python
-  BLUEPRINT = FaultDomain(name="BLUEPRINT", description="...")
+  CONTRACT = FaultDomain(name="CONTRACT", description="...")
   ```

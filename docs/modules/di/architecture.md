@@ -84,7 +84,7 @@ Scoped dependency injection container, providers, request DAG, decorators, lifec
 | `AliasProvider` | `aquilia/di/providers.py` | Provider that aliases one token to another. |
 | `LazyProxyProvider` | `aquilia/di/providers.py` | Provider that creates a lazy proxy for cycle resolution. |
 | `ScopedProvider` | `aquilia/di/providers.py` | Wrapper provider that enforces scope semantics. |
-| `BlueprintProvider` | `aquilia/di/providers.py` | DI Provider that creates Blueprint instances with request context. |
+| `ContractProvider` | `aquilia/di/providers.py` | DI Provider that creates Contract instances with request context. |
 | `MockProvider` | `aquilia/di/testing.py` | Mock provider for testing. |
 | `TestRegistry` | `aquilia/di/testing.py` | Registry with testing support. |
 

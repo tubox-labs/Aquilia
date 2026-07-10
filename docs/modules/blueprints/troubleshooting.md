@@ -1,4 +1,4 @@
-# Blueprints Troubleshooting
+# Contracts Troubleshooting
 
 Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 
@@ -26,12 +26,12 @@ Model-to-world contracts for request validation, response rendering, schema gene
 
 | File | Lines | Public classes | Public functions | Purpose |
 | --- | ---: | ---: | ---: | --- |
-| `aquilia/blueprints/__init__.py` | 162 | 0 | 0 | Aquilia Blueprints -- first-class model↔world contracts. |
-| `aquilia/blueprints/annotations.py` | 1117 | 3 | 2 | Aquilia Blueprint Annotations -- type-annotation–driven schema declaration. |
-| `aquilia/blueprints/core.py` | 1194 | 2 | 0 | Aquilia Blueprint Core -- the Blueprint metaclass and base class. |
-| `aquilia/blueprints/exceptions.py` | 150 | 7 | 0 | Aquilia Blueprint Exceptions -- Fault-domain-integrated error hierarchy. |
-| `aquilia/blueprints/facets.py` | 1397 | 27 | 1 | Aquilia Blueprint Facets -- the field-level primitives of a Blueprint. |
-| `aquilia/blueprints/integration.py` | 293 | 0 | 5 | Aquilia Blueprint Integration -- hooks into Controller, DI, Request/Response. |
-| `aquilia/blueprints/lenses.py` | 201 | 1 | 0 | Aquilia Blueprint Lenses -- depth-controlled relational views. |
-| `aquilia/blueprints/projections.py` | 146 | 1 | 0 | Aquilia Blueprint Projections -- named, reusable field subsets. |
-| `aquilia/blueprints/schema.py` | 68 | 0 | 2 | Aquilia Blueprint Schema -- OpenAPI/JSON Schema generation. |
+| `aquilia/contracts/__init__.py` | 162 | 0 | 0 | Aquilia Contracts -- first-class model↔world contracts. |
+| `aquilia/contracts/annotations.py` | 1117 | 3 | 2 | Aquilia Contract Annotations -- type-annotation–driven schema declaration. |
+| `aquilia/contracts/core.py` | 1194 | 2 | 0 | Aquilia Contract Core -- the Contract metaclass and base class. |
+| `aquilia/contracts/exceptions.py` | 150 | 7 | 0 | Aquilia Contract Exceptions -- Fault-domain-integrated error hierarchy. |
+| `aquilia/contracts/facets.py` | 1397 | 27 | 1 | Aquilia Contract Facets -- the field-level primitives of a Contract. |
+| `aquilia/contracts/integration.py` | 293 | 0 | 5 | Aquilia Contract Integration -- hooks into Controller, DI, Request/Response. |
+| `aquilia/contracts/lenses.py` | 201 | 1 | 0 | Aquilia Contract Lenses -- depth-controlled relational views. |
+| `aquilia/contracts/projections.py` | 146 | 1 | 0 | Aquilia Contract Projections -- named, reusable field subsets. |
+| `aquilia/contracts/schema.py` | 68 | 0 | 2 | Aquilia Contract Schema -- OpenAPI/JSON Schema generation. |

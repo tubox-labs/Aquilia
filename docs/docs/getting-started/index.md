@@ -1,6 +1,6 @@
 ---
 title: "Introduction"
-description: "Getting started with Aquilia Controller and Blueprints modules"
+description: "Getting started with Aquilia Controller and Contracts modules"
 icon: lucide/book-marked
 ---## What is Aquilia?
 
@@ -35,10 +35,10 @@ Key features of Aquilia Controllers include:
     Class-based Controllers leverage HTTP verb decorators like `@GET`, `@POST`, and `@PUT` for explicit endpoint definitions ([aquilia/controller/__init__.py:40-52](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/__init__.py#L40-L52)).
 
 
-### 2. Blueprints (Model ↔ World Contracts)
-The **Blueprints System** provides first-class contracts between internal models and the outside world ([aquilia/blueprints/__init__.py](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/__init__.py#L2-L8)). 
+### 2. Contracts (Model ↔ World Contracts)
+The **Contracts System** provides first-class contracts between internal models and the outside world ([aquilia/contracts/__init__.py](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L2-L8)). 
 
-A Blueprint specifies:
+A Contract specifies:
 *   **Facets**: What the world sees (e.g. `TextFacet`, `IntFacet`, `BoolFacet`).
 *   **Projections**: Named subsets of data (e.g. `summary` or `detail` views).
 *   **Casts**: How inbound data enters.
@@ -54,8 +54,8 @@ To help you get started quickly, we recommend navigating the documentation in th
 1.  **Getting Started** (This Section)
     *   [Introduction](index.md): Overview of the framework.
     *   [Core Concepts](concepts.md): Understanding the fundamental architectural blocks.
-    *   [Quick Start](quick-start.md): Build your first controller and blueprint.
+    *   [Quick Start](quick-start.md): Build your first controller and contract.
 2.  **Controller Guide**
     *   Learn about routing, HTTP decorators, dependency injection, exception filters, pagination, and OpenAPI schema generation.
-3.  **Blueprints Guide**
+3.  **Contracts Guide**
     *   Learn how to define schemas, declare facets, build projections, use lenses, and handle input validation and database imprinting.

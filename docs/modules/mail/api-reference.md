@@ -23,19 +23,19 @@ This page is generated from the current Python source using the AST. It lists pu
 
 ## Public Exports
 
-`ConsoleProvider`, `EmailMessage`, `EmailMultiAlternatives`, `EnvelopeStatus`, `FileProvider`, `IMailProvider`, `MailConfig`, `MailConfigFault`, `MailConfigProvider`, `MailEnvelope`, `MailFault`, `MailProviderRegistry`, `MailRateLimitFault`, `MailSendFault`, `MailServiceProvider`, `MailSuppressedFault`, `MailTemplateFault`, `MailValidationFault`, `Priority`, `ProviderConfig`, `ProviderConfigBlueprint`, `ProviderResult`, `ProviderResultStatus`, `QueueConfig`, `QueueConfigBlueprint`, `RateLimitConfig`, `RateLimitConfigBlueprint`, `RetryConfig`, `RetryConfigBlueprint`, `SESProvider`, `SMTPProvider`, `SecurityConfig`, `SecurityConfigBlueprint`, `SendGridProvider`, `TemplateConfig`, `TemplateConfigBlueprint`, `TemplateMessage`, `asend_mail`, `register_mail_providers`, `send_mail`
+`ConsoleProvider`, `EmailMessage`, `EmailMultiAlternatives`, `EnvelopeStatus`, `FileProvider`, `IMailProvider`, `MailConfig`, `MailConfigFault`, `MailConfigProvider`, `MailEnvelope`, `MailFault`, `MailProviderRegistry`, `MailRateLimitFault`, `MailSendFault`, `MailServiceProvider`, `MailSuppressedFault`, `MailTemplateFault`, `MailValidationFault`, `Priority`, `ProviderConfig`, `ProviderConfigContract`, `ProviderResult`, `ProviderResultStatus`, `QueueConfig`, `QueueConfigContract`, `RateLimitConfig`, `RateLimitConfigContract`, `RetryConfig`, `RetryConfigContract`, `SESProvider`, `SMTPProvider`, `SecurityConfig`, `SecurityConfigContract`, `SendGridProvider`, `TemplateConfig`, `TemplateConfigContract`, `TemplateMessage`, `asend_mail`, `register_mail_providers`, `send_mail`
 
 ## Public Class Summary
 
 | Class | Source | Bases | Summary |
 | --- | --- | --- | --- |
-| `ProviderConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for a single mail provider configuration. |
-| `MailAuthConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for mail provider authentication credentials. |
-| `RetryConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for retry / backoff configuration. |
-| `RateLimitConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for global and per-domain rate-limiting. |
-| `SecurityConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for security / deliverability settings. |
-| `TemplateConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for ATS template engine configuration. |
-| `QueueConfigBlueprint` | `aquilia/mail/config.py` | Blueprint | Blueprint for queue / storage settings. |
+| `ProviderConfigContract` | `aquilia/mail/config.py` | Contract | Contract for a single mail provider configuration. |
+| `MailAuthConfigContract` | `aquilia/mail/config.py` | Contract | Contract for mail provider authentication credentials. |
+| `RetryConfigContract` | `aquilia/mail/config.py` | Contract | Contract for retry / backoff configuration. |
+| `RateLimitConfigContract` | `aquilia/mail/config.py` | Contract | Contract for global and per-domain rate-limiting. |
+| `SecurityConfigContract` | `aquilia/mail/config.py` | Contract | Contract for security / deliverability settings. |
+| `TemplateConfigContract` | `aquilia/mail/config.py` | Contract | Contract for ATS template engine configuration. |
+| `QueueConfigContract` | `aquilia/mail/config.py` | Contract | Contract for queue / storage settings. |
 | `ProviderConfig` | `aquilia/mail/config.py` | _ConfigObject | Attribute-access wrapper for a validated provider config. |
 | `RetryConfig` | `aquilia/mail/config.py` | _ConfigObject | Attribute-access wrapper for a validated retry config. |
 | `RateLimitConfig` | `aquilia/mail/config.py` | _ConfigObject | Attribute-access wrapper for a validated rate-limit config. |
@@ -104,11 +104,11 @@ This page is generated from the current Python source using the AST. It lists pu
 
 ## Detailed Classes And Methods
 
-### `ProviderConfigBlueprint`
+### `ProviderConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for a single mail provider configuration.
+- Bases: `Contract`
+- Summary: Contract for a single mail provider configuration.
 
 Methods:
 
@@ -116,11 +116,11 @@ Methods:
 | --- | --- | --- |
 | `validate` | `def validate(self, attrs: dict)` | Cross-field validation: SMTP needs host. |
 
-### `MailAuthConfigBlueprint`
+### `MailAuthConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for mail provider authentication credentials.
+- Bases: `Contract`
+- Summary: Contract for mail provider authentication credentials.
 
 Fields and class attributes:
 
@@ -134,11 +134,11 @@ Methods:
 | --- | --- | --- |
 | `validate` | `def validate(self, attrs: dict)` | Cross-field validation for authentication credentials. |
 
-### `RetryConfigBlueprint`
+### `RetryConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for retry / backoff configuration.
+- Bases: `Contract`
+- Summary: Contract for retry / backoff configuration.
 
 Methods:
 
@@ -146,17 +146,17 @@ Methods:
 | --- | --- | --- |
 | `validate` | `def validate(self, attrs: dict)` | Ensure base_delay <= max_delay. |
 
-### `RateLimitConfigBlueprint`
+### `RateLimitConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for global and per-domain rate-limiting.
+- Bases: `Contract`
+- Summary: Contract for global and per-domain rate-limiting.
 
-### `SecurityConfigBlueprint`
+### `SecurityConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for security / deliverability settings.
+- Bases: `Contract`
+- Summary: Contract for security / deliverability settings.
 
 Methods:
 
@@ -164,17 +164,17 @@ Methods:
 | --- | --- | --- |
 | `validate` | `def validate(self, attrs: dict)` | DKIM domain required when DKIM is enabled. |
 
-### `TemplateConfigBlueprint`
+### `TemplateConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for ATS template engine configuration.
+- Bases: `Contract`
+- Summary: Contract for ATS template engine configuration.
 
-### `QueueConfigBlueprint`
+### `QueueConfigContract`
 
 - Source: `aquilia/mail/config.py`
-- Bases: `Blueprint`
-- Summary: Blueprint for queue / storage settings.
+- Bases: `Contract`
+- Summary: Contract for queue / storage settings.
 
 ### `ProviderConfig`
 

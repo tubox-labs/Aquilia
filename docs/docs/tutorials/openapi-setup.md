@@ -132,11 +132,11 @@ class UserController(Controller):
 
 ---
 
-### Step 6: `request_blueprint` and `response_blueprint` Usage
+### Step 6: `request_contract` and `response_contract` Usage
 
-To enforce structure validation and compile precise JSON schemas automatically, you can explicitly configure `request_blueprint` and `response_blueprint` within your route decorators. 
+To enforce structure validation and compile precise JSON schemas automatically, you can explicitly configure `request_contract` and `response_contract` within your route decorators. 
 
-Rather than relying purely on docstring comments, using request and response blueprints allows the `OpenAPIGenerator` to parse class properties directly and populate schema structures under `components/schemas` (similar to standard dataclass translation described in [openapi.py:L486-L491](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L486-L491)).
+Rather than relying purely on docstring comments, using request and response contracts allows the `OpenAPIGenerator` to parse class properties directly and populate schema structures under `components/schemas` (similar to standard dataclass translation described in [openapi.py:L486-L491](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/openapi.py#L486-L491)).
 
 ```python
 from dataclasses import dataclass
@@ -158,8 +158,8 @@ class UserController(Controller):
     
     @POST(
         "/register", 
-        request_blueprint=UserCreatePayload, 
-        response_blueprint=UserCreationResponse
+        request_contract=UserCreatePayload, 
+        response_contract=UserCreationResponse
     )
     async def register_user(self, ctx):
         """

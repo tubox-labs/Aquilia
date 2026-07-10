@@ -1,4 +1,4 @@
-# Blueprints CLI Reference
+# Contracts CLI Reference
 
 This page is derived from the mounted Click command tree. If a source file has CLI helper functions but they are not mounted under `aq`, this page states that explicitly.
 

@@ -10,7 +10,7 @@ Model operations platform: modelpacks, serving, registries, runtimes, orchestrat
 | `aquilia/mlops/_structures.py` | 1374 | 17 | 0 | MLOps Data Structures -- High-performance primitives for ML pipelines. |
 | `aquilia/mlops/_types.py` | 746 | 30 | 0 | Aquilia MLOps Platform -- Shared type definitions. |
 | `aquilia/mlops/api/__init__.py` | 14 | 0 | 0 | Aquilia MLOps API Layer. |
-| `aquilia/mlops/api/blueprints.py` | 403 | 26 | 0 | MLOps Blueprints -- Aquilia Blueprint definitions for all MLOps data types. |
+| `aquilia/mlops/api/contracts.py` | 403 | 26 | 0 | MLOps Contracts -- Aquilia Contract definitions for all MLOps data types. |
 | `aquilia/mlops/api/functional.py` | 113 | 0 | 1 | Functional Serving -- ``@serve`` decorator for minimal model definitions. |
 | `aquilia/mlops/api/model_class.py` | 207 | 1 | 2 | AquiliaModel -- declarative base class and ``@model`` decorator. |
 | `aquilia/mlops/api/route_generator.py` | 250 | 2 | 0 | Route Generator -- auto-generate Aquilia controller endpoints per model. |
@@ -180,10 +180,10 @@ Model operations platform: modelpacks, serving, registries, runtimes, orchestrat
 | `CircuitBreakerConfig` | `aquilia/mlops/_types.py` | Configuration for inference circuit breaker. |
 | `StorageAdapter` | `aquilia/mlops/_types.py` | Protocol for blob storage backends. |
 | `PluginHook` | `aquilia/mlops/_types.py` | Protocol for plugin lifecycle hooks. |
-| `RolloutConfigBlueprint` | `aquilia/mlops/api/blueprints.py` | Validates rollout configuration payloads. |
-| `ScalingPolicyBlueprint` | `aquilia/mlops/api/blueprints.py` | Validates autoscaler policy configuration. |
-| `PluginDescriptorBlueprint` | `aquilia/mlops/api/blueprints.py` | Renders plugin descriptor for API responses. |
-| `LLMConfigBlueprint` | `aquilia/mlops/api/blueprints.py` | Validates LLM configuration payloads. |
+| `RolloutConfigContract` | `aquilia/mlops/api/contracts.py` | Validates rollout configuration payloads. |
+| `ScalingPolicyContract` | `aquilia/mlops/api/contracts.py` | Validates autoscaler policy configuration. |
+| `PluginDescriptorContract` | `aquilia/mlops/api/contracts.py` | Renders plugin descriptor for API responses. |
+| `LLMConfigContract` | `aquilia/mlops/api/contracts.py` | Validates LLM configuration payloads. |
 | `MLOpsConfig` | `aquilia/mlops/di/providers.py` | Typed configuration for MLOps DI registration. |
 | `RegistryFault` | `aquilia/mlops/engine/faults.py` | Base fault for registry operations. |
 | `RegistryConnectionFault` | `aquilia/mlops/engine/faults.py` | Cannot connect to registry backend. |

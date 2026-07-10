@@ -1,4 +1,4 @@
-# Blueprints Edge Cases And Limitations
+# Contracts Edge Cases And Limitations
 
 Model-to-world contracts for request validation, response rendering, schema generation, facets, projections, and lenses.
 
@@ -8,7 +8,7 @@ Model-to-world contracts for request validation, response rendering, schema gene
 
 ## Fault And Error Classes Detected
 
-`BlueprintFault`, `CastFault`, `SealFault`, `ImprintFault`, `ProjectionFault`, `LensDepthFault`, `LensCycleFault`
+`ContractFault`, `CastFault`, `SealFault`, `ImprintFault`, `ProjectionFault`, `LensDepthFault`, `LensCycleFault`
 
 ## Operational Boundaries
 

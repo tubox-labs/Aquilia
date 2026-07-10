@@ -4,8 +4,8 @@ The repository contains checked example applications under `examples/`:
 
 | Example | Purpose |
 | --- | --- |
-| `examples/crud_app` | CRUD workspace with database, module manifest, controllers, blueprints, models, and service tests. |
-| `examples/rest_api_blueprint` | REST API using blueprints for request/response contracts. |
+| `examples/crud_app` | CRUD workspace with database, module manifest, controllers, contracts, models, and service tests. |
+| `examples/rest_api_contract` | REST API using contracts for request/response contracts. |
 | `examples/auth_app` | Auth-oriented app with account module and tests. |
 | `examples/background_jobs` | Background task module and task service tests. |
 | `examples/websocket_app` | WebSocket chat/presence module with socket controller tests. |
@@ -86,12 +86,12 @@ manifest = AppManifest(
 
 ## HTTP Controller Pattern
 
-The CRUD example controller uses route decorators, request JSON, query parameters, blueprint validation, and structured `Response` objects:
+The CRUD example controller uses route decorators, request JSON, query parameters, contract validation, and structured `Response` objects:
 
 ```python
 from aquilia import Controller, DELETE, GET, PATCH, POST, RequestCtx, Response
 
-from .blueprints import ProjectCreateBlueprint, ProjectUpdateBlueprint
+from .contracts import ProjectCreateContract, ProjectUpdateContract
 from .services import ProjectsService
 
 class ProjectsController(Controller):
@@ -108,17 +108,17 @@ class ProjectsController(Controller):
 
     @POST("/", status_code=201)
     async def create_project(self, ctx: RequestCtx):
-        blueprint = ProjectCreateBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.create_project(blueprint.validated_data), status=201)
+        contract = ProjectCreateContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.create_project(contract.validated_data), status=201)
 ```
 
-## Blueprint Validation Pattern
+## Contract Validation Pattern
 
 ```python
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
-class ProjectCreateBlueprint(Blueprint):
+class ProjectCreateContract(Contract):
     key: str
     name: str
     summary: str | None = None

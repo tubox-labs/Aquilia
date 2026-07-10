@@ -1,8 +1,8 @@
 ---
 title: "Core Concepts"
-description: "Understanding the architecture and mental models of Controllers and Blueprints"
+description: "Understanding the architecture and mental models of Controllers and Contracts"
 icon: lucide/info
----Aquilia relies on two foundational abstractions to structure web applications: **Controllers** and **Blueprints**. Together, they form a highly declarative, statically checkable, and performance-oriented boundary between your database models and the HTTP interface.
+---Aquilia relies on two foundational abstractions to structure web applications: **Controllers** and **Contracts**. Together, they form a highly declarative, statically checkable, and performance-oriented boundary between your database models and the HTTP interface.
 
 ---
 
@@ -57,9 +57,9 @@ Routing structures, parameter annotations, and OpenAPI schemas are extracted sta
 
 ---
 
-## 2. Blueprint Mental Model
+## 2. Contract Mental Model
 
-A **Blueprint** is not a simple JSON serializer or parser. Instead, it is a **model-to-world contract**. It specifies exactly what database fields are visible, how data enters the application, how constraints are enforced, and how changes are persisted back to the database.
+A **Contract** is not a simple JSON serializer or parser. Instead, it is a **model-to-world contract**. It specifies exactly what database fields are visible, how data enters the application, how constraints are enforced, and how changes are persisted back to the database.
 
 ```
        INBOUND FLOW (Write)                   OUTBOUND FLOW (Read)
@@ -83,39 +83,39 @@ A **Blueprint** is not a simple JSON serializer or parser. Instead, it is a **mo
  └──────────────────────────────┘
 ```
 
-The core responsibilities of a Blueprint cover the following pipeline phases (see [aquilia/blueprints/\_\_init\_\_.py:L4-7](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/__init__.py#L4-L7)):
+The core responsibilities of a Contract cover the following pipeline phases (see [aquilia/contracts/\_\_init\_\_.py:L4-7](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L4-L7)):
 
 ### Facets (Attributes & Visibility)
 Facets represent individual fields mapped from database columns to external endpoints. They declare type constraints, default values, write-only/read-only rules, and computed properties.
-* **Base Class**: All fields inherit from `Facet` ([aquilia/blueprints/facets.py:L70](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/__init__.py#L70)).
+* **Base Class**: All fields inherit from `Facet` ([aquilia/contracts/facets.py:L70](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/__init__.py#L70)).
 * **Special Facets**: Includes `Computed` (outbound values resolved via functions), `Constant`, `Hidden`, `ReadOnly`, and `WriteOnly`.
 
 ### Projections (Slices of Visibility)
-Rather than writing multiple serializers for different endpoints, a single Blueprint defines multiple named **Projections** (subsets of fields) to reuse models across different views (e.g. `summary` vs `detail`).
-* **Slicing**: Resolved via subscript notation on the Blueprint metaclass: `ProductBlueprint["summary"]` ([aquilia/blueprints/core.py:L609-624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L609-L624)).
+Rather than writing multiple serializers for different endpoints, a single Contract defines multiple named **Projections** (subsets of fields) to reuse models across different views (e.g. `summary` vs `detail`).
+* **Slicing**: Resolved via subscript notation on the Contract metaclass: `ProductContract["summary"]` ([aquilia/contracts/core.py:L609-624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L609-L624)).
 
 ### Casts (Type Coercion)
 Incoming request data is automatically coerced into appropriate Python types (e.g., parsing a string timestamp into a `datetime` object or verifying integers).
-* **Validation Exceptions**: If casting fails, it throws a `CastFault` ([aquilia/blueprints/exceptions.py:L62-79](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L45)).
+* **Validation Exceptions**: If casting fails, it throws a `CastFault` ([aquilia/contracts/exceptions.py:L62-79](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L45)).
 
 ### Seals (Integrity Enforcement)
 Sealing validates that the input payload adheres to business rules, database constraints, and field permissions. 
-* **State Check**: Once a payload is validated without errors, the blueprint is marked as "sealed".
-* **Methods**: `is_sealed` and `is_sealed_async` ([aquilia/blueprints/core.py:L1014-1179](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L1014-L1179)) run the validation constraints, returning boolean statuses and capturing failures.
+* **State Check**: Once a payload is validated without errors, the contract is marked as "sealed".
+* **Methods**: `is_sealed` and `is_sealed_async` ([aquilia/contracts/core.py:L1014-1179](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1014-L1179)) run the validation constraints, returning boolean statuses and capturing failures.
 
 ### Imprints (Persistence)
-Once a blueprint is successfully sealed, it imprints the parsed payload back into actual database models.
-* **Operations**: `imprint(self, instance)` handles both creating new database models (`_imprint_create`) and partially updating existing records (`_imprint_update`) ([aquilia/blueprints/core.py:L1287-1380](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L1287-L1380)).
+Once a contract is successfully sealed, it imprints the parsed payload back into actual database models.
+* **Operations**: `imprint(self, instance)` handles both creating new database models (`_imprint_create`) and partially updating existing records (`_imprint_update`) ([aquilia/contracts/core.py:L1287-1380](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1287-L1380)).
 
 !!! info
-    **Key Takeaway**: A Blueprint represents a **unified data contract**. It handles both reading from the database (outbound projections) and writing to the database (inbound validations and updates).
+    **Key Takeaway**: A Contract represents a **unified data contract**. It handles both reading from the database (outbound projections) and writing to the database (inbound validations and updates).
 
 
 ---
 
-## 3. Connecting Controllers & Blueprints
+## 3. Connecting Controllers & Contracts
 
-Controllers and Blueprints connect at the route level to automate inbound request validation and outbound response serialization.
+Controllers and Contracts connect at the route level to automate inbound request validation and outbound response serialization.
 
 ```mermaid
 sequenceDiagram
@@ -123,16 +123,16 @@ sequenceDiagram
     actor Client
     participant ControllerEngine
     participant Validation
-    participant Blueprint
+    participant Contract
     participant DB as Database/Handler
     
     Client->>ControllerEngine: HTTP POST /products (JSON Payload)
     
     rect rgb(220, 240, 255)
-        Note over ControllerEngine, Blueprint: Inbound Validation
-        ControllerEngine->>Validation: validate_body(ProductBlueprint)
-        Validation->>Blueprint: Instantiate with Request Data
-        Blueprint-->>Validation: Sealed / Validated
+        Note over ControllerEngine, Contract: Inbound Validation
+        ControllerEngine->>Validation: validate_body(ProductContract)
+        Validation->>Contract: Instantiate with Request Data
+        Contract-->>Validation: Sealed / Validated
         ControllerEngine->>ControllerEngine: Bind validated parameter to handler method
     end
     
@@ -140,38 +140,38 @@ sequenceDiagram
     DB-->>ControllerEngine: Returns Model Instance
     
     rect rgb(240, 230, 255)
-        Note over ControllerEngine, Blueprint: Outbound Response Serialization
+        Note over ControllerEngine, Contract: Outbound Response Serialization
         ControllerEngine->>ControllerEngine: Intercept handler return value
-        ControllerEngine->>Blueprint: render_blueprint_response(response_blueprint, data)
-        Blueprint-->>ControllerEngine: Serialized Dictionary
+        ControllerEngine->>Contract: render_contract_response(response_contract, data)
+        Contract-->>ControllerEngine: Serialized Dictionary
     end
     
     ControllerEngine-->>Client: HTTP JSON Response
 ```
 
 ### Inbound Flow: Parameter Binding & Request Validation
-When a route handler parameter is annotated with a Blueprint, Aquilia intercepts the request body and enforces the contract before invoking the controller method.
+When a route handler parameter is annotated with a Contract, Aquilia intercepts the request body and enforces the contract before invoking the controller method.
 
-1. **Annotation Detection**: During compilation, [ControllerEngine](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py) uses `_is_blueprint_type` ([aquilia/controller/metadata.py:L477-494](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L477-L494)) to detect if a method parameter expects a Blueprint.
+1. **Annotation Detection**: During compilation, [ControllerEngine](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py) uses `_is_contract_type` ([aquilia/controller/metadata.py:L477-494](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/metadata.py#L477-L494)) to detect if a method parameter expects a Contract.
 2. **Body Validation**: The engine invokes `validate_body` ([aquilia/controller/validation.py:L50-122](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L50-L122)) during `_bind_parameters` ([aquilia/controller/engine.py:L647-1154](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py#L647-L1154)).
-3. **Request Binding**: Under the hood, `bind_blueprint_to_request` ([aquilia/blueprints/integration.py:L298-538](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L298-L538)) extracts the JSON body, cookies, query parameters, or form data, parsing and building a sealed blueprint instance injected directly into the handler.
+3. **Request Binding**: Under the hood, `bind_contract_to_request` ([aquilia/contracts/integration.py:L298-538](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L298-L538)) extracts the JSON body, cookies, query parameters, or form data, parsing and building a sealed contract instance injected directly into the handler.
 
 ### Outbound Flow: Response Formatting
-To return database instances securely, you declare a `response_blueprint` on the route decorator.
+To return database instances securely, you declare a `response_contract` on the route decorator.
 
 1. **Intercepting Output**: The controller engine intercepts the raw return value of your handler function.
-2. **Applying Blueprints**: The method `_apply_response_blueprint` in [aquilia/controller/engine.py:L1207-1242](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py#L1207-L1242) maps the output.
-3. **Serialization**: It delegates to `render_blueprint_response` in [aquilia/blueprints/integration.py:L541-581](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/integration.py#L541-L581), which dynamically applies the projection, filters hidden fields, formats types, and renders a clean JSON payload.
+2. **Applying Contracts**: The method `_apply_response_contract` in [aquilia/controller/engine.py:L1207-1242](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/engine.py#L1207-L1242) maps the output.
+3. **Serialization**: It delegates to `render_contract_response` in [aquilia/contracts/integration.py:L541-581](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/integration.py#L541-L581), which dynamically applies the projection, filters hidden fields, formats types, and renders a clean JSON payload.
 
 ### Connection Example
 The following snippet showcases how both request body validation and response projection connect seamlessly:
 
 ```python
 from aquilia import Controller, POST, GET
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 from app.models import Product
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     class Spec:
         model = Product
         projections = {
@@ -181,13 +181,13 @@ class ProductBlueprint(Blueprint):
 
 class ProductController(Controller):
     # Outbound: Serialize list output using the "summary" projection contract
-    @GET("/", response_blueprint=ProductBlueprint["summary"])
+    @GET("/", response_contract=ProductContract["summary"])
     async def list_products(self, ctx):
         return await Product.objects.all()
 
-    # Inbound: Validate incoming request body directly via ProductBlueprint
+    # Inbound: Validate incoming request body directly via ProductContract
     @POST("/")
-    async def create_product(self, ctx, payload: ProductBlueprint):
+    async def create_product(self, ctx, payload: ProductContract):
         # The payload is already cast, validated, and sealed at this point!
         product = await payload.imprint()
         return {"id": product.id, "status": "created"}

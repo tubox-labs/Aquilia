@@ -10,7 +10,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `aquilia/mlops/_structures.py` | 1374 | 17 | 0 | MLOps Data Structures -- High-performance primitives for ML pipelines. |
 | `aquilia/mlops/_types.py` | 746 | 30 | 0 | Aquilia MLOps Platform -- Shared type definitions. |
 | `aquilia/mlops/api/__init__.py` | 14 | 0 | 0 | Aquilia MLOps API Layer. |
-| `aquilia/mlops/api/blueprints.py` | 403 | 26 | 0 | MLOps Blueprints -- Aquilia Blueprint definitions for all MLOps data types. |
+| `aquilia/mlops/api/contracts.py` | 403 | 26 | 0 | MLOps Contracts -- Aquilia Contract definitions for all MLOps data types. |
 | `aquilia/mlops/api/functional.py` | 113 | 0 | 1 | Functional Serving -- ``@serve`` decorator for minimal model definitions. |
 | `aquilia/mlops/api/model_class.py` | 207 | 1 | 2 | AquiliaModel -- declarative base class and ``@model`` decorator. |
 | `aquilia/mlops/api/route_generator.py` | 250 | 2 | 0 | Route Generator -- auto-generate Aquilia controller endpoints per model. |
@@ -138,32 +138,32 @@ This page is generated from the current Python source using the AST. It lists pu
 | `Runtime` | `aquilia/mlops/_types.py` | Protocol | Protocol for model runtime backends. |
 | `StreamingRuntime` | `aquilia/mlops/_types.py` | Protocol | Protocol for runtimes that support streaming inference (LLMs). |
 | `PluginHook` | `aquilia/mlops/_types.py` | Protocol | Protocol for plugin lifecycle hooks. |
-| `TensorSpecBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates and renders tensor specifications. |
-| `BlobRefBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates blob references. |
-| `ProvenanceBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates provenance metadata. |
-| `ModelpackManifestBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Full manifest blueprint with deep validation. |
-| `InferenceRequestBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates incoming inference request payloads. |
-| `InferenceResultBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders inference results for API responses. |
-| `DriftReportBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders drift detection reports. |
-| `RolloutConfigBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates rollout configuration payloads. |
-| `RolloutStateBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders rollout state for API responses. |
-| `ScalingPolicyBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates autoscaler policy configuration. |
-| `NodeInfoBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates compute node registration payloads. |
-| `PlacementRequestBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates model placement request payloads. |
-| `PluginDescriptorBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders plugin descriptor for API responses. |
-| `MetricsSummaryBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders metrics summary for API responses. |
-| `LLMConfigBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates LLM configuration payloads. |
-| `StreamChunkBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders a single streaming token/chunk for SSE responses. |
-| `TokenUsageBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders token usage statistics for LLM inference. |
-| `LLMInferenceRequestBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates incoming LLM inference request payloads. |
-| `LLMInferenceResultBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders LLM inference results including token metrics. |
-| `ChatMessageBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates a single chat message. |
-| `ChatRequestBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Validates chat-style LLM request payloads. |
-| `ChatResponseBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders chat-style LLM response. |
-| `CircuitBreakerStatusBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders circuit breaker state for API responses. |
-| `RateLimiterStatusBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders rate limiter state for API responses. |
-| `MemoryStatusBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders memory tracker state for API responses. |
-| `ModelCapabilitiesBlueprint` | `aquilia/mlops/api/blueprints.py` | Blueprint | Renders model capabilities for API responses. |
+| `TensorSpecContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates and renders tensor specifications. |
+| `BlobRefContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates blob references. |
+| `ProvenanceContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates provenance metadata. |
+| `ModelpackManifestContract` | `aquilia/mlops/api/contracts.py` | Contract | Full manifest contract with deep validation. |
+| `InferenceRequestContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates incoming inference request payloads. |
+| `InferenceResultContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders inference results for API responses. |
+| `DriftReportContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders drift detection reports. |
+| `RolloutConfigContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates rollout configuration payloads. |
+| `RolloutStateContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders rollout state for API responses. |
+| `ScalingPolicyContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates autoscaler policy configuration. |
+| `NodeInfoContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates compute node registration payloads. |
+| `PlacementRequestContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates model placement request payloads. |
+| `PluginDescriptorContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders plugin descriptor for API responses. |
+| `MetricsSummaryContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders metrics summary for API responses. |
+| `LLMConfigContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates LLM configuration payloads. |
+| `StreamChunkContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders a single streaming token/chunk for SSE responses. |
+| `TokenUsageContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders token usage statistics for LLM inference. |
+| `LLMInferenceRequestContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates incoming LLM inference request payloads. |
+| `LLMInferenceResultContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders LLM inference results including token metrics. |
+| `ChatMessageContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates a single chat message. |
+| `ChatRequestContract` | `aquilia/mlops/api/contracts.py` | Contract | Validates chat-style LLM request payloads. |
+| `ChatResponseContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders chat-style LLM response. |
+| `CircuitBreakerStatusContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders circuit breaker state for API responses. |
+| `RateLimiterStatusContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders rate limiter state for API responses. |
+| `MemoryStatusContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders memory tracker state for API responses. |
+| `ModelCapabilitiesContract` | `aquilia/mlops/api/contracts.py` | Contract | Renders model capabilities for API responses. |
 | `AquiliaModel` | `aquilia/mlops/api/model_class.py` | object | Base class for Aquilia ML models. |
 | `RouteDefinition` | `aquilia/mlops/api/route_generator.py` | object | A generated route definition ready for controller compilation. |
 | `RouteGenerator` | `aquilia/mlops/api/route_generator.py` | object | Generates HTTP route definitions from registered models. |
@@ -1276,160 +1276,160 @@ Methods:
 | `on_stream_chunk` | `async def on_stream_chunk(self, chunk: StreamChunk)` |  |
 | `on_unload` | `async def on_unload(self)` |  |
 
-### `TensorSpecBlueprint`
+### `TensorSpecContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates and renders tensor specifications.
 
-### `BlobRefBlueprint`
+### `BlobRefContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates blob references.
 
-### `ProvenanceBlueprint`
+### `ProvenanceContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates provenance metadata.
 
-### `ModelpackManifestBlueprint`
+### `ModelpackManifestContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
-- Summary: Full manifest blueprint with deep validation.
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
+- Summary: Full manifest contract with deep validation.
 
-### `InferenceRequestBlueprint`
+### `InferenceRequestContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates incoming inference request payloads.
 
-### `InferenceResultBlueprint`
+### `InferenceResultContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders inference results for API responses.
 
-### `DriftReportBlueprint`
+### `DriftReportContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders drift detection reports.
 
-### `RolloutConfigBlueprint`
+### `RolloutConfigContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates rollout configuration payloads.
 
-### `RolloutStateBlueprint`
+### `RolloutStateContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders rollout state for API responses.
 
-### `ScalingPolicyBlueprint`
+### `ScalingPolicyContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates autoscaler policy configuration.
 
-### `NodeInfoBlueprint`
+### `NodeInfoContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates compute node registration payloads.
 
-### `PlacementRequestBlueprint`
+### `PlacementRequestContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates model placement request payloads.
 
-### `PluginDescriptorBlueprint`
+### `PluginDescriptorContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders plugin descriptor for API responses.
 
-### `MetricsSummaryBlueprint`
+### `MetricsSummaryContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders metrics summary for API responses.
 
-### `LLMConfigBlueprint`
+### `LLMConfigContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates LLM configuration payloads.
 
-### `StreamChunkBlueprint`
+### `StreamChunkContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders a single streaming token/chunk for SSE responses.
 
-### `TokenUsageBlueprint`
+### `TokenUsageContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders token usage statistics for LLM inference.
 
-### `LLMInferenceRequestBlueprint`
+### `LLMInferenceRequestContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates incoming LLM inference request payloads.
 
-### `LLMInferenceResultBlueprint`
+### `LLMInferenceResultContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders LLM inference results including token metrics.
 
-### `ChatMessageBlueprint`
+### `ChatMessageContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates a single chat message.
 
-### `ChatRequestBlueprint`
+### `ChatRequestContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Validates chat-style LLM request payloads.
 
-### `ChatResponseBlueprint`
+### `ChatResponseContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders chat-style LLM response.
 
-### `CircuitBreakerStatusBlueprint`
+### `CircuitBreakerStatusContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders circuit breaker state for API responses.
 
-### `RateLimiterStatusBlueprint`
+### `RateLimiterStatusContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders rate limiter state for API responses.
 
-### `MemoryStatusBlueprint`
+### `MemoryStatusContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders memory tracker state for API responses.
 
-### `ModelCapabilitiesBlueprint`
+### `ModelCapabilitiesContract`
 
-- Source: `aquilia/mlops/api/blueprints.py`
-- Bases: `Blueprint`
+- Source: `aquilia/mlops/api/contracts.py`
+- Bases: `Contract`
 - Summary: Renders model capabilities for API responses.
 
 ### `AquiliaModel`
