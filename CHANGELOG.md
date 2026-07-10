@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`Field` Positional & Ellipsis Support** (`aquilia/blueprints/annotations.py`):
+  - Support passing a single positional default argument to `Field()`.
+  - Passing `...` (Ellipsis) positionally now automatically translates to `required=True` with `UNSET` default:
+    ```python
+    message: str = Field(...)  # translates to required=True, default=UNSET
+    ```
+  - Positional defaults (such as `Field("default_val")`) are natively resolved.
+  - Adding contradictory arguments like `Field(..., default="val")` raises a structured `ConfigInvalidFault` rather than a generic Python `TypeError`.
 - **`EffectNotAcquiredFault`** (`aquilia.faults.domains`): New structured
   fault subclassing `EffectFault` that replaces the bare
   `EffectFault(code="EFFECT_NOT_ACQUIRED")` raised by `ctx.get_effect()`,
@@ -75,6 +83,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Swallowed manifest import errors during static module discovery** (`aquilia/runtime.py`):
+  - Previously, when statically declared modules in `workspace.py` failed to import their `manifest.py` (e.g. due to syntax errors or TypeErrors on startup), `AquiliaRuntime.discover()` caught the exception, logged it, but silently allowed startup to continue. This resulted in missing routes returning `404 Not Found` rather than causing an expected boot crash.
+  - Now, discovery re-raises the exception, forcing a clean and loud startup crash when a statically declared core module fails to load.
 - **`EFFECT_NOT_ACQUIRED` on all requests when using `@requires()` with a
   manually-configured `EffectMiddleware`**: Three interacting bugs caused
   every `ctx.get_effect("DBTx")` / `ctx.get_effect("Cache")` call to fail

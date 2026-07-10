@@ -428,6 +428,7 @@ class AquiliaRuntime:
                         mod_name,
                         exc,
                     )
+                    raise
 
             # 5. Dynamic discovery — pick up modules added after startup
             known = set(self._module_names)

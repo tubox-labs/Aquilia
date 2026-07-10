@@ -187,7 +187,7 @@ class Field:
 
     def __init__(
         self,
-        *,
+        *args: Any,
         default: Any = UNSET,
         default_factory: Callable | None = None,
         required: bool | None = None,
@@ -213,6 +213,23 @@ class Field:
         decimal_places: int | None = None,
         alias: str | None = None,
     ):
+        if args:
+            if len(args) > 1:
+                raise TypeError(f"Field() takes at most 1 positional argument but {len(args)} were given")
+            pos_default = args[0]
+            if default is not UNSET:
+                from aquilia.faults.domains import ConfigInvalidFault
+
+                raise ConfigInvalidFault(
+                    key="field.default",
+                    reason="Cannot specify both positional default/Ellipsis and keyword 'default'",
+                )
+            default = pos_default
+
+        if default is Ellipsis:
+            required = True
+            default = UNSET
+
         if default is not UNSET and default_factory is not None:
             from aquilia.faults.domains import ConfigInvalidFault
 

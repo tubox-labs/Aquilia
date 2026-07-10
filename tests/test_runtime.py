@@ -165,6 +165,26 @@ class TestAquiliaRuntimeLifecycle:
         with pytest.raises(RuntimeError, match="Cannot bootstrap before discover"):
             runtime.bootstrap()
 
+    def test_discover_static_manifest_import_error_raises(self):
+        """If importing a static manifest fails, discover() should raise the error."""
+        from unittest.mock import MagicMock
+
+        rc = RuntimeConfig(workspace_root=Path("/tmp"))
+        runtime = AquiliaRuntime(rc)
+
+        # Mock configure step and config loader
+        runtime._config_loader = MagicMock()
+        runtime._config_loader.config_data = {}
+        runtime._phase = RuntimePhase.CONFIGURING
+
+        # Mock workspace content extraction and importlib
+        with patch.object(Path, "read_text", return_value='workspace = Workspace("app")\nworkspace.module(Module("auth"))'):
+            with patch("importlib.import_module", side_effect=ValueError("Field.__init__() takes 1 positional argument")):
+                with pytest.raises(ValueError, match="Field.__init__"):
+                    runtime.discover()
+
+        assert runtime.phase == RuntimePhase.FAILED
+
     def test_configure_missing_workspace_raises(self):
         """configure() with missing workspace.py should raise FileNotFoundError."""
         rc = RuntimeConfig(workspace_root=Path("/nonexistent/path"))
