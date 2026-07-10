@@ -37,7 +37,7 @@ Quick Start::
         return await Product.objects.all()
 """
 
-from .annotations import Field, NestedContractFacet, computed
+from .annotations import Field, LazyContractFacet, NestedContractFacet, computed
 from .core import Contract, ContractMeta, ContractUnion, ColumnarReport, SealOutcome
 from .exceptions import (
     CONTRACT,
@@ -159,6 +159,7 @@ __all__ = [
     "Field",
     "computed",
     "NestedContractFacet",
+    "LazyContractFacet",
     # Lenses
     "Lens",
     # Projections
