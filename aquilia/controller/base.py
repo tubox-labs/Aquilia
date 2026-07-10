@@ -588,7 +588,7 @@ class Controller(metaclass=_ControllerMeta):
         async def on_response(self, ctx, response): Called after each request
 
     Example:
-    
+
         class UsersController(Controller):
             prefix = "/users"
             version = "v1"

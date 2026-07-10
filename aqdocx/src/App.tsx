@@ -128,7 +128,10 @@ import { AuthOverview } from './pages/docs/auth/Overview'
 import { AuthIdentity } from './pages/docs/auth/Identity'
 import { AuthGuards } from './pages/docs/auth/Guards'
 import { AuthAdvanced } from './pages/docs/auth/Advanced'
-import { AuthZPage } from './pages/docs/auth/AuthZ'
+import { AuthZOverview } from './pages/docs/authz/Overview'
+import { AuthZRBAC } from './pages/docs/authz/RBAC'
+import { AuthZABAC } from './pages/docs/authz/ABAC'
+import { AuthZPolicies } from './pages/docs/authz/Policies'
 import { AuthCredentials } from './pages/docs/auth/Credentials'
 import { AuthManager } from './pages/docs/auth/Manager'
 import { AuthOAuth } from './pages/docs/auth/OAuth'
@@ -467,10 +470,10 @@ export default function App() {
           <Route path="auth/guards" element={<AuthGuards />} />
           <Route path="auth/integration" element={<AuthIntegration />} />
           <Route path="auth/advanced" element={<AuthAdvanced />} />
-          <Route path="authz" element={<AuthZPage />} />
-          <Route path="authz/rbac" element={<AuthZPage />} />
-          <Route path="authz/abac" element={<AuthZPage />} />
-          <Route path="authz/policies" element={<AuthZPage />} />
+          <Route path="authz" element={<AuthZOverview />} />
+          <Route path="authz/rbac" element={<AuthZRBAC />} />
+          <Route path="authz/abac" element={<AuthZABAC />} />
+          <Route path="authz/policies" element={<AuthZPolicies />} />
 
           {/* Sessions */}
           <Route path="sessions" element={<SessionsOverview />} />
