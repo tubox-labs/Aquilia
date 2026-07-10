@@ -1,7 +1,7 @@
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
 
-class RegisterBlueprint(Blueprint):
+class RegisterContract(Contract):
     email: str
     password: str
     name: str
@@ -20,7 +20,7 @@ class RegisterBlueprint(Blueprint):
             self.reject("password", "Password must be at least 8 characters")
 
 
-class LoginBlueprint(Blueprint):
+class LoginContract(Contract):
     email: str
     password: str
 

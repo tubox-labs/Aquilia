@@ -8,7 +8,7 @@ This matrix maps source modules to executable examples or workflow documentation
 | `aquilary` | all app starters, `reference_suite/core_config_runtime.py` | Runtime discovery uses manifests through Aquilary. |
 | `artifacts` | `artifacts_release_app`, `reference_suite/artifacts_signing_versioning.py`, `CLI_WORKFLOWS.md` | Builder, memory store, integrity verification, signed release tokens, artifact CLI. |
 | `auth` | `auth_app`, `multi_module_native_app` | Memory identity/credential/token stores and protected routes. |
-| `blueprints` | `rest_api_blueprint`, `crud_app`, `auth_app` | Request validation and field sealing. |
+| `contracts` | `rest_api_contract`, `crud_app`, `auth_app` | Request validation and field sealing. |
 | `cache` | `cache_http_edge_app`, `multi_module_native_app`, `reference_suite/cache_storage_filesystem.py`, `CLI_WORKFLOWS.md` | Memory backend, service API, cache-aside gateway, stats, cache CLI. |
 | `cli` | `CLI_WORKFLOWS.md` | Full command group coverage with flags from implementation. |
 | `config`, `pyconfig`, `config_builders` | app `workspace.py`, `reference_suite/core_config_runtime.py` | Workspace builders, `AquilaConfig`, env-backed values, `ConfigLoader`. |

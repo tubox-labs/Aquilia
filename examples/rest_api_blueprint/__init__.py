@@ -1,1 +1,1 @@
-"""REST API blueprint example workspace."""
+"""REST API contract example workspace."""

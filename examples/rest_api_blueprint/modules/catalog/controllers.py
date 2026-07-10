@@ -1,6 +1,6 @@
 from aquilia import DELETE, GET, PATCH, POST, Controller, RequestCtx, Response
 
-from .blueprints import ProductCreateBlueprint, ProductUpdateBlueprint
+from .contracts import ProductCreateContract, ProductUpdateContract
 from .services import CatalogService
 
 
@@ -31,9 +31,9 @@ class CatalogController(Controller):
 
     @POST("/products", status_code=201)
     async def create_product(self, ctx: RequestCtx):
-        blueprint = ProductCreateBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        product = await self.service.create_product(blueprint.validated_data)
+        contract = ProductCreateContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        product = await self.service.create_product(contract.validated_data)
         return Response.json(product, status=201)
 
     @GET("/products/<sku:str>")
@@ -42,9 +42,9 @@ class CatalogController(Controller):
 
     @PATCH("/products/<sku:str>")
     async def update_product(self, ctx: RequestCtx, sku: str):
-        blueprint = ProductUpdateBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.update_product(sku, blueprint.validated_data))
+        contract = ProductUpdateContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.update_product(sku, contract.validated_data))
 
     @DELETE("/products/<sku:str>")
     async def delete_product(self, ctx: RequestCtx, sku: str):

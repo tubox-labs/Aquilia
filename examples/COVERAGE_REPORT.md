@@ -17,8 +17,8 @@ The canonical project structure is:
 
 | Example | Current Coverage | Audit Result |
 | --- | --- | --- |
-| `rest_api_blueprint` | Controller, service, blueprint validation, manifest, workspace runtime | Good app-level REST starter, but README is minimal and no root-level pytest support. |
-| `crud_app` | CRUD service, model class, blueprints, controller, database config | Good local starter, but persistence is intentionally in-memory and database/model CLI workflows are not demonstrated. |
+| `rest_api_contract` | Controller, service, contract validation, manifest, workspace runtime | Good app-level REST starter, but README is minimal and no root-level pytest support. |
+| `crud_app` | CRUD service, model class, contracts, controller, database config | Good local starter, but persistence is intentionally in-memory and database/model CLI workflows are not demonstrated. |
 | `auth_app` | Auth stores, password hashing, token issuance, protected routes | Useful but narrow; lacks auth config patterns, failure cases, and root-level pytest support. |
 | `websocket_app` | Socket decorators, rooms, acknowledgements, presence | Useful socket starter; no generated client workflow or adapter variation. |
 | `background_jobs` | `@task`, `TaskManager`, queues, scheduled task metadata | Useful task starter; no lifecycle startup pattern or persistent backend variation. |
@@ -49,7 +49,7 @@ The current examples do not sufficiently cover:
 - Signing APIs.
 - Versioning resolvers and decorators.
 - Fault engine and structured fault handling.
-- Blueprints beyond app-level request DTOs.
+- Contracts beyond app-level request DTOs.
 - Patterns compiler/matcher.
 - Request/response/data structure helpers.
 - HTTP client APIs and mock transport patterns.

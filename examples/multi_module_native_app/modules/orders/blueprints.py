@@ -1,7 +1,7 @@
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
 
-class OrderLineBlueprint(Blueprint):
+class OrderLineContract(Contract):
     sku: str
     quantity: int
 
@@ -13,7 +13,7 @@ class OrderLineBlueprint(Blueprint):
             self.reject("quantity", "Quantity must be greater than zero")
 
 
-class CreateOrderBlueprint(Blueprint):
+class CreateOrderContract(Contract):
     customer_email: str
     lines: list[dict]
 
@@ -30,6 +30,6 @@ class CreateOrderBlueprint(Blueprint):
         if not lines:
             self.reject("lines", "At least one line item is required")
         for line in lines:
-            line_blueprint = OrderLineBlueprint(data=line)
-            if not line_blueprint.is_sealed():
-                self.reject("lines", line_blueprint.errors)
+            line_contract = OrderLineContract(data=line)
+            if not line_contract.is_sealed():
+                self.reject("lines", line_contract.errors)

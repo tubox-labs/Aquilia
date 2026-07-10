@@ -1,20 +1,20 @@
-# REST API Blueprint Starter
+# REST API Contract Starter
 
 ## Purpose
 
-Product catalog API showing the standard Aquilia split: workspace routing, module manifest, controller transport code, service business logic, structured faults, and blueprint validation.
+Product catalog API showing the standard Aquilia split: workspace routing, module manifest, controller transport code, service business logic, structured faults, and contract validation.
 
 ## Architecture
 
 - `workspace.py` registers the `catalog` module at `/catalog` and enables DI, routing, fault handling, security headers, and telemetry.
 - `modules/catalog/manifest.py` declares `CatalogController` and `CatalogService`.
-- `blueprints.py` validates create/update payloads and rejects unknown fields.
+- `contracts.py` validates create/update payloads and rejects unknown fields.
 - `services.py` keeps an in-memory catalog so the app runs without a database.
 
 ## Run
 
 ```bash
-cd examples/rest_api_blueprint
+cd examples/rest_api_contract
 python -m uvicorn runtime:app --reload --port 8000
 ```
 
@@ -25,7 +25,7 @@ Expected behavior: `GET /catalog/health` returns `{"module":"catalog","status":"
 | Method | Path | Purpose |
 | --- | --- | --- |
 | `GET` | `/catalog/products` | List products with `q`, `active`, `limit`, and `offset`. |
-| `POST` | `/catalog/products` | Create product using `ProductCreateBlueprint`. |
+| `POST` | `/catalog/products` | Create product using `ProductCreateContract`. |
 | `GET` | `/catalog/products/<sku>` | Read one product. |
 | `PATCH` | `/catalog/products/<sku>` | Partial update. |
 | `DELETE` | `/catalog/products/<sku>` | Soft deactivate product. |
@@ -34,7 +34,7 @@ Expected behavior: `GET /catalog/health` returns `{"module":"catalog","status":"
 ## Test
 
 ```bash
-python -m pytest examples/rest_api_blueprint -q
+python -m pytest examples/rest_api_contract -q
 ```
 
 ## Common Pitfalls
@@ -49,4 +49,4 @@ Add model-backed persistence, OpenAPI assertions, cache-aside reads, auth guards
 
 ## Related APIs
 
-`Workspace`, `Module`, `Integration.routing`, `AppManifest`, `Controller`, `GET`, `POST`, `PATCH`, `DELETE`, `Blueprint`, `Response`, `ConflictFault`, `NotFoundFault`.
+`Workspace`, `Module`, `Integration.routing`, `AppManifest`, `Controller`, `GET`, `POST`, `PATCH`, `DELETE`, `Contract`, `Response`, `ConflictFault`, `NotFoundFault`.

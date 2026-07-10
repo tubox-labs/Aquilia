@@ -1,7 +1,7 @@
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
 
-class ProductCreateBlueprint(Blueprint):
+class ProductCreateContract(Contract):
     sku: str
     name: str
     price_cents: int
@@ -22,7 +22,7 @@ class ProductCreateBlueprint(Blueprint):
             self.reject("price_cents", "Price must be zero or greater")
 
 
-class ProductUpdateBlueprint(Blueprint):
+class ProductUpdateContract(Contract):
     name: str | None = None
     price_cents: int | None = None
     active: bool | None = None

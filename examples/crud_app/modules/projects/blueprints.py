@@ -1,7 +1,7 @@
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
 
-class ProjectCreateBlueprint(Blueprint):
+class ProjectCreateContract(Contract):
     key: str
     name: str
     summary: str | None = None
@@ -23,7 +23,7 @@ class ProjectCreateBlueprint(Blueprint):
             self.reject("owner_email", "Owner email must look like an email address")
 
 
-class ProjectUpdateBlueprint(Blueprint):
+class ProjectUpdateContract(Contract):
     name: str | None = None
     summary: str | None = None
     owner_email: str | None = None
