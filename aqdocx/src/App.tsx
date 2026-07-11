@@ -28,6 +28,11 @@ import { ArchitecturePage } from './pages/docs/getting-started/Architecture'
 import { ProjectStructurePage } from './pages/docs/getting-started/ProjectStructure'
 import { AdminSetupPage } from './pages/docs/getting-started/AdminSetup'
 
+// Tutorials
+import { TutorialOverview } from './pages/docs/tutorials/Overview'
+import { TodoTutorialPage } from './pages/docs/tutorials/TodoTutorial'
+import { AuthTutorialPage } from './pages/docs/tutorials/AuthTutorial'
+
 // Controllers
 import { ControllersOverview } from './pages/docs/controllers/Overview'
 import { ControllersDecorators } from './pages/docs/controllers/decorators/Overview'
@@ -338,6 +343,11 @@ export default function App() {
           <Route path="architecture" element={<ArchitecturePage />} />
           <Route path="project-structure" element={<ProjectStructurePage />} />
           <Route path="admin-panel" element={<AdminSetupPage />} />
+
+          {/* Tutorials */}
+          <Route path="tutorials/overview" element={<TutorialOverview />} />
+          <Route path="tutorials/todo-app" element={<TodoTutorialPage />} />
+          <Route path="tutorials/auth-app" element={<AuthTutorialPage />} />
 
           {/* Server */}
           <Route path="server" element={<ServerOverview />} />

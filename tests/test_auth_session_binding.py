@@ -248,3 +248,142 @@ async def test_auth_middleware_populates_request_and_ctx_auth_data():
     assert response is not None
     assert request.state["session"] is session
     assert "auth" in request.state
+
+
+@pytest.mark.asyncio
+async def test_auth_middleware_token_only_strategy():
+    from aquilia.auth.core import Identity, IdentityType
+    from aquilia.auth.integration.middleware import AquilAuthMiddleware
+
+    session = MagicMock()
+    session.is_authenticated = False
+
+    session_engine = MagicMock()
+    session_engine.resolve = AsyncMock(return_value=session)
+    session_engine.commit = AsyncMock(return_value=None)
+
+    fake_identity = Identity(id="user-1", type=IdentityType.USER, attributes={})
+
+    auth_manager = MagicMock()
+    auth_manager.get_identity_from_token = AsyncMock(return_value=fake_identity)
+    auth_manager.verify_token = AsyncMock(return_value={"sub": "user-1", "jti": "jti-1", "iss": "aquilia", "exp": 12345, "iat": 12345, "scopes": []})
+
+    # Token-only strategy
+    middleware = AquilAuthMiddleware(
+        session_engine=session_engine,
+        auth_manager=auth_manager,
+        strategies=["token"]
+    )
+
+    request = MagicMock()
+    request.state = {}
+
+    # 1. Bearer token is provided
+    request.header = lambda name: "Bearer valid-token" if name == "authorization" else None
+
+    ctx = MagicMock()
+    ctx.container = None
+    ctx.session = None
+    ctx.identity = None
+
+    async def next_handler_1(_request, _ctx):
+        assert _request.state["identity"] is fake_identity
+        assert _request.state["authenticated"] is True
+        return MagicMock()
+
+    response = await middleware(request, ctx, next_handler_1)
+    assert response is not None
+    # Verify bind_identity was NOT called on session
+    assert not hasattr(session, "mark_authenticated") or not session.mark_authenticated.called
+
+    # 2. Bearer token not provided, but session has identity
+    request.header = lambda name: None
+
+    # Mock session returning identity_id
+    session.data = {"identity_id": "user-1"}
+
+    auth_manager.identity_store = MagicMock()
+    auth_manager.identity_store.get = AsyncMock(return_value=fake_identity)
+
+    async def next_handler_2(_request, _ctx):
+        assert _request.state["identity"] is None
+        assert _request.state["authenticated"] is False
+        return MagicMock()
+
+    response = await middleware(request, ctx, next_handler_2)
+    assert response is not None
+
+
+@pytest.mark.asyncio
+async def test_auth_middleware_session_only_strategy():
+    from aquilia.auth.core import Identity, IdentityType
+    from aquilia.auth.integration.middleware import AquilAuthMiddleware
+
+    session = MagicMock()
+    session.is_authenticated = True
+    session.data = {"identity_id": "user-1"}
+
+    session_engine = MagicMock()
+    session_engine.resolve = AsyncMock(return_value=session)
+    session_engine.commit = AsyncMock(return_value=None)
+
+    fake_identity = Identity(id="user-1", type=IdentityType.USER, attributes={})
+
+    auth_manager = MagicMock()
+    auth_manager.get_identity_from_token = AsyncMock(return_value=fake_identity)
+    auth_manager.identity_store = MagicMock()
+    auth_manager.identity_store.get = AsyncMock(return_value=fake_identity)
+
+    # Session-only strategy
+    middleware = AquilAuthMiddleware(
+        session_engine=session_engine,
+        auth_manager=auth_manager,
+        strategies=["session"]
+    )
+
+    request = MagicMock()
+    request.state = {}
+
+    # Bearer token is provided but should be ignored
+    request.header = lambda name: "Bearer valid-token" if name == "authorization" else None
+
+    ctx = MagicMock()
+    ctx.container = None
+    ctx.session = None
+    ctx.identity = None
+
+    async def next_handler(_request, _ctx):
+        # Identity should be resolved from session, not token!
+        assert _request.state["identity"] is fake_identity
+        assert _request.state["authenticated"] is True
+        return MagicMock()
+
+    response = await middleware(request, ctx, next_handler)
+    assert response is not None
+    assert auth_manager.get_identity_from_token.call_count == 0
+
+
+def test_auth_middleware_invalid_strategy():
+    from aquilia.auth.integration.middleware import AquilAuthMiddleware
+    session_engine = MagicMock()
+    auth_manager = MagicMock()
+
+    with pytest.raises(ValueError, match="Invalid auth strategy: invalid_str"):
+        AquilAuthMiddleware(
+            session_engine=session_engine,
+            auth_manager=auth_manager,
+            strategies=["invalid_str"]
+        )
+
+
+def test_auth_middleware_session_strategy_without_session_engine():
+    from aquilia.auth.integration.middleware import AquilAuthMiddleware
+    auth_manager = MagicMock()
+
+    with pytest.raises(ValueError, match="session_engine is required when 'session' strategy is enabled"):
+        AquilAuthMiddleware(
+            session_engine=None,
+            auth_manager=auth_manager,
+            strategies=["session"]
+        )
+

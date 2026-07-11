@@ -186,11 +186,24 @@ def extract_controller_metadata(
         ControllerMetadata with all routes and configuration
 
     Example:
+    ```
         metadata = extract_controller_metadata(
             UsersController,
             "modules.users.flows:UsersController"
         )
     """
+    # Safety fallback: if an Attributes builder was assigned post-class-creation
+    # (bypassing __set_name__), apply it now before reading the class attributes.
+    try:
+        from aquilia.controller.attrs import Attributes as _Attributes
+
+        _attr_builder = getattr(controller_class, "attr", None)
+        if _attr_builder is not None and isinstance(_attr_builder, _Attributes) and not _attr_builder._applied:
+            _attr_builder.__set_name__(controller_class, "attr")
+    except Exception:
+        # Never let this fallback break normal metadata extraction
+        pass
+
     # Get class-level attributes
     prefix = getattr(controller_class, "prefix", "")
 
@@ -429,11 +442,23 @@ def _extract_method_params(
                                 source = "query"
                         except Exception:
                             source = "query"
-            elif param_name == "session" or (hasattr(param_type, "__name__") and param_type.__name__ == "Session"):
+            elif param_name == "session" or (
+                (hasattr(param_type, "__name__") and param_type.__name__ == "Session")
+                or (isinstance(param_type, str) and "Session" in param_type)
+            ):
                 # Always treat Session as DI source
                 source = "di"
-            elif param_name == "identity" or (hasattr(param_type, "__name__") and param_type.__name__ == "Identity"):
+            elif param_name == "identity" or (
+                (hasattr(param_type, "__name__") and param_type.__name__ == "Identity")
+                or (isinstance(param_type, str) and "Identity" in param_type)
+            ):
                 # Always treat Identity as DI source
+                source = "di"
+            elif param_name == "principal" or (
+                (hasattr(param_type, "__name__") and param_type.__name__ in ("SessionPrincipal", "AuthPrincipal"))
+                or (isinstance(param_type, str) and any(p in param_type for p in ("SessionPrincipal", "AuthPrincipal")))
+            ):
+                # Always treat SessionPrincipal / AuthPrincipal as DI source
                 source = "di"
             else:
                 source = "query"

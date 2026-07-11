@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "node scripts/generate-sitemap.cjs && tsc -b && vite build && npx tsc src/data/docsContent.ts --outDir scripts/temp --module commonjs --target es2022 --skipLibCheck --allowJs --resolveJsonModule --esModuleInterop && mv scripts/temp/docsContent.js scripts/temp/docsContent.cjs && node scripts/prerender.cjs && rm -rf scripts/temp",
     "lint": "eslint .",
     "preview": "vite preview"
   },

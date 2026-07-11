@@ -1005,7 +1005,10 @@ class TestAdminFlowGuards:
         guard = AdminAuthGuard()
         for role in ["superadmin", "admin", "staff", "editor", "viewer"]:
             ctx = MagicMock()
-            ctx.identity = MagicMock()
+            # spec=["roles"] keeps this a plain-attribute identity (no
+            # auto-vivified get_attribute), matching AdminAuthGuard's
+            # get_attribute-first-then-.roles fallback chain.
+            ctx.identity = MagicMock(spec=["roles"])
             ctx.identity.roles = [role]
             assert guard(ctx) is True, f"Role '{role}' should be accepted"
 
@@ -1013,7 +1016,7 @@ class TestAdminFlowGuards:
         """AuthGuard rejects non-admin roles."""
         guard = AdminAuthGuard()
         ctx = MagicMock()
-        ctx.identity = MagicMock()
+        ctx.identity = MagicMock(spec=["roles"])
         ctx.identity.roles = ["user", "guest"]
         assert guard(ctx) is False
 

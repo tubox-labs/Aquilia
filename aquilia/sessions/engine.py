@@ -27,6 +27,7 @@ from .faults import (
     SessionIdleTimeoutFault,
     SessionInvalidFault,
     SessionRotationFailedFault,
+    SessionStoreCorruptedFault,
     SessionStoreUnavailableFault,
 )
 
@@ -131,6 +132,12 @@ class SessionEngine:
                 self.logger.warning(f"Session fingerprint mismatch (possible hijack): {session_id_str[:16]}...")
                 self._emit_event("session_fingerprint_mismatch", None, request)
 
+            except SessionStoreCorruptedFault:
+                # Degrade gracefully like every other invalid-session case
+                # instead of crashing the request on a corrupted store record.
+                self.logger.warning(f"Corrupted session record: {session_id_str[:16]}...")
+                self._emit_event("session_corrupted", None, request)
+
         # Phase 2: Resolution - Create new session
         session = await self._create_new(now, request)
         self._emit_event("session_created", session, request)
@@ -211,6 +218,13 @@ class SessionEngine:
 
         session._policy_name = self.policy.name
 
+        # `flags` is a plain set, not the dirty-tracked `data` dict -- mutating
+        # it in place above does NOT mark the session dirty. Without this,
+        # commit() sees is_dirty=False and never calls store.save(), so a
+        # freshly created (non-fingerprint-bound) session is never persisted
+        # even though the response cookie is issued for it unconditionally.
+        session.mark_dirty()
+
         # Bind fingerprint if policy requires it (OWASP)
         if self.policy.fingerprint_binding and request:
             client_ip = ""
@@ -236,9 +250,18 @@ class SessionEngine:
         """
         Commit session changes (Phase 6-7: Commit, Emission).
 
-        FIX: Concurrency check happens BEFORE save (not after).
+        FIX: Concurrency check happens BEFORE rotation and save (not after).
+        Rotation deletes the OLD session from the store as part of assigning
+        a new ID -- if the concurrency check ran after rotation and then
+        rejected the commit, the old session would already be gone with the
+        new one never persisted, leaving the caller with no valid session at
+        all. Checking concurrency first means a rejected commit leaves the
+        pre-existing session untouched.
         """
         now = datetime.now(timezone.utc)
+
+        if privilege_changed and session.is_authenticated:
+            await self.check_concurrency(session)
 
         # Check if rotation needed
         if self.policy.should_rotate(session, privilege_changed):
@@ -252,10 +275,6 @@ class SessionEngine:
                     new_id="unknown",
                     cause=str(e),
                 )
-
-        # FIX: Check concurrency BEFORE save (was after save in original)
-        if privilege_changed and session.is_authenticated:
-            await self.check_concurrency(session)
 
         # Persist if needed
         if self.policy.should_persist(session) and session.is_dirty:

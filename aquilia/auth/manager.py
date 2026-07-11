@@ -22,6 +22,7 @@ from aquilia.typing import JSONObject
 from .core import (
     ApiKeyCredential,
     AuthResult,
+    CredentialStatus,
     CredentialStore,
     Identity,
     IdentityStatus,
@@ -505,7 +506,7 @@ class AuthManager:
             # Rehash with current parameters
             new_hash = self.password_hasher.hash(password)
             password_cred.password_hash = new_hash
-            await self.credential_store.save_password(password_cred)
+            await self.credential_store.update_password(password_cred)
 
         # Reset rate limit on successful auth
         self.rate_limiter.reset(rate_key)
@@ -543,6 +544,8 @@ class AuthManager:
             identity_id=identity.id,
             scopes=normalized_scopes or ["profile"],
             session_id=session_id,
+            roles=roles,
+            tenant_id=identity.tenant_id,
         )
 
         # Django-like ergonomics for Aquilia: when auth runs inside request scope,
@@ -760,9 +763,11 @@ class AuthManager:
             return
 
         materialized_hash = password_hash or self.password_hasher.hash(password)
-        await self.credential_store.save_password(
-            PasswordCredential(identity_id=identity_id, password_hash=materialized_hash)
-        )
+        new_credential = PasswordCredential(identity_id=identity_id, password_hash=materialized_hash)
+        if existing_password is None:
+            await self.credential_store.create_password(new_credential)
+        else:
+            await self.credential_store.update_password(new_credential)
 
     async def _provision_from_username_credentials(
         self,
@@ -842,9 +847,11 @@ class AuthManager:
         if password_cred is not None and not policy.overwrite_password_credential:
             return changed
 
-        await self.credential_store.save_password(
-            PasswordCredential(identity_id=identity.id, password_hash=self.password_hasher.hash(password))
-        )
+        new_credential = PasswordCredential(identity_id=identity.id, password_hash=self.password_hasher.hash(password))
+        if password_cred is None:
+            await self.credential_store.create_password(new_credential)
+        else:
+            await self.credential_store.update_password(new_credential)
         return True
 
     async def authenticate_api_key(
@@ -886,14 +893,12 @@ class AuthManager:
             except AUTH_INVALID_CREDENTIALS:
                 print("Invalid API key")
         """
-        # Extract prefix (first 8 chars)
         if len(api_key) < 8:
             raise AUTH_INVALID_CREDENTIALS()
 
-        prefix = api_key[:8]
-
-        # Get credential by prefix
-        credential = await self.credential_store.get_api_key_by_prefix(prefix)
+        # Look up by HMAC hash of the full raw key (O(1), CredentialStore protocol).
+        key_hash = ApiKeyCredential.hash_key(api_key)
+        credential = await self.credential_store.get_api_key_by_hash(key_hash)
         if not credential:
             raise AUTH_INVALID_CREDENTIALS()
 
@@ -905,8 +910,8 @@ class AuthManager:
         if credential.expires_at and datetime.now(timezone.utc) > credential.expires_at:
             raise AUTH_KEY_EXPIRED(key_id=credential.key_id)
 
-        # Check status
-        if credential.status.value == "revoked":
+        # Check status (revoked, suspended, or explicitly marked expired)
+        if credential.status in (CredentialStatus.REVOKED, CredentialStatus.SUSPENDED, CredentialStatus.EXPIRED):
             raise AUTH_KEY_REVOKED(key_id=credential.key_id)
 
         # Check scopes
