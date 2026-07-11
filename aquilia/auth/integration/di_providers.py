@@ -461,6 +461,10 @@ class AuthConfig:
             "oauth": {
                 "enabled": False,
             },
+            "security": {
+                "require_auth_by_default": False,
+                "strategies": ["token", "session"],
+            },
         }
 
     def rate_limit(
@@ -520,6 +524,16 @@ class AuthConfig:
     def oauth(self, enabled: bool = True) -> AuthConfig:
         """Enable OAuth2/OIDC."""
         self._config["oauth"] = {"enabled": enabled}
+        return self
+
+    def strategies(self, strategies: list[str]) -> AuthConfig:
+        """
+        Configure active auth strategies.
+
+        Args:
+            strategies: List of active auth strategies (e.g. ['token'], ['session'], or ['token', 'session']).
+        """
+        self._config.setdefault("security", {})["strategies"] = strategies
         return self
 
     def build(self) -> dict[str, Any]:
