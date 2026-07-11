@@ -38,12 +38,12 @@ Quick Start::
 """
 
 from .annotations import Field, LazyContractFacet, NestedContractFacet, computed
-from .core import Contract, ContractMeta, ContractUnion, ColumnarReport, SealOutcome
+from .core import ColumnarReport, Contract, ContractMeta, ContractUnion, SealOutcome
 from .exceptions import (
     CONTRACT,
+    CastFault,
     ContractAsyncMismatchFault,
     ContractFault,
-    CastFault,
     ImprintFault,
     LensCycleFault,
     LensDepthFault,

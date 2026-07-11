@@ -59,8 +59,8 @@ from .lifecycle import (
 )
 from .providers import (
     AliasProvider,
-    ContractProvider,
     ClassProvider,
+    ContractProvider,
     FactoryProvider,
     LazyProxyProvider,
     PoolProvider,

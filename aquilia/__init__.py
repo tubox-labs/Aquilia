@@ -123,57 +123,6 @@ from .auth.manager import AuthManager
 from .auth.tokens import KeyRing, TokenManager
 
 # ============================================================================
-# Contracts (Model ↔ World Contracts)
-# ============================================================================
-from .contracts import (
-    Contract,
-    # Exceptions
-    ContractFault,
-    ContractMeta,
-    BoolFacet,
-    CastFault,
-    ChoiceFacet,
-    # Special Facets
-    Computed,
-    Constant,
-    DateFacet,
-    DateTimeFacet,
-    DecimalFacet,
-    DictFacet,
-    DurationFacet,
-    EmailFacet,
-    # Facets
-    Facet,
-    FileFacet,
-    FloatFacet,
-    Hidden,
-    ImprintFault,
-    Inject,
-    IntFacet,
-    IPFacet,
-    JSONFacet,
-    # Lenses
-    Lens,
-    ListFacet,
-    ProjectionFault,
-    ReadOnly,
-    SealFault,
-    SlugFacet,
-    TextFacet,
-    TimeFacet,
-    URLFacet,
-    UUIDFacet,
-    WriteOnly,
-    bind_contract_to_request,
-    generate_component_schemas,
-    # Schema
-    generate_schema,
-    # Integration
-    is_contract_class,
-    render_contract_response,
-)
-
-# ============================================================================
 # Cache System
 # ============================================================================
 from .cache import (
@@ -225,6 +174,57 @@ from .config import (
     Secret,
     Workspace,
     section,
+)
+
+# ============================================================================
+# Contracts (Model ↔ World Contracts)
+# ============================================================================
+from .contracts import (
+    BoolFacet,
+    CastFault,
+    ChoiceFacet,
+    # Special Facets
+    Computed,
+    Constant,
+    Contract,
+    # Exceptions
+    ContractFault,
+    ContractMeta,
+    DateFacet,
+    DateTimeFacet,
+    DecimalFacet,
+    DictFacet,
+    DurationFacet,
+    EmailFacet,
+    # Facets
+    Facet,
+    FileFacet,
+    FloatFacet,
+    Hidden,
+    ImprintFault,
+    Inject,
+    IntFacet,
+    IPFacet,
+    JSONFacet,
+    # Lenses
+    Lens,
+    ListFacet,
+    ProjectionFault,
+    ReadOnly,
+    SealFault,
+    SlugFacet,
+    TextFacet,
+    TimeFacet,
+    URLFacet,
+    UUIDFacet,
+    WriteOnly,
+    bind_contract_to_request,
+    generate_component_schemas,
+    # Schema
+    generate_schema,
+    # Integration
+    is_contract_class,
+    render_contract_response,
 )
 
 # ============================================================================

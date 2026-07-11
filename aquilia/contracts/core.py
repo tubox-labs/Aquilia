@@ -30,8 +30,8 @@ from .annotations import (
     introspect_annotations,
 )
 from .exceptions import (
-    ContractAsyncMismatchFault,
     CastFault,
+    ContractAsyncMismatchFault,
     ImprintFault,
     SealFault,
 )
