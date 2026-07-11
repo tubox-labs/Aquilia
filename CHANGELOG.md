@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-07-11 — "Ironclad Anchor"
+
 ### Renamed
 - `Blueprint` → `Contract` throughout — all classes, modules, paths, and docs.
   The concept is unchanged; only the identifier has been renamed.
@@ -51,6 +53,115 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - When both inline attributes and `Attributes()` configure the same field,
     the builder value takes precedence (it applies after the class body).
   - Imported and re-exported from `aquilia` top-level: `from aquilia import Attributes`.
+- **Configurable Authentication Strategies**: Enabled configuring active auth strategies ("token", "session") on `AquilAuthMiddleware`, `AuthConfig`, and `AuthIntegration` to allow users to enforce only session-based authentication, only token-based authentication, or both at the same time.
+- **Native PyConfig & DotEnv Resolution Support for Integrations**:
+  - Native support for `Env` and `Secret` wrappers directly in integrations and provider wrappers.
+  - Automatic resolution of `Env`, `Secret`, and PyConfig configuration objects/fields at the correct lifecycle stage.
+  - Automatic type conversion and casting of environment variables (e.g. `Env("PORT", cast=int)` resolves to an integer).
+  - Secure automatic secret resolution through `Secret` wrappers without requiring manual `reveal()` or primitive extraction.
+  - Complete backwards compatibility and zero breaking changes for existing string-based and int-based configurations.
+- **`Field` Positional & Ellipsis Support** (`aquilia/contracts/annotations.py`):
+  - Support passing a single positional default argument to `Field()`.
+  - Passing `...` (Ellipsis) positionally now automatically translates to `required=True` with `UNSET` default:
+    ```python
+    message: str = Field(...)  # translates to required=True, default=UNSET
+    ```
+  - Positional defaults (such as `Field("default_val")`) are natively resolved.
+  - Adding contradictory arguments like `Field(..., default="val")` raises a structured `ConfigInvalidFault` rather than a generic Python `TypeError`.
+- **`EffectNotAcquiredFault`** (`aquilia.faults.domains`): New structured
+  fault subclassing `EffectFault` that replaces the bare
+  `EffectFault(code="EFFECT_NOT_ACQUIRED")` raised by `ctx.get_effect()`,
+  `FlowContext.get_effect()`, and `EffectRegistry.get_provider()`. The new
+  fault carries rich diagnostics in `metadata`:
+  - `effect`: the effect name that was requested
+  - `registered`: all effects currently in the registry
+  - `middleware_active`: whether `EffectMiddleware` ran for this request
+  - `hint`: a concise, actionable remediation message tailored to the
+    probable root cause (missing `@requires`, unregistered provider, or
+    inactive middleware)
+- **`_DeferredEffectRegistry`** (`aquilia.middleware_ext.effect_middleware`):
+  Lazy proxy that delegates `has_effect`, `acquire`, `release`, and
+  `providers` to a live `EffectRegistry` resolved at request time via a
+  zero-argument callable. Eliminates the need for `EffectMiddleware` to have
+  a fully-populated registry at construction time, correctly handling the
+  ASGI startup ordering where providers are registered in `on_startup()`
+  long after the middleware stack is built in `__init__()`.
+- **`atomic()` as a decorator**: `@atomic()` on an `async def` now wraps the whole call in its own
+  transaction (Tortoise-ORM-style), constructing a fresh `Atomic` per call so concurrent calls to
+  the decorated function don't share mutable transaction state.
+- **`atomic(readonly=True)`**: hints that a block only reads. On SQLite this routes to a reader
+  connection instead of contending for the pool's single writer (Aquilia's own N-readers+1-writer
+  design already made this possible; `atomic()` just wasn't using it). Other backends pass
+  `readonly` straight to their native read-only transaction support (asyncpg `transaction(readonly=
+  True)`, `SET TRANSACTION READ ONLY` for MySQL/Oracle).
+- **`atomic(timeout=...)`** (seconds): Prisma-style interactive-transaction timeout. A watchdog
+  cancels the enclosing task if the block hasn't finished in time; the transaction is rolled back
+  and a `QueryFault` is raised instead of leaving a transaction open indefinitely.
+- **`RelatedManager` / `Model.related_manager()`**: reverse relations (rows in another table whose `ForeignKey` points back at an instance) can now be accessed lazily and chained like any other queryset: `await user.related_manager("verifications").filter(expires_at__gt=now).order("-created_at").first()`. Previously `Model.related()` was the only reverse-relation entry point and always eagerly awaited a fully materialized list. `related()` itself is unchanged in contract — it now delegates to `related_manager(name).all()` (or `.first()` for a `OneToOneField`'s reverse side, matching its actual 1:1 cardinality instead of returning a list).
+- **`RelatedNotLoaded` sentinel** (`aquilia.models.relations`): reading a `ForeignKey`/`OneToOneField` attribute that hasn't been hydrated via `select_related()`, `prefetch_related()`, or `await instance.related(name)` now returns this sentinel instead of the raw stored id. Cheap operations work directly on it without a query (`.pk`/`.id`, `bool(...)`, `== other_instance`/`== raw_pk`); any other attribute access raises `RelatedNotLoadedFault` with actionable guidance. Aquilia's DB layer is 100% async and `__get__` can't be `async def`, so — unlike Django's `ForwardManyToOneDescriptor` — there is no transparent hidden query; hydration stays explicit and awaited, this only replaces the previous silent-wrong-type footgun on the read side.
+- **`RelatedNotLoadedFault`, `RelatedTypeMismatchFault`, `RelatedNameConflictFault`** (`aquilia/faults/domains.py`): new `ModelFault` subclasses. The first is raised by the `RelatedNotLoaded` sentinel (dual-inherits `AttributeError`, same pattern as `DeferredFieldAccessFault`, so defensive `hasattr()`/`getattr(..., default)` call sites keep degrading gracefully). The second is raised when assigning an instance of the wrong model to a `ForeignKey`. The third is raised when two `ForeignKey`s targeting the same model would resolve to the same reverse-accessor name.
+- **`Model._reverse_relation_map()`**: cached (same lazy-on-first-use pattern as the existing `_get_reverse_fk_refs()`) map from reverse-accessor name — `related_name` or the default `f"{model}_set"` — to the referencing model/column, replacing `related()`'s previous per-call O(models × fields) linear scan with an O(1) lookup, and giving reverse relations a default accessor name for the first time (previously `related()`'s reverse branch only worked when `related_name` was explicitly set).
+
+### Changed
+- **`ForeignKey`/`OneToOneField` are now real, generic data descriptors** (`aquilia/models/fields_module.py`): previously neither defined `__get__`/`__set__` at all — every FK "attribute" was a plain instance-`__dict__` entry that happened to shadow the class-level `Field` object via Python's normal (non-descriptor) attribute lookup. A static type checker therefore saw `instance.author` as a bare `ForeignKey` (the class-body assignment's own type), not the real runtime union of a hydrated model instance, the `RelatedNotLoaded` sentinel, or `None` — so it could never catch a missing `select_related()`/`related()` call before it crashed at runtime. `ForeignKey`/`OneToOneField` are now `Generic[TModel]` (bound from their own constructor argument, e.g. `ForeignKey(User)` binds `TModel=User`, the same convention `Manager`/`QuerySet`/`Q` already use) with a real `@overload`-typed `__get__`/`__set__`. `RelatedNotLoaded` is now `Generic[TModel]` too, and a new `Related[TModel]` alias (`aquilia/models/relations.py`) spells out the full union: `TModel | RelatedNotLoaded[TModel] | None`. A plain, unannotated field declaration — `author = ForeignKey(User, related_name="posts")` — now resolves `instance.author` to `User | RelatedNotLoaded[User] | None` for mypy/pyright with no extra syntax; `Related[TModel]` is exported for the cases outside a field declaration where the union needs to be named explicitly (a function parameter/return type, a local variable). This is a pure typing/mediation change with zero runtime behavior change: `__get__`/`__set__` read and write the exact same `instance.__dict__[self.attr_name]` slot every existing call site (`Model.__init__`, `Model.from_row()`, `select_related`/`prefetch_related` hydration, `Model.related()`'s cache-on-resolve) already used — a data descriptor takes priority over instance-`__dict__` shadowing regardless, so every one of those call sites keeps working unchanged, and class-level access (`Model.author`, used throughout SQL generation/introspection/admin for `field.related_model` etc.) still returns the `Field` object itself. `ManyToManyField` is unaffected — it was already excluded from this attribute-storage path (`_attr_names`/`_column_names` in `metaclass.py`) and never stored a `RelatedNotLoaded`-wrapped forward value.
+- **`ForeignKey._coerce_to_pk()` now validates related-model type**: assigning an instance of the wrong model (e.g. a `Book` to a `User`-typed FK) previously took `.pk` off of any duck-typed object with `.pk`/`._fields` attributes with no type check, only surfacing as a confusing failure elsewhere (or never, if the two models' PK types happened to collide). It now raises `RelatedTypeMismatchFault` immediately when `related_model` is resolved; falls back to duck-typing when it's still an unresolved lazy string reference (best-effort, not a regression).
+- **`Model.related()` forward-FK branch caches its result**: previously re-queried on every call even if the attribute already held a hydrated instance. Now checks for an already-hydrated instance first (zero-query fast path) and, when it does query, overwrites the attribute with the resolved instance so subsequent bare attribute access — not just future `related()` calls — is instant and correctly typed.
+- **`Model.__eq__` returns `NotImplemented` (not `False`) for a type mismatch**, letting Python fall back to the other operand's own `__eq__` — needed so dirty-field tracking doesn't flag a `ForeignKey` as changed merely because `related()`/`select_related()` replaced an unhydrated `RelatedNotLoaded` sentinel with the equivalent hydrated instance (same underlying pk).
+
+### Fixed
+- **Auth Strategy Isolation**: Separated token extraction and session identity loading based on configured active auth strategies, ensuring they do not run concurrently when not desired.
+- **`SessionPrincipal`/`AuthPrincipal` Parameter Resolution & `@exempt` Class Bypass**:
+  - Classify `SessionPrincipal` and `AuthPrincipal` parameters (as well as parameters named `"principal"`) as `"di"` source parameters in route compilation rather than falling back to `"query"` parameters, preventing `TypeError` on route handler invocations.
+  - Automatically resolve requested `SessionPrincipal`/`AuthPrincipal` parameters in `ControllerEngine._bind_parameters` by extracting the principal from the request session or constructing an `AuthPrincipal` from the active identity.
+  - Replace the `elif` parameter injection structures in `@authenticated` and `@require_identity` decorators with individual `if` blocks to support injecting multiple requested authentication and session parameters (such as `user`/`identity`, `session`, and `principal` simultaneously) into route handler signatures.
+  - Update `ControllerEngine` to retrieve route handler methods prior to executing the class-level pipeline, allowing the engine to check for `@exempt` (clearance level `AccessLevel.PUBLIC`) decorators and bypass/filter out all security-related guards from both class-level and route-level pipelines.
+- **Swallowed manifest import errors during static module discovery** (`aquilia/runtime.py`):
+  - Previously, when statically declared modules in `workspace.py` failed to import their `manifest.py` (e.g. due to syntax errors or TypeErrors on startup), `AquiliaRuntime.discover()` caught the exception, logged it, but silently allowed startup to continue. This resulted in missing routes returning `404 Not Found` rather than causing an expected boot crash.
+  - Now, discovery re-raises the exception, forcing a clean and loud startup crash when a statically declared core module fails to load.
+- **`EFFECT_NOT_ACQUIRED` on all requests when using `@requires()` with a manually-configured `EffectMiddleware`**: Three interacting bugs caused every `ctx.get_effect("DBTx")` / `ctx.get_effect("Cache")` call to fail even when the middleware was present in the workspace `MiddlewareChain`:
+  1. Bootstrap ordering — empty registry at construction time: `_instantiate_middleware()` (called during `Server.__init__()`) resolved the `EffectRegistry` from DI immediately — before the ASGI lifespan `on_startup()` event had a chance to register `DBTx`, `Cache`, `Queue`, and `Storage` providers. The result was an `EffectMiddleware` instance permanently bound to an empty registry. Fixed by introducing a `_DeferredEffectRegistry` proxy that lazily resolves `server._effect_registry` on every request.
+  2. `EffectSubsystem._register_middleware()` silently skipped when providers were absent: The condition `if self._registry and self._registry.providers:` prevented `EffectMiddleware` from being registered by the subsystem when no providers were configured in the `effects.providers` config section. The guard has been relaxed to `if self._registry:` so the middleware is always registered when the subsystem is active.
+  3. Opaque error message with no actionable information: Replaced with the new `EffectNotAcquiredFault`.
+- **Type inference for `Model.related(name)`**: Added `@overload` signatures to `related()`, enabling IDE autocomplete on related field model attributes without manual casting.
+- **Instance manager access error handling**: Replaced bare `AttributeError` when attempting to access class-level managers on model instances with a structured `ManagerInstanceAccessFault`.
+- **ORM field `sql_type()` error handling**: Replaced `NotImplementedError` raised in custom field classes missing `sql_type()` implementations with a structured `SchemaFault`.
+- **Migration DSL error handling**: Replaced `NotImplementedError` raised when attempting to mechanically reverse irreversible migration operations with a structured `MigrationFault`.
+- **Dependency Injection error handling**: Migrated `DIError` and all its subclasses in `aquilia/di/errors.py` to subclass `DIFault` and participate fully in the Aquilia structured fault handling system, capturing rich diagnostics in metadata.
+- **DI CLI missing settings error handling**: Replaced `FileNotFoundError` raised when a settings file is missing during CLI loader setup with `ConfigMissingFault`.
+- **Configuration validation error handling**: Changed `ConfigError` in the configuration loader to inherit from `ConfigFault`.
+- **Blueprint sync/async validation mismatch error handling**: Replaced `RuntimeError` raises for async ward validation sync mismatch with a structured `BlueprintAsyncMismatchFault`.
+- **Blueprint migration error handling**: Replaced raw `ValueError` raised during missing blueprint migration path in `Sigil` validation with a proper validation error response dictionary, preventing unhandled 500 errors on invalid client inputs.
+- **ASGI middleware chain error handling**: Replaced `RuntimeError` raised when the ASGI middleware chain is not initialized with a structured `SystemFault`.
+- **Pattern compiler error handling**: Subclassed `PatternSyntaxError`, `PatternSemanticError`, and `RouteAmbiguityError` from `RoutingFault` in `patterns/diagnostics/errors.py`.
+- **`atomic()` never actually started a database transaction**: `Atomic` now routes through connection-bound `begin()`/`commit()`/`rollback()` (plus savepoint wrappers) rather than executing raw SQL text statements.
+- **Isolation level silently no-op'd for Postgres/MySQL**: Isolation is now passed directly into each adapter's `begin(isolation=...)`.
+- **Authentication & Session Forensic Audit fixes**:
+  - `MemoryCredentialStore` updated to satisfy `CredentialStore` protocol.
+  - Removed `@dataclass` from `Credential` protocol.
+  - Added `MemoryOAuthClientStore.list_all()`.
+  - Rejected suspended/expired API keys in `authenticate_api_key`.
+  - Resolved nonexistent method call in `RequireSessionAuthGuard`.
+  - Fixed argument order and await in `RequirePolicyGuard`.
+  - Passed `resource` parameter to RBAC check in `RequirePermissionGuard`.
+  - Propagated resolved identity into context and state in `set_identity()`.
+  - Replaced hardcoded template `can()` helper with real RBAC check.
+  - Omitted symmetric HMAC key from JWKS-style `KeyDescriptor.to_dict()` safe dump.
+  - Fixed refresh token rotation claim loss.
+  - Enforced client secret validation in OAuth2 confidential client flow.
+  - Enforced PKCE check in `grant_authorization_code()`.
+  - Fixed SHA algorithm mismatch in `TOTPProvider.algorithm`.
+  - Resolved session rotation commit concurrency safety checks.
+  - Marked new anonymous sessions dirty on first response.
+  - Handled corrupted session files gracefully.
+  - Use `get_attribute` fallback in `AdminAuthGuard`.
+  - Secured `MemoryStore.exists()` and `FileStore.delete()` under `self._lock`.
+- Reverse-relation resolution (`Model.related()`) previously required an explicit `related_name` on the `ForeignKey` and re-scanned every registered model's every field on every call; it now has a default accessor name and an O(1) cached lookup, and fails fast with `RelatedNameConflictFault` if two FKs would collide on the same name.
+- **Path Traversal in `LocalStorage.listdir()`**: `listdir()` now normalizes and confines its `path` argument the same way every sibling method already does, matching the `S3Storage`/`SFTPStorage` backends and the framework's stated file-path-validation invariant.
+
+### Testing
+- New `tests/test_orm_transactions_atomic.py` for transaction tests.
+- New `TestForeignKeyDescriptor` in `tests/test_related_not_loaded_and_reverse_manager.py`.
+- Updated `tests/test_auth_system.py` clearance fixtures.
 
 ## [1.3.01b] — 2026-07-11
 
