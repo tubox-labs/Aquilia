@@ -538,7 +538,14 @@ class _ControllerMeta(type):
     _COPY_FIELDS = ("pipeline", "tags", "interceptors", "exception_filters")
 
     def __new__(mcs, name: str, bases: tuple, namespace: dict):
-        cls = super().__new__(mcs, name, bases, namespace)
+        try:
+            cls = super().__new__(mcs, name, bases, namespace)
+        except RuntimeError as e:
+            from aquilia.faults.domains import ConfigInvalidFault
+
+            if e.__cause__ is not None and isinstance(e.__cause__, ConfigInvalidFault):
+                raise e.__cause__ from None
+            raise
         for field in mcs._COPY_FIELDS:
             # If the subclass didn't explicitly set the field, copy from
             # the inherited value so each class has its own list.
