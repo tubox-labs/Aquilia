@@ -1155,17 +1155,20 @@ class ControllerEngine:
                     value = await container.resolve_async(resolve_token, optional=is_optional)
 
                     if is_session_param and value is None:
-                        # Try to resolve session proactively
-                        try:
-                            from aquilia.sessions import SessionEngine
+                        # Check request.state or ctx first to avoid duplicate session resolution
+                        value = request.state.get("session") or getattr(ctx, "session", None)
+                        if value is None:
+                            # Try to resolve session proactively
+                            try:
+                                from aquilia.sessions import SessionEngine
 
-                            engine = await container.resolve_async(SessionEngine)
-                            value = await engine.resolve(request)
-                            # Update context and request for downstream handlers/decorators
-                            ctx.session = value
-                            request.state["session"] = value
-                        except Exception:
-                            pass
+                                engine = await container.resolve_async(SessionEngine)
+                                value = await engine.resolve(request)
+                                # Update context and request for downstream handlers/decorators
+                                ctx.session = value
+                                request.state["session"] = value
+                            except Exception:
+                                pass
 
                     if is_principal_param and value is None:
                         # Try to get principal from session or identity
