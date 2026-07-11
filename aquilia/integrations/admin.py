@@ -137,7 +137,7 @@ class LegacyFluentMixin:
                 ):
                     pass
                 else:
-                    target_offset = f.f_lasti * 2 if sys.version_info[:2] == (3, 11) else f.f_lasti
+                    target_offset = f.f_lasti
                     instructions = list(dis.Bytecode(f.f_code))
                     idx = -1
                     for i, inst in enumerate(instructions):
