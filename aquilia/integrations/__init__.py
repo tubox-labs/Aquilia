@@ -187,3 +187,13 @@ __all__ = [
     # Integration (typed wrapper — delegates to typed dataclasses)
     "Integration",
 ]
+
+# Decorate all exported dataclass integration classes to resolve Env/Secret/PyConfig wrappers
+import dataclasses
+from aquilia.integrations.utils import resolve_integration_fields
+
+for _name in __all__:
+    _obj = globals().get(_name)
+    if isinstance(_obj, type) and dataclasses.is_dataclass(_obj):
+        resolve_integration_fields(_obj)
+

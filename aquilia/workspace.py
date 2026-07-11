@@ -478,6 +478,10 @@ class Workspace:
         if isinstance(integration, IntegrationConfig):
             integration = integration.to_dict()
 
+        from aquilia.integrations.utils import resolve_config_value
+
+        integration = resolve_config_value(integration)
+
         integration_type = integration.get("_integration_type")
         if integration_type:
             self._integrations[integration_type] = integration
@@ -822,7 +826,9 @@ class Workspace:
                 config["integrations"] = {}
             config["integrations"]["inspector"] = self._inspector_config
 
-        return config
+        from aquilia.integrations.utils import resolve_config_value
+
+        return resolve_config_value(config)
 
     def __repr__(self) -> str:
         return f"Workspace(name='{self._name}', version='{self._version}', modules={len(self._modules)})"

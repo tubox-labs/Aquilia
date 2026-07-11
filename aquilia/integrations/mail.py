@@ -92,10 +92,14 @@ class _ProviderWrapper:
         auth: Any | None = None,
         **kwargs: Any,
     ) -> None:
-        self._provider = self._real_cls(*args, **kwargs)
-        self._enabled = enabled
-        self._rate_limit_per_min = rate_limit_per_min
-        self._auth = auth
+        from aquilia.integrations.utils import resolve_config_value
+
+        resolved_args = [resolve_config_value(arg) for arg in args]
+        resolved_kwargs = {k: resolve_config_value(v) for k, v in kwargs.items()}
+        self._provider = self._real_cls(*resolved_args, **resolved_kwargs)
+        self._enabled = resolve_config_value(enabled)
+        self._rate_limit_per_min = resolve_config_value(rate_limit_per_min)
+        self._auth = resolve_config_value(auth)
 
     def __getattr__(self, name: str) -> Any:
         # Delegate field access (host, port, output_dir, ...) to the
@@ -103,7 +107,11 @@ class _ProviderWrapper:
         return getattr(self.__dict__["_provider"], name)
 
     def to_dict(self) -> dict[str, Any]:
-        return _provider_instance_to_dict(self._provider, self._auth, self._enabled, self._rate_limit_per_min)
+        from aquilia.integrations.utils import resolve_config_value
+
+        return resolve_config_value(
+            _provider_instance_to_dict(self._provider, self._auth, self._enabled, self._rate_limit_per_min)
+        )
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(name={self._provider.name!r})"

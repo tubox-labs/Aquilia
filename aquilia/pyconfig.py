@@ -161,6 +161,12 @@ class Secret:
         self._default: str | None = default
         self._required: bool = required
 
+        if env is None and value is not None:
+            import re
+
+            if isinstance(value, str) and re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", value):
+                self._env_name = value
+
     def reveal(self) -> str | None:
         """
         Return the actual secret value (use deliberately).
