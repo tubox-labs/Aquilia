@@ -429,11 +429,23 @@ def _extract_method_params(
                                 source = "query"
                         except Exception:
                             source = "query"
-            elif param_name == "session" or (hasattr(param_type, "__name__") and param_type.__name__ == "Session"):
+            elif param_name == "session" or (
+                (hasattr(param_type, "__name__") and param_type.__name__ == "Session")
+                or (isinstance(param_type, str) and "Session" in param_type)
+            ):
                 # Always treat Session as DI source
                 source = "di"
-            elif param_name == "identity" or (hasattr(param_type, "__name__") and param_type.__name__ == "Identity"):
+            elif param_name == "identity" or (
+                (hasattr(param_type, "__name__") and param_type.__name__ == "Identity")
+                or (isinstance(param_type, str) and "Identity" in param_type)
+            ):
                 # Always treat Identity as DI source
+                source = "di"
+            elif param_name == "principal" or (
+                (hasattr(param_type, "__name__") and param_type.__name__ in ("SessionPrincipal", "AuthPrincipal"))
+                or (isinstance(param_type, str) and any(p in param_type for p in ("SessionPrincipal", "AuthPrincipal")))
+            ):
+                # Always treat SessionPrincipal / AuthPrincipal as DI source
                 source = "di"
             else:
                 source = "query"
