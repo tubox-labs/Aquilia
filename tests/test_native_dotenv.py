@@ -1004,6 +1004,17 @@ WORKERS=4
             if "SINGLE_VALUE" in os.environ:
                 del os.environ["SINGLE_VALUE"]
 
+    def test_aquila_config_auth_strategies(self):
+        """AquilaConfig.Auth includes strategies with default value."""
+        from aquilia.pyconfig import AquilaConfig
+
+        class TestConfig(AquilaConfig):
+            class auth(AquilaConfig.Auth):
+                strategies = ["token"]
+
+        result = TestConfig.to_dict()
+        assert result["auth"]["strategies"] == ["token"]
+
 
 # ============================================================================
 # AQUILACONFIG DOTENV POLICY TESTS

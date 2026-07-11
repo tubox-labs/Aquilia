@@ -1055,6 +1055,7 @@ class AquilaConfig:
         access_token_ttl_minutes: int = 60
         refresh_token_ttl_days: int = 30
         require_auth_by_default: bool = False
+        strategies: list[str] = ["token", "session"]
         #: Password hasher — override with an ``AquilaConfig.PasswordHasher`` instance.
         password_hasher: AquilaConfig.PasswordHasher | None = None
 
