@@ -17,8 +17,20 @@ log = logging.getLogger(__name__)
 
 class NestedNamespace:
     """
-    A namespace that supports nested attribute access for app configs.
-    Enables syntax like: config.apps.auth.secret_key
+    A namespace supporting nested attribute access for application configurations.
+
+    Allows accessing nested configuration dictionary keys as properties rather than
+    bracket lookups (e.g. `config.apps.auth.secret_key` instead of `config["apps"]["auth"]["secret_key"]`).
+
+    Parameters:
+        data: Optional base dictionary containing configuration settings. Defaults to `None`.
+
+    Examples:
+        ```python
+        data = {"apps": {"auth": {"secret": "abc"}}}
+        ns = NestedNamespace(data)
+        print(ns.apps.auth.secret)  # Outputs: abc
+        ```
     """
 
     def __init__(self, data: dict[str, Any] | None = None):
@@ -51,13 +63,26 @@ class NestedNamespace:
 
 
 class Config:
-    """Base class for typed configuration classes."""
+    """
+    Base class for typed configuration structures.
+
+    Subclassed by specific application integration dataclasses or schemas to mark them
+    as configuration objects compatible with validation and instantiation logic.
+    """
 
     pass
 
 
 class ConfigError(ConfigFault):
-    """Raised when configuration validation fails."""
+    """
+    Exception raised when configuration validation or type-checking fails.
+
+    Extends `ConfigFault` with structured error code `"CONFIG_VALIDATION_ERROR"`.
+
+    Parameters:
+        message: Descriptive error message explaining the failure.
+        **kwargs: Extensible extra metadata.
+    """
 
     def __init__(self, message: str, **kwargs):
         super().__init__(
@@ -69,8 +94,28 @@ class ConfigError(ConfigFault):
 
 class ConfigLoader:
     """
-    Loads and merges configuration from multiple sources with precedence:
-    CLI args > Environment variables > .env files > config files > defaults
+    Centralized loader and resolver for application configurations.
+
+    Responsible for merging configurations from multiple sources with defined precedence,
+    normalizing keys, and instantiating strongly-typed config classes.
+
+    Precedence order (highest overrides lowest):
+    1. Manual overrides (passed to `.load()`)
+    2. Environment variables (`AQ_*` prefix)
+    3. Dotenv files (`.env`)
+    4. Python configuration files (`workspace.py` or `aquilia.py`)
+    5. Subsystem defaults
+
+    Examples:
+        ```python
+        from aquilia.config import ConfigLoader
+
+        loader = ConfigLoader.load(
+            paths=["workspace.py"],
+            overrides={"runtime": {"port": 9000}}
+        )
+        port = loader.get("runtime.port")
+        ```
     """
 
     def __init__(self, env_prefix: str = "AQ_"):
@@ -87,29 +132,35 @@ class ConfigLoader:
         overrides: dict[str, Any] | None = None,
     ) -> "ConfigLoader":
         """
-        Load configuration from multiple sources with proper merge strategy.
+        Load configuration from multiple sources with defined merge precedence.
 
-        Merge order (later overrides earlier):
-        1. Workspace structure from workspace.py / aquilia.py (modules, integrations,
-           and inline AquilaConfig via .env_config())
-        2. Environment variables (AQ_* prefix)
-        3. Manual overrides
+        Precedence order (later overrides earlier):
+        1. Workspace configuration from Python files (e.g. `workspace.py`, `aquilia.py`).
+        2. Legacy `config/env.py` variant selection if present.
+        3. Environment variables matching `env_prefix` (e.g., `AQ_*`).
+        4. Manual overrides dictionary (highest priority).
 
-        All configuration is Python-native.  YAML is no longer supported.
-        The AquilaConfig environment classes are defined inline in workspace.py
-        and wired via ``Workspace.env_config(BaseEnv)``.
+        All configuration in Aquilia is Python-native. YAML files are unsupported.
 
-        For backward compatibility, ``config/env.py`` is still loaded if it
-        exists (legacy projects).
-
-        Args:
-            paths: List of config file paths (glob patterns supported)
-            env_prefix: Prefix for environment variables
-            env_file: Path to .env file
-            overrides: Manual overrides (highest precedence)
+        Parameters:
+            paths: List of configuration file paths or glob patterns to load. Defaults to `["workspace.py"]` or `["aquilia.py"]`.
+            env_prefix: Environment variable prefix used to match environment configuration keys. Defaults to `"AQ_"`.
+            env_file: Path to a `.env` file containing environment settings.
+            overrides: Dictionary of manual override values that take absolute precedence.
 
         Returns:
-            Configured ConfigLoader instance
+            The configured `ConfigLoader` instance.
+
+        Examples:
+            ```python
+            from aquilia.config import ConfigLoader
+
+            loader = ConfigLoader.load(
+                paths=["workspace.py"],
+                env_prefix="AQ_",
+                overrides={"runtime": {"port": 8080}}
+            )
+            ```
         """
         loader = cls(env_prefix=env_prefix)
 
@@ -399,7 +450,24 @@ class ConfigLoader:
         self.apps = NestedNamespace(apps_data)
 
     def get(self, path: str, default: Any = None) -> Any:
-        """Get config value by dot-separated path."""
+        """
+        Retrieve a configuration value by a dot-separated query path.
+
+        Automatically logs access tracing spans to the active inspector if active,
+        redacting fields that look like secrets (e.g. passwords, API keys).
+
+        Parameters:
+            path: Dot-separated path to the configuration key (e.g. `"runtime.port"`).
+            default: Value returned if the path cannot be resolved. Defaults to `None`.
+
+        Returns:
+            The resolved configuration value or the specified default.
+
+        Examples:
+            ```python
+            port = loader.get("runtime.port", default=8000)
+            ```
+        """
         t0 = None
         trace = None
         try:
@@ -452,14 +520,30 @@ class ConfigLoader:
 
     def get_app_config(self, app_name: str, config_class: type[Config]) -> Config:
         """
-        Get and validate configuration for a specific app.
+        Retrieve and validate a strongly-typed configuration block for a specific module.
 
-        Args:
-            app_name: Name of the app
-            config_class: Config class to instantiate and validate
+        Merges root-level configurations (excluding the `apps` block) with module-specific
+        overrides inside `apps.{app_name}`, then validates parameters against type hints.
+
+        Parameters:
+            app_name: Name of the application module to query config for.
+            config_class: Configuration schema or dataclass subclassing `Config` or standard dataclass.
 
         Returns:
-            Validated config instance
+            The validated and instantiated configuration object.
+
+        Raises:
+            ConfigError: If a required field is missing or a type mismatch is detected.
+
+        Examples:
+            ```python
+            @dataclass
+            class MyModuleConfig(Config):
+                enable_feature: bool = False
+                api_url: str = "http://localhost"
+
+            config = loader.get_app_config("mymodule", MyModuleConfig)
+            ```
         """
         # Get app-specific config
         app_config_data = self.get(f"apps.{app_name}", {})
