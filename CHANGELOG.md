@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.01b] — 2026-07-11
+
+### Added
+- **Configurable Authentication Strategies**: Enabled configuring active auth strategies ("token", "session") on `AquilAuthMiddleware`, `AuthConfig`, and `AuthIntegration` to allow users to enforce only session-based authentication, only token-based authentication, or both at the same time.
+
+### Fixed
+- **Auth Strategy Isolation**: Separated token extraction and session identity loading based on configured active auth strategies, ensuring they do not run concurrently when not desired.
+
 ## [1.3.0b1] — 2026-07-07 — "Ironclad Anchor" (beta)
 
 ### Added
