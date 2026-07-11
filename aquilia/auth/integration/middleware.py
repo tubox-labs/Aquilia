@@ -63,28 +63,39 @@ class AquilAuthMiddleware(Middleware):
 
     def __init__(
         self,
-        session_engine: SessionEngine,
+        session_engine: SessionEngine | None,
         auth_manager: AuthManager,
         fault_engine: FaultEngine | None = None,
         require_auth: bool = False,
+        strategies: list[str] | None = None,
         logger: logging.Logger | None = None,
     ):
         """
         Initialize unified auth middleware.
 
         Args:
-            session_engine: Aquilia SessionEngine
-            auth_manager: AquilAuth AuthManager
-            fault_engine: Optional FaultEngine for error handling
-            require_auth: If True, require authentication for all routes
-            logger: Optional logger
+            session_engine: Optional Aquilia SessionEngine instance.
+            auth_manager: AquilAuth AuthManager instance.
+            fault_engine: Optional FaultEngine for error handling.
+            require_auth: If True, require authentication for all routes.
+            strategies: Active authentication strategies (e.g. ['token'], ['session'], or ['token', 'session']).
+            logger: Optional logger instance.
         """
         self.session_engine = session_engine
         self.auth_manager = auth_manager
-        self.session_bridge = SessionAuthBridge(session_engine)
+        self.session_bridge = SessionAuthBridge(session_engine) if session_engine is not None else None
         self.fault_engine = fault_engine
         self.require_auth = require_auth
         self.logger = logger or logging.getLogger("aquilia.auth.middleware")
+
+        self.strategies = [s.strip().lower() for s in (strategies or ["token", "session"])]
+        valid_strategies = {"token", "session"}
+        for s in self.strategies:
+            if s not in valid_strategies:
+                raise ValueError(f"Invalid auth strategy: {s}. Supported strategies: token, session")
+
+        if "session" in self.strategies and session_engine is None:
+            raise ValueError("session_engine is required when 'session' strategy is enabled.")
 
     async def __call__(
         self,
@@ -106,14 +117,16 @@ class AquilAuthMiddleware(Middleware):
         # Get DI container from context
         container = getattr(ctx, "container", None)
 
-        # Phase 1: Resolve session
-        session = await self.session_engine.resolve(request, container)
+        # Phase 1: Resolve session if session engine is available
+        session = None
+        if self.session_engine is not None:
+            session = await self.session_engine.resolve(request, container)
 
-        # Store session in request state
-        request.state["session"] = session
+            # Store session in request state
+            request.state["session"] = session
 
-        # Also set on ctx for template rendering
-        ctx.session = session
+            # Also set on ctx for template rendering
+            ctx.session = session
 
         auth_context = _RequestAuthContext(
             manager=self.auth_manager,
@@ -133,29 +146,31 @@ class AquilAuthMiddleware(Middleware):
         runtime_token = set_auth_runtime_context(runtime_context)
 
         try:
-            # Phase 2: Resolve identity (Bearer token overrides session)
+            # Phase 2: Resolve identity
             identity = None
 
-            # 1. Try Authorization header
-            auth_header = request.header("authorization")
-            if auth_header and auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-                try:
-                    identity = await self.auth_manager.get_identity_from_token(token)
-                    if identity:
-                        # Sync identity to session
-                        bind_identity(session, identity)
+            # 1. Try Authorization header (if token strategy is enabled)
+            if "token" in self.strategies:
+                auth_header = request.header("authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header[7:]
+                    try:
+                        identity = await self.auth_manager.get_identity_from_token(token)
+                        if identity:
+                            # Sync identity to session if session strategy is enabled
+                            if session is not None and "session" in self.strategies:
+                                bind_identity(session, identity)
 
-                        # Sync token claims to session
-                        claims = await self.auth_manager.verify_token(token)
-                        if claims:
-                            bind_token_claims(session, claims)
-                except Exception as e:
-                    self.logger.warning(f"Token authentication failed: {e}")
-                    # Continue and try session
+                                # Sync token claims to session
+                                claims = await self.auth_manager.verify_token(token)
+                                if claims:
+                                    bind_token_claims(session, claims)
+                    except Exception as e:
+                        self.logger.warning(f"Token authentication failed: {e}")
+                        # Continue and try session
 
-            # 2. If no token, use identity from session
-            if not identity:
+            # 2. If no token, use identity from session (if session strategy is enabled)
+            if not identity and "session" in self.strategies and session is not None:
                 identity_id = get_identity_id(session)
                 if identity_id:
                     try:
@@ -169,10 +184,11 @@ class AquilAuthMiddleware(Middleware):
                 # No identity and auth required
                 response = self._handle_auth_required()
                 runtime_context.response = response
-                await self.session_engine.commit(session, response)
+                if self.session_engine is not None and session is not None:
+                    await self.session_engine.commit(session, response)
                 return response
 
-            initial_auth_state = session.is_authenticated
+            initial_auth_state = session.is_authenticated if session is not None else False
 
             # Phase 4: Inject identity into request and DI
             request.state["identity"] = identity
@@ -204,9 +220,10 @@ class AquilAuthMiddleware(Middleware):
             runtime_context.response = response
 
             # Phase 6: Commit session
-            # Check if privilege changed (transitioned from anonymous to authenticated or vice versa)
-            privilege_changed = session.is_authenticated != initial_auth_state
-            await self.session_engine.commit(session, response, privilege_changed=privilege_changed)
+            if self.session_engine is not None and session is not None:
+                # Check if privilege changed (transitioned from anonymous to authenticated or vice versa)
+                privilege_changed = session.is_authenticated != initial_auth_state
+                await self.session_engine.commit(session, response, privilege_changed=privilege_changed)
 
             return response
         finally:
@@ -323,16 +340,28 @@ class OptionalAuthMiddleware(AquilAuthMiddleware):
 
     def __init__(
         self,
-        session_engine: SessionEngine,
+        session_engine: SessionEngine | None,
         auth_manager: AuthManager,
         fault_engine: FaultEngine | None = None,
+        strategies: list[str] | None = None,
         logger: logging.Logger | None = None,
     ):
+        """
+        Initialize optional auth middleware.
+
+        Args:
+            session_engine: Optional Aquilia SessionEngine instance.
+            auth_manager: AquilAuth AuthManager instance.
+            fault_engine: Optional FaultEngine for error handling.
+            strategies: Active authentication strategies (e.g. ['token'], ['session'], or ['token', 'session']).
+            logger: Optional logger instance.
+        """
         super().__init__(
             session_engine=session_engine,
             auth_manager=auth_manager,
             fault_engine=fault_engine,
             require_auth=False,
+            strategies=strategies,
             logger=logger,
         )
 
@@ -566,24 +595,26 @@ class EnhancedRequestScopeMiddleware(Middleware):
 
 
 def create_auth_middleware_stack(
-    session_engine: SessionEngine,
+    session_engine: SessionEngine | None,
     auth_manager: AuthManager,
     app_container: Container,
     fault_engine: FaultEngine | None = None,
     require_auth: bool = False,
+    strategies: list[str] | None = None,
 ) -> list[Middleware]:
     """
     Create complete middleware stack for authenticated app.
 
     Args:
-        session_engine: SessionEngine instance
-        auth_manager: AuthManager instance
-        app_container: App-scoped DI container
-        fault_engine: Optional FaultEngine
-        require_auth: Require auth for all routes
+        session_engine: Optional SessionEngine instance.
+        auth_manager: AuthManager instance.
+        app_container: App-scoped DI container.
+        fault_engine: Optional FaultEngine.
+        require_auth: Require auth for all routes.
+        strategies: Active authentication strategies (e.g. ['token'], ['session'], or ['token', 'session']).
 
     Returns:
-        List of middleware in correct order
+        List of middleware in correct order.
     """
     stack = []
 
@@ -601,6 +632,7 @@ def create_auth_middleware_stack(
             auth_manager=auth_manager,
             fault_engine=fault_engine,
             require_auth=require_auth,
+            strategies=strategies,
         )
     )
 

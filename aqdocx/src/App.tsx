@@ -28,6 +28,11 @@ import { ArchitecturePage } from './pages/docs/getting-started/Architecture'
 import { ProjectStructurePage } from './pages/docs/getting-started/ProjectStructure'
 import { AdminSetupPage } from './pages/docs/getting-started/AdminSetup'
 
+// Tutorials
+import { TutorialOverview } from './pages/docs/tutorials/Overview'
+import { TodoTutorialPage } from './pages/docs/tutorials/TodoTutorial'
+import { AuthTutorialPage } from './pages/docs/tutorials/AuthTutorial'
+
 // Controllers
 import { ControllersOverview } from './pages/docs/controllers/Overview'
 import { ControllersDecorators } from './pages/docs/controllers/decorators/Overview'
@@ -128,7 +133,10 @@ import { AuthOverview } from './pages/docs/auth/Overview'
 import { AuthIdentity } from './pages/docs/auth/Identity'
 import { AuthGuards } from './pages/docs/auth/Guards'
 import { AuthAdvanced } from './pages/docs/auth/Advanced'
-import { AuthZPage } from './pages/docs/auth/AuthZ'
+import { AuthZOverview } from './pages/docs/authz/Overview'
+import { AuthZRBAC } from './pages/docs/authz/RBAC'
+import { AuthZABAC } from './pages/docs/authz/ABAC'
+import { AuthZPolicies } from './pages/docs/authz/Policies'
 import { AuthCredentials } from './pages/docs/auth/Credentials'
 import { AuthManager } from './pages/docs/auth/Manager'
 import { AuthOAuth } from './pages/docs/auth/OAuth'
@@ -336,6 +344,11 @@ export default function App() {
           <Route path="project-structure" element={<ProjectStructurePage />} />
           <Route path="admin-panel" element={<AdminSetupPage />} />
 
+          {/* Tutorials */}
+          <Route path="tutorials/overview" element={<TutorialOverview />} />
+          <Route path="tutorials/todo-app" element={<TodoTutorialPage />} />
+          <Route path="tutorials/auth-app" element={<AuthTutorialPage />} />
+
           {/* Server */}
           <Route path="server" element={<ServerOverview />} />
           <Route path="server/aquilia-server" element={<ServerOverview />} />
@@ -467,10 +480,10 @@ export default function App() {
           <Route path="auth/guards" element={<AuthGuards />} />
           <Route path="auth/integration" element={<AuthIntegration />} />
           <Route path="auth/advanced" element={<AuthAdvanced />} />
-          <Route path="authz" element={<AuthZPage />} />
-          <Route path="authz/rbac" element={<AuthZPage />} />
-          <Route path="authz/abac" element={<AuthZPage />} />
-          <Route path="authz/policies" element={<AuthZPage />} />
+          <Route path="authz" element={<AuthZOverview />} />
+          <Route path="authz/rbac" element={<AuthZRBAC />} />
+          <Route path="authz/abac" element={<AuthZABAC />} />
+          <Route path="authz/policies" element={<AuthZPolicies />} />
 
           {/* Sessions */}
           <Route path="sessions" element={<SessionsOverview />} />

@@ -221,9 +221,26 @@ def create_auth_helpers(identity: Optional["Identity"] = None, authz_engine: Opt
             return False
 
         try:
-            # Simplified permission check
-            # Real implementation would use authz_engine.check()
-            return True  # Placeholder
+            from aquilia.auth.authz import AuthzContext, Decision
+
+            if hasattr(identity, "get_attribute"):
+                scopes = identity.get_attribute("scopes", []) or []
+                roles = identity.get_attribute("roles", []) or []
+            else:
+                attrs = getattr(identity, "attributes", {}) or {}
+                scopes = attrs.get("scopes", []) or []
+                roles = attrs.get("roles", []) or []
+
+            authz_ctx = AuthzContext(
+                identity=identity,
+                resource=str(resource) if resource is not None else "",
+                action=permission,
+                scopes=list(scopes),
+                roles=list(roles),
+                tenant_id=getattr(identity, "tenant_id", None),
+            )
+            result = authz_engine.rbac.check(authz_ctx, permission)
+            return result.decision == Decision.ALLOW
         except Exception as e:
             logger.warning(f"Permission check failed: {e}")
             return False
@@ -243,7 +260,7 @@ def create_auth_helpers(identity: Optional["Identity"] = None, authz_engine: Opt
         if not owner_id:
             return False
 
-        return str(owner_id) == str(identity.identity_id)
+        return str(owner_id) == str(identity.id)
 
     return {
         "is_authenticated": is_authenticated,

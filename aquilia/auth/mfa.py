@@ -16,6 +16,13 @@ from typing import Any
 
 from .faults import AUTH_MFA_INVALID
 
+# RFC 6238 permits SHA1/SHA256/SHA512 as the TOTP HMAC digest.
+_TOTP_DIGESTS = {
+    "SHA1": hashlib.sha1,
+    "SHA256": hashlib.sha256,
+    "SHA512": hashlib.sha512,
+}
+
 # ============================================================================
 # TOTP Provider (Time-based One-Time Password)
 # ============================================================================
@@ -81,11 +88,11 @@ class TOTPProvider:
         # Decode secret
         secret_bytes = base64.b32decode(secret + "=" * (-len(secret) % 8))
 
-        # HMAC-SHA1
+        digest = _TOTP_DIGESTS.get(self.algorithm.upper(), hashlib.sha1)
         hmac_hash = hmac.new(
             secret_bytes,
             struct.pack(">Q", counter),
-            hashlib.sha1,
+            digest,
         ).digest()
 
         # Dynamic truncation

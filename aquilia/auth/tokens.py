@@ -141,11 +141,19 @@ class KeyDescriptor:
             include_private_key: If True, include private key PEM.
                                  Defaults to False to prevent accidental exposure
                                  (OWASP Cryptographic Storage Cheat Sheet).
+
+        Note:
+            For symmetric algorithms (HS256/HS384/HS512) ``public_key_pem``
+            IS the signing secret (there is no separate public key). It is
+            therefore omitted from the "safe" (``include_private_key=False``)
+            serialization too, so a public JWKS-style dump never leaks the
+            HMAC secret.
         """
+        is_symmetric = self.algorithm in _HMAC_ALGORITHMS
         res = {
             "kid": self.kid,
             "algorithm": self.algorithm,
-            "public_key": self.public_key_pem,
+            "public_key": self.public_key_pem if (include_private_key or not is_symmetric) else None,
             "status": self.status,
             "created_at": self.created_at.isoformat(),
             "retire_after": self.retire_after.isoformat() if self.retire_after else None,
@@ -380,13 +388,20 @@ class KeyRing:
 
 @dataclass
 class TokenConfig:
-    """Token manager configuration."""
+    """Token manager configuration.
+
+    Note: the signing algorithm is NOT configured here — it is a property of
+    the active :class:`KeyDescriptor` inside the :class:`KeyRing` passed to
+    :class:`TokenManager`. Build the ``KeyRing`` with the desired algorithm
+    (``KeyDescriptor.generate(algorithm=...)``); it defaults to HS256
+    (stdlib-only, zero extra dependencies) unless an asymmetric algorithm is
+    explicitly requested.
+    """
 
     issuer: str = "aquilia"
     audience: list[str] = field(default_factory=lambda: ["api"])
     access_token_ttl: int = 3600  # 1 hour
     refresh_token_ttl: int = 2592000  # 30 days
-    algorithm: str = KeyAlgorithm.RS256
 
 
 class TokenStore(Protocol):
@@ -399,6 +414,8 @@ class TokenStore(Protocol):
         scopes: list[str],
         expires_at: datetime,
         session_id: str | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Save refresh token."""
         ...
@@ -497,6 +514,8 @@ class TokenManager:
         identity_id: str,
         scopes: list[str],
         session_id: str | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> str:
         """
         Issue opaque refresh token.
@@ -514,6 +533,8 @@ class TokenManager:
             scopes=scopes,
             expires_at=expires_at,
             session_id=session_id,
+            roles=roles,
+            tenant_id=tenant_id,
         )
 
         return token_id
@@ -646,17 +667,21 @@ class TokenManager:
         # Revoke old refresh token
         await self.token_store.revoke_refresh_token(refresh_token)
 
-        # Issue new tokens
+        # Issue new tokens (preserve roles/tenant_id from the original grant)
         access_token = await self.issue_access_token(
             identity_id=data["identity_id"],
             scopes=data["scopes"],
+            roles=data.get("roles"),
             session_id=data.get("session_id"),
+            tenant_id=data.get("tenant_id"),
         )
 
         new_refresh_token = await self.issue_refresh_token(
             identity_id=data["identity_id"],
             scopes=data["scopes"],
             session_id=data.get("session_id"),
+            roles=data.get("roles"),
+            tenant_id=data.get("tenant_id"),
         )
 
         return (access_token, new_refresh_token)

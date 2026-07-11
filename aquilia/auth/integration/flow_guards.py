@@ -77,9 +77,35 @@ def set_identity(context: Any, identity: Identity | None) -> None:
         request.state["identity"] = identity
         request.state["authenticated"] = identity is not None
 
-    # Also update context directly if it's a dict
+    # Also update context directly if it's a dict (e.g. ControllerGuardAdapter's
+    # dict context, which is synced back onto RequestCtx after the guard runs).
     if isinstance(context, dict):
+        context["identity"] = identity
         context["authenticated"] = identity is not None
+    elif hasattr(context, "state") and isinstance(context.state, dict):
+        context.state["identity"] = identity
+
+
+def _identity_scopes(identity: Any) -> list[str]:
+    """Read scopes off an identity. Real ``Identity`` stores these in
+    ``attributes``, not as a direct ``.scopes`` attribute — fall back to
+    ``get_attribute``/``attributes`` for duck-typed identities."""
+    if hasattr(identity, "get_attribute"):
+        return list(identity.get_attribute("scopes", []) or [])
+    if hasattr(identity, "scopes"):
+        return list(identity.scopes or [])
+    attrs = getattr(identity, "attributes", None) or {}
+    return list(attrs.get("scopes", []) or [])
+
+
+def _identity_roles(identity: Any) -> list[str]:
+    """Read roles off an identity (see :func:`_identity_scopes`)."""
+    if hasattr(identity, "get_attribute"):
+        return list(identity.get_attribute("roles", []) or [])
+    if hasattr(identity, "roles"):
+        return list(identity.roles or [])
+    attrs = getattr(identity, "attributes", None) or {}
+    return list(attrs.get("roles", []) or [])
 
 
 # ============================================================================
@@ -275,7 +301,7 @@ class RequireSessionAuthGuard(FlowGuard):
             raise AUTH_REQUIRED()
 
         # Load identity
-        identity = await self.auth_manager.identity_store.get_identity(identity_id)
+        identity = await self.auth_manager.identity_store.get(identity_id)
         if not identity:
             raise AUTH_TOKEN_INVALID()
 
@@ -307,7 +333,7 @@ class RequireTokenAuthGuard(FlowGuard):
         if self.auth_manager is None:
             self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
 
-        request = context.get("request")
+        request = _get_request(context)
         if not request:
             raise AUTH_REQUIRED()
 
@@ -358,7 +384,7 @@ class RequireApiKeyGuard(FlowGuard):
         if self.auth_manager is None:
             self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
 
-        request = context.get("request")
+        request = _get_request(context)
         if not request:
             raise AUTH_REQUIRED()
 
@@ -411,11 +437,7 @@ class RequireScopesGuard(FlowGuard):
             raise AUTH_REQUIRED()
 
         # Check scopes
-        user_scopes = set()
-        if hasattr(identity, "scopes"):
-            user_scopes = set(identity.scopes)
-        elif hasattr(identity, "get_attribute"):
-            user_scopes = set(identity.get_attribute("scopes", []))
+        user_scopes = set(_identity_scopes(identity))
         required_scopes = set(self.scopes)
 
         if self.require_all:
@@ -423,16 +445,16 @@ class RequireScopesGuard(FlowGuard):
             if not required_scopes.issubset(user_scopes):
                 missing = required_scopes - user_scopes
                 raise AUTHZ_INSUFFICIENT_SCOPE(
-                    required=list(required_scopes),
-                    actual=list(user_scopes),
+                    required_scopes=list(required_scopes),
+                    available_scopes=list(user_scopes),
                     missing=list(missing),
                 )
         else:
             # Must have at least one required scope
             if not required_scopes.intersection(user_scopes):
                 raise AUTHZ_INSUFFICIENT_SCOPE(
-                    required=list(required_scopes),
-                    actual=list(user_scopes),
+                    required_scopes=list(required_scopes),
+                    available_scopes=list(user_scopes),
                 )
 
         return context
@@ -464,7 +486,7 @@ class RequireRolesGuard(FlowGuard):
             raise AUTH_REQUIRED()
 
         # Check roles
-        user_roles = set(identity.get_attribute("roles", []))
+        user_roles = set(_identity_roles(identity))
         required_roles = set(self.roles)
 
         if self.require_all:
@@ -472,16 +494,16 @@ class RequireRolesGuard(FlowGuard):
             if not required_roles.issubset(user_roles):
                 missing = required_roles - user_roles
                 raise AUTHZ_INSUFFICIENT_ROLE(
-                    required=list(required_roles),
-                    actual=list(user_roles),
+                    required_roles=list(required_roles),
+                    available_roles=list(user_roles),
                     missing=list(missing),
                 )
         else:
             # Must have at least one required role
             if not required_roles.intersection(user_roles):
                 raise AUTHZ_INSUFFICIENT_ROLE(
-                    required=list(required_roles),
-                    actual=list(user_roles),
+                    required_roles=list(required_roles),
+                    available_roles=list(user_roles),
                 )
 
         return context
@@ -522,25 +544,24 @@ class RequirePermissionGuard(FlowGuard):
         # Build authz context
         authz_ctx = AuthzContext(
             identity=identity,
-            resource=self.resource,
+            resource=self.resource or "",
             action=self.permission,
-            scopes=identity.scopes,
-            roles=identity.roles,
-            tenant_id=identity.tenant_id,
-        )
-
-        # Check permission
-        decision = await self.authz_engine.check_permission(
-            identity=identity,
-            permission=self.permission,
+            scopes=_identity_scopes(identity),
+            roles=_identity_roles(identity),
+            tenant_id=getattr(identity, "tenant_id", None),
         )
 
         from ..authz import Decision
 
-        if decision != Decision.ALLOW:
+        # RBACEngine.check() is synchronous and returns an AuthzResult
+        # (it does NOT raise) — check_permission() itself is sync too and
+        # raises directly, which doesn't fit this guard's decision-based flow.
+        result = self.authz_engine.rbac.check(authz_ctx, self.permission)
+
+        if result.decision != Decision.ALLOW:
             raise AUTHZ_POLICY_DENIED(
-                policy=f"permission:{self.permission}",
-                context=authz_ctx.to_dict(),
+                policy_id=f"permission:{self.permission}",
+                reason=result.reason,
             )
 
         return context
@@ -586,22 +607,24 @@ class RequirePolicyGuard(FlowGuard):
         # Build authz context
         authz_ctx = AuthzContext(
             identity=identity,
-            resource=resource,
+            resource=resource or "",
             action=self.policy_name,
-            scopes=identity.scopes,
-            roles=identity.roles,
-            tenant_id=identity.tenant_id,
+            scopes=_identity_scopes(identity),
+            roles=_identity_roles(identity),
+            tenant_id=getattr(identity, "tenant_id", None),
         )
 
-        # Evaluate policy
-        decision = self.authz_engine.abac.evaluate(self.policy_name, authz_ctx)
+        # ABACEngine.evaluate(context, policy_id) is synchronous and takes the
+        # AuthzContext first — this used to be called with the arguments
+        # swapped, which crashed (or silently always-denied) every check.
+        result = self.authz_engine.abac.evaluate(authz_ctx, self.policy_name)
 
         from ..authz import Decision
 
-        if decision != Decision.ALLOW:
+        if result.decision != Decision.ALLOW:
             raise AUTHZ_POLICY_DENIED(
-                policy=self.policy_name,
-                context=authz_ctx.to_dict(),
+                policy_id=self.policy_name,
+                reason=result.reason,
             )
 
         return context

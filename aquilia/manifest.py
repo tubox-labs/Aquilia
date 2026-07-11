@@ -1,15 +1,85 @@
 """
-AppManifest - Production-grade, data-driven application manifest system.
+AppManifest - Production-grade, data-driven application manifest system for Aquilia.
 
-No import-time side effects, fully serializable and inspectable.
-Provides precise control over middleware, sessions, DI, lifecycle, and error handling.
+This module provides the declarative metadata system used to describe the internal
+capabilities, dependencies, and structure of individual application modules. By keeping
+configuration declarative and decoupled from import-time execution, Aquilia prevents
+circular dependency side effects during bootstrapping.
 
-Architecture v2:
-- ComponentRef: Universal typed reference for all component kinds
-- ComponentKind: Enum for component classification
-- exports/imports: Cross-module provider visibility
-- auto_discover: Convention-over-configuration file scanning
-- guards/pipes/interceptors: First-class request pipeline components
+Architecture (Manifest-First Design)
+------------------------------------
+In Aquilia, application structure is split into two primary layers:
+1. **Global Orchestration (workspace.py)**: Configures global network settings, databases,
+   third-party integrations, and maps directory-level module pointers.
+2. **Module internals (manifest.py)**: Each module provides an `AppManifest` acting as the
+   definitive catalog of its controllers, services, middleware, models, database models,
+   realtime socket controllers, and lifecycle hooks.
+
+Registration & Discovery Flow
+-----------------------------
+During application initialization, the framework's scanner scans active modules:
+- **Convention-based Auto-discovery**: When `auto_discover=True` (default), the framework
+  scans convention directories (such as `/controllers`, `/services`, `/models`, etc.) matching
+  defined patterns and registers components automatically.
+- **Explicit Component Reference**: Components can also be explicitly declared using standard
+  import path strings (e.g. `"modules.users.services:UsersService"`) or `ComponentRef` instances
+  which offer metadata-based configuration.
+
+Resolution & DI Visibility Flow
+------------------------------
+Cross-module dependency visibility is governed by module boundaries:
+- **Imports**: Declares other modules that this module depends on.
+- **Exports**: Controls visibility of internal dependency injection (DI) service providers
+  to the rest of the application. Services not listed under `exports` remain private to
+  the module.
+
+Common Usage Patterns
+---------------------
+Declaring a basic module with convention-based discovery:
+
+```python
+from aquilia.manifest import AppManifest
+
+manifest = AppManifest(
+    name="billing",
+    version="1.2.0",
+    description="Manages subscriptions and invoices",
+    imports=["auth", "users"],
+    auto_discover=True,
+)
+```
+
+Advanced Usage Patterns
+-----------------------
+Declaring a complex module with custom DI service registration, priority middleware, and guards:
+
+```python
+from aquilia.manifest import AppManifest, ServiceConfig, MiddlewareConfig, ServiceScope
+
+manifest = AppManifest(
+    name="billing",
+    version="1.2.0",
+    services=[
+        ServiceConfig(
+            class_path="modules.billing.services:PaymentService",
+            scope=ServiceScope.REQUEST,
+            tag="stripe",
+            config={"api_key_env": "STRIPE_API_KEY"},
+        )
+    ],
+    middleware=[
+        MiddlewareConfig(
+            class_path="modules.billing.middleware:RateLimitMiddleware",
+            priority=10,
+            config={"limit": 60},
+        )
+    ],
+    guards=[
+        "modules.billing.guards:StripeSignatureGuard",
+    ],
+    exports=["modules.billing.services:PaymentService"],
+)
+```
 """
 
 import hashlib
@@ -29,7 +99,31 @@ from .typing.manifest import ManifestMetadata
 
 
 class ComponentKind(str, Enum):
-    """Classification of framework components for auto-discovery."""
+    """
+    Classification of framework components for auto-discovery and registration.
+
+    This enum defines all first-class component kinds supported by the Aquilia framework.
+    It is used by `ComponentRef` and convention-based discovery to classify components and
+    wire them correctly into the dependency injection container, routing engine, or middleware chain.
+
+    Attributes:
+        CONTROLLER: HTTP API controller managing route handlers.
+        SERVICE: Dependency injection service containing business logic.
+        MIDDLEWARE: ASGI or HTTP middleware in the request/response chain.
+        GUARD: Security/authorization check executing before controllers.
+        PIPE: Data transformation or validation layer for request payloads.
+        INTERCEPTOR: Aspect-oriented hook wrapping controller execution.
+        EFFECT: Contextual side-effect provider.
+        MODEL: Database schema model class.
+        FAULT_HANDLER: Exception translator for specific fault domains.
+        SOCKET_CONTROLLER: Realtime WebSocket message controller.
+        SERIALIZER: Data serialization/deserialization schema.
+        TASK: Asynchronous background worker task.
+        EVENT_HANDLER: Event listener in the pub/sub subsystem.
+        INTEGRATION: Third-party service integration config.
+        COMMAND: CLI command registered in the admin interface.
+        VALIDATOR: Request parameter validator.
+    """
 
     CONTROLLER = "controller"
     SERVICE = "service"
@@ -54,13 +148,37 @@ class ComponentRef:
     """
     Universal typed reference to any framework component.
 
-    Provides a unified format for referencing controllers, services,
-    middleware, guards, pipes, interceptors, and models.
-    Replaces the inconsistent mix of bare strings and config dataclasses.
+    Provides a unified format for referencing controllers, services, middleware,
+    guards, pipes, interceptors, and models. Replaces the inconsistent mix of
+    bare strings and configuration objects, enabling metadata passing at registration time.
+
+    Parameters:
+        class_path: Dotted module path and class name separated by a colon
+            (e.g., `"modules.users.controllers:UsersController"`).
+        kind: The classification of the component from `ComponentKind`.
+        metadata: Arbitrary key-value metadata associated with the component,
+            conforming to `ManifestMetadata`.
+
+    Raises:
+        ManifestInvalidFault: If the class_path is missing a colon `':'`.
 
     Examples:
-        ComponentRef("modules.users.controllers:UsersController", ComponentKind.CONTROLLER)
-        ComponentRef("modules.auth.guards:JWTGuard", ComponentKind.GUARD, metadata={"priority": 10})
+        Basic usage:
+        ```python
+        ref = ComponentRef(
+            class_path="modules.users.controllers:UsersController",
+            kind=ComponentKind.CONTROLLER
+        )
+        ```
+
+        With metadata:
+        ```python
+        ref = ComponentRef(
+            class_path="modules.auth.guards:JWTGuard",
+            kind=ComponentKind.GUARD,
+            metadata={"priority": 10}
+        )
+        ```
     """
 
     class_path: str  # "module.path:ClassName"
@@ -96,7 +214,20 @@ class ComponentRef:
 
 
 class ServiceScope(str, Enum):
-    """Service lifecycle scope."""
+    """
+    Service lifecycle scopes for dependency injection.
+
+    Defines the instantiation policy and lifespan of services resolved
+    by the dependency injection (DI) container.
+
+    Attributes:
+        SINGLETON: Application-wide single instance shared across all requests.
+        APP: Module-level single instance shared within the defining module.
+        REQUEST: Instantiated once per incoming HTTP/WebSocket request and disposed after.
+        TRANSIENT: Instantiated fresh every time the service is requested/injected.
+        POOLED: Managed object pool of reusable instances.
+        EPHEMERAL: High-performance transient instance without container tracking or hooks.
+    """
 
     SINGLETON = "singleton"  # App-level single instance
     APP = "app"  # Module-level single instance
@@ -108,7 +239,32 @@ class ServiceScope(str, Enum):
 
 @dataclass
 class LifecycleConfig:
-    """Lifecycle hook configuration."""
+    """
+    Lifecycle hook configuration for modules and services.
+
+    Allows registering custom startup and shutdown hooks, declaring dependency order,
+    and managing timeouts/errors during the application boot process.
+
+    Parameters:
+        on_startup: Dotted path to the callable executed during application bootstrap
+            (e.g., `"modules.users.hooks:init_db"`).
+        on_shutdown: Dotted path to the callable executed during application shutdown
+            (e.g., `"modules.users.hooks:close_db"`).
+        depends_on: List of other module names that must complete startup before this one.
+        startup_timeout: Maximum duration in seconds allowed for startup hook execution.
+        shutdown_timeout: Maximum duration in seconds allowed for shutdown hook execution.
+        error_strategy: Action taken if a hook fails. Must be `"propagate"`, `"log"`, or `"ignore"`.
+
+    Examples:
+        ```python
+        config = LifecycleConfig(
+            on_startup="modules.users.hooks:on_boot",
+            on_shutdown="modules.users.hooks:on_close",
+            depends_on=["auth"],
+            startup_timeout=15.0,
+        )
+        ```
+    """
 
     on_startup: str | None = None  # "path.to.module:function"
     on_shutdown: str | None = None  # "path.to.module:function"
@@ -131,7 +287,46 @@ class LifecycleConfig:
 
 @dataclass
 class ServiceConfig:
-    """Service registration configuration with complete DI support."""
+    """
+    Service registration configuration with complete DI support.
+
+    Declares explicit service parameters for registration in the dependency injection
+    container, enabling custom scopes, aliases, factories, and conditional flag checks.
+
+    Parameters:
+        class_path: Dotted module path and class name separated by a colon
+            (e.g., `"modules.users.services:UsersService"`).
+        scope: Lifecycle scope policy of the service. Defaults to `ServiceScope.APP`.
+        auto_discover: If `True`, automatically wires constructor dependencies.
+        lifecycle: Optional custom lifecycle hooks specifically for this service.
+        feature_flags: Service is only registered if all listed feature flags are active.
+        aliases: Alternative token strings that resolve to this service instance.
+        tag: Optional string identifier enabling named/tagged injection (`Inject(tag=...)`).
+        factory: Dotted path to a factory function used to instantiate the service.
+        factory_args: Dictionary of arguments passed directly to the factory function.
+        config: Dictionary of keyword arguments passed directly to the constructor.
+        observable: If `True`, publishes performance metrics and tracing spans.
+        required: If `True` (default), bootstrap fails if this service cannot be registered.
+
+    Examples:
+        Configuration with custom arguments:
+        ```python
+        config = ServiceConfig(
+            class_path="modules.users.services:UsersService",
+            scope=ServiceScope.SINGLETON,
+            config={"max_users": 1000}
+        )
+        ```
+
+        Using a factory function:
+        ```python
+        config = ServiceConfig(
+            class_path="modules.auth.services:AuthService",
+            factory="modules.auth.factories:create_auth_service",
+            factory_args={"env": "prod"}
+        )
+        ```
+    """
 
     class_path: str  # "path.to.module:ClassName"
     scope: ServiceScope = ServiceScope.APP  # Lifecycle scope
@@ -175,7 +370,37 @@ class ServiceConfig:
 
 @dataclass
 class MiddlewareConfig:
-    """Middleware registration configuration."""
+    """
+    Middleware registration configuration.
+
+    Declares a middleware component in the HTTP request/response pipeline, defining
+    its path, execution priority, active scope, and conditional parameters.
+
+    Parameters:
+        class_path: Dotted module path and class name separated by a colon
+            (e.g., `"modules.users.middleware:UsersMiddleware"`).
+        scope: Target routing scope. Must be `"global"` (runs on all routes),
+            `"app"` (runs on specific application routes), or `"route"` (runs on specific path patterns).
+        scope_target: Optional target modifier for scope (e.g. specific application name or path pattern).
+        priority: Execution priority order (lower executes earlier, default is `50`).
+        condition: Optional callable returning a boolean to determine if the middleware should run.
+        config: Dictionary of keyword arguments passed directly to the middleware constructor.
+        on_error: Recovery action if middleware execution fails. Must be `"propagate"`, `"skip"`, or `"fallback"`.
+        fallback: Optional dotted path to fallback middleware.
+        observable: If `True`, records execution duration metrics.
+        log_requests: If `True`, enables logging for incoming requests.
+        log_responses: If `True`, enables logging for outgoing responses.
+
+    Examples:
+        ```python
+        config = MiddlewareConfig(
+            class_path="aquilia.middleware:LoggingMiddleware",
+            scope="global",
+            priority=10,
+            config={"log_headers": True}
+        )
+        ```
+    """
 
     class_path: str  # "path.to.module:ClassName"
     scope: str = "global"  # "global", "app", "route"
@@ -209,7 +434,45 @@ class MiddlewareConfig:
 
 @dataclass
 class SessionConfig:
-    """Session management configuration."""
+    """
+    Session management configuration.
+
+    Defines cryptographic session policies, TTLs, transport methods (cookies or headers),
+    and storage backends (memory, redis, etc.) for a module.
+
+    Parameters:
+        name: Unique session policy name.
+        enabled: If `True` (default), enables session management for this module.
+        ttl: Time-to-live duration for active sessions. Defaults to `7 days`.
+        idle_timeout: Optional inactivity timeout duration.
+        renewal: Optional session renewal/refresh window duration.
+        transport: Protocol transport method. Must be `"cookie"`, `"header"`, or `"custom"`.
+        transport_config: Optional dictionary of transport-specific parameters.
+        cookie_name: Name of the session cookie. Defaults to `"session_id"`.
+        cookie_domain: Optional domain limitation for the session cookie.
+        cookie_path: URL path constraint for the session cookie. Defaults to `"/"`.
+        cookie_secure: If `True` (default), cookie is only sent over HTTPS.
+        cookie_httponly: If `True` (default), cookie is inaccessible to client-side scripts.
+        cookie_samesite: CSRF protection policy. Must be `"Strict"`, `"Lax"`, or `"None"`.
+        store: Storage engine type. Must be `"memory"`, `"redis"`, `"database"`, or `"custom"`.
+        store_config: Optional dictionary of storage engine parameters.
+        encryption_enabled: If `True`, session data is encrypted at rest/transit.
+        encryption_key_env: Environment variable holding the cryptographic secret key.
+        serializer: Session serialization format. Must be `"json"`, `"pickle"`, or `"msgpack"`.
+        log_lifecycle: If `True`, logs session creation and destruction events.
+        metrics_enabled: If `True`, collects session metrics.
+
+    Examples:
+        ```python
+        config = SessionConfig(
+            name="user_session",
+            ttl=timedelta(days=1),
+            cookie_secure=True,
+            store="redis",
+            store_config={"redis_url": "redis://localhost:6379/1"}
+        )
+        ```
+    """
 
     name: str  # Session policy name
     enabled: bool = True  # Enable/disable
@@ -260,7 +523,27 @@ class SessionConfig:
 
 @dataclass
 class FaultHandlerConfig:
-    """Fault handler configuration."""
+    """
+    Fault handler configuration for specific exception domains.
+
+    Maps a structured framework fault domain (e.g. `"AUTH"`, `"VALIDATION"`) to an
+    exception handler callable, and defines error recovery strategies.
+
+    Parameters:
+        domain: Target fault domain name.
+        handler_path: Dotted path to the handler function (e.g. `"modules.auth.handlers:on_auth_fault"`).
+        recovery_strategy: Strategy to use. Must be `"propagate"`, `"recover"`, or `"fallback"`.
+        fallback_response: Optional JSON-serializable dictionary returned on fallback.
+
+    Examples:
+        ```python
+        handler = FaultHandlerConfig(
+            domain="VALIDATION",
+            handler_path="modules.users.handlers:handle_validation_error",
+            recovery_strategy="recover"
+        )
+        ```
+    """
 
     domain: str  # Fault domain (e.g., "AUTH", "VALIDATION")
     handler_path: str  # "path.to.module:handler_function"
@@ -270,7 +553,31 @@ class FaultHandlerConfig:
 
 @dataclass
 class FaultHandlingConfig:
-    """Fault/error handling configuration."""
+    """
+    Module-level fault and error handling configuration.
+
+    Aggregates fault domain handlers, exception translation middleware, and metrics.
+
+    Parameters:
+        default_domain: Fallback fault domain name when none is matched. Defaults to `"APP"`.
+        strategy: Default recovery action if a handler is not defined. Defaults to `"propagate"`.
+        handlers: List of explicit domain handlers using `FaultHandlerConfig`.
+        middlewares: List of custom error middleware instances.
+        metrics_enabled: If `True`, tracks error counts and rates.
+
+    Examples:
+        ```python
+        config = FaultHandlingConfig(
+            default_domain="BILLING",
+            handlers=[
+                FaultHandlerConfig(
+                    domain="STRIPE",
+                    handler_path="modules.billing.handlers:handle_stripe_error"
+                )
+            ]
+        )
+        ```
+    """
 
     default_domain: str = "APP"  # Default fault domain
     strategy: str = "propagate"  # "propagate", "recover", "fallback"
@@ -290,7 +597,33 @@ class FaultHandlingConfig:
 
 @dataclass
 class FeatureConfig:
-    """Feature flag configuration."""
+    """
+    Feature flag configuration for conditional component activation.
+
+    Allows wrapping services, controllers, middleware, and routes with a feature
+    toggle, enabling dynamic module composition based on runtime conditions.
+
+    Parameters:
+        name: Unique feature flag identifier string.
+        enabled: If `True`, the feature is enabled by default. Defaults to `False`.
+        conditions: Dictionary of rules (e.g. env vars, customer tier) required to enable.
+        services: List of service class path strings only registered when the feature is active.
+        controllers: List of controller path strings only registered when feature is active.
+        middleware: List of middleware configurations only active when feature is active.
+        routes: List of routes only registered when feature is active.
+        log_usage: If `True`, logs feature evaluation events.
+        metrics_enabled: If `True`, collects usage metrics.
+
+    Examples:
+        ```python
+        feature = FeatureConfig(
+            name="beta-billing",
+            enabled=False,
+            conditions={"env": "staging"},
+            services=["modules.billing.services:BetaBillingService"]
+        )
+        ```
+    """
 
     name: str  # Feature identifier
     enabled: bool = False  # Default state
@@ -354,7 +687,29 @@ class BackgroundTaskConfig:
 
 @dataclass
 class TemplateConfig:
-    """Template engine configuration."""
+    """
+    Jinja2-based template engine configuration for a module.
+
+    Defines search paths, caching mechanisms, precompilation policies, and
+    context processors for rendering HTML/text templates.
+
+    Parameters:
+        enabled: If `True` (default), enables template rendering for this module.
+        search_paths: List of directory paths (relative to module root) containing templates.
+        precompile: If `True`, compiles all templates at application boot time for faster response.
+        cache: Caching backend. Must be `"memory"`, `"surp"`, or `"none"`.
+        sandbox: If `True` (default), uses a secure sandboxed Jinja environment to prevent arbitrary code execution.
+        context_processors: List of dotted path strings to callables returning template global context.
+
+    Examples:
+        ```python
+        config = TemplateConfig(
+            search_paths=["templates", "layouts"],
+            cache="memory",
+            sandbox=True
+        )
+        ```
+    """
 
     enabled: bool = True
     search_paths: list[str] = field(default_factory=list)
@@ -377,8 +732,19 @@ class DatabaseConfig:
     """
     DEPRECATED: Manifest-level database configuration.
 
-    Use Workspace.database() / Integration.database() instead.
-    This class is retained only for backward compatibility.
+    This class is retained only for backward compatibility. Use `Workspace.database()`
+    or `Integration.database()` inside `workspace.py` instead.
+
+    Parameters:
+        url: Database connection string.
+        auto_connect: Connect on startup.
+        auto_create: Automatically create database tables.
+        auto_migrate: Automatically execute pending migrations.
+        migrations_dir: Directory containing migration scripts.
+        pool_size: Connection pool size.
+        echo: Log generated SQL queries.
+        model_paths: Explicit list of database model paths.
+        scan_dirs: Directories scanned for model discovery.
     """
 
     url: str = "sqlite:///db.sqlite3"  # Database URL
@@ -418,7 +784,49 @@ class DatabaseConfig:
 
 @dataclass
 class AppVersioningConfig:
-    """Module-level versioning override configuration."""
+    """
+    Module-level versioning override configuration.
+
+    Enables version negotiation, route prefixing, and deprecation scheduling
+    specifically for API routes defined in this module.
+
+    Parameters:
+        strategy: Negotiation strategy. Must be `"header"`, `"url"`, `"query"`, `"media_type"`, `"channel"`, or `"composite"`.
+        versions: List of supported version identifier strings (e.g. `["v1", "v2"]`).
+        default_version: Version used when none is provided in the client request.
+        require_version: If `True`, requests without version info are rejected with a fault.
+        header_name: HTTP header name for versioning (used with strategy `"header"`). Defaults to `"X-API-Version"`.
+        query_param: Query parameter name for versioning. Defaults to `"api_version"`.
+        url_prefix: Prefix used for URL path segment versioning. Defaults to `"v"`.
+        url_segment_index: Index of URL segment containing version. Defaults to `0`.
+        strip_version_from_path: If `True`, removes version segment from request path before routing.
+        url_position: Position of the version segment in URL. Must be `"before"` or `"after"`.
+        expose_unversioned_alias: If `True`, exposes routes without a version prefix.
+        media_type_param: Media type version parameter. Defaults to `"version"`.
+        channels: Dictionary mapping channel names to versions.
+        channel_header: HTTP header name for channel identifier.
+        channel_query_param: Query parameter name for channel identifier.
+        negotiation_mode: Negotiation behavior. Must be `"exact"`, `"compatible"`, `"best_match"`, or `"latest"`.
+        sunset_policy: Optional sunset/deprecation policy metadata object.
+        sunset_schedules: Dictionary containing sunset schedule dates per version.
+        include_version_header: If `True`, includes version header in responses.
+        response_header_name: Name of the response version header. Defaults to `"X-API-Version"`.
+        include_supported_versions_header: If `True`, includes supported versions header in response.
+        neutral_paths: List of route paths exempt from version requirements.
+        enabled: If `True` (default), enables versioning for this module.
+        auto_version_unmarked: If `True`, automatically versions routes without explicit decorator tags.
+        position: Convenience alias for `url_position`.
+
+    Examples:
+        ```python
+        config = AppVersioningConfig(
+            strategy="url",
+            versions=["v1", "v2"],
+            default_version="v2",
+            require_version=True
+        )
+        ```
+    """
 
     strategy: str = "header"
     versions: list[str] = field(default_factory=list)
@@ -506,7 +914,41 @@ def versioning(
     enabled: bool = True,
     **kwargs: Any,
 ) -> dict[str, Any]:
-    """Configure API versioning integration at module manifest level."""
+    """
+    Configure API versioning integration at the module manifest level.
+
+    Helper function returning a dictionary structure matching `AppVersioningConfig`
+    parameters, providing backward-compatible syntax for configuration blocks.
+
+    Parameters:
+        strategy: Negotiation strategy. Must be `"header"`, `"url"`, `"query"`, `"media_type"`, `"channel"`, or `"composite"`.
+        versions: List of supported version identifier strings.
+        default_version: Version used when none is provided in the client request.
+        require_version: If `True`, requests without version info are rejected with a fault.
+        header_name: HTTP header name for versioning. Defaults to `"X-API-Version"`.
+        query_param: Query parameter name for versioning. Defaults to `"api_version"`.
+        url_prefix: Prefix used for URL path segment versioning. Defaults to `"v"`.
+        url_segment_index: Index of URL segment containing version. Defaults to `0`.
+        strip_version_from_path: If `True`, removes version segment from request path.
+        url_position: Position of the version segment in URL. Must be `"before"` or `"after"`.
+        expose_unversioned_alias: If `True`, exposes routes without a version prefix.
+        media_type_param: Media type version parameter. Defaults to `"version"`.
+        channels: Dictionary mapping channel names to versions.
+        channel_header: HTTP header name for channel identifier.
+        channel_query_param: Query parameter name for channel identifier.
+        negotiation_mode: Negotiation behavior. Must be `"exact"`, `"compatible"`, `"best_match"`, or `"latest"`.
+        sunset_policy: Optional sunset/deprecation policy metadata object.
+        sunset_schedules: Dictionary containing sunset schedule dates per version.
+        include_version_header: If `True`, includes version header in responses.
+        response_header_name: Name of the response version header. Defaults to `"X-API-Version"`.
+        include_supported_versions_header: If `True`, includes supported versions header in response.
+        neutral_paths: List of route paths exempt from version requirements.
+        enabled: If `True` (default), enables versioning for this module.
+        **kwargs: Extensible extra arguments.
+
+    Returns:
+        Dictionary containing all structured versioning settings.
+    """
     config: dict[str, Any] = {
         "enabled": enabled,
         "strategy": strategy,
@@ -543,22 +985,77 @@ class AppManifest:
     """
     Production-grade application manifest for complete app configuration.
 
-    Architecture v2 additions:
-    - exports/imports: Cross-module provider visibility
-    - guards/pipes/interceptors: First-class request pipeline components
-    - auto_discover: Convention-over-configuration file scanning
-    - All component lists accept Union[str, ComponentRef] for flexibility
+    The primary entry point for declaring a module's internal assets, wiring, and
+    dependencies. It maps controllers, services, database models, background tasks,
+    middleware, request pipeline guards, pipes, and interceptors.
 
-    Provides precise control over:
-    - Services with DI scopes and lifecycle
-    - Controllers with routing
-    - Middleware with scoping and priority
-    - Guards for authentication/authorization gates
-    - Pipes for request data transformation/validation
-    - Interceptors for cross-cutting concerns (logging, caching, etc.)
-    - Sessions with policies and storage
-    - Error handling with fault domains
-    - Feature flags with conditional activation
+    In the Manifest-First Design:
+    1. Each module contains a `manifest.py` containing an `AppManifest` instance (by convention).
+    2. During boot, the framework scans modules to load manifests and build a dependency graph.
+    3. Manifest parameters are normalized, validated, and resolved at runtime.
+
+    Parameters:
+        name: Unique module identifier (alphanumeric with underscores).
+        version: Semantic version of the module.
+        description: Concise summary of what the module does.
+        author: Developer/Owner email or name.
+        services: List of services to register in the DI container.
+            Can contain strings, `ServiceConfig` instances, or `ComponentRef` objects.
+        controllers: List of HTTP controller classes or `ComponentRef` objects.
+        socket_controllers: List of WebSocket controller classes or `ComponentRef` objects.
+        models: List of model classes or `ComponentRef` objects.
+        serializers: List of serializer classes or `ComponentRef` objects.
+        guards: List of authorization guard class paths or `ComponentRef` objects.
+        pipes: List of request data validation pipe class paths or `ComponentRef` objects.
+        interceptors: List of aspect-oriented interceptor class paths or `ComponentRef` objects.
+        middleware: List of middleware configs, class paths, or `ComponentRef` objects.
+        route_prefix: DEPRECATED: Module route prefix (use `Module.route_prefix()` in `workspace.py`).
+        base_path: Optional base directory override for file imports.
+        lifecycle: Module startup/shutdown lifecycle configs (`LifecycleConfig`).
+        sessions: List of session policy configurations (`SessionConfig`).
+        templates: Jinja template engine configuration (`TemplateConfig`).
+        database: DEPRECATED: Module database configuration. Use `Workspace.database()` instead.
+        faults: Fault handling configuration (`FaultHandlingConfig`).
+        background_tasks: Background task queue declarations (`BackgroundTaskConfig`).
+        features: Feature toggle configurations (`FeatureConfig`).
+        exports: List of service class names exported to importing modules.
+        imports: List of module names this module depends on.
+        depends_on: Legacy alias for `imports`.
+        tags: List of organizational tags.
+        versioning: Version negotiation parameters (`AppVersioningConfig`).
+        config_schema: Optional JSON Schema dictionary to validate module configuration.
+        auto_discover: If `True` (default), scans directories matching `discover_patterns`.
+        discover_patterns: Folders to scan during auto-discovery.
+        middlewares: Legacy middleware format.
+        default_fault_domain: Legacy fault domain.
+        on_startup: Legacy startup callable.
+        on_shutdown: Legacy shutdown callable.
+        config: Legacy config class.
+
+    Raises:
+        ManifestInvalidFault: If name or version is missing, or name is invalid.
+
+    Examples:
+        Declaring a billing module:
+        ```python
+        from aquilia.manifest import AppManifest, ServiceConfig, ServiceScope
+
+        manifest = AppManifest(
+            name="billing",
+            version="1.0.0",
+            services=[
+                ServiceConfig(
+                    class_path="modules.billing.services:BillingService",
+                    scope=ServiceScope.SINGLETON
+                )
+            ],
+            controllers=[
+                "modules.billing.controllers:BillingController"
+            ],
+            imports=["auth", "users"],
+            exports=["modules.billing.services:BillingService"]
+        )
+        ```
     """
 
     # Identity

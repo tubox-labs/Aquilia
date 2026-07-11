@@ -588,6 +588,7 @@ class Controller(metaclass=_ControllerMeta):
         async def on_response(self, ctx, response): Called after each request
 
     Example:
+
         class UsersController(Controller):
             prefix = "/users"
             version = "v1"
@@ -650,6 +651,7 @@ class Controller(metaclass=_ControllerMeta):
             Response with rendered template
 
         Example:
+        ```
             @GET("/profile")
             async def profile(self, ctx):
                 user = await self.repo.get(ctx.identity.id)

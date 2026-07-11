@@ -280,3 +280,49 @@ def test_dataobject_advanced_features():
     # to_json
     js = unfrozen.to_json()
     assert '"theme": "light"' in js
+
+
+def test_field_positional_default_and_ellipsis():
+    from aquilia.blueprints import Field
+    from aquilia.blueprints.facets import UNSET
+    from aquilia.faults.domains import ConfigInvalidFault
+
+    # 1. Test single positional default value
+    f1 = Field("hello")
+    assert f1.default == "hello"
+    assert f1.required is None
+
+    # 2. Test Ellipsis positional value
+    f2 = Field(...)
+    assert f2.default is UNSET
+    assert f2.required is True
+
+    # 3. Test multiple positional arguments should raise TypeError
+    with pytest.raises(TypeError, match="takes at most 1 positional argument"):
+        Field("hello", "world")
+
+    # 4. Test both positional and keyword default should raise ConfigInvalidFault
+    with pytest.raises(ConfigInvalidFault, match="Cannot specify both positional default/Ellipsis and keyword 'default'"):
+        Field("hello", default="world")
+
+    with pytest.raises(ConfigInvalidFault, match="Cannot specify both positional default/Ellipsis and keyword 'default'"):
+        Field(..., default="Login Successfully")
+
+
+def test_blueprint_with_field_ellipsis_validation():
+    from aquilia.blueprints import Blueprint, Field
+
+    class UserLoginBP(Blueprint):
+        username: str = Field(...)
+        message: str = Field(default="Login Successfully")
+
+    # missing username should fail validation
+    bp_fail = UserLoginBP(data={"message": "custom message"})
+    assert bp_fail.is_sealed() is False
+    assert "username" in bp_fail.errors
+
+    # username provided should pass validation
+    bp_pass = UserLoginBP(data={"username": "alice"})
+    assert bp_pass.is_sealed() is True
+    assert bp_pass.to_dict()["message"] == "Login Successfully"
+

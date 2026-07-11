@@ -161,6 +161,12 @@ class Secret:
         self._default: str | None = default
         self._required: bool = required
 
+        if env is None and value is not None:
+            import re
+
+            if isinstance(value, str) and re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", value):
+                self._env_name = value
+
     def reveal(self) -> str | None:
         """
         Return the actual secret value (use deliberately).
@@ -1049,6 +1055,7 @@ class AquilaConfig:
         access_token_ttl_minutes: int = 60
         refresh_token_ttl_days: int = 30
         require_auth_by_default: bool = False
+        strategies: list[str] = ["token", "session"]
         #: Password hasher — override with an ``AquilaConfig.PasswordHasher`` instance.
         password_hasher: AquilaConfig.PasswordHasher | None = None
 

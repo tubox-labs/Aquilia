@@ -2597,17 +2597,32 @@ Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
-| `save_password` | `async def save_password(self, credential: PasswordCredential)` | Save password credential. |
+| `save_password` | `async def save_password(self, credential: PasswordCredential)` | Save password credential (upsert). |
+| `create_password` | `async def create_password(self, credential: PasswordCredential)` | Create password credential (`CredentialStore` protocol; delegates to `save_password`). |
+| `update_password` | `async def update_password(self, credential: PasswordCredential)` | Update password credential (`CredentialStore` protocol; delegates to `save_password`). |
 | `get_password` | `async def get_password(self, identity_id: str)` | Get password credential. |
 | `delete_password` | `async def delete_password(self, identity_id: str)` | Delete password credential. |
-| `save_api_key` | `async def save_api_key(self, credential: ApiKeyCredential)` | Save API key credential. |
+| `save_api_key` | `async def save_api_key(self, credential: ApiKeyCredential)` | Save API key credential (indexes by both `key_id` and `key_hash`). |
+| `create_api_key` | `async def create_api_key(self, credential: ApiKeyCredential)` | Create API key credential (`CredentialStore` protocol; raises `ConflictFault` if `key_id` exists). |
 | `get_api_key` | `async def get_api_key(self, key_id: str)` | Get API key credential. |
-| `get_api_key_by_prefix` | `async def get_api_key_by_prefix(self, prefix: str)` | Get API key by prefix (first 8 chars). |
+| `get_api_key_by_hash` | `async def get_api_key_by_hash(self, key_hash: str)` | Get API key by its HMAC hash — O(1) lookup (`CredentialStore` protocol). |
+| `get_api_key_by_prefix` | `async def get_api_key_by_prefix(self, prefix: str)` | Get API key by prefix (first 8 chars). Deprecated: prefer `get_api_key_by_hash`. |
 | `list_api_keys` | `async def list_api_keys(self, identity_id: str)` | List all API keys for identity. |
-| `delete_api_key` | `async def delete_api_key(self, key_id: str)` | Delete API key credential. |
+| `revoke_api_key` | `async def revoke_api_key(self, key_id: str)` | Soft-revoke API key — sets `status = CredentialStatus.REVOKED` (`CredentialStore` protocol). |
+| `delete_api_key` | `async def delete_api_key(self, key_id: str)` | Hard-delete API key credential. |
 | `save_mfa` | `async def save_mfa(self, credential: MFACredential)` | Save MFA credential. |
+| `create_mfa` | `async def create_mfa(self, credential: MFACredential)` | Create MFA credential (`CredentialStore` protocol; delegates to `save_mfa`). |
+| `update_mfa` | `async def update_mfa(self, credential: MFACredential)` | Update MFA credential (`CredentialStore` protocol; delegates to `save_mfa`). |
 | `get_mfa` | `async def get_mfa(self, identity_id: str, mfa_type: str \| None=None)` | Get MFA credentials for identity. |
 | `delete_mfa` | `async def delete_mfa(self, identity_id: str, mfa_type: str \| None=None)` | Delete MFA credentials. |
+
+`MemoryCredentialStore` now fully satisfies the `CredentialStore` protocol under the
+protocol's own method names (`create_password`/`update_password`/`create_api_key`/
+`get_api_key_by_hash`/`revoke_api_key`/`create_mfa`/`update_mfa`) — previously only
+the ad hoc `save_*`/`get_api_key_by_prefix` names existed, and `AuthManager` was
+written against those, not the protocol. Custom `CredentialStore` implementations
+should implement the protocol names; the `save_*`/`get_api_key_by_prefix` names
+remain for backward compatibility but are not part of the protocol.
 
 ### `MemoryOAuthClientStore`
 
@@ -2624,6 +2639,7 @@ Methods:
 | `update` | `async def update(self, client: OAuthClient)` | Update OAuth client. |
 | `delete` | `async def delete(self, client_id: str)` | Delete OAuth client. |
 | `list` | `async def list(self, owner_id: str \| None=None, limit: int=100, offset: int=0)` | List OAuth clients, optionally filtered by owner (from metadata). |
+| `list_all` | `async def list_all(self)` | List all OAuth clients (`OAuthClientStore` protocol; delegates to `list()`). |
 
 ### `MemoryTokenStore`
 
@@ -2789,7 +2805,16 @@ Fields and class attributes:
 | `audience` | `list[str]` | `field(default_factory=lambda: ['api'])` |
 | `access_token_ttl` | `int` | `3600` |
 | `refresh_token_ttl` | `int` | `2592000` |
-| `algorithm` | `str` | `KeyAlgorithm.RS256` |
+
+`TokenConfig` does **not** configure the signing algorithm (the previous
+`algorithm: str = KeyAlgorithm.RS256` field was dead — never read by
+`TokenManager`, and misleadingly implied an RS256 default). The algorithm is a
+property of the active `KeyDescriptor` inside the `KeyRing` passed to
+`TokenManager(key_ring=..., token_store=...)`. Build it with
+`KeyDescriptor.generate(kid=..., algorithm=...)`; it defaults to `HS256`
+(stdlib-only, zero extra dependencies) unless an asymmetric algorithm
+(`RS256`/`ES256`/`EdDSA`, which require `pip install cryptography`) is
+explicitly requested.
 
 ### `TokenStore`
 

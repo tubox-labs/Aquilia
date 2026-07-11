@@ -519,9 +519,13 @@ class AdminAuthGuard:
         if identity is None:
             return False
 
-        # Check for admin-level access
+        # Check for admin-level access. Real `Identity` stores roles inside
+        # `attributes` (reachable via get_attribute), not as a direct `.roles`
+        # attribute -- check that first.
         roles = []
-        if hasattr(identity, "roles"):
+        if hasattr(identity, "get_attribute"):
+            roles = identity.get_attribute("roles", [])
+        elif hasattr(identity, "roles"):
             roles = identity.roles if isinstance(identity.roles, (list, tuple, set)) else []
         elif hasattr(identity, "claims") and isinstance(identity.claims, dict):
             roles = identity.claims.get("roles", [])

@@ -296,8 +296,10 @@ class AquiliaServer:
         use_auth = auth_config.get("enabled", False)
 
         if use_auth:
-            # Force enable sessions config if auth is enabled
-            use_sessions = True
+            strategies = auth_config.get("security", {}).get("strategies", ["token", "session"])
+            if "session" in strategies:
+                # Force enable sessions config if session auth is enabled
+                use_sessions = True
 
         self._session_engine = None
         self._auth_manager = None
@@ -311,9 +313,12 @@ class AquiliaServer:
                 self.logger.error(f"Failed to create session engine: {e}", exc_info=True)
                 self._session_engine = None
 
-            # Try to set up auth if requested AND session engine succeeded
-            auth_initialized = False
-            if use_auth and self._session_engine is not None:
+        # Try to set up auth if requested
+        # Note: if session strategy is active, session engine must have succeeded
+        auth_initialized = False
+        if use_auth:
+            strategies = auth_config.get("security", {}).get("strategies", ["token", "session"])
+            if "session" not in strategies or self._session_engine is not None:
                 try:
                     # Create AuthManager
                     auth_manager = self._create_auth_manager(auth_config)
@@ -325,6 +330,7 @@ class AquiliaServer:
                             session_engine=self._session_engine,
                             auth_manager=auth_manager,
                             require_auth=auth_config.get("security", {}).get("require_auth_by_default", False),
+                            strategies=strategies,
                             fault_engine=self.fault_engine,
                         ),
                         scope="global",

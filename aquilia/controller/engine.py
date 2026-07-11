@@ -244,6 +244,9 @@ class ControllerEngine:
                 ctx=ctx,
             )
 
+            # Get handler method
+            handler_method = getattr(controller, route_metadata.handler_name)
+
             # Execute class-level pipeline via FlowPipeline
             if route.controller_metadata.pipeline:
                 pipeline_result = await self._execute_flow_pipeline(
@@ -252,6 +255,7 @@ class ControllerEngine:
                     ctx,
                     controller,
                     pipeline_name=f"{controller_class.__name__}.class_pipeline",
+                    handler_method=handler_method,
                 )
                 if isinstance(pipeline_result, Response):
                     return pipeline_result
@@ -264,12 +268,10 @@ class ControllerEngine:
                     ctx,
                     controller,
                     pipeline_name=f"{controller_class.__name__}.{route_metadata.handler_name}",
+                    handler_method=handler_method,
                 )
                 if isinstance(pipeline_result, Response):
                     return pipeline_result
-
-            # Get handler method
-            handler_method = getattr(controller, route_metadata.handler_name)
 
             # ── Clearance evaluation ──
             # Check class-level + method-level clearance requirements
@@ -577,6 +579,7 @@ class ControllerEngine:
         controller: Controller,
         *,
         pipeline_name: str = "controller_pipeline",
+        handler_method: Any | None = None,
     ) -> Response | None:
         """
         Execute a pipeline list via the FlowPipeline engine.
@@ -589,6 +592,45 @@ class ControllerEngine:
             FlowStatus,
             from_pipeline_list,
         )
+
+        # Check if the handler is exempt from security checks
+        is_exempt = False
+        if handler_method:
+            try:
+                from aquilia.auth.clearance import AccessLevel, get_method_clearance
+
+                clearance = get_method_clearance(handler_method)
+                if clearance and clearance.effective_level == AccessLevel.PUBLIC:
+                    is_exempt = True
+            except Exception:
+                pass
+
+        if is_exempt:
+            # Filter out AuthGuard and any other security guards from the pipeline list
+            filtered_pipeline = []
+            for node in pipeline_list:
+                node_name = getattr(node, "__name__", node.__class__.__name__)
+                node_module = getattr(node, "__module__", node.__class__.__module__)
+                is_security_guard = (
+                    node_name
+                    in (
+                        "AuthGuard",
+                        "AdminGuard",
+                        "VerifiedEmailGuard",
+                        "RequireAuthGuard",
+                        "RequireSessionAuthGuard",
+                        "RequireTokenAuthGuard",
+                        "RequireApiKeyGuard",
+                        "RequireScopesGuard",
+                        "RequireRolesGuard",
+                        "RequirePermissionGuard",
+                        "RequirePolicyGuard",
+                    )
+                    or "auth" in node_module.lower()
+                )
+                if not is_security_guard:
+                    filtered_pipeline.append(node)
+            pipeline_list = filtered_pipeline
 
         # Convert pipeline list to FlowPipeline
         flow_pipeline = from_pipeline_list(pipeline_list, name=pipeline_name)
@@ -1085,7 +1127,7 @@ class ControllerEngine:
             # DI injection
             elif param.source == "di":
                 try:
-                    # For Session and Identity, we use optional=True so we can raise our own Faults
+                    # For Session, Identity, and SessionPrincipal/AuthPrincipal, we use optional=True so we can raise our own Faults
                     is_session_param = param_name == "session" or (
                         hasattr(param.type, "__name__") and param.type.__name__ == "Session"
                     )
@@ -1094,24 +1136,52 @@ class ControllerEngine:
                         hasattr(param.type, "__name__") and param.type.__name__ == "Identity"
                     )
 
-                    is_optional = not param.required or is_session_param or is_identity_param
+                    is_principal_param = (
+                        param_name == "principal"
+                        or (
+                            hasattr(param.type, "__name__")
+                            and param.type.__name__ in ("SessionPrincipal", "AuthPrincipal")
+                        )
+                        or (
+                            isinstance(param.type, str)
+                            and any(p in param.type for p in ("SessionPrincipal", "AuthPrincipal"))
+                        )
+                    )
+
+                    is_optional = not param.required or is_session_param or is_identity_param or is_principal_param
 
                     # Resolve by type if available, otherwise by name
                     resolve_token = param.type if param.type is not inspect.Parameter.empty else param_name
                     value = await container.resolve_async(resolve_token, optional=is_optional)
 
                     if is_session_param and value is None:
-                        # Try to resolve session proactively
-                        try:
-                            from aquilia.sessions import SessionEngine
+                        # Check request.state or ctx first to avoid duplicate session resolution
+                        value = request.state.get("session") or getattr(ctx, "session", None)
+                        if value is None:
+                            # Try to resolve session proactively
+                            try:
+                                from aquilia.sessions import SessionEngine
 
-                            engine = await container.resolve_async(SessionEngine)
-                            value = await engine.resolve(request)
-                            # Update context and request for downstream handlers/decorators
-                            ctx.session = value
-                            request.state["session"] = value
-                        except Exception:
-                            pass
+                                engine = await container.resolve_async(SessionEngine)
+                                value = await engine.resolve(request)
+                                # Update context and request for downstream handlers/decorators
+                                ctx.session = value
+                                request.state["session"] = value
+                            except Exception:
+                                pass
+
+                    if is_principal_param and value is None:
+                        # Try to get principal from session or identity
+                        session_obj = request.state.get("session") or getattr(ctx, "session", None)
+                        if session_obj and getattr(session_obj, "principal", None):
+                            value = session_obj.principal
+                        else:
+                            # Try from identity
+                            identity_obj = request.state.get("identity") or getattr(ctx, "identity", None)
+                            if identity_obj:
+                                from aquilia.auth.integration.aquila_sessions import AuthPrincipal
+
+                                value = AuthPrincipal.from_identity(identity_obj)
 
                     # ENFORCEMENT: If this is a Session, and it's None, but requested as required
                     # then raise SessionRequiredFault.
@@ -1120,7 +1190,7 @@ class ControllerEngine:
                             from aquilia.sessions.decorators import SessionRequiredFault
 
                             raise SessionRequiredFault()
-                        elif is_identity_param:
+                        elif is_identity_param or is_principal_param:
                             from aquilia.auth.faults import AUTH_REQUIRED
 
                             raise AUTH_REQUIRED()

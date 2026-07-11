@@ -39,6 +39,22 @@ export const sections: SidebarSection[] = [
     ]
   },
   {
+    title: 'Tutorials',
+    icon: <BookOpen className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Tutorials',
+        path: '/docs/tutorials',
+        icon: <BookOpen className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/tutorials/overview' },
+          { label: 'Todo Application', path: '/docs/tutorials/todo-app' },
+          { label: 'Authentication App', path: '/docs/tutorials/auth-app' },
+        ]
+      }
+    ]
+  },
+  {
     title: 'Core',
     icon: <Zap className="w-3 h-3" />,
     items: [
@@ -171,6 +187,7 @@ export const sections: SidebarSection[] = [
           { label: 'Signals', path: '/docs/models/signals' },
           { label: 'Aggregation', path: '/docs/models/aggregation' },
           { label: 'Migrations', path: '/docs/models/migrations' },
+          { label: 'Advanced Usage', path: '/docs/models/advanced' },
         ]
       },
       {
@@ -232,6 +249,7 @@ export const sections: SidebarSection[] = [
       {
         label: 'Authorization', path: '/docs/authz', icon: <Shield className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/authz' },
           { label: 'RBAC', path: '/docs/authz/rbac' },
           { label: 'ABAC', path: '/docs/authz/abac' },
           { label: 'Policies', path: '/docs/authz/policies' },
@@ -545,7 +563,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
           if (item.children) {
             // If the current location starts with this item's path, expand it
             // Exception: if path is just prefix for children but not exact match... logic holds.
-            if (location.pathname.startsWith(item.path)) {
+            if (location.pathname === item.path || location.pathname.startsWith(item.path + '/')) {
               openItems[item.path] = true
             }
             crawl(item.children)
@@ -570,7 +588,7 @@ export function Sidebar({ isOpen = false, onClose }: SidebarProps) {
   }
 
   const isActive = (path: string) => location.pathname === path
-  const isChildActive = (path: string) => location.pathname.startsWith(path) && location.pathname !== path
+  const isChildActive = (path: string) => location.pathname.startsWith(path + '/')
 
   // Recursive Item Component
   const SidebarMenuItem = ({ item, depth = 0 }: { item: SidebarItem, depth?: number }) => {

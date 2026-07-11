@@ -1,20 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const DOMAIN = 'https://aquilia.tubox.cloud';
-const LASTMOD = new Date().toISOString().split('T')[0];
+// 1. Load compiled docsContent
+const { docsContent } = require(path.join(__dirname, 'temp/docsContent.cjs'));
 
-const rootRoutes = [
-  { path: '/', priority: '1.0', changefreq: 'weekly' },
-  { path: '/benchmark', priority: '0.8', changefreq: 'weekly' },
-  { path: '/changelogs', priority: '0.7', changefreq: 'weekly' },
-  { path: '/releases', priority: '0.7', changefreq: 'weekly' },
-  { path: '/help', priority: '0.8', changefreq: 'weekly' },
-  { path: '/community', priority: '0.8', changefreq: 'weekly' },
-  { path: '/privacy', priority: '0.5', changefreq: 'monthly' },
-  { path: '/terms', priority: '0.5', changefreq: 'monthly' },
-];
-
+// 2. Load the sitemap sections config to find labels dynamically
 const docSections = [
   {
     title: 'Getting Started',
@@ -107,8 +97,13 @@ const docSections = [
           { label: 'URL Generation', path: '/docs/routing/urls' },
         ]
       },
+    ]
+  },
+  {
+    title: 'Dependency Injection',
+    items: [
       {
-        label: 'Dependency Injection', path: '/docs/di',
+        label: 'DI System', path: '/docs/di',
         children: [
           { label: 'Overview', path: '/docs/di' },
           { label: 'Container', path: '/docs/di/container' },
@@ -502,25 +497,79 @@ const docSections = [
   },
 ];
 
-const urls = [];
+// Helper to recursively find labels
+function findItemLabel(items, pathVal) {
+  for (const item of items) {
+    if (item.path.toLowerCase() === pathVal.toLowerCase()) {
+      return item.label;
+    }
+    if (item.children) {
+      const found = findItemLabel(item.children, pathVal);
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
-// Add root routes
-rootRoutes.forEach(r => {
-  urls.push({
-    loc: `${DOMAIN}${r.path}`,
-    priority: r.priority,
-    changefreq: r.changefreq
-  });
-});
+// 3. Static metadata configuration for root-level pages
+const staticPages = {
+  '/': {
+    title: 'Aquilia — High-Performance Async Python Web Framework',
+    description: 'Aquilia is a Manifest-First, async-native Python web framework with zero boilerplate. Built-in ORM, DI, auth, sessions, caching, WebSockets, Docker/K8s manifests, and admin dashboard. Production-ready from day one.',
+    keywords: 'Python web framework, async Python, Python API framework, Python REST API, manifest-first, dependency injection Python, Python ORM, background tasks, Python microservices, Docker Kubernetes deployment, Python admin dashboard, Aquilia framework, high-performance Python',
+    plainText: 'Aquilia is a Manifest-First, async-native Python framework with zero boilerplate. Built-in ORM, dependency injection, authentication, sessions, caching, WebSockets, background tasks, admin dashboard, and manifest-first tooling.'
+  },
+  '/benchmark': {
+    title: 'Framework Benchmarks — Aquilia vs FastAPI vs Django',
+    description: 'Compare Aquilia performance against FastAPI, Starlette, Django, and Flask. Review throughput, latency, concurrency, and memory consumption metrics under high load.',
+    keywords: 'Python benchmarks, FastAPI vs Aquilia, web framework performance, async performance, python web framework, async Python',
+    plainText: 'Compare Aquilia performance metrics (throughput, latency, concurrency, memory consumption) against FastAPI, Starlette, Django, and Flask under high load.'
+  },
+  '/changelogs': {
+    title: 'Changelogs & Developer Logs — Aquilia',
+    description: 'Detailed changelogs, API deprecations, migration guides, and release logs for Aquilia framework developers.',
+    keywords: 'Aquilia changelogs, API deprecations, migration guides, release notes',
+    plainText: 'Read the latest changelogs, API deprecations, and upgrade migration guides for the Aquilia Python framework.'
+  },
+  '/releases': {
+    title: 'Releases & Version History — Aquilia',
+    description: 'Stay up to date with the latest releases, features, performance improvements, bug fixes, and upgrade notes of the Aquilia Python framework.',
+    keywords: 'Aquilia releases, Python web framework releases, async Python version history, Aquilia framework changelogs',
+    plainText: 'Explore version history, GitHub releases, performance improvements, and bug fixes for the Aquilia Python framework.'
+  },
+  '/help': {
+    title: 'Help Center & Support — Aquilia',
+    description: 'Find resources, FAQs, troubleshooting guides, and community channels to resolve issues with the Aquilia Python framework.',
+    keywords: 'Aquilia support, help center, ScopeViolationError, PatternSyntaxError, Python framework support',
+    plainText: 'Get help and technical support. View frequently asked questions, resolve common exceptions like ScopeViolationError and PatternSyntaxError, and connect with our team.'
+  },
+  '/community': {
+    title: 'Developer Community & Ecosystem — Aquilia',
+    description: 'Join the Aquilia framework community. Connect on GitHub, Discussions, and contribute to the async Python ecosystem.',
+    keywords: 'Aquilia community, Python open source community, async Python framework community, contribute to Aquilia',
+    plainText: 'Join the Aquilia ecosystem. Learn how to contribute to the open-source Python framework and connect on Discord, Discussions, and GitHub.'
+  },
+  '/privacy': {
+    title: 'Privacy Policy — Aquilia',
+    description: 'Read the privacy policy for Aquilia documentation and services. Learn how we handle your data.',
+    keywords: 'privacy policy, compliance, cookies, Aquilia framework',
+    plainText: 'Privacy Policy and data practices description for the Aquilia documentation and related services.'
+  },
+  '/terms': {
+    title: 'Terms & Conditions — Aquilia',
+    description: 'Terms and conditions describing guidelines for using the Aquilia documentation, assets, and licensing policies.',
+    keywords: 'terms of service, user agreement, Aquilia framework documentation',
+    plainText: 'Terms of Service and terms of use for the Aquilia documentation, assets, and branding guidelines.'
+  }
+};
 
-// Helper to recursively parse sidebar items
+// 4. Crawl sitemap sections to gather all paths
+const pathsToPrerender = Object.keys(staticPages);
+
 function crawl(items) {
   items.forEach(item => {
-    urls.push({
-      loc: `${DOMAIN}${item.path}`,
-      priority: item.children ? '0.8' : '0.7',
-      changefreq: 'monthly'
-    });
+    // Add child page path
+    pathsToPrerender.push(item.path);
     if (item.children) {
       crawl(item.children);
     }
@@ -531,30 +580,126 @@ docSections.forEach(section => {
   crawl(section.items);
 });
 
-// Remove duplicates
-const uniqueUrlsMap = new Map();
-urls.forEach(u => {
-  let loc = u.loc;
-  if (loc !== `${DOMAIN}/` && loc.endsWith('/')) {
-    loc = loc.slice(0, -1);
+// Remove duplicates and normalize paths
+const uniquePaths = Array.from(new Set(pathsToPrerender.map(p => p.toLowerCase().replace(/\/$/, ''))));
+
+// 5. Read index.html template from dist folder
+const distPath = path.join(__dirname, '../dist');
+const templateHtml = fs.readFileSync(path.join(distPath, 'index.html'), 'utf-8');
+
+console.log(`Prerendering ${uniquePaths.length} pages...`);
+
+uniquePaths.forEach(p => {
+  let title, description, keywords, plainText;
+
+  // Determine metadata
+  const originalPath = Object.keys(staticPages).find(k => k.toLowerCase() === p);
+  if (originalPath) {
+    // Static page
+    const metadata = staticPages[originalPath];
+    title = metadata.title;
+    description = metadata.description;
+    keywords = metadata.keywords;
+    plainText = metadata.plainText;
+  } else {
+    // Doc page
+    // 1. Find matching item label
+    let pageLabel = 'Documentation';
+    for (const sec of docSections) {
+      const found = findItemLabel(sec.items, p);
+      if (found) {
+        pageLabel = found;
+        break;
+      }
+    }
+    
+    title = `${pageLabel} — Aquilia Documentation`;
+    description = `Comprehensive guide and documentation for ${pageLabel} in the Aquilia framework. View API reference, examples, and implementation patterns.`;
+    keywords = `Aquilia, ${pageLabel}, Python framework, async, dependency injection, ORM, WebSockets, background tasks`;
+
+    // 2. Find matching content in docsContent.ts
+    // Let's normalize lookups (e.g. /docs/server/aquilia-server -> /docs/server)
+    let searchPath = p;
+    if (p === '/docs/server/aquilia-server') searchPath = '/docs/server';
+    else if (p === '/docs/config/loader') searchPath = '/docs/config';
+    else if (p === '/docs/request-response/request') searchPath = '/docs/request-response';
+    else if (p === '/docs/controllers/overview') searchPath = '/docs/controllers';
+    else if (p === '/docs/authz/overview') searchPath = '/docs/authz';
+    else if (p === '/docs/sessions/overview') searchPath = '/docs/sessions';
+    else if (p === '/docs/signing/overview') searchPath = '/docs/signing';
+    else if (p === '/docs/middleware/overview') searchPath = '/docs/middleware';
+    else if (p === '/docs/http/overview') searchPath = '/docs/http';
+    else if (p === '/docs/sse/overview') searchPath = '/docs/sse';
+    else if (p === '/docs/cache/overview') searchPath = '/docs/cache';
+    else if (p === '/docs/storage/overview') searchPath = '/docs/storage';
+    else if (p === '/docs/filesystem/overview') searchPath = '/docs/filesystem';
+    else if (p === '/docs/i18n/overview') searchPath = '/docs/i18n';
+    else if (p === '/docs/templates/overview') searchPath = '/docs/templates';
+    else if (p === '/docs/mail/overview') searchPath = '/docs/mail';
+    else if (p === '/docs/tasks/overview') searchPath = '/docs/tasks';
+    else if (p === '/docs/cli/overview') searchPath = '/docs/cli';
+    else if (p === '/docs/testing/overview') searchPath = '/docs/testing';
+    else if (p === '/docs/aquilary/overview') searchPath = '/docs/aquilary';
+    else if (p === '/docs/subsystem/overview') searchPath = '/docs/subsystem';
+    else if (p === '/docs/faults/overview') searchPath = '/docs/faults';
+    
+    // Exact lookups or partial matching fallback
+    let docItem = docsContent.find(d => d.path.toLowerCase() === searchPath);
+    if (!docItem) {
+      // Suffix search
+      docItem = docsContent.find(d => searchPath.endsWith(d.path.toLowerCase()));
+    }
+    
+    plainText = docItem ? docItem.plainText : `${pageLabel} documentation page in the Aquilia async Python web framework.`;
   }
-  uniqueUrlsMap.set(loc, u);
+
+  const canonicalUrl = `https://aquilia.tubox.cloud${p === '' ? '/' : p}`;
+
+  // 6. Generate the prerendered HTML content
+  let outputHtml = templateHtml;
+
+  // Replace standard titles and tags
+  outputHtml = outputHtml.replace(/<title>[^<]*<\/title>/g, `<title>${title}</title>`);
+  outputHtml = outputHtml.replace(/<meta\s+name="title"\s+content="[^"]*"\s*\/>/g, `<meta name="title" content="${title}" />`);
+  outputHtml = outputHtml.replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/g, `<meta name="description" content="${description}" />`);
+  outputHtml = outputHtml.replace(/<meta\s+name="keywords"\s+content="[^"]*"\s*\/>/g, `<meta name="keywords" content="${keywords}" />`);
+  outputHtml = outputHtml.replace(/<link\s+rel="canonical"\s+href="[^"]*"\s*\/>/g, `<link rel="canonical" href="${canonicalUrl}" />`);
+
+  // Replace Open Graph / Facebook tags
+  outputHtml = outputHtml.replace(/<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/g, `<meta property="og:title" content="${title}" />`);
+  outputHtml = outputHtml.replace(/<meta\s+property="og:description"\s+content="[^"]*"\s*\/>/g, `<meta property="og:description" content="${description}" />`);
+  outputHtml = outputHtml.replace(/<meta\s+property="og:url"\s+content="[^"]*"\s*\/>/g, `<meta property="og:url" content="${canonicalUrl}" />`);
+
+  // Replace Twitter tags
+  outputHtml = outputHtml.replace(/<meta\s+name="twitter:title"\s+content="[^"]*"\s*\/>/g, `<meta name="twitter:title" content="${title}" />`);
+  outputHtml = outputHtml.replace(/<meta\s+name="twitter:description"\s+content="[^"]*"\s*\/>/g, `<meta name="twitter:description" content="${description}" />`);
+  outputHtml = outputHtml.replace(/<meta\s+name="twitter:url"\s+content="[^"]*"\s*\/>/g, `<meta name="twitter:url" content="${canonicalUrl}" />`);
+
+  // Replace the generic <noscript> tag with page-specific contents
+  const pageNoscript = `<noscript>
+    <div style="padding:2rem;max-width:800px;margin:0 auto;font-family:system-ui,sans-serif;">
+      <h1>${title}</h1>
+      <p>${description}</p>
+      <hr style="margin:2rem 0;opacity:0.2;" />
+      <div style="line-height:1.6;font-size:1.1rem;color:#333;">
+        ${plainText}
+      </div>
+      <p style="margin-top:3rem;"><a href="https://aquilia.tubox.cloud">Go to Homepage</a></p>
+    </div>
+  </noscript>`;
+  
+  outputHtml = outputHtml.replace(/<noscript>[\s\S]*?<\/noscript>/g, pageNoscript);
+
+  // 7. Write files to target directories
+  if (p === '' || p === '/') {
+    // Root index.html
+    fs.writeFileSync(path.join(distPath, 'index.html'), outputHtml, 'utf-8');
+  } else {
+    // Sub-route directory (e.g. dist/docs/installation/index.html)
+    const pageDir = path.join(distPath, p);
+    fs.mkdirSync(pageDir, { recursive: true });
+    fs.writeFileSync(pageDir + '/index.html', outputHtml, 'utf-8');
+  }
 });
 
-const uniqueUrls = Array.from(uniqueUrlsMap.values());
-
-const xmlEntries = uniqueUrls.map(u => `  <url>
-    <loc>${u.loc}</loc>
-    <lastmod>${LASTMOD}</lastmod>
-    <changefreq>${u.changefreq}</changefreq>
-    <priority>${u.priority}</priority>
-  </url>`).join('\n');
-
-const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${xmlEntries}
-</urlset>
-`;
-
-fs.writeFileSync(path.join(__dirname, '../public/sitemap.xml'), sitemapXml, 'utf-8');
-console.log(`Successfully generated sitemap.xml with ${uniqueUrls.length} routes.`);
+console.log(`Pre-rendering completed successfully for ${uniquePaths.length} routes.`);

@@ -424,10 +424,16 @@ def authenticated(
                 sig = inspect.signature(inner_func)
                 if "user" in sig.parameters:
                     func_kwargs["user"] = identity
-                elif "identity" in sig.parameters:
+                if "identity" in sig.parameters:
                     func_kwargs["identity"] = identity
-                elif "principal" in sig.parameters:
-                    func_kwargs["principal"] = identity
+                if "principal" in sig.parameters:
+                    from aquilia.auth.integration.aquila_sessions import AuthPrincipal
+
+                    func_kwargs["principal"] = AuthPrincipal.from_identity(identity)
+                if "session" in sig.parameters:
+                    session = _extract_session(args, func_kwargs)
+                    if session is not None:
+                        func_kwargs["session"] = session
                 return await inner_func(*args, **func_kwargs)
 
             # Fall back to session-based authentication
@@ -451,10 +457,15 @@ def authenticated(
             sig = inspect.signature(inner_func)
             if "user" in sig.parameters:
                 func_kwargs["user"] = session.principal
-            elif "principal" in sig.parameters:
+            if "principal" in sig.parameters:
                 func_kwargs["principal"] = session.principal
-            elif "session" in sig.parameters:
+            if "session" in sig.parameters:
                 func_kwargs["session"] = session
+            if "identity" in sig.parameters and "identity" not in func_kwargs:
+                # Use extracted identity or principal as fallback
+                fallback_identity = _extract_identity(args, func_kwargs) or session.principal
+                if fallback_identity is not None:
+                    func_kwargs["identity"] = fallback_identity
 
             return await inner_func(*args, **func_kwargs)
 
@@ -603,10 +614,12 @@ def require_identity(
             sig = inspect.signature(func)
             if "identity" in sig.parameters:
                 func_kwargs["identity"] = identity
-            elif "user" in sig.parameters:
+            if "user" in sig.parameters:
                 func_kwargs["user"] = identity
-            elif "principal" in sig.parameters:
-                func_kwargs["principal"] = identity
+            if "principal" in sig.parameters:
+                from aquilia.auth.integration.aquila_sessions import AuthPrincipal
+
+                func_kwargs["principal"] = AuthPrincipal.from_identity(identity)
 
             return await func(*args, **func_kwargs)
 

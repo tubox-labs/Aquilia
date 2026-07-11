@@ -1,14 +1,21 @@
 """
-Aquilia configuration — everything in one place.
+Aquilia configuration — unified access to config, workspace, and integrations.
 
-For workspace structure:
-    from aquilia.config import Workspace, Module, Integration
+Examples:
+    Loading workspace components:
+    ```python
+    from aquilia.config import Workspace, Module
+    ```
 
-For environment config:
+    Declaring custom environment variables and secrets:
+    ```python
     from aquilia.config import AquilaConfig, Env, Secret
+    ```
 
-For runtime config reading (subsystems only):
+    Accessing the configuration loader subsystem:
+    ```python
     from aquilia.config import ConfigLoader
+    ```
 """
 
 from aquilia.integrations.integration import Integration

@@ -23,7 +23,7 @@ Usage:
         def can_edit(self, identity, resource):
             if identity.id == resource.author_id:
                 return Allow()
-            if "editor" in identity.roles:
+            if identity.has_role("editor"):
                 return Allow()
             return Deny("Only author or editor can edit")
 """
