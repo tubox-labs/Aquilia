@@ -89,6 +89,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`SessionPrincipal`/`AuthPrincipal` Parameter Resolution & `@exempt` Class Bypass**:
+  - Classify `SessionPrincipal` and `AuthPrincipal` parameters (as well as parameters named `"principal"`) as `"di"` source parameters in route compilation rather than falling back to `"query"` parameters, preventing `TypeError` on route handler invocations.
+  - Automatically resolve requested `SessionPrincipal`/`AuthPrincipal` parameters in `ControllerEngine._bind_parameters` by extracting the principal from the request session or constructing an `AuthPrincipal` from the active identity.
+  - Replace the `elif` parameter injection structures in `@authenticated` and `@require_identity` decorators with individual `if` blocks to support injecting multiple requested authentication and session parameters (such as `user`/`identity`, `session`, and `principal` simultaneously) into route handler signatures.
+  - Update `ControllerEngine` to retrieve route handler methods prior to executing the class-level pipeline, allowing the engine to check for `@exempt` (clearance level `AccessLevel.PUBLIC`) decorators and bypass/filter out all security-related guards from both class-level and route-level pipelines.
 - **Swallowed manifest import errors during static module discovery** (`aquilia/runtime.py`):
   - Previously, when statically declared modules in `workspace.py` failed to import their `manifest.py` (e.g. due to syntax errors or TypeErrors on startup), `AquiliaRuntime.discover()` caught the exception, logged it, but silently allowed startup to continue. This resulted in missing routes returning `404 Not Found` rather than causing an expected boot crash.
   - Now, discovery re-raises the exception, forcing a clean and loud startup crash when a statically declared core module fails to load.
