@@ -71,14 +71,14 @@ class ProjectsController(Controller):
         return Response.json(payload, status=201)
 ```
 
-## Add Blueprints
+## Add Contracts
 
-Blueprints are annotation-driven request/response contracts. The repository examples use `Blueprint` classes with typed attributes, `Spec` options, and `seal_<field>` methods that mutate or reject incoming data.
+Contracts are annotation-driven request/response contracts. The repository examples use `Contract` classes with typed attributes, `Spec` options, and `seal_<field>` methods that mutate or reject incoming data.
 
 ```python
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
-class ProjectCreateBlueprint(Blueprint):
+class ProjectCreateContract(Contract):
     key: str
     name: str
     owner_email: str

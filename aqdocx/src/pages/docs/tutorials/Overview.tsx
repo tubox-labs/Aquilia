@@ -63,8 +63,8 @@ export function TutorialOverview() {
               <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-gray-900'}`}>Contract-Based APIs</h3>
             </div>
             <p className={`text-sm leading-relaxed max-w-2xl ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-              Input and output structures are validated using <DocTerm id="bp.blueprint">Blueprints</DocTerm>.
-              Blueprints act as the single source of truth for validation, serialization, database imprinting, and OpenAPI schema generation.
+              Input and output structures are validated using <DocTerm id="bp.contract">Contracts</DocTerm>.
+              Contracts act as the single source of truth for validation, serialization, database imprinting, and OpenAPI schema generation.
             </p>
           </div>
 
@@ -501,7 +501,7 @@ class StarterController(Controller):
 ├── controllers.py    # Class-based route handler controllers (e.g. GET, POST endpoints)
 ├── services.py       # Dependency injected services containing business logic
 ├── models.py         # Database ORM models mapping to SQL tables
-├── blueprints.py     # Request/response validation blueprint contracts using Facets
+├── contracts.py     # Request/response validation contract contracts using Facets
 └── faults.py         # Module-specific structured domain exception faults`}
           language="text"
         />

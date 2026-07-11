@@ -24,7 +24,7 @@ export function DecoratorPost() {
                 </div>
                 <p className={`text-xl ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                     The <code>@POST</code> decorator handles HTTP POST requests, typically used for creating resources.
-                    It provides robust mechanisms for <strong>request body validation</strong> via Blueprints and <strong>response formatting</strong>.
+                    It provides robust mechanisms for <strong>request body validation</strong> via Contracts and <strong>response formatting</strong>.
                 </p>
             </div>
 
@@ -53,20 +53,20 @@ class UsersController(Controller):
                     <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Input Validation & Serialization</h2>
                 </div>
                 <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Aquilia utilizes <strong>Blueprints</strong> to handle request body validation and enforce typed contracts.
+                    Aquilia utilizes <strong>Contracts</strong> to handle request body validation and enforce typed contracts.
                 </p>
 
                 <CodeBlock
-                    code={`from aquilia.blueprints import Blueprint, Field
+                    code={`from aquilia.contracts import Contract, Field
 
-class UserCreateBlueprint(Blueprint):
+class UserCreateContract(Contract):
     username: str = Field(max_length=50)
     email: str
 
 # In your controller:
-@POST("/", request_blueprint=UserCreateBlueprint)
+@POST("/", request_contract=UserCreateContract)
 async def create(self, ctx: RequestCtx, body: dict):
-    # body is fully validated and cast according to the blueprint schema
+    # body is fully validated and cast according to the contract schema
     user = await self.service.create(body)
     return Response.json(user)`}
                     language="python"
@@ -80,13 +80,13 @@ async def create(self, ctx: RequestCtx, body: dict):
                     <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>Response Formatting</h2>
                 </div>
                 <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                    Control how your data is sent back to the client using <code>response_blueprint</code>.
+                    Control how your data is sent back to the client using <code>response_contract</code>.
                 </p>
 
                 <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>Key Parameters</h3>
                 <ul className={`list-disc pl-5 space-y-2 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                     <li>
-                        <strong>response_blueprint</strong>: Automatically serializes/molds the return value of the handler using a Blueprint schema.
+                        <strong>response_contract</strong>: Automatically serializes/molds the return value of the handler using a Contract schema.
                     </li>
                     <li>
                         <strong>response_model</strong>: Used primarily for OpenAPI documentation to describe the success response schema.
@@ -100,11 +100,11 @@ async def create(self, ctx: RequestCtx, body: dict):
                     code={`@POST(
     "/",
     status_code=201,
-    response_blueprint=UserBlueprint
+    response_contract=UserContract
 )
 async def create(self, ctx: RequestCtx, body: dict):
     user = await self.repo.create(body)
-    # The return value will be auto-molded via UserBlueprint
+    # The return value will be auto-molded via UserContract
     return user`}
                     language="python"
                 />
@@ -124,14 +124,14 @@ async def create(self, ctx: RequestCtx, body: dict):
                         </thead>
                         <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
                             <tr>
-                                <td className="px-4 py-3 text-sm font-mono text-aquilia-500">request_blueprint</td>
-                                <td className="px-4 py-3 text-sm font-mono text-gray-500">Type[Blueprint]</td>
-                                <td className="px-4 py-3 text-sm text-gray-500">Blueprint for strictly typed request bodies.</td>
+                                <td className="px-4 py-3 text-sm font-mono text-aquilia-500">request_contract</td>
+                                <td className="px-4 py-3 text-sm font-mono text-gray-500">Type[Contract]</td>
+                                <td className="px-4 py-3 text-sm text-gray-500">Contract for strictly typed request bodies.</td>
                             </tr>
                             <tr>
-                                <td className="px-4 py-3 text-sm font-mono text-aquilia-500">response_blueprint</td>
-                                <td className="px-4 py-3 text-sm font-mono text-gray-500">Type[Blueprint]</td>
-                                <td className="px-4 py-3 text-sm text-gray-500">Blueprint to mold outgoing response data.</td>
+                                <td className="px-4 py-3 text-sm font-mono text-aquilia-500">response_contract</td>
+                                <td className="px-4 py-3 text-sm font-mono text-gray-500">Type[Contract]</td>
+                                <td className="px-4 py-3 text-sm text-gray-500">Contract to mold outgoing response data.</td>
                             </tr>
                             <tr>
                                 <td className="px-4 py-3 text-sm font-mono text-gray-500">status_code</td>

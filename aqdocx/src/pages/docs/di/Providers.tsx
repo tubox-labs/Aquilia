@@ -21,7 +21,7 @@ export function DIProviders() {
           DI Providers
         </h1>
         <p className={`text-lg leading-relaxed ${subtleText}`}>
-          Providers encapsulate instantiation logic. Each provider represents a blueprint for creating concrete services.
+          Providers encapsulate instantiation logic. Each provider represents a contract for creating concrete services.
         </p>
       </div>
 
@@ -120,16 +120,16 @@ provider = PoolProvider(
 )`}</CodeBlock>
       </section>
 
-      {/* BlueprintProvider */}
+      {/* ContractProvider */}
       <section className="mb-16 border-l-2 border-pink-500/30 pl-6">
-        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>BlueprintProvider</h2>
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>ContractProvider</h2>
         <p className={`mb-4 ${subtleText}`}>
-          Specially designed for request validation. Instantiates a <code className="text-aquilia-500">Blueprint</code> validation schema by parsing and binding the incoming request payload with strict casting rules.
+          Specially designed for request validation. Instantiates a <code className="text-aquilia-500">Contract</code> validation schema by parsing and binding the incoming request payload with strict casting rules.
         </p>
-        <CodeBlock language="python" filename="BlueprintProvider Usage">{`from aquilia.di.providers import BlueprintProvider
+        <CodeBlock language="python" filename="ContractProvider Usage">{`from aquilia.di.providers import ContractProvider
 
 # Registers in container
-container.register(BlueprintProvider(UserBlueprint, scope="request"))`}</CodeBlock>
+container.register(ContractProvider(UserContract, scope="request"))`}</CodeBlock>
       </section>
 
       {/* Selection Logic */}
@@ -154,7 +154,7 @@ container.register(BlueprintProvider(UserBlueprint, scope="request"))`}</CodeBlo
                 ['Entry has "allow_lazy": True and is in a cycle', 'LazyProxyProvider wrapping ClassProvider'],
                 ['Entry has "scope" override', 'ScopedProvider wrapping the inner provider'],
                 ['Entry is a pre-built value', 'ValueProvider'],
-                ['Entry is a Blueprint subclass', 'BlueprintProvider'],
+                ['Entry is a Contract subclass', 'ContractProvider'],
               ].map(([condition, provider], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                   <td className={`py-3.5 px-6 ${subtleText}`}>{condition}</td>

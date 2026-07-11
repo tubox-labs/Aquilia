@@ -59,7 +59,7 @@ from .lifecycle import (
 )
 from .providers import (
     AliasProvider,
-    BlueprintProvider,
+    ContractProvider,
     ClassProvider,
     FactoryProvider,
     LazyProxyProvider,
@@ -95,7 +95,7 @@ __all__ = [
     "AliasProvider",
     "LazyProxyProvider",
     "ScopedProvider",
-    "BlueprintProvider",
+    "ContractProvider",
     # Scopes
     "Scope",
     "ServiceScope",

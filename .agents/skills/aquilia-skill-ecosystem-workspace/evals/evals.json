@@ -11,7 +11,7 @@
       "id": 1,
       "name": "auth-db-testing",
       "prompt": "Add authenticated project CRUD backed by SQLite models, sessions, and tests using Aquilia testing utilities. Include migration and validation workflow.",
-      "expected_output": "Uses auth/session, database/ORM/migrations, blueprint validation, and testing skills with source-backed constraints."
+      "expected_output": "Uses auth/session, database/ORM/migrations, contract validation, and testing skills with source-backed constraints."
     },
     {
       "id": 2,

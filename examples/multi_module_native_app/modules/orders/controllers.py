@@ -1,7 +1,7 @@
 from aquilia import GET, POST, Controller, RequestCtx, Response
 from aquilia.auth import authenticated
 
-from .blueprints import CreateOrderBlueprint
+from .contracts import CreateOrderContract
 from .services import OrdersService
 
 
@@ -20,9 +20,9 @@ class OrdersController(Controller):
     @POST("/", status_code=201)
     @authenticated
     async def create_order(self, ctx: RequestCtx):
-        blueprint = CreateOrderBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.create_order(blueprint.validated_data), status=201)
+        contract = CreateOrderContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.create_order(contract.validated_data), status=201)
 
     @GET("/<order_id:str>")
     @authenticated

@@ -2,32 +2,32 @@
 title: "Validation"
 description: "Request validation"
 icon: lucide/check-square
----Controller-layer request body validation via Aquilia Blueprints.
+---Controller-layer request body validation via Aquilia Contracts.
 
 ## validate_body() Signature
 
-The `validate_body()` decorator parses and validates request bodies through Blueprint classes. On success, it injects the validated `body: dict` as a keyword argument to the handler. On failure, it returns HTTP 422 Unprocessable Entity with structured errors.
+The `validate_body()` decorator parses and validates request bodies through Contract classes. On success, it injects the validated `body: dict` as a keyword argument to the handler. On failure, it returns HTTP 422 Unprocessable Entity with structured errors.
 
 **Source:** Lines 47-53
 
 ```python
-def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
+def validate_body(contract_class: type, *, projection: str = "__all__") -> Any:
     """
-    Decorator: parse + validate the request body through a Blueprint.
+    Decorator: parse + validate the request body through a Contract.
 
     On success:  injects ``body: dict`` as the first extra keyword argument.
     On failure:  returns HTTP 422 Unprocessable Entity with structured errors.
 
     Args:
-        blueprint_class: The Blueprint class to validate against.
-        projection:      Blueprint projection to use for allowed fields.
+        contract_class: The Contract class to validate against.
+        projection:      Contract projection to use for allowed fields.
     """
 ```
 
 ### Parameters
 
-- **blueprint_class** (`type`): The Blueprint class to validate against
-- **projection** (`str`, optional): Blueprint projection to use for allowed fields. Defaults to `"__all__"`
+- **contract_class** (`type`): The Contract class to validate against
+- **projection** (`str`, optional): Contract projection to use for allowed fields. Defaults to `"__all__"`
 
 ### Behavior
 
@@ -57,24 +57,24 @@ class ValidationFault(Fault):
 
 ## RequestBodyValidationFault
 
-Raised when request body fails Blueprint validation.
+Raised when request body fails Contract validation.
 
 **Source:** Lines 30-32
 
 ```python
 class RequestBodyValidationFault(ValidationFault):
     code = "validation.body_invalid"
-    message = "Request body failed Blueprint validation"
+    message = "Request body failed Contract validation"
 ```
 
 - **Code**: `"validation.body_invalid"`
-- **Message**: `"Request body failed Blueprint validation"`
+- **Message**: `"Request body failed Contract validation"`
 - **HTTP Status**: 422 Unprocessable Entity (line 97)
 
 When validation fails, the response includes (lines 94-97):
 - `error`: Fault message
 - `code`: Fault code
-- `detail`: Detailed validation errors from Blueprint
+- `detail`: Detailed validation errors from Contract
 
 ### RequestBodyParseFault
 
@@ -92,18 +92,18 @@ class RequestBodyParseFault(ValidationFault):
 - **Message**: `"Request body could not be parsed"`
 - **HTTP Status**: 400 Bad Request (line 80)
 
-## Blueprint Integration
+## Contract Integration
 
-The validator integrates with Aquilia Blueprints through the following mechanism (lines 84-107):
+The validator integrates with Aquilia Contracts through the following mechanism (lines 84-107):
 
-1. **Instantiation**: Creates a Blueprint instance with the parsed data and projection (line 84)
+1. **Instantiation**: Creates a Contract instance with the parsed data and projection (line 84)
 2. **Validation**: Calls `is_sealed_async()` if available, otherwise `is_sealed()` (lines 85-88)
 3. **Error Collection**: Retrieves validation errors via `errors` attribute or `seal_errors()` method (lines 90-91)
 4. **Data Extraction**: Uses `validated_data` attribute if available (line 106)
 
 ### Async Support
 
-The decorator supports both synchronous and asynchronous Blueprint validation (lines 85-88):
+The decorator supports both synchronous and asynchronous Contract validation (lines 85-88):
 
 ```python
 if hasattr(bp, "is_sealed_async"):
@@ -121,13 +121,13 @@ else:
 ```python
 from aquilia import Controller, POST, RequestCtx, Response
 from aquilia.controller.validation import validate_body
-from myapp.users.blueprints import CreateUserBlueprint
+from myapp.users.contracts import CreateUserContract
 
 class UsersController(Controller):
     prefix = "/users"
 
     @POST("/")
-    @validate_body(CreateUserBlueprint)
+    @validate_body(CreateUserContract)
     async def create_user(self, ctx: RequestCtx, body: dict):
         user = await self.user_service.create(**body)
         return Response.json({"id": user.id}, status=201)
@@ -138,13 +138,13 @@ class UsersController(Controller):
 ```python
 from aquilia import Controller, PUT, RequestCtx, Response
 from aquilia.controller.validation import validate_body
-from myapp.users.blueprints import UserBlueprint
+from myapp.users.contracts import UserContract
 
 class UsersController(Controller):
     prefix = "/users"
 
     @PUT("/{user_id}")
-    @validate_body(UserBlueprint, projection="update")
+    @validate_body(UserContract, projection="update")
     async def update_user(self, ctx: RequestCtx, user_id: str, body: dict):
         user = await self.user_service.update(user_id, **body)
         return Response.json(user.to_dict())
@@ -156,7 +156,7 @@ When validation fails (lines 94-97), the response structure is:
 
 ```json
 {
-  "error": "Request body failed Blueprint validation",
+  "error": "Request body failed Contract validation",
   "code": "validation.body_invalid",
   "detail": {
     "email": ["Invalid email format"],
@@ -192,4 +192,4 @@ The decorator automatically handles different content types (lines 58-76):
 # Body: (multipart form with files and fields)
 ```
 
-All content types are parsed and passed to the Blueprint for validation.
+All content types are parsed and passed to the Contract for validation.

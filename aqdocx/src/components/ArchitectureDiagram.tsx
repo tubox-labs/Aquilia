@@ -182,7 +182,7 @@ export const ArchitectureDiagram = ({ isDark, className = "max-w-6xl" }: { isDar
 
                         <g transform="translate(20, 105)">
                             <rect x="0" y="0" width="180" height="40" rx="6" fill={accentColor} opacity="0.15" />
-                            <text x="90" y="25" textAnchor="middle" fill={textColor} fontSize="10" fontWeight="bold">TRANSFORMS (Blueprint validation)</text>
+                            <text x="90" y="25" textAnchor="middle" fill={textColor} fontSize="10" fontWeight="bold">TRANSFORMS (Contract validation)</text>
                         </g>
 
                         <g transform="translate(20, 160)">

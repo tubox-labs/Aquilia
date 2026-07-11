@@ -529,7 +529,7 @@ class ExceptionMiddleware(Middleware):
                     self.logger.error(f"Error page renderer crashed: {render_exc}", exc_info=True)
                     return self._html_response(_FALLBACK_500_HTML, status)
 
-            # Special handling for Blueprint validation errors (BP200)
+            # Special handling for Contract validation errors (BP200)
             error_obj = {
                 "code": e.code,
                 "message": message,

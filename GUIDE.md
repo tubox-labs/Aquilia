@@ -1932,15 +1932,15 @@ Spans are automatically propagated via W3C Trace Context headers.
 
 ## 23. Request Body Validation
 
-The `@validate_body` decorator validates incoming JSON request bodies against a Blueprint schema.
+The `@validate_body` decorator validates incoming JSON request bodies against a Contract schema.
 
 ### Basic Usage
 
 ```python
-from aquilia.blueprint import Blueprint
+from aquilia.contract import Contract
 from aquilia.controller.validation import validate_body
 
-create_user_schema = Blueprint({
+create_user_schema = Contract({
     "email": str,
     "name": str,
     "role": str,
@@ -1956,12 +1956,12 @@ class UsersController(Controller):
         return Response.json(user, status=201)
 ```
 
-### Blueprint with Constraints
+### Contract with Constraints
 
 ```python
-from aquilia.blueprint import Blueprint, Required, MinLength, Email
+from aquilia.contract import Contract, Required, MinLength, Email
 
-register_schema = Blueprint({
+register_schema = Contract({
     "email": [Required(), Email()],
     "password": [Required(), MinLength(8)],
     "name": [Required(), MinLength(2)],
@@ -1978,16 +1978,16 @@ class AuthController(Controller):
         return Response.json({"id": user.id}, status=201)
 ```
 
-### Nested Blueprints
+### Nested Contracts
 
 ```python
-address_schema = Blueprint({
+address_schema = Contract({
     "street": [Required(), str],
     "city": [Required(), str],
     "zip": [Required(), str],
 })
 
-order_schema = Blueprint({
+order_schema = Contract({
     "items": [Required(), list],
     "shipping_address": [Required(), address_schema],
     "notes": str,
@@ -2013,27 +2013,27 @@ order_schema = Blueprint({
 
 ## 24. Form & File Upload Validation
 
-Blueprints support validating and parsing incoming form fields (`FormData`) and file uploads (`UploadFile`) from `multipart/form-data` and `application/x-www-form-urlencoded` request payloads.
+Contracts support validating and parsing incoming form fields (`FormData`) and file uploads (`UploadFile`) from `multipart/form-data` and `application/x-www-form-urlencoded` request payloads.
 
 ### Declaring File and Form Inputs
 
 You can declare form inputs and files using both implicit and explicit declaration styles:
 
 ```python
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 from aquilia.controller.validation import validate_body
 from aquilia._uploads import UploadFile, FormData
 
 # Style 1: Implicit declaration (uses sensible defaults)
-class SimpleUploadBlueprint(Blueprint):
+class SimpleUploadContract(Contract):
     avatar: UploadFile
     username: FormData
 
 # Style 2: Explicit declaration (allows metadata and validation constraints)
-class ConfiguredUploadBlueprint(Blueprint):
+class ConfiguredUploadContract(Contract):
     # Restrict file size and content types
     avatar: UploadFile(max_size=5 * 1024 * 1024, allowed_types=["image/png", "image/jpeg"])
-    # Cast form parameter to a primitive (or a nested blueprint) and set a default
+    # Cast form parameter to a primitive (or a nested contract) and set a default
     age: FormData(type=int, default=18)
 ```
 
@@ -2046,7 +2046,7 @@ class ProfileController(Controller):
     prefix = "/profile"
 
     @POST("/upload")
-    @validate_body(ConfiguredUploadBlueprint)
+    @validate_body(ConfiguredUploadContract)
     async def upload(self, ctx: RequestCtx, body: dict):
         avatar_file = body["avatar"]  # An instance of UploadFile
         age = body["age"]            # Cast to int (e.g., 25)
@@ -2067,7 +2067,7 @@ class ProfileController(Controller):
 ### Collection and Optional Support
 
 ```python
-class OptionalAndMultiBlueprint(Blueprint):
+class OptionalAndMultiContract(Contract):
     # Optional file or form inputs
     optional_doc: UploadFile | None = None
     optional_name: FormData | None = None
@@ -2134,7 +2134,7 @@ from aquilia.sse import SSEResponse, SSEEvent
 from aquilia.otel import OTelConfig, current_span
 
 # Validation
-from aquilia.blueprint import Blueprint
+from aquilia.contract import Contract
 from aquilia.controller.validation import validate_body
 
 # Templates

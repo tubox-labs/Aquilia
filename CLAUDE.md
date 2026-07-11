@@ -97,7 +97,7 @@ Controllers declared in a module's `manifest.py` are auto-discovered — no manu
 
 - **Security invariants.** No `pickle.load()` on untrusted data. Always validate/normalize file paths (null bytes, `..` traversal). Use parameterized queries only. Templates use `SandboxedEnvironment` with autoescape. Background tasks resolve only from the registered task registry.
 
-- **Request body validation.** Use `validate_body` from `aquilia/controller/validation.py` to validate incoming request bodies through Blueprints. Apply as a decorator on controller methods — on success, injects a validated `body: dict` kwarg; on failure, returns HTTP 422 with structured errors.
+- **Request body validation.** Use `validate_body` from `aquilia/controller/validation.py` to validate incoming request bodies through Contracts. Apply as a decorator on controller methods — on success, injects a validated `body: dict` kwarg; on failure, returns HTTP 422 with structured errors.
 
 ## Tooling Configuration
 

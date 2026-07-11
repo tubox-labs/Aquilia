@@ -14,7 +14,7 @@ export function TodoTutorialPage() {
   const steps = [
     { id: 1, label: '1. Scaffolding', desc: 'Generate the todos module structure' },
     { id: 2, label: '2. DB Model', desc: 'Define the Todo database schema' },
-    { id: 3, label: '3. Blueprints', desc: 'Create validation and serialization contracts' },
+    { id: 3, label: '3. Contracts', desc: 'Create validation and serialization contracts' },
     { id: 4, label: '4. Faults', desc: 'Define domain-specific errors' },
     { id: 5, label: '5. DI Service', desc: 'Implement queries and business logic' },
     { id: 6, label: '6. Controller', desc: 'Write REST endpoints' },
@@ -43,7 +43,7 @@ export function TodoTutorialPage() {
 
         <p className={`text-lg leading-relaxed mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           In this tutorial, you will build a complete, database-backed REST API for a Todo application.
-          You'll learn how to define database models using the Aquilia ORM, create request/response contracts using validation blueprints, write business logic inside dependency-injected services, handle client errors using custom faults, and test your work using the built-in test client.
+          You'll learn how to define database models using the Aquilia ORM, create request/response contracts using validation contracts, write business logic inside dependency-injected services, handle client errors using custom faults, and test your work using the built-in test client.
         </p>
       </div>
 
@@ -126,7 +126,7 @@ aq add module todos`}
                 {[
                   { file: 'manifest.py', desc: 'The single source of truth for the module. Registers controllers, services, models, and dependencies.' },
                   { file: 'models.py', desc: 'Define your database tables here using the Aquilia ORM Model classes.' },
-                  { file: 'blueprints.py', desc: 'Declare request body and response schemas to control casting and validation.' },
+                  { file: 'contracts.py', desc: 'Declare request body and response schemas to control casting and validation.' },
                   { file: 'services.py', desc: 'Houses business logic, database queries, and is wired using dependency injection.' },
                   { file: 'controllers.py', desc: 'Contains route handlers decorated with HTTP methods like GET, POST, and PUT.' },
                   { file: 'faults.py', desc: 'Declare custom domain exceptions (e.g. TodoItemNotFound) for structured error reporting.' },
@@ -204,7 +204,7 @@ class TodoItem(Model):
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>BooleanField:</strong> A boolean field in SQL. Note that the blueprint validation counterpart is named <DocTerm id="bp.facet">BoolFacet</DocTerm>, which handles type casting from JSON payloads.</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>BooleanField:</strong> A boolean field in SQL. Note that the contract validation counterpart is named <DocTerm id="bp.facet">BoolFacet</DocTerm>, which handles type casting from JSON payloads.</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
@@ -222,10 +222,10 @@ class TodoItem(Model):
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.2 }}
             >
-              <h3 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Step 3: Creating Validation Blueprints</h3>
+              <h3 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Step 3: Creating Validation Contracts</h3>
               <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                Open <code className="text-aquilia-400">modules/todos/blueprints.py</code>. We will create schemas to validate request payloads (inbound) and serialize models (outbound).
-                Aquilia supports two styles of declaring blueprints: the <strong className="text-aquilia-400">Explicit Facet style</strong> (descriptors) and the <strong className="text-aquilia-400">Type-Annotated style</strong> (Pydantic-like).
+                Open <code className="text-aquilia-400">modules/todos/contracts.py</code>. We will create schemas to validate request payloads (inbound) and serialize models (outbound).
+                Aquilia supports two styles of declaring contracts: the <strong className="text-aquilia-400">Explicit Facet style</strong> (descriptors) and the <strong className="text-aquilia-400">Type-Annotated style</strong> (Pydantic-like).
               </p>
 
               {/* Option A: Explicit Facet Style */}
@@ -235,9 +235,9 @@ class TodoItem(Model):
                   Declares fields by directly instantiating class descriptors (Facets). This offers explicit type safety and constructor configuration.
                 </p>
                 <CodeBlock
-                  code={`# modules/todos/blueprints.py (Explicit Facet Style)
-from aquilia import Blueprint
-from aquilia.blueprints import (
+                  code={`# modules/todos/contracts.py (Explicit Facet Style)
+from aquilia import Contract
+from aquilia.contracts import (
     IntFacet,
     TextFacet,
     BoolFacet,
@@ -246,9 +246,9 @@ from aquilia.blueprints import (
 from .models import TodoItem
 
 
-class TodoBlueprint(Blueprint):
+class TodoContract(Contract):
     """
-    Blueprint using explicit Facet descriptors.
+    Contract using explicit Facet descriptors.
     """
     id = IntFacet(read_only=True)
     title = TextFacet(max_length=255, required=True, min_length=1)
@@ -264,7 +264,7 @@ class TodoBlueprint(Blueprint):
         }
 `}
                   language="python"
-                  filename="blueprints.py"
+                  filename="contracts.py"
                   highlightLines={[12, 16, 17, 18, 23, 24]}
                 />
               </div>
@@ -276,15 +276,15 @@ class TodoBlueprint(Blueprint):
                   Declares fields using standard Python type hints. Constraints are declared using the <code className="text-aquilia-400">Field</code> descriptor, and computed properties can be decorated with <code className="text-aquilia-400">@computed</code>.
                 </p>
                 <CodeBlock
-                  code={`# modules/todos/blueprints.py (Type-Annotated Style)
+                  code={`# modules/todos/contracts.py (Type-Annotated Style)
 from datetime import datetime
-from aquilia import Blueprint, Field, computed
+from aquilia import Contract, Field, computed
 from .models import TodoItem
 
 
-class TodoBlueprint(Blueprint):
+class TodoContract(Contract):
     """
-    Blueprint using Python type hints and Field descriptors.
+    Contract using Python type hints and Field descriptors.
     """
     id: int = Field(read_only=True)
     title: str = Field(min_length=1, max_length=255)
@@ -306,16 +306,16 @@ class TodoBlueprint(Blueprint):
         }
 `}
                   language="python"
-                  filename="blueprints.py"
+                  filename="contracts.py"
                   highlightLines={[7, 12, 13, 14, 15, 17, 18, 24, 25]}
                 />
               </div>
 
-              <h4 className={`text-md font-bold mt-6 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Blueprint Configuration Options (class Spec):</h4>
+              <h4 className={`text-md font-bold mt-6 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Contract Configuration Options (class Spec):</h4>
               <ul className={`space-y-3.5 text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>model:</strong> Binds the blueprint schema to an ORM Model class (e.g. <code className="text-aquilia-400">TodoItem</code>).</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>model:</strong> Binds the contract schema to an ORM Model class (e.g. <code className="text-aquilia-400">TodoItem</code>).</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
@@ -331,7 +331,7 @@ class TodoBlueprint(Blueprint):
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>Projections:</strong> Subsets of fields (e.g. <code className="text-aquilia-400">TodoBlueprint["summary"]</code>) returned to callers based on serialization context, preventing unnecessary query overhead.</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>Projections:</strong> Subsets of fields (e.g. <code className="text-aquilia-400">TodoContract["summary"]</code>) returned to callers based on serialization context, preventing unnecessary query overhead.</span>
                 </li>
               </ul>
             </motion.div>
@@ -542,14 +542,14 @@ class TodoService:
               <h3 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Step 6: Writing the Controller Routes</h3>
               <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                 Open <code className="text-aquilia-400">modules/todos/controllers.py</code>. We'll use decorators to declare our endpoints.
-                Constructor parameters automatically inject our <code className="text-aquilia-400">TodoService</code>, and endpoint arguments automatically validate and serialize using blueprints:
+                Constructor parameters automatically inject our <code className="text-aquilia-400">TodoService</code>, and endpoint arguments automatically validate and serialize using contracts:
               </p>
 
               <CodeBlock
                 code={`# modules/todos/controllers.py
 from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
 from .services import TodoService
-from .blueprints import TodoBlueprint
+from .contracts import TodoContract
 from .faults import TodoNotFoundFault
 
 
@@ -564,19 +564,19 @@ class TodoController(Controller):
         # Service is automatically injected by the DI container
         self.service = service or TodoService()
 
-    @GET("/", response_blueprint=TodoBlueprint["summary"])
+    @GET("/", response_contract=TodoContract["summary"])
     async def list_todos(self, ctx: RequestCtx):
         """List all todo items, returning only basic summary fields."""
         todos = await self.service.get_all()
         return Response.json(todos)
 
-    @POST("/", request_blueprint=TodoBlueprint, response_blueprint=TodoBlueprint["detail"])
-    async def create_todo(self, ctx: RequestCtx, blueprint: TodoBlueprint):
+    @POST("/", request_contract=TodoContract, response_contract=TodoContract["detail"])
+    async def create_todo(self, ctx: RequestCtx, contract: TodoContract):
         """Create a new todo, validating input and returning full details."""
-        todo = await self.service.create(blueprint.validated_data)
+        todo = await self.service.create(contract.validated_data)
         return Response.json(todo, status=201)
 
-    @GET("/<id:int>", response_blueprint=TodoBlueprint["detail"])
+    @GET("/<id:int>", response_contract=TodoContract["detail"])
     async def get_todo(self, ctx: RequestCtx, id: int):
         """Get a single todo by integer ID, raising TodoNotFoundFault if missing."""
         todo = await self.service.get_by_id(id)
@@ -584,10 +584,10 @@ class TodoController(Controller):
             raise TodoNotFoundFault(todo_id=id)
         return Response.json(todo)
 
-    @PUT("/<id:int>", request_blueprint=TodoBlueprint, response_blueprint=TodoBlueprint["detail"])
-    async def update_todo(self, ctx: RequestCtx, id: int, blueprint: TodoBlueprint):
+    @PUT("/<id:int>", request_contract=TodoContract, response_contract=TodoContract["detail"])
+    async def update_todo(self, ctx: RequestCtx, id: int, contract: TodoContract):
         """Update an existing todo, merging payload, and returning detail fields."""
-        todo = await self.service.update(id, blueprint.validated_data)
+        todo = await self.service.update(id, contract.validated_data)
         if not todo:
             raise TodoNotFoundFault(todo_id=id)
         return Response.json(todo)
@@ -613,11 +613,11 @@ class TodoController(Controller):
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>request_blueprint:</strong> Enables automatic parsing of request bodies, casting inputs, and raising a <DocTerm id="bp.seal_fault">SealFault</DocTerm> if validation fails. The verified parameters are accessible via <code className="text-aquilia-400">blueprint.validated_data</code>.</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>request_contract:</strong> Enables automatic parsing of request bodies, casting inputs, and raising a <DocTerm id="bp.seal_fault">SealFault</DocTerm> if validation fails. The verified parameters are accessible via <code className="text-aquilia-400">contract.validated_data</code>.</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>response_blueprint:</strong> Filters and serializes model return values. We specify projections, e.g., <code className="text-aquilia-400">TodoBlueprint["summary"]</code>, to select which columns to output.</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>response_contract:</strong> Filters and serializes model return values. We specify projections, e.g., <code className="text-aquilia-400">TodoContract["summary"]</code>, to select which columns to output.</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>

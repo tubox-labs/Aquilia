@@ -24,13 +24,13 @@ export function DeveloperGuidePage() {
               <span className="gradient-text font-mono">Developer Integration Guide</span>
             </h1>
             <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} font-mono mt-1`}>
-              Connecting DI, Controllers, Blueprints, Models, Storage, Cache, and Mail
+              Connecting DI, Controllers, Contracts, Models, Storage, Cache, and Mail
             </p>
           </div>
         </div>
 
         <p className={`text-lg leading-relaxed ${textMuted}`}>
-          This guide outlines how to build a unified application flow in Aquilia. You will learn how to connect <DocTerm id="di.service">Dependency Injection</DocTerm>, HTTP <DocTerm id="controller.controller">Controllers</DocTerm>, validation <DocTerm id="bp.blueprint">Blueprints</DocTerm>, ORM <DocTerm id="orm.model">Models</DocTerm>, <DocTerm id="storage.StorageBackend">Storage</DocTerm>, <DocTerm id="cache.CacheService">Cache</DocTerm>, and <DocTerm id="mail.MailService">Mail</DocTerm> in a single cohesive codebase.
+          This guide outlines how to build a unified application flow in Aquilia. You will learn how to connect <DocTerm id="di.service">Dependency Injection</DocTerm>, HTTP <DocTerm id="controller.controller">Controllers</DocTerm>, validation <DocTerm id="bp.contract">Contracts</DocTerm>, ORM <DocTerm id="orm.model">Models</DocTerm>, <DocTerm id="storage.StorageBackend">Storage</DocTerm>, <DocTerm id="cache.CacheService">Cache</DocTerm>, and <DocTerm id="mail.MailService">Mail</DocTerm> in a single cohesive codebase.
         </p>
       </div>
 
@@ -67,23 +67,23 @@ class UserContext:
 `}</CodeBlock>
       </section>
 
-      {/* Blueprints & Validation */}
+      {/* Contracts & Validation */}
       <section className="mb-16 border-l border-aquilia-500/30 pl-6 py-1">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Shield className="w-5 h-5 text-aquilia-500" />
-          2. Blueprints: Schema & Input Validation
+          2. Contracts: Schema & Input Validation
         </h2>
         <p className={`mb-4 ${textMuted}`}>
-          A <DocTerm id="bp.blueprint">Blueprint</DocTerm> defines request data validation schemas. Use the <DocTerm id="bp.ward">@ward</DocTerm> decorator to implement custom cross-field constraints:
+          A <DocTerm id="bp.contract">Contract</DocTerm> defines request data validation schemas. Use the <DocTerm id="bp.ward">@ward</DocTerm> decorator to implement custom cross-field constraints:
         </p>
 
         <CodeBlock
           language="python"
-          filename="blueprints.py"
+          filename="contracts.py"
           highlightLines={[3, 9, 10]}
-        >{`from aquilia.blueprints import Blueprint, Field, ward
+        >{`from aquilia.contracts import Contract, Field, ward
 
-class UserRegistrationBlueprint(Blueprint):
+class UserRegistrationContract(Contract):
     email: str = Field(max_length=255)
     password: str = Field(min_length=8)
     password_confirm: str = Field()
@@ -138,7 +138,7 @@ async def create_user_transaction(user_data: dict, password_hash: str) -> User:
           4. Putting It All Together: The Unified Controller
         </h2>
         <p className={`mb-4 ${textMuted}`}>
-          Here is how to orchestrate a complete flow inside an HTTP <DocTerm id="controller.controller">Controller</DocTerm>. The endpoint binds schema blueprints, saves files to <DocTerm id="storage.StorageBackend">StorageBackend</DocTerm>, writes transaction records, invalidates related <DocTerm id="cache.CacheService">CacheService</DocTerm> entries, and dispatches custom <DocTerm id="mail.TemplateMessage">TemplateMessage</DocTerm> emails:
+          Here is how to orchestrate a complete flow inside an HTTP <DocTerm id="controller.controller">Controller</DocTerm>. The endpoint binds schema contracts, saves files to <DocTerm id="storage.StorageBackend">StorageBackend</DocTerm>, writes transaction records, invalidates related <DocTerm id="cache.CacheService">CacheService</DocTerm> entries, and dispatches custom <DocTerm id="mail.TemplateMessage">TemplateMessage</DocTerm> emails:
         </p>
 
         <CodeBlock
@@ -151,7 +151,7 @@ from aquilia.http import Response
 from aquilia.cache import CacheService
 from aquilia.storage import StorageBackend
 from aquilia.mail import TemplateMessage
-from .blueprints import UserRegistrationBlueprint
+from .contracts import UserRegistrationContract
 from .models import User, create_user_transaction
 
 class RegistrationController(Controller):
@@ -164,19 +164,19 @@ class RegistrationController(Controller):
 
     @POST("/register")
     async def register(self, ctx: RequestCtx):
-        # 1. Bind and validate request body against Blueprint schema contract
-        blueprint = await ctx.bind(UserRegistrationBlueprint)
+        # 1. Bind and validate request body against Contract schema contract
+        contract = await ctx.bind(UserRegistrationContract)
         
         # 2. Process file uploads via Storage
         avatar_file = ctx.request.files.get("avatar")
         avatar_url = None
         if avatar_file:
-            filename = f"avatars/{blueprint.username}.png"
+            filename = f"avatars/{contract.username}.png"
             await self.storage.save(filename, avatar_file.read())
             avatar_url = self.storage.url(filename)
 
         # 3. Write data inside a database transaction
-        user = await create_user_transaction(blueprint.to_dict(), "hashed_pw")
+        user = await create_user_transaction(contract.to_dict(), "hashed_pw")
         if avatar_url:
             user.avatar_url = avatar_url
             await user.save()
@@ -210,7 +210,7 @@ class RegistrationController(Controller):
         items={[
           { text: 'Dependency Injection Details', link: '/docs/di' },
           { text: 'ORM Models & Fields', link: '/docs/models/overview' },
-          { text: 'Validation Blueprints', link: '/docs/blueprints/overview' },
+          { text: 'Validation Contracts', link: '/docs/contracts/overview' },
           { text: 'Unified File Storage', link: '/docs/storage' },
         ]}
       />

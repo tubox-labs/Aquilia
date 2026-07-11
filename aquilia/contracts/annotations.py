@@ -1,0 +1,1433 @@
+"""
+Aquilia Contract Annotations -- type-annotation–driven schema declaration.
+
+Enables Contracts to be declared using Python type annotations instead of
+(or alongside) explicit Facet instantiation.  This is a first-class,
+Aquilia-native system -- no external libraries.
+
+Usage::
+
+    from aquilia.contracts import Contract, Field, computed
+
+    class UserContract(Contract):
+        name: str = Field(min_length=2, max_length=100)
+        age: int = Field(ge=0, le=150)
+        email: str = Field(pattern=r"^[\\w.+-]+@[\\w-]+\\.[\\w.]+$")
+        role: str = Field(default="user", choices=["user", "admin", "mod"])
+        tags: list[str] = Field(default_factory=list)
+        bio: str | None = None
+
+        @computed
+        def full_name(self, instance) -> str:
+            return f"{instance.first_name} {instance.last_name}"
+
+    class OrderContract(Contract):
+        user: UserContract            # nested Contract
+        items: list[ItemContract]     # list of nested Contracts
+        total: float
+"""
+
+from __future__ import annotations
+
+import sys
+import types
+import uuid
+from collections.abc import Callable, Sequence
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
+from typing import (
+    Any,
+    Optional,
+    Union,
+    get_args,
+    get_origin,
+)
+
+from .._uploads import FormData, UploadFile
+from .exceptions import CastFault
+from .facets import (
+    UNSET,
+    BoolFacet,
+    ChoiceFacet,
+    Computed,
+    DateFacet,
+    DateTimeFacet,
+    DecimalFacet,
+    DictFacet,
+    DurationFacet,
+    EmailFacet,
+    Facet,
+    FloatFacet,
+    FormDataFacet,
+    IntFacet,
+    ListFacet,
+    LiteralFacet,
+    PolymorphicFacet,
+    SetFacet,
+    TextFacet,
+    TimeFacet,
+    TupleFacet,
+    UploadFileFacet,
+    URLFacet,
+    UUIDFacet,
+)
+
+__all__ = [
+    "Field",
+    "computed",
+    "NestedContractFacet",
+    "LazyContractFacet",
+    "introspect_annotations",
+    "ANNOTATION_TO_FACET",
+]
+
+
+# ── Type → Facet Mapping ────────────────────────────────────────────────
+
+ANNOTATION_TO_FACET: dict[type, type[Facet]] = {
+    str: TextFacet,
+    int: IntFacet,
+    float: FloatFacet,
+    bool: BoolFacet,
+    Decimal: DecimalFacet,
+    datetime: DateTimeFacet,
+    date: DateFacet,
+    time: TimeFacet,
+    timedelta: DurationFacet,
+    uuid.UUID: UUIDFacet,
+    dict: DictFacet,
+    list: ListFacet,
+    set: SetFacet,
+    tuple: TupleFacet,
+    bytes: TextFacet,
+    UploadFile: UploadFileFacet,
+    FormData: FormDataFacet,
+}
+
+
+# ── Field Descriptor ────────────────────────────────────────────────────
+
+
+class Field:
+    """
+    Constraint descriptor for annotation-driven Contract fields.
+
+    Provides the same power as explicit Facet kwargs, but in a concise
+    form suitable for use as a default value alongside a type annotation.
+
+    Args:
+        default:         Static default value.
+        default_factory: Zero-arg callable producing the default.
+        required:        Override auto-detected required status.
+        read_only:       If True, field only appears in output.
+        write_only:      If True, field only accepted as input.
+        allow_null:      Accept None as a valid value.
+        allow_blank:     Accept empty string (text fields).
+        source:          Model attribute name override.
+        label:           Human-readable label.
+        help_text:       Documentation string.
+        validators:      Extra validator callables.
+
+        # Numeric constraints
+        ge:              Greater-than-or-equal (min_value).
+        le:              Less-than-or-equal (max_value).
+        gt:              Strictly greater-than.
+        lt:              Strictly less-than.
+
+        # Text constraints
+        min_length:      Minimum string length.
+        max_length:      Maximum string length.
+        pattern:         Regex pattern the value must match.
+
+        # Collection constraints
+        min_items:       Minimum list length.
+        max_items:       Maximum list length.
+
+        # Choice constraint
+        choices:         Allowed values.
+
+        # Decimal
+        max_digits:      Maximum total digits.
+        decimal_places:  Maximum decimal places.
+
+        # Alias
+        alias:           Alternative input key name.
+    """
+
+    # Track creation order for stable field ordering.
+    _creation_counter: int = 0
+
+    __slots__ = (
+        "default",
+        "default_factory",
+        "required",
+        "read_only",
+        "write_only",
+        "allow_null",
+        "allow_blank",
+        "source",
+        "label",
+        "help_text",
+        "validators",
+        "ge",
+        "le",
+        "gt",
+        "lt",
+        "min_length",
+        "max_length",
+        "pattern",
+        "min_items",
+        "max_items",
+        "choices",
+        "max_digits",
+        "decimal_places",
+        "alias",
+        "_order",
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        default: Any = UNSET,
+        default_factory: Callable | None = None,
+        required: bool | None = None,
+        read_only: bool = False,
+        write_only: bool = False,
+        allow_null: bool = False,
+        allow_blank: bool = False,
+        source: str | None = None,
+        label: str | None = None,
+        help_text: str | None = None,
+        validators: Sequence[Callable] | None = None,
+        ge: int | float | None = None,
+        le: int | float | None = None,
+        gt: int | float | None = None,
+        lt: int | float | None = None,
+        min_length: int | None = None,
+        max_length: int | None = None,
+        pattern: str | None = None,
+        min_items: int | None = None,
+        max_items: int | None = None,
+        choices: Sequence | None = None,
+        max_digits: int | None = None,
+        decimal_places: int | None = None,
+        alias: str | None = None,
+    ):
+        if args:
+            if len(args) > 1:
+                raise TypeError(f"Field() takes at most 1 positional argument but {len(args)} were given")
+            pos_default = args[0]
+            if default is not UNSET:
+                from aquilia.faults.domains import ConfigInvalidFault
+
+                raise ConfigInvalidFault(
+                    key="field.default",
+                    reason="Cannot specify both positional default/Ellipsis and keyword 'default'",
+                )
+            default = pos_default
+
+        if default is Ellipsis:
+            required = True
+            default = UNSET
+
+        if default is not UNSET and default_factory is not None:
+            from aquilia.faults.domains import ConfigInvalidFault
+
+            raise ConfigInvalidFault(
+                key="field.default",
+                reason="Cannot specify both 'default' and 'default_factory'",
+            )
+
+        self.default = default
+        self.default_factory = default_factory
+        self.required = required
+        self.read_only = read_only
+        self.write_only = write_only
+        self.allow_null = allow_null
+        self.allow_blank = allow_blank
+        self.source = source
+        self.label = label
+        self.help_text = help_text
+        self.validators = list(validators) if validators else []
+        self.ge = ge
+        self.le = le
+        self.gt = gt
+        self.lt = lt
+        self.min_length = min_length
+        self.max_length = max_length
+        self.pattern = pattern
+        self.min_items = min_items
+        self.max_items = max_items
+        self.choices = choices
+        self.max_digits = max_digits
+        self.decimal_places = decimal_places
+        self.alias = alias
+
+        Field._creation_counter += 1
+        self._order = Field._creation_counter
+
+    def __repr__(self) -> str:
+        parts = []
+        if self.default is not UNSET:
+            parts.append(f"default={self.default!r}")
+        if self.default_factory is not None:
+            parts.append(f"default_factory={self.default_factory!r}")
+        if self.required is not None:
+            parts.append(f"required={self.required}")
+        return f"Field({', '.join(parts)})"
+
+
+# ── ContractUnionAdapterFacet ──────────────────────────────────────────
+
+
+class ContractUnionAdapterFacet(Facet):
+    """Thin adapter Facet that delegates casting and sealing to a ContractUnion."""
+
+    _type_name = "object"
+
+    def __init__(self, union: Any, **kwargs: Any):
+        super().__init__(**kwargs)
+        self.union = union
+
+    def cast(self, value: Any) -> Any:
+        errors, validated = self.union.validate(value)
+        if errors:
+            err_msg = "; ".join(f"{k}: {v}" for k, v in errors.items())
+            raise CastFault(self.name or "<unbound>", err_msg)
+        return validated
+
+    def seal(self, value: Any) -> Any:
+        return super().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        if value is None:
+            return None
+        # Try to find a member contract that matches the model class of value
+        for member in self.union.members:
+            spec = getattr(member, "_spec", None)
+            if spec and spec.model and isinstance(value, spec.model):
+                return member(instance=value).to_dict()
+        # Fallback: try molding with each member contract
+        for member in self.union.members:
+            try:
+                if isinstance(value, dict):
+                    return value
+                return member(instance=value).to_dict()
+            except Exception:
+                pass
+        return value
+
+    def to_schema(self) -> dict[str, Any]:
+        return self.union.to_json_schema()
+
+
+# ── NestedContractFacet ────────────────────────────────────────────────
+
+
+class NestedContractFacet(Facet):
+    """
+    A Facet that delegates validation to a nested Contract.
+
+    Used when a type annotation references another Contract subclass.
+    Handles both single-instance and list-of-instances nesting.
+
+    The nested Contract is fully sealed during the parent's seal phase,
+    producing structured, validated output.
+    """
+
+    _type_name = "object"
+
+    # Maximum nesting depth to prevent stack overflow from recursive Contracts
+    MAX_NESTING_DEPTH = 32
+
+    # Thread-local nesting depth counter
+    _current_nesting_depth = 0
+
+    def __init__(
+        self,
+        contract_cls: type,
+        *,
+        many: bool = False,
+        max_nesting_depth: int | None = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self._contract_cls = contract_cls
+        self.many = many
+        self._max_depth = max_nesting_depth or self.MAX_NESTING_DEPTH
+
+    def __class_getitem__(cls, params: Any) -> Any:
+        """Allow indexing with a Contract class to instantiate the facet.
+
+        Supports:
+            NestedContractFacet[MyContract]
+            NestedContractFacet[MyContract, True]  # sets many=True
+        """
+        from typing import ForwardRef
+
+        if isinstance(params, tuple):
+            if not params:
+                raise TypeError("NestedContractFacet[...] expects at least one Contract class argument")
+            contract_cls = params[0]
+            many = params[1] if len(params) > 1 else False
+        else:
+            contract_cls = params
+            many = False
+
+        if isinstance(contract_cls, (str, ForwardRef)):
+            ref_name = _extract_ref_name(contract_cls)
+            return LazyContractFacet(ref_name, many=bool(many))
+
+        return cls(contract_cls, many=bool(many))
+
+    @property
+    def target(self) -> type:
+        return self._contract_cls
+
+    def cast(self, value: Any) -> Any:
+        """Cast input through the nested Contract's seal pipeline."""
+        # Guard against recursive nesting depth
+        NestedContractFacet._current_nesting_depth += 1
+        try:
+            if NestedContractFacet._current_nesting_depth > self._max_depth:
+                raise CastFault(
+                    self.name or "<unbound>",
+                    f"Nested Contract depth exceeds maximum of {self._max_depth}",
+                )
+            if self.many:
+                return self._cast_many(value)
+            return self._cast_single(value)
+        finally:
+            NestedContractFacet._current_nesting_depth -= 1
+
+    def _cast_single(self, value: Any) -> dict:
+        """Cast a single nested value."""
+        if isinstance(value, dict):
+            bp = self._contract_cls(data=value)
+            if not bp.is_sealed():
+                # Collect nested errors with field prefix
+                raise CastFault(
+                    self.name or "<unbound>",
+                    f"Nested validation failed: {bp.errors}",
+                )
+            return bp.validated_data
+        raise CastFault(
+            self.name or "<unbound>",
+            f"Expected object, got {type(value).__name__}",
+        )
+
+    def _cast_many(self, value: Any) -> list:
+        """Cast a list of nested values."""
+        if not isinstance(value, (list, tuple)):
+            raise CastFault(
+                self.name or "<unbound>",
+                f"Expected list, got {type(value).__name__}",
+            )
+        results = []
+        errors = {}
+        for i, item in enumerate(value):
+            if isinstance(item, dict):
+                bp = self._contract_cls(data=item)
+                if bp.is_sealed():
+                    results.append(bp.validated_data)
+                else:
+                    errors[f"{self.name or '<unbound>'}[{i}]"] = bp.errors
+            else:
+                errors[f"{self.name or '<unbound>'}[{i}]"] = [f"Expected object, got {type(item).__name__}"]
+        if errors:
+            raise CastFault(
+                self.name or "<unbound>",
+                f"List validation failed: {errors}",
+            )
+        return results
+
+    def seal(self, value: Any) -> Any:
+        """Already validated during cast -- pass through."""
+        return super().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        """Mold output through the nested Contract."""
+        if value is None:
+            return None
+        if isinstance(value, (str, int, float, bool)):
+            return value
+        if self.many:
+            if hasattr(value, "__iter__"):
+                bp = self._contract_cls(instance=None, many=True)
+                return bp.to_dict_many(value)
+            return []
+        bp = self._contract_cls(instance=value)
+        return bp.to_dict()
+
+    def extract(self, instance: Any) -> Any:
+        """Extract the nested value from a model instance."""
+        if self.source == "*":
+            return instance
+        parts = self.source.split(".") if self.source else []
+        obj = instance
+        for part in parts:
+            if obj is None:
+                return None
+            from .core import Contract
+
+            if isinstance(obj, Contract):
+                if obj._validated_data is not None and part in obj._validated_data:
+                    obj = obj._validated_data[part]
+                else:
+                    obj = getattr(obj, part, None)
+            else:
+                obj = obj.get(part) if isinstance(obj, dict) else getattr(obj, part, None)
+        return obj
+
+    def to_schema(self) -> dict[str, Any]:
+        """Generate JSON Schema with $ref to nested Contract."""
+        ref_name = self._contract_cls.__name__
+        if self.many:
+            return {
+                "type": "array",
+                "items": {"$ref": f"#/components/schemas/{ref_name}"},
+            }
+        return {"$ref": f"#/components/schemas/{ref_name}"}
+
+
+# ── LazyContractFacet ──────────────────────────────────────────────────
+
+
+class LazyContractFacet(Facet):
+    """
+    A Facet that delays resolution of a Contract class via its string name.
+    Used for self-referential tree structures or forward references.
+    """
+
+    _type_name = "object"
+
+    def __init__(self, ref: str, *, many: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        self.ref = ref
+        self.many = many
+        self._resolved_facet: NestedContractFacet | None = None
+
+    def _get_resolved(self) -> NestedContractFacet:
+        if self._resolved_facet is not None:
+            return self._resolved_facet
+
+        from .core import _contract_registry
+
+        contract_cls = _contract_registry.get(self.ref)
+        if contract_cls is None:
+            from aquilia.faults.domains import RegistryFault
+
+            raise RegistryFault(
+                code="REGISTRY_ERROR",
+                message=f"Cannot resolve forward reference '{self.ref}'. Contract not found.",
+                metadata={"name": self.ref},
+            )
+
+        kwargs = {
+            "source": self.source,
+            "required": self.required,
+            "read_only": self.read_only,
+            "write_only": self.write_only,
+            "allow_null": self.allow_null,
+            "label": self.label,
+            "help_text": self.help_text,
+            "default": self.default,
+        }
+        self._resolved_facet = NestedContractFacet(contract_cls, many=self.many, **kwargs)
+        self._resolved_facet.name = self.name
+
+        # Merge validators if any were added to the lazy facet
+        if self.validators:
+            self._resolved_facet.validators.extend(self.validators)
+
+        return self._resolved_facet
+
+    @property
+    def target(self) -> type:
+        return self._get_resolved().target
+
+    def cast(self, value: Any) -> Any:
+        return self._get_resolved().cast(value)
+
+    def seal(self, value: Any) -> Any:
+        return self._get_resolved().seal(value)
+
+    def mold(self, value: Any) -> Any:
+        return self._get_resolved().mold(value)
+
+    def extract(self, instance: Any) -> Any:
+        return self._get_resolved().extract(instance)
+
+    def to_schema(self) -> dict[str, Any]:
+        return self._get_resolved().to_schema()
+
+
+# ── @computed Decorator ─────────────────────────────────────────────────
+
+
+class _ComputedMarker:
+    """Internal marker for methods decorated with @computed."""
+
+    __slots__ = ("func", "_order")
+
+    def __init__(self, func: Callable):
+        self.func = func
+        Facet._creation_order += 1
+        self._order = Facet._creation_order
+
+    def to_facet(self) -> Computed:
+        """Convert to a Computed facet."""
+        facet = Computed(self.func)
+        facet._order = self._order
+        return facet
+
+
+def computed(func: Callable) -> _ComputedMarker:
+    """
+    Decorator to mark a Contract method as a computed output field.
+
+    The method receives ``(self, instance)`` and returns the computed value.
+    The field is read-only -- never accepted as input.
+
+    Usage::
+
+        class UserContract(Contract):
+            first_name: str
+            last_name: str
+
+            @computed
+            def full_name(self, instance) -> str:
+                return f"{instance.first_name} {instance.last_name}"
+    """
+    return _ComputedMarker(func)
+
+
+# ── Annotation Introspection ────────────────────────────────────────────
+
+from typing import ForwardRef
+
+
+def _is_contract_class(cls: Any) -> bool:
+    """Check if cls is a Contract subclass (avoiding circular import)."""
+    if isinstance(cls, str):
+        return True
+    if isinstance(cls, ForwardRef):
+        return True
+    # Walk MRO to find Contract without importing it
+    if not isinstance(cls, type):
+        return False
+    for base in cls.__mro__:
+        if base.__name__ == "Contract" and base.__module__.startswith("aquilia.contracts"):
+            if cls is not base:
+                return True
+    return False
+
+
+def _extract_ref_name(cls: Any) -> str:
+    """Extract string name from string or ForwardRef."""
+    if isinstance(cls, ForwardRef):
+        return cls.__forward_arg__
+    return str(cls)
+
+
+def _make_forward_ref(annotation_str: str) -> Any:
+    """Create a ForwardRef, falling back to a string wrapper on SyntaxError.
+
+    Python 3.10's ``ForwardRef.__init__`` calls ``compile()`` on the string
+    and raises ``SyntaxError`` for anything that isn't valid Python expression
+    syntax.  Python 3.12+ removed that restriction.  We catch the error so
+    the caller always gets a usable sentinel back.
+    """
+    try:
+        return ForwardRef(annotation_str)
+    except SyntaxError:
+        # Craft a ForwardRef with a sanitised placeholder so downstream
+        # code that reads ``__forward_arg__`` still sees the original text.
+        ref = ForwardRef("_")
+        ref.__forward_arg__ = annotation_str
+        return ref
+
+
+def _split_at_depth_zero(s: str, char: str) -> list[str]:
+    """Split string by a character only at bracket/parenthesis depth zero."""
+    parts = []
+    depth = 0
+    current = []
+    for c in s:
+        if c in ("[", "("):
+            depth += 1
+            current.append(c)
+        elif c in ("]", ")"):
+            depth -= 1
+            current.append(c)
+        elif c == char and depth == 0:
+            parts.append("".join(current).strip())
+            current = []
+        else:
+            current.append(c)
+    if current:
+        parts.append("".join(current).strip())
+    return parts
+
+
+def _safe_resolve_annotation(annotation_str: str, namespace: dict) -> Any:
+    """
+    Safely resolve a string annotation to a type without using eval().
+
+    Handles common patterns:
+        - Simple names: "str", "int", "MyContract"
+        - Generic subscripts: "list[str]", "Optional[int]", "dict[str, int]"
+        - Union syntax: "str | None" (PEP 604)
+        - Nested generics: "list[Optional[str]]"
+
+    Security: This NEVER calls eval(). Only known type names from the
+    namespace are resolved. Unknown names become ForwardRef.
+    """
+
+    annotation_str = annotation_str.strip()
+
+    # Dot attribute lookup: "uuid.UUID", "datetime.datetime"
+    if "." in annotation_str and "[" not in annotation_str and "|" not in annotation_str:
+        parts = [p.strip() for p in annotation_str.split(".")]
+        base = namespace.get(parts[0])
+        if base is not None:
+            curr = base
+            try:
+                for part in parts[1:]:
+                    curr = getattr(curr, part)
+                return curr
+            except AttributeError:
+                pass
+
+    # Simple name lookup
+    if annotation_str.isidentifier():
+        result = namespace.get(annotation_str)
+        if result is not None:
+            return result
+        return _make_forward_ref(annotation_str)
+
+    # Handle PEP 604 union syntax: "X | Y | None" (only at root level)
+    union_parts = _split_at_depth_zero(annotation_str, "|")
+    if len(union_parts) > 1:
+        resolved_parts = []
+        for part in union_parts:
+            if part == "None":
+                resolved_parts.append(type(None))
+            else:
+                resolved_parts.append(_safe_resolve_annotation(part, namespace))
+        if len(resolved_parts) == 2 and type(None) in resolved_parts:
+            non_none = [p for p in resolved_parts if p is not type(None)]
+            return Optional[non_none[0]]  # noqa: UP045
+        return Union[tuple(resolved_parts)]  # noqa: UP007
+
+    # Handle generic subscript: "list[str]", "Optional[int]", "dict[str, int]"
+    bracket_start = annotation_str.find("[")
+    if bracket_start > 0 and annotation_str.endswith("]"):
+        origin_str = annotation_str[:bracket_start].strip()
+        args_str = annotation_str[bracket_start + 1 : -1].strip()
+
+        origin = namespace.get(origin_str)
+        if origin is None:
+            return _make_forward_ref(annotation_str)
+
+        # Parse args (handle nested brackets)
+        args = _split_type_args(args_str)
+        resolved_args = tuple(_safe_resolve_annotation(arg.strip(), namespace) for arg in args)
+
+        if origin is Optional and len(resolved_args) == 1:
+            return Optional[resolved_args[0]]  # noqa: UP045
+        if origin is Union:
+            return Union[resolved_args]  # noqa: UP007
+
+        try:
+            return origin[resolved_args] if len(resolved_args) > 1 else origin[resolved_args[0]]
+        except (TypeError, KeyError):
+            return _make_forward_ref(annotation_str)
+
+    return _make_forward_ref(annotation_str)
+
+
+def _split_type_args(args_str: str) -> list[str]:
+    """Split type arguments respecting bracket nesting."""
+    args = []
+    depth = 0
+    current = []
+    for char in args_str:
+        if char == "[":
+            depth += 1
+            current.append(char)
+        elif char == "]":
+            depth -= 1
+            current.append(char)
+        elif char == "," and depth == 0:
+            args.append("".join(current).strip())
+            current = []
+        else:
+            current.append(char)
+    if current:
+        args.append("".join(current).strip())
+    return args
+
+
+def _unwrap_optional(annotation: Any) -> tuple[Any, bool]:
+    """
+    Unwrap Optional[T] or T | None → (T, is_optional).
+
+    Handles:
+        - typing.Optional[T] → (T, True)
+        - T | None (PEP 604) → (T, True)
+        - T → (T, False)
+    """
+    origin = get_origin(annotation)
+
+    # Union types: Optional[T] is Union[T, None]
+    if origin is Union:
+        args = get_args(annotation)
+        non_none = [a for a in args if a is not type(None)]
+        if len(non_none) == 1 and type(None) in args:
+            return non_none[0], True
+        # Multi-type union without None -- not optional
+        if type(None) not in args:
+            return annotation, False
+        # Multi-type union with None -- take first non-None
+        return non_none[0] if non_none else annotation, True
+
+    # PEP 604: types.UnionType (Python 3.10+)
+    if hasattr(types, "UnionType") and isinstance(annotation, types.UnionType):
+        args = get_args(annotation)
+        non_none = [a for a in args if a is not type(None)]
+        if type(None) in args and len(non_none) == 1:
+            return non_none[0], True
+        if type(None) not in args:
+            return annotation, False
+        return non_none[0] if non_none else annotation, True
+
+    return annotation, False
+
+
+def _resolve_list_child(annotation: Any) -> tuple[bool, Any]:
+    """
+    Check if annotation is list[T], set[T], or tuple[T, ...] and extract T.
+
+    Returns:
+        (is_list, child_type) -- child_type is None if not parameterised.
+    """
+    origin = get_origin(annotation)
+    if origin in (list, set, tuple):
+        args = get_args(annotation)
+        if args:
+            # Handle tuple[str, ...] (second arg is Ellipsis)
+            if len(args) == 2 and args[1] is Ellipsis:
+                return True, args[0]
+            return True, args[0]
+        return True, None
+    return False, None
+
+
+def _build_facet_from_annotation(
+    name: str,
+    annotation: Any,
+    field_spec: Field | None,
+    class_default: Any,
+) -> Facet | None:
+    from typing import Annotated
+
+    from ..di.dep import Body, Cookie, Header, Path, Query
+
+    extractor = None
+    if get_origin(annotation) is Annotated:
+        args = get_args(annotation)
+        for meta in args[1:]:
+            if isinstance(meta, (Query, Header, Body, Cookie, Path)):
+                extractor = meta
+                break
+
+    if extractor is None:
+        if isinstance(class_default, (Query, Header, Body, Cookie, Path)):
+            extractor = class_default
+        elif field_spec is not None and isinstance(field_spec.default, (Query, Header, Body, Cookie, Path)):
+            extractor = field_spec.default
+
+    facet = _build_facet_from_annotation_raw(name, annotation, field_spec, class_default)
+    if facet is None:
+        return None
+
+    if extractor is not None:
+        facet._extractor = extractor
+        if facet.default is UNSET and getattr(extractor, "default", UNSET) not in (UNSET, ...):
+            facet.default = extractor.default
+            facet.required = False
+        if getattr(extractor, "required", False):
+            facet.required = True
+
+    return facet
+
+
+def _build_facet_from_annotation_raw(
+    name: str,
+    annotation: Any,
+    field_spec: Field | None,
+    class_default: Any,
+) -> Facet | None:
+    # Support Annotated metadata
+    from typing import Annotated
+
+    if get_origin(annotation) is Annotated:
+        args = get_args(annotation)
+        actual_type = args[0]
+        metadata = args[1:]
+
+        from .pipeline import Pipeline
+
+        target_facet = None
+        pipeline = None
+        for meta in metadata:
+            if isinstance(meta, Facet):
+                target_facet = meta
+            elif isinstance(meta, Pipeline):
+                pipeline = meta
+                if pipeline.runes and pipeline.runes[0].is_facet:
+                    target_facet = pipeline.runes[0].fn
+            elif isinstance(meta, Field):
+                field_spec = meta
+
+        # Check if the type is a ContractUnion (which handles class | class operator)
+        # We'll map it to a thin adapter Facet in Step 9
+        from .core import ContractUnion
+
+        if isinstance(actual_type, ContractUnion) or (
+            hasattr(actual_type, "__origin__") and actual_type.__origin__ is ContractUnion
+        ):
+            union_kwargs = {}
+            if field_spec is not None:
+                if field_spec.default is not UNSET:
+                    union_kwargs["default"] = field_spec.default
+                    union_kwargs["required"] = False
+                elif field_spec.default_factory is not None:
+                    union_kwargs["default"] = field_spec.default_factory
+                    union_kwargs["required"] = False
+                if field_spec.required is not None:
+                    union_kwargs["required"] = field_spec.required
+                if field_spec.read_only:
+                    union_kwargs["read_only"] = True
+                if field_spec.write_only:
+                    union_kwargs["write_only"] = True
+                if field_spec.allow_null:
+                    union_kwargs["allow_null"] = True
+            elif class_default is not UNSET and not isinstance(class_default, Field):
+                union_kwargs["default"] = class_default
+                union_kwargs["required"] = False
+            return ContractUnionAdapterFacet(actual_type, **union_kwargs)
+
+        if target_facet is not None:
+            if pipeline is not None:
+                target_facet._pipeline = pipeline
+
+            # Apply defaults and required overrides
+            if class_default is not UNSET and not isinstance(class_default, Field):
+                target_facet.default = class_default
+                target_facet.required = False
+            if field_spec is not None:
+                if field_spec.default is not UNSET:
+                    target_facet.default = field_spec.default
+                    target_facet.required = False
+                elif field_spec.default_factory is not None:
+                    target_facet.default = field_spec.default_factory
+                    target_facet.required = False
+                if field_spec.required is not None:
+                    target_facet.required = field_spec.required
+                if field_spec.read_only:
+                    target_facet.read_only = True
+                if field_spec.write_only:
+                    target_facet.write_only = True
+                if field_spec.allow_null:
+                    target_facet.allow_null = True
+
+            return target_facet
+
+        annotation = actual_type
+
+    # Unwrap Optional
+    inner_type, is_optional = _unwrap_optional(annotation)
+
+    if isinstance(inner_type, Facet):
+        if is_optional:
+            inner_type.allow_null = True
+            inner_type.required = False
+        if field_spec is not None:
+            if field_spec.required is not None:
+                inner_type.required = field_spec.required
+            if field_spec.read_only:
+                inner_type.read_only = True
+            if field_spec.write_only:
+                inner_type.write_only = True
+            if field_spec.allow_null:
+                inner_type.allow_null = True
+            if field_spec.default is not UNSET:
+                inner_type.default = field_spec.default
+            elif field_spec.default_factory is not None:
+                inner_type.default = field_spec.default_factory
+        return inner_type
+
+    # Collect kwargs from Field descriptor
+    kwargs: dict[str, Any] = {}
+
+    if field_spec is not None:
+        if field_spec.source is not None:
+            kwargs["source"] = field_spec.source
+        if field_spec.read_only:
+            kwargs["read_only"] = True
+        if field_spec.write_only:
+            kwargs["write_only"] = True
+        if field_spec.allow_null or is_optional:
+            kwargs["allow_null"] = True
+        if field_spec.allow_blank:
+            kwargs["allow_blank"] = True
+        if field_spec.label is not None:
+            kwargs["label"] = field_spec.label
+        if field_spec.help_text is not None:
+            kwargs["help_text"] = field_spec.help_text
+        if field_spec.validators:
+            kwargs["validators"] = field_spec.validators
+
+        # Default handling
+        if field_spec.default is not UNSET:
+            kwargs["default"] = field_spec.default
+        elif field_spec.default_factory is not None:
+            kwargs["default"] = field_spec.default_factory
+
+        # Required override
+        if field_spec.required is not None:
+            kwargs["required"] = field_spec.required
+        elif is_optional and "default" not in kwargs:
+            kwargs["required"] = False
+    else:
+        # No Field() -- derive from annotation + raw default
+        if is_optional:
+            kwargs["allow_null"] = True
+            kwargs["required"] = False
+        if class_default is not UNSET and not isinstance(class_default, Field):
+            kwargs["default"] = class_default
+
+    # ── Choices override ─────────────────────────────────────────────
+    if field_spec is not None and field_spec.choices is not None:
+        choice_kwargs = dict(kwargs)
+        return ChoiceFacet(choices=field_spec.choices, **choice_kwargs)
+
+    # ── ContractUnion check ─────────────────────────────────────────
+    from .core import ContractUnion
+
+    if isinstance(inner_type, ContractUnion) or (
+        hasattr(inner_type, "__origin__") and inner_type.__origin__ is ContractUnion
+    ):
+        return ContractUnionAdapterFacet(inner_type, **kwargs)
+
+    # ── Nested Contract ─────────────────────────────────────────────
+    if _is_contract_class(inner_type):
+        nested_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank",)}
+        if isinstance(inner_type, (str, ForwardRef)):
+            ref_name = _extract_ref_name(inner_type)
+            return LazyContractFacet(ref_name, many=False, **nested_kwargs)
+        return NestedContractFacet(inner_type, many=False, **nested_kwargs)
+
+    # ── Literal / Choices handling ───────────────────────────────────
+    from typing import Literal
+
+    try:
+        from typing import Literal as LiteralExt
+    except ImportError:
+        LiteralExt = Literal
+
+    origin = get_origin(inner_type)
+    if origin is Literal or origin is LiteralExt:
+        allowed = get_args(inner_type)
+        choice_kwargs = dict(kwargs)
+        choice_kwargs.pop("allow_blank", None)
+        choice_kwargs.pop("min_length", None)
+        choice_kwargs.pop("max_length", None)
+        if len(allowed) == 1:
+            return LiteralFacet(value=allowed[0], **choice_kwargs)
+        return ChoiceFacet(choices=allowed, **choice_kwargs)
+
+    # ── Polymorphic / Union Nesting ──────────────────────────────────
+    if origin is Union:
+        union_args = get_args(inner_type)
+        choices = []
+        for arg in union_args:
+            if _is_contract_class(arg):
+                if isinstance(arg, (str, ForwardRef)):
+                    ref_name = _extract_ref_name(arg)
+                    choices.append(LazyContractFacet(ref_name, many=False))
+                else:
+                    choices.append(NestedContractFacet(arg, many=False))
+            else:
+                arg_facet_cls = ANNOTATION_TO_FACET.get(arg)
+                if arg_facet_cls is not None:
+                    choices.append(arg_facet_cls())
+
+        if choices:
+            poly_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank", "min_length", "max_length")}
+            return PolymorphicFacet(choices=choices, **poly_kwargs)
+
+    # ── list[T] ──────────────────────────────────────────────────────
+    is_list, child_type = _resolve_list_child(inner_type)
+    if is_list:
+        list_kwargs: dict[str, Any] = {}
+        for k in (
+            "allow_null",
+            "required",
+            "read_only",
+            "write_only",
+            "default",
+            "source",
+            "label",
+            "help_text",
+            "validators",
+        ):
+            if k in kwargs:
+                list_kwargs[k] = kwargs[k]
+
+        if field_spec is not None:
+            if field_spec.min_items is not None:
+                list_kwargs["min_items"] = field_spec.min_items
+            if field_spec.max_items is not None:
+                list_kwargs["max_items"] = field_spec.max_items
+
+        # Build child facet recursively
+        child_facet = None
+        if child_type is not None:
+            child_name = f"{name or '<unbound>'}[*]"
+            child_facet = _build_facet_from_annotation(
+                name=child_name,
+                annotation=child_type,
+                field_spec=None,
+                class_default=UNSET,
+            )
+
+        if origin is set:
+            return SetFacet(child=child_facet, **list_kwargs)
+        elif origin is tuple:
+            return TupleFacet(child=child_facet, **list_kwargs)
+        else:
+            return ListFacet(child=child_facet, **list_kwargs)
+
+    # ── dict ─────────────────────────────────────────────────────────
+    if inner_type is dict or get_origin(inner_type) is dict:
+        dict_kwargs = {k: v for k, v in kwargs.items() if k not in ("allow_blank", "min_length", "max_length")}
+
+        args = get_args(inner_type)
+        value_facet = None
+        if len(args) == 2:
+            val_type = args[1]
+            if _is_contract_class(val_type):
+                if isinstance(val_type, (str, ForwardRef)):
+                    ref_name = _extract_ref_name(val_type)
+                    value_facet = LazyContractFacet(ref_name, many=False)
+                else:
+                    value_facet = NestedContractFacet(val_type, many=False)
+            else:
+                child_facet_cls = ANNOTATION_TO_FACET.get(val_type)
+                if child_facet_cls is not None:
+                    value_facet = child_facet_cls()
+
+        return DictFacet(value_facet=value_facet, **dict_kwargs)
+
+    # ── Enum types ───────────────────────────────────────────────────
+    from enum import Enum
+
+    if isinstance(inner_type, type) and issubclass(inner_type, Enum):
+        from .facets import EnumFacet
+
+        enum_kwargs = {k: v for k, v in kwargs.items() if k not in ("min_length", "max_length", "allow_blank")}
+        return EnumFacet(enum_class=inner_type, **enum_kwargs)
+
+    # ── Scalar types ─────────────────────────────────────────────────
+    facet_cls = ANNOTATION_TO_FACET.get(inner_type)
+    if facet_cls is None:
+        # Unknown type -- use generic Facet
+        return Facet(**{k: v for k, v in kwargs.items() if k not in ("min_length", "max_length", "allow_blank")})
+
+    # Build type-specific kwargs
+    type_kwargs = dict(kwargs)
+
+    if facet_cls in (TextFacet, EmailFacet, URLFacet):
+        if field_spec is not None:
+            if field_spec.min_length is not None:
+                type_kwargs["min_length"] = field_spec.min_length
+            if field_spec.max_length is not None:
+                type_kwargs["max_length"] = field_spec.max_length
+            if field_spec.pattern is not None:
+                type_kwargs["pattern"] = field_spec.pattern
+    elif facet_cls in (IntFacet, FloatFacet):
+        if field_spec is not None:
+            min_val = (
+                field_spec.ge
+                if field_spec.ge is not None
+                else (field_spec.gt + 1 if field_spec.gt is not None and facet_cls is IntFacet else field_spec.gt)
+            )
+            max_val = (
+                field_spec.le
+                if field_spec.le is not None
+                else (field_spec.lt - 1 if field_spec.lt is not None and facet_cls is IntFacet else field_spec.lt)
+            )
+            if min_val is not None:
+                type_kwargs["min_value"] = min_val
+            if max_val is not None:
+                type_kwargs["max_value"] = max_val
+        # Remove text-specific kwargs
+        type_kwargs.pop("allow_blank", None)
+        type_kwargs.pop("min_length", None)
+        type_kwargs.pop("max_length", None)
+    elif facet_cls is DecimalFacet:
+        if field_spec is not None:
+            if field_spec.max_digits is not None:
+                type_kwargs["max_digits"] = field_spec.max_digits
+            if field_spec.decimal_places is not None:
+                type_kwargs["decimal_places"] = field_spec.decimal_places
+            if field_spec.ge is not None:
+                type_kwargs["min_value"] = field_spec.ge
+            if field_spec.le is not None:
+                type_kwargs["max_value"] = field_spec.le
+        type_kwargs.pop("allow_blank", None)
+        type_kwargs.pop("min_length", None)
+        type_kwargs.pop("max_length", None)
+    elif facet_cls is BoolFacet:
+        type_kwargs.pop("allow_blank", None)
+        type_kwargs.pop("min_length", None)
+        type_kwargs.pop("max_length", None)
+    else:
+        # Date/Time/UUID/Duration -- remove text-specific kwargs
+        type_kwargs.pop("allow_blank", None)
+        type_kwargs.pop("min_length", None)
+        type_kwargs.pop("max_length", None)
+
+    return facet_cls(**type_kwargs)
+
+
+def _build_constraint_validators(field_spec: Field) -> list[Callable]:
+    """Build extra validators from Field gt/lt constraints (for float)."""
+    extra = []
+    if field_spec.gt is not None:
+        bound = field_spec.gt
+
+        def _gt_validator(v, _b=bound):
+            if v <= _b:
+                from aquilia.faults.domains import FieldValidationFault
+
+                raise FieldValidationFault(
+                    field_name="value",
+                    message=f"Must be greater than {_b}",
+                )
+
+        extra.append(_gt_validator)
+
+    if field_spec.lt is not None:
+        bound = field_spec.lt
+
+        def _lt_validator(v, _b=bound):
+            if v >= _b:
+                from aquilia.faults.domains import FieldValidationFault
+
+                raise FieldValidationFault(
+                    field_name="value",
+                    message=f"Must be less than {_b}",
+                )
+
+        extra.append(_lt_validator)
+
+    return extra
+
+
+def introspect_annotations(
+    cls: type,
+    namespace: dict[str, Any],
+    bases: tuple,
+    *,
+    include_explicit_facets: bool = False,
+) -> dict[str, Facet]:
+    """
+    Introspect a Contract class's type annotations and produce Facet instances.
+
+    This is called from ContractMeta.__new__ after explicit Facets have been
+    collected.  Annotation-derived facets are returned in declaration order.
+
+    Handles PEP 563 (from __future__ import annotations) by resolving
+    string annotations back to actual types using the defining module's
+    globals.
+
+    Rules:
+        1. Skip annotations that already have an explicit Facet in namespace.
+        2. ``Field()`` as a default → constraint descriptor.
+        3. Plain default value → ``Facet(default=value)``.
+        4. ``Optional[T]`` / ``T | None`` → ``allow_null=True, required=False``.
+        5. ``list[T]`` → ``ListFacet(child=T_facet)``.
+        6. ``SomeContract`` → ``NestedContractFacet(SomeContract)``.
+        7. ``@computed`` methods → ``Computed`` facets.
+
+    Args:
+        cls:       The class being created (may be None during __new__).
+        namespace: The class namespace dict.
+        bases:     The base classes.
+
+    Returns:
+        Dict of field_name → Facet, in declaration order.
+    """
+    result: dict[str, Facet] = {}
+
+    # Gather annotations from the class itself (not inherited)
+    raw_annotations = namespace.get("__annotations__", {})
+    if not raw_annotations:
+        raw_annotations = getattr(cls, "__annotations__", {}) if cls is not None else {}
+
+    if not raw_annotations:
+        # Still check for @computed markers
+        for attr_name, attr_value in list(namespace.items()):
+            if isinstance(attr_value, _ComputedMarker):
+                facet = attr_value.to_facet()
+                result[attr_name] = facet
+                namespace[attr_name] = facet
+        return result
+
+    class AutoResolveMapping(dict):
+        """Auto-wrap unknown names as ForwardRefs during eval()."""
+
+        def __missing__(self, key: str) -> Any:
+            return ForwardRef(key)
+
+    # Build a resolution namespace for evaluating string annotations.
+    # We need to capture the defining module's globals for PEP 563 resolution.
+    resolve_ns = AutoResolveMapping()
+
+    # Import standard types that annotations commonly reference
+    import builtins
+
+    resolve_ns.update(vars(builtins))
+    from typing import Annotated
+
+    resolve_ns["Optional"] = Optional
+    resolve_ns["Union"] = Union
+    resolve_ns["Annotated"] = Annotated
+    resolve_ns["List"] = list
+    resolve_ns["Dict"] = dict
+    resolve_ns["Set"] = set
+    resolve_ns["Tuple"] = tuple
+    resolve_ns["FrozenSet"] = frozenset
+    resolve_ns["Sequence"] = Sequence
+    resolve_ns["Any"] = Any
+    resolve_ns["Type"] = type
+
+    # Standard library types
+    resolve_ns["datetime"] = datetime
+    resolve_ns["date"] = date
+    resolve_ns["time"] = time
+    resolve_ns["timedelta"] = timedelta
+    resolve_ns["Decimal"] = Decimal
+    resolve_ns["UUID"] = uuid.UUID
+    resolve_ns["uuid"] = uuid
+
+    # Include the class namespace itself (for forward references to other Contracts)
+    resolve_ns.update(namespace)
+
+    # Include parent class namespaces
+    for base in bases:
+        if hasattr(base, "__module__"):
+            mod = sys.modules.get(base.__module__)
+            if mod is not None:
+                resolve_ns.update(vars(mod))
+
+    # Try to get the defining module's globals
+    # Walk the call stack to find the frame where the class was defined
+    frame = sys._getframe(0)
+    caller_globals = {}
+    try:
+        # Walk up to find the module-level frame
+        f = frame
+        while f is not None:
+            if f.f_locals is not namespace:
+                caller_globals.update(f.f_globals)
+            f = f.f_back
+    except (AttributeError, ValueError):
+        pass
+    finally:
+        del frame
+
+    resolve_ns.update(caller_globals)
+
+    # Resolve string annotations to actual types
+    resolved_annotations: dict[str, Any] = {}
+    for field_name, annotation in raw_annotations.items():
+        if isinstance(annotation, str):
+            # First try to find the type directly in our known namespace
+            resolved = resolve_ns.get(annotation)
+            if resolved is not None:
+                resolved_annotations[field_name] = resolved
+            else:
+                # Try evaluating the expression first to support complex annotations (like pipelines with >>)
+                try:
+                    resolved = eval(annotation, resolve_ns, resolve_ns)
+                    resolved_annotations[field_name] = resolved
+                except Exception:
+                    # Try safe AST-based resolution for simple expressions
+                    # like "list[str]", "Optional[int]", etc.
+                    try:
+                        resolved = _safe_resolve_annotation(annotation, resolve_ns)
+                        resolved_annotations[field_name] = resolved
+                    except Exception:
+                        # Fall back to ForwardRef for unresolvable annotations
+                        resolved_annotations[field_name] = ForwardRef(annotation)
+        else:
+            resolved_annotations[field_name] = annotation
+
+    # Collect @computed markers from namespace
+    for attr_name, attr_value in list(namespace.items()):
+        if isinstance(attr_value, _ComputedMarker):
+            facet = attr_value.to_facet()
+            result[attr_name] = facet
+            # Remove the marker from namespace so it doesn't interfere
+            namespace[attr_name] = facet
+
+    for field_name, annotation in resolved_annotations.items():
+        # Skip private/dunder
+        if field_name.startswith("_"):
+            continue
+
+        # Skip if there's already an explicit Facet declared unless
+        # the caller requested overlap introspection for deterministic
+        # annotation+facet merge handling.
+        if not include_explicit_facets and field_name in namespace and isinstance(namespace[field_name], Facet):
+            continue
+
+        # Skip if it's a classmethod, staticmethod, property, or callable
+        ns_value = namespace.get(field_name, UNSET)
+        if isinstance(ns_value, (classmethod, staticmethod, property)):
+            continue
+        if isinstance(ns_value, _ComputedMarker):
+            continue  # Already handled above
+
+        # Determine Field spec and default
+        field_spec: Field | None = None
+        class_default: Any = UNSET
+
+        if isinstance(ns_value, Field):
+            field_spec = ns_value
+        elif ns_value is not UNSET:
+            class_default = ns_value
+
+        # Build the facet
+        facet = _build_facet_from_annotation(
+            field_name,
+            annotation,
+            field_spec,
+            class_default,
+        )
+
+        if facet is not None:
+            # Inject gt/lt validators for float types
+            if field_spec is not None:
+                extra_validators = _build_constraint_validators(field_spec)
+                if extra_validators:
+                    facet.validators.extend(extra_validators)
+
+            result[field_name] = facet
+
+    return result

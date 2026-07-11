@@ -66,7 +66,7 @@ class LazyServiceProxy:
         return f"<LazyServiceProxy token={self._token}>"
 
 
-class BlueprintContext(dict):
+class ContractContext(dict):
     """Custom context dictionary that lazily resolves registered services from the DI container."""
 
     def __init__(self, initial_dict, container=None):
@@ -286,16 +286,16 @@ class ControllerEngine:
                 return clearance_result
 
             # ── Fast path for simple handlers ──
-            # Handlers with no pipeline, no blueprint, and only ctx/path params
+            # Handlers with no pipeline, no contract, and only ctx/path params
             # can skip the full _bind_parameters machinery.
             route_id = id(route)
             is_simple = ControllerEngine._simple_route_cache.get(route_id)
             if is_simple is None:
                 params = route_metadata.parameters
-                has_blueprint = (
-                    getattr(route_metadata, "request_blueprint", None)
-                    or getattr(route_metadata, "response_blueprint", None)
-                    or any(self._is_blueprint_class(p.type) for p in params)
+                has_contract = (
+                    getattr(route_metadata, "request_contract", None)
+                    or getattr(route_metadata, "response_contract", None)
+                    or any(self._is_contract_class(p.type) for p in params)
                 )
                 has_filters_or_pagination = (
                     getattr(route_metadata, "filterset_class", None)
@@ -317,14 +317,14 @@ class ControllerEngine:
                 is_simple = (
                     not route.controller_metadata.pipeline
                     and not route_metadata.pipeline
-                    and not has_blueprint
+                    and not has_contract
                     and not has_filters_or_pagination
                     and (not params or all(_is_special_param(p) or p.source == "path" for p in params))
                 )
                 ControllerEngine._simple_route_cache[route_id] = is_simple
 
             if is_simple:
-                # Direct call -- skip _bind_parameters, lifecycle hooks, blueprint
+                # Direct call -- skip _bind_parameters, lifecycle hooks, contract
                 try:
                     final_kwargs = {**path_params}
                     self._bind_special_parameters(handler_method, request, ctx, final_kwargs)
@@ -420,7 +420,7 @@ class ControllerEngine:
                     result = await self._safe_call(interceptor.after, ctx, result)
 
                 result = await self._apply_filters_and_pagination(result, route_metadata, request)
-                result = self._apply_response_blueprint(result, route_metadata, ctx)
+                result = self._apply_response_contract(result, route_metadata, ctx)
                 response = self._apply_content_negotiation(result, route_metadata, request)
                 if response is None:
                     response = self._to_response(result)
@@ -728,36 +728,36 @@ class ControllerEngine:
         - DI container
         - Dep() descriptors (resolved via RequestDAG)
         - Special: ctx, request
-        - **Blueprint subclasses**: Auto-parsed, cast+sealed from request body
+        - **Contract subclasses**: Auto-parsed, cast+sealed from request body
 
-        When a parameter is typed as a ``Blueprint`` subclass, the engine
+        When a parameter is typed as a ``Contract`` subclass, the engine
         will:
         1. Parse the request body (JSON or form)
-        2. Create the Blueprint with ``data=body, context={request, container}``
+        2. Create the Contract with ``data=body, context={request, container}``
         3. Call ``is_sealed(raise_fault=True)``
-        4. Inject the Blueprint instance or ``.validated_data``
+        4. Inject the Contract instance or ``.validated_data``
 
-        If the parameter name is ``blueprint`` or ends with ``_blueprint``
-        or ``_bp``, the full Blueprint instance is injected. Otherwise,
-        ``blueprint.validated_data`` is injected.
+        If the parameter name is ``contract`` or ends with ``_contract``
+        or ``_bp``, the full Contract instance is injected. Otherwise,
+        ``contract.validated_data`` is injected.
 
-        If a ``request_blueprint`` is declared on the route decorator,
+        If a ``request_contract`` is declared on the route decorator,
         it takes precedence and is used for body parsing.
         """
         kwargs = {}
         request_dag = None  # Lazy -- created only if handler uses Dep()
 
-        # Check for request_blueprint from decorator metadata
-        decorator_request_blueprint = getattr(route_metadata, "request_blueprint", None)
-        if decorator_request_blueprint is None:
+        # Check for request_contract from decorator metadata
+        decorator_request_contract = getattr(route_metadata, "request_contract", None)
+        if decorator_request_contract is None:
             raw_meta = getattr(route_metadata, "_raw_metadata", None)
             if raw_meta and isinstance(raw_meta, dict):
-                decorator_request_blueprint = raw_meta.get("request_blueprint")
+                decorator_request_contract = raw_meta.get("request_contract")
 
-        # Track if body has been consumed by a blueprint
+        # Track if body has been consumed by a contract
         _body_consumed = False
         _body_cache = None
-        all_blueprint_errors = {}
+        all_contract_errors = {}
 
         async def _get_body():
             nonlocal _body_cache
@@ -809,35 +809,35 @@ class ControllerEngine:
             if param_name in ("ctx", "context"):
                 continue
 
-            # ── Blueprint injection ──────────────────────────────────────
-            # If the parameter type is a Blueprint subclass, auto-parse
+            # ── Contract injection ──────────────────────────────────────
+            # If the parameter type is a Contract subclass, auto-parse
             # the request body through it.
             #
             # PRECEDENCE: If a parameter is classified as source="dep"
             # (i.e. it has a Dep(...) default or Annotated[T, Dep(...)]),
-            # skip blueprint body binding entirely — the dependency result
+            # skip contract body binding entirely — the dependency result
             # takes priority over request body data.
-            param_is_blueprint = self._is_blueprint_class(param.type)
+            param_is_contract = self._is_contract_class(param.type)
 
-            use_blueprint = None
+            use_contract = None
 
-            if param_is_blueprint and param.source != "dep":
-                use_blueprint = param.type
+            if param_is_contract and param.source != "dep":
+                use_contract = param.type
             elif (
-                decorator_request_blueprint
-                and self._is_blueprint_class(decorator_request_blueprint)
+                decorator_request_contract
+                and self._is_contract_class(decorator_request_contract)
                 and param.source == "body"
                 and not _body_consumed
             ):
-                use_blueprint = decorator_request_blueprint
+                use_contract = decorator_request_contract
 
-            # ── Blueprint body binding ───────────────────────────────────
-            if use_blueprint is not None:
+            # ── Contract body binding ───────────────────────────────────
+            if use_contract is not None:
                 body = await _get_body()
                 _body_consumed = True
 
                 # Build context with request + container
-                bp_context = BlueprintContext(
+                bp_context = ContractContext(
                     {
                         "request": request,
                         "container": container,
@@ -846,24 +846,24 @@ class ControllerEngine:
                     container=container,
                 )
 
-                # Handle ProjectedRef (Blueprint["projection"])
+                # Handle ProjectedRef (Contract["projection"])
                 projection = None
-                bp_cls = use_blueprint
+                bp_cls = use_contract
                 try:
-                    from aquilia.blueprints.lenses import _ProjectedRef
+                    from aquilia.contracts.lenses import _ProjectedRef
 
-                    if isinstance(use_blueprint, _ProjectedRef):
-                        projection = use_blueprint.projection
-                        bp_cls = use_blueprint.blueprint_cls
+                    if isinstance(use_contract, _ProjectedRef):
+                        projection = use_contract.projection
+                        bp_cls = use_contract.contract_cls
                 except ImportError:
                     pass
 
                 # Determine if PATCH → partial
                 is_partial = request.method == "PATCH"
 
-                from aquilia.blueprints.integration import bind_blueprint_to_request
+                from aquilia.contracts.integration import bind_contract_to_request
 
-                bp_instance = await bind_blueprint_to_request(
+                bp_instance = await bind_contract_to_request(
                     bp_cls,
                     request,
                     projection=projection,
@@ -878,20 +878,20 @@ class ControllerEngine:
 
                 if not is_ok:
                     for field, field_errors in bp_instance.errors.items():
-                        if field in all_blueprint_errors:
+                        if field in all_contract_errors:
                             for err in field_errors:
-                                if err not in all_blueprint_errors[field]:
-                                    all_blueprint_errors[field].append(err)
+                                if err not in all_contract_errors[field]:
+                                    all_contract_errors[field].append(err)
                         else:
-                            all_blueprint_errors[field] = list(field_errors)
+                            all_contract_errors[field] = list(field_errors)
 
-                # Inject the FULL Blueprint instance if:
-                # 1. The parameter is explicitly typed as a Blueprint subclass
+                # Inject the FULL Contract instance if:
+                # 1. The parameter is explicitly typed as a Contract subclass
                 # 2. The parameter name suggests it wants the instance
                 inject_instance = (
-                    param_is_blueprint
-                    or param_name == "blueprint"
-                    or param_name.endswith("_blueprint")
+                    param_is_contract
+                    or param_name == "contract"
+                    or param_name.endswith("_contract")
                     or param_name.endswith("_bp")
                 )
 
@@ -913,7 +913,7 @@ class ControllerEngine:
             )
 
             if has_extractor:
-                from aquilia.di.request_dag import RequestDAG, _get_base_type, _is_blueprint_type
+                from aquilia.di.request_dag import RequestDAG, _get_base_type, _is_contract_type
 
                 header_meta = _extract_header(param.type)
                 query_meta = _extract_query(param.type)
@@ -950,10 +950,10 @@ class ControllerEngine:
                         if request_dag is None:
                             request_dag = RequestDAG(container, request)
                         base_type = _get_base_type(param.type)
-                        if _is_blueprint_type(base_type):
-                            from aquilia.blueprints.integration import bind_blueprint_to_request
+                        if _is_contract_type(base_type):
+                            from aquilia.contracts.integration import bind_contract_to_request
 
-                            bp = await bind_blueprint_to_request(base_type, request)
+                            bp = await bind_contract_to_request(base_type, request)
                             if hasattr(bp, "is_sealed_async"):
                                 await bp.is_sealed_async(raise_fault=True)
                             else:
@@ -1045,7 +1045,7 @@ class ControllerEngine:
                     # (supports ``param: T = Dep(callable)`` syntax)
                     if dep_meta is None and isinstance(param.default, DepMarker):
                         dep_meta = param.default
-                        # base_type is already the raw annotation (e.g. ArticleBlueprint)
+                        # base_type is already the raw annotation (e.g. ArticleContract)
 
                     if dep_meta is not None:
                         if request_dag is None:
@@ -1063,7 +1063,7 @@ class ControllerEngine:
                             _extract_path,
                             _extract_query,
                         )
-                        from aquilia.di.request_dag import _get_base_type, _is_blueprint_type
+                        from aquilia.di.request_dag import _get_base_type, _is_contract_type
 
                         header_meta = _extract_header(param.type)
                         query_meta = _extract_query(param.type)
@@ -1099,10 +1099,10 @@ class ControllerEngine:
                             if request_dag is None:
                                 request_dag = RequestDAG(container, request)
                             base_type = _get_base_type(param.type)
-                            if _is_blueprint_type(base_type):
-                                from aquilia.blueprints.integration import bind_blueprint_to_request
+                            if _is_contract_type(base_type):
+                                from aquilia.contracts.integration import bind_contract_to_request
 
-                                bp = await bind_blueprint_to_request(base_type, request)
+                                bp = await bind_contract_to_request(base_type, request)
                                 if hasattr(bp, "is_sealed_async"):
                                     await bp.is_sealed_async(raise_fault=True)
                                 else:
@@ -1213,12 +1213,12 @@ class ControllerEngine:
                         # Re-raise original error if it's not handled
                         raise
 
-        if all_blueprint_errors:
-            from aquilia.blueprints.exceptions import SealFault
+        if all_contract_errors:
+            from aquilia.contracts.exceptions import SealFault
 
             raise SealFault(
-                message="Blueprint validation failed",
-                errors=all_blueprint_errors,
+                message="Contract validation failed",
+                errors=all_contract_errors,
             )
 
         return kwargs, request_dag
@@ -1246,26 +1246,26 @@ class ControllerEngine:
                 detail=(f"Invalid value {value!r} for expected type {getattr(annotation, '__name__', annotation)}"),
             ) from exc
 
-    _blueprint_base_class = None  # Cached Blueprint class
+    _contract_base_class = None  # Cached Contract class
 
-    def _is_blueprint_class(self, annotation: Any) -> bool:
-        """Check if annotation is a Blueprint subclass or ProjectedRef."""
-        if ControllerEngine._blueprint_base_class is None:
+    def _is_contract_class(self, annotation: Any) -> bool:
+        """Check if annotation is a Contract subclass or ProjectedRef."""
+        if ControllerEngine._contract_base_class is None:
             try:
-                from aquilia.blueprints.core import Blueprint
+                from aquilia.contracts.core import Contract
 
-                ControllerEngine._blueprint_base_class = Blueprint
+                ControllerEngine._contract_base_class = Contract
             except ImportError:
-                ControllerEngine._blueprint_base_class = type(None)  # sentinel
+                ControllerEngine._contract_base_class = type(None)  # sentinel
                 return False
 
-        base = ControllerEngine._blueprint_base_class
+        base = ControllerEngine._contract_base_class
         if base is type(None):
             return False
 
-        # Check for ProjectedRef (Blueprint["projection"])
+        # Check for ProjectedRef (Contract["projection"])
         try:
-            from aquilia.blueprints.lenses import _ProjectedRef
+            from aquilia.contracts.lenses import _ProjectedRef
 
             if isinstance(annotation, _ProjectedRef):
                 return True
@@ -1274,21 +1274,21 @@ class ControllerEngine:
 
         return isinstance(annotation, type) and issubclass(annotation, base) and annotation is not base
 
-    def _apply_response_blueprint(
+    def _apply_response_contract(
         self,
         result: Any,
         route_metadata: Any,
         ctx: RequestCtx,
     ) -> Any:
-        """Auto-mold handler return value via response_blueprint."""
+        """Auto-mold handler return value via response_contract."""
         # Fast path: check direct attribute first
-        response_blueprint = getattr(route_metadata, "response_blueprint", None)
-        if response_blueprint is None:
+        response_contract = getattr(route_metadata, "response_contract", None)
+        if response_contract is None:
             raw_meta = getattr(route_metadata, "_raw_metadata", None)
             if raw_meta and isinstance(raw_meta, dict):
-                response_blueprint = raw_meta.get("response_blueprint")
+                response_contract = raw_meta.get("response_contract")
 
-        if response_blueprint is None:
+        if response_contract is None:
             return result
 
         # Don't re-mold Response objects
@@ -1296,19 +1296,19 @@ class ControllerEngine:
             return result
 
         try:
-            from aquilia.blueprints.integration import render_blueprint_response
+            from aquilia.contracts.integration import render_contract_response
 
             many = isinstance(result, (list, tuple))
-            return render_blueprint_response(
-                response_blueprint,
+            return render_contract_response(
+                response_contract,
                 data=result,
                 many=many,
             )
         except ImportError:
-            self.logger.warning("Blueprint system not available. Returning raw result.")
+            self.logger.warning("Contract system not available. Returning raw result.")
             return result
         except Exception as e:
-            self.logger.error(f"Response Blueprint molding failed: {e}")
+            self.logger.error(f"Response Contract molding failed: {e}")
             raise
 
     async def _apply_filters_and_pagination(

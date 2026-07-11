@@ -192,8 +192,8 @@ class GET(RouteDecorator):
         deprecated: bool = False,
         response_model: type | None = None,
         status_code: int = 200,
-        request_blueprint: type | None = None,
-        response_blueprint: type | None = None,
+        request_contract: type | None = None,
+        response_contract: type | None = None,
         filterset_class: type | None = None,
         filterset_fields: list[str] | Any | None = None,
         search_fields: list[str] | None = None,
@@ -218,8 +218,8 @@ class GET(RouteDecorator):
 | `deprecated` | `bool` | `False` | Marks route as deprecated in OpenAPI. |
 | `response_model` | `type \| None` | `None` | Return model class for OpenAPI schema generation. |
 | `status_code` | `int` | `200` | Successful HTTP response code. |
-| `request_blueprint` | `type \| None` | `None` | Blueprint class to cast and validate request body. |
-| `response_blueprint` | `type \| None` | `None` | Blueprint class to mold response output. |
+| `request_contract` | `type \| None` | `None` | Contract class to cast and validate request body. |
+| `response_contract` | `type \| None` | `None` | Contract class to mold response output. |
 | `filterset_class` | `type \| None` | `None` | FilterSet class for parsing filters from query parameters. |
 | `filterset_fields` | `list[str] \| dict[str, list[str]] \| None` | `None` | Shorthand fields configuration to auto-generate a FilterSet. |
 | `search_fields` | `list[str] \| None` | `None` | Fields searched via ?search=<term> parameters. |
@@ -492,11 +492,11 @@ class ControllerRouter:
 
 ### [validate_body](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L50-L122)
 
-Decorator: parses and validates request bodies against an Aquilia Blueprint.
+Decorator: parses and validates request bodies against an Aquilia Contract.
 
 ```python
 def validate_body(
-    blueprint_class: type,
+    contract_class: type,
     *,
     projection: str = "__all__",
 ) -> Any
@@ -516,7 +516,7 @@ Base class for request data validation errors.
 
 ### [RequestBodyValidationFault](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L40-L42)
 
-Fault raised when Blueprint constraints fail.
+Fault raised when Contract constraints fail.
 
 * **Evidence**: [aquilia/controller/validation.py:L40-L42](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/controller/validation.py#L40-L42)
 

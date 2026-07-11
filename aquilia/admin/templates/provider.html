@@ -393,7 +393,7 @@
     <div class="pv-infra-item"><i class="icon-lock"></i><span class="val">{{ env_group_count|default(0) }}</span><span class="lbl">Env Groups</span></div>
     <div class="pv-infra-item"><i class="icon-globe"></i><span class="val">{{ custom_domain_count|default(0) }}</span><span class="lbl">Domains</span></div>
     <div class="pv-infra-item"><i class="icon-folder"></i><span class="val">{{ project_count|default(0) }}</span><span class="lbl">Projects</span></div>
-    <div class="pv-infra-item"><i class="icon-layers"></i><span class="val">{{ blueprint_count|default(0) }}</span><span class="lbl">Blueprints</span></div>
+    <div class="pv-infra-item"><i class="icon-layers"></i><span class="val">{{ contract_count|default(0) }}</span><span class="lbl">Contracts</span></div>
     <div class="pv-infra-item"><i class="icon-shield"></i><span class="val {{ 'on' if credential_status == 'active' else 'off' }}" style="font-size:0.9rem;">{{ credential_status|default('N/A')|upper }}</span><span class="lbl">Credentials</span></div>
     <div class="pv-infra-item"><i class="icon-map-pin"></i><span class="val">{{ default_region|default('—') }}</span><span class="lbl">Region</span></div>
 </div>
@@ -975,7 +975,7 @@
 </div>
 
 {# ═══════════════════════════════════════════════════════════════════
-   TAB: Infrastructure — Projects · Domains · Blueprints · Webhooks · Members · Registries
+   TAB: Infrastructure — Projects · Domains · Contracts · Webhooks · Members · Registries
    ═══════════════════════════════════════════════════════════════════ #}
 <div class="pv-panel" id="panel-infra">
 
@@ -1041,15 +1041,15 @@
     </div>
     {% endif %}
 
-    {# ── Blueprints ── #}
-    {% if blueprints|default([]) %}
-    <div class="pv-section"><i class="icon-layers"></i> Blueprints ({{ blueprint_count|default(0) }})</div>
+    {# ── Contracts ── #}
+    {% if contracts|default([]) %}
+    <div class="pv-section"><i class="icon-layers"></i> Contracts ({{ contract_count|default(0) }})</div>
     <div class="pv-card">
         <div class="pv-card-body" style="padding:0;">
             <table class="pv-table">
                 <thead><tr><th>Name</th><th>Repository</th><th>Branch</th><th>Auto Sync</th><th>Status</th></tr></thead>
                 <tbody>
-                {% for b in blueprints|default([]) %}
+                {% for b in contracts|default([]) %}
                 <tr>
                     <td><span style="font-weight:600;">{{ b.name }}</span></td>
                     <td><span class="mono" style="font-size:0.7rem;">{{ b.repo }}</span></td>
@@ -1106,11 +1106,11 @@
     {% endif %}
 
     {# ── Empty state ── #}
-    {% if not workspace_members|default([]) and not custom_domains|default([]) and not projects|default([]) and not blueprints|default([]) and not webhooks|default([]) and not registry_credentials|default([]) %}
+    {% if not workspace_members|default([]) and not custom_domains|default([]) and not projects|default([]) and not contracts|default([]) and not webhooks|default([]) and not registry_credentials|default([]) %}
     <div style="text-align:center;padding:60px 20px;color:var(--text-faint);">
         <i class="icon-layers" style="font-size:40px;opacity:0.3;display:block;margin-bottom:12px;"></i>
         <p style="font-size:0.86rem;margin-bottom:4px;">No additional infrastructure resources found.</p>
-        <p style="font-size:0.74rem;">Projects, custom domains, blueprints, webhooks, and registry credentials will appear here when configured.</p>
+        <p style="font-size:0.74rem;">Projects, custom domains, contracts, webhooks, and registry credentials will appear here when configured.</p>
     </div>
     {% endif %}
 </div>

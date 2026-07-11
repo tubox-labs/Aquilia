@@ -2,9 +2,9 @@ area:models:
   - changed-files:
     - any-glob-to-any-file: 'aquilia/models/**'
 
-area:blueprints:
+area:contracts:
   - changed-files:
-    - any-glob-to-any-file: 'aquilia/blueprints/**'
+    - any-glob-to-any-file: 'aquilia/contracts/**'
 
 area:di:
   - changed-files:

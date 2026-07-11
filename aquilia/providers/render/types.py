@@ -6,7 +6,7 @@ services, deploys, env vars, custom domains, disks, autoscaling,
 secret files, headers, redirect/rewrite rules, jobs, instances,
 events, logs, metrics, postgres databases, key-value stores,
 projects, environments, env groups, registry credentials, webhooks,
-maintenance windows, notifications, blueprints, log streams,
+maintenance windows, notifications, contracts, log streams,
 and workspace/members.
 
 All fields use snake_case; serialization to/from camelCase JSON
@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from aquilia.blueprints import UNSET, Blueprint, Field
+from aquilia.contracts import UNSET, Contract, Field
 
 
 def _normalize_data(value: Any) -> Any:
@@ -35,7 +35,7 @@ def _normalize_data(value: Any) -> Any:
         return tuple(_normalize_data(item) for item in value)
     if isinstance(value, dict):
         return {k: _normalize_data(v) for k, v in value.items()}
-    if isinstance(value, Blueprint):
+    if isinstance(value, Contract):
         if value._validated_data is not None:
             return value.validated_data
         return {k: _normalize_data(v) for k, v in value.__dict__.items() if not k.startswith("_")}
@@ -210,8 +210,8 @@ class RenderKeyValuePlan(str, Enum):
     PRO = "pro"
 
 
-class RenderBlueprintSyncStatus(str, Enum):
-    """Blueprint sync / IaC sync status."""
+class RenderContractSyncStatus(str, Enum):
+    """Contract sync / IaC sync status."""
 
     SYNCED = "synced"
     SYNCING = "syncing"
@@ -234,7 +234,7 @@ class RenderInstanceStatus(str, Enum):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class RenderEnvVar(Blueprint):
+class RenderEnvVar(Contract):
     """Environment variable — plain value or generated secret."""
 
     key: str
@@ -242,10 +242,10 @@ class RenderEnvVar(Blueprint):
     generate_value: str | None = Field(allow_blank=True, allow_null=True, default=None)
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()
@@ -292,7 +292,7 @@ class RenderEnvVar(Blueprint):
         return d
 
 
-class RenderDisk(Blueprint):
+class RenderDisk(Contract):
     """Persistent disk attached to a Render service."""
 
     id: str | None = None
@@ -303,10 +303,10 @@ class RenderDisk(Blueprint):
     created_at: str | None = None
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()
@@ -365,7 +365,7 @@ class RenderDiskSnapshot:
     status: str | None = None
 
 
-class RenderAutoscaling(Blueprint):
+class RenderAutoscaling(Contract):
     """Autoscaling configuration for a Render service."""
 
     enabled: bool = False
@@ -374,10 +374,10 @@ class RenderAutoscaling(Blueprint):
     criteria: dict[str, Any] | None = None
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()
@@ -505,17 +505,17 @@ class RenderOwner:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class RenderSecretFile(Blueprint):
+class RenderSecretFile(Contract):
     """Secret file mounted into a service container."""
 
     name: str = Field(allow_blank=True)
     content: str = Field(allow_blank=True, default="")
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()
@@ -610,7 +610,7 @@ class RenderJob:
     created_at: str | None = None
 
 
-class RenderHeaderRule(Blueprint):
+class RenderHeaderRule(Contract):
     """HTTP header rule for a Render service."""
 
     id: str | None = None
@@ -619,10 +619,10 @@ class RenderHeaderRule(Blueprint):
     value: str = Field(allow_blank=True, default="")
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()
@@ -665,7 +665,7 @@ class RenderHeaderRule(Blueprint):
         return {"path": self.path, "name": self.name, "value": self.value}
 
 
-class RenderRedirectRule(Blueprint):
+class RenderRedirectRule(Contract):
     """Redirect / rewrite rule for static sites."""
 
     id: str | None = None
@@ -675,10 +675,10 @@ class RenderRedirectRule(Blueprint):
     status_code: int = 301
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()
@@ -951,13 +951,13 @@ class RenderKeyValueConnectionInfo:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Blueprint / IaC Types
+# Contract / IaC Types
 # ═══════════════════════════════════════════════════════════════════════════
 
 
 @dataclass
-class RenderBlueprint:
-    """A Render Blueprint (Infrastructure as Code)."""
+class RenderContract:
+    """A Render Contract (Infrastructure as Code)."""
 
     id: str | None = None
     name: str = ""
@@ -972,11 +972,11 @@ class RenderBlueprint:
 
 
 @dataclass
-class RenderBlueprintSync:
-    """A blueprint sync run."""
+class RenderContractSync:
+    """A contract sync run."""
 
     id: str | None = None
-    blueprint_id: str | None = None
+    contract_id: str | None = None
     status: str | None = None
     started_at: str | None = None
     completed_at: str | None = None
@@ -1043,7 +1043,7 @@ class RenderMetricsFilter:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class RenderDeployConfig(Blueprint):
+class RenderDeployConfig(Contract):
     """Complete deployment configuration for ``aq deploy render``.
 
     This is the high-level configuration object that the deployer
@@ -1100,10 +1100,10 @@ class RenderDeployConfig(Blueprint):
     environment_id: str | None = Field(allow_blank=True, allow_null=True, default=None)
 
     def __init__(self, *args, **kwargs):
-        is_blueprint_init = bool(args) or any(
+        is_contract_init = bool(args) or any(
             k in kwargs for k in {"instance", "data", "many", "partial", "projection", "context"}
         )
-        if is_blueprint_init:
+        if is_contract_init:
             super().__init__(*args, **kwargs)
             self.is_sealed(raise_fault=True)
             self._sync_dict_from_validated()

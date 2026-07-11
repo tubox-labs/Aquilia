@@ -14,7 +14,7 @@ This module exposes config-oriented public classes. Use the table below to locat
 | --- | ---: | ---: | ---: | --- |
 | `aquilia/admin/__init__.py` | 358 | 0 | 0 | AquilAdmin -- Modern, Auto-Detecting Admin System for Aquilia. |
 | `aquilia/admin/audit.py` | 839 | 5 | 0 | AquilAdmin -- Audit Trail. |
-| `aquilia/admin/blueprints.py` | 182 | 0 | 0 | AquilAdmin -- Blueprints for Admin Models. |
+| `aquilia/admin/contracts.py` | 182 | 0 | 0 | AquilAdmin -- Contracts for Admin Models. |
 | `aquilia/admin/controller.py` | 7124 | 1 | 0 | AquilAdmin -- Admin Controller. |
 | `aquilia/admin/di_providers.py` | 124 | 0 | 5 | AquilAdmin -- DI Providers. |
 | `aquilia/admin/error_tracker.py` | 554 | 3 | 1 | AquilAdmin — Error Tracker. |

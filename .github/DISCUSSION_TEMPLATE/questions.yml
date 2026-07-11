@@ -28,12 +28,12 @@ body:
         Please provide a self-contained, minimal code snippet that reproduces the issue or demonstrates what you are trying to achieve. 
         Use complete imports and mock data if possible.
       placeholder: |
-        from aquilia.blueprints import Blueprint, ward
+        from aquilia.contracts import Contract, ward
         from aquilia.controller import Controller, route
         from aquilia.response import Response
 
-        # Define a minimal Blueprint, Controller, or Task
-        class InputSpec(Blueprint):
+        # Define a minimal Contract, Controller, or Task
+        class InputSpec(Contract):
             name: str
 
             @ward

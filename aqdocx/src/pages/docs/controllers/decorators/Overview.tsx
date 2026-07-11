@@ -64,9 +64,9 @@ export function ControllersDecorators() {
         response_model: Optional[type] = None,
         status_code: int = 200,
 
-        # ── Blueprint Casting / Sealing ───────────────────────────
-        request_blueprint: Optional[type] = None,
-        response_blueprint: Optional[type] = None,
+        # ── Contract Casting / Sealing ───────────────────────────
+        request_contract: Optional[type] = None,
+        response_contract: Optional[type] = None,
 
         # ── Filtering, Search, Ordering ───────────────────────────
         filterset_class: Optional[type] = None,
@@ -110,8 +110,8 @@ export function ControllersDecorators() {
                 ['deprecated', 'bool', 'Mark route as deprecated in OpenAPI spec. Default: False.'],
                 ['response_model', 'Optional[type]', 'Response type for OpenAPI schema generation ($ref).'],
                 ['status_code', 'int', 'Default HTTP status code. Default: 200.'],
-                ['request_blueprint', 'Optional[type]', 'Blueprint subclass (or Blueprint["projection"]) for request body casting and sealing.'],
-                ['response_blueprint', 'Optional[type]', 'Blueprint subclass (or ProjectedRef) for response molding.'],
+                ['request_contract', 'Optional[type]', 'Contract subclass (or Contract["projection"]) for request body casting and sealing.'],
+                ['response_contract', 'Optional[type]', 'Contract subclass (or ProjectedRef) for response molding.'],
                 ['filterset_class', 'Optional[type]', 'FilterSet subclass for declarative query-based filtering.'],
                 ['filterset_fields', 'Optional[List[str] | Any]', 'List of field names for exact-match shorthand, or dict mapping fields to lookup lists.'],
                 ['search_fields', 'Optional[List[str]]', 'Field names for text search via ?search=<term>.'],
@@ -224,13 +224,13 @@ class ArticlesController(Controller):
           language="python"
         />
 
-        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>With Blueprints</h3>
+        <h3 className={`text-lg font-semibold mt-6 mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>With Contracts</h3>
 
         <CodeBlock
           code={`from aquilia import Controller, GET, POST, PUT, RequestCtx, Response
-from aquilia.blueprints import Blueprint, Field
+from aquilia.contracts import Contract, Field
 
-class ArticleBlueprint(Blueprint):
+class ArticleContract(Contract):
     title: str = Field(max_length=200)
     body: str
     category_id: int
@@ -241,8 +241,8 @@ class ArticlesController(Controller):
     @POST(
         "/",
         status_code=201,
-        request_blueprint=ArticleBlueprint,   # Auto-validates request body
-        response_blueprint=ArticleBlueprint,   # Auto-molds response
+        request_contract=ArticleContract,   # Auto-validates request body
+        response_contract=ArticleContract,   # Auto-molds response
     )
     async def create(self, ctx: RequestCtx, body: dict) -> Response:
         # body is the validated payload dictionary
@@ -251,8 +251,8 @@ class ArticlesController(Controller):
 
     @PUT(
         "/«id:int»",
-        request_blueprint=ArticleBlueprint,
-        response_blueprint=ArticleBlueprint,
+        request_contract=ArticleContract,
+        response_contract=ArticleContract,
     )
     async def update(self, ctx: RequestCtx, id: int, body: dict) -> Response:
         article = await self.repo.update(id, body)
@@ -374,8 +374,8 @@ get_user.__route_metadata__ = [
         "signature": <inspect.Signature>,
         "request_serializer": None,
         "response_serializer": None,
-        "request_blueprint": None,
-        "response_blueprint": None,
+        "request_contract": None,
+        "response_contract": None,
         "filterset_class": None,
         "filterset_fields": None,
         "search_fields": None,

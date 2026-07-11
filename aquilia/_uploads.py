@@ -28,15 +28,15 @@ from .filesystem import append_file, async_open, read_file, stream_read, write_f
 
 class UploadFileMeta(type):
     def __call__(cls, *args: Any, **kwargs: Any) -> Any:
-        is_blueprint_decl = True
+        is_contract_decl = True
         if args:
             if isinstance(args[0], str):
-                is_blueprint_decl = False
+                is_contract_decl = False
         elif "filename" in kwargs:
-            is_blueprint_decl = False
+            is_contract_decl = False
 
-        if is_blueprint_decl:
-            from .blueprints.facets import UploadFileFacet
+        if is_contract_decl:
+            from .contracts.facets import UploadFileFacet
 
             return UploadFileFacet(**kwargs)
 
@@ -166,14 +166,14 @@ FormValue = str | UploadFile
 
 class FormDataMeta(type):
     def __call__(cls, *args: Any, **kwargs: Any) -> Any:
-        is_blueprint_decl = False
+        is_contract_decl = False
         if kwargs:
             allowed_keys = {"fields", "files"}
             if any(k not in allowed_keys for k in kwargs):
-                is_blueprint_decl = True
+                is_contract_decl = True
 
-        if is_blueprint_decl:
-            from .blueprints.facets import FormDataFacet
+        if is_contract_decl:
+            from .contracts.facets import FormDataFacet
 
             return FormDataFacet(**kwargs)
 

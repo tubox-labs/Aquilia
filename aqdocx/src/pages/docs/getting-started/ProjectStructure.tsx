@@ -197,7 +197,7 @@ AQ_DATABASE__URL=sqlite:///db.sqlite3`}
                 ['controllers.py', 'Classes extending Controller', 'Compiled routes registered with ControllerRouter'],
                 ['services.py', 'Classes decorated with @service or @factory', 'Providers registered in DI Container'],
                 ['models.py', 'Classes extending Model', 'ORM schemas compiled, database tables validated/created'],
-                ['blueprints.py', 'Classes extending Blueprint', 'Input schemas available for controller endpoint binding'],
+                ['contracts.py', 'Classes extending Contract', 'Input schemas available for controller endpoint binding'],
                 ['faults.py', 'Custom structured Fault classes', 'Added to module-scoped FaultDomain'],
                 ['test_routes.py', 'Integration and route level tests', 'Verified during aq test execution'],
               ].map(([file, scans, reg], i) => (
@@ -281,7 +281,7 @@ AQ_DATABASE__URL=sqlite:///db.sqlite3`}
             <tbody className={`divide-y ${isDark ? 'divide-white/5' : 'divide-gray-100'}`}>
               {[
                 { cmd: 'aq init workspace <name>', id: 'cli.init_workspace', gen: 'Full project scaffolding with workspace.py, starter.py, modules/ directory' },
-                { cmd: 'aq add module <name>', id: 'cli.add_module', gen: 'modules/<name>/ with manifest.py, controllers.py, services.py, models.py, blueprints.py, faults.py' },
+                { cmd: 'aq add module <name>', id: 'cli.add_module', gen: 'modules/<name>/ with manifest.py, controllers.py, services.py, models.py, contracts.py, faults.py' },
                 { cmd: 'aq validate', id: 'cli.validate', gen: 'Performs static check of imports, wiring, schemas, and configurations' },
                 { cmd: 'aq db makemigrations', id: 'cli.db_makemigrations', gen: 'Scans ORM models and generates numbered database migration files' },
                 { cmd: 'aq db migrate', id: 'cli.db_migrate', gen: 'Applies pending schema migrations to the configured SQLite/PostgreSQL database' },

@@ -1,7 +1,7 @@
 from aquilia import GET, POST, Controller, RequestCtx, Response
 from aquilia.auth import authenticated
 
-from .blueprints import LoginBlueprint, RegisterBlueprint
+from .contracts import LoginContract, RegisterContract
 from .services import AccountsService
 
 
@@ -14,15 +14,15 @@ class AccountsController(Controller):
 
     @POST("/register", status_code=201)
     async def register(self, ctx: RequestCtx):
-        blueprint = RegisterBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.register(blueprint.validated_data), status=201)
+        contract = RegisterContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.register(contract.validated_data), status=201)
 
     @POST("/login")
     async def login(self, ctx: RequestCtx):
-        blueprint = LoginBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.login(blueprint.validated_data))
+        contract = LoginContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.login(contract.validated_data))
 
     @GET("/me")
     @authenticated

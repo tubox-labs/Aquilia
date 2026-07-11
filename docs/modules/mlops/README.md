@@ -17,7 +17,7 @@ Model operations platform: modelpacks, serving, registries, runtimes, orchestrat
 - `aquilia/mlops/_structures.py`: MLOps Data Structures -- High-performance primitives for ML pipelines.
 - `aquilia/mlops/_types.py`: Aquilia MLOps Platform -- Shared type definitions.
 - `aquilia/mlops/api/__init__.py`: Aquilia MLOps API Layer.
-- `aquilia/mlops/api/blueprints.py`: MLOps Blueprints -- Aquilia Blueprint definitions for all MLOps data types.
+- `aquilia/mlops/api/contracts.py`: MLOps Contracts -- Aquilia Contract definitions for all MLOps data types.
 - `aquilia/mlops/api/functional.py`: Functional Serving -- ``@serve`` decorator for minimal model definitions.
 - `aquilia/mlops/api/model_class.py`: AquiliaModel -- declarative base class and ``@model`` decorator.
 - `aquilia/mlops/api/route_generator.py`: Route Generator -- auto-generate Aquilia controller endpoints per model.

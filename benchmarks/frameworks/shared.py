@@ -167,23 +167,23 @@ class UserProfileDataclass:
         return obj
 
 
-# C. Aquilia Blueprint (Aquilia native)
-from aquilia.blueprints import Blueprint, NestedBlueprintFacet
+# C. Aquilia Contract (Aquilia native)
+from aquilia.contracts import Contract, NestedContractFacet
 
 
-class AddressBlueprint(Blueprint):
+class AddressContract(Contract):
     street: str
     city: str
     zipcode: str
 
 
-class UserProfileBlueprint(Blueprint):
+class UserProfileContract(Contract):
     username: str
     email: str
     age: int
     tags: list[str]
-    address: AddressBlueprint
-    address = NestedBlueprintFacet(AddressBlueprint)
+    address: AddressContract
+    address = NestedContractFacet(AddressContract)
 
 
 # 5. Shared Validation Input Data

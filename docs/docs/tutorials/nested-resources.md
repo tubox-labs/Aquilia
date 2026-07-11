@@ -5,8 +5,8 @@ icon: lucide/folder-tree
 ---In modern REST and GraphQL APIs, resources rarely exist in isolation. An order contains items, which reference products; it also belongs to a customer, who has a billing profile. Serializing and validating these deeply nested object graphs while avoiding N+1 query problems, infinite recursion, and over-fetching is a classic engineering challenge.
 
 Aquilia solves this elegantly using two unified primitives:
-1. **Lenses**: Optical relational facets that focus on and traverse related data models ([lenses.py:L7-10](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L7-L10)).
-2. **Projections**: Tailored, named subsets of fields configured on the blueprint itself, allowing routes to request different levels of detail ([projections.py:L4-6](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L4-L6)).
+1. **Lenses**: Optical relational facets that focus on and traverse related data models ([lenses.py:L7-10](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L7-L10)).
+2. **Projections**: Tailored, named subsets of fields configured on the contract itself, allowing routes to request different levels of detail ([projections.py:L4-6](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L4-L6)).
 
 In this tutorial, you will learn how to design schemas for nested relations, customize exposed data via projections, and manage depth limits and circular references.
 
@@ -29,16 +29,16 @@ Our database models are defined as follows:
 
 ---
 
-## Step 1: Define the CustomerBlueprint
+## Step 1: Define the CustomerContract
 
-First, we will define a blueprint for the `Customer` model. We want to expose the customer's ID and name publicly, but restrict access to their email address unless explicitly requested (e.g., in a detail or admin view).
+First, we will define a contract for the `Customer` model. We want to expose the customer's ID and name publicly, but restrict access to their email address unless explicitly requested (e.g., in a detail or admin view).
 
-To do this, we configure named **projections** inside the inner `Spec` class ([projections.py:L30-38](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L30-L38)):
+To do this, we configure named **projections** inside the inner `Spec` class ([projections.py:L30-38](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L30-L38)):
 
 ```python
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
-class CustomerBlueprint(Blueprint):
+class CustomerContract(Contract):
     class Spec:
         model = Customer
         # Define named subsets of facets
@@ -55,19 +55,19 @@ class CustomerBlueprint(Blueprint):
 ```
 
 !!! info
-    By using `default_projection = "public"`, any serialization of a customer instance via `CustomerBlueprint` will automatically exclude the `email` field unless the `"detail"` projection is explicitly selected ([projections.py:L109](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L109)).
+    By using `default_projection = "public"`, any serialization of a customer instance via `CustomerContract` will automatically exclude the `email` field unless the `"detail"` projection is explicitly selected ([projections.py:L109](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L109)).
 
 
 ---
 
-## Step 2: Define the OrderItemBlueprint
+## Step 2: Define the OrderItemContract
 
-Next, we define the `OrderItemBlueprint`. This represents the line items stored in our database.
+Next, we define the `OrderItemContract`. This represents the line items stored in our database.
 
 ```python
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 
-class OrderItemBlueprint(Blueprint):
+class OrderItemContract(Contract):
     class Spec:
         model = OrderItem
         fields = ["id", "product_name", "quantity", "price"]
@@ -80,18 +80,18 @@ class OrderItemBlueprint(Blueprint):
 
 ---
 
-## Step 3: Define the OrderBlueprint with Lenses
+## Step 3: Define the OrderContract with Lenses
 
-Now, we define our root `OrderBlueprint`. To embed the customer details and the collection of order items, we use the `Lens` facet ([lenses.py:L26](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L26)).
+Now, we define our root `OrderContract`. To embed the customer details and the collection of order items, we use the `Lens` facet ([lenses.py:L26](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L26)).
 
-A `Lens` acts as an optical focus on related data. It can target a raw `Blueprint` or a subscripted projection class:
+A `Lens` acts as an optical focus on related data. It can target a raw `Contract` or a subscripted projection class:
 
 ```python
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.lenses import Lens
-from myapp.blueprints import CustomerBlueprint, OrderItemBlueprint
+from aquilia.contracts import Contract
+from aquilia.contracts.lenses import Lens
+from myapp.contracts import CustomerContract, OrderItemContract
 
-class OrderBlueprint(Blueprint):
+class OrderContract(Contract):
     class Spec:
         model = Order
         projections = {
@@ -104,31 +104,31 @@ class OrderBlueprint(Blueprint):
     created_at: str
 
     # 1. One-to-One: Target a specific subscripted projection
-    customer = Lens(CustomerBlueprint["public"], source="customer")
+    customer = Lens(CustomerContract["public"], source="customer")
 
     # 2. One-to-Many: Serialize a collection using many=True
-    items = Lens(OrderItemBlueprint, many=True, source="order_items")
+    items = Lens(OrderItemContract, many=True, source="order_items")
 ```
 
 Let's break down the `Lens` configuration:
-- **`CustomerBlueprint["public"]`**: By subscripting `CustomerBlueprint` with `"public"`, we create a `_ProjectedRef` ([lenses.py:L187-201](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L187-L201)). The lens automatically extracts this and configures the nested customer data to strictly use the public projection ([lenses.py:L65-70](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L65-L70)).
-- **`OrderItemBlueprint` & `many=True`**: When `many=True` is provided, the lens expects an iterable sequence of records and runs the molding logic on each record ([lenses.py:L56](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L56)).
-- **`source`**: The model attribute path to extract the relation data from ([lenses.py:L59](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L59)). If omitted, Aquilia's `bind()` method will attempt to auto-resolve relationship field mappings directly from the database model specs ([lenses.py:L79-91](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L79-L91)).
+- **`CustomerContract["public"]`**: By subscripting `CustomerContract` with `"public"`, we create a `_ProjectedRef` ([lenses.py:L187-201](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L187-L201)). The lens automatically extracts this and configures the nested customer data to strictly use the public projection ([lenses.py:L65-70](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L65-L70)).
+- **`OrderItemContract` & `many=True`**: When `many=True` is provided, the lens expects an iterable sequence of records and runs the molding logic on each record ([lenses.py:L56](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L56)).
+- **`source`**: The model attribute path to extract the relation data from ([lenses.py:L59](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L59)). If omitted, Aquilia's `bind()` method will attempt to auto-resolve relationship field mappings directly from the database model specs ([lenses.py:L79-91](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L79-L91)).
 
 ---
 
 ## Step 4: ProjectionRegistry — Summary vs. Detail
 
-Every `Blueprint` class is backed by a `ProjectionRegistry` ([projections.py:L26-28](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L26-L28)). The registry compiles the projection definitions during class construction ([projections.py:L58-109](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L58-L109)).
+Every `Contract` class is backed by a `ProjectionRegistry` ([projections.py:L26-28](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L26-L28)). The registry compiles the projection definitions during class construction ([projections.py:L58-109](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L58-L109)).
 
-When serializing an instance via `.data` or `to_dict()`, the active projection resolves to a frozen set of facet names ([projections.py:L111-132](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/projections.py#L111-L132)), controlling which attributes are included:
+When serializing an instance via `.data` or `to_dict()`, the active projection resolves to a frozen set of facet names ([projections.py:L111-132](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/projections.py#L111-L132)), controlling which attributes are included:
 
 1. **`summary` Projection**: Includes only `"id"`, `"created_at"`, and `"customer"`. Because `"items"` is excluded, the related order items query will never be evaluated, saving bandwidth and database overhead.
 2. **`detail` Projection**: Resolves to `"__all__"` (non-write-only facets), which includes `"id"`, `"created_at"`, `"customer"`, and `"items"`.
 
 ```python
 # Outbound Flow Execution (core.py:L943-998)
-order_summary = OrderBlueprint(instance=order_model, projection="summary")
+order_summary = OrderContract(instance=order_model, projection="summary")
 print(order_summary.data)
 # Output:
 # {
@@ -140,7 +140,7 @@ print(order_summary.data)
 #   }
 # }
 
-order_detail = OrderBlueprint(instance=order_model, projection="detail")
+order_detail = OrderContract(instance=order_model, projection="detail")
 print(order_detail.data)
 # Output:
 # {
@@ -161,21 +161,21 @@ print(order_detail.data)
 
 ## Step 5: Route Customization with Subscript Syntax
 
-To select specific projections at the route/API boundary, you can subscript the `Blueprint` class directly (e.g., `OrderBlueprint["detail"]`).
+To select specific projections at the route/API boundary, you can subscript the `Contract` class directly (e.g., `OrderContract["detail"]`).
 
-This invokes `BlueprintMeta.__getitem__` under the hood, returning a `_ProjectedRef` ([core.py:L609-624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L609-L624)). Aquilia routers recognize this reference and automatically apply the requested projection:
+This invokes `ContractMeta.__getitem__` under the hood, returning a `_ProjectedRef` ([core.py:L609-624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L609-L624)). Aquilia routers recognize this reference and automatically apply the requested projection:
 
 ```python
 from myapp.models import Order
-from myapp.blueprints import OrderBlueprint
+from myapp.contracts import OrderContract
 
 # Expose summary details on the list endpoint
-@router.get("/orders", response_blueprint=OrderBlueprint["summary"])
+@router.get("/orders", response_contract=OrderContract["summary"])
 async def list_orders():
     return await Order.objects.all()
 
 # Expose full nested details on the detail endpoint
-@router.get("/orders/{id}", response_blueprint=OrderBlueprint["detail"])
+@router.get("/orders/{id}", response_contract=OrderContract["detail"])
 async def get_order(id: int):
     return await Order.objects.get(id=id)
 ```
@@ -186,9 +186,9 @@ async def get_order(id: int):
 
 When nesting resources, you want to prevent payload bloat. For example, if a customer lens resolves customer details, and a customer has a lens pointing to all past orders, you could end up serializing the entire database.
 
-To prevent this, Lenses enforce a **depth limit** (configured via `depth`, defaulting to `3`) ([lenses.py:L57](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L57)).
+To prevent this, Lenses enforce a **depth limit** (configured via `depth`, defaulting to `3`) ([lenses.py:L57](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L57)).
 
-During outbound serialization, the engine passes an incrementing `_depth` counter ([lenses.py:L93](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L93)). Once `_depth >= self.max_depth`, resolution halts and falls back to primary key extraction using `_pk_fallback()` ([lenses.py:L118-122](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L118-L122)):
+During outbound serialization, the engine passes an incrementing `_depth` counter ([lenses.py:L93](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L93)). Once `_depth >= self.max_depth`, resolution halts and falls back to primary key extraction using `_pk_fallback()` ([lenses.py:L118-122](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L118-L122)):
 
 ```python
 # Behind the scenes in lenses.py:
@@ -200,34 +200,34 @@ if _depth >= self.max_depth:
 
 ### Depth Control Example
 
-Let's modify `OrderItemBlueprint` to include a relationship back to its parent `Order`:
+Let's modify `OrderItemContract` to include a relationship back to its parent `Order`:
 
 ```python
-class OrderItemBlueprint(Blueprint):
+class OrderItemContract(Contract):
     id: int
     product_name: str
-    # Target OrderBlueprint with depth limit of 1
-    order = Lens(lambda: OrderBlueprint, depth=1)
+    # Target OrderContract with depth limit of 1
+    order = Lens(lambda: OrderContract, depth=1)
 ```
 
 If we serialize the order item:
-- **`_depth = 0`**: Serializing `OrderItemBlueprint`.
-- **`_depth = 1`**: Entering the `order` Lens. Since `_depth >= self.max_depth` (1 >= 1), the engine executes `_pk_fallback(order_instance)`, returning just the integer `1001` (the primary key) instead of nesting another layer of `OrderBlueprint` data ([lenses.py:L118-122](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L118-L122)).
+- **`_depth = 0`**: Serializing `OrderItemContract`.
+- **`_depth = 1`**: Entering the `order` Lens. Since `_depth >= self.max_depth` (1 >= 1), the engine executes `_pk_fallback(order_instance)`, returning just the integer `1001` (the primary key) instead of nesting another layer of `OrderContract` data ([lenses.py:L118-122](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L118-L122)).
 
 ---
 
 ## Step 7: Cycle Detection
 
 What happens if resources reference each other cyclicly? For example:
-- `OrderBlueprint` references `CustomerBlueprint`
-- `CustomerBlueprint` references `OrderBlueprint`
+- `OrderContract` references `CustomerContract`
+- `CustomerContract` references `OrderContract`
 
-If recursion depth was set high enough, or if depth wasn't checked, this would trigger a stack overflow. Aquilia prevents this at runtime using **Cycle Detection** ([lenses.py:L109-115](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L109-L115)).
+If recursion depth was set high enough, or if depth wasn't checked, this would trigger a stack overflow. Aquilia prevents this at runtime using **Cycle Detection** ([lenses.py:L109-115](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L109-L115)).
 
 ### How it works:
-1. The `mold()` method tracks traversed Blueprint class identities via a `_seen` set ([lenses.py:L93](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L93)).
-2. Prior to descending, it checks if the target Blueprint class identity is in the set: `target_id = id(self._target_cls)` ([lenses.py:L109](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L109)).
-3. If `target_id` exists in `_seen`, the engine immediately aborts and raises a `LensCycleFault` ([lenses.py:L110-115](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L110-L115)):
+1. The `mold()` method tracks traversed Contract class identities via a `_seen` set ([lenses.py:L93](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L93)).
+2. Prior to descending, it checks if the target Contract class identity is in the set: `target_id = id(self._target_cls)` ([lenses.py:L109](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L109)).
+3. If `target_id` exists in `_seen`, the engine immediately aborts and raises a `LensCycleFault` ([lenses.py:L110-115](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L110-L115)):
 
 ```python
 # Behind the scenes in lenses.py:
@@ -237,7 +237,7 @@ if target_id in _seen:
     )
 ```
 
-4. If no cycle is detected, the target class ID is added to the set and passed to the next resolution level: `new_seen = _seen | {target_id}` ([lenses.py:L124](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/lenses.py#L124)).
+4. If no cycle is detected, the target class ID is added to the set and passed to the next resolution level: `new_seen = _seen | {target_id}` ([lenses.py:L124](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/lenses.py#L124)).
 
 This safeguards your serialization routes against infinite loops and complex cyclic structures.
 

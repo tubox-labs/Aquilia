@@ -23,7 +23,7 @@ This page is generated from the current Python source using the AST. It lists pu
 
 ## Public Exports
 
-`AliasProvider`, `AmbiguousProviderError`, `BlueprintProvider`, `Body`, `ClassProvider`, `Container`, `DIError`, `Dep`, `DependencyCycleError`, `DependencyGraph`, `DisposalStrategy`, `FactoryProvider`, `Header`, `Inject`, `LazyProxyProvider`, `Lifecycle`, `LifecycleContext`, `LifecycleHook`, `MockProvider`, `PoolProvider`, `Provider`, `ProviderMeta`, `ProviderNotFoundError`, `Query`, `Registry`, `RequestCtx`, `RequestDAG`, `ResolveCtx`, `Scope`, `ScopeValidator`, `ScopeViolationError`, `ScopedProvider`, `ServiceScope`, `TestRegistry`, `ValueProvider`, `auto_inject`, `factory`, `inject`, `provides`, `service`
+`AliasProvider`, `AmbiguousProviderError`, `ContractProvider`, `Body`, `ClassProvider`, `Container`, `DIError`, `Dep`, `DependencyCycleError`, `DependencyGraph`, `DisposalStrategy`, `FactoryProvider`, `Header`, `Inject`, `LazyProxyProvider`, `Lifecycle`, `LifecycleContext`, `LifecycleHook`, `MockProvider`, `PoolProvider`, `Provider`, `ProviderMeta`, `ProviderNotFoundError`, `Query`, `Registry`, `RequestCtx`, `RequestDAG`, `ResolveCtx`, `Scope`, `ScopeValidator`, `ScopeViolationError`, `ScopedProvider`, `ServiceScope`, `TestRegistry`, `ValueProvider`, `auto_inject`, `factory`, `inject`, `provides`, `service`
 
 ## Public Class Summary
 
@@ -66,7 +66,7 @@ This page is generated from the current Python source using the AST. It lists pu
 | `AliasProvider` | `aquilia/di/providers.py` | object | Provider that aliases one token to another. |
 | `LazyProxyProvider` | `aquilia/di/providers.py` | object | Provider that creates a lazy proxy for cycle resolution. |
 | `ScopedProvider` | `aquilia/di/providers.py` | object | Wrapper provider that enforces scope semantics. |
-| `BlueprintProvider` | `aquilia/di/providers.py` | object | DI Provider that creates Blueprint instances with request context. |
+| `ContractProvider` | `aquilia/di/providers.py` | object | DI Provider that creates Contract instances with request context. |
 | `RequestDAG` | `aquilia/di/request_dag.py` | object | Per-request dependency resolution graph. |
 | `ServiceScope` | `aquilia/di/scopes.py` | str, Enum | Service lifetime scopes. |
 | `Scope` | `aquilia/di/scopes.py` | object | Scope metadata and rules. |
@@ -623,19 +623,19 @@ Methods:
 | `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Delegate to inner provider. |
 | `shutdown` | `async def shutdown(self)` | Delegate to inner provider. |
 
-### `BlueprintProvider`
+### `ContractProvider`
 
 - Source: `aquilia/di/providers.py`
 - Bases: `object`
-- Summary: DI Provider that creates Blueprint instances with request context.
+- Summary: DI Provider that creates Contract instances with request context.
 
 Methods:
 
 | Method | Signature | Summary |
 | --- | --- | --- |
 | `meta` | `def meta(self)` |  |
-| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Create Blueprint instance with request data from DI context. |
-| `shutdown` | `async def shutdown(self)` | No-op for blueprint provider. |
+| `instantiate` | `async def instantiate(self, ctx: ResolveCtx)` | Create Contract instance with request data from DI context. |
+| `shutdown` | `async def shutdown(self)` | No-op for contract provider. |
 
 ### `RequestDAG`
 

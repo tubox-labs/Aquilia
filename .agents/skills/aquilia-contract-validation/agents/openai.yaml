@@ -1,0 +1,4 @@
+interface:
+  display_name: "Aquilia Contract Validation"
+  short_description: "Aquilia framework workflow: aquilia-contract-validation"
+  default_prompt: "Use aquilia-contract-validation to work on this Aquilia framework task."

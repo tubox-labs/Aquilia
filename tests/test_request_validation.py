@@ -2,8 +2,8 @@
 
 import pytest
 
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.facets import IntFacet, TextFacet
+from aquilia.contracts import Contract
+from aquilia.contracts.facets import IntFacet, TextFacet
 from aquilia.controller.validation import (
     RequestBodyParseFault,
     RequestBodyValidationFault,
@@ -12,7 +12,7 @@ from aquilia.controller.validation import (
 from aquilia.response import Response
 
 
-class CreateUserBlueprint(Blueprint):
+class CreateUserContract(Contract):
     name = TextFacet(required=True, max_length=150)
     email = TextFacet(required=True)
     age = IntFacet(required=False, min_value=0, max_value=150)
@@ -36,7 +36,7 @@ class TestValidateBody:
     async def test_valid_body_passes(self):
         executed = {}
 
-        @validate_body(CreateUserBlueprint)
+        @validate_body(CreateUserContract)
         async def handler(self, ctx, body=None):
             executed["body"] = body
 
@@ -55,7 +55,7 @@ class TestValidateBody:
 
     @pytest.mark.asyncio
     async def test_invalid_json(self):
-        @validate_body(CreateUserBlueprint)
+        @validate_body(CreateUserContract)
         async def handler(self, ctx, body=None):
             pass
 
@@ -74,7 +74,7 @@ class TestValidateBody:
         assert resp.status == 400
 
     def test_decorator_preserves_name(self):
-        @validate_body(CreateUserBlueprint)
+        @validate_body(CreateUserContract)
         async def my_handler(self, ctx, body=None):
             pass
 

@@ -453,7 +453,7 @@ export function Releases() {
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </div>
 
-      <main className="flex-grow pt-16 relative">
+      <main className="flex-grow pt-[var(--navbar-height,64px)] relative">
         {/* Background gradient only */}
         <div className="fixed inset-0 z-[-1] bg-gradient-to-b from-transparent via-[var(--bg-primary)]/80 to-[var(--bg-primary)]" />
 

@@ -9,7 +9,7 @@ Project tracker showing create, read, update, archive, and restore flows with a 
 - `workspace.py` configures a sqlite database URL and registers the `projects` module at `/projects`.
 - `models.py` declares the persistent `Project` shape using Aquilia model fields.
 - `services.py` uses an in-memory repository to keep local execution dependency-free.
-- `controllers.py` validates request bodies with blueprints before calling the service.
+- `controllers.py` validates request bodies with contracts before calling the service.
 
 ## Run
 
@@ -29,7 +29,7 @@ python -m pytest examples/crud_app -q
 ## Common Pitfalls
 
 - The `Project` model demonstrates the schema, but the starter service intentionally uses memory.
-- Project keys are normalized to uppercase by the create blueprint.
+- Project keys are normalized to uppercase by the create contract.
 - Archive is implemented as a soft state change, not a hard delete.
 
 ## Extension Ideas
@@ -38,4 +38,4 @@ Replace `ProjectRepository` with an Aquilia database-backed repository, add `aq 
 
 ## Related APIs
 
-`Model`, field classes, `Workspace.database`, `AppManifest.models`, `Blueprint`, `Controller`, `Response`, `ConflictFault`, `NotFoundFault`.
+`Model`, field classes, `Workspace.database`, `AppManifest.models`, `Contract`, `Controller`, `Response`, `ConflictFault`, `NotFoundFault`.

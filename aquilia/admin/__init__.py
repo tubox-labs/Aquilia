@@ -110,18 +110,18 @@ Usage:
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
 from .audit import AdminAction, AdminAuditLog
-from .blueprints import (
-    AdminAPIKeyBlueprint,
-    AdminAuditEntryBlueprint,
+from .contracts import (
+    AdminAPIKeyContract,
+    AdminAuditEntryContract,
     # Backward-compat stubs
-    AdminGroupBlueprint,
-    AdminLogEntryBlueprint,
-    AdminPermissionBlueprint,
-    AdminPreferenceBlueprint,
-    AdminSessionBlueprint,
-    AdminUserBlueprint,
-    AdminUserCreateBlueprint,
-    ContentTypeBlueprint,
+    AdminGroupContract,
+    AdminLogEntryContract,
+    AdminPermissionContract,
+    AdminPreferenceContract,
+    AdminSessionContract,
+    AdminUserContract,
+    AdminUserCreateContract,
+    ContentTypeContract,
 )
 from .controller import AdminController
 from .di_providers import register_admin_providers
@@ -300,18 +300,18 @@ __all__ = [
     "ContentType",
     "AdminLogEntry",
     "AdminSession",
-    # Blueprints
-    "AdminUserBlueprint",
-    "AdminUserCreateBlueprint",
-    "AdminAuditEntryBlueprint",
-    "AdminAPIKeyBlueprint",
-    "AdminPreferenceBlueprint",
-    # Backward-compat blueprint stubs
-    "AdminGroupBlueprint",
-    "AdminPermissionBlueprint",
-    "ContentTypeBlueprint",
-    "AdminLogEntryBlueprint",
-    "AdminSessionBlueprint",
+    # Contracts
+    "AdminUserContract",
+    "AdminUserCreateContract",
+    "AdminAuditEntryContract",
+    "AdminAPIKeyContract",
+    "AdminPreferenceContract",
+    # Backward-compat contract stubs
+    "AdminGroupContract",
+    "AdminPermissionContract",
+    "ContentTypeContract",
+    "AdminLogEntryContract",
+    "AdminSessionContract",
     # Faults
     "AdminFault",
     "AdminAuthenticationFault",

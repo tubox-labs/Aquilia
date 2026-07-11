@@ -20,7 +20,7 @@ python -m pytest examples -q
 Run an app starter:
 
 ```bash
-cd examples/rest_api_blueprint
+cd examples/rest_api_contract
 python -m uvicorn runtime:app --reload --port 8000
 ```
 
@@ -34,8 +34,8 @@ python -m examples.reference_suite.run_all
 
 | Directory | Purpose | Primary APIs |
 | --- | --- | --- |
-| `rest_api_blueprint` | Product catalog REST API with validation, search, pagination-style parameters, and soft deletion. | `Workspace`, `Module`, `AppManifest`, `Controller`, `Response`, `Blueprint`, faults |
-| `crud_app` | Project tracker CRUD workflow with a model declaration and repository-style service boundary. | Models, blueprints, controllers, database config |
+| `rest_api_contract` | Product catalog REST API with validation, search, pagination-style parameters, and soft deletion. | `Workspace`, `Module`, `AppManifest`, `Controller`, `Response`, `Contract`, faults |
+| `crud_app` | Project tracker CRUD workflow with a model declaration and repository-style service boundary. | Models, contracts, controllers, database config |
 | `auth_app` | Registration, password verification, token issuance, protected profile route, and admin guard route. | `AuthManager`, identity stores, `PasswordHasher`, `TokenManager`, guards |
 | `websocket_app` | Chat rooms, connect/disconnect hooks, subscriptions, acknowledgements, and presence inspection. | `SocketController`, `@Socket`, `@Event`, `@Subscribe`, `Connection` |
 | `background_jobs` | Controller-triggered jobs, queue metadata, retries, scheduled cleanup, and job status. | `TaskManager`, `@task`, `Priority`, schedules |

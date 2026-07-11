@@ -18,7 +18,7 @@ Use for modelpack archives, registry push/inspect/verify, serving models, ONNX/e
 1. Use CLI groups from `mlops_cmds.py`: `pack`, `model`, `mlops-deploy`, `observe`, `export`, `plugin`, `lineage`, and `experiment`.
 2. Use `MLOpsManifest`, runtime/base classes, registry service/storage, orchestrator, scheduler, and observe modules where programmatic integration is needed.
 3. Configure workspace with `Integration.mlops(...)` or `Workspace.mlops(...)` when app-level MLOps is required.
-4. Use blueprint APIs for request/response schemas when exposing MLOps endpoints.
+4. Use contract APIs for request/response schemas when exposing MLOps endpoints.
 5. Verify archives and signatures before deployment or registry push.
 
 ## Constraints

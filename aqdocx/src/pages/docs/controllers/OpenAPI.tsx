@@ -204,7 +204,7 @@ async def get_user(self, id: int, q: str | None = None, x_token: Annotated[str, 
             <strong>Parameter Metadata:</strong> Inspects route annotations where the parameter source is explicitly marked as <code className="text-aquilia-500">body</code>.
           </li>
           <li className={itemClass}>
-            <strong>Annotated Param:</strong> Checks for parameters declared as <code className="text-aquilia-500">Annotated[MyBlueprint, Body()]</code>.
+            <strong>Annotated Param:</strong> Checks for parameters declared as <code className="text-aquilia-500">Annotated[MyContract, Body()]</code>.
           </li>
           <li className={itemClass}>
             <strong>Docstring Schema:</strong> Parses the handler docstring for a JSON example block, e.g. <code className="text-aquilia-500">{"Body: {\"username\": \"admin\", \"age\": 30}"}</code>. Types are statically inferred from values.
@@ -219,8 +219,8 @@ async def get_user(self, id: int, q: str | None = None, x_token: Annotated[str, 
           Success status codes and response schemas are generated based on route metadata:
         </p>
         <CodeBlock
-          code={`# Will generate a 201 response containing UserBlueprint schema in components/schemas
-@POST("/users", response_model=UserBlueprint, status_code=201)
+          code={`# Will generate a 201 response containing UserContract schema in components/schemas
+@POST("/users", response_model=UserContract, status_code=201)
 async def create_user(self, ctx: RequestCtx):
     ...`}
           language="python"

@@ -42,7 +42,7 @@ This module exposes config-oriented public classes. Use the table below to locat
 | `AliasProvider` | `aquilia/di/providers.py` | `meta`, `instantiate`, `shutdown` | Provider that aliases one token to another. |
 | `LazyProxyProvider` | `aquilia/di/providers.py` | `meta`, `instantiate`, `shutdown` | Provider that creates a lazy proxy for cycle resolution. |
 | `ScopedProvider` | `aquilia/di/providers.py` | `meta`, `instantiate`, `shutdown` | Wrapper provider that enforces scope semantics. |
-| `BlueprintProvider` | `aquilia/di/providers.py` | `meta`, `instantiate`, `shutdown` | DI Provider that creates Blueprint instances with request context. |
+| `ContractProvider` | `aquilia/di/providers.py` | `meta`, `instantiate`, `shutdown` | DI Provider that creates Contract instances with request context. |
 | `MockProvider` | `aquilia/di/testing.py` | `instantiate`, `reset` | Mock provider for testing. |
 
 ## Runtime Wiring Paths

@@ -4,18 +4,18 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from aquilia.blueprints import Blueprint, ward
+from aquilia.contracts import Contract, ward
 from aquilia.controller import Controller, ControllerFactory, InstantiationMode, RequestCtx
 from aquilia.controller.validation import validate_body
 from aquilia.di.core import Container
 from aquilia.di.dep import Dep, Header, Query
-from aquilia.di.providers import BlueprintProvider, ValueProvider
+from aquilia.di.providers import ContractProvider, ValueProvider
 from aquilia.di.request_dag import RequestDAG
 from aquilia.request import Request
 from aquilia.response import Response
 
 # ---------------------------------------------------------------------------
-# Test Objects: Blueprints with Sync & Async Wards
+# Test Objects: Contracts with Sync & Async Wards
 # ---------------------------------------------------------------------------
 
 
@@ -24,13 +24,13 @@ class PromoService:
         return code == "SUPER10"
 
 
-class AsyncWardBlueprint(Blueprint):
+class AsyncWardContract(Contract):
     code: str
     amount: float
 
     @ward(mode="async")
     async def validate_code(self, data):
-        # Access string alias resolved from BlueprintContext fall-through
+        # Access string alias resolved from ContractContext fall-through
         promo_service = self.context["promo_service"]
         if not await promo_service.exists(data.code):
             self.reject("code", "Invalid promotion code")
@@ -41,7 +41,7 @@ class AsyncWardBlueprint(Blueprint):
             self.reject("amount", "Amount must be positive")
 
 
-class MixedWardsBlueprint(Blueprint):
+class MixedWardsContract(Contract):
     val: int
 
     @ward
@@ -69,49 +69,49 @@ async def test_async_ward_validation_execution():
     context = {"container": container}
 
     # Valid Case
-    bp = AsyncWardBlueprint(data={"code": "SUPER10", "amount": 100.0}, context=context)
+    bp = AsyncWardContract(data={"code": "SUPER10", "amount": 100.0}, context=context)
     is_ok = await bp.is_sealed_async()
     assert is_ok is True
     assert bp.validated_data.code == "SUPER10"
     assert bp.validated_data.amount == 100.0
 
     # Invalid Case (Async Ward Rejected)
-    bp2 = AsyncWardBlueprint(data={"code": "INVALID", "amount": 100.0}, context=context)
+    bp2 = AsyncWardContract(data={"code": "INVALID", "amount": 100.0}, context=context)
     is_ok = await bp2.is_sealed_async()
     assert is_ok is False
     assert "code" in bp2.errors
 
     # Invalid Case (Sync Ward Rejected)
-    bp3 = AsyncWardBlueprint(data={"code": "SUPER10", "amount": -5.0}, context=context)
+    bp3 = AsyncWardContract(data={"code": "SUPER10", "amount": -5.0}, context=context)
     is_ok = await bp3.is_sealed_async()
     assert is_ok is False
     assert "amount" in bp3.errors
 
 
 def test_async_ward_sync_validation_fails_loudly():
-    """Verify that calling is_sealed() on a blueprint with async wards raises RuntimeError."""
-    bp = AsyncWardBlueprint(data={"code": "SUPER10", "amount": 100.0})
-    with pytest.raises(RuntimeError, match="Blueprint contains async wards.*must be validated using is_sealed_async"):
+    """Verify that calling is_sealed() on a contract with async wards raises RuntimeError."""
+    bp = AsyncWardContract(data={"code": "SUPER10", "amount": 100.0})
+    with pytest.raises(RuntimeError, match="Contract contains async wards.*must be validated using is_sealed_async"):
         bp.is_sealed()
 
 
 def test_validated_data_and_errors_properties_protected():
     """Verify accessing validated_data or errors properties before async seal raises RuntimeError."""
-    bp = AsyncWardBlueprint(data={"code": "SUPER10", "amount": 100.0})
+    bp = AsyncWardContract(data={"code": "SUPER10", "amount": 100.0})
     with pytest.raises(
-        RuntimeError, match="Blueprint contains async wards.*must be validated using await is_sealed_async"
+        RuntimeError, match="Contract contains async wards.*must be validated using await is_sealed_async"
     ):
         _ = bp.validated_data
 
     with pytest.raises(
-        RuntimeError, match="Blueprint contains async wards.*must be validated using await is_sealed_async"
+        RuntimeError, match="Contract contains async wards.*must be validated using await is_sealed_async"
     ):
         _ = bp.errors
 
 
 @pytest.mark.asyncio
 async def test_async_ward_di_provider_auto_seal():
-    """Verify BlueprintProvider with auto_seal=True executes async validation."""
+    """Verify ContractProvider with auto_seal=True executes async validation."""
     container = Container(scope="request")
     container.register(ValueProvider(PromoService(), "promo_service"))
 
@@ -122,7 +122,7 @@ async def test_async_ward_di_provider_auto_seal():
     req.state = {"container": container}
     await container.register_instance(Request, req, scope="request")
 
-    provider = BlueprintProvider(AsyncWardBlueprint, auto_seal=True)
+    provider = ContractProvider(AsyncWardContract, auto_seal=True)
     ctx = MagicMock()
     ctx.container = container
 
@@ -132,7 +132,7 @@ async def test_async_ward_di_provider_auto_seal():
 
 @pytest.mark.asyncio
 async def test_async_ward_request_dag_resolution():
-    """Verify RequestDAG resolves Blueprint and runs async validation properly."""
+    """Verify RequestDAG resolves Contract and runs async validation properly."""
     container = Container(scope="request")
     container.register(ValueProvider(PromoService(), "promo_service"))
 
@@ -145,8 +145,8 @@ async def test_async_ward_request_dag_resolution():
     dag = RequestDAG(container, request=req)
     dep = Dep()
 
-    resolved = await dag._resolve_single_sub_dep("bp", AsyncWardBlueprint, None)
-    assert isinstance(resolved, AsyncWardBlueprint)
+    resolved = await dag._resolve_single_sub_dep("bp", AsyncWardContract, None)
+    assert isinstance(resolved, AsyncWardContract)
     assert resolved.validated_data.amount == 50.0
 
 
@@ -168,7 +168,7 @@ async def test_validate_body_decorator_runs_async_ward():
     ctx.container = container
 
     class DummyController:
-        @validate_body(AsyncWardBlueprint)
+        @validate_body(AsyncWardContract)
         async def handle(self, ctx, body):
             return Response(b"Success", status=200)
 
@@ -183,13 +183,13 @@ async def test_multiple_async_wards_and_mixed_failure_propagation():
     container = Container()
 
     # Sync fails
-    bp = MixedWardsBlueprint(data={"val": 0}, context={"container": container})
+    bp = MixedWardsContract(data={"val": 0}, context={"container": container})
     is_ok = await bp.is_sealed_async()
     assert is_ok is False
     assert bp.errors["val"] == ["Cannot be zero"]
 
     # Async fails
-    bp2 = MixedWardsBlueprint(data={"val": -5}, context={"container": container})
+    bp2 = MixedWardsContract(data={"val": -5}, context={"container": container})
     is_ok = await bp2.is_sealed_async()
     assert is_ok is False
     assert bp2.errors["val"] == ["Cannot be negative"]
@@ -207,7 +207,7 @@ async def test_async_ward_cancellation_handling():
     container = Container()
     container.register(ValueProvider(LaggyPromoService(), "promo_service"))
 
-    bp = AsyncWardBlueprint(data={"code": "SUPER10", "amount": 100.0}, context={"container": container})
+    bp = AsyncWardContract(data={"code": "SUPER10", "amount": 100.0}, context={"container": container})
 
     task = asyncio.create_task(bp.is_sealed_async())
     await asyncio.sleep(0.01)
@@ -260,7 +260,7 @@ async def test_controller_constructor_di_with_extractors():
 
 
 # ---------------------------------------------------------------------------
-# Finding 3: Blueprint Provider Request Lookup & Scope Isolation
+# Finding 3: Contract Provider Request Lookup & Scope Isolation
 # ---------------------------------------------------------------------------
 
 
@@ -311,8 +311,8 @@ async def test_high_volume_concurrency_stress():
         req.state = {"container": req_scope}
         await req_scope.register_instance(Request, req, scope="request")
 
-        # 3. Resolve using BlueprintProvider with auto_seal
-        provider = BlueprintProvider(AsyncWardBlueprint, auto_seal=True)
+        # 3. Resolve using ContractProvider with auto_seal
+        provider = ContractProvider(AsyncWardContract, auto_seal=True)
         ctx = MagicMock()
         ctx.container = req_scope
 

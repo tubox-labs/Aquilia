@@ -29,7 +29,7 @@ export function ControllersEngine() {
         </div>
 
         <p className={`text-lg leading-relaxed mt-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The <DocTerm id="controller.controllerengine">ControllerEngine</DocTerm> orchestrates the route execution pipeline. It coordinates dependency injection, clearance evaluations, pipeline middleware flow execution, parameter binding, response blueprint casting/molding, and content negotiation.
+          The <DocTerm id="controller.controllerengine">ControllerEngine</DocTerm> orchestrates the route execution pipeline. It coordinates dependency injection, clearance evaluations, pipeline middleware flow execution, parameter binding, response contract casting/molding, and content negotiation.
         </p>
       </div>
 
@@ -96,8 +96,8 @@ export function ControllersEngine() {
             { step: '4', title: 'Body Size Check', desc: 'Validates that the content-length does not exceed class-level max_body_size.' },
             { step: '5', title: 'Flow Pipelines', desc: 'Executes class-level and method-level FlowPipelines (guards, transforms).' },
             { step: '6', title: 'Evaluate Clearance', desc: 'Checks declarative access control permissions against the request.' },
-            { step: '7', title: 'Parameter Binding & Blueprint Casting', desc: 'Parses body parameters, casting and sealing them against the request_blueprint.' },
-            { step: '8', title: 'Post-processing & Negotiation', desc: 'Applies query filtering, ordering, pagination, response blueprint molding, and Accept-header content negotiation.' }
+            { step: '7', title: 'Parameter Binding & Contract Casting', desc: 'Parses body parameters, casting and sealing them against the request_contract.' },
+            { step: '8', title: 'Post-processing & Negotiation', desc: 'Applies query filtering, ordering, pagination, response contract molding, and Accept-header content negotiation.' }
           ].map(({ step, title, desc }) => (
             <div key={step} className="flex items-start gap-4">
               <span className="flex-shrink-0 w-8 h-8 rounded-lg bg-aquilia-500/10 text-aquilia-500 flex items-center justify-center text-sm font-bold">{step}</span>
@@ -114,29 +114,29 @@ export function ControllersEngine() {
       <section className="space-y-4">
         <h2 className={`text-2xl font-bold flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Layers className="w-5 h-5 text-aquilia-400" />
-          Parameter Binding & Blueprint Context
+          Parameter Binding & Contract Context
         </h2>
 
         <p className={`${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          The engine binds path parameters, query parameters, body parameters, and dependencies automatically. If a parameter is typed as a Blueprint subclass, the engine parses the body and validates it:
+          The engine binds path parameters, query parameters, body parameters, and dependencies automatically. If a parameter is typed as a Contract subclass, the engine parses the body and validates it:
         </p>
 
         <CodeBlock
-          code={`# When a parameter is typed as a Blueprint:
+          code={`# When a parameter is typed as a Contract:
 @POST("/")
-async def create(self, ctx: RequestCtx, body: UserBlueprint):
-    # 'body' receives UserBlueprint.validated_data (dict)
-    # If named with _blueprint or _bp suffix, receives the full Blueprint instance
+async def create(self, ctx: RequestCtx, body: UserContract):
+    # 'body' receives UserContract.validated_data (dict)
+    # If named with _contract or _bp suffix, receives the full Contract instance
     pass`}
           language="python"
         />
 
         <p className={`${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          During blueprint validation, the engine creates a <code className="text-aquilia-500">BlueprintContext</code> wrapping the request container. This context provides lazy resolution via <code className="text-aquilia-500">LazyServiceProxy</code>, allowing blueprints to access DI services asynchronously:
+          During contract validation, the engine creates a <code className="text-aquilia-500">ContractContext</code> wrapping the request container. This context provides lazy resolution via <code className="text-aquilia-500">LazyServiceProxy</code>, allowing contracts to access DI services asynchronously:
         </p>
 
         <CodeBlock
-          code={`# Inside a Blueprint field validator:
+          code={`# Inside a Contract field validator:
 def validate_username(self, value, context):
     # Context contains the DI container lazily resolved via proxy
     db = context["DatabaseService"]

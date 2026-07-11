@@ -15,8 +15,8 @@ files, environment variables, or the Workspace fluent API.
 
 from __future__ import annotations
 
-from ..blueprints.core import Blueprint
-from ..blueprints.facets import (
+from ..contracts.core import Contract
+from ..contracts.facets import (
     BoolFacet,
     ChoiceFacet,
     DictFacet,
@@ -36,9 +36,9 @@ PROVIDER_TYPES = ("smtp", "ses", "sendgrid", "console", "file")
 # ═══════════════════════════════════════════════════════════════════
 
 
-class ProviderConfigBlueprint(Blueprint):
+class ProviderConfigContract(Contract):
     """
-    Blueprint for a single mail provider configuration.
+    Contract for a single mail provider configuration.
 
     Validates provider type, priority bounds, and SMTP-specific fields.
     """
@@ -98,9 +98,9 @@ class ProviderConfigBlueprint(Blueprint):
         return attrs
 
 
-class MailAuthConfigBlueprint(Blueprint):
+class MailAuthConfigContract(Contract):
     """
-    Blueprint for mail provider authentication credentials.
+    Contract for mail provider authentication credentials.
 
     Groups all authentication data for a mail provider into one
     nested object, making it clear which fields are credentials
@@ -253,8 +253,8 @@ class MailAuthConfigBlueprint(Blueprint):
         return attrs
 
 
-class RetryConfigBlueprint(Blueprint):
-    """Blueprint for retry / backoff configuration."""
+class RetryConfigContract(Contract):
+    """Contract for retry / backoff configuration."""
 
     max_attempts = IntFacet(min_value=0, max_value=100, default=5, required=False)
     base_delay = FloatFacet(min_value=0.0, max_value=60.0, default=1.0, required=False)
@@ -275,8 +275,8 @@ class RetryConfigBlueprint(Blueprint):
         return attrs
 
 
-class RateLimitConfigBlueprint(Blueprint):
-    """Blueprint for global and per-domain rate-limiting."""
+class RateLimitConfigContract(Contract):
+    """Contract for global and per-domain rate-limiting."""
 
     global_per_minute = IntFacet(min_value=0, default=1000, required=False)
     per_domain_per_minute = IntFacet(min_value=0, default=100, required=False)
@@ -288,8 +288,8 @@ class RateLimitConfigBlueprint(Blueprint):
     )
 
 
-class SecurityConfigBlueprint(Blueprint):
-    """Blueprint for security / deliverability settings."""
+class SecurityConfigContract(Contract):
+    """Contract for security / deliverability settings."""
 
     dkim_enabled = BoolFacet(default=False, required=False)
     dkim_domain = TextFacet(default=None, required=False, allow_null=True)
@@ -312,8 +312,8 @@ class SecurityConfigBlueprint(Blueprint):
         return attrs
 
 
-class TemplateConfigBlueprint(Blueprint):
-    """Blueprint for ATS template engine configuration."""
+class TemplateConfigContract(Contract):
+    """Contract for ATS template engine configuration."""
 
     template_dirs = ListFacet(
         child=TextFacet(max_length=500),
@@ -325,8 +325,8 @@ class TemplateConfigBlueprint(Blueprint):
     strict_mode = BoolFacet(default=False, required=False)
 
 
-class QueueConfigBlueprint(Blueprint):
-    """Blueprint for queue / storage settings."""
+class QueueConfigContract(Contract):
+    """Contract for queue / storage settings."""
 
     db_url = TextFacet(default="", required=False, help_text="Empty = use app main database")
     batch_size = IntFacet(min_value=1, max_value=10000, default=50, required=False)
@@ -363,10 +363,10 @@ class _ConfigObject:
     def __init__(self, data: dict | None = None, **kwargs):
         if data is None:
             data = kwargs
-        # Validate through the blueprint to populate defaults
+        # Validate through the contract to populate defaults
         # (e.g. ProviderConfig(name="x", type="smtp") gets priority=50, etc.
         #  or RetryConfig() gets max_attempts=5, base_delay=1.0, etc.)
-        cls_bp = type(self)._blueprint_cls
+        cls_bp = type(self)._contract_cls
         if cls_bp is not None:
             bp = cls_bp(data=data)
             if bp.is_sealed():
@@ -409,37 +409,37 @@ class _ConfigObject:
 class ProviderConfig(_ConfigObject):
     """Attribute-access wrapper for a validated provider config."""
 
-    _blueprint_cls = ProviderConfigBlueprint
+    _contract_cls = ProviderConfigContract
 
 
 class RetryConfig(_ConfigObject):
     """Attribute-access wrapper for a validated retry config."""
 
-    _blueprint_cls = RetryConfigBlueprint
+    _contract_cls = RetryConfigContract
 
 
 class RateLimitConfig(_ConfigObject):
     """Attribute-access wrapper for a validated rate-limit config."""
 
-    _blueprint_cls = RateLimitConfigBlueprint
+    _contract_cls = RateLimitConfigContract
 
 
 class SecurityConfig(_ConfigObject):
     """Attribute-access wrapper for a validated security config."""
 
-    _blueprint_cls = SecurityConfigBlueprint
+    _contract_cls = SecurityConfigContract
 
 
 class TemplateConfig(_ConfigObject):
     """Attribute-access wrapper for a validated template config."""
 
-    _blueprint_cls = TemplateConfigBlueprint
+    _contract_cls = TemplateConfigContract
 
 
 class QueueConfig(_ConfigObject):
     """Attribute-access wrapper for a validated queue config."""
 
-    _blueprint_cls = QueueConfigBlueprint
+    _contract_cls = QueueConfigContract
 
 
 class MailAuthConfig(_ConfigObject):
@@ -475,7 +475,7 @@ class MailAuthConfig(_ConfigObject):
         )
     """
 
-    _blueprint_cls = MailAuthConfigBlueprint
+    _contract_cls = MailAuthConfigContract
 
     @classmethod
     def plain(cls, username: str, password: str) -> MailAuthConfig:
@@ -541,12 +541,12 @@ class MailAuthConfig(_ConfigObject):
 
 
 def _validate_sub(
-    blueprint_cls: type,
+    contract_cls: type,
     data: dict,
     wrapper_cls: type,
 ) -> _ConfigObject:
-    """Validate a sub-config dict through its blueprint, return wrapper."""
-    bp = blueprint_cls(data=data)
+    """Validate a sub-config dict through its contract, return wrapper."""
+    bp = contract_cls(data=data)
     if bp.is_sealed():
         return wrapper_cls(bp.validated_data)
     # If validation fails, still create with defaults (lenient for config)
@@ -565,7 +565,7 @@ def _validate_auth(
     if isinstance(value, MailAuthConfig):
         return value
     if isinstance(value, dict):
-        return _validate_sub(MailAuthConfigBlueprint, value, MailAuthConfig)  # type: ignore[arg-type]
+        return _validate_sub(MailAuthConfigContract, value, MailAuthConfig)  # type: ignore[arg-type]
     return None
 
 
@@ -577,18 +577,18 @@ def _validate_provider(data: dict) -> ProviderConfig:
     if isinstance(data.get("auth"), dict):
         data["auth"] = _validate_auth(data["auth"]).to_dict() if _validate_auth(data["auth"]) else None
 
-    # Provider-specific fields that aren't part of the blueprint's declared
+    # Provider-specific fields that aren't part of the contract's declared
     # schema (e.g. SES's "region", SendGrid's "api_key", File's "output_dir")
-    # would otherwise be silently dropped by the blueprint's "ignore unknown
+    # would otherwise be silently dropped by the contract's "ignore unknown
     # fields" default. Fold them into "config" instead, so _create_provider
     # can still read them via pc.config.
-    known = set(ProviderConfigBlueprint._declared_facets)
+    known = set(ProviderConfigContract._declared_facets)
     extra = {k: v for k, v in data.items() if k not in known}
     if extra:
         data = {k: v for k, v in data.items() if k in known}
         data["config"] = {**extra, **(data.get("config") or {})}
 
-    bp = ProviderConfigBlueprint(data=data)
+    bp = ProviderConfigContract(data=data)
     if bp.is_sealed():
         return ProviderConfig(bp.validated_data)
     return ProviderConfig(data)
@@ -609,7 +609,7 @@ def _coerce_providers(items: list) -> List[ProviderConfig]:
 
 def _coerce_sub(
     value: Any,
-    blueprint_cls: type,
+    contract_cls: type,
     wrapper_cls: type,
 ) -> _ConfigObject:
     """Accept a wrapper, dict, or None and return a validated wrapper."""
@@ -618,9 +618,9 @@ def _coerce_sub(
     if isinstance(value, _ConfigObject):
         return wrapper_cls(object.__getattribute__(value, "_data"))
     if isinstance(value, dict):
-        return _validate_sub(blueprint_cls, value, wrapper_cls)
+        return _validate_sub(contract_cls, value, wrapper_cls)
     # None / missing → defaults
-    return _validate_sub(blueprint_cls, {}, wrapper_cls)
+    return _validate_sub(contract_cls, {}, wrapper_cls)
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -693,23 +693,23 @@ class MailConfig:
 
         # Sub-configs: accept wrapper objects or raw dicts
         self.providers = _coerce_providers(providers or [])
-        self.retry = _coerce_sub(retry, RetryConfigBlueprint, RetryConfig)
+        self.retry = _coerce_sub(retry, RetryConfigContract, RetryConfig)
         self.rate_limit = _coerce_sub(
             rate_limit,
-            RateLimitConfigBlueprint,
+            RateLimitConfigContract,
             RateLimitConfig,
         )
         self.security = _coerce_sub(
             security,
-            SecurityConfigBlueprint,
+            SecurityConfigContract,
             SecurityConfig,
         )
         self.templates = _coerce_sub(
             templates,
-            TemplateConfigBlueprint,
+            TemplateConfigContract,
             TemplateConfig,
         )
-        self.queue = _coerce_sub(queue, QueueConfigBlueprint, QueueConfig)
+        self.queue = _coerce_sub(queue, QueueConfigContract, QueueConfig)
 
         # Top-level auth (global default -- providers may override with their own auth)
         self.auth: Optional[MailAuthConfig] = _validate_auth(auth)
@@ -742,7 +742,7 @@ class MailConfig:
         """
         Build MailConfig from a configuration dictionary.
 
-        Each sub-section is validated through its corresponding Blueprint.
+        Each sub-section is validated through its corresponding Contract.
         """
         providers: list[ProviderConfig] = []
         for p in data.get("providers", []):
@@ -765,27 +765,27 @@ class MailConfig:
             subject_prefix=data.get("subject_prefix", ""),
             providers=providers,
             retry=_validate_sub(
-                RetryConfigBlueprint,
+                RetryConfigContract,
                 retry_data if isinstance(retry_data, dict) else {},
                 RetryConfig,
             ),
             rate_limit=_validate_sub(
-                RateLimitConfigBlueprint,
+                RateLimitConfigContract,
                 rate_data if isinstance(rate_data, dict) else {},
                 RateLimitConfig,
             ),
             security=_validate_sub(
-                SecurityConfigBlueprint,
+                SecurityConfigContract,
                 sec_data if isinstance(sec_data, dict) else {},
                 SecurityConfig,
             ),
             templates=_validate_sub(
-                TemplateConfigBlueprint,
+                TemplateConfigContract,
                 tmpl_data if isinstance(tmpl_data, dict) else {},
                 TemplateConfig,
             ),
             queue=_validate_sub(
-                QueueConfigBlueprint,
+                QueueConfigContract,
                 queue_data if isinstance(queue_data, dict) else {},
                 QueueConfig,
             ),

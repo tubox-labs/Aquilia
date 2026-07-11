@@ -44,18 +44,18 @@ from .config import (
     MailConfig,
     # Config wrapper objects (backward-compatible attribute access)
     ProviderConfig,
-    # Config blueprints (Aquilia Blueprint-based validation)
-    ProviderConfigBlueprint,
+    # Config contracts (Aquilia Contract-based validation)
+    ProviderConfigContract,
     QueueConfig,
-    QueueConfigBlueprint,
+    QueueConfigContract,
     RateLimitConfig,
-    RateLimitConfigBlueprint,
+    RateLimitConfigContract,
     RetryConfig,
-    RetryConfigBlueprint,
+    RetryConfigContract,
     SecurityConfig,
-    SecurityConfigBlueprint,
+    SecurityConfigContract,
     TemplateConfig,
-    TemplateConfigBlueprint,
+    TemplateConfigContract,
 )
 
 # ── DI providers ───────────────────────────────────────────────────
@@ -116,13 +116,13 @@ __all__ = [
     "Priority",
     # Config
     "MailConfig",
-    # Config blueprints
-    "ProviderConfigBlueprint",
-    "RetryConfigBlueprint",
-    "RateLimitConfigBlueprint",
-    "SecurityConfigBlueprint",
-    "TemplateConfigBlueprint",
-    "QueueConfigBlueprint",
+    # Config contracts
+    "ProviderConfigContract",
+    "RetryConfigContract",
+    "RateLimitConfigContract",
+    "SecurityConfigContract",
+    "TemplateConfigContract",
+    "QueueConfigContract",
     # Config wrappers
     "ProviderConfig",
     "RetryConfig",

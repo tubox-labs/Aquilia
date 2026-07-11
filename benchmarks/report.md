@@ -148,7 +148,7 @@ GET `/cached` retrieving 5 random items from memory cache with fallback to DB.
 | 9 | Flask | 1927.41 req/s | 25.99 ms | 12.59 ms | 80.18 ms | 100.0% |
 
 ### Scenario: `validation`
-POST `/validation` parsing and validating a nested payload (Blueprint vs Pydantic vs Dataclasses).
+POST `/validation` parsing and validating a nested payload (Contract vs Pydantic vs Dataclasses).
 
 | Rank | Framework | Throughput (QPS) | Latency Average | P50 Latency | P95 Latency | Success Rate |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |

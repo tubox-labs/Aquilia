@@ -213,10 +213,10 @@ class RequestDAG:
             return await self.resolve(sub_dep, base_type)
 
         base_type = _get_base_type(ptype)
-        if _is_blueprint_type(base_type):
-            from aquilia.blueprints.integration import bind_blueprint_to_request
+        if _is_contract_type(base_type):
+            from aquilia.contracts.integration import bind_contract_to_request
 
-            bp = await bind_blueprint_to_request(base_type, self._request)
+            bp = await bind_contract_to_request(base_type, self._request)
             if hasattr(bp, "is_sealed_async"):
                 await bp.is_sealed_async(raise_fault=True)
             else:
@@ -229,10 +229,10 @@ class RequestDAG:
     async def _resolve_extracted_parameter(self, pname: str, ptype: type, sub_dep: Any) -> Any:
         """Asynchronously resolve extracted parameter."""
         base_type = _get_base_type(ptype)
-        if _is_blueprint_type(base_type):
-            from aquilia.blueprints.integration import bind_blueprint_to_request
+        if _is_contract_type(base_type):
+            from aquilia.contracts.integration import bind_contract_to_request
 
-            bp = await bind_blueprint_to_request(base_type, self._request)
+            bp = await bind_contract_to_request(base_type, self._request)
             if hasattr(bp, "is_sealed_async"):
                 await bp.is_sealed_async(raise_fault=True)
             else:
@@ -248,10 +248,10 @@ class RequestDAG:
 
     def _resolve_extracted_parameter_sync(self, pname: str, ptype: type, sub_dep: Any, body: Any = None) -> Any:
         """Synchronously resolve, cast, and validate parameter using unified Facet pipeline."""
-        from aquilia.blueprints.annotations import _build_facet_from_annotation
-        from aquilia.blueprints.exceptions import CastFault
-        from aquilia.blueprints.facets import UNSET
-        from aquilia.blueprints.integration import extract_value_from_request
+        from aquilia.contracts.annotations import _build_facet_from_annotation
+        from aquilia.contracts.exceptions import CastFault
+        from aquilia.contracts.facets import UNSET
+        from aquilia.contracts.integration import extract_value_from_request
         from aquilia.faults.domains import BadRequestFault
 
         facet = _build_facet_from_annotation(
@@ -419,11 +419,11 @@ def _get_base_type(annotation: Any) -> type:
     return annotation
 
 
-def _is_blueprint_type(annotation: Any) -> bool:
-    """Check if type is a Blueprint subclass."""
+def _is_contract_type(annotation: Any) -> bool:
+    """Check if type is a Contract subclass."""
     try:
-        from aquilia.blueprints.core import Blueprint
+        from aquilia.contracts.core import Contract
 
-        return isinstance(annotation, type) and issubclass(annotation, Blueprint) and annotation is not Blueprint
+        return isinstance(annotation, type) and issubclass(annotation, Contract) and annotation is not Contract
     except ImportError:
         return False

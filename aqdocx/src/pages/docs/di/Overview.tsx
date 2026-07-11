@@ -82,7 +82,7 @@ export function DIOverview() {
               {[
                 ['__init__.py', 'Public API surface — re-exports everything consumers need.'],
                 ['core.py', 'ProviderMeta, ResolveCtx, Provider protocol, Container, Registry, _NullLifecycleType.'],
-                ['providers.py', 'ClassProvider, FactoryProvider, ValueProvider, PoolProvider, AliasProvider, LazyProxyProvider, ScopedProvider, BlueprintProvider.'],
+                ['providers.py', 'ClassProvider, FactoryProvider, ValueProvider, PoolProvider, AliasProvider, LazyProxyProvider, ScopedProvider, ContractProvider.'],
                 ['scopes.py', 'ServiceScope enum (6 scopes), Scope dataclass, SCOPES dict, ScopeValidator.'],
                 ['decorators.py', 'Inject, inject(), service(), factory(), provides(), auto_inject(), injectable.'],
                 ['dep.py', 'Dep descriptor for inline parameter injection. HTTP extractors: Header, Query, Body.'],
@@ -284,7 +284,7 @@ class UserController(Controller):
                 ['AliasProvider', 'Token aliasing — delegates resolution to another token', 'Delegated'],
                 ['LazyProxyProvider', 'Cycle breaking — creates a dynamic proxy class that defers __getattr__ and __call__ to the real instance', 'Lazy'],
                 ['ScopedProvider', 'Scope override — wraps any inner provider with a different scope', 'Delegated'],
-                ['BlueprintProvider', 'Request-body blueprints — automatically binds blueprint facets to the incoming request payload with validation and mold casting', 'Yes'],
+                ['ContractProvider', 'Request-body contracts — automatically binds contract facets to the incoming request payload with validation and mold casting', 'Yes'],
               ].map(([name, desc, async_], i) => (
                 <tr key={i} className="hover:bg-white/5 transition-colors duration-150">
                   <td className="py-3.5 px-6">

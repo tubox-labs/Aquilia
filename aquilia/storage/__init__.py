@@ -3,7 +3,7 @@ Aquilia Storage -- Production-grade, async-first file storage abstraction.
 
 Provides a unified API for storing, retrieving, and managing files across
 multiple storage backends. Deeply integrated with Aquilia's DI, Config,
-Effects, Blueprints, and Subsystem lifecycle.
+Effects, Contracts, and Subsystem lifecycle.
 
 Supported Backends:
     - LocalStorage      : Local filesystem (default)
@@ -27,7 +27,7 @@ Wiring:
     - DI: StorageRegistry registered as app-scoped singleton
     - Config: Integration.storage() + Workspace.storage()
     - Effects: EffectKind.STORAGE with StorageEffectProvider
-    - Blueprints: FileFacet auto-wires to default storage
+    - Contracts: FileFacet auto-wires to default storage
     - Subsystems: StorageSubsystem (priority 25, before DB)
     - Health: StorageHealthCheck per backend
 

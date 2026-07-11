@@ -24,7 +24,7 @@ export function ControllersValidation() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed mt-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia provides declarative request body validation using the <DocTerm id="controller.validate_body">@validate_body</DocTerm> decorator. It integrates directly with Blueprints to parse and enforce contracts on incoming payloads.
+          Aquilia provides declarative request body validation using the <DocTerm id="controller.validate_body">@validate_body</DocTerm> decorator. It integrates directly with Contracts to parse and enforce contracts on incoming payloads.
         </p>
       </div>
 
@@ -40,15 +40,15 @@ export function ControllersValidation() {
           filename="validation_example.py"
           code={`from aquilia import Controller, POST, RequestCtx, Response
 from aquilia.controller.validation import validate_body
-from myapp.users.blueprints import CreateUserBlueprint
+from myapp.users.contracts import CreateUserContract
 
 class UsersController(Controller):
     prefix = "/users"
 
     @POST("/")
-    @validate_body(CreateUserBlueprint)
+    @validate_body(CreateUserContract)
     async def create_user(self, ctx: RequestCtx, body: dict) -> Response:
-        # body is fully validated and typed according to the Blueprint contract
+        # body is fully validated and typed according to the Contract contract
         user = await self.user_service.create(**body)
         return Response.json({"id": user.id}, status=201)`}
         />
@@ -72,7 +72,7 @@ class UsersController(Controller):
             </thead>
             <tbody className={`divide-y ${isDark ? 'divide-white/5 text-gray-300' : 'divide-gray-100 text-gray-700'}`}>
               {[
-                ['RequestBodyValidationFault', 'validation.body_invalid', '422', 'The request body fails the Blueprint seal constraints.'],
+                ['RequestBodyValidationFault', 'validation.body_invalid', '422', 'The request body fails the Contract seal constraints.'],
                 ['RequestBodyParseFault', 'validation.body_parse_error', '400', 'The request body content could not be parsed (e.g. malformed JSON).'],
               ].map(([cls, code, status, desc], i) => (
                 <tr key={i} className="hover:bg-aquilia-500/5 transition-colors">

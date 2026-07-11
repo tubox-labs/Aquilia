@@ -55,7 +55,7 @@ class ServiceScope(str, Enum):
               {[
                 ['SINGLETON', 'Process-wide', 'Yes (root)', 'Database connection pools, global configuration parameters, and shared memory clients.'],
                 ['APP', 'App container', 'Yes (root)', 'Module service instances. Behaves identically to singleton in single-app structures.'],
-                ['REQUEST', 'Per-request', 'Yes (child)', 'HTTP request-scoped handlers, user session details, context loggers, and blueprints.'],
+                ['REQUEST', 'Per-request', 'Yes (child)', 'HTTP request-scoped handlers, user session details, context loggers, and contracts.'],
                 ['TRANSIENT', 'None', 'No', 'Stateless formatters, calculations, validation constraints, and helpers.'],
                 ['POOLED', 'Pool-managed', 'Queue', 'Concurrency pools or heavy workers. Acquired/released via PoolProvider.'],
                 ['EPHEMERAL', 'None', 'No', 'Lightweight temporary request-parented tasks.'],

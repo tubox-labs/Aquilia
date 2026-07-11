@@ -725,7 +725,7 @@ app = runtime.app`}
         </h2>
 
         <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-          A complete Aquilia application with a modern manifest-driven structure, typed database integration, pure-Python ORM model, validation blueprint, service, and controller:
+          A complete Aquilia application with a modern manifest-driven structure, typed database integration, pure-Python ORM model, validation contract, service, and controller:
         </p>
 
         <div className="space-y-4">
@@ -771,11 +771,11 @@ __all__ = ["manifest"]`}
           </div>
 
           <div>
-            <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/blueprints.py</p>
+            <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/contracts.py</p>
             <CodeBlock
-              code={`from aquilia import Blueprint
+              code={`from aquilia import Contract
 
-class UserCreateBlueprint(Blueprint):
+class UserCreateContract(Contract):
     name: str
     email: str
 
@@ -795,7 +795,7 @@ class UserCreateBlueprint(Blueprint):
             <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/core/controllers.py</p>
             <CodeBlock
               code={`from aquilia import Controller, GET, POST, RequestCtx, Response
-from .blueprints import UserCreateBlueprint
+from .contracts import UserCreateContract
 from .services import UserService
 
 class UsersController(Controller):
@@ -812,9 +812,9 @@ class UsersController(Controller):
 
     @POST("/")
     async def create_user(self, ctx: RequestCtx) -> Response:
-        blueprint = UserCreateBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async(raise_fault=True)
-        user = await self.user_service.create_user(blueprint.validated_data)
+        contract = UserCreateContract(data=await ctx.json())
+        await contract.is_sealed_async(raise_fault=True)
+        user = await self.user_service.create_user(contract.validated_data)
         return Response.json(user.to_dict(), status=201)`}
               language="python"
             />
@@ -893,7 +893,7 @@ class User(Model):
                 ['Auth', 'aquilia.auth', 'AuthManager, TokenManager, PasswordHasher, AuthzEngine'],
                 ['Middleware', 'aquilia.middleware', 'MiddlewareStack, CORS, CSP, CSRF, RateLimit'],
                 ['Serializers', 'aquilia.serializers', 'Serializer, ModelSerializer, ListSerializer'],
-                ['Blueprints', 'aquilia.blueprints', 'Blueprint, Facet, Projection, Cast, Seal'],
+                ['Contracts', 'aquilia.contracts', 'Contract, Facet, Projection, Cast, Seal'],
                 ['Cache', 'aquilia.cache', 'CacheService, MemoryBackend, RedisBackend'],
                 ['Mail', 'aquilia.mail', 'MailService, asend_mail, EmailMessage'],
                 ['WebSockets', 'aquilia.sockets', 'AquilaSockets, SocketController, @Event'],

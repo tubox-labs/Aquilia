@@ -1,8 +1,8 @@
 ---
 title: "Full CRUD API Tutorial"
-description: "Step-by-step guide to building a complete CRUD API with Controllers and Blueprints"
+description: "Step-by-step guide to building a complete CRUD API with Controllers and Contracts"
 icon: lucide/server
----In this tutorial, we will build a complete, production-grade **Product Catalog CRUD API** from scratch using Aquilia. You will learn how to declare schemas and persistence rules with **Blueprints**, handle requests and configure routing using class-based **Controllers**, and apply advanced middleware behaviors such as pagination, declarative filtering, and rate limiting (throttling).
+---In this tutorial, we will build a complete, production-grade **Product Catalog CRUD API** from scratch using Aquilia. You will learn how to declare schemas and persistence rules with **Contracts**, handle requests and configure routing using class-based **Controllers**, and apply advanced middleware behaviors such as pagination, declarative filtering, and rate limiting (throttling).
 
 ---
 
@@ -29,12 +29,12 @@ We are building a robust Product Catalog API. The system exposes the following R
 
 ---
 
-## Step 1: Define `ProductBlueprint`
+## Step 1: Define `ProductContract`
 
-A **Blueprint** is a first-class primitive in Aquilia that acts as a contract between your database models and the outside world. It governs both inbound data handling (casting, sealing, and imprinting) and outbound serialization (molding).
+A **Contract** is a first-class primitive in Aquilia that acts as a contract between your database models and the outside world. It governs both inbound data handling (casting, sealing, and imprinting) and outbound serialization (molding).
 
 !!! info
-    📎 [core.py:L826](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L826)
+    📎 [core.py:L826](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L826)
 
 
 First, let's assume a basic `Product` database model is declared in your application (using Aquilia's ORM or an integrated ORM):
@@ -52,15 +52,15 @@ class Product(Model):
     category = fields.CharField(max_length=100)
 ```
 
-Now, define your `ProductBlueprint` with field-level facets:
+Now, define your `ProductContract` with field-level facets:
 
 ```python
-# blueprints.py
-from aquilia.blueprints import Blueprint
-from aquilia.blueprints.facets import TextFacet, IntFacet, DecimalFacet, Computed
+# contracts.py
+from aquilia.contracts import Contract
+from aquilia.contracts.facets import TextFacet, IntFacet, DecimalFacet, Computed
 from models import Product
 
-class ProductBlueprint(Blueprint):
+class ProductContract(Contract):
     class Spec:
         model = Product
         fields = ["id", "name", "description", "price", "stock", "category"]
@@ -92,15 +92,15 @@ class ProductBlueprint(Blueprint):
 
 1. **`Spec` Configuration**: Configurations are declared in the inner `Spec` class. 
    !!! warning
-    Always name this inner class `Spec`. Using the traditional name `Meta` will raise a `BlueprintFault` during class compilation.
-    📎 [core.py:L305-309](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L305-L309)
+    Always name this inner class `Spec`. Using the traditional name `Meta` will raise a `ContractFault` during class compilation.
+    📎 [core.py:L305-309](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L305-L309)
 
-2. **Projections**: Slicing the blueprint via subscript syntax (e.g., `ProductBlueprint["summary"]`) extracts a restricted projection containing only selected facets. 
-   📎 [core.py:L609-L624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L609-L624)
+2. **Projections**: Slicing the contract via subscript syntax (e.g., `ProductContract["summary"]`) extracts a restricted projection containing only selected facets. 
+   📎 [core.py:L609-L624](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L609-L624)
 3. **`DecimalFacet`**: Used for exact-precision currency representations to prevent float conversion rounding errors. 
-   📎 [facets.py:L729-L784](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L729-L784)
-4. **`Computed`**: A read-only facet populated on outbound rendering by calling a method on the blueprint or model. 
-   📎 [facets.py:L1522-L1580](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/facets.py#L1522-L1580)
+   📎 [facets.py:L729-L784](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L729-L784)
+4. **`Computed`**: A read-only facet populated on outbound rendering by calling a method on the contract or model. 
+   📎 [facets.py:L1522-L1580](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/facets.py#L1522-L1580)
 
 ---
 
@@ -127,19 +127,19 @@ The `prefix = "/products"` attribute prepends `/products` to all endpoint routes
 
 ## Step 3: List Endpoint (GET `/`)
 
-To retrieve a list of products, append a handler to your controller class. We'll use the subscript reference `ProductBlueprint["summary"]` to restrict the returned output to a concise format (showing only `id`, `name`, and `price`):
+To retrieve a list of products, append a handler to your controller class. We'll use the subscript reference `ProductContract["summary"]` to restrict the returned output to a concise format (showing only `id`, `name`, and `price`):
 
 ```python
 # controllers.py (continued)
 from aquilia import GET
 from models import Product
-from blueprints import ProductBlueprint
+from contracts import ProductContract
 
 class ProductsController(Controller):
     prefix = "/products"
     tags = ["products"]
 
-    @GET("/", response_blueprint=ProductBlueprint["summary"])
+    @GET("/", response_contract=ProductContract["summary"])
     async def list_products(self, ctx):
         """List all products in the catalog."""
         products = await Product.objects.all()
@@ -147,7 +147,7 @@ class ProductsController(Controller):
 ```
 
 !!! info
-    By passing `ProductBlueprint["summary"]` to `response_blueprint`, the framework automatically filters write-only fields and structures the response payload to match the `"summary"` projection.
+    By passing `ProductContract["summary"]` to `response_contract`, the framework automatically filters write-only fields and structures the response payload to match the `"summary"` projection.
     📎 [http-decorators.mdx](../controller/http-decorators.md#L75-L77)
 
 
@@ -160,7 +160,7 @@ To retrieve detailed info about a single product, bind the route parameter `id` 
 ```python
 # controllers.py (continued)
 
-    @GET("/{id:int}", response_blueprint=ProductBlueprint["detail"])
+    @GET("/{id:int}", response_contract=ProductContract["detail"])
     async def retrieve_product(self, ctx, id: int):
         """Retrieve full details of a single product."""
         try:
@@ -170,13 +170,13 @@ To retrieve detailed info about a single product, bind the route parameter `id` 
             return Response.json({"error": "Product not found"}, status=404)
 ```
 
-The retrieve endpoint uses `ProductBlueprint["detail"]` (which resolves to `__all__` fields plus the computed `discounted_price` facet).
+The retrieve endpoint uses `ProductContract["detail"]` (which resolves to `__all__` fields plus the computed `discounted_price` facet).
 
 ---
 
 ## Step 5: Create Endpoint (POST `/`)
 
-For creation, we accept the request body, validate it against our blueprint schema, and save it to the database. This showcases the core inbound flow: **Cast → Seal → Imprint**.
+For creation, we accept the request body, validate it against our contract schema, and save it to the database. This showcases the core inbound flow: **Cast → Seal → Imprint**.
 
 ```mermaid
 graph TD
@@ -188,12 +188,12 @@ graph TD
 ### The Explicit Inbound Lifecycle
 
 When processing inbound payloads:
-1. **Cast**: Raw request data is passed into the blueprint. Simple coercion is applied (e.g., matching string numbers to integers/decimals). 
-   📎 [core.py:L1083-L1090](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L1083-L1090)
+1. **Cast**: Raw request data is passed into the contract. Simple coercion is applied (e.g., matching string numbers to integers/decimals). 
+   📎 [core.py:L1083-L1090](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1083-L1090)
 2. **Seal**: Synchronous and asynchronous validation gates verify the coerced values. Calling `bp.is_sealed()` triggers this validation and seals the data container. 
-   📎 [core.py:L1014](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L1014)
-3. **Imprint**: The sealed blueprint applies changes to the underlying model. Calling `await bp.imprint()` instantiates a new model and writes it to the database. 
-   📎 [core.py:L1287](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L1287)
+   📎 [core.py:L1014](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1014)
+3. **Imprint**: The sealed contract applies changes to the underlying model. Calling `await bp.imprint()` instantiates a new model and writes it to the database. 
+   📎 [core.py:L1287](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1287)
 
 Here is how to implement the endpoint:
 
@@ -201,14 +201,14 @@ Here is how to implement the endpoint:
 # controllers.py (continued)
 from aquilia import POST, Response
 
-    @POST("/", status_code=201, response_blueprint=ProductBlueprint["detail"])
+    @POST("/", status_code=201, response_contract=ProductContract["detail"])
     async def create_product(self, ctx):
         """Create a new product."""
         # Retrieve the raw JSON payload
         payload = await ctx.json()
         
         # 1. Cast
-        bp = ProductBlueprint(data=payload)
+        bp = ProductContract(data=payload)
         
         # 2. Seal (Validation check)
         if not bp.is_sealed():
@@ -223,13 +223,13 @@ from aquilia import POST, Response
 
 ## Step 6: Update Endpoint (PUT `/{id:int}`)
 
-Updates require binding both the incoming payload and the existing model instance to the blueprint before calling `imprint`. This triggers an update path (`_imprint_update`) rather than a creation path:
+Updates require binding both the incoming payload and the existing model instance to the contract before calling `imprint`. This triggers an update path (`_imprint_update`) rather than a creation path:
 
 ```python
 # controllers.py (continued)
 from aquilia import PUT
 
-    @PUT("/{id:int}", response_blueprint=ProductBlueprint["detail"])
+    @PUT("/{id:int}", response_contract=ProductContract["detail"])
     async def update_product(self, ctx, id: int):
         """Update an existing product."""
         try:
@@ -240,7 +240,7 @@ from aquilia import PUT
         payload = await ctx.json()
         
         # Bind the payload to the existing model instance
-        bp = ProductBlueprint(data=payload, instance=product)
+        bp = ProductContract(data=payload, instance=product)
         
         if not bp.is_sealed():
             return Response.json({"errors": bp.errors}, status=400)
@@ -252,7 +252,7 @@ from aquilia import PUT
 
 !!! info
     By binding the model instance (`instance=product`), `bp.imprint()` automatically invokes `_imprint_update` to update modified fields on the database model.
-    📎 [core.py:L1362-1380](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/blueprints/core.py#L1362-L1380)
+    📎 [core.py:L1362-1380](file:///Users/kuroyami/TuboxLabProject/aquilia-docs/aquilia/contracts/core.py#L1362-L1380)
 
 
 ---
@@ -311,7 +311,7 @@ from filters import ProductFilter
         search_fields=["name", "description"],
         ordering_fields=["price", "id"],
         pagination_class=PageNumberPagination,
-        response_blueprint=ProductBlueprint["summary"]
+        response_contract=ProductContract["summary"]
     )
     async def list_products(self, ctx):
         """List products with pagination, filtering, searching, and sorting."""
@@ -354,7 +354,7 @@ For sensitive endpoints (like creating new products), you can override the class
     @POST(
         "/", 
         status_code=201, 
-        response_blueprint=ProductBlueprint["detail"],
+        response_contract=ProductContract["detail"],
         throttle=Throttle(limit=10, window=60) # Overrides class limit to 10 req/min
     )
     async def create_product(self, ctx):

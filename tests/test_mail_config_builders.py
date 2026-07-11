@@ -5,7 +5,7 @@ Covers:
   - Integration.MailAuth   (all methods + to_dict)
   - Integration.MailProvider.*   (SMTP, SES, SendGrid, Console, File)
   - Integration.mail()  (flat params, auth=, providers=, single vs list)
-  - aquilia.mail.config.MailAuthConfig  (blueprint, wrappers, factories)
+  - aquilia.mail.config.MailAuthConfig  (contract, wrappers, factories)
   - aquilia.mail.config.MailConfig  (auth slot, from_dict, to_dict round-trip)
   - Backward compatibility: plain dict providers still work
 """
@@ -812,34 +812,34 @@ class TestIntegrationMailFunction:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TestMailAuthConfigBlueprint  (aquilia.mail.config)
+# TestMailAuthConfigContract  (aquilia.mail.config)
 # ═══════════════════════════════════════════════════════════════════
 
 
-class TestMailAuthConfigBlueprint:
-    def test_blueprint_exists(self):
+class TestMailAuthConfigContract:
+    def test_contract_exists(self):
         mc = _mail_config_mod()
-        assert hasattr(mc, "MailAuthConfigBlueprint")
+        assert hasattr(mc, "MailAuthConfigContract")
 
     def test_method_choices_include_plain(self):
         mc = _mail_config_mod()
-        assert "plain" in mc.MailAuthConfigBlueprint.METHOD_CHOICES
+        assert "plain" in mc.MailAuthConfigContract.METHOD_CHOICES
 
     def test_method_choices_include_oauth2(self):
         mc = _mail_config_mod()
-        assert "oauth2" in mc.MailAuthConfigBlueprint.METHOD_CHOICES
+        assert "oauth2" in mc.MailAuthConfigContract.METHOD_CHOICES
 
     def test_method_choices_include_api_key(self):
         mc = _mail_config_mod()
-        assert "api_key" in mc.MailAuthConfigBlueprint.METHOD_CHOICES
+        assert "api_key" in mc.MailAuthConfigContract.METHOD_CHOICES
 
     def test_method_choices_include_ntlm(self):
         mc = _mail_config_mod()
-        assert "ntlm" in mc.MailAuthConfigBlueprint.METHOD_CHOICES
+        assert "ntlm" in mc.MailAuthConfigContract.METHOD_CHOICES
 
     def test_method_choices_include_none(self):
         mc = _mail_config_mod()
-        assert "none" in mc.MailAuthConfigBlueprint.METHOD_CHOICES
+        assert "none" in mc.MailAuthConfigContract.METHOD_CHOICES
 
 
 # ═══════════════════════════════════════════════════════════════════
@@ -990,14 +990,14 @@ class TestValidateAuth:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# TestProviderConfigBlueprintAuthField
+# TestProviderConfigContractAuthField
 # ═══════════════════════════════════════════════════════════════════
 
 
-class TestProviderConfigBlueprintAuthField:
-    def test_blueprint_has_auth_field(self):
+class TestProviderConfigContractAuthField:
+    def test_contract_has_auth_field(self):
         mc = _mail_config_mod()
-        assert hasattr(mc.ProviderConfigBlueprint, "auth")
+        assert hasattr(mc.ProviderConfigContract, "auth")
 
     def test_validate_provider_with_auth_dict(self):
         mc = _mail_config_mod()

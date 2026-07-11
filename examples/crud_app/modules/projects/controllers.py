@@ -1,6 +1,6 @@
 from aquilia import DELETE, GET, PATCH, POST, Controller, RequestCtx, Response
 
-from .blueprints import ProjectCreateBlueprint, ProjectUpdateBlueprint
+from .contracts import ProjectCreateContract, ProjectUpdateContract
 from .services import ProjectsService
 
 
@@ -18,9 +18,9 @@ class ProjectsController(Controller):
 
     @POST("/", status_code=201)
     async def create_project(self, ctx: RequestCtx):
-        blueprint = ProjectCreateBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.create_project(blueprint.validated_data), status=201)
+        contract = ProjectCreateContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.create_project(contract.validated_data), status=201)
 
     @GET("/<key:str>")
     async def get_project(self, ctx: RequestCtx, key: str):
@@ -28,9 +28,9 @@ class ProjectsController(Controller):
 
     @PATCH("/<key:str>")
     async def update_project(self, ctx: RequestCtx, key: str):
-        blueprint = ProjectUpdateBlueprint(data=await ctx.json())
-        await blueprint.is_sealed_async()
-        return Response.json(await self.service.update_project(key, blueprint.validated_data))
+        contract = ProjectUpdateContract(data=await ctx.json())
+        await contract.is_sealed_async()
+        return Response.json(await self.service.update_project(key, contract.validated_data))
 
     @DELETE("/<key:str>")
     async def archive_project(self, ctx: RequestCtx, key: str):

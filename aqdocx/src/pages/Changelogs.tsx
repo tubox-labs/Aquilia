@@ -87,8 +87,8 @@ const staticChangelogs: ChangelogEntry[] = [
           'Transforms and Pipelines (>>) on facets.',
           'Bulk & Stream Validation: seal_many, seal_stream, seal_columnar.',
           'Test Generation Strategy support.',
-          'Discriminated Unions (BlueprintUnion).',
-          'Form & File Uploads via Blueprints (UploadFile and FormData).',
+          'Discriminated Unions (ContractUnion).',
+          'Form & File Uploads via Contracts (UploadFile and FormData).',
           'Unified Request Input Resolution & Parameter Casting.',
           'Click-based Aquilary CLI commands.'
         ]
@@ -107,7 +107,7 @@ const staticChangelogs: ChangelogEntry[] = [
           'Database Introspection and Migration Rollback.',
           'Scaffolding Integration API migration.',
           'Boilerplate reduction and scaffolding cleanup.',
-          'Zero Runtime Dependencies: Migrated blueprints to pure-Python.',
+          'Zero Runtime Dependencies: Migrated contracts to pure-Python.',
           'Deep Performance Optimizations: lazy wrapping, regex caches, ORM fast-path checks.'
         ]
       },
@@ -118,7 +118,7 @@ const staticChangelogs: ChangelogEntry[] = [
           'Discovery system improvements dotted parent prefix loading.',
           'Windows compatibility fixes for signal.SIGKILL and mcp commands.',
           'RequestIdMiddleware stability across pool boundaries.',
-          'Multiple Blueprint Parameter Support.',
+          'Multiple Contract Parameter Support.',
           'String Annotation Evaluation (PEP 563).'
         ]
       }
@@ -501,7 +501,7 @@ export function Changelogs() {
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </div>
 
-      <main className="flex-grow pt-16 relative">
+      <main className="flex-grow pt-[var(--navbar-height,64px)] relative">
         <div className="fixed inset-0 z-[-1] bg-gradient-to-b from-transparent via-[var(--bg-primary)]/80 to-[var(--bg-primary)]" />
 
         {/* Hero */}

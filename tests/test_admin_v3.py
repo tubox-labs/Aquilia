@@ -4,7 +4,7 @@ Comprehensive tests for the Admin System overhaul (v3).
 Covers:
 - New admin models: ContentType, AdminPermission, AdminGroup, AdminLogEntry, AdminSession
 - Enhanced AdminUser with groups & permissions
-- Admin Blueprints
+- Admin Contracts
 - Server admin integration wiring (_wire_admin_integration)
 - Migration format (SURP snapshot)
 - CLI createsuperuser (no raw SQL)
@@ -119,35 +119,35 @@ class TestTopLevelExports:
 
         assert AdminSession is not None
 
-    def test_admin_user_blueprint_from_aquilia(self):
-        from aquilia import AdminUserBlueprint
+    def test_admin_user_contract_from_aquilia(self):
+        from aquilia import AdminUserContract
 
-        assert AdminUserBlueprint is not None
+        assert AdminUserContract is not None
 
-    def test_admin_group_blueprint_from_aquilia(self):
-        from aquilia import AdminGroupBlueprint
+    def test_admin_group_contract_from_aquilia(self):
+        from aquilia import AdminGroupContract
 
-        assert AdminGroupBlueprint is not None
+        assert AdminGroupContract is not None
 
-    def test_admin_permission_blueprint_from_aquilia(self):
-        from aquilia import AdminPermissionBlueprint
+    def test_admin_permission_contract_from_aquilia(self):
+        from aquilia import AdminPermissionContract
 
-        assert AdminPermissionBlueprint is not None
+        assert AdminPermissionContract is not None
 
-    def test_content_type_blueprint_from_aquilia(self):
-        from aquilia import ContentTypeBlueprint
+    def test_content_type_contract_from_aquilia(self):
+        from aquilia import ContentTypeContract
 
-        assert ContentTypeBlueprint is not None
+        assert ContentTypeContract is not None
 
-    def test_admin_log_entry_blueprint_from_aquilia(self):
-        from aquilia import AdminLogEntryBlueprint
+    def test_admin_log_entry_contract_from_aquilia(self):
+        from aquilia import AdminLogEntryContract
 
-        assert AdminLogEntryBlueprint is not None
+        assert AdminLogEntryContract is not None
 
-    def test_admin_session_blueprint_from_aquilia(self):
-        from aquilia import AdminSessionBlueprint
+    def test_admin_session_contract_from_aquilia(self):
+        from aquilia import AdminSessionContract
 
-        assert AdminSessionBlueprint is not None
+        assert AdminSessionContract is not None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -655,58 +655,58 @@ class TestPasswordHashing:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# 9. BLUEPRINT TESTS
+# 9. CONTRACT TESTS
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class TestAdminBlueprints:
-    """Test the admin blueprint definitions."""
+class TestAdminContracts:
+    """Test the admin contract definitions."""
 
-    def test_import_all_blueprints(self):
-        from aquilia.admin.blueprints import (
-            AdminGroupBlueprint,
-            AdminLogEntryBlueprint,
-            AdminPermissionBlueprint,
-            AdminSessionBlueprint,
-            AdminUserBlueprint,
-            AdminUserCreateBlueprint,
-            ContentTypeBlueprint,
+    def test_import_all_contracts(self):
+        from aquilia.admin.contracts import (
+            AdminGroupContract,
+            AdminLogEntryContract,
+            AdminPermissionContract,
+            AdminSessionContract,
+            AdminUserContract,
+            AdminUserCreateContract,
+            ContentTypeContract,
         )
 
-        assert ContentTypeBlueprint is not None
-        assert AdminPermissionBlueprint is not None
-        assert AdminGroupBlueprint is not None
-        assert AdminUserBlueprint is not None
-        assert AdminUserCreateBlueprint is not None
-        assert AdminLogEntryBlueprint is not None
-        assert AdminSessionBlueprint is not None
+        assert ContentTypeContract is not None
+        assert AdminPermissionContract is not None
+        assert AdminGroupContract is not None
+        assert AdminUserContract is not None
+        assert AdminUserCreateContract is not None
+        assert AdminLogEntryContract is not None
+        assert AdminSessionContract is not None
 
-    def test_blueprint_all_export(self):
-        from aquilia.admin.blueprints import __all__
+    def test_contract_all_export(self):
+        from aquilia.admin.contracts import __all__
 
         expected = [
-            "ContentTypeBlueprint",
-            "AdminPermissionBlueprint",
-            "AdminGroupBlueprint",
-            "AdminUserBlueprint",
-            "AdminUserCreateBlueprint",
-            "AdminLogEntryBlueprint",
-            "AdminSessionBlueprint",
+            "ContentTypeContract",
+            "AdminPermissionContract",
+            "AdminGroupContract",
+            "AdminUserContract",
+            "AdminUserCreateContract",
+            "AdminLogEntryContract",
+            "AdminSessionContract",
         ]
         for name in expected:
             assert name in __all__
 
-    def test_admin_user_blueprint_has_spec(self):
-        from aquilia.admin.blueprints import _HAS_BLUEPRINTS, AdminUserBlueprint
+    def test_admin_user_contract_has_spec(self):
+        from aquilia.admin.contracts import _HAS_CONTRACTS, AdminUserContract
 
-        if _HAS_BLUEPRINTS:
-            assert hasattr(AdminUserBlueprint, "_spec")
+        if _HAS_CONTRACTS:
+            assert hasattr(AdminUserContract, "_spec")
 
-    def test_content_type_blueprint_has_spec(self):
-        from aquilia.admin.blueprints import ContentTypeBlueprint
+    def test_content_type_contract_has_spec(self):
+        from aquilia.admin.contracts import ContentTypeContract
 
-        # ContentTypeBlueprint is a backward-compat stub — no Spec
-        assert ContentTypeBlueprint is not None
+        # ContentTypeContract is a backward-compat stub — no Spec
+        assert ContentTypeContract is not None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -993,11 +993,11 @@ class TestAdminInitExports:
             "ContentType",
             "AdminLogEntry",
             "AdminSession",
-            "AdminUserBlueprint",
-            "AdminGroupBlueprint",
-            "ContentTypeBlueprint",
-            "AdminLogEntryBlueprint",
-            "AdminSessionBlueprint",
+            "AdminUserContract",
+            "AdminGroupContract",
+            "ContentTypeContract",
+            "AdminLogEntryContract",
+            "AdminSessionContract",
         ]
         for name in expected:
             assert name in __all__, f"{name} not in admin __all__"

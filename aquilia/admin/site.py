@@ -1656,7 +1656,7 @@ class AdminSite:
         Inspects the RenderClient, RenderDeployer, and RenderCredentialStore
         to build a complete view of services, deployments, databases,
         credentials, env groups, audit logs, user profile, projects,
-        custom domains, webhooks, blueprints, workspace members, and more.
+        custom domains, webhooks, contracts, workspace members, and more.
         """
         data: dict[str, Any] = {
             "available": False,
@@ -1691,8 +1691,8 @@ class AdminSite:
             "project_count": 0,
             "webhooks": [],
             "webhook_count": 0,
-            "blueprints": [],
-            "blueprint_count": 0,
+            "contracts": [],
+            "contract_count": 0,
             "registry_credentials": [],
             "registry_credential_count": 0,
             "notification_settings": {},
@@ -2019,14 +2019,14 @@ class AdminSite:
             except Exception:
                 pass
 
-            # ── Blueprints ──
+            # ── Contracts ──
             try:
-                if hasattr(client, "list_blueprints"):
-                    bp_raw = client.list_blueprints()
+                if hasattr(client, "list_contracts"):
+                    bp_raw = client.list_contracts()
                     if isinstance(bp_raw, list):
                         for bp in bp_raw:
                             b = bp if isinstance(bp, dict) else (bp.__dict__ if hasattr(bp, "__dict__") else {})
-                            data["blueprints"].append(
+                            data["contracts"].append(
                                 {
                                     "id": b.get("id", "—"),
                                     "name": b.get("name", "unnamed"),
@@ -2037,7 +2037,7 @@ class AdminSite:
                                     "created_at": str(b.get("createdAt", b.get("created_at", "—"))),
                                 }
                             )
-                        data["blueprint_count"] = len(data["blueprints"])
+                        data["contract_count"] = len(data["contracts"])
             except Exception:
                 pass
 
@@ -2102,7 +2102,7 @@ class AdminSite:
                 + data["kv_count"]
                 + data["env_group_count"]
                 + data["project_count"]
-                + data["blueprint_count"]
+                + data["contract_count"]
                 + data["webhook_count"]
                 + data["custom_domain_count"]
             ),
@@ -2111,7 +2111,7 @@ class AdminSite:
             "kv_stores": data["kv_count"],
             "env_groups": data["env_group_count"],
             "projects": data["project_count"],
-            "blueprints": data["blueprint_count"],
+            "contracts": data["contract_count"],
             "webhooks": data["webhook_count"],
             "custom_domains": data["custom_domain_count"],
             "registry_creds": data["registry_credential_count"],

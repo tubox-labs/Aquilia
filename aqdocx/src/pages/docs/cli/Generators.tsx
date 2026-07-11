@@ -67,7 +67,7 @@ export function CLIGenerators() {
 ├── manifest.py           # Module service & controller registry manifest
 ├── controllers.py        # Controller implementations
 ├── models.py             # Database ORM models
-├── schemas.py            # Input validation blueprints
+├── schemas.py            # Input validation contracts
 ├── services.py           # Business service providers
 └── tests/                # Module test suites`}
         </div>

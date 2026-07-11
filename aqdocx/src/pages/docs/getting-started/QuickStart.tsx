@@ -28,7 +28,7 @@ export function QuickStartPage() {
 
         <p className={`text-lg ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
           This guide walks you through creating, configuring, and running an Aquilia application from scratch.
-          By the end, you'll have a multi-endpoint REST API with dependency injection, validation blueprints, database models, and unit tests.
+          By the end, you'll have a multi-endpoint REST API with dependency injection, validation contracts, database models, and unit tests.
         </p>
       </div>
 
@@ -175,7 +175,7 @@ aq add module tasks`}
           code={`modules/tasks/
 ├── __init__.py
 ├── manifest.py       # Module identity, component imports, and error domain settings
-├── blueprints.py     # Request data validation classes
+├── contracts.py     # Request data validation classes
 ├── controllers.py    # Request handlers & HTTP routing
 ├── services.py       # Core business logic
 ├── faults.py         # Domain-specific error codes
@@ -237,14 +237,14 @@ __version__ = "0.1.0"`}
           />
         </div>
 
-        {/* blueprints.py */}
+        {/* contracts.py */}
         <div className="mb-6">
-          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/blueprints.py</p>
+          <p className={`text-sm font-mono mb-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>modules/tasks/contracts.py</p>
           <CodeBlock
-            code={`from aquilia import Blueprint
+            code={`from aquilia import Contract
 
-class TaskBlueprint(Blueprint):
-    """Blueprint for Task input validation."""
+class TaskContract(Contract):
+    """Contract for Task input validation."""
     name: str
     description: str | None = None
     active: bool = True
@@ -262,7 +262,7 @@ class TaskBlueprint(Blueprint):
             code={`from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
 from .faults import TasksNotFoundFault
 from .services import TasksService
-from .blueprints import TaskBlueprint
+from .contracts import TaskContract
 
 class TasksController(Controller):
     """Controller for tasks endpoints."""
@@ -283,8 +283,8 @@ class TasksController(Controller):
         })
 
     @POST("/")
-    async def create_task(self, ctx: RequestCtx, data: TaskBlueprint):
-        """Create a new task, validating parameters using TaskBlueprint."""
+    async def create_task(self, ctx: RequestCtx, data: TaskContract):
+        """Create a new task, validating parameters using TaskContract."""
         item = await self.service.create(data.to_dict())
         return Response.json(item, status=201)
 
@@ -297,7 +297,7 @@ class TasksController(Controller):
         return Response.json(item)
 
     @PUT("/<id:int>")
-    async def update_task(self, ctx: RequestCtx, id: int, data: TaskBlueprint):
+    async def update_task(self, ctx: RequestCtx, id: int, data: TaskContract):
         """Update a task by ID."""
         item = await self.service.update(id, data.to_dict())
         if not item:

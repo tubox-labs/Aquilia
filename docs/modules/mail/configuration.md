@@ -1,6 +1,6 @@
 # Mail Configuration
 
-Async mail subsystem with message classes, config blueprints, providers, DI registration, templates, faults, and convenience send APIs.
+Async mail subsystem with message classes, config contracts, providers, DI registration, templates, faults, and convenience send APIs.
 
 This page distinguishes direct configuration APIs from indirect runtime wiring. All class names and source files below are extracted from the current source tree.
 
@@ -31,13 +31,13 @@ This module exposes config-oriented public classes. Use the table below to locat
 
 | Class | Source | Methods | Summary |
 | --- | --- | --- | --- |
-| `ProviderConfigBlueprint` | `aquilia/mail/config.py` | `validate` | Blueprint for a single mail provider configuration. |
-| `MailAuthConfigBlueprint` | `aquilia/mail/config.py` | `validate` | Blueprint for mail provider authentication credentials. |
-| `RetryConfigBlueprint` | `aquilia/mail/config.py` | `validate` | Blueprint for retry / backoff configuration. |
-| `RateLimitConfigBlueprint` | `aquilia/mail/config.py` |  | Blueprint for global and per-domain rate-limiting. |
-| `SecurityConfigBlueprint` | `aquilia/mail/config.py` | `validate` | Blueprint for security / deliverability settings. |
-| `TemplateConfigBlueprint` | `aquilia/mail/config.py` |  | Blueprint for ATS template engine configuration. |
-| `QueueConfigBlueprint` | `aquilia/mail/config.py` |  | Blueprint for queue / storage settings. |
+| `ProviderConfigContract` | `aquilia/mail/config.py` | `validate` | Contract for a single mail provider configuration. |
+| `MailAuthConfigContract` | `aquilia/mail/config.py` | `validate` | Contract for mail provider authentication credentials. |
+| `RetryConfigContract` | `aquilia/mail/config.py` | `validate` | Contract for retry / backoff configuration. |
+| `RateLimitConfigContract` | `aquilia/mail/config.py` |  | Contract for global and per-domain rate-limiting. |
+| `SecurityConfigContract` | `aquilia/mail/config.py` | `validate` | Contract for security / deliverability settings. |
+| `TemplateConfigContract` | `aquilia/mail/config.py` |  | Contract for ATS template engine configuration. |
+| `QueueConfigContract` | `aquilia/mail/config.py` |  | Contract for queue / storage settings. |
 | `ProviderConfig` | `aquilia/mail/config.py` |  | Attribute-access wrapper for a validated provider config. |
 | `RetryConfig` | `aquilia/mail/config.py` |  | Attribute-access wrapper for a validated retry config. |
 | `RateLimitConfig` | `aquilia/mail/config.py` |  | Attribute-access wrapper for a validated rate-limit config. |

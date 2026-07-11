@@ -139,7 +139,7 @@ class DataObject(dict):
     """
     A dictionary subclass that supports dot-notation access to its keys.
 
-    This is used for validated data in serializers and blueprints to provide
+    This is used for validated data in serializers and contracts to provide
     a Pydantic-like or JavaScript-like developer experience.
 
     Example:

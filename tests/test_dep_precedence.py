@@ -1,23 +1,23 @@
 """
 Regression tests for Dep() vs request body precedence.
 
-Bug: When a controller handler declares a Blueprint-typed parameter with
+Bug: When a controller handler declares a Contract-typed parameter with
 ``Dep(callable)`` as a default value, the request body was overriding the
 dependency result.
 
 Fix: metadata.py's _extract_method_params() now checks param.default for
-Dep(...) BEFORE checking _is_blueprint_type(). engine.py's _bind_parameters()
+Dep(...) BEFORE checking _is_contract_type(). engine.py's _bind_parameters()
 dep branch now falls back to param.default for Dep descriptor lookup.
 
 Covers:
-  - Blueprint dependency winning over request body
-  - Non-blueprint dependency injection via Dep default
+  - Contract dependency winning over request body
+  - Non-contract dependency injection via Dep default
   - Async dependency providers
   - Sync dependency providers
-  - Multiple parameters with mixed Dep + body-bound blueprints
+  - Multiple parameters with mixed Dep + body-bound contracts
   - Dep default with Annotated[T, Dep(...)] parity
   - Missing/None dependency returns
-  - Backward compatibility: body parsing for non-Dep blueprints
+  - Backward compatibility: body parsing for non-Dep contracts
   - Metadata source classification correctness
   - Engine _bind_parameters integration
 """
@@ -30,7 +30,7 @@ from typing import Annotated
 
 import pytest
 
-from aquilia.blueprints import Blueprint
+from aquilia.contracts import Contract
 from aquilia.controller.base import Controller, RequestCtx
 from aquilia.controller.decorators import POST
 from aquilia.controller.engine import ControllerEngine
@@ -45,27 +45,27 @@ from aquilia.di.request_dag import RequestDAG
 from aquilia.request import Request
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Test Blueprints
+#  Test Contracts
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class SimpleBlueprint(Blueprint):
+class SimpleContract(Contract):
     slug: str
     title: str = "default"
 
 
-class OrderItemBP(Blueprint):
+class OrderItemBP(Contract):
     product_id: int
     qty: int
     price: float
 
 
-class OrderBP(Blueprint):
+class OrderBP(Contract):
     items: list
     total: float
 
 
-class TagBP(Blueprint):
+class TagBP(Contract):
     name: str
     color: str = "blue"
 
@@ -75,16 +75,16 @@ class TagBP(Blueprint):
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-async def get_simple_async() -> SimpleBlueprint:
-    """Async provider: returns a Blueprint with fixed data."""
-    bp = SimpleBlueprint(data={"slug": "from-dep", "title": "Dep Title"})
+async def get_simple_async() -> SimpleContract:
+    """Async provider: returns a Contract with fixed data."""
+    bp = SimpleContract(data={"slug": "from-dep", "title": "Dep Title"})
     bp.is_sealed(raise_fault=True)
     return bp
 
 
-def get_simple_sync() -> SimpleBlueprint:
-    """Sync provider: returns a Blueprint with fixed data."""
-    bp = SimpleBlueprint(data={"slug": "sync-dep", "title": "Sync Title"})
+def get_simple_sync() -> SimpleContract:
+    """Sync provider: returns a Contract with fixed data."""
+    bp = SimpleContract(data={"slug": "sync-dep", "title": "Sync Title"})
     bp.is_sealed(raise_fault=True)
     return bp
 
@@ -103,18 +103,18 @@ def get_tag_sync() -> TagBP:
     return bp
 
 
-async def get_none_dep() -> SimpleBlueprint | None:
+async def get_none_dep() -> SimpleContract | None:
     """Provider that returns None."""
     return None
 
 
 async def get_string_dep() -> str:
-    """Non-blueprint provider returning a string."""
+    """Non-contract provider returning a string."""
     return "injected-string"
 
 
 def get_int_sync() -> int:
-    """Sync non-blueprint provider returning an int."""
+    """Sync non-contract provider returning an int."""
     return 42
 
 
@@ -126,13 +126,13 @@ def get_int_sync() -> int:
 class DepPrecedenceController(Controller):
     prefix = "/test"
 
-    # The original bug case: Blueprint-typed param with Dep default
-    @POST("/blueprint-dep")
-    async def blueprint_dep(
+    # The original bug case: Contract-typed param with Dep default
+    @POST("/contract-dep")
+    async def contract_dep(
         self,
         ctx: RequestCtx,
         orders: OrderBP,
-        article: SimpleBlueprint = Dep(get_simple_async),
+        article: SimpleContract = Dep(get_simple_async),
     ):
         return {
             "order_total": orders.total,
@@ -140,12 +140,12 @@ class DepPrecedenceController(Controller):
         }
 
     # Sync dependency provider
-    @POST("/blueprint-dep-sync")
-    async def blueprint_dep_sync(
+    @POST("/contract-dep-sync")
+    async def contract_dep_sync(
         self,
         ctx: RequestCtx,
         orders: OrderBP,
-        article: SimpleBlueprint = Dep(get_simple_sync),
+        article: SimpleContract = Dep(get_simple_sync),
     ):
         return {
             "order_total": orders.total,
@@ -158,7 +158,7 @@ class DepPrecedenceController(Controller):
         self,
         ctx: RequestCtx,
         orders: OrderBP,
-        article: SimpleBlueprint = Dep(get_simple_async),
+        article: SimpleContract = Dep(get_simple_async),
         tag: TagBP = Dep(get_tag_async),
     ):
         return {
@@ -167,13 +167,13 @@ class DepPrecedenceController(Controller):
             "tag_name": tag.name if hasattr(tag, "name") else str(tag),
         }
 
-    # Mixed: one body-bound blueprint + one Dep blueprint + one sync Dep blueprint
+    # Mixed: one body-bound contract + one Dep contract + one sync Dep contract
     @POST("/mixed-deps")
     async def mixed_deps(
         self,
         ctx: RequestCtx,
         orders: OrderBP,
-        article: SimpleBlueprint = Dep(get_simple_async),
+        article: SimpleContract = Dep(get_simple_async),
         tag: TagBP = Dep(get_tag_sync),
     ):
         return {
@@ -183,7 +183,7 @@ class DepPrecedenceController(Controller):
             "tag_color": tag.color,
         }
 
-    # Non-blueprint Dep default (string)
+    # Non-contract Dep default (string)
     @POST("/non-bp-dep")
     async def non_bp_dep(
         self,
@@ -193,7 +193,7 @@ class DepPrecedenceController(Controller):
     ):
         return {"order_total": orders.total, "label": label}
 
-    # Non-blueprint Dep default (int, sync)
+    # Non-contract Dep default (int, sync)
     @POST("/non-bp-dep-sync")
     async def non_bp_dep_sync(
         self,
@@ -203,12 +203,12 @@ class DepPrecedenceController(Controller):
     ):
         return {"order_total": orders.total, "count": count}
 
-    # No Dep -- standard body-bound blueprint (backward compat)
+    # No Dep -- standard body-bound contract (backward compat)
     @POST("/body-only")
     async def body_only(
         self,
         ctx: RequestCtx,
-        article: SimpleBlueprint,
+        article: SimpleContract,
     ):
         return {"slug": article.slug, "title": article.title}
 
@@ -272,7 +272,7 @@ class TestHasDepDefault:
 
     def test_dep_default_detected(self):
         """Dep(...) default value is detected."""
-        sig = inspect.signature(DepPrecedenceController.blueprint_dep)
+        sig = inspect.signature(DepPrecedenceController.contract_dep)
         param = sig.parameters["article"]
         assert _has_dep_default(param) is True
 
@@ -302,22 +302,22 @@ class TestHasDepDefault:
 class TestMetadataSourceClassification:
     """Tests that _extract_method_params classifies Dep-defaulted params correctly."""
 
-    def test_blueprint_with_dep_default_classified_as_dep(self):
-        """Blueprint-typed param with Dep default gets source='dep', not 'body'."""
+    def test_contract_with_dep_default_classified_as_dep(self):
+        """Contract-typed param with Dep default gets source='dep', not 'body'."""
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep")
 
         # Find the 'article' parameter
         article_param = next(p for p in route.parameters if p.name == "article")
         assert article_param.source == "dep", (
             f"Expected source='dep', got source='{article_param.source}'. "
-            "Blueprint-typed params with Dep defaults must be classified as 'dep'."
+            "Contract-typed params with Dep defaults must be classified as 'dep'."
         )
 
-    def test_body_blueprint_without_dep_classified_as_body(self):
-        """Blueprint-typed param WITHOUT Dep default stays source='body'."""
+    def test_body_contract_without_dep_classified_as_body(self):
+        """Contract-typed param WITHOUT Dep default stays source='body'."""
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep")
 
         orders_param = next(p for p in route.parameters if p.name == "orders")
         assert orders_param.source == "body"
@@ -335,8 +335,8 @@ class TestMetadataSourceClassification:
         assert tag_param.source == "dep"
         assert orders_param.source == "body"
 
-    def test_non_blueprint_dep_default_classified_as_dep(self):
-        """Non-Blueprint param with Dep default gets source='dep'."""
+    def test_non_contract_dep_default_classified_as_dep(self):
+        """Non-Contract param with Dep default gets source='dep'."""
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
         route = next(r for r in meta.routes if r.handler_name == "non_bp_dep")
 
@@ -346,13 +346,13 @@ class TestMetadataSourceClassification:
     def test_sync_dep_default_classified_as_dep(self):
         """Sync Dep provider default is also classified as 'dep'."""
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep_sync")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep_sync")
 
         article_param = next(p for p in route.parameters if p.name == "article")
         assert article_param.source == "dep"
 
     def test_backward_compat_body_only(self):
-        """Body-only blueprint (no Dep) is still classified as 'body'."""
+        """Body-only contract (no Dep) is still classified as 'body'."""
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
         route = next(r for r in meta.routes if r.handler_name == "body_only")
 
@@ -370,7 +370,7 @@ class TestDepPrecedenceBinding:
 
     @pytest.mark.asyncio
     async def test_dep_wins_over_request_body(self):
-        """Core bug fix: Dep-provided Blueprint is NOT overridden by request body."""
+        """Core bug fix: Dep-provided Contract is NOT overridden by request body."""
         body = {
             "items": [{"product_id": 1, "qty": 2, "price": 10.0}],
             "total": 20.0,
@@ -383,14 +383,14 @@ class TestDepPrecedenceBinding:
 
         engine = ControllerEngine(ControllerFactory())
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep")
 
         kwargs, dag = await engine._bind_parameters(route, req, ctx, {}, container)
 
         # The article param should come from Dep(get_simple_async), NOT from body
         assert "article" in kwargs
         article = kwargs["article"]
-        assert hasattr(article, "slug"), f"Expected Blueprint instance, got {type(article)}"
+        assert hasattr(article, "slug"), f"Expected Contract instance, got {type(article)}"
         assert article.slug == "from-dep", (
             f"Expected slug='from-dep' from Dep, got slug='{article.slug}'. "
             "Request body is still overriding the dependency!"
@@ -418,7 +418,7 @@ class TestDepPrecedenceBinding:
 
         engine = ControllerEngine(ControllerFactory())
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep_sync")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep_sync")
 
         kwargs, dag = await engine._bind_parameters(route, req, ctx, {}, container)
 
@@ -486,8 +486,8 @@ class TestDepPrecedenceBinding:
             await dag.teardown()
 
     @pytest.mark.asyncio
-    async def test_non_blueprint_dep_resolved(self):
-        """Non-blueprint type with Dep default is resolved correctly."""
+    async def test_non_contract_dep_resolved(self):
+        """Non-contract type with Dep default is resolved correctly."""
         body = {
             "items": [{"product_id": 1, "qty": 1, "price": 10.0}],
             "total": 10.0,
@@ -509,8 +509,8 @@ class TestDepPrecedenceBinding:
             await dag.teardown()
 
     @pytest.mark.asyncio
-    async def test_non_blueprint_sync_dep_resolved(self):
-        """Non-blueprint sync Dep provider resolves correctly."""
+    async def test_non_contract_sync_dep_resolved(self):
+        """Non-contract sync Dep provider resolves correctly."""
         body = {
             "items": [{"product_id": 1, "qty": 1, "price": 10.0}],
             "total": 10.0,
@@ -537,11 +537,11 @@ class TestDepPrecedenceBinding:
 
 
 class TestBackwardCompatibility:
-    """Ensure existing body-bound Blueprint behavior is preserved."""
+    """Ensure existing body-bound Contract behavior is preserved."""
 
     @pytest.mark.asyncio
-    async def test_body_blueprint_without_dep_still_works(self):
-        """Blueprint param without Dep default still parses from body."""
+    async def test_body_contract_without_dep_still_works(self):
+        """Contract param without Dep default still parses from body."""
         body = {"slug": "hello-world", "title": "Hello World"}
         req = make_request(body=body)
         ctx = RequestCtx(request=req)
@@ -561,8 +561,8 @@ class TestBackwardCompatibility:
             await dag.teardown()
 
     @pytest.mark.asyncio
-    async def test_body_blueprint_in_mixed_handler_still_works(self):
-        """Body-bound blueprint (orders) in handler with Dep params still parses correctly."""
+    async def test_body_contract_in_mixed_handler_still_works(self):
+        """Body-bound contract (orders) in handler with Dep params still parses correctly."""
         body = {
             "items": [{"product_id": 99, "qty": 3, "price": 29.99}],
             "total": 89.97,
@@ -572,7 +572,7 @@ class TestBackwardCompatibility:
 
         engine = ControllerEngine(ControllerFactory())
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep")
 
         kwargs, dag = await engine._bind_parameters(route, req, ctx, {}, make_container())
 
@@ -593,11 +593,11 @@ class TestDepEdgeCases:
 
     @pytest.mark.asyncio
     async def test_dep_result_not_contaminated_by_body_fields(self):
-        """Even if body contains fields matching the Dep-provided Blueprint, Dep wins."""
+        """Even if body contains fields matching the Dep-provided Contract, Dep wins."""
         body = {
             "items": [],
             "total": 0,
-            # These fields match SimpleBlueprint fields but should NOT affect Dep result
+            # These fields match SimpleContract fields but should NOT affect Dep result
             "slug": "MALICIOUS-OVERRIDE",
             "title": "SHOULD-NOT-APPEAR",
         }
@@ -606,7 +606,7 @@ class TestDepEdgeCases:
 
         engine = ControllerEngine(ControllerFactory())
         meta = extract_controller_metadata(DepPrecedenceController, "test:DepPrec")
-        route = next(r for r in meta.routes if r.handler_name == "blueprint_dep")
+        route = next(r for r in meta.routes if r.handler_name == "contract_dep")
 
         kwargs, dag = await engine._bind_parameters(route, req, ctx, {}, make_container())
 
@@ -643,7 +643,7 @@ class TestDepEdgeCases:
             async def handler(
                 self,
                 ctx: RequestCtx,
-                article: Annotated[SimpleBlueprint, Dep(get_simple_async)],
+                article: Annotated[SimpleContract, Dep(get_simple_async)],
             ):
                 return {}
 
@@ -668,9 +668,9 @@ class TestRequestDAGDepResolution:
         dag = RequestDAG(container, request=None)
 
         dep = Dep(get_simple_async)
-        result = await dag.resolve(dep, SimpleBlueprint)
+        result = await dag.resolve(dep, SimpleContract)
 
-        assert isinstance(result, SimpleBlueprint)
+        assert isinstance(result, SimpleContract)
         assert result.slug == "from-dep"
 
         await dag.teardown()
@@ -682,9 +682,9 @@ class TestRequestDAGDepResolution:
         dag = RequestDAG(container, request=None)
 
         dep = Dep(get_simple_sync)
-        result = await dag.resolve(dep, SimpleBlueprint)
+        result = await dag.resolve(dep, SimpleContract)
 
-        assert isinstance(result, SimpleBlueprint)
+        assert isinstance(result, SimpleContract)
         assert result.slug == "sync-dep"
 
         await dag.teardown()
@@ -735,16 +735,16 @@ class TestRequestDAGDepResolution:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-#  Test Annotated Extraction (Header, Query, Body, Dep) with Blueprints
+#  Test Annotated Extraction (Header, Query, Body, Dep) with Contracts
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-class OrderBlueprint(Blueprint):
+class OrderContract(Contract):
     total: float
     items: list[str]
 
 
-class ArticleBlueprint(Blueprint):
+class ArticleContract(Contract):
     id: int
     title: str
 
@@ -752,12 +752,12 @@ class ArticleBlueprint(Blueprint):
 from aquilia.di.dep import Body, Header, Query
 
 
-# Define dependency provider returning a Blueprint at module scope
+# Define dependency provider returning a Contract at module scope
 async def get_article(
     article_id: Annotated[int, Query("article_id")],
-) -> ArticleBlueprint:
+) -> ArticleContract:
     # Simulated db lookup
-    bp = ArticleBlueprint(data={"id": article_id, "title": "Aquilia Guide"})
+    bp = ArticleContract(data={"id": article_id, "title": "Aquilia Guide"})
     bp.is_sealed(raise_fault=True)
     return bp
 
@@ -768,9 +768,9 @@ class BriefController(Controller):
     async def order(
         self,
         ctx: RequestCtx,
-        orders: OrderBlueprint,
+        orders: OrderContract,
         header: Annotated[str, Header("content-type")],
-        article: ArticleBlueprint = Dep(get_article),
+        article: ArticleContract = Dep(get_article),
     ):
         return {
             "header": header,
@@ -783,7 +783,7 @@ class BriefController(Controller):
         }
 
 
-class UserProfile(Blueprint):
+class UserProfile(Contract):
     username: str
     email: str
 
@@ -795,10 +795,10 @@ async def get_user_profile(
 
 
 class TestAnnotatedExtractorDI:
-    """Covers extraction using Annotated[T, Header/Query/Body] and Dep containing Blueprints."""
+    """Covers extraction using Annotated[T, Header/Query/Body] and Dep containing Contracts."""
 
     @pytest.mark.asyncio
-    async def test_controller_header_query_body_and_dep_with_blueprints(self):
+    async def test_controller_header_query_body_and_dep_with_contracts(self):
         from aquilia.controller.engine import ControllerEngine
         from aquilia.controller.metadata import extract_controller_metadata
 
@@ -850,9 +850,9 @@ class TestAnnotatedExtractorDI:
         )
 
         assert kwargs["header"] == "application/json"
-        assert isinstance(kwargs["orders"], OrderBlueprint)
+        assert isinstance(kwargs["orders"], OrderContract)
         assert kwargs["orders"].total == 99.9
-        assert isinstance(kwargs["article"], ArticleBlueprint)
+        assert isinstance(kwargs["article"], ArticleContract)
         assert kwargs["article"].id == 42
         assert kwargs["article"].title == "Aquilia Guide"
 
@@ -870,7 +870,7 @@ class TestAnnotatedExtractorDI:
         }
 
     @pytest.mark.asyncio
-    async def test_sub_dependency_annotated_body_blueprint_extraction(self):
+    async def test_sub_dependency_annotated_body_contract_extraction(self):
         container = make_container()
         body_bytes = json.dumps({"username": "alex", "email": "alex@example.com"}).encode("utf-8")
         scope = {

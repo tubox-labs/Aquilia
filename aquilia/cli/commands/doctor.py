@@ -86,7 +86,7 @@ def _check_aquilia_installation(report: DiagnosticReport) -> None:
         ("aquilia.faults", "Fault system"),
         ("aquilia.controller", "Controller system"),
         ("aquilia.effects", "Effects system"),
-        ("aquilia.blueprints", "Blueprints"),
+        ("aquilia.contracts", "Contracts"),
     ]
     for mod_path, label in sub_packages:
         try:

@@ -1,18 +1,18 @@
 from typing import Annotated, Literal
 
-from aquilia.blueprints import Blueprint, BlueprintUnion, Facet
+from aquilia.contracts import Contract, ContractUnion, Facet
 
 
 def test_sigil_content_hash():
-    class SimpleBP(Blueprint):
+    class SimpleBP(Contract):
         name: str
         age: int
 
-    class SimpleBP2(Blueprint):
+    class SimpleBP2(Contract):
         name: str
         age: int
 
-    class DiffBP(Blueprint):
+    class DiffBP(Contract):
         name: str
         age: float  # changed type
 
@@ -21,11 +21,11 @@ def test_sigil_content_hash():
 
 
 def test_sigil_diff():
-    class BaseBP(Blueprint):
+    class BaseBP(Contract):
         name: str
         age: int
 
-    class NewBP(Blueprint):
+    class NewBP(Contract):
         name: str
         email: str
         age: float
@@ -36,18 +36,18 @@ def test_sigil_diff():
     assert diff.breaking is True  # because age type changed from int to float
 
 
-def test_blueprint_union_dispatch_literal():
-    class Circle(Blueprint):
+def test_contract_union_dispatch_literal():
+    class Circle(Contract):
         type: Literal["circle"]
         radius: float
 
-    class Square(Blueprint):
+    class Square(Contract):
         type: Literal["square"]
         side: float
 
     Shape = Circle | Square
 
-    assert isinstance(Shape, BlueprintUnion)
+    assert isinstance(Shape, ContractUnion)
 
     # Test Circle validation
     errors, val = Shape.validate({"type": "circle", "radius": 5.0})
@@ -67,15 +67,15 @@ def test_blueprint_union_dispatch_literal():
     assert "__all__" in errors or "type" in errors
 
 
-def test_blueprint_union_dispatch_discriminator():
-    class Dog(Blueprint):
+def test_contract_union_dispatch_discriminator():
+    class Dog(Contract):
         class Spec:
             discriminator = "kind"
 
         kind: str
         bark_volume: int
 
-    class Cat(Blueprint):
+    class Cat(Contract):
         class Spec:
             discriminator = "kind"
 
@@ -83,7 +83,7 @@ def test_blueprint_union_dispatch_discriminator():
         purr_frequency: float
 
     Animal = Dog | Cat
-    assert isinstance(Animal, BlueprintUnion)
+    assert isinstance(Animal, ContractUnion)
 
     errors, val = Animal.validate({"kind": "Dog", "bark_volume": 11})
     assert not errors
@@ -91,14 +91,14 @@ def test_blueprint_union_dispatch_discriminator():
     assert val["bark_volume"] == 11
 
 
-def test_blueprint_revision_migration():
-    class V1(Blueprint):
+def test_contract_revision_migration():
+    class V1(Contract):
         class Spec:
             revision = 1
 
         username: str
 
-    class V2(Blueprint):
+    class V2(Contract):
         class Spec:
             revision = 2
             migrate_from = V1
@@ -120,27 +120,27 @@ def test_blueprint_revision_migration():
 
 
 def test_new_facets_and_pipeline_schema_merging():
-    from aquilia.blueprints.transforms import dasherize, lower, strip
+    from aquilia.contracts.transforms import dasherize, lower, strip
 
-    class ArticleBlueprint(Blueprint):
+    class ArticleContract(Contract):
         slug: Annotated[str, Facet.text() >> strip >> lower >> dasherize >> Facet.pattern(r"^[a-z0-9-]+$")]
         author_email: Annotated[str, Facet.email()]
         website: Annotated[str, Facet.url()]
 
     # Verify that Facet proxy methods created correct facets
-    assert ArticleBlueprint.get_facet("slug") is not None
-    assert ArticleBlueprint.get_facet("author_email") is not None
-    assert ArticleBlueprint.get_facet("website") is not None
+    assert ArticleContract.get_facet("slug") is not None
+    assert ArticleContract.get_facet("author_email") is not None
+    assert ArticleContract.get_facet("website") is not None
 
     # Test pipeline execution
-    ok = ArticleBlueprint(
+    ok = ArticleContract(
         data={"slug": "  My Great SLUG  ", "author_email": "test@example.com", "website": "https://example.com"}
     )
     assert ok.is_sealed() is True
     assert ok.validated_data["slug"] == "my-great-slug"
 
     # Verify pipeline schema merging
-    sch = ArticleBlueprint.to_schema()
+    sch = ArticleContract.to_schema()
     slug_sch = sch["properties"]["slug"]
     assert slug_sch["type"] == "string"
     assert slug_sch["pattern"] == "^[a-z0-9-]+$"

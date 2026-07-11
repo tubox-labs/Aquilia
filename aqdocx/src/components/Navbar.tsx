@@ -1,12 +1,10 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import {
-  Sun, Moon, Github, BookOpen, Menu, Tag, Activity, FileText
+  Sun, Moon, Github, BookOpen, Menu, Tag, Activity, FileText, X, Megaphone, ArrowRight
 } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { UniversalSearch } from './UniversalSearch'
-
-
 
 interface NavbarProps {
   onToggleSidebar?: () => void
@@ -17,12 +15,66 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const location = useLocation()
   const isDark = theme === 'dark'
+  const navRef = useRef<HTMLDivElement>(null)
+
+  const [showBanner, setShowBanner] = useState(() => {
+    const saved = localStorage.getItem('aquilia-v13-rename-banner')
+    return saved !== 'dismissed'
+  })
+
+  // Measure dynamic navbar height and set CSS variable
+  useEffect(() => {
+    if (!navRef.current) return
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const height = entry.contentBoxSize
+          ? entry.contentBoxSize[0].blockSize
+          : entry.contentRect.height
+        document.documentElement.style.setProperty('--navbar-height', `${height}px`)
+      }
+    })
+    resizeObserver.observe(navRef.current)
+    return () => resizeObserver.disconnect()
+  }, [showBanner])
+
+  const dismissBanner = () => {
+    localStorage.setItem('aquilia-v13-rename-banner', 'dismissed')
+    setShowBanner(false)
+  }
 
   // Close on route change
   useEffect(() => { setMobileMenuOpen(false) }, [location.pathname])
 
   return (
-    <nav className="fixed w-full z-40 glass border-b border-[var(--border-color)]/50 print:hidden">
+    <nav ref={navRef} className="fixed w-full z-40 glass border-b border-[var(--border-color)]/50 print:hidden">
+      {showBanner && (
+        <div className="bg-gradient-to-r from-aquilia-600 via-purple-600 to-indigo-600 text-white text-[11px] sm:text-xs py-2.5 px-4 relative overflow-hidden flex items-center justify-between gap-4 border-b border-white/10">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.15),transparent_45%)] pointer-events-none" />
+          
+          <div className="flex-grow flex flex-wrap items-center justify-center gap-x-2 gap-y-1 relative z-10 text-center">
+            <Megaphone className="w-3.5 h-3.5 text-yellow-300 animate-pulse shrink-0 inline" />
+            <span className="font-medium tracking-tight">
+              <span className="font-bold bg-white/20 px-1.5 py-0.5 rounded mr-1.5 text-[9px] uppercase tracking-wider inline-block">V1.3.0 Release</span>
+              Aquilia's major validation/molding primitive has been renamed: <strong className="font-semibold text-yellow-200">Blueprint → Contract</strong>
+            </span>
+            <Link 
+              to="/docs/contracts/overview" 
+              className="inline-flex items-center gap-0.5 ml-1 font-bold hover:text-yellow-200 transition-colors group/link underline decoration-yellow-200/40 hover:decoration-yellow-200 shrink-0"
+            >
+              <span>Learn More</span>
+              <ArrowRight className="w-3 h-3 group-hover/link:translate-x-0.5 transition-transform duration-200" />
+            </Link>
+          </div>
+
+          <button 
+            onClick={dismissBanner}
+            className="p-1 rounded-full hover:bg-white/10 transition-colors text-white/80 hover:text-white shrink-0 relative z-10"
+            aria-label="Dismiss banner"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
       <div className="max-w-[90rem] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Left: Hamburger + Logo */}

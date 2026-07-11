@@ -307,7 +307,7 @@ export function BenchmarkPage() {
         <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       </div>
 
-      <main className="flex-grow pt-16 relative">
+      <main className="flex-grow pt-[var(--navbar-height,64px)] relative">
         <div
           className={`fixed inset-0 z-[-1] opacity-20 ${isDark ? '' : 'opacity-5'}`}
           style={{

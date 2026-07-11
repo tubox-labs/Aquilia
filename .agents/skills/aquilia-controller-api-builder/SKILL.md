@@ -1,6 +1,6 @@
 ---
 name: aquilia-controller-api-builder
-description: "Build Aquilia HTTP APIs with Controller, RequestCtx, Response, route decorators, blueprints, filters, pagination, renderers, OpenAPI metadata, and route debugging. Use for controller methods and request/response behavior."
+description: "Build Aquilia HTTP APIs with Controller, RequestCtx, Response, route decorators, contracts, filters, pagination, renderers, OpenAPI metadata, and route debugging. Use for controller methods and request/response behavior."
 ---
 
 # Aquilia Controller Api Builder
@@ -14,7 +14,7 @@ Use for API endpoints, CRUD controllers, request parsing, response formatting, r
 ## Inputs
 - Controller class name, prefix, tags, HTTP methods, paths, and path parameter types.
 - Request body and response shape.
-- Optional request/response blueprints, filters, search, ordering, pagination, renderers, throttles, timeouts, and version binding.
+- Optional request/response contracts, filters, search, ordering, pagination, renderers, throttles, timeouts, and version binding.
 
 ## Execution Flow
 1. Subclass `Controller` and set `prefix` and `tags` when useful.
@@ -33,7 +33,7 @@ Use for API endpoints, CRUD controllers, request parsing, response formatting, r
 
 ## Examples
 - Implement `GET /projects/<key:str>` returning `Response.json(await service.get_project(key))`.
-- Add `@POST("/", status_code=201)` and validate `await ctx.json()` with a Blueprint.
+- Add `@POST("/", status_code=201)` and validate `await ctx.json()` with a Contract.
 - Bind a route with `version="2.0"` for version-aware matching.
 
 ## Failure Handling

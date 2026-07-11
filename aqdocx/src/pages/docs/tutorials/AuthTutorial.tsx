@@ -23,7 +23,7 @@ export function AuthTutorialPage() {
   const steps = [
     { id: 1, title: 'Architecture', icon: <BookOpen className="w-4 h-4" /> },
     { id: 2, title: 'User Model', icon: <Database className="w-4 h-4" /> },
-    { id: 3, title: 'Blueprints', icon: <Tag className="w-4 h-4" /> },
+    { id: 3, title: 'Contracts', icon: <Tag className="w-4 h-4" /> },
     { id: 4, title: 'Auth Faults', icon: <Shield className="w-4 h-4" /> },
     { id: 5, title: 'UserService', icon: <Settings className="w-4 h-4" /> },
     { id: 6, title: 'Controller', icon: <Terminal className="w-4 h-4" /> },
@@ -245,13 +245,13 @@ class User(Model):
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.2 }}
             >
-              <h3 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Step 3: Creating Validation Blueprints & Wards</h3>
+              <h3 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Step 3: Creating Validation Contracts & Wards</h3>
               <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                Open <code className="text-aquilia-400">modules/auth/blueprints.py</code>. We will define schemas to validate register and login requests.
+                Open <code className="text-aquilia-400">modules/auth/contracts.py</code>. We will define schemas to validate register and login requests.
                 We will showcase Aquilia's validation transforms (<code className="text-aquilia-400">{" >> "}</code> shift composition operator) to clean inputs:
               </p>
 
-              {/* Stacked Blueprint definition styles */}
+              {/* Stacked Contract definition styles */}
               <div className="space-y-6 my-6">
                 <div>
                   <h4 className={`text-md font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Option A: Explicit Facet Descriptors</h4>
@@ -259,10 +259,10 @@ class User(Model):
                     Uses explicit <DocTerm id="bp.facet">Facet</DocTerm> class descriptors:
                   </p>
                   <CodeBlock
-                    code={`from aquilia import Blueprint
-from aquilia.blueprints import Facet
+                    code={`from aquilia import Contract
+from aquilia.contracts import Facet
 
-class RegisterBlueprint(Blueprint):
+class RegisterContract(Contract):
     username = Facet.text(min_length=3, max_length=150)
     email = Facet.email()
     password = Facet.text(min_length=8)
@@ -277,19 +277,19 @@ class RegisterBlueprint(Blueprint):
                 <div>
                   <h4 className={`text-md font-bold mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Option B: Type-Annotated Fields with Wards (Modern Hashing Way)</h4>
                   <p className={`text-xs mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                    Modern style using type annotations, validation pipelines, and an async <DocTerm id="bp.ward">@ward</DocTerm> method to automatically hash passwords inside the blueprint itself:
+                    Modern style using type annotations, validation pipelines, and an async <DocTerm id="bp.ward">@ward</DocTerm> method to automatically hash passwords inside the contract itself:
                   </p>
                   <CodeBlock
                     code={`from typing import Annotated
-from aquilia import Blueprint, Field
-from aquilia.blueprints import Facet, ward
-from aquilia.blueprints.transforms import strip, lower, slugify
+from aquilia import Contract, Field
+from aquilia.contracts import Facet, ward
+from aquilia.contracts.transforms import strip, lower, slugify
 from aquilia.auth import PasswordHasher, PasswordPolicy
 
 EmailType = Annotated[str, Facet.email() >> strip >> lower]
 SlugType = Annotated[str, Facet.text() >> strip >> lower >> slugify]
 
-class RegisterBlueprint(Blueprint):
+class RegisterContract(Contract):
     username: SlugType = Field(min_length=3)
     email: EmailType = Field()
     password: str = Field(min_length=8)
@@ -323,21 +323,21 @@ class RegisterBlueprint(Blueprint):
                 </div>
               </div>
 
-              <h4 className={`text-md font-bold mt-8 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Inbound & Outbound Blueprints:</h4>
+              <h4 className={`text-md font-bold mt-8 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Inbound & Outbound Contracts:</h4>
               <CodeBlock
-                code={`# modules/auth/blueprints.py
+                code={`# modules/auth/contracts.py
 from datetime import datetime
 from typing import Annotated
-from aquilia import Blueprint, Field
-from aquilia.blueprints import Facet
-from aquilia.blueprints.transforms import strip, lower, slugify
+from aquilia import Contract, Field
+from aquilia.contracts import Facet
+from aquilia.contracts.transforms import strip, lower, slugify
 from .models import User
 
 EmailType = Annotated[str, Facet.email() >> strip >> lower]
 SlugType = Annotated[str, Facet.text() >> strip >> lower >> slugify]
 
 
-class LoginBlueprint(Blueprint):
+class LoginContract(Contract):
     """
     Schema for validating sign-in requests.
     """
@@ -348,7 +348,7 @@ class LoginBlueprint(Blueprint):
         extra_fields = "reject"
 
 
-class UserResponseBlueprint(Blueprint):
+class UserResponseContract(Contract):
     """
     Schema for serializing outbound user statistics (masking secrets).
     """
@@ -362,17 +362,17 @@ class UserResponseBlueprint(Blueprint):
         fields = ["id", "username", "email", "created_at"]
 
 
-class LoginResponseBlueprint(Blueprint):
+class LoginResponseContract(Contract):
     """
-    Outbound response blueprint after a successful sign-in.
+    Outbound response contract after a successful sign-in.
     """
     access_token: str = Field()
     refresh_token: str = Field()
     message: str = Field()
-    user: UserResponseBlueprint = Field()  # Nested schema
+    user: UserResponseContract = Field()  # Nested schema
 `}
                 language="python"
-                filename="blueprints.py"
+                filename="contracts.py"
                 highlightLines={[12, 23, 38]}
               />
 
@@ -380,7 +380,7 @@ class LoginResponseBlueprint(Blueprint):
               <ul className={`space-y-3.5 text-sm leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-955'}>model:</strong> Links the blueprint schema to a database model class.</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-955'}>model:</strong> Links the contract schema to a database model class.</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
@@ -396,7 +396,7 @@ class LoginResponseBlueprint(Blueprint):
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
-                  <span><strong className={isDark ? 'text-white' : 'text-gray-955'}>is_sealed():</strong> Evaluates if a blueprint validation is run successfully.</span>
+                  <span><strong className={isDark ? 'text-white' : 'text-gray-955'}>is_sealed():</strong> Evaluates if a contract validation is run successfully.</span>
                 </li>
                 <li className="flex gap-2.5">
                   <span className="text-aquilia-500 font-bold">•</span>
@@ -480,7 +480,7 @@ class AuthValidationFault(Fault):
               </p>
               <CodeBlock
                 code={`# Way 1 snippet in modules/auth/services.py
-    async def register(self, user_data: RegisterBlueprint) -> User:
+    async def register(self, user_data: RegisterContract) -> User:
         """Traditional manual hashing and model creation."""
         existing_user = await User.query().filter(email=user_data.email).first()
         if existing_user:
@@ -500,20 +500,20 @@ class AuthValidationFault(Fault):
                 language="python"
               />
 
-              {/* Way 2: Modern Blueprint Hashing via Wards */}
-              <h4 className={`text-md font-bold mt-8 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Way 2: Automatic DB Imprinting with Blueprint @ward (Modern Way)</h4>
+              {/* Way 2: Modern Contract Hashing via Wards */}
+              <h4 className={`text-md font-bold mt-8 mb-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>Way 2: Automatic DB Imprinting with Contract @ward (Modern Way)</h4>
               <p className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Since password validation and hashing occurred automatically in the blueprint's async <DocTerm id="bp.ward">@ward</DocTerm>, the service doesn't need to manually hash anything. It simply calls <DocTerm id="bp.imprint">imprint()</DocTerm> directly:
+                Since password validation and hashing occurred automatically in the contract's async <DocTerm id="bp.ward">@ward</DocTerm>, the service doesn't need to manually hash anything. It simply calls <DocTerm id="bp.imprint">imprint()</DocTerm> directly:
               </p>
               <CodeBlock
                 code={`# Way 2 snippet in modules/auth/services.py
-    async def register_modern(self, user_data: RegisterBlueprint) -> User:
-        """Modern way -- validators and hashes are encapsulated inside the blueprint."""
+    async def register_modern(self, user_data: RegisterContract) -> User:
+        """Modern way -- validators and hashes are encapsulated inside the contract."""
         existing_user = await User.query().filter(email=user_data.email).first()
         if existing_user:
             raise AuthValidationFault(f"A user with this email {user_data.email} already exists.")
 
-        # The blueprint automatically validated and hashed the password into 'password_hash'.
+        # The contract automatically validated and hashed the password into 'password_hash'.
         # imprint() creates and saves the User model instance in one step.
         user = await user_data.imprint()
         return user
@@ -527,7 +527,7 @@ class AuthValidationFault(Fault):
 from aquilia.di import service
 from aquilia.auth import PasswordHasher
 from .models import User
-from .blueprints import RegisterBlueprint
+from .contracts import RegisterContract
 from .faults import AuthValidationFault
 
 
@@ -540,7 +540,7 @@ class UserService:
         # Resolved and injected by Dependency Injection (DI) automatically
         self.hasher = hasher
 
-    async def register(self, user_data: RegisterBlueprint) -> User:
+    async def register(self, user_data: RegisterContract) -> User:
         """Register using Way 2: Modern imprint method."""
         existing_user = await User.query().filter(email=user_data.email).first()
         if existing_user:
@@ -586,7 +586,7 @@ class UserService:
               <p className={`mb-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
                 Open <code className="text-aquilia-400">modules/auth/controllers.py</code>.
                 We inject <code className="text-aquilia-400">AuthManager</code> to authenticate passwords and manage tokens.
-                Notice how we return the access and refresh token inside the structured <code className="text-aquilia-400">LoginResponseBlueprint</code>:
+                Notice how we return the access and refresh token inside the structured <code className="text-aquilia-400">LoginResponseContract</code>:
               </p>
 
               <CodeBlock
@@ -594,7 +594,7 @@ class UserService:
 from aquilia import Controller, POST, GET, RequestCtx, Response
 from aquilia.auth import authenticated, Identity, AuthManager
 from .services import UserService
-from .blueprints import RegisterBlueprint, LoginBlueprint, UserResponseBlueprint, LoginResponseBlueprint
+from .contracts import RegisterContract, LoginContract, UserResponseContract, LoginResponseContract
 from .models import User
 
 
@@ -610,28 +610,28 @@ class AuthController(Controller):
         self.service = service
         self.auth_manager = auth_manager
 
-    @POST("/register", request_blueprint=RegisterBlueprint, response_blueprint=UserResponseBlueprint)
-    async def signup(self, ctx: RequestCtx, blueprint: RegisterBlueprint):
+    @POST("/register", request_contract=RegisterContract, response_contract=UserResponseContract)
+    async def signup(self, ctx: RequestCtx, contract: RegisterContract):
         """Register a user."""
-        user = await self.service.register(blueprint)
+        user = await self.service.register(contract)
         return Response.json(user, status=201)
 
-    @POST("/login", request_blueprint=LoginBlueprint, response_blueprint=LoginResponseBlueprint)
-    async def signin(self, ctx: RequestCtx, blueprint: LoginBlueprint):
+    @POST("/login", request_contract=LoginContract, response_contract=LoginResponseContract)
+    async def signin(self, ctx: RequestCtx, contract: LoginContract):
         """Authenticate user and return Access and Refresh Tokens."""
         # 1. Credentials are automatically validated; access attributes directly
         user = await self.service.verify_credentials(
-            blueprint.username,
-            blueprint.password,
+            contract.username,
+            contract.password,
         )
 
         # 2. Invoke AuthManager high-level sign_in API
         auth_result = await self.auth_manager.sign_in(
-            username=blueprint.username,
-            password=blueprint.password,
+            username=contract.username,
+            password=contract.password,
         )
 
-        # 3. Return response conforming to LoginResponseBlueprint structure
+        # 3. Return response conforming to LoginResponseContract structure
         return Response.json({
             "access_token": auth_result.access_token,
             "refresh_token": auth_result.refresh_token,
@@ -639,7 +639,7 @@ class AuthController(Controller):
             "user": user,
         })
 
-    @GET("/me", response_blueprint=UserResponseBlueprint)
+    @GET("/me", response_contract=UserResponseContract)
     @authenticated
     async def profile(self, ctx: RequestCtx, user: Identity):
         """Protected profile - identity auto-injected by @authenticated bridge."""

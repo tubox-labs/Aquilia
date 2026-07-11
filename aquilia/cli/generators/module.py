@@ -133,7 +133,7 @@ class ModuleGenerator:
         # Full module structure
         self._create_module_manifest()
         self._create_init_file()
-        self._create_blueprints_file()
+        self._create_contracts_file()
         self._create_controllers_file()
         self._create_services_file()
         self._create_faults_file()
@@ -366,7 +366,7 @@ class ModuleGenerator:
     def _create_controllers_file(self) -> None:
         """Create controllers.py file with modern controller architecture."""
         model_name = _singularize(self.name).capitalize()
-        blueprint_class = f"{model_name}Blueprint"
+        contract_class = f"{model_name}Contract"
         content = textwrap.dedent(f'''
             """
             {self.name.capitalize()} module controllers (request handlers).
@@ -378,7 +378,7 @@ class ModuleGenerator:
             from aquilia import Controller, GET, POST, PUT, DELETE, RequestCtx, Response
             from .faults import {self.name.capitalize()}NotFoundFault
             from .services import {self.name.capitalize()}Service
-            from .blueprints import {blueprint_class}
+            from .contracts import {contract_class}
 
 
             class {self.name.capitalize()}Controller(Controller):
@@ -410,7 +410,7 @@ class ModuleGenerator:
                     }})
 
                 @POST("/")
-                async def create_{self.singular}(self, ctx: RequestCtx, data: {blueprint_class}):
+                async def create_{self.singular}(self, ctx: RequestCtx, data: {contract_class}):
                     """
                     Create a new {self.singular}.
 
@@ -437,7 +437,7 @@ class ModuleGenerator:
                     return Response.json(item)
 
                 @PUT("/<id:int>")
-                async def update_{self.singular}(self, ctx: RequestCtx, id: int, data: {blueprint_class}):
+                async def update_{self.singular}(self, ctx: RequestCtx, id: int, data: {contract_class}):
                     """
                     Update a {self.singular} by ID.
 
@@ -754,24 +754,24 @@ class ModuleGenerator:
 
         (self.path / "test_routes.py").write_text(content, encoding="utf-8")
 
-    def _create_blueprints_file(self) -> None:
-        """Create blueprints.py file with validation blueprints."""
+    def _create_contracts_file(self) -> None:
+        """Create contracts.py file with validation contracts."""
         model_name = _singularize(self.name).capitalize()
-        blueprint_name = f"{model_name}Blueprint"
+        contract_name = f"{model_name}Contract"
 
         content = textwrap.dedent(f'''\
             """
-            {self.name.capitalize()} module input validation blueprints.
+            {self.name.capitalize()} module input validation contracts.
             """
 
-            from aquilia import Blueprint
+            from aquilia import Contract
 
 
-            class {blueprint_name}(Blueprint):
-                """Blueprint for {model_name} input validation."""
+            class {contract_name}(Contract):
+                """Contract for {model_name} input validation."""
                 name: str
                 description: str | None = None
                 active: bool = True
         ''').strip()
 
-        (self.path / "blueprints.py").write_text(content, encoding="utf-8")
+        (self.path / "contracts.py").write_text(content, encoding="utf-8")

@@ -1,17 +1,17 @@
 """
-Controller-layer request body validation via Aquilia Blueprints.
+Controller-layer request body validation via Aquilia Contracts.
 
 Usage::
 
     from aquilia import Controller, POST, RequestCtx, Response
     from aquilia.controller.validation import validate_body
-    from myapp.users.blueprints import CreateUserBlueprint
+    from myapp.users.contracts import CreateUserContract
 
     class UsersController(Controller):
         prefix = "/users"
 
         @POST("/")
-        @validate_body(CreateUserBlueprint)
+        @validate_body(CreateUserContract)
         async def create_user(self, ctx: RequestCtx, body: dict):
             user = await self.user_service.create(**body)
             return Response.json({"id": user.id}, status=201)
@@ -39,7 +39,7 @@ class ValidationFault(Fault):
 
 class RequestBodyValidationFault(ValidationFault):
     code = "validation.body_invalid"
-    message = "Request body failed Blueprint validation"
+    message = "Request body failed Contract validation"
 
 
 class RequestBodyParseFault(ValidationFault):
@@ -47,16 +47,16 @@ class RequestBodyParseFault(ValidationFault):
     message = "Request body could not be parsed"
 
 
-def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
+def validate_body(contract_class: type, *, projection: str = "__all__") -> Any:
     """
-    Decorator: parse + validate the request body through a Blueprint.
+    Decorator: parse + validate the request body through a Contract.
 
     On success:  injects ``body: dict`` as the first extra keyword argument.
     On failure:  returns HTTP 422 Unprocessable Entity with structured errors.
 
     Args:
-        blueprint_class: The Blueprint class to validate against.
-        projection:      Blueprint projection to use for allowed fields.
+        contract_class: The Contract class to validate against.
+        projection:      Contract projection to use for allowed fields.
     """
 
     def decorator(handler: Any) -> Any:
@@ -92,7 +92,7 @@ def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
                 )
 
             try:
-                bp = blueprint_class(data=data, projection=projection)
+                bp = contract_class(data=data, projection=projection)
                 if hasattr(bp, "is_sealed_async"):
                     is_ok = await bp.is_sealed_async()
                 else:
@@ -107,7 +107,7 @@ def validate_body(blueprint_class: type, *, projection: str = "__all__") -> Any:
                         status=422,
                     )
             except Exception as exc:
-                logger.error("Blueprint validation error: %s", exc)
+                logger.error("Contract validation error: %s", exc)
                 fault = RequestBodyValidationFault(context={"error": str(exc)})
                 return Response.json(
                     {"error": fault.message, "code": fault.code},

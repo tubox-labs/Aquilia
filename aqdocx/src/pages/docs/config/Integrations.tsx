@@ -401,7 +401,7 @@ workspace.integrate(OpenAPIIntegration(
     # Behaviour
     include_internal=False,         # exclude routes tagged @internal
     group_by_module=True,           # group by Aquilia module name
-    infer_request_body=True,        # infer request body from Blueprint type hints
+    infer_request_body=True,        # infer request body from Contract type hints
     infer_responses=True,           # infer response schemas from return type hints
     detect_security=True,           # auto-detect JWT/session guards and add security scheme
 

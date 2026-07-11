@@ -15,7 +15,7 @@ Built-in administration interface, audit log, permissions, dashboards, model CRU
 
 - `aquilia/admin/__init__.py`: AquilAdmin -- Modern, Auto-Detecting Admin System for Aquilia.
 - `aquilia/admin/audit.py`: AquilAdmin -- Audit Trail.
-- `aquilia/admin/blueprints.py`: AquilAdmin -- Blueprints for Admin Models.
+- `aquilia/admin/contracts.py`: AquilAdmin -- Contracts for Admin Models.
 - `aquilia/admin/controller.py`: AquilAdmin -- Admin Controller.
 - `aquilia/admin/di_providers.py`: AquilAdmin -- DI Providers.
 - `aquilia/admin/error_tracker.py`: AquilAdmin — Error Tracker.

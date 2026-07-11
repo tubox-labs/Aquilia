@@ -1,6 +1,6 @@
 # Mail Documentation
 
-Async mail subsystem with message classes, config blueprints, providers, DI registration, templates, faults, and convenience send APIs.
+Async mail subsystem with message classes, config contracts, providers, DI registration, templates, faults, and convenience send APIs.
 
 ## Coverage Snapshot
 

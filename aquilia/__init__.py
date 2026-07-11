@@ -123,13 +123,13 @@ from .auth.manager import AuthManager
 from .auth.tokens import KeyRing, TokenManager
 
 # ============================================================================
-# Blueprints (Model ↔ World Contracts)
+# Contracts (Model ↔ World Contracts)
 # ============================================================================
-from .blueprints import (
-    Blueprint,
+from .contracts import (
+    Contract,
     # Exceptions
-    BlueprintFault,
-    BlueprintMeta,
+    ContractFault,
+    ContractMeta,
     BoolFacet,
     CastFault,
     ChoiceFacet,
@@ -164,13 +164,13 @@ from .blueprints import (
     URLFacet,
     UUIDFacet,
     WriteOnly,
-    bind_blueprint_to_request,
+    bind_contract_to_request,
     generate_component_schemas,
     # Schema
     generate_schema,
     # Integration
-    is_blueprint_class,
-    render_blueprint_response,
+    is_contract_class,
+    render_contract_response,
 )
 
 # ============================================================================
@@ -859,22 +859,22 @@ from .admin import (
     AdminController,
     AdminFault,
     AdminGroup,
-    AdminGroupBlueprint,
+    AdminGroupContract,
     AdminLogEntry,
-    AdminLogEntryBlueprint,
+    AdminLogEntryContract,
     AdminModelNotFoundFault,
     AdminPermission,
-    AdminPermissionBlueprint,
+    AdminPermissionContract,
     AdminRecordNotFoundFault,
     AdminRole,
     AdminSession,
-    AdminSessionBlueprint,
+    AdminSessionContract,
     AdminSite,
     AdminUser,
-    AdminUserBlueprint,
+    AdminUserContract,
     AdminValidationFault,
     ContentType,
-    ContentTypeBlueprint,
+    ContentTypeContract,
     ModelAdmin,
     autodiscover,
     register,
@@ -1387,9 +1387,9 @@ __all__ = [
     "PatternTypeRegistry",
     # Discovery
     "PackageScanner",
-    # Blueprints (Model ↔ World Contracts)
-    "Blueprint",
-    "BlueprintMeta",
+    # Contracts (Model ↔ World Contracts)
+    "Contract",
+    "ContractMeta",
     "Facet",
     "TextFacet",
     "IntFacet",
@@ -1417,16 +1417,16 @@ __all__ = [
     "Hidden",
     "Inject",
     "Lens",
-    "BlueprintFault",
+    "ContractFault",
     "CastFault",
     "SealFault",
     "ImprintFault",
     "ProjectionFault",
     "generate_schema",
     "generate_component_schemas",
-    "is_blueprint_class",
-    "render_blueprint_response",
-    "bind_blueprint_to_request",
+    "is_contract_class",
+    "render_contract_response",
+    "bind_contract_to_request",
     # Lifecycle
     "LifecycleCoordinator",
     "LifecycleManager",
