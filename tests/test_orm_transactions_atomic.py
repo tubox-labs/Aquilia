@@ -275,15 +275,18 @@ class TestTimeout:
 class TestCancellation:
     @pytest.mark.asyncio
     async def test_cancelled_error_inside_block_rolls_back(self, seeded_db):
+        started = asyncio.Event()
+
         async def cancel_me():
             async with atomic():
                 user = await AtomicTxnUser.objects.filter(id=1).first()
                 user.name = "ShouldNotPersist"
                 await user.save(update_fields=["name"])
+                started.set()
                 await asyncio.sleep(10)
 
         task = asyncio.ensure_future(cancel_me())
-        await asyncio.sleep(0.01)
+        await started.wait()
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
