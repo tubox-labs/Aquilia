@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Native PyConfig & DotEnv Resolution Support for Integrations**:
+  - Native support for `Env` and `Secret` wrappers directly in integrations and provider wrappers.
+  - Automatic resolution of `Env`, `Secret`, and PyConfig configuration objects/fields at the correct lifecycle stage.
+  - Automatic type conversion and casting of environment variables (e.g. `Env("PORT", cast=int)` resolves to an integer).
+  - Secure automatic secret resolution through `Secret` wrappers without requiring manual `reveal()` or primitive extraction.
+  - Complete backwards compatibility and zero breaking changes for existing string-based and int-based configurations.
 - **`Field` Positional & Ellipsis Support** (`aquilia/blueprints/annotations.py`):
   - Support passing a single positional default argument to `Field()`.
   - Passing `...` (Ellipsis) positionally now automatically translates to `required=True` with `UNSET` default:
@@ -177,6 +183,177 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is behaviorally transparent. Full existing suite (6600+ tests, `tests/
   test_related_not_loaded_and_reverse_manager.py` in particular, which exercises `RnlBook.author`
   extensively) passes unchanged.
+
+### Fixed — Authentication & Session Forensic Audit
+
+A full forensic audit of `aquilia/auth/` and `aquilia/sessions/` uncovered and fixed
+protocol/implementation drift, broken guard call chains, a credential-leaking
+serialization path, and several session lifecycle correctness bugs. No public API
+signatures were removed; new keyword-only parameters were added where needed.
+
+- **`CredentialStore` protocol/implementation mismatch** (`aquilia/auth/stores.py`):
+  `MemoryCredentialStore` implemented zero of the protocol's declared write methods
+  under their real names (`save_password` instead of `create_password`/
+  `update_password`, `get_api_key_by_prefix` instead of `get_api_key_by_hash`, no
+  `revoke_api_key`/`create_mfa`/`update_mfa` at all). Any custom `CredentialStore`
+  written strictly against the published protocol would crash `AuthManager` with
+  `AttributeError` the moment it authenticated. Added `create_password`,
+  `update_password`, `create_api_key`, `get_api_key_by_hash` (O(1), indexed by hash —
+  replaces the O(n) prefix scan), `revoke_api_key` (soft, sets `CredentialStatus.REVOKED`),
+  `create_mfa`, `update_mfa` so the store now genuinely satisfies `CredentialStore`.
+  `aquilia/auth/manager.py` updated to call the protocol-correct methods.
+- **`Credential` protocol wrongly decorated `@dataclass`** (`aquilia/auth/core.py`):
+  made it directly instantiable, defeating structural-typing enforcement. Removed the
+  decorator; `Credential` is dead/orphaned (no concrete credential type inherits from
+  it) and is now a proper `Protocol`.
+- **`MemoryOAuthClientStore` missing `list_all`** (`aquilia/auth/stores.py`): the
+  `OAuthClientStore` protocol declares `list_all()`; the implementation only had
+  `list(owner_id=..., limit=..., offset=...)`. Added `list_all()` as a thin wrapper.
+- **Suspended/expired API keys were not rejected** (`aquilia/auth/manager.py`,
+  `authenticate_api_key`): only `status == "revoked"` was checked; `CredentialStatus.SUSPENDED`
+  and `.EXPIRED` were silently accepted. Now rejects all three non-active statuses.
+- **`RequireSessionAuthGuard` called a nonexistent `identity_store.get_identity()`**
+  (`aquilia/auth/integration/flow_guards.py`): the `IdentityStore` protocol (and the
+  sibling `AquilAuthMiddleware`) both use `.get(identity_id)`. Fixed to match — this
+  guard raised `AttributeError` on every session-authenticated request.
+- **`RequirePolicyGuard` called `authz_engine.abac.evaluate()` with swapped
+  arguments and missing `await`** (`aquilia/auth/integration/flow_guards.py`):
+  `ABACEngine.evaluate(context, policy_id)` is synchronous and takes the context
+  first; the guard called `evaluate(self.policy_name, authz_ctx)` without awaiting,
+  so `decision` was an unawaited coroutine that could never equal `Decision.ALLOW` —
+  every policy-guarded route was unconditionally denied. Fixed argument order and
+  removed the erroneous `await`.
+- **`RequirePermissionGuard`'s `resource` parameter was accepted but never passed**
+  to the authorization check (`aquilia/auth/integration/flow_guards.py`): resource-scoped
+  permission checks silently degraded to resource-agnostic ones. Now routes through
+  `authz_engine.rbac.check(authz_ctx, permission)`, which carries `resource` in the
+  `AuthzContext`.
+  `identity.tenant_id`/`.scopes`/`.roles` directly, which crash or silently return
+  nothing against the real `Identity` model (roles/scopes live in `attributes`, only
+  reachable via `get_attribute()`). Both guards, plus `ClearanceEngine` and
+  `templates/auth_integration.py`'s `can()` helper, now use a shared
+  attribute-first-then-`get_attribute`-fallback accessor.
+- **`set_identity()` never propagated the resolved identity into the dict/state
+  context** (`aquilia/auth/integration/flow_guards.py`): only `request.state["identity"]`
+  was set. `ControllerGuardAdapter`'s sync-back step reads `result_ctx["identity"]`,
+  which — because `set_identity` skipped it — stayed at its stale pre-guard value
+  (usually `None`). Any guard used via `.for_controller()` left `ctx.identity` unset
+  even after successful authentication. Fixed to also set `context["identity"]` /
+  `context.state["identity"]`.
+- **Template `can()` permission helper was a hardcoded `return True` placeholder**
+  (`aquilia/templates/auth_integration.py`): granted every permission for every
+  resource to any authenticated user whenever an `authz_engine` was wired in,
+  regardless of the requested permission. Now builds a real `AuthzContext` and
+  checks it against `authz_engine.rbac`.
+- **Template `is_owner()` helper read a nonexistent `identity.identity_id`**
+  (`aquilia/templates/auth_integration.py`): the real `Identity` field is `.id`;
+  calling `is_owner(resource)` raised `AttributeError` on every real `Identity`.
+  Fixed to read `.id`.
+- **`ClearanceEngine.resolve_identity_level`/`resolve_entitlements` and
+  `clearance.is_owner_or_admin`** (`aquilia/auth/clearance.py`) read
+  `identity.roles`/`.scopes`/`.permissions` as direct attributes, which are always
+  empty for the real `Identity` model — role-based access-level elevation and
+  entitlement resolution silently never worked. Fixed with the same
+  attribute-first-then-`get_attribute` fallback used in the guards above.
+- **`Clearance.merge()` silently downgraded class-level access requirements**
+  (`aquilia/auth/clearance.py`): `grant()`'s `level` parameter defaulted to
+  `AccessLevel.AUTHENTICATED`, indistinguishable from "not specified" — any
+  method-level `@grant(entitlements=[...])` that didn't restate `level` silently
+  reset the merged clearance to `AUTHENTICATED`, undoing a stricter class-level
+  `Clearance(level=AccessLevel.INTERNAL, ...)` baseline. `grant()`'s `level` now
+  defaults to `None` (genuinely unspecified); `Clearance.merge()` inherits the base
+  level whenever the override didn't specify one. Added `Clearance.effective_level`
+  for callers that need the resolved (non-`None`) level.
+- **`TokenConfig.algorithm` was dead configuration defaulting to `RS256`**
+  (`aquilia/auth/tokens.py`), contradicting the module's own documented "HS256 by
+  default, zero extra dependencies" behavior. The field was never read anywhere —
+  actual signing algorithm is a property of the active `KeyDescriptor` inside the
+  `KeyRing`. Removed the misleading field; documented where the algorithm is
+  actually configured.
+- **`KeyRingProvider` hard-coded `RS256`** (`aquilia/auth/integration/di_providers.py`):
+  crashed DI-based zero-config app startup with `ConfigInvalidFault` whenever the
+  `cryptography` package wasn't installed, contradicting the documented zero-dependency
+  default used by `server.py`'s own bootstrap path. Now defaults to `HS256`.
+- **`AuthManagerProvider` declared and stored an unused `token_store` dependency**
+  (`aquilia/auth/integration/di_providers.py`) that was never forwarded to
+  `AuthManager(...)`. Removed the dead parameter.
+- **`KeyDescriptor.to_dict()` leaked the live HMAC signing secret even in "safe"
+  mode** (`aquilia/auth/tokens.py`): for symmetric algorithms (HS256/HS384/HS512),
+  `public_key_pem` IS the shared secret (there's no separate public key for HMAC).
+  `include_private_key=False` only withheld the `private_key` field, so a
+  "public JWKS-style" dump of an HS256 `KeyRing` (`to_dict(include_private_keys=False)`)
+  still published the field an attacker needs to forge arbitrary valid tokens. Now
+  `public_key` is omitted from the safe serialization for symmetric algorithms too.
+- **Refresh token rotation dropped `roles`/`tenant_id` claims**
+  (`aquilia/auth/tokens.py`, `aquilia/auth/stores.py`): `TokenStore.save_refresh_token`
+  never persisted `roles`/`tenant_id`, so `refresh_access_token()` silently reissued
+  an access token stripped of role claims on every refresh — breaking role-based
+  access checks after the first token refresh. `TokenStore` protocol,
+  `MemoryTokenStore`, `RedisTokenStore`, and `TokenManager.issue_refresh_token`/
+  `refresh_access_token` now thread `roles`/`tenant_id` through the full round trip.
+- **OAuth2 confidential-client impersonation** (`aquilia/auth/oauth.py`,
+  `OAuth2Manager.validate_client`): a client secret was only verified if the caller
+  happened to supply one — omitting it (or passing an empty string) bypassed secret
+  verification entirely for confidential clients. `validate_client()` now always
+  requires and verifies the secret for any client with a stored
+  `client_secret_hash`; added a `require_secret` flag (set at the two
+  token-issuing endpoints, `exchange_authorization_code` and
+  `client_credentials_grant`) so browser-redirect endpoints that never carry a
+  secret over the wire (`authorize`, `device_authorization`) are unaffected.
+- **`grant_authorization_code()` didn't re-check PKCE** (`aquilia/auth/oauth.py`):
+  `client.require_pkce` was only enforced in `authorize()` (the consent-UI step);
+  a direct caller of `grant_authorization_code()` could skip PKCE entirely. Now
+  re-validates the client and `require_pkce` inside `grant_authorization_code()` too.
+- **`TOTPProvider.algorithm` constructor parameter was dead** (`aquilia/auth/mfa.py`):
+  `generate_code()` always hard-coded SHA1 regardless of the configured algorithm,
+  while `generate_provisioning_uri()` advertised whatever algorithm was configured —
+  a mismatch that breaks verification for any authenticator app that honors the
+  provisioning URI's `algorithm` parameter. `generate_code()` now dispatches on
+  `self.algorithm` (SHA1/SHA256/SHA512, per RFC 6238).
+- **Session rotation could leave a request with no valid session at all**
+  (`aquilia/sessions/engine.py`, `SessionEngine.commit`): rotation unconditionally
+  deleted the *old* session from the store before the concurrency check that could
+  reject the commit ran — if `check_concurrency` then raised, the new (rotated)
+  session was never saved and the *old* one was already gone. Concurrency is now
+  checked before rotation, so a rejected commit leaves the pre-existing session
+  untouched.
+- **New anonymous sessions were never persisted on their first response**
+  (`aquilia/sessions/engine.py`, `SessionEngine._create_new`): `flags` is a plain
+  `set`, not the dirty-tracked `data` dict — mutating it (`RENEWABLE`/`EPHEMERAL`)
+  never marked the session dirty, so `commit()` saw `is_dirty=False` and skipped
+  `store.save()`, even though `transport.inject()` still issued a session cookie
+  unconditionally for the never-persisted session. `_create_new` now calls
+  `session.mark_dirty()` explicitly.
+- **Corrupted on-disk session files crashed the request instead of degrading
+  gracefully** (`aquilia/sessions/engine.py`, `SessionEngine._load_existing`):
+  `FileStore.load()` can raise `SessionStoreCorruptedFault` for a malformed JSON
+  session file; `resolve()` didn't catch it, unlike every other invalid-session case
+  (expired, idle-timeout, fingerprint-mismatch), which all fall back to a fresh
+  session. Now caught and handled the same way.
+- **`AdminAuthGuard` read `identity.roles` directly, bypassing `get_attribute`**
+  (`aquilia/admin/subsystems.py`): same root cause as the guard/clearance fixes
+  above — real `Identity` has no `.roles` attribute, so the admin panel's own
+  auth guard fell through to an empty role list and rejected every real admin.
+  `aquilia/admin/permissions.py` already did this correctly; `AdminAuthGuard`
+  now uses the same `get_attribute`-first fallback chain.
+- **`aquilia/auth/policy/__init__.py` module docstring example used
+  `identity.roles` directly** instead of `identity.has_role(...)` — corrected
+  (documentation-only; the executable `Policy`/`PolicyRegistry` code was
+  already correct).
+- **Inconsistent locking in `MemoryStore.exists()` and `FileStore.delete()`**
+  (`aquilia/sessions/store.py`): every other method on both stores serializes on
+  `self._lock`; these two didn't, breaking the stores' own lock discipline (a latent
+  race for `MemoryStore.exists()`, a real TOCTOU window for `FileStore.delete()`
+  racing concurrent `save()`/`cleanup_expired()`/`list_by_principal()` calls on the
+  same file). Both now acquire the lock.
+
+### Testing
+
+- Updated `tests/test_auth_system.py` clearance fixtures (`TestClearanceEngine._make_identity`,
+  `TestBuiltInConditions`) to back `get_attribute()` with a real `attributes` dict instead of
+  setting bare `.roles`/`.scopes` `MagicMock` attributes — the fixtures were masking the exact
+  `identity.roles`/`.scopes` direct-attribute-access bug fixed above.
+- Full existing suite (6680 tests) passes unchanged; `ruff check` clean on all modified files.
 
 ## [1.3.0b0] — 2026-07-06 — "Ironclad Anchor" (beta)
 

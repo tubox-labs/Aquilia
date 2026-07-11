@@ -107,7 +107,8 @@ class MemoryStore:
                         del self._principal_index[principal_id]
 
     async def exists(self, session_id: SessionID) -> bool:
-        return str(session_id) in self._sessions
+        async with self._lock:
+            return str(session_id) in self._sessions
 
     async def list_by_principal(self, principal_id: str) -> list[Session]:
         async with self._lock:
@@ -257,8 +258,9 @@ class FileStore:
     async def delete(self, session_id: SessionID) -> None:
         path = self._get_path(session_id)
         try:
-            if path.exists():
-                path.unlink()
+            async with self._lock:
+                if path.exists():
+                    path.unlink()
         except Exception as e:
             raise SessionStoreUnavailableFault(store_name="file", cause=str(e))
 

@@ -81,10 +81,13 @@ class KeyRingProvider:
         """Provide KeyRing with default keys."""
         from ..tokens import KeyAlgorithm, KeyDescriptor
 
-        # Generate default key on startup
+        # Zero-config default: HS256 (stdlib only, no extra deps). Matches the
+        # documented "server automatically selects HS256" behavior — an
+        # asymmetric algorithm here would crash startup when `cryptography`
+        # isn't installed.
         default_key = KeyDescriptor.generate(
             kid="default",
-            algorithm=KeyAlgorithm.RS256,
+            algorithm=KeyAlgorithm.HS256,
         )
 
         return KeyRing(keys=[default_key])
@@ -200,14 +203,12 @@ class AuthManagerProvider:
         self,
         identity_store: MemoryIdentityStore,
         credential_store: MemoryCredentialStore,
-        token_store: MemoryTokenStore,
         token_manager: TokenManager,
         password_hasher: PasswordHasher,
         rate_limiter: RateLimiter,
     ):
         self.identity_store = identity_store
         self.credential_store = credential_store
-        self.token_store = token_store
         self.token_manager = token_manager
         self.password_hasher = password_hasher
         self.rate_limiter = rate_limiter

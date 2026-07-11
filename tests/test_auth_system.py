@@ -251,23 +251,33 @@ class TestBuiltInConditions:
         identity = MagicMock(attributes={}, status="ACTIVE")
         assert is_verified(identity, None, None) is True
 
+    @staticmethod
+    def _identity_with_roles(roles, **extra):
+        """MagicMock identity whose get_attribute() genuinely reads from
+        attributes, matching the real Identity contract (roles/scopes live
+        in `attributes`, not as direct attributes)."""
+        attrs = {"roles": roles}
+        identity = MagicMock(**extra)
+        identity.get_attribute = lambda key, default=None: attrs.get(key, default)
+        return identity
+
     def test_is_owner_or_admin_admin_role(self):
         from aquilia.auth.clearance import is_owner_or_admin
 
-        identity = MagicMock(roles={"admin"})
+        identity = self._identity_with_roles({"admin"})
         assert is_owner_or_admin(identity, None, None) is True
 
     def test_is_owner_or_admin_owner(self):
         from aquilia.auth.clearance import is_owner_or_admin
 
-        identity = MagicMock(id="user-1", roles=set())
+        identity = self._identity_with_roles(set(), id="user-1")
         ctx = MagicMock(state={"resource_owner_id": "user-1"})
         assert is_owner_or_admin(identity, None, ctx) is True
 
     def test_is_owner_or_admin_not_owner(self):
         from aquilia.auth.clearance import is_owner_or_admin
 
-        identity = MagicMock(id="user-1", roles=set())
+        identity = self._identity_with_roles(set(), id="user-1")
         ctx = MagicMock(state={"resource_owner_id": "user-2"})
         assert is_owner_or_admin(identity, None, ctx) is False
 
@@ -345,14 +355,23 @@ class TestClearanceEngine:
         tenant_id: str = None,
         attributes: dict = None,
     ):
+        # attrs backs get_attribute(), matching the real Identity contract
+        # (roles/scopes/permissions live in `attributes`, not as direct
+        # attributes on the identity object).
+        attrs = dict(attributes or {})
+        attrs.setdefault("roles", roles or set())
+        attrs.setdefault("scopes", scopes or set())
+        attrs.setdefault("permissions", set())
+
         identity = MagicMock()
         identity.id = id
         identity.roles = roles or set()
         identity.scopes = scopes or set()
         identity.status = status
         identity.tenant_id = tenant_id
-        identity.attributes = attributes or {}
+        identity.attributes = attrs
         identity.permissions = set()
+        identity.get_attribute = lambda key, default=None: attrs.get(key, default)
         return identity
 
     @pytest.mark.asyncio
@@ -1556,7 +1575,7 @@ class TestFlowGuards:
         fake_identity = object()
 
         auth_manager = AsyncMock()
-        auth_manager.identity_store.get_identity.return_value = fake_identity
+        auth_manager.identity_store.get.return_value = fake_identity
 
         with patch("aquilia.auth.integration.flow_guards.get_identity_id", return_value="identity-1"):
             guard = RequireSessionAuthGuard()

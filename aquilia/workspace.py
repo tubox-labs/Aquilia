@@ -1,26 +1,87 @@
 """
-Aquilia Workspace Configuration.
+Aquilia Workspace Configuration & Orchestration System.
 
-Provides the ``Workspace`` and ``Module`` fluent builders together with
-their supporting dataclasses (``RuntimeConfig``, ``ModuleConfig``,
-``AuthConfig``).  These were previously housed in ``config_builders.py``
-alongside the legacy ``Integration`` class; they now live in their own
-clean, focused module.
+This module provides the core fluent builders and orchestration configuration data structures
+that define the application's global deployment parameters.
 
-Usage::
+Architecture (Manifest-First Design)
+------------------------------------
+In Aquilia, workspace.py is the primary coordinator and orchestration layer:
+- **Global Orchestration**: Configures mode, server binding details, telemetry, security headers,
+  global databases, background workers, and mail/cache servers.
+- **Module Pointers**: Registers active application modules by defining pointers (`Module`).
+  Internals of the modules (controllers, services) remain in each module's `manifest.py`.
+- **Integrations**: Binds third-party integrations (e.g. databases, caches, mailing services)
+  to the workspace, passing credentials, connection limits, and provider specifics.
 
-    from aquilia.workspace import Workspace, Module
+Registration & Discovery Flow
+-----------------------------
+1. **Workspace Definition**: The developer builds the `Workspace` configuration in the project's
+   root configuration module (typically `workspace.py`).
+2. **Integration Hooking**: Integrations like `MailIntegration` or `DatabaseIntegration` are
+   bound to the workspace using the fluent `.integrate()` method.
+3. **Module Registration**: Individual application modules are added via `.module(Module("name"))`.
+4. **Bootstrapping**: The framework scans the workspace, loads individual module manifests,
+   auto-discovers annotated components within convention folders, resolves environment settings,
+   and injects everything into the dependency injection container.
 
-    workspace = (
-        Workspace("myapp", version="1.0.0")
-        .runtime(mode="dev", port=8000)
-        .module(
-            Module("users")
-            .route_prefix("/users")
-            .depends_on("auth")
-        )
-        .integrate(CacheIntegration(backend="redis"))
+Resolution & Configuration Handling
+-----------------------------------
+All integration arguments are recursively evaluated during serialization or bootstrap.
+`Env`, `Secret`, and `PyConfig` instances (e.g. `ProdEnv.mail.email_user`) are automatically resolved
+to primitive values (strings, integers) prior to instantiating provider objects.
+
+Common Usage Patterns
+---------------------
+Creating a basic development workspace:
+
+```python
+from aquilia.workspace import Workspace, Module
+
+workspace = (
+    Workspace("my-app", version="1.0.0")
+    .runtime(mode="dev", port=8000)
+    .module(Module("auth"))
+    .module(Module("users").route_prefix("/users").depends_on("auth"))
+)
+```
+
+Advanced Usage Patterns
+-----------------------
+Creating a production-grade workspace with database, caching, and template engine configuration:
+
+```python
+from aquilia.workspace import Workspace, Module
+from aquilia.integrations import DatabaseIntegration, SQLiteProvider, MailIntegration, SMTPProvider
+from aquilia.pyconfig import Env, Secret
+
+workspace = (
+    Workspace("billing-platform", version="1.0.0")
+    .runtime(mode="prod", host="0.0.0.0", port=8080)
+    .database(
+        url=Env("DATABASE_URL"),
+        auto_migrate=True,
     )
+    .integrate(
+        MailIntegration(
+            default_from="noreply@billing.com",
+            providers=[
+                SMTPProvider(
+                    host=Env("SMTP_HOST"),
+                    port=Env("SMTP_PORT", cast=int),
+                    username=Env("SMTP_USER"),
+                    password=Secret("SMTP_PASS")
+                )
+            ]
+        )
+    )
+    .module(
+        Module("billing")
+        .route_prefix("/api/v1/billing")
+        .tags("billing", "payments")
+    )
+)
+```
 """
 
 from __future__ import annotations
@@ -37,7 +98,29 @@ from aquilia.integrations._protocol import IntegrationConfig
 
 @dataclass
 class RuntimeConfig:
-    """Runtime configuration."""
+    """
+    Global server runtime configuration.
+
+    Defines execution mode (development vs production), network bindings, reload policies,
+    and concurrent ASGI workers.
+
+    Parameters:
+        mode: Execution environment. Typically `"dev"`, `"test"`, or `"prod"`. Defaults to `"dev"`.
+        host: IP address or hostname to bind the ASGI server to. Defaults to `"127.0.0.1"`.
+        port: Network port to bind the ASGI server to. Defaults to `8000`.
+        reload: If `True`, restarts the server automatically when source files change (dev only). Defaults to `True`.
+        workers: Number of child worker processes to spawn. Defaults to `1`.
+
+    Examples:
+        ```python
+        config = RuntimeConfig(
+            mode="prod",
+            host="0.0.0.0",
+            port=443,
+            workers=4
+        )
+        ```
+    """
 
     mode: str = "dev"
     host: str = "127.0.0.1"
@@ -49,21 +132,39 @@ class RuntimeConfig:
 @dataclass
 class ModuleConfig:
     """
-    Module configuration -- workspace-level orchestration metadata.
+    Workspace-level module orchestration metadata.
 
-    The Module in workspace.py is a **pointer** to the per-module manifest.
-    Component declarations (controllers, services, middleware, models,
-    serializers, socket_controllers) live exclusively in each module's
-    ``manifest.py`` via ``AppManifest``.
+    A pointer configuration mapping how a module is bound into the workspace. It specifies
+    routing prefixes, cross-module dependencies, custom lifecycle hooks, database configurations,
+    and auto-discovery scanning toggles.
 
-    This dataclass holds only the orchestration concerns that the
-    workspace needs to know about:
-    - Identity (name, version)
-    - Routing topology (route_prefix, depends_on)
-    - Organisational metadata (tags, description, fault_domain)
-    - Discovery behaviour (auto_discover)
-    - Lifecycle hooks (on_startup, on_shutdown)
-    - Per-module database override
+    In the Manifest-First Architecture, `ModuleConfig` represents the orchestration pointer
+    registered in `workspace.py`, while component-level details (controllers, services) reside
+    in the module's own `manifest.py`.
+
+    Parameters:
+        name: Unique module folder and registration name.
+        version: Module version. Defaults to `"0.1.0"`.
+        description: Brief module summary.
+        fault_domain: Custom fault domain for exception translation. Defaults to uppercase `name`.
+        route_prefix: Base HTTP path prefix for module controller routes. Defaults to `"/{name}"`.
+        depends_on: List of other module names that must start up before this module.
+        tags: Categorization tags.
+        imports: List of module names whose exported services are visible to this module.
+        exports: List of service class names exported to other importing modules.
+        on_startup: Optional dotted path string to startup hook function.
+        on_shutdown: Optional dotted path string to shutdown hook function.
+        database: Optional dictionary overriding the global database configuration for this module.
+        auto_discover: If `True` (default), scans the module directory for convention components.
+
+    Examples:
+        ```python
+        config = ModuleConfig(
+            name="users",
+            route_prefix="/api/users",
+            depends_on=["auth"]
+        )
+        ```
     """
 
     name: str
@@ -111,45 +212,36 @@ class ModuleConfig:
 
 class Module:
     """
-    Fluent module builder -- workspace-level orchestration only.
+    Fluent builder class to configure a workspace module pointer.
 
-    The Module builder configures **how** a module fits into the workspace
-    (routing, dependencies, tags, lifecycle). All component declarations
-    (controllers, services, middleware, models, serializers) belong in the
-    module's own ``manifest.py`` via ``AppManifest``.
+    Defines routing prefixes, module boundaries (imports/exports), database connections,
+    and hooks for a specific module within the workspace configuration.
 
-    This separation follows the Manifest-First Architecture:
-    - ``workspace.py`` → orchestration & integration config
-    - ``modules/*/manifest.py`` → module internals (source of truth)
+    Examples:
+        Basic usage:
+        ```python
+        module = Module("billing").route_prefix("/billing").depends_on("auth")
+        ```
 
-    Example::
-
-        # workspace.py -- pointer only
-        workspace = (
-            Workspace("myapp")
-            .module(
-                Module("users", version="0.1.0")
-                .route_prefix("/users")
-                .depends_on("auth")
-                .tags("core", "users")
-            )
-            .module(
-                Module("auth", version="0.1.0")
-                .route_prefix("/auth")
-            )
+        Advanced custom database setup:
+        ```python
+        module = (
+            Module("analytics")
+            .database(url="postgresql://db/analytics_prod")
+            .auto_discover(False)
         )
-
-        # modules/users/manifest.py -- source of truth
-        manifest = AppManifest(
-            name="users",
-            version="0.1.0",
-            controllers=["modules.users.controllers:UsersController"],
-            services=["modules.users.services:UsersService"],
-            ...
-        )
+        ```
     """
 
     def __init__(self, name: str, version: str = "0.1.0", description: str = ""):
+        """
+        Initialize the Module fluent builder.
+
+        Parameters:
+            name: Unique module directory and registry name.
+            version: Semantic version of the module. Defaults to `"0.1.0"`.
+            description: Concise module description.
+        """
         self._config = ModuleConfig(
             name=name,
             version=version,
@@ -158,37 +250,107 @@ class Module:
         )
 
     def auto_discover(self, enabled: bool = True) -> Module:
+        """
+        Toggle convention-based auto-discovery scanning for this module.
+
+        Parameters:
+            enabled: If `True` (default), the framework scans folders matching convention
+                names (e.g. controllers, services, models) during bootstrap.
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.auto_discover = enabled
         return self
 
     def fault_domain(self, domain: str) -> Module:
+        """
+        Configure a custom fault domain name for exceptions originating in this module.
+
+        Parameters:
+            domain: Target fault domain name.
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.fault_domain = domain
         return self
 
     def route_prefix(self, prefix: str) -> Module:
+        """
+        Set the base HTTP path prefix for all routes defined in this module.
+
+        Parameters:
+            prefix: URL path prefix (e.g. `"/users"`).
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.route_prefix = prefix
         return self
 
     def depends_on(self, *modules: str) -> Module:
+        """
+        Declare bootstrap dependencies for this module.
+
+        Guarantees that the listed modules complete their startup sequence before
+        this module starts.
+
+        Parameters:
+            *modules: Variadic list of module names.
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.depends_on = list(modules)
         return self
 
     def imports(self, *modules: str) -> Module:
+        """
+        Define module imports to allow accessing exported services.
+
+        Parameters:
+            *modules: Variadic list of module names to import.
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.imports = list(modules)
         self._config.depends_on = list(modules)
         return self
 
     def exports(self, *components: str) -> Module:
+        """
+        Expose internal module services to other importing modules.
+
+        Parameters:
+            *components: Variadic list of service class name strings (e.g. `"UsersService"`).
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.exports = list(components)
         return self
 
     def tags(self, *module_tags: str) -> Module:
+        """
+        Assign metadata tags to this module.
+
+        Parameters:
+            *module_tags: Variadic list of string tags.
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.tags = list(module_tags)
         return self
 
     # ── Legacy registration methods (DEPRECATED) ───────────────────
 
     def register_controllers(self, *controllers: str) -> Module:
+        """
+        DEPRECATED: Register controllers. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -200,6 +362,9 @@ class Module:
         return self
 
     def register_services(self, *services: str) -> Module:
+        """
+        DEPRECATED: Register services. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -211,6 +376,9 @@ class Module:
         return self
 
     def register_providers(self, *providers: dict[str, Any]) -> Module:
+        """
+        DEPRECATED: Register providers. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -221,6 +389,9 @@ class Module:
         return self
 
     def register_routes(self, *routes: dict[str, Any]) -> Module:
+        """
+        DEPRECATED: Register routes. Declare them in controllers instead.
+        """
         import warnings
 
         warnings.warn(
@@ -231,6 +402,9 @@ class Module:
         return self
 
     def register_sockets(self, *sockets: str) -> Module:
+        """
+        DEPRECATED: Register sockets. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -242,6 +416,9 @@ class Module:
         return self
 
     def register_middlewares(self, *middlewares: str) -> Module:
+        """
+        DEPRECATED: Register middleware. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -253,6 +430,9 @@ class Module:
         return self
 
     def register_models(self, *models: str) -> Module:
+        """
+        DEPRECATED: Register database models. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -264,6 +444,9 @@ class Module:
         return self
 
     def register_serializers(self, *serializers: str) -> Module:
+        """
+        DEPRECATED: Register serializers. Declare them in AppManifest instead.
+        """
         import warnings
 
         warnings.warn(
@@ -275,10 +458,28 @@ class Module:
         return self
 
     def on_startup(self, hook: str) -> Module:
+        """
+        Register a custom startup hook callable.
+
+        Parameters:
+            hook: Dotted path to the callable function (e.g. `"modules.users.hooks:on_startup"`).
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.on_startup = hook
         return self
 
     def on_shutdown(self, hook: str) -> Module:
+        """
+        Register a custom shutdown hook callable.
+
+        Parameters:
+            hook: Dotted path to the callable function (e.g. `"modules.users.hooks:on_shutdown"`).
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         self._config.on_shutdown = hook
         return self
 
@@ -293,6 +494,21 @@ class Module:
         migrations_dir: str = "migrations",
         **kwargs,
     ) -> Module:
+        """
+        Configure a custom database connection specifically for this module.
+
+        Parameters:
+            url: Database connection string URL.
+            config: Optional config object to extract connection parameters from.
+            auto_connect: Connect automatically during bootstrap.
+            auto_create: Create schema tables automatically if missing.
+            auto_migrate: Execute pending migration scripts.
+            migrations_dir: Folder containing migration files.
+            **kwargs: Extra database connection keyword arguments.
+
+        Returns:
+            The current `Module` builder instance for chaining.
+        """
         if config is not None:
             db_dict = config.to_dict()
             db_dict.update(
@@ -317,7 +533,12 @@ class Module:
         return self
 
     def build(self) -> ModuleConfig:
-        """Build module configuration."""
+        """
+        Build and finalize the module configuration block.
+
+        Returns:
+            The constructed `ModuleConfig` metadata instance.
+        """
         return self._config
 
 
@@ -328,7 +549,32 @@ class Module:
 
 @dataclass
 class AuthConfig:
-    """Authentication configuration."""
+    """
+    Global authentication configuration parameters.
+
+    Defines token storage backend, cryptographic hashing algorithms, TTLs, issuer,
+    audience, and default security guards for the workspace.
+
+    Parameters:
+        enabled: If `True` (default), enables authentication middleware.
+        store_type: Token storage backend. Must be `"memory"`, `"redis"`, `"database"`, or `"custom"`.
+        secret_key: Cryptographic key used to sign and verify JSON Web Tokens (JWT).
+        algorithm: Hashing algorithm for tokens (e.g. `"HS256"`).
+        issuer: Token issuer claim (`iss`). Defaults to `"aquilia"`.
+        audience: Token audience claim (`aud`). Defaults to `"aquilia-app"`.
+        access_token_ttl_minutes: Lifespan of access tokens in minutes. Defaults to `60`.
+        refresh_token_ttl_days: Lifespan of refresh tokens in days. Defaults to `30`.
+        require_auth_by_default: If `True`, all controller routes require authentication unless marked public.
+
+    Examples:
+        ```python
+        config = AuthConfig(
+            secret_key="my-super-secret-key",
+            store_type="redis",
+            require_auth_by_default=True
+        )
+        ```
+    """
 
     enabled: bool = True
     store_type: str = "memory"
@@ -366,7 +612,41 @@ class AuthConfig:
 
 
 class Workspace:
-    """Fluent workspace builder."""
+    """
+    Fluent builder class to configure the application workspace.
+
+    Workspace serves as the centralized root configuration, defining runtime bindings,
+    global databases, security policies, background tasks, telemetry tracking, and
+    registering pointers to application modules.
+
+    Examples:
+        Basic usage:
+        ```python
+        from aquilia.workspace import Workspace, Module
+
+        workspace = (
+            Workspace("my-service", version="1.0.0")
+            .runtime(mode="dev", port=3000)
+            .module(Module("users"))
+        )
+        ```
+
+        Advanced workspace with security, telemetry, and mail integrations:
+        ```python
+        workspace = (
+            Workspace("billing-service")
+            .runtime(mode="prod", port=8080)
+            .telemetry(metrics_enabled=True)
+            .security(cors_enabled=True)
+            .integrate(
+                MailIntegration(
+                    default_from="support@service.com",
+                    providers=[SMTPProvider(host="smtp.service.com")]
+                )
+            )
+        )
+        ```
+    """
 
     def __init__(self, name: str, version: str = "0.1.0", description: str = ""):
         self._name = name
@@ -477,6 +757,10 @@ class Workspace:
         # ── Typed IntegrationConfig protocol objects ──────────────────
         if isinstance(integration, IntegrationConfig):
             integration = integration.to_dict()
+
+        from aquilia.integrations.utils import resolve_config_value
+
+        integration = resolve_config_value(integration)
 
         integration_type = integration.get("_integration_type")
         if integration_type:
@@ -822,7 +1106,9 @@ class Workspace:
                 config["integrations"] = {}
             config["integrations"]["inspector"] = self._inspector_config
 
-        return config
+        from aquilia.integrations.utils import resolve_config_value
+
+        return resolve_config_value(config)
 
     def __repr__(self) -> str:
         return f"Workspace(name='{self._name}', version='{self._version}', modules={len(self._modules)})"

@@ -17,7 +17,7 @@ export function AuthTokens() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          AquilAuth's token system handles JWT-like access token signing/verification, opaque refresh tokens, key ring management with rotation, and multiple signing algorithms (RS256, ES256, EdDSA).
+          AquilAuth's token system handles JWT-like access token signing/verification, opaque refresh tokens, key ring management with rotation, and multiple signing algorithms (HS256/HS384/HS512, RS256, ES256, EdDSA). HS256 is the zero-dependency default — RS256/ES256/EdDSA require <code>pip install cryptography</code>.
         </p>
       </div>
 
@@ -27,10 +27,11 @@ export function AuthTokens() {
         <h3 className={`text-lg font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>KeyDescriptor</h3>
         <CodeBlock language="python" filename="Key Generation">{`from aquilia.auth.tokens import KeyDescriptor, KeyAlgorithm, KeyStatus
 
-# Generate a new key pair
+# Generate a new key pair. Defaults to HS256 (stdlib only, zero deps)
+# when algorithm= is omitted; asymmetric algorithms need cryptography.
 key = KeyDescriptor.generate(
     kid="key_2024_01",                  # Key ID (used in JWT header)
-    algorithm=KeyAlgorithm.RS256,       # RS256 | ES256 | EdDSA
+    algorithm=KeyAlgorithm.RS256,       # HS256 (default) | HS384 | HS512 | RS256 | ES256 | EdDSA
 )
 # KeyDescriptor(
 #   kid="key_2024_01",
@@ -59,9 +60,10 @@ key2 = KeyDescriptor.from_dict(data)`}</CodeBlock>
             </tr></thead>
             <tbody className="divide-y divide-white/5">
               {[
-                ['RS256', 'RSA 2048-bit', 'RSA with SHA-256 — widely compatible, larger keys'],
-                ['ES256', 'ECDSA P-256', 'Elliptic Curve with SHA-256 — smaller keys, fast verification'],
-                ['EdDSA', 'Ed25519', 'Edwards Curve — fastest, smallest signatures'],
+                ['HS256', 'HMAC-SHA256 (symmetric)', 'Default — stdlib only, no extra dependencies'],
+                ['RS256', 'RSA 2048/3072-bit', 'RSA with SHA-256 — widely compatible, larger keys (requires cryptography)'],
+                ['ES256', 'ECDSA P-256', 'Elliptic Curve with SHA-256 — smaller keys, fast verification (requires cryptography)'],
+                ['EdDSA', 'Ed25519', 'Edwards Curve — fastest, smallest signatures (requires cryptography)'],
               ].map(([a, k, d], i) => (
                 <tr key={i}>
                   <td className="py-2 pr-4 font-mono text-xs text-aquilia-400">{a}</td>
@@ -144,16 +146,17 @@ ring3 = KeyRing.from_dict(data)`}</CodeBlock>
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>TokenManager</h2>
         <CodeBlock language="python" filename="Token Configuration">{`from aquilia.auth.tokens import TokenManager, TokenConfig, KeyRing
 
+# TokenConfig does NOT configure the signing algorithm -- that's a property
+# of the active KeyDescriptor inside the KeyRing you pass to TokenManager.
 config = TokenConfig(
     issuer="aquilia",                   # iss claim
     audience=["api"],                   # aud claim
     access_token_ttl=3600,              # 1 hour
     refresh_token_ttl=2592000,          # 30 days
-    algorithm=KeyAlgorithm.RS256,       # default signing algorithm
 )
 
 manager = TokenManager(
-    key_ring=ring,
+    key_ring=ring,                # ring's KeyDescriptor.algorithm decides HS256/RS256/...
     token_store=token_store,     # TokenStore protocol
     config=config,
 )`}</CodeBlock>
@@ -172,7 +175,7 @@ token = await manager.issue_access_token(
     ttl=7200,                   # override TTL (2 hours)
 )
 # Format: header.payload.signature
-# Header:  {"alg": "RS256", "kid": "k1", "typ": "JWT"}
+# Header:  {"alg": "HS256", "kid": "k1", "typ": "JWT"}  (or RS256/ES256/EdDSA per your KeyRing)
 # Payload: {"iss": "aquilia", "sub": "user_42", "aud": ["api"],
 #           "exp": ..., "iat": ..., "nbf": ..., "jti": "at_...",
 #           "scopes": ["profile", "orders.read"],
