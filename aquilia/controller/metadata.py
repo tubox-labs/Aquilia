@@ -186,11 +186,24 @@ def extract_controller_metadata(
         ControllerMetadata with all routes and configuration
 
     Example:
+    ```
         metadata = extract_controller_metadata(
             UsersController,
             "modules.users.flows:UsersController"
         )
     """
+    # Safety fallback: if an Attributes builder was assigned post-class-creation
+    # (bypassing __set_name__), apply it now before reading the class attributes.
+    try:
+        from aquilia.controller.attrs import Attributes as _Attributes
+
+        _attr_builder = getattr(controller_class, "attr", None)
+        if _attr_builder is not None and isinstance(_attr_builder, _Attributes) and not _attr_builder._applied:
+            _attr_builder.__set_name__(controller_class, "attr")
+    except Exception:
+        # Never let this fallback break normal metadata extraction
+        pass
+
     # Get class-level attributes
     prefix = getattr(controller_class, "prefix", "")
 

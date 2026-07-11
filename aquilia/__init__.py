@@ -241,6 +241,7 @@ from .controller import (
     TRACE,
     VALID_HTTP_METHODS,
     WS,
+    Attributes,
     BaseFilterBackend,
     ContentNegotiator,
     Controller,
@@ -1021,6 +1022,7 @@ __all__ = [
     "RegistryMode",
     # Controller (NEW - First-class)
     "Controller",
+    "Attributes",
     "RequestCtx",
     "GET",
     "POST",
