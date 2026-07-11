@@ -428,6 +428,7 @@ def authenticated(
                     func_kwargs["identity"] = identity
                 if "principal" in sig.parameters:
                     from aquilia.auth.integration.aquila_sessions import AuthPrincipal
+
                     func_kwargs["principal"] = AuthPrincipal.from_identity(identity)
                 if "session" in sig.parameters:
                     session = _extract_session(args, func_kwargs)
@@ -617,6 +618,7 @@ def require_identity(
                 func_kwargs["user"] = identity
             if "principal" in sig.parameters:
                 from aquilia.auth.integration.aquila_sessions import AuthPrincipal
+
                 func_kwargs["principal"] = AuthPrincipal.from_identity(identity)
 
             return await func(*args, **func_kwargs)

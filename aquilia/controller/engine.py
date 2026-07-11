@@ -597,24 +597,35 @@ class ControllerEngine:
         is_exempt = False
         if handler_method:
             try:
-                from aquilia.auth.clearance import get_method_clearance, AccessLevel
+                from aquilia.auth.clearance import AccessLevel, get_method_clearance
+
                 clearance = get_method_clearance(handler_method)
                 if clearance and clearance.effective_level == AccessLevel.PUBLIC:
                     is_exempt = True
             except Exception:
                 pass
 
-        if is_exempt and pipeline_name.endswith(".class_pipeline"):
-            # Filter out AuthGuard and any other security guards from the class-level pipeline list
+        if is_exempt:
+            # Filter out AuthGuard and any other security guards from the pipeline list
             filtered_pipeline = []
             for node in pipeline_list:
                 node_name = getattr(node, "__name__", node.__class__.__name__)
                 node_module = getattr(node, "__module__", node.__class__.__module__)
                 is_security_guard = (
-                    node_name in ("AuthGuard", "AdminGuard", "VerifiedEmailGuard", "RequireAuthGuard", 
-                                  "RequireSessionAuthGuard", "RequireTokenAuthGuard", "RequireApiKeyGuard", 
-                                  "RequireScopesGuard", "RequireRolesGuard", "RequirePermissionGuard", 
-                                  "RequirePolicyGuard")
+                    node_name
+                    in (
+                        "AuthGuard",
+                        "AdminGuard",
+                        "VerifiedEmailGuard",
+                        "RequireAuthGuard",
+                        "RequireSessionAuthGuard",
+                        "RequireTokenAuthGuard",
+                        "RequireApiKeyGuard",
+                        "RequireScopesGuard",
+                        "RequireRolesGuard",
+                        "RequirePermissionGuard",
+                        "RequirePolicyGuard",
+                    )
                     or "auth" in node_module.lower()
                 )
                 if not is_security_guard:
@@ -1125,10 +1136,16 @@ class ControllerEngine:
                         hasattr(param.type, "__name__") and param.type.__name__ == "Identity"
                     )
 
-                    is_principal_param = param_name == "principal" or (
-                        hasattr(param.type, "__name__") and param.type.__name__ in ("SessionPrincipal", "AuthPrincipal")
-                    ) or (
-                        isinstance(param.type, str) and any(p in param.type for p in ("SessionPrincipal", "AuthPrincipal"))
+                    is_principal_param = (
+                        param_name == "principal"
+                        or (
+                            hasattr(param.type, "__name__")
+                            and param.type.__name__ in ("SessionPrincipal", "AuthPrincipal")
+                        )
+                        or (
+                            isinstance(param.type, str)
+                            and any(p in param.type for p in ("SessionPrincipal", "AuthPrincipal"))
+                        )
                     )
 
                     is_optional = not param.required or is_session_param or is_identity_param or is_principal_param
@@ -1160,6 +1177,7 @@ class ControllerEngine:
                             identity_obj = request.state.get("identity") or getattr(ctx, "identity", None)
                             if identity_obj:
                                 from aquilia.auth.integration.aquila_sessions import AuthPrincipal
+
                                 value = AuthPrincipal.from_identity(identity_obj)
 
                     # ENFORCEMENT: If this is a Session, and it's None, but requested as required
