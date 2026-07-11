@@ -54,7 +54,7 @@ class PostPolicy(Policy):
             return Allow("Author can edit")
         
         # Defer to other rules if the user is an admin
-        if "admin" in identity.roles:
+        if identity.has_role("admin"):
             return Abstain("Let admin rules decide")
             
         return Deny("Must be author or administrator")`}

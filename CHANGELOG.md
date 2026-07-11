@@ -330,6 +330,16 @@ signatures were removed; new keyword-only parameters were added where needed.
   session file; `resolve()` didn't catch it, unlike every other invalid-session case
   (expired, idle-timeout, fingerprint-mismatch), which all fall back to a fresh
   session. Now caught and handled the same way.
+- **`AdminAuthGuard` read `identity.roles` directly, bypassing `get_attribute`**
+  (`aquilia/admin/subsystems.py`): same root cause as the guard/clearance fixes
+  above — real `Identity` has no `.roles` attribute, so the admin panel's own
+  auth guard fell through to an empty role list and rejected every real admin.
+  `aquilia/admin/permissions.py` already did this correctly; `AdminAuthGuard`
+  now uses the same `get_attribute`-first fallback chain.
+- **`aquilia/auth/policy/__init__.py` module docstring example used
+  `identity.roles` directly** instead of `identity.has_role(...)` — corrected
+  (documentation-only; the executable `Policy`/`PolicyRegistry` code was
+  already correct).
 - **Inconsistent locking in `MemoryStore.exists()` and `FileStore.delete()`**
   (`aquilia/sessions/store.py`): every other method on both stores serializes on
   `self._lock`; these two didn't, breaking the stores' own lock discipline (a latent

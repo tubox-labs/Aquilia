@@ -118,7 +118,6 @@ class CredentialStatus(str, Enum):
     EXPIRED = "expired"
 
 
-@dataclass
 class Credential(Protocol):
     """
     Base protocol for credentials.

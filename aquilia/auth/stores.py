@@ -24,6 +24,7 @@ from aquilia.faults.domains import ConflictFault, NotFoundFault
 
 from .core import (
     ApiKeyCredential,
+    CredentialStatus,
     Identity,
     IdentityStatus,
     MFACredential,
@@ -125,14 +126,23 @@ class MemoryCredentialStore:
     def __init__(self):
         self._passwords: dict[str, PasswordCredential] = {}
         self._api_keys: dict[str, ApiKeyCredential] = {}
+        self._api_keys_by_hash: dict[str, ApiKeyCredential] = {}
         self._mfa: dict[str, list[MFACredential]] = defaultdict(list)
         self._lock = asyncio.Lock()
 
     # Password credentials
     async def save_password(self, credential: PasswordCredential) -> None:
-        """Save password credential."""
+        """Save password credential (upsert)."""
         async with self._lock:
             self._passwords[credential.identity_id] = credential
+
+    async def create_password(self, credential: PasswordCredential) -> None:
+        """Create password credential (CredentialStore protocol)."""
+        await self.save_password(credential)
+
+    async def update_password(self, credential: PasswordCredential) -> None:
+        """Update password credential (CredentialStore protocol)."""
+        await self.save_password(credential)
 
     async def get_password(self, identity_id: str) -> PasswordCredential | None:
         """Get password credential."""
@@ -151,13 +161,26 @@ class MemoryCredentialStore:
         """Save API key credential."""
         async with self._lock:
             self._api_keys[credential.key_id] = credential
+            self._api_keys_by_hash[credential.key_hash] = credential
+
+    async def create_api_key(self, credential: ApiKeyCredential) -> None:
+        """Create API key credential (CredentialStore protocol)."""
+        async with self._lock:
+            if credential.key_id in self._api_keys:
+                raise ConflictFault(detail=f"API key {credential.key_id} already exists")
+            self._api_keys[credential.key_id] = credential
+            self._api_keys_by_hash[credential.key_hash] = credential
 
     async def get_api_key(self, key_id: str) -> ApiKeyCredential | None:
         """Get API key credential."""
         return self._api_keys.get(key_id)
 
+    async def get_api_key_by_hash(self, key_hash: str) -> ApiKeyCredential | None:
+        """Get API key by its HMAC hash (O(1) lookup, CredentialStore protocol)."""
+        return self._api_keys_by_hash.get(key_hash)
+
     async def get_api_key_by_prefix(self, prefix: str) -> ApiKeyCredential | None:
-        """Get API key by prefix (first 8 chars)."""
+        """Get API key by prefix (first 8 chars). Deprecated: prefer get_api_key_by_hash."""
         for credential in self._api_keys.values():
             if credential.prefix == prefix:
                 return credential
@@ -167,13 +190,23 @@ class MemoryCredentialStore:
         """List all API keys for identity."""
         return [c for c in self._api_keys.values() if c.identity_id == identity_id]
 
-    async def delete_api_key(self, key_id: str) -> bool:
-        """Delete API key credential."""
+    async def revoke_api_key(self, key_id: str) -> bool:
+        """Revoke API key (soft: marks status REVOKED, CredentialStore protocol)."""
         async with self._lock:
-            if key_id in self._api_keys:
-                del self._api_keys[key_id]
-                return True
-            return False
+            credential = self._api_keys.get(key_id)
+            if not credential:
+                return False
+            credential.status = CredentialStatus.REVOKED
+            return True
+
+    async def delete_api_key(self, key_id: str) -> bool:
+        """Hard-delete API key credential."""
+        async with self._lock:
+            credential = self._api_keys.pop(key_id, None)
+            if credential is None:
+                return False
+            self._api_keys_by_hash.pop(credential.key_hash, None)
+            return True
 
     # MFA credentials
     async def save_mfa(self, credential: MFACredential) -> None:
@@ -183,6 +216,14 @@ class MemoryCredentialStore:
             # Remove existing credential of same type
             self._mfa[credential.identity_id] = [c for c in credentials if c.mfa_type != credential.mfa_type]
             self._mfa[credential.identity_id].append(credential)
+
+    async def create_mfa(self, credential: MFACredential) -> None:
+        """Create MFA credential (CredentialStore protocol)."""
+        await self.save_mfa(credential)
+
+    async def update_mfa(self, credential: MFACredential) -> None:
+        """Update MFA credential (CredentialStore protocol)."""
+        await self.save_mfa(credential)
 
     async def get_mfa(self, identity_id: str, mfa_type: str | None = None) -> list[MFACredential]:
         """Get MFA credentials for identity."""
@@ -248,6 +289,10 @@ class MemoryOAuthClientStore:
             clients = [c for c in clients if c.metadata.get("owner_id") == owner_id]
         return clients[offset : offset + limit]
 
+    async def list_all(self) -> list[OAuthClient]:
+        """List all OAuth clients (OAuthClientStore protocol)."""
+        return await self.list()
+
 
 class MemoryTokenStore:
     """In-memory token storage for development/testing."""
@@ -267,6 +312,8 @@ class MemoryTokenStore:
         expires_at: datetime,
         session_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Save refresh token."""
         async with self._lock:
@@ -277,6 +324,8 @@ class MemoryTokenStore:
                 "session_id": session_id,
                 "metadata": metadata or {},
                 "created_at": datetime.now(timezone.utc).isoformat(),
+                "roles": roles or [],
+                "tenant_id": tenant_id,
             }
 
             if session_id:
@@ -370,6 +419,8 @@ class RedisTokenStore:
         expires_at: datetime,
         session_id: str | None = None,
         metadata: dict[str, Any] | None = None,
+        roles: list[str] | None = None,
+        tenant_id: str | None = None,
     ) -> None:
         """Save refresh token to Redis."""
         data = {
@@ -378,6 +429,8 @@ class RedisTokenStore:
             "expires_at": expires_at.isoformat(),
             "session_id": session_id or "",
             "metadata": json.dumps(metadata or {}),
+            "roles": json.dumps(roles or []),
+            "tenant_id": tenant_id or "",
         }
 
         # Store token data as hash
@@ -417,6 +470,8 @@ class RedisTokenStore:
             "expires_at": data[b"expires_at"].decode(),
             "session_id": data[b"session_id"].decode() or None,
             "metadata": json.loads(data[b"metadata"].decode()),
+            "roles": json.loads(data[b"roles"].decode()) if b"roles" in data else [],
+            "tenant_id": (data[b"tenant_id"].decode() or None) if b"tenant_id" in data else None,
         }
 
     async def revoke_refresh_token(self, token_id: str) -> None:

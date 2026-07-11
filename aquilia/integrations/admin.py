@@ -113,39 +113,72 @@ class LegacyFluentMixin:
             called = False
             try:
                 f = sys._getframe(1)
-                code = f.f_code.co_code
-                lasti = f.f_lasti
-                offset = 2
-                while lasti + offset < len(code):
-                    op = code[lasti + offset]
-                    if op == 0:  # CACHE
-                        offset += 2
-                        continue
-                    op_name = dis.opname[op]
-                    if op_name.startswith("CALL"):
-                        called = True
-                        break
-                    if (
-                        op_name.startswith("STORE")
-                        or op_name.startswith("JUMP")
-                        or op_name.startswith("POP_JUMP")
-                        or op_name.startswith("BINARY")
-                        or op_name in ("POP_TOP", "RETURN_VALUE", "COMPARE_OP", "IS_OP", "CONTAINS_OP", "LOAD_ATTR")
-                    ):
-                        called = False
-                        break
-                    offset += 2
-            except (ValueError, IndexError):
+                caller_name = f.f_code.co_name
+                caller_file = f.f_code.co_filename
+                if (
+                    caller_name
+                    in (
+                        "new_post_init",
+                        "resolve_config_value",
+                        "resolve_integration_fields",
+                        "to_dict",
+                        "_unwrap_value",
+                        "__repr__",
+                        "__init__",
+                        "__eq__",
+                        "__ne__",
+                        "__copy__",
+                        "__deepcopy__",
+                    )
+                    or "utils.py" in caller_file
+                    or "dataclasses" in caller_file
+                    or "copy.py" in caller_file
+                    or "importlib" in caller_file
+                ):
+                    pass
+                else:
+                    target_offset = f.f_lasti * 2 if sys.version_info[:2] == (3, 11) else f.f_lasti
+                    instructions = list(dis.Bytecode(f.f_code))
+                    idx = -1
+                    for i, inst in enumerate(instructions):
+                        if inst.offset >= target_offset and inst.opname in (
+                            "LOAD_ATTR",
+                            "LOAD_METHOD",
+                            "LOAD_SUPER_ATTR",
+                        ):
+                            idx = i
+                            break
+                    if idx != -1:
+                        for inst in instructions[idx + 1 :]:
+                            if inst.opname.startswith("CALL"):
+                                called = True
+                                break
+                            if (
+                                inst.opname.startswith("STORE")
+                                or inst.opname.startswith("JUMP")
+                                or inst.opname.startswith("POP_JUMP")
+                                or inst.opname.startswith("RETURN")
+                                or inst.opname.startswith("RAISE")
+                                or inst.opname.startswith("RERAISE")
+                                or "COMPARE" in inst.opname
+                                or "POP" in inst.opname
+                                or "IS_OP" in inst.opname
+                                or "CONTAINS" in inst.opname
+                                or "EXC" in inst.opname
+                            ):
+                                called = False
+                                break
+            except Exception:
                 pass
 
             if called:
-                if isinstance(val, bool):
+                if isinstance(val, (bool, CallableBool)):
                     return CallableBool(val, self, name)
-                elif isinstance(val, int):
+                elif isinstance(val, (int, CallableInt)) and not isinstance(val, (bool, CallableBool)):
                     return CallableInt(val, self, name)
-                elif isinstance(val, str) or val is None:
+                elif isinstance(val, (str, CallableStr)) or val is None:
                     return CallableStr(val, self, name)
-                elif isinstance(val, list):
+                elif isinstance(val, (list, CallableList)):
                     return CallableList(val, self, name)
         return val
 

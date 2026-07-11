@@ -330,10 +330,13 @@ class DatabaseCredentialStore(CredentialStore):
             password_hash=user.password_hash
         )
 
-    async def save_password(self, credential: PasswordCredential) -> None:
+    async def create_password(self, credential: PasswordCredential) -> None:
         await User.objects.filter(id=credential.identity_id).update(
             password_hash=credential.password_hash
         )
+
+    async def update_password(self, credential: PasswordCredential) -> None:
+        await self.create_password(credential)
 `}</CodeBlock>
           </div>
         </div>
