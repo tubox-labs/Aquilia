@@ -128,12 +128,26 @@ def is_verified(identity: Any, request: Any, ctx: Any) -> bool:
     return False
 
 
+def _identity_roles(identity: Any) -> set:
+    """Read roles off an identity. Real ``Identity`` stores these inside
+    ``attributes`` (via ``get_attribute``), not as a direct ``.roles``
+    attribute."""
+    if identity is None:
+        return set()
+    if hasattr(identity, "get_attribute"):
+        return set(identity.get_attribute("roles", []) or [])
+    if hasattr(identity, "roles"):
+        return set(getattr(identity, "roles") or [])
+    attrs = getattr(identity, "attributes", None) or {}
+    return set(attrs.get("roles", []) or [])
+
+
 def is_owner_or_admin(identity: Any, request: Any, ctx: Any) -> bool:
     """Condition: identity is resource owner or has admin role."""
     if identity is None:
         return False
     # Admin check
-    roles = getattr(identity, "roles", set()) or set()
+    roles = _identity_roles(identity)
     if "admin" in roles or "superuser" in roles:
         return True
     # Owner check -- look for resource_owner_id in ctx.state
@@ -237,7 +251,7 @@ class Clearance:
     Declaratively specifies the access matrix for a controller or route.
     """
 
-    level: AccessLevel = AccessLevel.AUTHENTICATED
+    level: AccessLevel | None = None
     entitlements: tuple[str, ...] = ()
     conditions: tuple[Callable, ...] = ()
     compartment: str | None = None  # Template: "tenant:{tenant_id}"
@@ -246,40 +260,38 @@ class Clearance:
 
     def __init__(
         self,
-        level: AccessLevel = AccessLevel.AUTHENTICATED,
+        level: AccessLevel | None = AccessLevel.AUTHENTICATED,
         entitlements: Sequence[str] = (),
         conditions: Sequence[Callable] = (),
         compartment: str | None = None,
         deny_message: str = "Insufficient clearance",
         audit: bool = True,
     ):
-        object.__setattr__(self, "level", AccessLevel(level))
+        object.__setattr__(self, "level", AccessLevel(level) if level is not None else None)
         object.__setattr__(self, "entitlements", tuple(entitlements))
         object.__setattr__(self, "conditions", tuple(conditions))
         object.__setattr__(self, "compartment", compartment)
         object.__setattr__(self, "deny_message", deny_message)
         object.__setattr__(self, "audit", audit)
 
+    @property
+    def effective_level(self) -> AccessLevel:
+        """Resolved level -- ``AUTHENTICATED`` when unspecified (``level is None``)."""
+        return self.level if self.level is not None else AccessLevel.AUTHENTICATED
+
     def merge(self, override: Clearance) -> Clearance:
         """
         Merge this (class-level) clearance with an override (method-level).
 
         Rules:
-        - Level: override wins if specified (non-AUTHENTICATED default)
+        - Level: override wins only if explicitly specified (``level is not None``);
+          otherwise the base (class-level) clearance's level is inherited.
         - Entitlements: union of both
         - Conditions: union of both
         - Compartment: override wins if specified
         - Deny message: override wins if different from default
         """
-        merged_level = override.level if override.level != AccessLevel.AUTHENTICATED else self.level
-        # If override explicitly set level, use it even if AUTHENTICATED
-        if override.level != self.level and override.level == AccessLevel.AUTHENTICATED:
-            merged_level = self.level
-        if override.level != AccessLevel.AUTHENTICATED or self.level == AccessLevel.AUTHENTICATED:
-            merged_level = override.level if override.level != AccessLevel.AUTHENTICATED else self.level
-
-        # Actually simpler: override always wins for level
-        merged_level = override.level
+        merged_level = override.level if override.level is not None else self.level
 
         merged_entitlements = tuple(set(self.entitlements) | set(override.entitlements))
         merged_conditions = tuple(list(self.conditions) + [c for c in override.conditions if c not in self.conditions])
@@ -351,7 +363,7 @@ _CLEARANCE_ATTR = "__aquilia_clearance__"
 
 
 def grant(
-    level: AccessLevel = AccessLevel.AUTHENTICATED,
+    level: AccessLevel | None = None,
     entitlements: Sequence[str] = (),
     conditions: Sequence[Callable] = (),
     compartment: str | None = None,
@@ -360,6 +372,11 @@ def grant(
 ) -> Callable:
     """
     Decorator to attach clearance requirements to a route method.
+
+    ``level`` defaults to ``None`` (not specified): when merged with a
+    class-level ``Clearance``, the class's level is inherited rather than
+    silently downgrading it to ``AUTHENTICATED``. Pass an explicit level to
+    override the class baseline.
 
     Usage::
 
@@ -456,7 +473,7 @@ def _build_clearance_denied_response(
     """Build clearance denied response via content negotiation."""
     from ..response import Response
 
-    status = 401 if not verdict.level_ok and clearance.level > AccessLevel.PUBLIC else 403
+    status = 401 if not verdict.level_ok and clearance.effective_level > AccessLevel.PUBLIC else 403
 
     if _request_wants_html(request):
         from ..debug.pages import render_http_error_page
@@ -546,7 +563,7 @@ class ClearanceEngine:
             # Expired — fall through to recompute
 
         # Determine from roles
-        roles = getattr(identity, "roles", set()) or set()
+        roles = _identity_roles(identity)
         highest = AccessLevel.AUTHENTICATED  # Any identity gets at least this
 
         for role in roles:
@@ -583,17 +600,28 @@ class ClearanceEngine:
 
         # Default: combine scopes + permissions from roles
         entitlements: set[str] = set()
+        attrs = getattr(identity, "attributes", {}) or {}
 
-        # Scopes (OAuth-style)
-        scopes = getattr(identity, "scopes", set()) or set()
+        # Scopes (OAuth-style) -- real Identity stores these in attributes,
+        # not as a direct .scopes attribute.
+        if hasattr(identity, "get_attribute"):
+            scopes = identity.get_attribute("scopes", []) or []
+        elif hasattr(identity, "scopes"):
+            scopes = getattr(identity, "scopes") or []
+        else:
+            scopes = attrs.get("scopes", []) or []
         entitlements.update(str(s) for s in scopes)
 
-        # Permissions (RBAC-style, from authz engine)
-        permissions = getattr(identity, "permissions", set()) or set()
+        # Permissions (RBAC-style, from authz engine) -- same fallback chain.
+        if hasattr(identity, "get_attribute"):
+            permissions = identity.get_attribute("permissions", []) or []
+        elif hasattr(identity, "permissions"):
+            permissions = getattr(identity, "permissions") or []
+        else:
+            permissions = attrs.get("permissions", []) or []
         entitlements.update(str(p) for p in permissions)
 
         # Attributes may carry entitlements
-        attrs = getattr(identity, "attributes", {}) or {}
         attr_entitlements = attrs.get("entitlements") or attrs.get("capabilities")
         if attr_entitlements:
             if isinstance(attr_entitlements, (list, tuple, set, frozenset)):
@@ -659,10 +687,11 @@ class ClearanceEngine:
 
         # 1. Level check
         identity_level = self.resolve_identity_level(identity)
-        level_ok = identity_level >= clearance.level
+        effective_level = clearance.effective_level
+        level_ok = identity_level >= effective_level
 
         # PUBLIC level means no auth needed
-        if clearance.level == AccessLevel.PUBLIC:
+        if effective_level == AccessLevel.PUBLIC:
             level_ok = True
 
         # 2. Entitlements check
@@ -721,7 +750,7 @@ class ClearanceEngine:
         else:
             parts = []
             if not level_ok:
-                parts.append(f"requires {clearance.level.name} (identity has {identity_level.name})")
+                parts.append(f"requires {effective_level.name} (identity has {identity_level.name})")
             if missing_entitlements:
                 parts.append(f"missing entitlements: {', '.join(missing_entitlements)}")
             if failed_conditions:

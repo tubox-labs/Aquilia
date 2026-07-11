@@ -134,13 +134,28 @@ class OAuth2Manager:
         self.token_manager = token_manager
         self.issuer = issuer
 
-    async def validate_client(self, client_id: str, client_secret: str | None = None) -> OAuthClient:
+    async def validate_client(
+        self,
+        client_id: str,
+        client_secret: str | None = None,
+        *,
+        require_secret: bool = False,
+    ) -> OAuthClient:
         """
         Validate OAuth client credentials.
 
         Args:
             client_id: Client ID
-            client_secret: Client secret (required for confidential clients)
+            client_secret: Client secret (required for confidential clients
+                            at token-issuing endpoints)
+            require_secret: If True, a confidential client (one with a
+                             ``client_secret_hash``) MUST authenticate with
+                             its secret -- used by token-issuing endpoints
+                             (``exchange_authorization_code``,
+                             ``client_credentials_grant``). Endpoints that
+                             don't carry client credentials over the wire
+                             per the OAuth spec (``authorize``,
+                             ``device_authorization``) leave this False.
 
         Returns:
             OAuth client
@@ -152,13 +167,15 @@ class OAuth2Manager:
         if not client:
             raise AUTH_CLIENT_INVALID(client_id=client_id)
 
-        # Verify client secret if provided
-        if client_secret:
-            if not client.client_secret_hash:
-                raise AUTH_CLIENT_INVALID(client_id=client_id)
+        is_confidential = bool(client.client_secret_hash)
 
+        if client_secret:
+            if not is_confidential:
+                raise AUTH_CLIENT_INVALID(client_id=client_id, reason="Client is public; no secret expected")
             if not OAuthClient.verify_client_secret(client_secret, client.client_secret_hash):
                 raise AUTH_CLIENT_INVALID(client_id=client_id)
+        elif require_secret and is_confidential:
+            raise AUTH_CLIENT_INVALID(client_id=client_id, reason="Client secret required")
 
         return client
 
@@ -249,7 +266,16 @@ class OAuth2Manager:
 
         Returns:
             Authorization code
+
+        Raises:
+            AUTH_PKCE_INVALID: Client requires PKCE but no code_challenge given
         """
+        # Re-enforce PKCE here too -- authorize() checks it for the consent-UI
+        # path, but callers can invoke grant_authorization_code() directly.
+        client = await self.validate_client(client_id)
+        if client.require_pkce and not code_challenge:
+            raise AUTH_PKCE_INVALID(reason="PKCE required but no code_challenge provided")
+
         # Generate authorization code
         code = f"ac_{secrets.token_urlsafe(32)}"
 
@@ -295,8 +321,8 @@ class OAuth2Manager:
             AUTH_REDIRECT_URI_MISMATCH: Redirect URI mismatch
             AUTH_PKCE_INVALID: PKCE verification failed
         """
-        # Validate client
-        await self.validate_client(client_id, client_secret)
+        # Validate client (confidential clients must authenticate here)
+        await self.validate_client(client_id, client_secret, require_secret=True)
 
         # Get authorization code
         code_data = await self.code_store.get_code(code)
@@ -371,8 +397,8 @@ class OAuth2Manager:
             AUTH_CLIENT_INVALID: Invalid client
             AUTH_SCOPE_INVALID: Invalid scope
         """
-        # Validate client
-        client = await self.validate_client(client_id, client_secret)
+        # Validate client (machine-to-machine grant always requires the secret)
+        client = await self.validate_client(client_id, client_secret, require_secret=True)
 
         # Verify grant type allowed
         if "client_credentials" not in client.grant_types:
