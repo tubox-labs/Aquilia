@@ -1777,21 +1777,49 @@ class AdminSite:
                     if isinstance(services_raw, list):
                         for svc in services_raw:
                             s = svc if isinstance(svc, dict) else (svc.__dict__ if hasattr(svc, "__dict__") else {})
+                            stype = s.get("type", "web_service")
+                            stype_str = stype.value if hasattr(stype, "value") else str(stype)
+                            details = s.get("service_details") or {}
+                            url = "—"
+                            if stype_str in ["web_service", "static_site"]:
+                                url = (
+                                    details.get("url")
+                                    or details.get("parentUrl")
+                                    or (f"https://{s.get('slug')}.onrender.com" if s.get('slug') else f"https://{s.get('name')}.onrender.com")
+                                )
+                            region_val = s.get("region") or details.get("region")
+                            region_str = region_val.value if hasattr(region_val, "value") else (str(region_val) if region_val else "—")
+                            status_val = s.get("status") or s.get("state")
+                            if not status_val:
+                                if s.get("suspended") == "suspended":
+                                    status_val = "suspended"
+                                elif s.get("suspended") == "not_suspended":
+                                    status_val = "live"
+                                else:
+                                    status_val = "unknown"
+                            plan_val = s.get("plan") or s.get("instance_type") or details.get("plan") or "—"
                             data["services"].append(
                                 {
                                     "id": s.get("id", s.get("service_id", "—")),
                                     "name": s.get("name", "unnamed"),
-                                    "type": s.get("type", s.get("service_type", "web_service")),
-                                    "status": s.get("status", s.get("state", "unknown")),
-                                    "region": s.get("region", "—"),
-                                    "plan": s.get("plan", s.get("instance_type", "—")),
-                                    "url": s.get("url", s.get("service_url", "—")),
+                                    "type": stype_str,
+                                    "status": status_val,
+                                    "region": region_str,
+                                    "plan": plan_val,
+                                    "url": url,
+                                    "slug": s.get("slug", "—"),
+                                    "auto_deploy": s.get("auto_deploy", s.get("autoDeploy", "—")),
+                                    "suspended": s.get("suspended", "—"),
+                                    "dashboard_url": s.get("dashboard_url", s.get("dashboardUrl", "—")),
+                                    "image_path": s.get("image_path", s.get("imagePath", "—")),
+                                    "branch": details.get("branch", "—"),
+                                    "repo_url": details.get("repoUrl", details.get("repo", "—")),
                                     "created_at": str(s.get("created_at", s.get("createdAt", "—"))),
                                     "updated_at": str(s.get("updated_at", s.get("updatedAt", "—"))),
                                 }
                             )
                         data["services_live"] = sum(
-                            1 for s in data["services"] if s.get("status", "").lower() == "live"
+                            1 for s in data["services"] if (s.get("status") or "").lower() == "live"
                         )
             except Exception as e:
                 logger.warning(f"Error listing services: {e}")
@@ -1807,6 +1835,8 @@ class AdminSite:
                         if isinstance(deploys_raw, list):
                             for d in deploys_raw[:20]:
                                 dp = d if isinstance(d, dict) else (d.__dict__ if hasattr(d, "__dict__") else {})
+                                commit_info = dp.get("commit") or {}
+                                image_info = dp.get("image") or {}
                                 data["deploys"].append(
                                     {
                                         "id": dp.get("id", "—"),
@@ -1814,8 +1844,13 @@ class AdminSite:
                                         "service_name": svc.get("name", "—"),
                                         "status": dp.get("status", "unknown"),
                                         "trigger": dp.get("trigger", dp.get("type", "manual")),
-                                        "commit_id": dp.get("commit_id", dp.get("commitId", "—")),
+                                        "commit_id": dp.get("commit_id", dp.get("commitId", commit_info.get("id", "—"))),
+                                        "commit_msg": commit_info.get("message", "—"),
+                                        "commit_author": commit_info.get("author", {}).get("name", "—"),
+                                        "commit_url": commit_info.get("url", "—"),
+                                        "image_path": image_info.get("path", "—"),
                                         "created_at": str(dp.get("created_at", dp.get("createdAt", "—"))),
+                                        "finished_at": str(dp.get("finished_at", dp.get("finishedAt", "—"))),
                                     }
                                 )
                 data["total_deploys"] = len(data["deploys"])
@@ -1829,11 +1864,13 @@ class AdminSite:
                     if isinstance(pg_raw, list):
                         for db in pg_raw:
                             d = db if isinstance(db, dict) else (db.__dict__ if hasattr(db, "__dict__") else {})
+                            region_val = d.get("region")
+                            region_str = region_val.value if hasattr(region_val, "value") else (str(region_val) if region_val else "—")
                             data["postgres_instances"].append(
                                 {
                                     "id": d.get("id", "—"),
                                     "name": d.get("name", "unnamed"),
-                                    "region": d.get("region", "—"),
+                                    "region": region_str,
                                     "plan": d.get("plan", "starter"),
                                     "version": d.get("version", d.get("databaseVersion", "16")),
                                 }
@@ -1849,11 +1886,13 @@ class AdminSite:
                     if isinstance(kv_raw, list):
                         for kv in kv_raw:
                             k = kv if isinstance(kv, dict) else (kv.__dict__ if hasattr(kv, "__dict__") else {})
+                            region_val = k.get("region")
+                            region_str = region_val.value if hasattr(region_val, "value") else (str(region_val) if region_val else "—")
                             data["kv_instances"].append(
                                 {
                                     "id": k.get("id", "—"),
                                     "name": k.get("name", "unnamed"),
-                                    "region": k.get("region", "—"),
+                                    "region": region_str,
                                     "plan": k.get("plan", "starter"),
                                 }
                             )
@@ -2064,7 +2103,7 @@ class AdminSite:
         # Service status distribution
         status_counts: dict[str, int] = {}
         for s in data["services"]:
-            st = s.get("status", "unknown").lower()
+            st = (s.get("status") or "unknown").lower()
             status_counts[st] = status_counts.get(st, 0) + 1
         data["chart_service_status"] = status_counts
 
@@ -2078,7 +2117,7 @@ class AdminSite:
         # Deploy status distribution
         deploy_status_counts: dict[str, int] = {}
         for d in data["deploys"]:
-            ds = d.get("status", "unknown").lower()
+            ds = (d.get("status") or "unknown").lower()
             deploy_status_counts[ds] = deploy_status_counts.get(ds, 0) + 1
         data["chart_deploy_status"] = deploy_status_counts
 
@@ -2200,14 +2239,14 @@ class AdminSite:
                 client.restart_service(service_id)
                 return {"success": True, "message": f"Service {service_id} restart triggered."}
 
-            elif action == "purge_cache" and deployer and hasattr(deployer, "purge_cache"):
-                deployer.purge_cache(service_id)
+            elif action == "purge_cache" and client and hasattr(client, "purge_cache"):
+                client.purge_cache(service_id)
                 return {"success": True, "message": f"Cache purged for service {service_id}."}
 
-            elif action in ("redeploy", "deploy") and deployer and hasattr(deployer, "deploy"):
-                result = deployer.deploy(service_id)
+            elif action in ("redeploy", "deploy") and client and hasattr(client, "trigger_deploy"):
+                result = client.trigger_deploy(service_id)
                 msg = f"Deploy triggered for service {service_id}."
-                return {"success": True, "message": msg, "deploy_id": getattr(result, "deploy_id", "")}
+                return {"success": True, "message": msg, "deploy_id": getattr(result, "id", "")}
 
             elif action == "suspend" and client and hasattr(client, "suspend_service"):
                 client.suspend_service(service_id)
@@ -2217,8 +2256,8 @@ class AdminSite:
                 client.cancel_deploy(service_id, deploy_id)
                 return {"success": True, "message": f"Deploy {deploy_id} cancelled."}
 
-            elif action == "rollback" and deployer and hasattr(deployer, "rollback"):
-                deployer.rollback(service_id, deploy_id)
+            elif action == "rollback_deploy" and client and hasattr(client, "rollback_deploy"):
+                client.rollback_deploy(service_id, deploy_id)
                 return {"success": True, "message": f"Rollback to deploy {deploy_id} triggered."}
 
             elif action == "create_preview" and client and hasattr(client, "create_preview"):
@@ -2254,16 +2293,37 @@ class AdminSite:
             return []
         try:
             if hasattr(client, "get_logs"):
-                logs_raw = client.get_logs(service_id)
+                owner_id = None
+                if hasattr(client, "list_owners"):
+                    try:
+                        owners = client.list_owners()
+                        if owners:
+                            owner_id = owners[0].id
+                    except Exception:
+                        pass
+                logs_raw = client.get_logs(service_id=service_id, owner_id=owner_id)
                 if isinstance(logs_raw, list):
-                    return [
-                        {
-                            "timestamp": l.get("timestamp", ""),
-                            "level": l.get("level", "info"),
-                            "message": l.get("message", str(l)),
-                        }
-                        for l in logs_raw
-                    ]
+                    res = []
+                    for l in logs_raw:
+                        if hasattr(l, "message"):
+                            res.append({
+                                "timestamp": l.timestamp or "",
+                                "level": l.level or "info",
+                                "message": l.message or "",
+                            })
+                        elif isinstance(l, dict):
+                            res.append({
+                                "timestamp": l.get("timestamp") or "",
+                                "level": l.get("level") or "info",
+                                "message": l.get("message") or "",
+                            })
+                        else:
+                            res.append({
+                                "timestamp": "",
+                                "level": "info",
+                                "message": str(l),
+                            })
+                    return res
         except Exception as e:
             logger.warning(f"Error fetching logs for {service_id}: {e}")
         return []
