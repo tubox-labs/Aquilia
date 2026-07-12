@@ -129,6 +129,13 @@ otel = [
     "opentelemetry-instrumentation-asgi>=0.45b0",
 ]
 
+# Elips-backed vector database ORM (aquilia.vectordb) -- kept out of core
+# deps and out of the full/all bundles: it's a compiled extension, opt in
+# explicitly with `pip install aquilia[vectordb]`.
+vectordb = [
+    "elips==1.0.0",
+]
+
 
 # ---- Convenience bundles ----------------------------------------------------
 
