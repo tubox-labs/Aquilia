@@ -4733,10 +4733,9 @@ class AdminController(Controller):
         except Exception:
             pass
 
-        status_code = 200 if result.get("success") else 400
         return Response(
             content=_json.dumps(result, default=str).encode("utf-8"),
-            status=status_code,
+            status=200,
             headers={"content-type": "application/json; charset=utf-8"},
         )
 
