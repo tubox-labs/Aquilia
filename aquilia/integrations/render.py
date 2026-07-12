@@ -31,6 +31,7 @@ class RenderIntegration:
     image: str | None = None
     health_path: str = "/_health"
     auto_deploy: str = "no"
+    registry_credential_id: str | None = None
     enabled: bool = True
 
     def to_dict(self) -> dict[str, Any]:
@@ -47,4 +48,6 @@ class RenderIntegration:
             config["service_name"] = self.service_name
         if self.image:
             config["image"] = self.image
+        if self.registry_credential_id:
+            config["registry_credential_id"] = self.registry_credential_id
         return config

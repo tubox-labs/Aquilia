@@ -232,7 +232,9 @@ class RenderDeployer:
 
     def _should_build_docker(self) -> bool:
         image = self._config.image
-        return "/" not in image or image.startswith("localhost")
+        has_slash = "/" in image and not image.startswith("localhost")
+        dockerfile = self._workspace_root / "Dockerfile"
+        return not has_slash or dockerfile.exists()
 
     def _should_push_docker(self) -> bool:
         return "/" in self._config.image and not self._config.image.startswith("localhost")
@@ -243,7 +245,7 @@ class RenderDeployer:
         if not dockerfile.exists():
             self._error("Dockerfile not found. Run 'aq deploy dockerfile' first or use --image.")
             return False
-        cmd = ["docker", "build", "-t", self._config.image, str(self._workspace_root)]
+        cmd = ["docker", "build", "--platform", "linux/amd64", "-t", self._config.image, str(self._workspace_root)]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(self._workspace_root))
             if result.returncode != 0:
@@ -328,7 +330,25 @@ class RenderDeployer:
             return
         self._step("env", f"Syncing {len(self._config.env_vars)} env var(s)")
         try:
-            env_payload = [ev.to_dict() for ev in self._config.env_vars]
+            # Fetch existing env vars to preserve generated secrets
+            try:
+                existing_vars = self._client.list_env_vars(service.id)
+                existing_dict = {item["key"]: item["value"] for item in existing_vars if isinstance(item, dict) and "key" in item}
+            except Exception:
+                existing_dict = {}
+
+            env_payload = []
+            for ev in self._config.env_vars:
+                key = ev.key
+                if ev.generate_value == "yes":
+                    value = existing_dict.get(key)
+                    if not value:
+                        import secrets
+                        value = secrets.token_hex(32)
+                else:
+                    value = ev.value or ""
+                env_payload.append({"key": key, "value": value})
+
             self._client.update_env_vars(service.id, env_payload)
             self._step("env", "Environment variables synced")
         except ProviderAPIFault as e:

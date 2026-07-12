@@ -1273,6 +1273,9 @@ class AquilaConfig:
         #: Auto-deploy on image push (``"yes"`` or ``"no"``).
         auto_deploy: str = "no"
 
+        #: Render registry credential ID (for private Docker images).
+        registry_credential_id: str | None = None
+
         #: Internal service port (the port your ASGI server listens on).
         port: int = 8000
 

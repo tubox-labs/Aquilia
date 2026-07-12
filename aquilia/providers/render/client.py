@@ -712,19 +712,26 @@ class RenderClient:
 
         result = self._request("GET", "/logs", params=params)
         data = self._json(result)
-        if isinstance(data, list):
-            return [
-                RenderLogEntry(
-                    timestamp=l.get("timestamp"),
-                    message=l.get("message", ""),
-                    level=l.get("level"),
-                    service_id=l.get("serviceId"),
-                    instance_id=l.get("instanceId"),
-                    deploy_id=l.get("deployId"),
-                    type=l.get("type"),
+        logs_list = data if isinstance(data, list) else (data.get("logs") if isinstance(data, dict) else None)
+        if isinstance(logs_list, list):
+            res = []
+            for l in logs_list:
+                if not isinstance(l, dict):
+                    continue
+                labels = l.get("labels") or []
+                lbl_dict = {lbl.get("name"): lbl.get("value") for lbl in labels if isinstance(lbl, dict)}
+                res.append(
+                    RenderLogEntry(
+                        timestamp=l.get("timestamp"),
+                        message=l.get("message", ""),
+                        level=l.get("level") or lbl_dict.get("level"),
+                        service_id=l.get("serviceId") or lbl_dict.get("resource"),
+                        instance_id=l.get("instanceId") or lbl_dict.get("instance"),
+                        deploy_id=l.get("deployId") or lbl_dict.get("deploy"),
+                        type=l.get("type") or lbl_dict.get("type"),
+                    )
                 )
-                for l in data
-            ]
+            return res
         return []
 
     # ═════════════════════════════════════════════════════════════════

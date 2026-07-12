@@ -1225,7 +1225,8 @@ class RenderDeployConfig(Contract):
         if self.secret_files:
             service_details["secretFiles"] = [sf.to_dict() for sf in self.secret_files]
 
-        if self.headers:
+        service_type_str = self.service_type.value if isinstance(self.service_type, Enum) else self.service_type
+        if self.headers and service_type_str == "static_site":
             service_details["headers"] = [h.to_dict() for h in self.headers]
 
         if self.redirect_rules:
@@ -1314,6 +1315,7 @@ class RenderDeployConfig(Contract):
         plan: RenderPlan | None = None,
         num_instances: int = 1,
         autoscaling: RenderAutoscaling | None = None,
+        registry_credential_id: str | None = None,
     ) -> RenderDeployConfig:
         """Build config from Aquilia workspace introspection context."""
         name = wctx.get("name", "aquilia-app")
@@ -1371,4 +1373,5 @@ class RenderDeployConfig(Contract):
             health_check_path="/_health",
             env_vars=env_vars,
             headers=security_headers,
+            registry_credential_id=registry_credential_id,
         )

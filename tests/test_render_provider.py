@@ -459,6 +459,15 @@ class TestRenderDeployConfig:
         assert "AQ_SERVER_PORT" in keys
         assert "AQ_SIGNING_SECRET" in keys
 
+    def test_from_workspace_context_with_registry_credential_id(self):
+        wctx = {"name": "demo", "port": 3000, "workers": 2}
+        cfg = RenderDeployConfig.from_workspace_context(
+            wctx,
+            image="img:1",
+            registry_credential_id="rc-12345",
+        )
+        assert cfg.registry_credential_id == "rc-12345"
+
     def test_from_workspace_context_with_db_cache_auth_mail(self):
         wctx = {
             "name": "full",
@@ -2781,6 +2790,7 @@ class TestEnhancedDeployConfig:
 
         cfg = RenderDeployConfig(
             service_name="app",
+            service_type="static_site",
             image="img:1",
             region="oregon",
             headers=[RenderHeaderRule(name="X-Custom", value="val")],
@@ -3542,6 +3552,7 @@ class TestRenderContractValidation:
 
         cfg = RenderDeployConfig(
             service_name="app",
+            service_type="static_site",
             image="img",
             env_vars=[RenderEnvVar(key="K", value="v")],
             disk=RenderDisk(name="d", mount_path="/m", size_gb=2),
