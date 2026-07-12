@@ -8,7 +8,7 @@ import {
   Server, Box, Mail, Palette, TestTube, Plug,
   FileCode, Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
   Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages,
-  Clock, FileText, Radio
+  Clock, FileText, Radio, Cloud
 } from 'lucide-react'
 
 interface SidebarSection {
@@ -491,6 +491,23 @@ export const sections: SidebarSection[] = [
       {
         label: 'OpenAPI', path: '/docs/openapi', icon: <FileCode className="w-3.5 h-3.5" />,
       },
+    ]
+  },
+  {
+    title: 'Deployment & Providers',
+    icon: <Cloud className="w-3 h-3" />,
+    items: [
+      {
+        label: 'Cloud Providers',
+        path: '/docs/providers',
+        icon: <Cloud className="w-3.5 h-3.5" />,
+        children: [
+          { label: 'Overview', path: '/docs/providers/overview' },
+          { label: 'Render PaaS', path: '/docs/providers/render' },
+          { label: 'Credential Security', path: '/docs/providers/security' },
+          { label: 'CLI Reference', path: '/docs/providers/cli' },
+        ]
+      }
     ]
   },
   {

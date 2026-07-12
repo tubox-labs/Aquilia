@@ -318,6 +318,12 @@ import { FilesystemAPI } from './pages/docs/filesystem/API'
 import { FilesystemOperations } from './pages/docs/filesystem/Operations'
 import { FilesystemController } from './pages/docs/filesystem/Controller'
 
+// Providers
+import { OverviewPage as ProvidersOverview } from './pages/docs/providers/Overview'
+import { RenderPage as ProvidersRender } from './pages/docs/providers/Render'
+import { SecurityPage as ProvidersSecurity } from './pages/docs/providers/Security'
+import { CliPage as ProvidersCli } from './pages/docs/providers/Cli'
+
 import { PrintAllDocs } from './pages/PrintAllDocs'
 
 export default function App() {
@@ -688,6 +694,13 @@ export default function App() {
           <Route path="filesystem/api" element={<FilesystemAPI />} />
           <Route path="filesystem/operations" element={<FilesystemOperations />} />
           <Route path="filesystem/controller" element={<FilesystemController />} />
+
+          {/* Providers & Deployment */}
+          <Route path="providers" element={<ProvidersOverview />} />
+          <Route path="providers/overview" element={<ProvidersOverview />} />
+          <Route path="providers/render" element={<ProvidersRender />} />
+          <Route path="providers/security" element={<ProvidersSecurity />} />
+          <Route path="providers/cli" element={<ProvidersCli />} />
 
           {/* Docs Wildcard 404 */}
           <Route path="*" element={<NotFoundPage />} />
