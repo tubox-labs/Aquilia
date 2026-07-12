@@ -526,3 +526,205 @@ def render_env_delete(name: str, service: str):
     except ProviderAPIFault as e:
         error(f"  {_CROSS} Failed to delete env var: {e}")
         sys.exit(1)
+
+
+# ── Render Service & Deploy Management ─────────────────────────────────────
+
+
+@render_group.command("services")
+def render_services_list():
+    """List all Render services in your workspace."""
+    from aquilia.faults.domains import ProviderAPIFault
+
+    client = _get_render_client()
+    try:
+        services = client.list_services()
+        click.echo()
+        banner("Render · Services", subtitle=f"{len(services)} service(s) found", icon=_CLOUD, fg="cyan")
+        click.echo()
+
+        for svc in services:
+            svc_status = svc.status or "unknown"
+            if svc_status in ("live", "deployed"):
+                st = click.style(f"● {svc_status:<10}", fg="green")
+            elif svc_status in ("deploying", "building"):
+                st = click.style(f"● {svc_status:<10}", fg="cyan")
+            elif svc_status in ("failed", "error"):
+                st = click.style(f"● {svc_status:<10}", fg="red")
+            else:
+                st = click.style(f"○ {svc_status:<10}", fg="yellow")
+
+            name = click.style(svc.name, fg="white", bold=True)
+            type_str = svc.type.value if hasattr(svc.type, "value") else str(svc.type)
+            region_str = svc.region.value if hasattr(svc.region, "value") else str(svc.region)
+            plan_str = svc.plan.value if hasattr(svc.plan, "value") else str(svc.plan)
+
+            click.echo(f"    {st}  {name:<25} [type={type_str:<12} region={region_str:<10} plan={plan_str}]")
+        click.echo()
+    except ProviderAPIFault as e:
+        error(f"  {_CROSS} Failed to list services: {e}")
+        sys.exit(1)
+
+
+@render_group.command("deploys")
+@click.option("--service", "-s", required=True, help="Render service name")
+@click.option("--limit", "-l", type=int, default=10, help="Number of deployments to list")
+def render_deploys_list(service: str, limit: int):
+    """List deployments for a Render service."""
+    from aquilia.faults.domains import ProviderAPIFault
+
+    client = _get_render_client()
+    service_id = _resolve_service_id(client, service)
+
+    try:
+        deploys = client.list_deploys(service_id, limit=limit)
+        click.echo()
+        banner(f"Deploys · {service}", subtitle=f"Recent {len(deploys)} deployment(s)", icon=_EYE, fg="cyan")
+        click.echo()
+
+        for d in deploys:
+            status = d.status.value if hasattr(d.status, "value") else str(d.status)
+            if status == "live":
+                st = click.style(f"● {status:<18}", fg="green")
+            elif status in ("building", "pre_deploy_in_progress", "update_in_progress"):
+                st = click.style(f"● {status:<18}", fg="cyan")
+            elif status in ("failed", "canceled"):
+                st = click.style(f"● {status:<18}", fg="red")
+            else:
+                st = click.style(f"○ {status:<18}", fg="yellow")
+
+            deploy_id = click.style(d.id, fg="white", bold=True)
+            trigger = d.trigger.value if hasattr(d.trigger, "value") else str(d.trigger)
+            created = d.created_at or "unknown"
+            click.echo(f"    {st}  ID: {deploy_id:<28} [trigger={trigger:<10} created={created}]")
+        click.echo()
+    except ProviderAPIFault as e:
+        error(f"  {_CROSS} Failed to list deployments: {e}")
+        sys.exit(1)
+
+
+@render_group.command("deploy-trigger")
+@click.option("--service", "-s", required=True, help="Render service name")
+def render_deploy_trigger(service: str):
+    """Trigger a new deployment for a Render service."""
+    from aquilia.faults.domains import ProviderAPIFault
+
+    client = _get_render_client()
+    service_id = _resolve_service_id(client, service)
+
+    try:
+        click.echo()
+        info(f"  {_GEAR} Triggering deploy for '{service}'...")
+        d = client.trigger_deploy(service_id)
+        success(f"  {_CHECK} Deploy triggered successfully!")
+        click.echo()
+        detail_card(
+            "Deployment Information",
+            [
+                ("ID", d.id),
+                ("Status", d.status.value if hasattr(d.status, "value") else str(d.status)),
+                ("Trigger", d.trigger.value if hasattr(d.trigger, "value") else str(d.trigger)),
+            ],
+            icon=_SPARK,
+        )
+        click.echo()
+    except ProviderAPIFault as e:
+        error(f"  {_CROSS} Failed to trigger deploy: {e}")
+        sys.exit(1)
+
+
+@render_group.command("deploy-cancel")
+@click.argument("deploy_id")
+@click.option("--service", "-s", required=True, help="Render service name")
+def render_deploy_cancel(deploy_id: str, service: str):
+    """Cancel a running deployment on Render."""
+    from aquilia.faults.domains import ProviderAPIFault
+
+    client = _get_render_client()
+    service_id = _resolve_service_id(client, service)
+
+    if not confirm(f"Cancel deployment '{deploy_id}' for service '{service}'?", default=False):
+        info("  Cancelled.")
+        return
+
+    try:
+        click.echo()
+        info(f"  {_GEAR} Cancelling deployment '{deploy_id}'...")
+        d = client.cancel_deploy(service_id, deploy_id)
+        success(f"  {_CHECK} Deployment cancelled.")
+        click.echo()
+    except ProviderAPIFault as e:
+        error(f"  {_CROSS} Failed to cancel deployment: {e}")
+        sys.exit(1)
+
+
+@render_group.command("deploy-rollback")
+@click.argument("deploy_id")
+@click.option("--service", "-s", required=True, help="Render service name")
+def render_deploy_rollback(deploy_id: str, service: str):
+    """Rollback Render service to a previous deployment ID."""
+    from aquilia.faults.domains import ProviderAPIFault
+
+    client = _get_render_client()
+    service_id = _resolve_service_id(client, service)
+
+    if not confirm(f"Rollback service '{service}' to deployment '{deploy_id}'?", default=False):
+        info("  Cancelled.")
+        return
+
+    try:
+        click.echo()
+        info(f"  {_GEAR} Rolling back service '{service}' to deployment '{deploy_id}'...")
+        d = client.rollback_deploy(service_id, deploy_id)
+        success(f"  {_CHECK} Rollback triggered.")
+        click.echo()
+    except ProviderAPIFault as e:
+        error(f"  {_CROSS} Failed to trigger rollback: {e}")
+        sys.exit(1)
+
+
+@render_group.command("logs")
+@click.option("--service", "-s", required=True, help="Render service name")
+@click.option("--limit", "-l", type=int, default=50, help="Number of log entries to retrieve")
+@click.option("--level", type=click.Choice(["info", "warn", "error"]), default=None, help="Filter by log level")
+def render_logs_list(service: str, limit: int, level: str | None):
+    """Retrieve recent log entries for a Render service."""
+    from aquilia.faults.domains import ProviderAPIFault
+
+    client = _get_render_client()
+    service_id = _resolve_service_id(client, service)
+
+    try:
+        # Resolve owner ID (required by Render logs API)
+        owners = client.list_owners()
+        owner_id = owners[0].id if owners else None
+        if not owner_id:
+            error(f"  {_CROSS} Failed to resolve Render owner ID.")
+            sys.exit(1)
+
+        logs = client.get_logs(service_id=service_id, owner_id=owner_id, limit=limit, level=level)
+        click.echo()
+        banner(f"Logs · {service}", subtitle=f"Showing recent {len(logs)} log entries", icon=_EYE, fg="cyan")
+        click.echo()
+
+        if not logs:
+            info("  No logs found.")
+            click.echo()
+            return
+
+        for entry in logs:
+            timestamp = entry.timestamp or "—"
+            lvl = (entry.level or "info").upper()
+            if lvl == "ERROR":
+                lvl_str = click.style(f"[{lvl:<5}]", fg="red", bold=True)
+            elif lvl == "WARN":
+                lvl_str = click.style(f"[{lvl:<5}]", fg="yellow", bold=True)
+            else:
+                lvl_str = click.style(f"[{lvl:<5}]", fg="green")
+
+            msg = entry.text or ""
+            click.echo(f"  {click.style(timestamp, fg='cyan')} {lvl_str} {msg}")
+        click.echo()
+    except ProviderAPIFault as e:
+        error(f"  {_CROSS} Failed to retrieve logs: {e}")
+        sys.exit(1)

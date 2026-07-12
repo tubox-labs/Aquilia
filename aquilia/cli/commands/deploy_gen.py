@@ -50,6 +50,7 @@ from ..utils.colors import (
     _KEY,
     _PKG,
     _ROCKET,
+    _SHIELD,
     _SPARK,
     _WARN,
     banner,
@@ -78,6 +79,85 @@ from ..utils.prompts import (
     recap,
     select,
 )
+
+
+def _load_workspace_render_config(workspace_root: Path) -> dict[str, Any]:
+    """Dynamically load workspace.py and extract Render config."""
+    import importlib.util
+    import os
+    import sys
+
+    workspace_file = workspace_root / "workspace.py"
+    if not workspace_file.exists():
+        return {}
+    ws_abs = str(workspace_root.resolve())
+    if ws_abs not in sys.path:
+        sys.path.insert(0, ws_abs)
+    old_env = os.environ.get("AQ_ENV")
+    try:
+        os.environ["AQ_ENV"] = "prod"
+        spec = importlib.util.spec_from_file_location("workspace_module", workspace_file)
+        if not spec or not spec.loader:
+            return {}
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules["workspace_module"] = mod
+        spec.loader.exec_module(mod)
+        ws_obj = getattr(mod, "workspace", None)
+        if not ws_obj:
+            return {}
+        ws_dict = ws_obj.to_dict()
+        render_cfg = ws_dict.get("render", {})
+        # Also check direct integrations (RenderIntegration)
+        direct_integration = getattr(ws_obj, "_render_config", None)
+        if direct_integration and hasattr(direct_integration, "to_dict"):
+            direct_cfg = direct_integration.to_dict()
+            for k, v in direct_cfg.items():
+                if v is not None:
+                    render_cfg[k] = v
+        return render_cfg
+    except Exception:
+        return {}
+    finally:
+        if old_env is not None:
+            os.environ["AQ_ENV"] = old_env
+        elif "AQ_ENV" in os.environ:
+            del os.environ["AQ_ENV"]
+
+
+def _is_docker_logged_in(image: str) -> bool:
+    """Check if the user is authenticated with the target Docker registry."""
+    import json
+    from pathlib import Path
+
+    # Resolve target registry
+    registry = "index.docker.io"
+    if "/" in image:
+        parts = image.split("/")
+        if "." in parts[0] or ":" in parts[0]:
+            registry = parts[0]
+
+    # Normalize registry name
+    registry_keys = [registry]
+    if "docker.io" in registry:
+        registry_keys.extend(["https://index.docker.io/v1/", "index.docker.io", "docker.io"])
+
+    config_path = Path.home() / ".docker" / "config.json"
+    if not config_path.exists():
+        return False
+
+    try:
+        with open(config_path) as f:
+            config = json.load(f)
+        auths = config.get("auths", {})
+        for r_key in registry_keys:
+            if r_key in auths:
+                return True
+            for auth_key in auths.keys():
+                if r_key in auth_key or auth_key in r_key:
+                    return True
+        return False
+    except Exception:
+        return False
 
 
 def _get_ctx(workspace_root: Path) -> dict:
@@ -1756,6 +1836,9 @@ def deploy_makefile(ctx, output: str, force: bool, dry_run: bool):
 )
 @click.option("--num-instances", type=int, default=None, help="Number of instances")
 @click.option("--service-name", type=str, default=None, help="Render service name (default: workspace name)")
+@click.option(
+    "--registry-credential-id", type=str, default=None, help="Render registry credential ID for private images"
+)
 @click.option("--destroy", is_flag=True, help="Destroy the deployed service")
 @click.option("--status", "show_status", is_flag=True, help="Show deployment status")
 @deploy_options
@@ -1767,6 +1850,7 @@ def deploy_render(
     plan: str | None,
     num_instances: int | None,
     service_name: str | None,
+    registry_credential_id: str | None,
     destroy: bool,
     show_status: bool,
     force: bool,
@@ -1824,6 +1908,15 @@ def deploy_render(
         error(f"  {_CROSS} Workspace introspection failed: {e}")
         sys.exit(1)
 
+    # ── Load and merge config from workspace.py ──────────────────────
+    ws_config = _load_workspace_render_config(workspace_root)
+    image = image or ws_config.get("image")
+    region = region or ws_config.get("region")
+    plan = plan or ws_config.get("plan")
+    num_instances = num_instances or ws_config.get("num_instances")
+    service_name = service_name or ws_config.get("service_name")
+    registry_credential_id = registry_credential_id or ws_config.get("registry_credential_id")
+
     ws_name = service_name or wctx.get("name", "aquilia-app")
 
     # ── Status mode ──────────────────────────────────────────────────
@@ -1836,13 +1929,44 @@ def deploy_render(
         _render_destroy(client, ws_name)
         return
 
+    # ── Verify and validate workspace ────────────────────────────────
+    click.echo()
+    banner("Pre-deployment Diagnostics", icon=_SHIELD, fg="cyan")
+    click.echo()
+
+    # 1. Run Doctor diagnostics
+    from .doctor import diagnose_workspace
+
+    status_line(_GEAR, "diagnostics", "Running aq doctor diagnostics...")
+    doctor_issues = diagnose_workspace(verbose=False)
+    if doctor_issues:
+        error(f"  {_CROSS} Diagnostics failed with {len(doctor_issues)} issue(s):")
+        for issue in doctor_issues:
+            error(f"    - {issue}")
+        sys.exit(1)
+    success(f"  {_CHECK} Workspace doctor checks passed")
+
+    # 2. Run Manifest Validation
+    from .validate import validate_workspace
+
+    status_line(_GEAR, "validate", "Running aq validate...")
+    validation_res = validate_workspace(strict=True, verbose=False)
+    if not validation_res.is_valid:
+        error(f"  {_CROSS} Manifest validation failed:")
+        for fault in validation_res.faults:
+            error(f"    - {fault}")
+        sys.exit(1)
+    success(f"  {_CHECK} Manifest validation passed")
+    click.echo()
+
     # ── Configure deployment ─────────────────────────────────────────
     banner("Deploy to Render", subtitle=f"Service: {ws_name}", icon=_ROCKET, fg="magenta")
     click.echo()
 
+    interactive = sys.stdin.isatty()
+
     # Resolve image name
     if not image:
-        interactive = sys.stdin.isatty()
         if interactive:
             image = ask(
                 "Docker image",
@@ -1851,6 +1975,36 @@ def deploy_render(
             )
         else:
             image = f"docker.io/{ws_name}:latest"
+
+    # ── Docker Registry Login Check ──────────────────────────────────
+    if not dry_run and not _is_docker_logged_in(image):
+        click.echo()
+        warning(f"  {_WARN} Docker registry login required for image: {image}")
+        info("  Explanation:")
+        info("    Render does not host container images; it pulls them from a remote registry.")
+        info("    We must push your locally compiled image so Render can deploy it.")
+        info("    This requires authentication with your container registry.")
+        click.echo()
+        if confirm("Would you like to run 'docker login' now?", default=True):
+            import subprocess
+
+            try:
+                # Run docker login interactively
+                subprocess.run(["docker", "login"], check=True)
+            except subprocess.CalledProcessError:
+                error(f"  {_CROSS} Docker login failed.")
+                sys.exit(1)
+        else:
+            error(f"  {_CROSS} Cannot proceed without registry login.")
+            sys.exit(1)
+
+    # ── Platform Detection ───────────────────────────────────────────
+    import platform
+
+    host_os = platform.system()
+    host_arch = platform.machine()
+    status_line(_GLOBE, "host platform", f"{host_os} ({host_arch})", value_fg="cyan")
+    status_line(_PKG, "target platform", "linux/amd64", value_fg="green")
 
     # Resolve region
     if not region:
@@ -1908,23 +2062,27 @@ def deploy_render(
         region=region,
         plan=render_plan,
         num_instances=instances,
+        registry_credential_id=registry_credential_id,
     )
     config.service_name = ws_name
 
     # ── Review ───────────────────────────────────────────────────────
     click.echo()
+    review_details = [
+        ("Service", config.service_name),
+        ("Image", config.image),
+        ("Region", config.region),
+        ("Plan", config.plan.value),
+        ("Instances", str(config.num_instances)),
+        ("Port", str(config.port)),
+        ("Health check", config.health_check_path),
+        ("Env vars", str(len(config.env_vars))),
+    ]
+    if config.registry_credential_id:
+        review_details.append(("Registry Credential ID", config.registry_credential_id))
     detail_card(
         "Deployment Configuration",
-        [
-            ("Service", config.service_name),
-            ("Image", config.image),
-            ("Region", config.region),
-            ("Plan", config.plan.value),
-            ("Instances", str(config.num_instances)),
-            ("Port", str(config.port)),
-            ("Health check", config.health_check_path),
-            ("Env vars", str(len(config.env_vars))),
-        ],
+        review_details,
         icon=_ROCKET,
         fg="magenta",
     )
