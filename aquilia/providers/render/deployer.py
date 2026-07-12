@@ -333,7 +333,9 @@ class RenderDeployer:
             # Fetch existing env vars to preserve generated secrets
             try:
                 existing_vars = self._client.list_env_vars(service.id)
-                existing_dict = {item["key"]: item["value"] for item in existing_vars if isinstance(item, dict) and "key" in item}
+                existing_dict = {
+                    item["key"]: item["value"] for item in existing_vars if isinstance(item, dict) and "key" in item
+                }
             except Exception:
                 existing_dict = {}
 
@@ -344,6 +346,7 @@ class RenderDeployer:
                     value = existing_dict.get(key)
                     if not value:
                         import secrets
+
                         value = secrets.token_hex(32)
                 else:
                     value = ev.value or ""

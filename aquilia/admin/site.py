@@ -1785,10 +1785,18 @@ class AdminSite:
                                 url = (
                                     details.get("url")
                                     or details.get("parentUrl")
-                                    or (f"https://{s.get('slug')}.onrender.com" if s.get('slug') else f"https://{s.get('name')}.onrender.com")
+                                    or (
+                                        f"https://{s.get('slug')}.onrender.com"
+                                        if s.get("slug")
+                                        else f"https://{s.get('name')}.onrender.com"
+                                    )
                                 )
                             region_val = s.get("region") or details.get("region")
-                            region_str = region_val.value if hasattr(region_val, "value") else (str(region_val) if region_val else "—")
+                            region_str = (
+                                region_val.value
+                                if hasattr(region_val, "value")
+                                else (str(region_val) if region_val else "—")
+                            )
                             status_val = s.get("status") or s.get("state")
                             if not status_val:
                                 if s.get("suspended") == "suspended":
@@ -1844,7 +1852,9 @@ class AdminSite:
                                         "service_name": svc.get("name", "—"),
                                         "status": dp.get("status", "unknown"),
                                         "trigger": dp.get("trigger", dp.get("type", "manual")),
-                                        "commit_id": dp.get("commit_id", dp.get("commitId", commit_info.get("id", "—"))),
+                                        "commit_id": dp.get(
+                                            "commit_id", dp.get("commitId", commit_info.get("id", "—"))
+                                        ),
                                         "commit_msg": commit_info.get("message", "—"),
                                         "commit_author": commit_info.get("author", {}).get("name", "—"),
                                         "commit_url": commit_info.get("url", "—"),
@@ -1865,7 +1875,11 @@ class AdminSite:
                         for db in pg_raw:
                             d = db if isinstance(db, dict) else (db.__dict__ if hasattr(db, "__dict__") else {})
                             region_val = d.get("region")
-                            region_str = region_val.value if hasattr(region_val, "value") else (str(region_val) if region_val else "—")
+                            region_str = (
+                                region_val.value
+                                if hasattr(region_val, "value")
+                                else (str(region_val) if region_val else "—")
+                            )
                             data["postgres_instances"].append(
                                 {
                                     "id": d.get("id", "—"),
@@ -1887,7 +1901,11 @@ class AdminSite:
                         for kv in kv_raw:
                             k = kv if isinstance(kv, dict) else (kv.__dict__ if hasattr(kv, "__dict__") else {})
                             region_val = k.get("region")
-                            region_str = region_val.value if hasattr(region_val, "value") else (str(region_val) if region_val else "—")
+                            region_str = (
+                                region_val.value
+                                if hasattr(region_val, "value")
+                                else (str(region_val) if region_val else "—")
+                            )
                             data["kv_instances"].append(
                                 {
                                     "id": k.get("id", "—"),
@@ -2306,23 +2324,29 @@ class AdminSite:
                     res = []
                     for l in logs_raw:
                         if hasattr(l, "message"):
-                            res.append({
-                                "timestamp": l.timestamp or "",
-                                "level": l.level or "info",
-                                "message": l.message or "",
-                            })
+                            res.append(
+                                {
+                                    "timestamp": l.timestamp or "",
+                                    "level": l.level or "info",
+                                    "message": l.message or "",
+                                }
+                            )
                         elif isinstance(l, dict):
-                            res.append({
-                                "timestamp": l.get("timestamp") or "",
-                                "level": l.get("level") or "info",
-                                "message": l.get("message") or "",
-                            })
+                            res.append(
+                                {
+                                    "timestamp": l.get("timestamp") or "",
+                                    "level": l.get("level") or "info",
+                                    "message": l.get("message") or "",
+                                }
+                            )
                         else:
-                            res.append({
-                                "timestamp": "",
-                                "level": "info",
-                                "message": str(l),
-                            })
+                            res.append(
+                                {
+                                    "timestamp": "",
+                                    "level": "info",
+                                    "message": str(l),
+                                }
+                            )
                     return res
         except Exception as e:
             logger.warning(f"Error fetching logs for {service_id}: {e}")
