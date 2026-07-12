@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react'
 import { useVersion } from '../hooks/useVersion'
 import { motion } from 'framer-motion'
 import { SEO } from '../components/SEO'
+import { CodeBlock } from '../components/CodeBlock'
 
 interface ChangelogSection {
   title: string
@@ -337,25 +338,31 @@ function parseMarkdownChangelog(md: string): ChangelogEntry[] {
       
       // Extract bullet points
       const items: string[] = []
-      let currentItem = ''
+      let currentItem: string | null = null
       
       for (let k = 1; k < secLines.length; k++) {
-        const line = secLines[k].trim()
-        if (line.startsWith('- ')) {
-          if (currentItem) items.push(currentItem)
-          currentItem = line.substring(2).trim()
-        } else if (line && currentItem) {
-          if (line.startsWith('###') || line.startsWith('##')) break
-          // Append multiline list items
-          currentItem += ' ' + line
+        const rawLine = secLines[k]
+        const trimmedLine = rawLine.trim()
+        
+        // Match a list item starting with "- " optionally preceded by whitespace
+        const matchListItem = rawLine.match(/^(\s*)-\s+(.*)$/)
+        
+        if (matchListItem) {
+          if (currentItem !== null) items.push(currentItem)
+          currentItem = matchListItem[2]
+        } else {
+          if (trimmedLine.startsWith('###') || trimmedLine.startsWith('##')) break
+          if (currentItem !== null) {
+            currentItem += '\n' + rawLine
+          }
         }
       }
-      if (currentItem) items.push(currentItem)
+      if (currentItem !== null) items.push(currentItem)
       
       if (items.length > 0) {
         sections.push({
           title,
-          type: type as any,
+          type: type as ChangelogSection['type'],
           items
         })
       }
@@ -366,8 +373,12 @@ function parseMarkdownChangelog(md: string): ChangelogEntry[] {
     let summaryText = `Release details for v${version}.`
     if (firstSection && firstSection.items.length > 0) {
       summaryText = firstSection.items[0]
-      if (summaryText.length > 150) {
-        summaryText = summaryText.substring(0, 147) + '...'
+      // Strip any markdown code blocks or formatting from summary for display in lists
+      const cleanSummary = summaryText.replace(/```[\s\S]*?```/g, '').replace(/\s+/g, ' ').trim()
+      if (cleanSummary.length > 150) {
+        summaryText = cleanSummary.substring(0, 147) + '...'
+      } else {
+        summaryText = cleanSummary
       }
     }
     
@@ -424,6 +435,126 @@ function renderFormattedText(text: string, isDark: boolean): React.ReactNode {
   });
 }
 
+interface ContentBlock {
+  type: 'text' | 'code'
+  content?: string
+  code?: string
+  language?: string
+}
+
+function cleanCodeIndentation(lines: string[]): string {
+  if (lines.length === 0) return ''
+  
+  let minIndent = Infinity
+  for (const line of lines) {
+    if (line.trim().length === 0) continue
+    const leadingSpaces = line.match(/^ */)?.[0].length ?? 0
+    if (leadingSpaces < minIndent) {
+      minIndent = leadingSpaces
+    }
+  }
+
+  if (minIndent === Infinity) minIndent = 0
+
+  return lines
+    .map(line => line.length >= minIndent ? line.slice(minIndent) : line.trimStart())
+    .join('\n')
+}
+
+function parseItemContent(text: string): ContentBlock[] {
+  const blocks: ContentBlock[] = []
+  const lines = text.split('\n')
+  let inCodeBlock = false
+  let currentLanguage = 'python'
+  let currentLines: string[] = []
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmedLine = line.trim()
+
+    if (trimmedLine.startsWith('```')) {
+      if (inCodeBlock) {
+        // End of code block
+        blocks.push({
+          type: 'code',
+          code: cleanCodeIndentation(currentLines),
+          language: currentLanguage
+        })
+        currentLines = []
+        inCodeBlock = false
+      } else {
+        // Start of code block
+        if (currentLines.length > 0) {
+          blocks.push({
+            type: 'text',
+            content: currentLines.join('\n')
+          })
+          currentLines = []
+        }
+        inCodeBlock = true
+        currentLanguage = trimmedLine.slice(3).trim() || 'python'
+      }
+    } else {
+      currentLines.push(line)
+    }
+  }
+
+  if (currentLines.length > 0) {
+    if (inCodeBlock) {
+      blocks.push({
+        type: 'code',
+        code: cleanCodeIndentation(currentLines),
+        language: currentLanguage
+      })
+    } else {
+      blocks.push({
+        type: 'text',
+        content: currentLines.join('\n')
+      })
+    }
+  }
+
+  return blocks
+}
+
+function renderItemWithCodeBlocks(item: string, isDark: boolean): React.ReactNode {
+  const blocks = parseItemContent(item)
+
+  return (
+    <div className="flex flex-col gap-3 w-full">
+      {blocks.map((block, idx) => {
+        if (block.type === 'code') {
+          return (
+            <div key={idx} className="my-2 max-w-full overflow-x-auto print:break-inside-avoid">
+              <CodeBlock
+                code={block.code || ''}
+                language={block.language || 'python'}
+                showLineNumbers={false}
+                compact={true}
+              />
+            </div>
+          )
+        }
+
+        const paragraphs = (block.content || '').split(/\n\n+/)
+        return (
+          <div key={idx} className="space-y-2 text-sm leading-relaxed">
+            {paragraphs.map((para, pIdx) => {
+              const cleanPara = para.split('\n').map(line => line.trim()).filter(Boolean).join(' ')
+              if (!cleanPara) return null
+              return (
+                <p key={pIdx} className={isDark ? 'text-gray-300' : 'text-gray-700'}>
+                  {renderFormattedText(cleanPara, isDark)}
+                </p>
+              )
+            })}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Changelogs() {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -476,7 +607,7 @@ export function Changelogs() {
         setExpandedVersions({ [version]: true })
         setIsLoading(false)
       })
-  }, [])
+  }, [version])
 
   const toggleVersion = (version: string) => {
     setExpandedVersions(prev => ({ ...prev, [version]: !prev[version] }))
@@ -626,13 +757,13 @@ export function Changelogs() {
                                         {section.title}
                                       </h4>
                                     </div>
-                                    <ul className="space-y-2">
+                                    <ul className="space-y-4">
                                       {section.items.map((item, iIdx) => (
-                                        <li key={iIdx} className="flex items-start gap-2 text-sm">
-                                          <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${colors.text}`} />
-                                          <span className={isDark ? 'text-gray-300' : 'text-gray-700'}>
-                                            {renderFormattedText(item, isDark)}
-                                          </span>
+                                        <li key={iIdx} className="flex items-start gap-2 text-sm w-full">
+                                          <Check className={`w-3.5 h-3.5 mt-1 flex-shrink-0 ${colors.text}`} />
+                                          <div className="flex-1 min-w-0">
+                                            {renderItemWithCodeBlocks(item, isDark)}
+                                          </div>
                                         </li>
                                       ))}
                                     </ul>
