@@ -1,12 +1,12 @@
 # Migration Guide: v1.3.0 to v1.3.1
 
-Aquilia v1.3.1 contains several changes to the authentication subsystem. Follow this guide to upgrade your project.
+Aquilia v1.3.1 consolidates and standardizes authentication and authorization. Follow this guide to upgrade your project.
 
 ---
 
-## 1. Update `workspace.py` Configuration
+## 1. Upgrading Configuration
 
-The `strategies` setting has been replaced by `backends`. Dotted paths to classes are preferred, but standard string shorthand is supported.
+The string-based `strategies` setting has been removed. You must now configure the list of identity-resolution backends using the `backends` parameter.
 
 ### Legacy Configuration (v1.3.0)
 ```python
@@ -15,7 +15,7 @@ class auth(AquilaConfig.Auth):
     strategies = ["token", "session"]
 ```
 
-### New Configuration (v1.3.1)
+### Refactored Configuration (v1.3.1)
 ```python
 class auth(AquilaConfig.Auth):
     secret_key = Secret(env="AQ_SECRET_KEY", default="change-me")
@@ -23,33 +23,25 @@ class auth(AquilaConfig.Auth):
         "aquilia.auth.backends.TokenBackend",
         "aquilia.auth.backends.SessionBackend",
     ]
+    # Optionally configure clock-skew tolerance (in seconds) for JWT validations
+    clock_skew_seconds = 5
 ```
 
 ---
 
-## 2. Update Decorators & Guards
+## 2. Replaced & Removed Decorators
 
-Legacy adapters like `flow_guards` and legacy decorators have been removed.
+The legacy decorators `AdminGuard` and `VerifiedEmailGuard` have been removed.
 
-### Decorator Replacements
-
-| Legacy (v1.3.0) | Refactored (v1.3.1) | Note |
-|---|---|---|
-| `@authenticated` | `@authenticated` | Retained (ctx-first) |
-| `@optional_auth` | `@optional_auth` | Retained (ctx-first) |
-| `@roles_required` | `@roles_required` | Retained (ctx-first) |
-| `@scopes_required` | `@scopes_required` | Retained (ctx-first) |
-| `AdminGuard` | `@roles_required("admin")` | Use `@roles_required` with admin role |
-| `VerifiedEmailGuard` | Custom backend / decorator | Handle via custom backend validation |
-
-### Decorator Examples
+* **`AdminGuard`**: Replace with `@roles_required("admin")`.
+* **`VerifiedEmailGuard`**: Handle verification checks in your identity resolution backend (such as deactivating unverified users) or write a simple custom guard.
 
 #### Before:
 ```python
-from aquilia.auth import AdminGuard, VerifiedEmailGuard
+from aquilia.auth import AdminGuard
 
 @AdminGuard
-async def admin_only(ctx):
+async def delete_item(ctx):
     ...
 ```
 
@@ -58,15 +50,24 @@ async def admin_only(ctx):
 from aquilia.auth import roles_required
 
 @roles_required("admin")
-async def admin_only(ctx):
+async def delete_item(ctx):
     ...
 ```
 
 ---
 
-## 3. Update Pipeline Guards
+## 3. Upgrading Flow Pipeline Guards
 
-If you had flow pipelines defined in `manifest.py` or manually, update the guards from the legacy adapter classes to the new first-class guards.
+All legacy guard adapters (historically located in `flow_guards.py`) have been removed. Use the new first-class guards directly.
+
+| Legacy Guard Class (v1.3.0) | Refactored Guard Class (v1.3.1) |
+|---|---|
+| `RequireAuthGuard` | `AuthGuard` |
+| `RequireRolesGuard` | `RoleGuard` |
+| `RequireScopesGuard` | `ScopeGuard` |
+| `RequirePolicyGuard` | `PolicyGuard` |
+
+### Pipeline Registration Example
 
 #### Before:
 ```python
@@ -80,17 +81,51 @@ pipeline.guard(RequireRolesGuard("admin"))
 ```python
 from aquilia.auth.guards import AuthGuard, RoleGuard
 
-# Raw classes can be used if they don't require parameters
+# Raw classes can be passed if no parameters are required
 pipeline.guard(AuthGuard)
-# Instantiated guards can still be passed
 pipeline.guard(RoleGuard("admin"))
 ```
 
 ---
 
-## 4. Remove `AuthConfig` Fluent Builder
+## 4. Upgrading Session Guards
 
-If you were setting up custom authentication containers manually using `AuthConfig`, switch to standard dict configurations or define them directly using `AquilaConfig.Auth` subclasses.
+The legacy `SessionGuard` class and `@requires` decorator in `aquilia.sessions.decorators` have been removed. Switch to the unified `PermissionEngine` and the unified `@requires` decorator.
+
+#### Before:
+```python
+from aquilia.sessions.decorators import SessionGuard, requires
+
+class CustomSessionGuard(SessionGuard):
+    async def check(self, session: Session) -> bool:
+        return bool(session.data.get("special_user"))
+
+@requires(CustomSessionGuard())
+async def handler(ctx):
+    ...
+```
+
+#### After:
+```python
+from aquilia.auth.guards import requires
+
+class CustomGuard:
+    def check(self, ctx: Any) -> None:
+        from aquilia.auth.faults import AUTHZ_POLICY_DENIED
+        session = getattr(ctx, "session", None)
+        if session is None or not session.data.get("special_user"):
+            raise AUTHZ_POLICY_DENIED()
+
+@requires(CustomGuard())
+async def handler(ctx):
+    ...
+```
+
+---
+
+## 5. Removing the Fluent `AuthConfig` Builder
+
+If you set up custom authentication containers in testing or bootstrapping scripts using the `AuthConfig` builder, you must remove it. Configure integrations directly using dictionary payloads or the `AquilaConfig.Auth` classes.
 
 #### Before:
 ```python
@@ -115,4 +150,10 @@ config = {
     }
 }
 ```
-Alternatively, let `ConfigLoader` load it from `workspace.py` natively.
+
+---
+
+## 6. Deprecated APIs
+
+* **`AuthManager.logout()`**: Deprecated in favor of `AuthManager.sign_out()`. Calling `logout()` now raises a `DeprecationWarning` but will invoke `sign_out()` internally for backward compatibility.
+* **`OptionalAuthMiddleware`**: Deprecated in favor of `AquilAuthMiddleware(require_auth=False)` or the new `AuthMiddleware` class.
