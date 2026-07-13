@@ -1,8 +1,16 @@
 """
 AquilAuth - Authentication Manager
 
-Central coordinator for all authentication operations.
-Orchestrates identity verification, token issuance, and session management.
+Central coordinator for authentication operations: identity resolution,
+credential verification, token issuance, session binding, and token revocation.
+
+This module contains two exported types:
+
+* :class:`AuthManager`          — the main authentication coordinator.
+* :class:`SignInProvisionPolicy` — configuration for the sign-in bootstrap path.
+
+The :class:`RateLimiter` that protects brute-force paths lives in
+:mod:`aquilia.auth.manager_types` and is re-exported here for convenience.
 """
 
 from __future__ import annotations
@@ -149,19 +157,30 @@ class SignInProvisionPolicy:
 
 class AuthManager:
     """
-    Central authentication manager.
+    Central authentication coordinator.
 
-    Coordinates all authentication operations:
-    - Password authentication
-    - API key authentication
-    - Token refresh
-    - Session management
-    - Rate limiting
+    Orchestrates the following operations:
 
-    High-level Aquilia-native session APIs:
-    - sign_in(...): ergonomic request-aware login
-    - sign_out(...): scoped logout semantics (session/identity/all)
-    - resume_identity(...): restore principal from token or session context
+    * Password authentication (``authenticate_password``)
+    * API key authentication (``authenticate_api_key``)
+    * Token refresh (``refresh_access_token``)
+    * Session binding (``sign_in``, ``sign_out``, ``resume_identity``)
+    * Token revocation (``revoke_token``)
+
+    High-level Aquilia-native APIs:
+
+    * ``sign_in``        — ergonomic, request-aware login.
+    * ``sign_out``       — scoped logout (``"session"`` / ``"identity"`` / ``"all"``)
+    * ``resume_identity`` — restore principal from token or session context.
+
+    Args:
+        token_manager:              Token lifecycle manager (signing, validation).
+        identity_store:             Identity storage backend.
+        credential_store:           Credential storage backend.
+        password_hasher:            Configured ``PasswordHasher``.
+        rate_limiter:               Failed-attempt rate limiter.
+        login_identifier_attributes: Ordered list of identity attributes tried
+                                    during username resolution.
     """
 
     def __init__(
@@ -978,23 +997,27 @@ class AuthManager:
 
     async def revoke_token(self, token: str, token_type: str = "refresh") -> None:
         """
-        Revoke a token.
+        Revoke a token by value.
+
+        For refresh tokens the token is revoked directly via the token store.
+        For access tokens the JTI claim is extracted and revoked so the
+        in-flight token is invalidated on the next validation attempt.
 
         Args:
-            token: Token to revoke
-            token_type: Type of token ("refresh" or "access")
+            token:      Token string to revoke.
+            token_type: ``"refresh"`` (default) or ``"access"``.
         """
         _logger = logging.getLogger("aquilia.auth.manager")
         if token_type == "refresh":
             await self.token_manager.revoke_token(token)
         else:
-            # For access tokens, extract JTI and revoke
+            # For access tokens: extract JTI from payload and revoke the
+            # token-ID so subsequent validations reject it.
             try:
                 claims = await self.token_manager.validate_access_token(token)
                 if jti := claims.get("jti"):
                     await self.token_manager.revoke_token(jti)
             except Exception as e:
-                # Log the error instead of silently swallowing it
                 _logger.warning("Failed to revoke access token (may already be invalid): %s", e)
 
     async def logout(
@@ -1007,12 +1030,24 @@ class AuthManager:
         """
         Logout user by revoking all tokens.
 
+        .. deprecated::
+            Use :meth:`sign_out` directly.  This method is a thin wrapper
+            kept for backwards compatibility and will be removed in a future
+            release.
+
         Args:
-            identity_id: Revoke all tokens for this identity
-            session_id: Revoke all tokens for this session
-            access_token: Optional access token for deriving subject/session
-            refresh_token: Optional refresh token to revoke directly
+            identity_id:   Revoke all tokens for this identity.
+            session_id:    Revoke all tokens for this session.
+            access_token:  Optional access token for deriving subject/session.
+            refresh_token: Optional refresh token to revoke directly.
         """
+        import warnings
+
+        warnings.warn(
+            "AuthManager.logout() is deprecated; call sign_out() directly.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if identity_id and session_id:
             scope: Literal["session", "identity", "all"] = "all"
         elif identity_id:
