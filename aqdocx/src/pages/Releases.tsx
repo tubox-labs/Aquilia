@@ -352,14 +352,14 @@ function UpgradePath({ isDark, version }: { isDark: boolean; version: string }) 
   )
 }
 
-export function Releases() {
+export function Releases({ printMode = false }: { printMode?: boolean }) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const latestStableVersion = useVersion()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null)
-  const [gitReleases, setGitReleases] = useState<ReleaseEntry[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [gitReleases, setGitReleases] = useState<ReleaseEntry[]>(printMode ? staticReleases : [])
+  const [isLoading, setIsLoading] = useState(!printMode)
 
   const copyText = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -389,6 +389,8 @@ export function Releases() {
   }
 
   useEffect(() => {
+    if (printMode) return
+
     fetch('https://api.github.com/repos/tubox-labs/Aquilia/tags')
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch')
@@ -438,7 +440,91 @@ export function Releases() {
         setGitReleases(staticReleases)
         setIsLoading(false)
       })
-  }, [])
+  }, [printMode])
+
+  if (printMode) {
+    return (
+      <div className="space-y-16">
+        <div className={`relative pl-8 sm:pl-12 border-l-2 ${isDark ? 'border-zinc-800' : 'border-zinc-200'} space-y-16 py-4`}>
+          {gitReleases.map((release) => (
+            <div key={release.version} className="relative">
+              {/* Timeline node point */}
+              <div className={`absolute -left-[41px] sm:-left-[57px] top-2.5 w-4 h-4 rounded-full border-2 ${isDark ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'} flex items-center justify-center`}>
+                <div className={`w-1.5 h-1.5 rounded-full bg-blue-400`} />
+              </div>
+
+              {/* Release Header */}
+              <div className="mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-baseline gap-3 mb-2">
+                  <h2 className={`text-3xl font-extrabold font-mono tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    v{release.version}
+                  </h2>
+                  <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${tagColors[release.tag]?.bg || 'bg-blue-500/10 text-blue-400'} ${tagColors[release.tag]?.text || 'text-white'}`}>
+                    {release.tag}
+                  </span>
+                  <span className={`text-sm italic ${isDark ? 'text-aquilia-400/80' : 'text-aquilia-600/80'}`}>
+                    "{release.codename}"
+                  </span>
+                  <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} ml-auto`}>
+                    {release.date}
+                  </span>
+                </div>
+              </div>
+
+              <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                {release.summary}
+              </p>
+
+              {/* Installation */}
+              <div className="mb-6">
+                <h3 className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Quick Install
+                </h3>
+                <div className="flex items-center gap-3">
+                  <span className={`font-mono text-sm font-semibold ${isDark ? 'text-aquilia-400' : 'text-aquilia-600'}`}>
+                    {release.installCmd}
+                  </span>
+                </div>
+              </div>
+
+              {/* Assets */}
+              {release.assets && release.assets.length > 0 && (
+                <div className="mb-6">
+                  <h3 className={`text-xs font-bold uppercase tracking-wider mb-3 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                    Downloads
+                  </h3>
+                  <div className="space-y-2">
+                    {release.assets.map((asset, i) => (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-between py-2 px-3 rounded-lg text-xs ${
+                          isDark ? 'text-gray-300' : 'text-gray-700'
+                        }`}
+                      >
+                        <span className="font-mono flex items-center gap-2">
+                          • {asset.name}
+                        </span>
+                        <span className={`text-[10px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                          {asset.type} • {asset.size}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Metadata summary */}
+              <div className={`pt-4 border-t border-dashed border-white/[0.04] text-[11px] ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                <span>Distributed under MIT License • </span>
+                <span>Published {release.date}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <UpgradePath isDark={isDark} version={latestStableVersion} />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">

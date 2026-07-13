@@ -555,15 +555,19 @@ function renderItemWithCodeBlocks(item: string, isDark: boolean): React.ReactNod
   )
 }
 
-export function Changelogs() {
+export function Changelogs({ printMode = false }: { printMode?: boolean }) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const version = useVersion()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeFilter, setActiveFilter] = useState<string | null>(null)
-  const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>({})
-  const [changelogData, setChangelogData] = useState<ChangelogEntry[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [expandedVersions, setExpandedVersions] = useState<Record<string, boolean>>(
+    printMode 
+      ? staticChangelogs.reduce((acc, entry) => ({ ...acc, [entry.version]: true }), {}) 
+      : {}
+  )
+  const [changelogData, setChangelogData] = useState<ChangelogEntry[]>(printMode ? staticChangelogs : [])
+  const [isLoading, setIsLoading] = useState(!printMode)
 
   const schema = {
     "@context": "https://schema.org",
@@ -587,6 +591,8 @@ export function Changelogs() {
   }
 
   useEffect(() => {
+    if (printMode) return
+
     fetch('https://raw.githubusercontent.com/tubox-labs/Aquilia/master/CHANGELOG.md')
       .then(res => {
         if (!res.ok) throw new Error('Failed to fetch CHANGELOG.md')
@@ -607,7 +613,7 @@ export function Changelogs() {
         setExpandedVersions({ [version]: true })
         setIsLoading(false)
       })
-  }, [version])
+  }, [version, printMode])
 
   const toggleVersion = (version: string) => {
     setExpandedVersions(prev => ({ ...prev, [version]: !prev[version] }))
@@ -618,6 +624,71 @@ export function Changelogs() {
     const filteredSections = entry.sections.filter(s => s.type === activeFilter)
     return { ...entry, sections: filteredSections }
   }).filter(entry => entry.sections.length > 0 || !activeFilter)
+
+  if (printMode) {
+    return (
+      <div className={`relative pl-8 sm:pl-12 border-l-2 ${isDark ? 'border-zinc-800' : 'border-zinc-200'} space-y-16 py-4`}>
+        {filteredChangelogs.map((entry) => (
+          <div key={entry.version} className="relative">
+            {/* Node point */}
+            <div className={`absolute -left-[41px] sm:-left-[57px] top-2.5 w-4 h-4 rounded-full border-2 ${isDark ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'} flex items-center justify-center`}>
+              <div className={`w-1.5 h-1.5 rounded-full bg-blue-400`} />
+            </div>
+
+            {/* Heading */}
+            <div className="mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-baseline gap-3 w-full text-left">
+                <h2 className={`text-2xl font-extrabold font-mono tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                  v{entry.version} {entry.codename && <span className={`text-sm font-normal font-sans ml-2 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>— {entry.codename}</span>}
+                </h2>
+                <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${tagColors[entry.tag] || 'bg-zinc-500'}`}>
+                  {entry.tag}
+                </span>
+                <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'} ml-auto`}>
+                  {entry.date}
+                </span>
+              </div>
+            </div>
+
+            <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              {renderFormattedText(entry.summary, isDark)}
+            </p>
+
+            {/* Version sections */}
+            {entry.sections.length > 0 && (
+              <div className="space-y-6 mt-6">
+                {entry.sections.map((section, sIdx) => {
+                  const colors = typeColors[section.type] || { text: 'text-gray-400', bg: 'bg-zinc-800', border: 'border-zinc-700' }
+                  return (
+                    <div key={sIdx} className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md ${colors.bg} ${colors.text} border ${colors.border}`}>
+                          {section.type}
+                        </span>
+                        <h4 className={`text-xs font-bold uppercase tracking-wider ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          {section.title}
+                        </h4>
+                      </div>
+                      <ul className="space-y-4">
+                        {section.items.map((item, iIdx) => (
+                          <li key={iIdx} className="flex items-start gap-2 text-sm w-full">
+                            <Check className={`w-3.5 h-3.5 mt-1 flex-shrink-0 ${colors.text}`} />
+                            <div className="flex-1 min-w-0">
+                              {renderItemWithCodeBlocks(item, isDark)}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">

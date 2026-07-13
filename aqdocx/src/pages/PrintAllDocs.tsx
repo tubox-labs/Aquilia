@@ -527,11 +527,11 @@ export function PrintAllDocs() {
         <div className="print-page-break"><FaultsAdvanced /></div>
         <div className="print-page-break">
           <h1 className="text-4xl font-bold mb-8">Releases</h1>
-          <Releases />
+          <Releases printMode={true} />
         </div>
         <div>
           <h1 className="text-4xl font-bold mb-8">Changelogs</h1>
-          <Changelogs />
+          <Changelogs printMode={true} />
         </div>
       </div>
     </div>

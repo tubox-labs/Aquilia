@@ -194,6 +194,43 @@ export function CodeBlock({ code, children, language = 'python', filename, title
     setTimeout(() => setCopied(false), 2000)
   }, [codeContent])
 
+  const isPrintMode = typeof window !== 'undefined' && window.location.pathname.includes('/print-docs')
+
+  if (isPrintMode) {
+    return (
+      <div className={`group relative code-block-container ${compact ? 'my-2' : 'my-6'}`}>
+        <div className={`relative rounded-xl overflow-hidden border ${isDark ? 'bg-black border-white/10' : 'bg-[#f8fafc] border-gray-200'}`}>
+          {/* Header with language icon */}
+          <div className={`flex items-center justify-between ${compact ? 'px-3 py-2' : 'px-4 py-2.5'} border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/80'}`}>
+            <div className="flex items-center gap-3">
+              {getLanguageIcon(normalizedLanguage)}
+              <div className="flex items-center gap-2">
+                <span className={`font-mono uppercase tracking-wider ${compact ? 'text-[10px]' : 'text-xs'} ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  {title || filename || language}
+                </span>
+              </div>
+            </div>
+          </div>
+          {/* Code body - simple pre-render without Prism syntax tokens or neighbor regex checks */}
+          <pre className={`${compact ? 'py-3 text-xs' : 'py-4 text-sm'} overflow-x-auto leading-relaxed font-mono ${isDark ? 'bg-black' : 'bg-[#f8fafc]'} px-4`}>
+            {showLineNumbers ? (
+              codeContent.split('\n').map((line, i) => (
+                <div key={i} className="flex">
+                  <span className={`inline-block ${compact ? 'w-6 mr-3' : 'w-8 mr-4'} text-right select-none ${isDark ? 'text-gray-700' : 'text-gray-300'}`}>
+                    {i + 1}
+                  </span>
+                  <span>{line || ' '}</span>
+                </div>
+              ))
+            ) : (
+              <code>{codeContent}</code>
+            )}
+          </pre>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`group relative code-block-container ${compact ? 'my-2' : 'my-6'}`}>
       <div className="absolute -inset-0.5 bg-gradient-to-r from-aquilia-500/10 to-blue-500/10 rounded-xl blur opacity-0 group-hover:opacity-100 transition print:hidden" />
