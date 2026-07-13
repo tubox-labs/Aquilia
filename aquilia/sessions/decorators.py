@@ -10,7 +10,6 @@ Features:
 - @session.optional() - Session is optional
 - @stateful - Shorthand for stateful sessions
 - SessionContext - Scoped session access (ensure, transactional)
-- SessionGuard / requires() - Advanced session guards
 """
 
 import inspect
@@ -356,87 +355,9 @@ class SessionContextManager:
 SessionContext = SessionContextManager()
 
 
-# ============================================================================
-# SessionGuard (merged from enhanced.py)
-# ============================================================================
-
-
-class SessionGuard:
-    """
-    Advanced session guards for complex authorization logic.
-
-    Example:
-        >>> class FeatureGuard(SessionGuard):
-        ...     async def check(self, session: Session) -> bool:
-        ...         return bool(session.data.get("feature_enabled"))
-
-        >>> @requires(FeatureGuard())
-        >>> async def admin_panel(ctx, session: Session):
-        ...     ...
-    """
-
-    async def check(self, session: Session) -> bool:
-        raise NotImplementedError("Subclasses must implement check()")
-
-    def __call__(self, func: F) -> F:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            sess = _extract_session(args, kwargs)
-
-            if sess is None:
-                raise SessionRequiredFault()
-
-            if not await self.check(sess):
-                from aquilia.faults.domains import AuthorizationFault
-
-                raise AuthorizationFault(
-                    resource=self.__class__.__name__, action="access", metadata={"guard": self.__class__.__name__}
-                )
-
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-
-def requires(*guards: SessionGuard):
-    """
-    Decorator to require multiple session guards.
-
-    Example:
-        >>> @requires(GuardA(), GuardB())
-        >>> async def sensitive_operation(ctx, session: Session):
-        ...     ...
-    """
-
-    def decorator(func: F) -> F:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            sess = _extract_session(args, kwargs)
-
-            if sess is None:
-                raise SessionRequiredFault()
-
-            for guard in guards:
-                if not await guard.check(sess):
-                    from aquilia.faults.domains import AuthorizationFault
-
-                    raise AuthorizationFault(
-                        resource=guard.__class__.__name__, action="access", metadata={"guard": guard.__class__.__name__}
-                    )
-
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
 __all__ = [
     "session",
     "stateful",
     "SessionRequiredFault",
-    # Merged from enhanced.py
     "SessionContext",
-    "SessionGuard",
-    "requires",
 ]
