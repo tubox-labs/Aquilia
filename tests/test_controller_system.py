@@ -965,51 +965,7 @@ class TestEngineAuthGuardClassTokenPipeline:
             )
 
 
-class TestEngineControllerPipelineFactoryReference:
-    """Regression tests for bare controller guard factory references."""
-
-    async def test_bare_controller_require_auth_reference_denies_unauthenticated(self):
-        from aquilia.auth.faults import AUTH_REQUIRED
-        from aquilia.auth.integration.flow_guards import controller_require_auth
-
-        factory = ControllerFactory()
-        engine = ControllerEngine(factory)
-
-        request = _make_request(method="GET", path="/orders")
-        ctx = RequestCtx(request=request, container=None, state={})
-
-        with pytest.raises(AUTH_REQUIRED):
-            await engine._execute_flow_pipeline(
-                [controller_require_auth],
-                request,
-                ctx,
-                Controller(),
-                pipeline_name="controller.factory.reference.unauth",
-            )
-
-    async def test_bare_controller_require_auth_reference_allows_authenticated(self):
-        from aquilia.auth.integration.flow_guards import controller_require_auth, controller_require_scopes
-
-        factory = ControllerFactory()
-        engine = ControllerEngine(factory)
-
-        identity = type("IdentityStub", (), {"scopes": ["orders:read"]})()
-        request = _make_request(method="GET", path="/orders", state={"identity": identity})
-        ctx = RequestCtx(request=request, container=None, state={"identity": identity})
-
-        result = await engine._execute_flow_pipeline(
-            [
-                controller_require_auth,
-                controller_require_scopes("orders:read"),
-            ],
-            request,
-            ctx,
-            Controller(),
-            pipeline_name="controller.factory.reference.authenticated",
-        )
-
-        assert result is None
-        assert ctx.state.get("authenticated") is True
+# Deprecated Controller Pipeline Factory Reference tests removed (superseded by first-class guard class references).
 
 
 # ═══════════════════════════════════════════════════════════════════════════
