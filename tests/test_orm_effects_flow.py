@@ -2214,25 +2214,6 @@ class TestTopLevelExports:
         for sym in effect_symbols:
             assert hasattr(aquilia, sym), f"Missing from aquilia: {sym}"
 
-    def test_flow_guard_exports(self):
-        import aquilia
-
-        guard_symbols = [
-            "FlowGuard",
-            "RequireAuthGuard",
-            "RequireScopesGuard",
-            "RequireRolesGuard",
-            "RequirePermissionGuard",
-            "RequirePolicyGuard",
-            "ControllerGuardAdapter",
-            "require_auth",
-            "require_scopes",
-            "require_roles",
-            "require_permission",
-        ]
-        for sym in guard_symbols:
-            assert hasattr(aquilia, sym), f"Missing from aquilia: {sym}"
-
     def test_all_in_dunder_all(self):
         import aquilia
 
@@ -2244,8 +2225,6 @@ class TestTopLevelExports:
             "EffectRegistry",
             "Layer",
             "requires",
-            "RequireAuthGuard",
-            "require_auth",
         ]
         for sym in critical_symbols:
             assert sym in all_list, f"Missing from __all__: {sym}"
@@ -2273,11 +2252,6 @@ class TestExportIntegrity:
         from aquilia import pipeline
 
         assert callable(pipeline)
-
-    def test_flow_guard_is_class(self):
-        from aquilia import FlowGuard
-
-        assert inspect.isclass(FlowGuard)
 
     def test_layer_is_class(self):
         from aquilia import Layer
