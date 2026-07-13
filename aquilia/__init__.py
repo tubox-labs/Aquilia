@@ -50,10 +50,10 @@ from .aquilary import (
 )
 from .auth import (
     authenticated,
-    roles_required,
-    scopes_required,
     optional_auth,
     requires,
+    roles_required,
+    scopes_required,
 )
 
 # Audit Trail
@@ -105,8 +105,6 @@ from .auth.integration.di_providers import (
     create_auth_container,
     register_auth_providers,
 )
-
-
 from .auth.integration.middleware import (
     AquilAuthMiddleware,
     create_auth_middleware_stack,
