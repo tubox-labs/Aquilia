@@ -34,7 +34,12 @@ class AuthIntegration:
     access_token_ttl_minutes: int = 60
     refresh_token_ttl_days: int = 30
     require_auth_by_default: bool = False
-    strategies: list[str] = field(default_factory=lambda: ["token", "session"])
+    backends: list[str] = field(
+        default_factory=lambda: [
+            "aquilia.auth.backends.TokenBackend",
+            "aquilia.auth.backends.SessionBackend",
+        ]
+    )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -51,6 +56,6 @@ class AuthIntegration:
             },
             "security": {
                 "require_auth_by_default": self.require_auth_by_default,
-                "strategies": self.strategies,
+                "backends": self.backends,
             },
         }
