@@ -390,18 +390,28 @@ class KeyRing:
 class TokenConfig:
     """Token manager configuration.
 
-    Note: the signing algorithm is NOT configured here — it is a property of
+    The signing algorithm is **not** configured here — it is a property of
     the active :class:`KeyDescriptor` inside the :class:`KeyRing` passed to
-    :class:`TokenManager`. Build the ``KeyRing`` with the desired algorithm
+    :class:`TokenManager`.  Build the ``KeyRing`` with the desired algorithm
     (``KeyDescriptor.generate(algorithm=...)``); it defaults to HS256
     (stdlib-only, zero extra dependencies) unless an asymmetric algorithm is
     explicitly requested.
+
+    Args:
+        issuer:              ``iss`` claim written to every token.
+        audience:            ``aud`` claim list written to every token.
+        access_token_ttl:    Access token lifetime in seconds.
+        refresh_token_ttl:   Refresh token lifetime in seconds.
+        clock_skew_seconds:  Tolerance applied to ``nbf`` and ``exp`` checks.
+                             Accommodates clock drift between distributed nodes.
+                             Defaults to ``0`` (strict timing).
     """
 
     issuer: str = "aquilia"
     audience: list[str] = field(default_factory=lambda: ["api"])
     access_token_ttl: int = 3600  # 1 hour
     refresh_token_ttl: int = 2592000  # 30 days
+    clock_skew_seconds: int = 0
 
 
 class TokenStore(Protocol):
@@ -610,13 +620,14 @@ class TokenManager:
         # Check expiration
         now = int(time.time())
         exp = payload.get("exp")
+        skew = self.config.clock_skew_seconds
 
-        if not exp or exp < now:
+        if not exp or exp < (now - skew):
             raise AUTH_TOKEN_EXPIRED()
 
         # Check not before
         nbf = payload.get("nbf", 0)
-        if nbf > now:
+        if nbf > (now + skew):
             raise AUTH_TOKEN_INVALID()
 
         # Check revocation
