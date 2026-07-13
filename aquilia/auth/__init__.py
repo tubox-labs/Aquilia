@@ -1,25 +1,18 @@
 """
-AquilAuth - Authentication & Authorization System
+AquilAuth - Production-grade Authentication & Authorization System
 
-Production-grade, Aquilia-native auth system with:
-- Multiple authentication methods (password, API key, OAuth2, MFA, passwordless)
-- Authorization engine (RBAC, ABAC, policy DSL)
-- Token management with key rotation
-- Deep integration with Sessions, DI, Flow, Faults
-
-Design Philosophy:
-1. Manifest-first: Auth config declared in manifests, compiled to surp
-2. Least privilege: Default-deny for all protected resources
-3. Typed & explicit: No ambient authority, everything injected
-4. Composable guards: Auth/authz are Flow pipeline nodes
-5. Audited & testable: All sensitive operations emit audit events
-6. Separation of concerns: Clear boundaries between components
-
-Status: Core implementation complete, ready for integration testing.
+Core Principles:
+1. **Context-first** — identity is resolved once per request and passed explicitly.
+2. **Pluggable backends** — single-responsibility handlers authenticate credentials.
+3. **Typed & explicit** — no ambient authority; everything is injected.
+4. **Composable guards** — auth/authz guards stack as pipeline nodes.
+5. **Audited & testable** — all sensitive operations emit audit events.
+6. **Separation of concerns** — clear boundaries between components.
 """
 
+from __future__ import annotations
+
 # Core types
-# Audit Trail
 from .audit import (
     AuditEvent,
     AuditEventType,
@@ -30,10 +23,20 @@ from .audit import (
     MemoryAuditStore,
 )
 
-# Authorization engines
+# Authorization engines (legacy — use PermissionEngine for new code)
 from .authz import ABACEngine, AuthzEngine, RBACEngine
 
-# Clearance System (Unique Aquilia access control)
+# Pluggable backends (new, strategy-free)
+from .backends import (
+    ApiKeyBackend,
+    AuthBackend,
+    PasswordBackend,
+    SessionBackend,
+    TokenBackend,
+    resolve_backend,
+)
+
+# Clearance System
 from .clearance import (
     AccessLevel,
     Clearance,
@@ -46,7 +49,6 @@ from .clearance import (
     ip_allowlist,
     is_owner_or_admin,
     is_same_tenant,
-    # Built-in conditions
     is_verified,
     require_attribute,
     within_quota,
@@ -67,7 +69,14 @@ from .core import (
     PasswordCredential,
     TokenClaims,
 )
-from .decorators import AdminGuard, VerifiedEmailGuard, authenticated
+
+# New decorators
+from .decorators import (
+    authenticated,
+    optional_auth,
+    roles_required,
+    scopes_required,
+)
 
 # Faults
 from .faults import (
@@ -76,23 +85,19 @@ from .faults import (
     AUTH_BACKUP_CODE_EXHAUSTED,
     AUTH_BACKUP_CODE_INVALID,
     AUTH_CLIENT_INVALID,
-    # OAuth faults
     AUTH_CONSENT_REQUIRED,
     AUTH_DEVICE_CODE_EXPIRED,
     AUTH_DEVICE_CODE_PENDING,
     AUTH_GRANT_INVALID,
-    # Authentication faults
     AUTH_INVALID_CREDENTIALS,
     AUTH_KEY_EXPIRED,
     AUTH_KEY_REVOKED,
     AUTH_MFA_ALREADY_ENROLLED,
     AUTH_MFA_INVALID,
-    # MFA faults
     AUTH_MFA_NOT_ENROLLED,
     AUTH_MFA_REQUIRED,
     AUTH_PASSWORD_BREACHED,
     AUTH_PASSWORD_REUSED,
-    # Credential faults
     AUTH_PASSWORD_WEAK,
     AUTH_PKCE_INVALID,
     AUTH_RATE_LIMITED,
@@ -101,7 +106,6 @@ from .faults import (
     AUTH_SCOPE_INVALID,
     AUTH_SESSION_HIJACK_DETECTED,
     AUTH_SESSION_INVALID,
-    # Session faults
     AUTH_SESSION_REQUIRED,
     AUTH_SLOW_DOWN,
     AUTH_TOKEN_EXPIRED,
@@ -110,10 +114,19 @@ from .faults import (
     AUTH_WEBAUTHN_INVALID,
     AUTHZ_INSUFFICIENT_ROLE,
     AUTHZ_INSUFFICIENT_SCOPE,
-    # Authorization faults
     AUTHZ_POLICY_DENIED,
     AUTHZ_RESOURCE_FORBIDDEN,
     AUTHZ_TENANT_MISMATCH,
+)
+
+# New guard system
+from .guards import (
+    AuthGuard,
+    Guard,
+    PolicyGuard,
+    RoleGuard,
+    ScopeGuard,
+    requires,
 )
 
 # Password hashing
@@ -126,26 +139,20 @@ from .hashing import (
     verify_password,
 )
 
-# Manager
+# Manager types
 from .manager import AuthManager, RateLimiter, SignInProvisionPolicy
 
 # MFA
 from .mfa import MFAManager
 
+# New authentication middleware
+from .middleware import AuthMiddleware
+
 # OAuth2
 from .oauth import OAuth2Manager
 
-# Policy DSL
-from .policy import (
-    Abstain,
-    Allow,
-    Deny,
-    Policy,
-    PolicyDecision,
-    PolicyRegistry,
-    PolicyResult,
-    rule,
-)
+# New unified permission engine
+from .permissions import PermissionEngine
 
 # Stores
 from .stores import (
@@ -163,7 +170,6 @@ from .tokens import (
     TokenConfig,
     TokenManager,
     TokenStore,
-    # Utility functions (relocated from hardening.py)
     constant_time_compare,
     generate_opaque_id,
     generate_secure_token,
@@ -187,9 +193,6 @@ __all__ = [
     "MFACredential",
     "TokenClaims",
     "AuthResult",
-    "authenticated",
-    "AdminGuard",
-    "VerifiedEmailGuard",
     # Password hashing
     "PasswordHasher",
     "PasswordPolicy",
@@ -205,6 +208,68 @@ __all__ = [
     "TokenManager",
     "TokenConfig",
     "TokenStore",
+    # Backends
+    "AuthBackend",
+    "PasswordBackend",
+    "TokenBackend",
+    "ApiKeyBackend",
+    "SessionBackend",
+    "resolve_backend",
+    # Permissions
+    "PermissionEngine",
+    # Guards
+    "Guard",
+    "AuthGuard",
+    "RoleGuard",
+    "ScopeGuard",
+    "PolicyGuard",
+    "requires",
+    # Decorators
+    "authenticated",
+    "optional_auth",
+    "roles_required",
+    "scopes_required",
+    # Middleware
+    "AuthMiddleware",
+    # Manager
+    "AuthManager",
+    "RateLimiter",
+    "SignInProvisionPolicy",
+    # Authorization engines
+    "AuthzEngine",
+    "RBACEngine",
+    "ABACEngine",
+    # OAuth2
+    "OAuth2Manager",
+    # MFA
+    "MFAManager",
+    # Clearance System
+    "Clearance",
+    "ClearanceEngine",
+    "ClearanceGuard",
+    "ClearanceVerdict",
+    "AccessLevel",
+    "ip_allowlist",
+    "during_hours",
+    "is_same_tenant",
+    "is_owner_or_admin",
+    "exempt",
+    "grant",
+    "is_verified",
+    "require_attribute",
+    "within_quota",
+    # Stores
+    "MemoryIdentityStore",
+    "MemoryCredentialStore",
+    "MemoryTokenStore",
+    # Audit Trail
+    "AuditEvent",
+    "AuditEventType",
+    "AuditSeverity",
+    "AuditTrail",
+    "AuditStore",
+    "MemoryAuditStore",
+    "LoggingAuditStore",
     # Faults
     "AUTH_INVALID_CREDENTIALS",
     "AUTH_TOKEN_INVALID",
@@ -243,61 +308,12 @@ __all__ = [
     "AUTH_WEBAUTHN_INVALID",
     "AUTH_BACKUP_CODE_INVALID",
     "AUTH_BACKUP_CODE_EXHAUSTED",
-    # Manager
-    "AuthManager",
-    "RateLimiter",
-    "SignInProvisionPolicy",
-    # Authorization
-    "AuthzEngine",
-    "RBACEngine",
-    "ABACEngine",
-    # Policy DSL
-    "Policy",
-    "PolicyResult",
-    "PolicyDecision",
-    "PolicyRegistry",
-    "Allow",
-    "Deny",
-    "Abstain",
-    "rule",
-    # OAuth2
-    "OAuth2Manager",
-    # MFA
-    "MFAManager",
-    # Stores
-    "MemoryIdentityStore",
-    "MemoryCredentialStore",
-    "MemoryTokenStore",
-    # Clearance System
-    "AccessLevel",
-    "Clearance",
-    "ClearanceVerdict",
-    "ClearanceEngine",
-    "ClearanceGuard",
-    "grant",
-    "exempt",
-    "is_verified",
-    "is_owner_or_admin",
-    "within_quota",
-    "is_same_tenant",
-    "during_hours",
-    "require_attribute",
-    "ip_allowlist",
-    # Audit Trail
-    "AuditEventType",
-    "AuditSeverity",
-    "AuditEvent",
-    "AuditStore",
-    "MemoryAuditStore",
-    "LoggingAuditStore",
-    "AuditTrail",
-    # Utility functions (formerly in hardening.py)
+    # Utility functions
     "constant_time_compare",
     "generate_secure_token",
     "generate_opaque_id",
     "hash_token",
     "hash_sensitive",
 ]
-
 
 from aquilia._version import __version__  # noqa: F401 — re-exported
