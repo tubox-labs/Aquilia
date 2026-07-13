@@ -644,6 +644,10 @@ class WorkspaceGenerator:
                 class auth(AquilaConfig.Auth):
                     secret_key      = Secret(env="AQ_SECRET_KEY", default="change-me-in-prod")
                     password_hasher = AquilaConfig.PasswordHasher(algorithm="argon2id")
+                    backends        = [
+                        "aquilia.auth.backends.TokenBackend",
+                        "aquilia.auth.backends.SessionBackend",
+                    ]
 
 
             class DevEnv(BaseEnv):
