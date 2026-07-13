@@ -731,7 +731,10 @@ class ConfigLoader:
                 "security": {
                     "require_auth_by_default": False,
                     "hash_rounds": 12,
-                    "strategies": ["token", "session"],
+                    "backends": [
+                        "aquilia.auth.backends.TokenBackend",
+                        "aquilia.auth.backends.SessionBackend",
+                    ],
                 },
             },
         )
