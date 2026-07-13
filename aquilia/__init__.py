@@ -1105,8 +1105,6 @@ __all__ = [
     "UserPreferencesState",
     # Enhanced session features (NEW - Advanced patterns)
     "SessionContext",
-
-
     # Config builders (NEW - Python config)
     "Workspace",
     "Module",
@@ -1171,7 +1169,6 @@ __all__ = [
     "create_auth_container",
     "AquilAuthMiddleware",
     "create_auth_middleware_stack",
-
     # Cache
     "CacheBackend",
     "CacheEntry",
