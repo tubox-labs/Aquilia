@@ -1,10 +1,10 @@
 # Pluggable Authentication Backends
 
-In Aquilia v1.3.1, authentication is driven by **Backends**. A backend is a class that implements the `AuthBackend` protocol. It is responsible for inspecting a request's credentials and resolving them to an `Identity`.
+In Aquilia v1.3.1, the authentication workflow is decomposed into single-responsibility **Backends**. A backend is a class that conforms to the `AuthBackend` protocol. It is responsible for accepting a credential dictionary and resolving it to an `Identity`.
 
 ## The `AuthBackend` Protocol
 
-The `AuthBackend` protocol is a runtime checkable `Protocol` defined in `aquilia.auth.backends.base`:
+The `AuthBackend` protocol is defined in `aquilia.auth.backends.base` using Python's structural subtyping (`typing.Protocol`):
 
 ```python
 from typing import Any, Protocol, runtime_checkable
@@ -17,7 +17,10 @@ class AuthBackend(Protocol):
         ...
 
     async def authenticate(self, credentials: dict[str, Any]) -> Identity | None:
-        """Verify credentials and resolve them to an Identity."""
+        """Verify credentials and resolve them to an Identity.
+        
+        May raise specific auth faults (e.g., AUTH_TOKEN_EXPIRED, AUTH_INVALID_CREDENTIALS).
+        """
         ...
 ```
 
@@ -25,74 +28,64 @@ class AuthBackend(Protocol):
 
 ## Built-in Backends
 
-Aquilia comes with four built-in backends:
+Aquilia provides four native backends to cover standard flows:
 
 ### 1. `TokenBackend`
-Validates JWT Bearer tokens extracted from the `Authorization: Bearer <token>` header. It validates the signature, check claims (e.g. expiration, audience), and checks if the token has been revoked via `TokenManager`.
-* **Accepts**: `{"token": str}`
+Validates JWT Bearer tokens. It verifies signatures, checks `exp` and `nbf` claims (with clock-skew tolerance), and validates token revocation via `TokenManager`.
+* **Accepted Credentials**: `{"token": str}`
+* **Constructor**:
+  ```python
+  def __init__(self, token_manager: TokenManager, identity_store: IdentityStore)
+  ```
 
 ### 2. `SessionBackend`
-Restores identity from an active session (cookie-based). It reads the `identity_id` from the session data and fetches the up-to-date user principal from the `IdentityStore`.
-* **Accepts**: `{"session": Session}`
+Restores identity from a cookie-backed session. It looks up the `identity_id` from the session data or from `session.principal`, and fetches the corresponding active identity.
+* **Accepted Credentials**: `{"session": Session}`
+* **Constructor**:
+  ```python
+  def __init__(self, identity_store: IdentityStore)
+  ```
 
 ### 3. `PasswordBackend`
-Authenticates a user via their username and raw password. It performs rate-limiting checks, retrieves the hashed password from the `CredentialStore`, and verifies it using the Argon2id/PBKDF2 `PasswordHasher`.
-* **Accepts**: `{"username": str, "password": str}`
+Authenticates user login credentials. It checks for IP/username brute-force lockouts, resolves usernames or email addresses to an identity, compares password hashes, handles password re-hashing when algorithm parameters upgrade, and checks for multi-factor authentication (MFA) requirements.
+* **Accepted Credentials**: `{"username": str, "password": str}`
+* **Constructor**:
+  ```python
+  def __init__(
+      self,
+      identity_store: IdentityStore,
+      credential_store: CredentialStore,
+      password_hasher: PasswordHasher,
+      rate_limiter: RateLimiter | None = None,
+      login_attributes: tuple[str, ...] = ("email", "username", "login"),
+  )
+  ```
 
 ### 4. `ApiKeyBackend`
-Validates custom API keys from either the `x-api-key` header or `Authorization: ApiKey <key>`. It queries the `CredentialStore` to resolve the associated identity.
-* **Accepts**: `{"api_key": str}`
+Authenticates API requests via an opaque API key. It hashes the incoming key using `HMAC-SHA256` for lookup, checks expiration and revocation status, and verifies that the key carries the required scopes if requested.
+* **Accepted Credentials**: `{"api_key": str, "required_scopes": list[str] | None}`
+* **Constructor**:
+  ```python
+  def __init__(self, credential_store: CredentialStore, identity_store: IdentityStore)
+  ```
 
 ---
 
-## Writing a Custom Backend
+## The Backend Resolver
 
-Custom backends are easy to write. For example, to write an LDAP or OAuth backend:
+To simplify instantiation, the `resolve_backend` function maps string identifiers, class references, or dotted import paths to their instantiated backends. It handles:
+* Short names: `"token"`, `"session"`, `"password"`, `"api_key"`.
+* Class references: `TokenBackend`, `SessionBackend`, `PasswordBackend`, `ApiKeyBackend`.
+* Dotted paths: `"my_app.auth.backends.CustomBackend"`.
 
-```python
-from typing import Any
-from aquilia.auth.backends import AuthBackend
-from aquilia.auth.core import Identity, IdentityType, IdentityStatus
-
-class LdapAuthBackend:
-    def __init__(self, ldap_client: Any, identity_store: Any) -> None:
-        self.ldap_client = ldap_client
-        self.identity_store = identity_store
-
-    def accepts(self, credentials: dict[str, Any]) -> bool:
-        # This backend accepts LDAP-specific credentials
-        return "username" in credentials and "password" in credentials and credentials.get("auth_type") == "ldap"
-
-    async def authenticate(self, credentials: dict[str, Any]) -> Identity | None:
-        username = credentials["username"]
-        password = credentials["password"]
-        
-        # Verify against LDAP server
-        if not await self.ldap_client.verify(username, password):
-            return None
-            
-        # Resolve identity from the internal store or auto-provision
-        identity = await self.identity_store.get_by_username(username)
-        if not identity:
-            identity = await self.identity_store.create(
-                id=f"ldap_{username}",
-                type=IdentityType.USER,
-                attributes={"roles": ["staff"]},
-                status=IdentityStatus.ACTIVE,
-            )
-        return identity
-```
-
-## Configuring Backends
-
-Backends are registered in `workspace.py` using dotted paths, classes, or short names:
+### Example Configuration in `workspace.py`
 
 ```python
 class auth(AquilaConfig.Auth):
     secret_key = Secret(env="AQ_SECRET_KEY", default="change-me")
     backends = [
         "aquilia.auth.backends.TokenBackend",
-        "my_project.auth.backends.LdapAuthBackend",
-        "session",  # short name resolves to SessionBackend
+        "aquilia.auth.backends.SessionBackend",
+        "my_project.auth.CustomBackendClass",  # Dotted class path
     ]
 ```
