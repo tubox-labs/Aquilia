@@ -296,8 +296,15 @@ class AquiliaServer:
         use_auth = auth_config.get("enabled", False)
 
         if use_auth:
-            strategies = auth_config.get("security", {}).get("strategies", ["token", "session"])
-            if "session" in strategies:
+            backends = auth_config.get("security", {}).get(
+                "backends",
+                [
+                    "aquilia.auth.backends.TokenBackend",
+                    "aquilia.auth.backends.SessionBackend",
+                ],
+            )
+            has_session = any("session" in str(b).lower() or "SessionBackend" in str(b) for b in backends)
+            if has_session:
                 # Force enable sessions config if session auth is enabled
                 use_sessions = True
 
@@ -314,11 +321,18 @@ class AquiliaServer:
                 self._session_engine = None
 
         # Try to set up auth if requested
-        # Note: if session strategy is active, session engine must have succeeded
+        # Note: if session backend is active, session engine must have succeeded
         auth_initialized = False
         if use_auth:
-            strategies = auth_config.get("security", {}).get("strategies", ["token", "session"])
-            if "session" not in strategies or self._session_engine is not None:
+            backends = auth_config.get("security", {}).get(
+                "backends",
+                [
+                    "aquilia.auth.backends.TokenBackend",
+                    "aquilia.auth.backends.SessionBackend",
+                ],
+            )
+            has_session = any("session" in str(b).lower() or "SessionBackend" in str(b) for b in backends)
+            if not has_session or self._session_engine is not None:
                 try:
                     # Create AuthManager
                     auth_manager = self._create_auth_manager(auth_config)
@@ -330,7 +344,7 @@ class AquiliaServer:
                             session_engine=self._session_engine,
                             auth_manager=auth_manager,
                             require_auth=auth_config.get("security", {}).get("require_auth_by_default", False),
-                            strategies=strategies,
+                            backends=backends,
                             fault_engine=self.fault_engine,
                         ),
                         scope="global",
