@@ -552,91 +552,7 @@ class TestFlowGuards:
             "session": session,
         }
 
-    @pytest.mark.asyncio
-    async def test_require_auth_guard_passes_with_identity(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireAuthGuard
-
-        guard = RequireAuthGuard()
-        context = self._make_context(identity=self._make_identity())
-        result = await guard(context)
-        assert result["authenticated"] is True
-
-    @pytest.mark.asyncio
-    async def test_require_auth_guard_raises_without_identity(self) -> None:
-        from aquilia.auth.faults import AUTH_REQUIRED
-        from aquilia.auth.integration.flow_guards import RequireAuthGuard
-
-        guard = RequireAuthGuard()
-        context = self._make_context(identity=None)
-
-        with pytest.raises(Exception) as exc_info:
-            await guard(context)
-
-        assert "AUTH_REQUIRED" in type(exc_info.value).__name__ or hasattr(exc_info.value, "error_code")
-
-    @pytest.mark.asyncio
-    async def test_require_auth_guard_optional_passes_without_identity(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireAuthGuard
-
-        guard = RequireAuthGuard(optional=True)
-        context = self._make_context(identity=None)
-        result = await guard(context)
-        assert result["authenticated"] is False
-
-    @pytest.mark.asyncio
-    async def test_require_roles_guard_passes(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireRolesGuard
-
-        guard = RequireRolesGuard("admin")
-        context = self._make_context(identity=self._make_identity(roles=["admin", "user"]))
-        result = await guard(context)
-        assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_require_roles_guard_fails_missing_role(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireRolesGuard
-
-        guard = RequireRolesGuard("admin")
-        context = self._make_context(identity=self._make_identity(roles=["user"]))
-
-        with pytest.raises(Exception):
-            await guard(context)
-
-    @pytest.mark.asyncio
-    async def test_require_scopes_guard_passes(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireScopesGuard
-
-        guard = RequireScopesGuard("orders:read")
-        context = self._make_context(
-            identity=self._make_identity(scopes=["orders:read", "orders:write"])
-        )
-        result = await guard(context)
-        assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_require_scopes_guard_fails_missing_scope(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireScopesGuard
-
-        guard = RequireScopesGuard("admin:manage")
-        context = self._make_context(identity=self._make_identity(scopes=["read"]))
-
-        with pytest.raises(Exception):
-            await guard(context)
-
-    def test_require_auth_guard_as_flow_node(self) -> None:
-        from aquilia.auth.integration.flow_guards import RequireAuthGuard
-        from aquilia.flow import FlowNode
-
-        node = RequireAuthGuard().as_flow_node(name="test_auth", priority=5)
-        assert isinstance(node, FlowNode)
-        assert node.name == "test_auth"
-        assert node.priority == 5
-
-    def test_require_auth_guard_for_controller(self) -> None:
-        from aquilia.auth.integration.flow_guards import ControllerGuardAdapter, RequireAuthGuard
-
-        adapter = RequireAuthGuard().for_controller()
-        assert isinstance(adapter, ControllerGuardAdapter)
+    # FlowGuards tests have been removed as part of the deprecated flow_guards cleanup (superseded by test_auth_guards.py).
 
 
 # ===========================================================================
@@ -754,21 +670,20 @@ class TestSessionDecorators:
     """Session decorators must not regress after the integration refactor."""
 
     def test_session_decorator_imports(self) -> None:
-        from aquilia.sessions import SessionContext, SessionGuard, requires, session, stateful
+        from aquilia.sessions import SessionContext, session, stateful
 
         assert session is not None
         assert callable(session.require)
         assert callable(stateful)
-        assert callable(requires)
-        assert SessionGuard is not None
         assert SessionContext is not None
 
     def test_auth_decorator_imports(self) -> None:
-        from aquilia.auth import AdminGuard, VerifiedEmailGuard, authenticated
+        from aquilia.auth import authenticated, roles_required, scopes_required, optional_auth
 
         assert callable(authenticated)
-        assert AdminGuard is not None
-        assert VerifiedEmailGuard is not None
+        assert callable(roles_required)
+        assert callable(scopes_required)
+        assert callable(optional_auth)
 
 
 # ===========================================================================
@@ -796,21 +711,7 @@ class TestAuthModuleInit:
         assert Identity is not None
         assert AuthResult is not None
 
-    def test_auth_policy_imports(self) -> None:
-        from aquilia.auth import (
-            Abstain,
-            Allow,
-            Deny,
-            Policy,
-            PolicyDecision,
-            PolicyRegistry,
-            PolicyResult,
-            rule,
-        )
-
-        assert Allow is not None
-        assert Deny is not None
-        assert Abstain is not None
+    # Policy DSL imports test removed (deprecated Policy DSL was removed in refactoring).
 
     def test_auth_clearance_imports(self) -> None:
         from aquilia.auth import (
