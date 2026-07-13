@@ -1,101 +1,99 @@
-# Flow Guards & Context-First Decorators
+# Unified Authorization, Guards & Decorators
 
-Aquilia v1.3.1 standardizes endpoint protection using a unified Guard protocol and a set of clean, context-first decorators.
-
-## Unified `Guard` Protocol
-
-A guard is a class that implements `check(ctx)`. If access is denied, it raises a structured auth fault; otherwise, it returns `None` (success).
-
-```python
-class Guard(Protocol):
-    def check(self, ctx: Any) -> None:
-        """Evaluate the guard condition and raise a fault on denial."""
-        ...
-```
-
-Guards are stateless, meaning they can be declared as class references or pre-instantiated. They integrate directly with `FlowPipeline`:
-
-```python
-from aquilia.auth.guards import AuthGuard, RoleGuard
-from aquilia.flow import FlowPipeline
-
-pipeline = FlowPipeline("admin_request")
-pipeline.guard(AuthGuard)              # Class reference
-pipeline.guard(RoleGuard("admin"))      # Pre-instantiated with parameters
-```
+Aquilia v1.3.1 consolidates authentication checks and authorization strategies into a unified API.
 
 ---
 
-## Context-First Decorators
+## 1. Unified `PermissionEngine`
 
-In controllers, you can protect handlers using decorators. These decorators inspect the incoming `RequestCtx` (or argument list) to resolve the identity, and execute the matching guard checks.
+The `PermissionEngine` (defined in `aquilia.auth.permissions`) is the central engine for evaluating roles, scopes, and policies. It replaces five separate historical systems and runs check assertions that raise appropriate exceptions on denial.
 
-### 1. `@authenticated`
-Requires that the incoming request is authenticated (either via a valid token or an active session).
+### Core API & Capabilities
 
-```python
-from aquilia import Controller, GET, RequestCtx, Response, authenticated
-
-class ProfileController(Controller):
-    @GET("/me")
-    @authenticated
-    async def show_profile(self, ctx: RequestCtx) -> Response:
-        # Injected identity is accessible via ctx.identity
-        return Response.json(ctx.identity.to_dict())
-```
-
-### 2. `@roles_required`
-Requires that the authenticated identity holds the specified roles. Supports checking against role inheritance when a `PermissionEngine` is registered.
-
-```python
-from aquilia import Controller, POST, RequestCtx, Response, roles_required
-
-class SettingsController(Controller):
-    @POST("/admin/settings")
-    @roles_required("superadmin", "administrator", require_all=False)
-    async def update_settings(self, ctx: RequestCtx) -> Response:
-        return Response.json({"status": "updated"})
-```
-
-### 3. `@scopes_required`
-Enforces OAuth2/API key scopes.
-
-```python
-from aquilia import Controller, GET, RequestCtx, Response, scopes_required
-
-class ReportsController(Controller):
-    @GET("/reports/financial")
-    @scopes_required("reports:read")
-    async def download_report(self, ctx: RequestCtx) -> Response:
-        return Response.json({"data": []})
-```
-
-### 4. `@optional_auth`
-Attempts to authenticate the request but does *not* reject it if authentication fails. Ideal for public endpoints that customize output when a logged-in user is detected.
-
-```python
-from aquilia import Controller, GET, RequestCtx, Response, optional_auth
-
-class FeedController(Controller):
-    @GET("/feed")
-    @optional_auth
-    async def get_feed(self, ctx: RequestCtx) -> Response:
-        if ctx.identity:
-            return Response.json(await self.get_personalized_feed(ctx.identity))
-        return Response.json(await self.get_public_feed())
-```
+* **DAG Role Hierarchies**: Define roles that inherit permissions and access from other roles.
+  ```python
+  engine = PermissionEngine()
+  engine.define_role("editor", permissions=["posts:edit"])
+  engine.define_role("admin", inherits=["editor"], permissions=["users:delete"])
+  
+  # admin implies editor
+  assert engine.role_implies("admin", "editor") is True
+  ```
+* **Dynamic Policies**: Register arbitrary policy callables that evaluate access against a user and resource.
+  ```python
+  engine.register_policy(
+      "can_edit_post",
+      lambda identity, post: identity.id == post.author_id or identity.has_role("admin")
+  )
+  ```
+* **Assertive Checks**:
+  * `check_role(identity, role)`: Raises `AUTHZ_INSUFFICIENT_ROLE` if role is not met.
+  * `check_scope(identity, scope)`: Raises `AUTHZ_INSUFFICIENT_SCOPE` if scope is absent.
+  * `check_policy(key, identity, resource=None)`: Raises `AUTHZ_POLICY_DENIED` if policy returns `False`.
 
 ---
 
-## The `@requires` Decorator
+## 2. Pluggable Flow Guards
 
-For complex scenarios where you need to compose multiple guards in a specific order, use the `@requires` decorator. It accepts both guard classes and instances:
+Guards (defined in `aquilia.auth.guards`) evaluate context and raise exceptions on denial. They can be placed directly in request pipelines or used as raw classes (for zero-configuration defaults).
 
+### `AuthGuard`
+Verifies authentication status.
+* **Optional Mode**: When `optional=True`, anonymous users are allowed.
+* **Proactive Auth**: If the identity is not yet resolved, `AuthGuard` attempts to proactively extract and authenticate a Bearer token using DI container-resolved `AuthManager`.
+* **Signature**: `AuthGuard(auth_manager=None, optional=False)`
+
+### `RoleGuard`
+Ensures the identity holds required roles.
+* **Resolution**: Uses `PermissionEngine` if found in the DI container; otherwise, falls back to direct membership testing of `identity.get_attribute("roles", [])`.
+* **Signature**: `RoleGuard(*roles, engine=None, require_all=True)`
+
+### `ScopeGuard`
+Ensures the identity holds required scopes.
+* **Wildcards**: Supports the wildcard `"*"` scope.
+* **Signature**: `ScopeGuard(*scopes, require_all=True)`
+
+### `PolicyGuard`
+Evaluates a policy registered in the permission engine.
+* **Signature**: `PolicyGuard(key, engine, resource=None)`
+
+---
+
+## 3. Context-First Decorators
+
+Decorators (defined in `aquilia.auth.decorators`) wrap handlers to execute guard checks and **inject parameters** into the handler's signature (e.g., `identity`, `user`, `session`, `principal`).
+
+### `@authenticated`
+Requires an authenticated identity.
+* **Browser Redirection**: If a request is anonymous, has `redirect_if_html=True` or `login_url` configured, and accepts HTML, it performs a `303 Redirect` to the login page with a `next` query parameter.
+* **Signature**:
+  ```python
+  def authenticated(
+      func=None,
+      *,
+      login_url: str | None = None,
+      redirect_if_html: bool = False,
+      include_next: bool = True,
+      next_param: str = "next",
+      redirect_status: int = 303,
+  )
+  ```
+
+### `@roles_required` / `@scopes_required`
+Evaluates role or scope conditions before executing the controller action.
 ```python
-from aquilia.auth.guards import AuthGuard, RoleGuard, ScopeGuard, requires
-
-@requires(AuthGuard, RoleGuard("editor"), ScopeGuard("publish"))
-async def publish_article(ctx: RequestCtx) -> Response:
+@roles_required("admin", "editor", require_all=False)
+async def delete_post(self, ctx: RequestCtx) -> Response:
     ...
 ```
-Guards are evaluated in the order they are passed, and the first fault raised stops execution.
+
+### `@optional_auth`
+Evaluates the proactive `AuthGuard(optional=True)` check. It injects the user if found but does not block anonymous traffic.
+
+### `@requires`
+Composes multiple guards (both classes and instances) sequentially:
+```python
+@requires(AuthGuard, RoleGuard("admin"))
+async def admin_only_action(self, ctx: RequestCtx) -> Response:
+    ...
+```
