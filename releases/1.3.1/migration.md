@@ -6,7 +6,7 @@ Aquilia v1.3.1 consolidates and standardizes authentication and authorization. F
 
 ## 1. Upgrading Configuration
 
-The string-based `strategies` setting has been removed. You must now configure the list of identity-resolution backends using the `backends` parameter.
+The string-based `strategies` setting has been removed. You must now configure the list of identity-resolution backends using the `backends` parameter. Additionally, the rate-limiting and MFA settings have been promoted to direct configuration parameters on `AquilaConfig.Auth`.
 
 ### Legacy Configuration (v1.3.0)
 ```python
@@ -23,8 +23,23 @@ class auth(AquilaConfig.Auth):
         "aquilia.auth.backends.TokenBackend",
         "aquilia.auth.backends.SessionBackend",
     ]
-    # Optionally configure clock-skew tolerance (in seconds) for JWT validations
+    # Store type: "memory" or "redis"
+    store_type = "memory"
+    
+    # Rate Limiting configuration parameters
+    rate_limit_max_attempts = 5
+    rate_limit_window_seconds = 900
+    rate_limit_lockout_seconds = 3600
+    
+    # MFA settings
+    mfa_enabled = False
+    mfa_required = False
+    
+    # Clock skew tolerance (in seconds) for JWT validations
     clock_skew_seconds = 5
+    
+    # Audit trail activation
+    audit_enabled = True
 ```
 
 ---
@@ -153,7 +168,8 @@ config = {
 
 ---
 
-## 6. Deprecated APIs
+## 6. Deprecated APIs & Relocations
 
 * **`AuthManager.logout()`**: Deprecated in favor of `AuthManager.sign_out()`. Calling `logout()` now raises a `DeprecationWarning` but will invoke `sign_out()` internally for backward compatibility.
 * **`OptionalAuthMiddleware`**: Deprecated in favor of `AquilAuthMiddleware(require_auth=False)` or the new `AuthMiddleware` class.
+* **`RateLimiter` relocation**: The `RateLimiter` class has been moved from the `manager` module to `aquilia.auth.manager_types` to prevent circular imports. Update imports if you reference it directly.

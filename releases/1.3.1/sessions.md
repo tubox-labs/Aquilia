@@ -1,10 +1,10 @@
-# Session Security Hardening & Integration
+# Session Security, AuthManager & RateLimiting
 
-Aquilia v1.3.1 introduces substantial security improvements to cookie-based and session-based authentication to prevent privilege escalation.
+Aquilia v1.3.1 introduces substantial security improvements to cookie-based and session-based authentication to prevent privilege escalation, alongside a refined `AuthManager` API and a standalone `RateLimiter` utility.
 
 ---
 
-## 1. Stale Session Authorization Bypass
+## 1. Session Serialization Hardening
 
 In previous versions of Aquilia, the full set of user roles, scopes, and attributes was serialized and stored directly inside the session store database (or client-side cookie):
 
@@ -17,10 +17,6 @@ session["status"] = identity.status.value
 
 This optimization meant that if an administrator modified a user's permissions, suspended their account, or deleted them, the changes **would not take effect** for requests authenticated via session cookies until their session expired.
 
----
-
-## 2. Stateless Serialization & Dynamic Resolution
-
 In Aquilia v1.3.1, session serialization has been hardened. The `bind_identity` function only writes core identifiers:
 
 ```python
@@ -31,52 +27,55 @@ if identity.tenant_id is not None:
     session["tenant_id"] = identity.tenant_id
 ```
 
-### Identity Resolution Flow
-1. The `SessionBackend` captures the active session credentials.
-2. It extracts the `identity_id` (either from `session.principal` or from `session.data["identity_id"]`).
-3. It fetches a fresh `Identity` object directly from the `IdentityStore` on **every single request**.
-4. Authorization guards evaluate roles and scopes against this fresh database/cache state.
+Notice that **roles, scopes, and user attributes are no longer written to the session store**.
 
-Any changes to user permissions or status are applied **instantly** on the user's next request.
-
----
-
-## 3. The `AuthPrincipal` Class
-
-The `AuthPrincipal` (defined in `aquilia.auth.integration.aquila_sessions`) represents the authenticated subject within the session context:
-
-```python
-class AuthPrincipal(SessionPrincipal):
-    def __init__(
-        self,
-        identity_id: str,
-        tenant_id: str | None = None,
-        roles: list[str] | None = None,
-        scopes: list[str] | None = None,
-        mfa_verified: bool = False,
-    )
-```
-
-It is serialized to session dictionaries as:
-* `principal_id` (maps to `identity_id`)
-* `tenant_id`
-* `roles` (ephemeral)
-* `scopes` (ephemeral)
-* `mfa_verified` (indicates if MFA challenge was completed during this session)
+### Active Identity Resolution
+* The `SessionBackend` captures the active session credentials.
+* It extracts the `identity_id` (either from `session.principal` or from `session.data["identity_id"]`).
+* It fetches a fresh `Identity` object directly from the `IdentityStore` on **every single request**.
+* Authorization guards evaluate roles and scopes against this fresh database/cache state.
 
 ---
 
-## 4. Preconfigured Session Policies
+## 2. Shared Manager Types: `RateLimiter`
 
-Three preconfigured session policies are exposed out-of-the-box:
+To protect brute-force paths (such as username/password login), Aquilia v1.3.1 introduces a standalone `RateLimiter` class in `aquilia.auth.manager_types` (and re-exported in `aquilia.auth.manager` for backward compatibility).
 
-* **`user_session_policy`**: Default for browser-based user sessions. Configured with a 7-day TTL, 1-hour idle timeout, a limit of 5 concurrent sessions per user (evicting oldest), and secure HTTP-only cookies (`aquilia_auth`).
-* **`api_session_policy`**: Default for API token sessions. Configured with a 1-hour TTL, no idle timeout, and header transport (`Authorization: Bearer`).
-* **`device_session_policy`**: Default for mobile app sessions. Configured with a 90-day TTL, 30-day idle timeout, and custom header transport (`X-Device-Session`).
+* **Constructor & Parameters**:
+  ```python
+  def __init__(
+      self,
+      max_attempts: int = 5,
+      window_seconds: int = 900,
+      lockout_duration: int = 3600,
+  )
+  ```
+  Tracks failed authentication attempts per key (typically a username or IP address) within a sliding time window.
+* **Core API Methods**:
+  * `record_attempt(key: str) -> None`: Records a failed attempt. If attempts exceed `max_attempts` within the window, locks out the key.
+  * `is_locked_out(key: str) -> bool`: Checks if the key is currently locked out.
+  * `get_remaining_attempts(key: str) -> int`: Returns attempts left before lockout.
+  * `reset(key: str) -> None`: Clears attempt history for the key on successful authentication.
 
 ---
 
-## 5. `SessionAuthBridge`
+## 3. `AuthManager` Refactored APIs
+
+The `AuthManager` class (defined in `aquilia.auth.manager`) is the central coordinator for authentication operations. The following APIs were updated:
+
+### Token Revocation
+The token revocation API now supports access tokens by extracting the unique JWT identifier (`jti`) and blacklisting it:
+* `async def revoke_token(self, token: str, token_type: str = "refresh") -> None`:
+  * If `token_type == "refresh"`, revokes the refresh token directly.
+  * If `token_type == "access"`, validates the access token, extracts the `jti` claim, and revokes it so subsequent validations reject it.
+
+### Deprecated `logout()`
+* **Signature**: `async def logout(self, identity_id=None, session_id=None, access_token=None, refresh_token=None) -> None`
+* **Status**: **Deprecated** in favor of `sign_out()`. Raises a `DeprecationWarning` when called.
+
+---
+
+## 4. `SessionAuthBridge`
 
 The `SessionAuthBridge` coordinates actions between `AuthManager` and `SessionEngine`:
 * `create_auth_session(identity, request, token_claims=None)`: Resolves and binds authentication credentials to a new session.

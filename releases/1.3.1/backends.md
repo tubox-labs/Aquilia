@@ -73,8 +73,18 @@ Authenticates API requests via an opaque API key. It hashes the incoming key usi
 
 ## The Backend Resolver
 
-To simplify instantiation, the `resolve_backend` function maps string identifiers, class references, or dotted import paths to their instantiated backends. It handles:
-* Short names: `"token"`, `"session"`, `"password"`, `"api_key"`.
+To simplify instantiation, the `resolve_backend` function maps string identifiers, class references, or dotted import paths to their instantiated backends:
+
+```python
+def resolve_backend(b: Any, auth_manager: Any) -> Any:
+    """Resolve a backend reference (instance, class, short name, or dotted path)
+    into an instantiated backend object.
+    """
+    ...
+```
+
+It maps:
+* Short names: `"token"` (TokenBackend), `"session"` (SessionBackend), `"password"` (PasswordBackend), `"api_key"` (ApiKeyBackend).
 * Class references: `TokenBackend`, `SessionBackend`, `PasswordBackend`, `ApiKeyBackend`.
 * Dotted paths: `"my_app.auth.backends.CustomBackend"`.
 

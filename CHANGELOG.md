@@ -22,10 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `@scopes_required("read", "write")`
   - `@optional_auth`
 - **PermissionEngine**: Unifies role hierarchies and fine-grained authorization policies under a single component.
+- **Clock-Skew Tolerance**: Added `clock_skew_seconds` parameter to `TokenConfig` and `AquilaConfig.Auth` (default `0`) to permit clock drift tolerance during JWT `exp` and `nbf` validation.
+- **Relocated RateLimiter**: Moved rate limiting tracking to a standalone `RateLimiter` class in `aquilia.auth.manager_types.py` to prevent circular imports.
+- **Pluggable Auth Middleware**: Unified request authentication pipeline under a new `AuthMiddleware` class (`aquilia.auth.middleware.AuthMiddleware`).
+- **Expanded PyConfig parameters**: Added settings `rate_limit_max_attempts`, `rate_limit_window_seconds`, `rate_limit_lockout_seconds`, `mfa_enabled`, `mfa_required`, `clock_skew_seconds`, and `audit_enabled` directly to `AquilaConfig.Auth`.
 
 ### Changed
 - **Session Security Hardening**: To prevent stale privileges, global session integration now only serializes `identity_id` and `tenant_id` inside sessions. User roles, scopes, and attributes are resolved fresh from the identity store on every request.
 - **Backend Configuration**: Replaced string-based `strategies` in `AquilaConfig.Auth` and `AquilAuthMiddleware` with the `backends` parameter, taking resolved backend references (dotted paths, classes, or short names).
+- **Token Revocation Enhancement**: `AuthManager.revoke_token()` now supports revoking access tokens directly by extracting their `jti` claim and adding it to the revocation blacklist.
 
 ### Deprecated
 - `AuthManager.logout()` is deprecated in favor of `sign_out()`.

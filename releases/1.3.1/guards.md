@@ -1,6 +1,6 @@
-# Unified Authorization, Guards & Decorators
+# Unified Authorization, Middleware & Decorators
 
-Aquilia v1.3.1 consolidates authentication checks and authorization strategies into a unified API.
+Aquilia v1.3.1 unifies identity resolution and request-scoped checks into a single middleware and permission engine.
 
 ---
 
@@ -8,28 +8,17 @@ Aquilia v1.3.1 consolidates authentication checks and authorization strategies i
 
 The `PermissionEngine` (defined in `aquilia.auth.permissions`) is the central engine for evaluating roles, scopes, and policies. It replaces five separate historical systems and runs check assertions that raise appropriate exceptions on denial.
 
-### Core API & Capabilities
+### Core API Methods
 
-* **DAG Role Hierarchies**: Define roles that inherit permissions and access from other roles.
-  ```python
-  engine = PermissionEngine()
-  engine.define_role("editor", permissions=["posts:edit"])
-  engine.define_role("admin", inherits=["editor"], permissions=["users:delete"])
-  
-  # admin implies editor
-  assert engine.role_implies("admin", "editor") is True
-  ```
-* **Dynamic Policies**: Register arbitrary policy callables that evaluate access against a user and resource.
-  ```python
-  engine.register_policy(
-      "can_edit_post",
-      lambda identity, post: identity.id == post.author_id or identity.has_role("admin")
-  )
-  ```
-* **Assertive Checks**:
-  * `check_role(identity, role)`: Raises `AUTHZ_INSUFFICIENT_ROLE` if role is not met.
-  * `check_scope(identity, scope)`: Raises `AUTHZ_INSUFFICIENT_SCOPE` if scope is absent.
-  * `check_policy(key, identity, resource=None)`: Raises `AUTHZ_POLICY_DENIED` if policy returns `False`.
+* `define_role(role: str, *, permissions: list[str] | None = None, inherits: list[str] | None = None) -> None`: Declare a role and its transitively implied parents.
+* `role_implies(role: str, target: str) -> bool`: Query the role DAG structure.
+* `register_policy(key: str, policy: PolicyCallable) -> None`: Define a rule matching the signature `(identity, resource) -> bool`.
+* `check_role(identity: Identity, role: str) -> None`: Asserts role ownership; raises `AUTHZ_INSUFFICIENT_ROLE` on failure.
+* `check_scope(identity: Identity, scope: str) -> None`: Asserts scope ownership; raises `AUTHZ_INSUFFICIENT_SCOPE` on failure.
+* `check_policy(key: str, identity: Identity, resource: Any = None) -> None`: Asserts policy assertion passes; raises `AUTHZ_POLICY_DENIED` on failure.
+* `has_role(identity: Identity, role: str) -> bool`: Returns a boolean indicating role membership.
+* `has_scope(identity: Identity, scope: str) -> bool`: Returns a boolean indicating scope membership.
+* `evaluate_policy(key: str, identity: Identity, resource: Any = None) -> bool`: Returns a boolean indicating policy result.
 
 ---
 
@@ -97,3 +86,30 @@ Composes multiple guards (both classes and instances) sequentially:
 async def admin_only_action(self, ctx: RequestCtx) -> Response:
     ...
 ```
+
+---
+
+## 4. Unified `AuthMiddleware`
+
+The new unified `AuthMiddleware` (defined in `aquilia.auth.middleware`) coordinates credential resolution from backends on every incoming request.
+
+* **Signatures & Parameters**:
+  ```python
+  def __init__(
+      self,
+      auth_manager: AuthManager,
+      session_engine: SessionEngine | None = None,
+      *,
+      require_auth: bool = False,
+      backends: list[AuthBackend] | None = None,
+      logger: logging.Logger | None = None,
+  )
+  ```
+* **Execution Flow**:
+  1. **Phase 1: Session Resolution**: If `session_engine` is provided, resolves the session and binds it to `ctx.session` and `request.state["session"]`.
+  2. **Phase 2: Credentials Extraction**: Extracts Bearer token, ApiKey, or Session from the request.
+  3. **Phase 3: Backend Authentication**: Loops through pluggable `backends` (defaults to `TokenBackend` and `SessionBackend`). The first backend that accepts the credentials and returns an `Identity` completes the phase.
+  4. **Phase 4: Requirement Enforcement**: If `require_auth=True` and no identity is resolved, returns a `401 Unauthorized` response immediately.
+  5. **Phase 5: Propagation**: Propagates the resolved identity to `request.state["identity"]`, `request.state["authenticated"]`, and `ctx.identity`.
+  6. **Phase 6: Downstream Execution**: Calls the next handler in the ASGI middleware chain.
+  7. **Phase 7: Session Commitment**: Commits session modifications back to the storage adapter.
