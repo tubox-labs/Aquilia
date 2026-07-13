@@ -4,10 +4,16 @@ AquilAuth - DI Providers
 Dependency injection providers for all auth components.
 Enables proper lifecycle management and dependency resolution.
 
+All authentication behaviour is configured via ``AquilaConfig.Auth`` in
+``workspace.py``.  The ``AuthConfig`` fluent builder that previously
+duplicated this configuration has been removed — use ``AquilaConfig.Auth``
+directly.
+
 This module provides:
-- Providers for all auth components
-- Factory functions for common configurations
-- Integration with Aquilia DI system
+
+* Providers for all auth components.
+* Factory functions for common configurations.
+* Integration with the Aquilia DI system.
 """
 
 from __future__ import annotations
@@ -426,122 +432,6 @@ def create_auth_container(
 
 
 # ============================================================================
-# Configuration Builders
-# ============================================================================
-
-
-class AuthConfig:
-    """
-    Authentication configuration builder.
-
-    Provides fluent interface for configuring auth system.
-    """
-
-    def __init__(self):
-        self._config: dict[str, Any] = {
-            "rate_limit": {
-                "max_attempts": 5,
-                "window_seconds": 900,
-                "lockout_duration": 3600,
-            },
-            "session": {
-                "policy": "user",
-                "ttl_days": 7,
-                "idle_timeout_hours": 1,
-                "max_sessions": 5,
-            },
-            "tokens": {
-                "access_ttl_minutes": 15,
-                "refresh_ttl_days": 30,
-            },
-            "mfa": {
-                "enabled": False,
-                "required": False,
-            },
-            "oauth": {
-                "enabled": False,
-            },
-            "security": {
-                "require_auth_by_default": False,
-                "strategies": ["token", "session"],
-            },
-        }
-
-    def rate_limit(
-        self,
-        max_attempts: int = 5,
-        window_seconds: int = 900,
-        lockout_duration: int = 3600,
-    ) -> AuthConfig:
-        """Configure rate limiting."""
-        self._config["rate_limit"] = {
-            "max_attempts": max_attempts,
-            "window_seconds": window_seconds,
-            "lockout_duration": lockout_duration,
-        }
-        return self
-
-    def sessions(
-        self,
-        policy: str = "user",
-        ttl_days: int = 7,
-        idle_timeout_hours: int = 1,
-        max_sessions: int = 5,
-    ) -> AuthConfig:
-        """Configure session management."""
-        self._config["session"] = {
-            "policy": policy,
-            "ttl_days": ttl_days,
-            "idle_timeout_hours": idle_timeout_hours,
-            "max_sessions": max_sessions,
-        }
-        return self
-
-    def tokens(
-        self,
-        access_ttl_minutes: int = 15,
-        refresh_ttl_days: int = 30,
-    ) -> AuthConfig:
-        """Configure token lifetimes."""
-        self._config["tokens"] = {
-            "access_ttl_minutes": access_ttl_minutes,
-            "refresh_ttl_days": refresh_ttl_days,
-        }
-        return self
-
-    def mfa(
-        self,
-        enabled: bool = True,
-        required: bool = False,
-    ) -> AuthConfig:
-        """Configure MFA."""
-        self._config["mfa"] = {
-            "enabled": enabled,
-            "required": required,
-        }
-        return self
-
-    def oauth(self, enabled: bool = True) -> AuthConfig:
-        """Enable OAuth2/OIDC."""
-        self._config["oauth"] = {"enabled": enabled}
-        return self
-
-    def strategies(self, strategies: list[str]) -> AuthConfig:
-        """
-        Configure active auth strategies.
-
-        Args:
-            strategies: List of active auth strategies (e.g. ['token'], ['session'], or ['token', 'session']).
-        """
-        self._config.setdefault("security", {})["strategies"] = strategies
-        return self
-
-    def build(self) -> dict[str, Any]:
-        """Build configuration dict."""
-        return self._config
-
-
-# ============================================================================
 # Exports
 # ============================================================================
 
@@ -568,5 +458,4 @@ __all__ = [
     # Helpers
     "register_auth_providers",
     "create_auth_container",
-    "AuthConfig",
 ]
