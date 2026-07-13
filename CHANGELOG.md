@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.1] — 2026-07-13 — "Backend Refactoring"
+
+### Added
+- **Pluggable Auth Backends** (`aquilia.auth.backends`): Introduced a single-responsibility, backend-driven architecture for resolving identities from credentials. Out-of-the-box backends:
+  - `TokenBackend`: Validates JWT tokens from the `Authorization: Bearer` header.
+  - `SessionBackend`: Resolves identity from active sessions.
+  - `PasswordBackend`: Authenticates username/password combinations.
+  - `ApiKeyBackend`: Validates custom API keys (`x-api-key` or `ApiKey` header).
+- **First-class Flow Guards**: `AuthGuard`, `RoleGuard`, `ScopeGuard`, and `PolicyGuard` are now first-class objects that can be referenced as classes (e.g. `pipeline.guard(AuthGuard)`) or instantiated with parameters (e.g. `pipeline.guard(RoleGuard("admin"))`).
+- **Context-First Decorators**: Simplified and ergonomic decorators for endpoint protection:
+  - `@authenticated`
+  - `@roles_required("admin", "staff")`
+  - `@scopes_required("read", "write")`
+  - `@optional_auth`
+- **PermissionEngine**: Unifies role hierarchies and fine-grained authorization policies under a single component.
+
+### Changed
+- **Session Security Hardening**: To prevent stale privileges, global session integration now only serializes `identity_id` and `tenant_id` inside sessions. User roles, scopes, and attributes are resolved fresh from the identity store on every request.
+- **Backend Configuration**: Replaced string-based `strategies` in `AquilaConfig.Auth` and `AquilAuthMiddleware` with the `backends` parameter, taking resolved backend references (dotted paths, classes, or short names).
+
+### Deprecated
+- `AuthManager.logout()` is deprecated in favor of `sign_out()`.
+- `OptionalAuthMiddleware` is deprecated in favor of `AquilAuthMiddleware(require_auth=False)`.
+
+### Removed
+- Legacy guard adapters (`flow_guards.py`) and authentication policy DSL (`policy/` directory).
+- `surp.py` formatting helpers inside `aquilia/auth`.
+- Fluent builder `AuthConfig` in favor of declarative `AquilaConfig.Auth`.
+- `SessionGuard` and `requires` decorators from `aquilia.sessions.decorators`.
+- Legacy decorators `AdminGuard` and `VerifiedEmailGuard`.
+
 ## [1.3.0] — 2026-07-11 — "Ironclad Anchor"
 
 ### Renamed
