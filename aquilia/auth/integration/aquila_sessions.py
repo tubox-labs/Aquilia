@@ -2,13 +2,21 @@
 AquilAuth - Aquilia Sessions Integration
 
 Deep integration between AquilAuth and Aquilia Sessions.
-Replaces the standalone AuthSession with native Aquilia Sessions.
 
 This module provides:
-- AuthPrincipal: Identity binding for sessions
-- AuthSessionPolicy: Preconfigured policies for auth workflows
-- SessionAuthManager: AuthManager that works with SessionEngine
-- Session extension for auth data
+
+* ``AuthPrincipal``   — lightweight principal bound to a session.
+* ``SessionAuthBridge`` — coordinates auth operations with ``SessionEngine``.
+* Convenience helpers for reading identity data from a session.
+* Preconfigured ``SessionPolicy`` factories for common scenarios.
+
+Security note
+-------------
+Sessions store **only** ``identity_id`` and ``tenant_id``.  Roles, scopes and
+other user attributes are intentionally **not** persisted to the session store:
+they are resolved fresh from the identity store on each request.  This prevents
+stale permission data surviving privilege revocation and avoids creating an
+alternative source-of-truth that diverges from the identity store.
 """
 
 from __future__ import annotations
@@ -115,22 +123,21 @@ class AuthPrincipal(SessionPrincipal):
 
 def bind_identity(session: Session, identity: Identity) -> None:
     """
-    Bind identity to session.
+    Bind an authenticated identity to *session*.
+
+    Only the ``identity_id`` and ``tenant_id`` are written to the session
+    store.  Roles, scopes, and other attributes are **not** stored; they
+    must be resolved from the identity store on each request to prevent
+    stale permission data surviving a privilege change.
 
     Args:
-        session: Aquilia session
-        identity: Auth identity
+        session:  Aquilia session to update.
+        identity: Resolved and verified ``Identity``.
     """
-    # Set principal and mark as authenticated
     session.mark_authenticated(AuthPrincipal.from_identity(identity))
-
-    # Store identity data in session
     session["identity_id"] = identity.id
-    session["tenant_id"] = identity.tenant_id
-    session["roles"] = identity.get_attribute("roles", [])
-    session["scopes"] = identity.get_attribute("scopes", [])
-    session["status"] = identity.status.value
-    session["attributes"] = identity.attributes
+    if identity.tenant_id is not None:
+        session["tenant_id"] = identity.tenant_id
 
 
 def bind_token_claims(session: Session, claims: TokenClaims) -> None:
@@ -163,11 +170,15 @@ def get_tenant_id(session: Session) -> str | None:
 
 def get_roles(session: Session) -> list[str]:
     """Get roles from session."""
+    if session.principal and hasattr(session.principal, "roles"):
+        return session.principal.roles
     return session.data.get("roles", [])
 
 
 def get_scopes(session: Session) -> list[str]:
     """Get scopes from session."""
+    if session.principal and hasattr(session.principal, "scopes"):
+        return session.principal.scopes
     return session.data.get("scopes", [])
 
 
