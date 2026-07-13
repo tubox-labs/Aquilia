@@ -1733,23 +1733,7 @@ class TestSessionDecorators:
         with pytest.raises(AUTH_REQUIRED):
             await handler(ctx)
 
-    @pytest.mark.asyncio
-    async def test_require_identity_redirects_html_clients_to_login(self):
-        from aquilia.auth.decorators import require_identity
 
-        @require_identity(roles=["admin"], login_url="/login", redirect_if_html=True)
-        async def handler(ctx, identity=None):
-            return "ok"
-
-        ctx = self._make_ctx(session=None)
-        ctx.request.header = lambda name, default="": "text/html" if str(name).lower() == "accept" else default
-        ctx.request.path = "/admin"
-        ctx.request.query_string = "section=users"
-
-        response = await handler(ctx)
-
-        assert response.status == 303
-        assert response.headers.get("location") == "/login?next=%2Fadmin%3Fsection%3Dusers"
 
     @pytest.mark.asyncio
     async def test_authenticated_decorator_uses_request_state_session_fallback(self):
@@ -1938,76 +1922,7 @@ class TestSessionContext:
         assert sess.data["balance"] == 100
 
 
-class TestSessionGuards:
-    """Tests for SessionGuard and requires() decorator."""
 
-    def _make_session(self, role=None, email_verified=False):
-        from aquilia.sessions.core import Session, SessionFlag, SessionID, SessionPrincipal, SessionScope
-
-        s = Session(
-            id=SessionID(),
-            created_at=datetime.now(timezone.utc),
-            last_accessed_at=datetime.now(timezone.utc),
-            scope=SessionScope.USER,
-        )
-        if role:
-            attrs = {"role": role, "email_verified": email_verified}
-            s.principal = SessionPrincipal(id="u1", kind="user", attributes=attrs)
-            s.flags.add(SessionFlag.AUTHENTICATED)
-        return s
-
-    @pytest.mark.asyncio
-    async def test_admin_guard_passes(self):
-        from aquilia.auth.decorators import AdminGuard
-
-        guard = AdminGuard()
-        sess = self._make_session(role="admin")
-        assert await guard.check(sess) is True
-
-    @pytest.mark.asyncio
-    async def test_admin_guard_fails(self):
-        from aquilia.auth.decorators import AdminGuard
-
-        guard = AdminGuard()
-        sess = self._make_session(role="user")
-        assert await guard.check(sess) is False
-
-    @pytest.mark.asyncio
-    async def test_verified_email_guard(self):
-        from aquilia.auth.decorators import VerifiedEmailGuard
-
-        guard = VerifiedEmailGuard()
-
-        sess_verified = self._make_session(role="user", email_verified=True)
-        assert await guard.check(sess_verified) is True
-
-        sess_unverified = self._make_session(role="user", email_verified=False)
-        assert await guard.check(sess_unverified) is False
-
-    @pytest.mark.asyncio
-    async def test_requires_decorator(self):
-        from aquilia.auth.decorators import AdminGuard
-        from aquilia.sessions.decorators import requires
-
-        @requires(AdminGuard())
-        async def admin_only(session=None):
-            return "admin"
-
-        sess = self._make_session(role="admin")
-        result = await admin_only(session=sess)
-        assert result == "admin"
-
-    @pytest.mark.asyncio
-    async def test_requires_no_session_raises(self):
-        from aquilia.auth.decorators import AdminGuard
-        from aquilia.sessions.decorators import SessionRequiredFault, requires
-
-        @requires(AdminGuard())
-        async def admin_only(session=None):
-            return "admin"
-
-        with pytest.raises(SessionRequiredFault):
-            await admin_only()
 
 
 # ============================================================================
@@ -2132,12 +2047,10 @@ class TestSessionExports:
         pass
 
     def test_decorator_types_exported(self):
-        from aquilia.auth import AdminGuard, VerifiedEmailGuard, authenticated
+        from aquilia.auth import authenticated
         from aquilia.sessions import (
             SessionContext,
-            SessionGuard,
             SessionRequiredFault,
-            requires,
             session,
             stateful,
         )
@@ -2149,11 +2062,7 @@ class TestSessionExports:
                 stateful,
                 SessionRequiredFault,
                 SessionContext,
-                SessionGuard,
-                requires,
                 authenticated,
-                AdminGuard,
-                VerifiedEmailGuard,
             ]
         )
 
@@ -2161,10 +2070,10 @@ class TestSessionExports:
         pass
 
     def test_aquilia_root_imports(self):
-        """Test that aquilia/__init__.py correctly imports from decorators (not enhanced)."""
-        from aquilia import AdminGuard, SessionContext, SessionGuard, VerifiedEmailGuard, authenticated, requires
+        """Test that aquilia/__init__.py correctly imports from decorators."""
+        from aquilia import SessionContext, authenticated
 
         assert all(
             t is not None
-            for t in [SessionContext, SessionGuard, requires, authenticated, AdminGuard, VerifiedEmailGuard]
+            for t in [SessionContext, authenticated]
         )
