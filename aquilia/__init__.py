@@ -48,7 +48,13 @@ from .aquilary import (
     RouteConflictError,
     RuntimeRegistry,
 )
-from .auth import AdminGuard, VerifiedEmailGuard, authenticated
+from .auth import (
+    authenticated,
+    roles_required,
+    scopes_required,
+    optional_auth,
+    requires,
+)
 
 # Audit Trail
 from .auth.audit import (
@@ -96,25 +102,11 @@ from .auth.integration.aquila_sessions import (
     user_session_policy,
 )
 from .auth.integration.di_providers import (
-    AuthConfig,
     create_auth_container,
     register_auth_providers,
 )
 
-# Flow guards -- re-enabled with FlowPipeline integration
-from .auth.integration.flow_guards import (
-    ControllerGuardAdapter,
-    FlowGuard,
-    RequireAuthGuard,
-    RequirePermissionGuard,
-    RequirePolicyGuard,
-    RequireRolesGuard,
-    RequireScopesGuard,
-    require_auth,
-    require_permission,
-    require_roles,
-    require_scopes,
-)
+
 from .auth.integration.middleware import (
     AquilAuthMiddleware,
     create_auth_middleware_stack,
@@ -712,9 +704,7 @@ from .sessions import (
 # Session guards & context managers (merged from enhanced.py into decorators)
 from .sessions.decorators import (
     SessionContext,
-    SessionGuard,
     SessionRequiredFault,
-    requires,
     session,
     stateful,
 )
@@ -1106,6 +1096,10 @@ __all__ = [
     # Session decorators (NEW - Unique syntax)
     "session",
     "authenticated",
+    "roles_required",
+    "scopes_required",
+    "optional_auth",
+    "requires",
     "stateful",
     "SessionState",
     "SessionField",
@@ -1113,10 +1107,8 @@ __all__ = [
     "UserPreferencesState",
     # Enhanced session features (NEW - Advanced patterns)
     "SessionContext",
-    "SessionGuard",
-    "requires",
-    "AdminGuard",
-    "VerifiedEmailGuard",
+
+
     # Config builders (NEW - Python config)
     "Workspace",
     "Module",
@@ -1179,21 +1171,9 @@ __all__ = [
     "api_session_policy",
     "register_auth_providers",
     "create_auth_container",
-    "AuthConfig",
     "AquilAuthMiddleware",
     "create_auth_middleware_stack",
-    # Auth - Flow Guards
-    "FlowGuard",
-    "RequireAuthGuard",
-    "RequireScopesGuard",
-    "RequireRolesGuard",
-    "RequirePermissionGuard",
-    "RequirePolicyGuard",
-    "ControllerGuardAdapter",
-    "require_auth",
-    "require_scopes",
-    "require_roles",
-    "require_permission",
+
     # Cache
     "CacheBackend",
     "CacheEntry",
