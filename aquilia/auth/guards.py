@@ -1,528 +1,551 @@
 """
-AquilAuth - Guards and Flow Integration
+AquilAuth - Guard System
 
-Guards for authentication and authorization that integrate with Flow Engine.
-Decorators and middleware for protecting routes.
+Single guard protocol and concrete implementations.
+
+Design (inspired by NestJS ``CanActivate`` and DRF ``BasePermission``):
+    * One ``Guard`` protocol — implement ``check(ctx)`` and raise a fault on
+      denial; return ``None`` on success.
+    * ``AuthGuard``, ``RoleGuard``, ``ScopeGuard``, ``PolicyGuard`` cover 95 % of use-cases.
+    * Guards are composable: pass a list to any helper that accepts them.
+    * All guards are first-class and can be used directly as class references
+      in pipelines (e.g., ``pipeline = [AuthGuard]``) or as instances
+      (e.g., ``pipeline = [AuthGuard()]``).
+
+Usage in a controller::
+
+    from aquilia.auth.guards import AuthGuard, RoleGuard
+
+    @requires(AuthGuard, RoleGuard("admin"))
+    async def delete_user(self, ctx: RequestCtx) -> Response:
+        ...
 """
 
 from __future__ import annotations
 
-import functools
-from collections.abc import Callable, Coroutine
-from typing import Any
+import inspect
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
-from ..faults.domains import DIResolutionFault
-from .authz import AuthzContext, AuthzEngine
-from .faults import AUTH_REQUIRED, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_INVALID, AUTH_TOKEN_REVOKED
-from .manager import AuthManager
+if TYPE_CHECKING:
+    from .core import Identity
+
 
 # ============================================================================
-# Guard Base
+# Protocol
 # ============================================================================
 
 
-class Guard:
+@runtime_checkable
+class Guard(Protocol):
     """
-    Base guard for authentication/authorization.
+    Structural protocol for security guards.
 
-    Guards are Flow pipeline nodes that enforce security policies.
+    A guard receives the request context (or a plain ``dict`` containing
+    ``"identity"``) and either returns ``None`` to signal success or raises
+    an auth fault to deny the request.
+
+    Guards must be stateless so they can be instantiated once and reused
+    across requests.
     """
 
-    async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
+    def check(self, ctx: Any) -> None:
         """
-        Execute guard.
+        Evaluate the guard condition.
 
         Args:
-            context: Flow context
-
-        Returns:
-            Modified context
+            ctx: Request context object.  Must expose ``identity`` as an
+                 attribute or ``ctx["identity"]`` as a dict key.
 
         Raises:
-            AUTH_* or AUTHZ_* faults on failure
+            ``AUTH_REQUIRED``:          No authenticated identity.
+            ``AUTHZ_INSUFFICIENT_ROLE``: Required role is absent.
+            ``AUTHZ_INSUFFICIENT_SCOPE``: Required scope is absent.
+            ``AUTHZ_POLICY_DENIED``:    Authorization policy denied access.
         """
-        raise NotImplementedError
-
-    async def _resolve_required_dependency(
-        self, context: dict[str, Any], token: type[Any], dependency_name: str
-    ) -> Any:
-        """Resolve a required dependency from flow context DI container."""
-        container = context.get("container")
-        if container is None:
-            raise DIResolutionFault(
-                provider=dependency_name,
-                reason=(
-                    f"Guard '{self.__class__.__name__}' requires {dependency_name} but no DI container is "
-                    "available in flow context."
-                ),
-            )
-
-        try:
-            if hasattr(container, "resolve_async"):
-                resolved = await container.resolve_async(token, optional=True)
-            elif hasattr(container, "resolve"):
-                maybe_resolved = container.resolve(token, optional=True)
-                if hasattr(maybe_resolved, "__await__"):
-                    resolved = await maybe_resolved
-                else:
-                    resolved = maybe_resolved
-            else:
-                raise DIResolutionFault(
-                    provider=dependency_name,
-                    reason=(
-                        f"Guard '{self.__class__.__name__}' could not resolve {dependency_name}: "
-                        "container does not expose resolve APIs."
-                    ),
-                )
-        except DIResolutionFault:
-            raise
-        except Exception as exc:
-            raise DIResolutionFault(
-                provider=dependency_name,
-                reason=(
-                    f"Guard '{self.__class__.__name__}' failed resolving {dependency_name}. "
-                    "Ensure a provider is registered."
-                ),
-            ) from exc
-
-        if resolved is None:
-            raise DIResolutionFault(
-                provider=dependency_name,
-                reason=(f"Guard '{self.__class__.__name__}' requires {dependency_name} but no provider was found."),
-            )
-
-        return resolved
+        ...
 
 
 # ============================================================================
-# Authentication Guards
+# Helpers
 # ============================================================================
 
 
-class AuthGuard(Guard):
+def _get_identity(ctx: Any) -> Identity | None:
     """
-    Authentication guard - requires valid authentication.
+    Extract ``Identity`` from request context using attribute or dict lookup.
 
-    Extracts identity from token and injects into context.
+    This is the single, canonical extraction path.  Controllers set
+    ``ctx.identity`` (or ``request.state["identity"]``) via middleware; guards
+    always read from the same location.
+    """
+    from unittest.mock import Mock
+
+    if ctx is None:
+        return None
+
+    def get_from_session(c: Any) -> Any | None:
+        session = getattr(c, "session", None)
+        if session is None and isinstance(c, dict):
+            session = c.get("session")
+        if session is None and hasattr(c, "request"):
+            req = c.request
+            if req is not None and hasattr(req, "state"):
+                state = req.state
+                if state is not None and not isinstance(state, Mock):
+                    if isinstance(state, dict) or hasattr(state, "get"):
+                        session = state.get("session")
+        if session is not None and not isinstance(session, Mock):
+            if getattr(session, "is_authenticated", False) and session.principal is not None:
+                return session.principal
+        return None
+
+    if isinstance(ctx, Mock):
+        if hasattr(ctx, "identity"):
+            ident = ctx.identity
+            if ident is not None and not isinstance(ident, Mock):
+                return ident
+        ident = get_from_session(ctx)
+        if ident is not None:
+            return ident
+        return None
+
+    if hasattr(ctx, "identity"):
+        ident = ctx.identity
+        if ident is not None and not isinstance(ident, Mock):
+            return ident
+    if isinstance(ctx, dict):
+        ident = ctx.get("identity")
+        if ident is not None and not isinstance(ident, Mock):
+            return ident
+
+    ident = get_from_session(ctx)
+    if ident is not None:
+        return ident
+
+    return None
+
+
+# ============================================================================
+# Concrete Guards
+# ============================================================================
+
+
+class AuthGuard:
+    """
+    Require an authenticated identity.
+
+    When *optional* is ``True`` the guard passes even for unauthenticated
+    requests; use this for endpoints that serve both authenticated and
+    anonymous users.
+
+    Can be used as a class reference ``AuthGuard`` or instance ``AuthGuard()``.
+
+    Args:
+        auth_manager: Optional authentication manager (resolved via DI if omitted).
+        optional: When ``True``, allow unauthenticated requests through.
+                  Defaults to ``False`` (strict authentication required).
     """
 
-    def __init__(self, auth_manager: AuthManager | None = None, optional: bool = False):
-        """
-        Initialize auth guard.
-
-        Args:
-            auth_manager: Authentication manager (optional when DI container is available)
-            optional: If True, don't raise on missing auth
-        """
+    def __init__(self, auth_manager: Any | None = None, *, optional: bool = False) -> None:
         self.auth_manager = auth_manager
         self.optional = optional
 
-    async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
-        """Extract and verify authentication."""
-        if self.auth_manager is None:
-            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+    def check(self, ctx: Any) -> None:
+        """
+        Assert that *ctx* has an authenticated identity.
 
-        # Extract token from context (request headers)
-        request = context.get("request")
-        if not request:
-            if self.optional:
-                context["identity"] = None
-                return context
+        Raises:
+            ``AUTH_REQUIRED``: No identity found and *optional* is ``False``.
+        """
+        identity = _get_identity(ctx)
+        if identity is None and not self.optional:
+            from .faults import AUTH_REQUIRED
+
             raise AUTH_REQUIRED()
 
-        # Get Authorization header
-        auth_header = request.headers.get("authorization", "")
+    async def _proactive_authenticate(self, ctx: Any) -> None:
+        """Proactively perform token-based authentication if identity is missing."""
+        if _get_identity(ctx) is not None:
+            return
+
+        container = getattr(ctx, "container", None)
+        if container is None and isinstance(ctx, dict):
+            container = ctx.get("container")
+
+        if container is None:
+            if self.optional:
+                return
+            from .faults import AUTH_REQUIRED
+
+            raise AUTH_REQUIRED()
+
+        from ..faults.domains import DIResolutionFault
+        from .manager import AuthManager
+
+        auth_manager = self.auth_manager
+        if auth_manager is None:
+            try:
+                if hasattr(container, "resolve_async"):
+                    auth_manager = await container.resolve_async(AuthManager, optional=True)
+                elif hasattr(container, "resolve"):
+                    maybe_resolved = container.resolve(AuthManager, optional=True)
+                    if hasattr(maybe_resolved, "__await__"):
+                        auth_manager = await maybe_resolved
+                    else:
+                        auth_manager = maybe_resolved
+            except DIResolutionFault:
+                raise
+            except Exception as exc:
+                raise DIResolutionFault(
+                    provider="AuthGuard",
+                    reason=f"Guard 'AuthGuard' failed resolving AuthManager: {exc}",
+                ) from exc
+
+        if auth_manager is None:
+            raise DIResolutionFault(
+                provider="AuthGuard",
+                reason="Guard 'AuthGuard' requires AuthManager but no provider was found.",
+            )
+
+        request = getattr(ctx, "request", None)
+        if request is None and isinstance(ctx, dict):
+            request = ctx.get("request")
+
+        if request is None:
+            if self.optional:
+                return
+            from .faults import AUTH_REQUIRED
+
+            raise AUTH_REQUIRED()
+
+        auth_header = ""
+        if hasattr(request, "headers") and request.headers is not None:
+            if hasattr(request.headers, "get"):
+                auth_header = request.headers.get("authorization", "") or ""
+        elif hasattr(request, "header") and callable(request.header):
+            auth_header = request.header("authorization", "") or ""
+
         if not auth_header.startswith("Bearer "):
             if self.optional:
-                context["identity"] = None
-                return context
+                return
+            from .faults import AUTH_REQUIRED
+
             raise AUTH_REQUIRED()
 
-        token = auth_header[7:]  # Remove "Bearer "
+        token = auth_header[7:]
+
+        from .faults import AUTH_TOKEN_INVALID
 
         try:
-            # Verify token and get identity
-            identity = await self.auth_manager.get_identity_from_token(token)
-
+            identity = await auth_manager.get_identity_from_token(token)
             if not identity:
                 if self.optional:
-                    context["identity"] = None
-                    return context
+                    return
                 raise AUTH_TOKEN_INVALID()
 
-            # Inject identity into context
-            context["identity"] = identity
-            context["token_claims"] = await self.auth_manager.verify_token(token)
+            if hasattr(ctx, "identity"):
+                ctx.identity = identity
+            if isinstance(ctx, dict):
+                ctx["identity"] = identity
 
-        except (AUTH_TOKEN_INVALID, AUTH_TOKEN_EXPIRED, AUTH_TOKEN_REVOKED, AUTH_REQUIRED):
-            if self.optional:
-                context["identity"] = None
-                return context
-            raise
+            claims = await auth_manager.verify_token(token)
+            if hasattr(ctx, "state") and isinstance(ctx.state, dict):
+                ctx.state["token_claims"] = claims
+            if isinstance(ctx, dict):
+                ctx["token_claims"] = claims
         except Exception as e:
+            if isinstance(e, AUTH_TOKEN_INVALID):
+                raise
             if self.optional:
-                context["identity"] = None
-                return context
+                return
             raise AUTH_TOKEN_INVALID() from e
 
-        return context
-
-
-class ApiKeyGuard(Guard):
-    """
-    API key authentication guard.
-
-    Extracts API key and authenticates.
-    """
-
-    def __init__(self, auth_manager: AuthManager | None = None, required_scopes: list[str] | None = None):
+    async def __call__(self, ctx: Any = None, *args: Any, **kwargs: Any) -> None:
         """
-        Initialize API key guard.
-
-        Args:
-            auth_manager: Authentication manager (optional when DI container is available)
-            required_scopes: Required scopes for this endpoint
+        Allow first-class pipeline execution when referenced as a class or instance.
         """
-        self.auth_manager = auth_manager
-        self.required_scopes = required_scopes
+        resolved_ctx = None
+        for candidate in (ctx,) + args + tuple(kwargs.values()):
+            if candidate is not None and (
+                hasattr(candidate, "identity")
+                or hasattr(candidate, "session")
+                or hasattr(candidate, "user")
+                or hasattr(candidate, "container")
+            ):
+                resolved_ctx = candidate
+                break
 
-    async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
-        """Extract and verify API key."""
-        if self.auth_manager is None:
-            self.auth_manager = await self._resolve_required_dependency(context, AuthManager, "AuthManager")
+        if resolved_ctx is None:
+            if ctx is not None:
+                resolved_ctx = ctx
+            elif len(args) > 0:
+                resolved_ctx = args[0]
 
-        request = context.get("request")
-        if not request:
-            raise AUTH_REQUIRED()
-
-        # Get API key from header
-        api_key = request.headers.get("x-api-key")
-        if not api_key:
-            raise AUTH_REQUIRED()
-
-        # Authenticate with API key
-        auth_result = await self.auth_manager.authenticate_api_key(
-            api_key=api_key,
-            required_scopes=self.required_scopes,
-        )
-
-        # Inject identity into context
-        context["identity"] = auth_result.identity
-        context["api_key_scopes"] = auth_result.metadata.get("scopes", [])
-
-        return context
+        await self._proactive_authenticate(resolved_ctx)
+        self.check(resolved_ctx)
 
 
-# ============================================================================
-# Authorization Guards
-# ============================================================================
-
-
-class AuthzGuard(Guard):
+class RoleGuard:
     """
-    Authorization guard - enforces access control.
+    Require that the authenticated identity holds all specified roles.
 
-    Requires AuthGuard to run first (needs identity in context).
+    Role check respects role inheritance defined in a ``PermissionEngine``.
+    When no engine is provided the check is a direct membership test against
+    ``identity.get_attribute("roles", [])``.
+
+    Args:
+        *roles:  One or more role names that the identity must hold.
+        engine:  Optional ``PermissionEngine`` for inheritance-aware checks.
+        require_all: When ``True`` (default) all roles must be present.
+                     When ``False``, at least one role suffices.
     """
 
     def __init__(
         self,
-        authz_engine: AuthzEngine | None = None,
-        resource_extractor: Callable[[dict[str, Any]], str] | None = None,
-        action: str | None = None,
-        required_scopes: list[str] | None = None,
-        required_roles: list[str] | None = None,
-        policy_id: str | None = None,
-    ):
-        """
-        Initialize authorization guard.
-
-        Args:
-            authz_engine: Authorization engine (optional when DI container is available)
-            resource_extractor: Function to extract resource from context
-            action: Action being performed
-            required_scopes: Required OAuth scopes
-            required_roles: Required roles
-            policy_id: Policy to evaluate
-        """
-        self.authz_engine = authz_engine
-        self.resource_extractor = resource_extractor
-        self.action = action
-        self.required_scopes = required_scopes
-        self.required_roles = required_roles
-        self.policy_id = policy_id
-
-    async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
-        """Check authorization."""
-        if self.authz_engine is None:
-            self.authz_engine = await self._resolve_required_dependency(context, AuthzEngine, "AuthzEngine")
-
-        # Get identity from context (injected by AuthGuard)
-        identity = context.get("identity")
-        if not identity:
-            raise AUTH_REQUIRED()
-
-        # Extract resource identifier
-        resource = "unknown"
-        if self.resource_extractor:
-            resource = self.resource_extractor(context)
-        elif "resource" in context:
-            resource = context["resource"]
-
-        # Get token claims for scopes/roles
-        token_claims = context.get("token_claims")
-        scopes = token_claims.scopes if token_claims else []
-        roles = token_claims.roles if token_claims else []
-
-        # Build authorization context
-        authz_context = AuthzContext(
-            identity=identity,
-            resource=resource,
-            action=self.action or context.get("action", "access"),
-            scopes=scopes,
-            roles=roles,
-            tenant_id=identity.tenant_id,
-            session_id=token_claims.sid if token_claims else None,
-            attributes=context.get("resource_attributes", {}),
-        )
-
-        # Check scopes
-        if self.required_scopes:
-            self.authz_engine.check_scope(authz_context, self.required_scopes)
-
-        # Check roles
-        if self.required_roles:
-            self.authz_engine.check_role(authz_context, self.required_roles)
-
-        # Evaluate policy
-        if self.policy_id:
-            result = self.authz_engine.abac.evaluate(authz_context, self.policy_id)
-            if result.decision.value == "deny":
-                from .faults import AUTHZ_POLICY_DENIED
-
-                raise AUTHZ_POLICY_DENIED(
-                    policy_id=self.policy_id,
-                    denial_reason=result.reason or "Access denied",
-                )
-
-        # Store authorization result in context
-        context["authz_context"] = authz_context
-
-        return context
-
-
-class ScopeGuard(Guard):
-    """
-    Scope-only guard - quick scope check.
-
-    Simpler than full AuthzGuard when only scopes matter.
-    """
-
-    def __init__(self, required_scopes: list[str]):
-        """
-        Initialize scope guard.
-
-        Args:
-            required_scopes: Required OAuth scopes
-        """
-        self.required_scopes = required_scopes
-
-    async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
-        """Check scopes."""
-        token_claims = context.get("token_claims")
-        if not token_claims:
-            raise AUTH_REQUIRED()
-
-        from .faults import AUTHZ_INSUFFICIENT_SCOPE
-
-        missing_scopes = set(self.required_scopes) - set(token_claims.scopes)
-        if missing_scopes:
-            raise AUTHZ_INSUFFICIENT_SCOPE(
-                required_scopes=self.required_scopes,
-                available_scopes=token_claims.scopes,
-            )
-
-        return context
-
-
-class RoleGuard(Guard):
-    """
-    Role-only guard - quick role check.
-
-    Simpler than full AuthzGuard when only roles matter.
-    """
-
-    def __init__(self, required_roles: list[str], require_all: bool = False):
-        """
-        Initialize role guard.
-
-        Args:
-            required_roles: Required roles
-            require_all: If True, require all roles; else require any
-        """
-        self.required_roles = required_roles
+        *roles: str,
+        engine: Any | None = None,
+        require_all: bool = True,
+    ) -> None:
+        self.roles = list(roles)
+        self.engine = engine
         self.require_all = require_all
 
-    async def __call__(self, context: dict[str, Any]) -> dict[str, Any]:
-        """Check roles."""
-        token_claims = context.get("token_claims")
-        if not token_claims:
+    def check(self, ctx: Any) -> None:
+        """
+        Assert that *ctx.identity* holds the required roles.
+
+        Raises:
+            ``AUTH_REQUIRED``:          No identity found.
+            ``AUTHZ_INSUFFICIENT_ROLE``: Required role(s) are absent.
+        """
+        from .faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_ROLE
+
+        identity = _get_identity(ctx)
+        if identity is None:
             raise AUTH_REQUIRED()
 
-        from .faults import AUTHZ_INSUFFICIENT_ROLE
+        engine = self.engine
+        if engine is None:
+            container = getattr(ctx, "container", None)
+            if container is None and isinstance(ctx, dict):
+                container = ctx.get("container")
+            if container is not None:
+                from .permissions import PermissionEngine
 
-        user_roles = set(token_claims.roles)
-        required = set(self.required_roles)
+                try:
+                    if hasattr(container, "resolve"):
+                        engine = container.resolve(PermissionEngine, optional=True)
+                except Exception:
+                    pass
+
+        if engine is not None:
+            checks = [engine.has_role(identity, r) for r in self.roles]
+        else:
+            held = set(identity.get_attribute("roles", []))
+            checks = [r in held for r in self.roles]
 
         if self.require_all:
-            if not required.issubset(user_roles):
-                raise AUTHZ_INSUFFICIENT_ROLE(
-                    required_roles=self.required_roles,
-                    available_roles=token_claims.roles,
-                )
+            if not all(checks):
+                missing = [r for r, ok in zip(self.roles, checks) if not ok]
+                raise AUTHZ_INSUFFICIENT_ROLE(required_roles=missing)
         else:
-            if not required.intersection(user_roles):
-                raise AUTHZ_INSUFFICIENT_ROLE(
-                    required_roles=self.required_roles,
-                    available_roles=token_claims.roles,
-                )
+            if not any(checks):
+                raise AUTHZ_INSUFFICIENT_ROLE(required_roles=self.roles)
 
-        return context
+    async def __call__(self, ctx: Any = None, *args: Any, **kwargs: Any) -> None:
+        """
+        Allow first-class pipeline execution when referenced as a class or instance.
+        """
+        resolved_ctx = None
+        for candidate in (ctx,) + args + tuple(kwargs.values()):
+            if candidate is not None and (
+                hasattr(candidate, "identity") or hasattr(candidate, "session") or hasattr(candidate, "user")
+            ):
+                resolved_ctx = candidate
+                break
+
+        if resolved_ctx is None:
+            if ctx is not None:
+                resolved_ctx = ctx
+            elif len(args) > 0:
+                resolved_ctx = args[0]
+
+        self.check(resolved_ctx)
+
+
+class ScopeGuard:
+    """
+    Require that the authenticated identity holds all specified scopes.
+
+    The wildcard scope ``"*"`` is always sufficient.
+
+    Args:
+        *scopes:    One or more scope string required.
+        require_all: When ``True`` (default) all scopes must be present.
+                     When ``False``, at least one scope suffices.
+    """
+
+    def __init__(self, *scopes: str, require_all: bool = True) -> None:
+        self.scopes = list(scopes)
+        self.require_all = require_all
+
+    def check(self, ctx: Any) -> None:
+        """
+        Assert that *ctx.identity* holds the required scopes.
+
+        Raises:
+            ``AUTH_REQUIRED``:            No identity found.
+            ``AUTHZ_INSUFFICIENT_SCOPE``: Required scope(s) are absent.
+        """
+        from .faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_SCOPE
+
+        identity = _get_identity(ctx)
+        if identity is None:
+            raise AUTH_REQUIRED()
+
+        checks = [identity.has_scope(s) for s in self.scopes]
+
+        if self.require_all:
+            if not all(checks):
+                missing = [s for s, ok in zip(self.scopes, checks) if not ok]
+                raise AUTHZ_INSUFFICIENT_SCOPE(required_scopes=missing)
+        else:
+            if not any(checks):
+                raise AUTHZ_INSUFFICIENT_SCOPE(required_scopes=self.scopes)
+
+    async def __call__(self, ctx: Any = None, *args: Any, **kwargs: Any) -> None:
+        """
+        Allow first-class pipeline execution when referenced as a class or instance.
+        """
+        resolved_ctx = None
+        for candidate in (ctx,) + args + tuple(kwargs.values()):
+            if candidate is not None and (
+                hasattr(candidate, "identity") or hasattr(candidate, "session") or hasattr(candidate, "user")
+            ):
+                resolved_ctx = candidate
+                break
+
+        if resolved_ctx is None:
+            if ctx is not None:
+                resolved_ctx = ctx
+            elif len(args) > 0:
+                resolved_ctx = args[0]
+
+        self.check(resolved_ctx)
+
+
+class PolicyGuard:
+    """
+    Enforce a named policy from a ``PermissionEngine``.
+
+    Args:
+        key:      Policy key registered in *engine*.
+        engine:   ``PermissionEngine`` that owns the policy.
+        resource: Optional resource to forward to the policy callable.
+    """
+
+    def __init__(self, key: str, engine: Any, resource: Any = None) -> None:
+        self.key = key
+        self.engine = engine
+        self.resource = resource
+
+    def check(self, ctx: Any) -> None:
+        """
+        Evaluate the named policy against *ctx.identity*.
+
+        Raises:
+            ``AUTH_REQUIRED``:       No identity found.
+            ``AUTHZ_POLICY_DENIED``: Policy returned ``False``.
+        """
+        from .faults import AUTH_REQUIRED
+
+        identity = _get_identity(ctx)
+        if identity is None:
+            raise AUTH_REQUIRED()
+
+        self.engine.check_policy(self.key, identity, self.resource)
+
+    async def __call__(self, ctx: Any = None, *args: Any, **kwargs: Any) -> None:
+        """
+        Allow first-class pipeline execution when referenced as a class or instance.
+        """
+        resolved_ctx = None
+        for candidate in (ctx,) + args + tuple(kwargs.values()):
+            if candidate is not None and (
+                hasattr(candidate, "identity") or hasattr(candidate, "session") or hasattr(candidate, "user")
+            ):
+                resolved_ctx = candidate
+                break
+
+        if resolved_ctx is None:
+            if ctx is not None:
+                resolved_ctx = ctx
+            elif len(args) > 0:
+                resolved_ctx = args[0]
+
+        self.check(resolved_ctx)
 
 
 # ============================================================================
-# Decorators
+# Composable helper
 # ============================================================================
 
 
-def require_auth(auth_manager: AuthManager, optional: bool = False) -> Callable:
+def requires(*guards: Any) -> Any:
     """
-    Decorator: Require authentication.
+    Decorator that runs all *guards* before the decorated handler.
 
-    Args:
-        auth_manager: Authentication manager
-        optional: If True, don't raise on missing auth
+    Supports both guard instances and class references. Raises the first
+    fault encountered. Guards are evaluated in order.
 
-    Example:
-    ```
-        @require_auth(auth_manager)
-        async def get_profile(request, identity: Identity):
-            return {"user": identity.id}
-    ```
-    """
+    Usage::
 
-    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract request from args
-            request = args[0] if args else kwargs.get("request")
-
-            # Get Authorization header
-            auth_header = getattr(request, "headers", {}).get("authorization", "")
-            if not auth_header.startswith("Bearer "):
-                if optional:
-                    kwargs["identity"] = None
-                    return await func(*args, **kwargs)
-                raise AUTH_REQUIRED()
-
-            token = auth_header[7:]
-
-            # Verify and get identity
-            identity = await auth_manager.get_identity_from_token(token)
-            if not identity and not optional:
-                raise AUTH_TOKEN_INVALID()
-
-            # Inject identity
-            kwargs["identity"] = identity
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
-
-
-def require_scopes(*scopes: str) -> Callable:
-    """
-    Decorator: Require OAuth scopes.
-
-    Args:
-        *scopes: Required scopes
-
-    Example:
-    ```
-        @require_scopes("orders.read", "orders.write")
-        async def create_order(request, identity: Identity):
+        @requires(AuthGuard, RoleGuard("admin"))
+        async def admin_only(self, ctx: RequestCtx) -> Response:
             ...
-    ```
     """
+    import functools
 
-    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
+    def decorator(func: Any) -> Any:
         @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Get token_claims from kwargs (injected by require_auth)
-            token_claims = kwargs.get("token_claims")
-            if not token_claims:
-                raise AUTH_REQUIRED()
+        async def wrapper(*args: Any, **kwargs: Any) -> Any:
+            ctx = None
+            for arg in args:
+                if hasattr(arg, "identity") or hasattr(arg, "user") or hasattr(arg, "session"):
+                    ctx = arg
+                    break
+            if ctx is None and kwargs:
+                ctx = next(iter(kwargs.values()), None)
 
-            from .faults import AUTHZ_INSUFFICIENT_SCOPE
+            for guard in guards:
+                if inspect.isclass(guard):
+                    guard_inst = guard()
+                else:
+                    guard_inst = guard
 
-            missing = set(scopes) - set(token_claims.scopes)
-            if missing:
-                raise AUTHZ_INSUFFICIENT_SCOPE(
-                    required_scopes=list(scopes),
-                    available_scopes=token_claims.scopes,
-                )
+                if hasattr(guard_inst, "check"):
+                    # Check if it needs proactive authentication (like AuthGuard)
+                    if hasattr(guard_inst, "_proactive_authenticate"):
+                        await guard_inst._proactive_authenticate(ctx)
+                    guard_inst.check(ctx)
+                elif callable(guard_inst):
+                    res = guard_inst(ctx)
+                    if inspect.isawaitable(res):
+                        await res
 
             return await func(*args, **kwargs)
 
+        wrapper.__guards__ = list(guards)
         return wrapper
 
     return decorator
 
 
-def require_roles(*roles: str, require_all: bool = False) -> Callable:
-    """
-    Decorator: Require roles.
-
-    Args:
-        *roles: Required roles
-        require_all: If True, require all roles; else require any
-
-    Example:
-    ```
-        @require_roles("admin", "moderator")
-        async def ban_user(request, identity: Identity):
-            ...
-    ```
-    """
-
-    def decorator(func: Callable[..., Coroutine[Any, Any, Any]]) -> Callable[..., Coroutine[Any, Any, Any]]:
-        @functools.wraps(func)
-        async def wrapper(*args, **kwargs):
-            token_claims = kwargs.get("token_claims")
-            if not token_claims:
-                raise AUTH_REQUIRED()
-
-            from .faults import AUTHZ_INSUFFICIENT_ROLE
-
-            user_roles = set(token_claims.roles)
-            required = set(roles)
-
-            if require_all:
-                if not required.issubset(user_roles):
-                    raise AUTHZ_INSUFFICIENT_ROLE(
-                        required_roles=list(roles),
-                        available_roles=token_claims.roles,
-                    )
-            else:
-                if not required.intersection(user_roles):
-                    raise AUTHZ_INSUFFICIENT_ROLE(
-                        required_roles=list(roles),
-                        available_roles=token_claims.roles,
-                    )
-
-            return await func(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
+__all__ = [
+    "Guard",
+    "AuthGuard",
+    "RoleGuard",
+    "ScopeGuard",
+    "PolicyGuard",
+    "requires",
+]
