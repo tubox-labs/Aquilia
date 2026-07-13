@@ -1,14 +1,17 @@
 """
-AquilAuth - Unified Middleware
+AquilAuth - Unified Middleware (Integration Layer)
 
-Comprehensive middleware integrating:
-- Aquilia Sessions (session management)
-- AquilAuth (authentication/authorization)
-- Aquilia DI (dependency injection)
-- AquilaFaults (structured error handling)
-- Flow pipeline (guards and transforms)
+This module contains the ``AquilAuthMiddleware`` used by the Aquilia server
+during bootstrap (``aquilia/server.py``).  For new application code, prefer
+the cleaner ``aquilia.auth.middleware.AuthMiddleware`` which is driven
+directly from ``AquilaConfig.Auth``.
 
-This is the primary middleware for production Aquilia applications.
+Middleware ordering::
+
+    RequestScopeMiddleware          # creates DI container
+    ExceptionMiddleware             # maps Fault -> HTTP status
+    AquilAuthMiddleware             # this one - resolves identity
+    <application handlers>
 """
 
 from __future__ import annotations
@@ -30,12 +33,13 @@ from .aquila_sessions import (
     SessionAuthBridge,
     bind_identity,
     bind_token_claims,
-    get_identity_id,
 )
 from .runtime_context import AuthRuntimeContext, reset_auth_runtime_context, set_auth_runtime_context
 
 if TYPE_CHECKING:
     from aquilia.di import RequestCtx
+
+    from ..backends import AuthBackend
 
 
 # ============================================================================
@@ -67,7 +71,7 @@ class AquilAuthMiddleware(Middleware):
         auth_manager: AuthManager,
         fault_engine: FaultEngine | None = None,
         require_auth: bool = False,
-        strategies: list[str] | None = None,
+        backends: list[AuthBackend] | None = None,
         logger: logging.Logger | None = None,
     ):
         """
@@ -78,7 +82,7 @@ class AquilAuthMiddleware(Middleware):
             auth_manager: AquilAuth AuthManager instance.
             fault_engine: Optional FaultEngine for error handling.
             require_auth: If True, require authentication for all routes.
-            strategies: Active authentication strategies (e.g. ['token'], ['session'], or ['token', 'session']).
+            backends: Ordered list of active backends.
             logger: Optional logger instance.
         """
         self.session_engine = session_engine
@@ -88,14 +92,23 @@ class AquilAuthMiddleware(Middleware):
         self.require_auth = require_auth
         self.logger = logger or logging.getLogger("aquilia.auth.middleware")
 
-        self.strategies = [s.strip().lower() for s in (strategies or ["token", "session"])]
-        valid_strategies = {"token", "session"}
-        for s in self.strategies:
-            if s not in valid_strategies:
-                raise ValueError(f"Invalid auth strategy: {s}. Supported strategies: token, session")
+        _backends = (
+            backends
+            if backends is not None
+            else [
+                "aquilia.auth.backends.TokenBackend",
+                "aquilia.auth.backends.SessionBackend",
+            ]
+        )
+        from ..backends.base import resolve_backend
 
-        if "session" in self.strategies and session_engine is None:
-            raise ValueError("session_engine is required when 'session' strategy is enabled.")
+        resolved_backends = [resolve_backend(b, auth_manager) for b in _backends]
+
+        has_session = any(b.__class__.__name__ == "SessionBackend" for b in resolved_backends)
+        if has_session and session_engine is None:
+            raise ValueError("session_engine is required when 'session' backend is enabled.")
+
+        self.backends = resolved_backends
 
     async def __call__(
         self,
@@ -147,37 +160,41 @@ class AquilAuthMiddleware(Middleware):
 
         try:
             # Phase 2: Resolve identity
+            credentials: dict[str, Any] = {}
+            auth_header = request.header("authorization")
+            token = None
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header[7:]
+                credentials["token"] = token
+            elif request.header("x-api-key"):
+                credentials["api_key"] = request.header("x-api-key")
+            elif auth_header and auth_header.startswith("ApiKey "):
+                credentials["api_key"] = auth_header[7:]
+
+            if session is not None:
+                credentials["session"] = session
+
             identity = None
-
-            # 1. Try Authorization header (if token strategy is enabled)
-            if "token" in self.strategies:
-                auth_header = request.header("authorization")
-                if auth_header and auth_header.startswith("Bearer "):
-                    token = auth_header[7:]
+            for backend in self.backends:
+                if backend.accepts(credentials):
                     try:
-                        identity = await self.auth_manager.get_identity_from_token(token)
-                        if identity:
-                            # Sync identity to session if session strategy is enabled
-                            if session is not None and "session" in self.strategies:
+                        identity = await backend.authenticate(credentials)
+                        if identity is not None:
+                            # Sync identity to session if using TokenBackend and session exists
+                            if (
+                                backend.__class__.__name__ == "TokenBackend"
+                                and session is not None
+                                and token is not None
+                            ):
                                 bind_identity(session, identity)
-
-                                # Sync token claims to session
                                 claims = await self.auth_manager.verify_token(token)
                                 if claims:
                                     bind_token_claims(session, claims)
+                            break
                     except Exception as e:
-                        self.logger.warning(f"Token authentication failed: {e}")
-                        # Continue and try session
-
-            # 2. If no token, use identity from session (if session strategy is enabled)
-            if not identity and "session" in self.strategies and session is not None:
-                identity_id = get_identity_id(session)
-                if identity_id:
-                    try:
-                        identity = await self.auth_manager.identity_store.get(identity_id)
-                    except Exception as e:
-                        self.logger.warning(f"Failed to load identity from session: {e}")
-                        # Continue without identity
+                        if hasattr(e, "code") and str(e.code).startswith("AUTH"):
+                            raise
+                        self.logger.warning(f"Backend {backend.__class__.__name__} failed authentication: {e}")
 
             # Phase 3: Check authentication requirement
             if self.require_auth and not identity:
@@ -332,10 +349,12 @@ class _RequestAuthContext:
 
 class OptionalAuthMiddleware(AquilAuthMiddleware):
     """
-    Auth middleware that doesn't require authentication.
+    Auth middleware that does **not** require authentication.
 
-    Same as AquilAuthMiddleware but with require_auth=False.
-    Use this for public endpoints that can benefit from auth if present.
+    .. deprecated::
+        Pass ``require_auth=False`` to :class:`AquilAuthMiddleware` directly,
+        or use :class:`aquilia.auth.middleware.AuthMiddleware` for new code.
+        This subclass will be removed in a future release.
     """
 
     def __init__(
@@ -343,25 +362,22 @@ class OptionalAuthMiddleware(AquilAuthMiddleware):
         session_engine: SessionEngine | None,
         auth_manager: AuthManager,
         fault_engine: FaultEngine | None = None,
-        strategies: list[str] | None = None,
+        backends: list[str] | None = None,
         logger: logging.Logger | None = None,
     ):
-        """
-        Initialize optional auth middleware.
+        import warnings
 
-        Args:
-            session_engine: Optional Aquilia SessionEngine instance.
-            auth_manager: AquilAuth AuthManager instance.
-            fault_engine: Optional FaultEngine for error handling.
-            strategies: Active authentication strategies (e.g. ['token'], ['session'], or ['token', 'session']).
-            logger: Optional logger instance.
-        """
+        warnings.warn(
+            "OptionalAuthMiddleware is deprecated; use AquilAuthMiddleware(require_auth=False) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         super().__init__(
             session_engine=session_engine,
             auth_manager=auth_manager,
             fault_engine=fault_engine,
             require_auth=False,
-            strategies=strategies,
+            backends=backends,
             logger=logger,
         )
 
@@ -600,7 +616,7 @@ def create_auth_middleware_stack(
     app_container: Container,
     fault_engine: FaultEngine | None = None,
     require_auth: bool = False,
-    strategies: list[str] | None = None,
+    backends: list[str] | None = None,
 ) -> list[Middleware]:
     """
     Create complete middleware stack for authenticated app.
@@ -611,7 +627,7 @@ def create_auth_middleware_stack(
         app_container: App-scoped DI container.
         fault_engine: Optional FaultEngine.
         require_auth: Require auth for all routes.
-        strategies: Active authentication strategies (e.g. ['token'], ['session'], or ['token', 'session']).
+        backends: Ordered list of active backends.
 
     Returns:
         List of middleware in correct order.
@@ -632,7 +648,7 @@ def create_auth_middleware_stack(
             auth_manager=auth_manager,
             fault_engine=fault_engine,
             require_auth=require_auth,
-            strategies=strategies,
+            backends=backends,
         )
     )
 
