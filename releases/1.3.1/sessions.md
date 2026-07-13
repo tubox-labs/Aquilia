@@ -1,45 +1,85 @@
-# Session Security Hardening
+# Session Security Hardening & Integration
 
-One of the most important security enhancements in Aquilia v1.3.1 is the hardening of session-based authentication.
-
-## The Privilege Escalation Problem (Stale Sessions)
-
-In older versions of the framework, when a user logged in, their full details (including roles, permissions, scopes, and attributes) were serialized and written directly into the session store:
-
-```python
-# Old, unsafe behavior in v1.3.0:
-session["roles"] = identity.get_attribute("roles", [])
-session["scopes"] = identity.get_attribute("scopes", [])
-session["attributes"] = identity.attributes
-```
-
-While this saved database lookups, it introduced a critical vulnerability: **privilege changes were not dynamic**. If an administrator revoked a role or banned a user, the user would still retain their privileges until their session cookie expired (often days or weeks later), because the middleware read permissions directly from the cookie/session storage.
+Aquilia v1.3.1 introduces substantial security improvements to cookie-based and session-based authentication to prevent privilege escalation.
 
 ---
 
-## The New Session Binding Lifecycle
+## 1. Stale Session Authorization Bypass
 
-In Aquilia v1.3.1, `bind_identity()` has been redesigned to only store core identifiers:
+In previous versions of Aquilia, the full set of user roles, scopes, and attributes was serialized and stored directly inside the session store database (or client-side cookie):
 
 ```python
-# New, hardened behavior in v1.3.1:
+# Old, insecure v1.3.0 implementation:
+session["roles"] = identity.get_attribute("roles", [])
+session["scopes"] = identity.get_attribute("scopes", [])
+session["status"] = identity.status.value
+```
+
+This optimization meant that if an administrator modified a user's permissions, suspended their account, or deleted them, the changes **would not take effect** for requests authenticated via session cookies until their session expired.
+
+---
+
+## 2. Stateless Serialization & Dynamic Resolution
+
+In Aquilia v1.3.1, session serialization has been hardened. The `bind_identity` function only writes core identifiers:
+
+```python
+# Hardened v1.3.1 implementation:
 session.mark_authenticated(AuthPrincipal.from_identity(identity))
 session["identity_id"] = identity.id
 if identity.tenant_id is not None:
     session["tenant_id"] = identity.tenant_id
 ```
 
-Notice that **roles, scopes, and user attributes are no longer written to the session store**.
+### Identity Resolution Flow
+1. The `SessionBackend` captures the active session credentials.
+2. It extracts the `identity_id` (either from `session.principal` or from `session.data["identity_id"]`).
+3. It fetches a fresh `Identity` object directly from the `IdentityStore` on **every single request**.
+4. Authorization guards evaluate roles and scopes against this fresh database/cache state.
 
-### Active Identity Resolution
+Any changes to user permissions or status are applied **instantly** on the user's next request.
 
-When a request arrives:
-1. `SessionBackend` reads the `identity_id` from the active session.
-2. It queries the `IdentityStore` to resolve the fresh `Identity` object.
-3. The resolved `Identity` object is attached to `ctx.identity`.
-4. Role and scope checks (like `@roles_required`) are performed against this fresh object.
+---
 
-This ensures that:
-* **Instant Revocation**: If a role is revoked or a user is deactivated in the database/cache, it takes effect on their very next HTTP request.
-* **Single Source of Truth**: There is no divergence between active sessions and the database/cache identity state.
-* **Minimal Cookie Size**: Session payloads are significantly smaller, saving bandwidth on every request.
+## 3. The `AuthPrincipal` Class
+
+The `AuthPrincipal` (defined in `aquilia.auth.integration.aquila_sessions`) represents the authenticated subject within the session context:
+
+```python
+class AuthPrincipal(SessionPrincipal):
+    def __init__(
+        self,
+        identity_id: str,
+        tenant_id: str | None = None,
+        roles: list[str] | None = None,
+        scopes: list[str] | None = None,
+        mfa_verified: bool = False,
+    )
+```
+
+It is serialized to session dictionaries as:
+* `principal_id` (maps to `identity_id`)
+* `tenant_id`
+* `roles` (ephemeral)
+* `scopes` (ephemeral)
+* `mfa_verified` (indicates if MFA challenge was completed during this session)
+
+---
+
+## 4. Preconfigured Session Policies
+
+Three preconfigured session policies are exposed out-of-the-box:
+
+* **`user_session_policy`**: Default for browser-based user sessions. Configured with a 7-day TTL, 1-hour idle timeout, a limit of 5 concurrent sessions per user (evicting oldest), and secure HTTP-only cookies (`aquilia_auth`).
+* **`api_session_policy`**: Default for API token sessions. Configured with a 1-hour TTL, no idle timeout, and header transport (`Authorization: Bearer`).
+* **`device_session_policy`**: Default for mobile app sessions. Configured with a 90-day TTL, 30-day idle timeout, and custom header transport (`X-Device-Session`).
+
+---
+
+## 5. `SessionAuthBridge`
+
+The `SessionAuthBridge` coordinates actions between `AuthManager` and `SessionEngine`:
+* `create_auth_session(identity, request, token_claims=None)`: Resolves and binds authentication credentials to a new session.
+* `rotate_on_privilege_escalation(session, response)`: Rotates the session ID (session fixation protection) after an escalating event (such as completing an MFA challenge).
+* `logout(session, response)`: Destroys the current session.
+* `logout_all_devices(identity_id)`: Revokes and purges all active session identifiers linked to a given identity ID across the session store.
