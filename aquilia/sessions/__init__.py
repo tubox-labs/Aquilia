@@ -28,9 +28,7 @@ from .core import (
 # Session decorators + guards (session-scoped only)
 from .decorators import (
     SessionContext,
-    SessionGuard,
     SessionRequiredFault,
-    requires,
     session,
     stateful,
 )
@@ -132,8 +130,6 @@ __all__ = [
     "stateful",
     "SessionRequiredFault",
     "SessionContext",
-    "SessionGuard",
-    "requires",
     # State
     "SessionState",
     "Field",
