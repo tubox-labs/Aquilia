@@ -1,31 +1,31 @@
 # Aquilia v1.3.1 Release Notes — "Backend Refactoring"
 
-Aquilia v1.3.1 introduces a major redesign of the authentication and authorization subsystems. By replacing the legacy string-based strategies with a pluggable, class-based backend architecture and hardening session serialization, this release provides a more secure, clean, and production-ready security foundation.
+Aquilia v1.3.1 introduces a major rewrite of the authentication (`aquilia.auth`) and authorization subsystems. It moves away from rigid string-based strategies and hardcoded guard adapters in favor of a pluggable, class-based backend architecture, a unified permission engine, hardened session serialization, and token clock-skew tolerance.
 
 ## Table of Contents
 
 1. [Pluggable Authentication Backends](backends.md)
    * The new `AuthBackend` protocol.
-   * Built-in backends (`TokenBackend`, `SessionBackend`, `PasswordBackend`, `ApiKeyBackend`).
-   * Developing and registering custom backends.
-2. [First-class Flow Guards & Context-First Decorators](guards.md)
-   * Declaring guards as raw classes or instances.
-   * Protect endpoints via `@authenticated`, `@roles_required`, and `@scopes_required`.
-   * Advanced composition with `@requires`.
+   * Built-in backends: `TokenBackend`, `SessionBackend`, `PasswordBackend`, `ApiKeyBackend`.
+   * The `resolve_backend` helper and loading configuration.
+2. [Unified Permission & Authorization Engine](guards.md#permissionengine)
+   * Role DAG (Directed Acyclic Graph) inheritance.
+   * Policy callables and scope checks.
+   * Pluggable Flow Guards: `AuthGuard`, `RoleGuard`, `ScopeGuard`, `PolicyGuard`.
+   * Context-First Decorators: `@authenticated`, `@roles_required`, `@scopes_required`, `@optional_auth`.
 3. [Session Security Hardening](sessions.md)
-   * The new session serialization format (preventing privilege escalation).
-   * Live identity resolution on every request.
+   * Elimination of stale permission state in session cookies.
+   * The lightweight `AuthPrincipal` serialization format.
+   * Dynamic resolution of roles and scopes on every request.
 4. [Migration Guide](migration.md)
-   * Moving from `strategies` configuration to `backends`.
-   * Replaced class and function mappings.
+   * Upgrading configuration settings from `strategies` to `backends`.
+   * Replaced classes, decorators, and middleware.
 
 ---
 
-## Why the Refactoring?
+## Key Refactoring Goals
 
-The legacy authentication subsystem relied on hardcoded string strategies and complex, nested flow-guard adapters. This design suffered from three main issues:
-1. **Extensibility**: Adding custom authentication methods (such as OAuth2, LDAP, or WebAuthn) required modifying the middleware core or writing verbose adapters.
-2. **Session Pollution**: Storing full user attributes (like roles and permissions) directly in session stores led to stale privilege bugs (where revoking a role did not take effect until the session expired).
-3. **Elegance**: The routing pipeline used distinct decorator paradigms for session guards versus token guards, leading to fragmented APIs.
-
-**Aquilia v1.3.1 solves these issues** by introducing unified, single-responsibility authentication backends and context-first decorators.
+1. **Pluggability**: Unify all authentication strategies (Bearer JWTs, Session cookies, Username/Password, API keys) under a single, reusable backend protocol.
+2. **Dynamic Privileges**: Resolve permissions, roles, and scopes fresh from the database or cache on every request, preventing privilege escalation through stale session states.
+3. **API Simplification**: Consolidate five parallel authorization subsystems (RBAC, ABAC, Clearance, Policy DSL, and custom adapters) into a single, cohesive `PermissionEngine`.
+4. **Resiliency**: Handle clock drift in distributed clusters by introducing native clock-skew tolerance.
