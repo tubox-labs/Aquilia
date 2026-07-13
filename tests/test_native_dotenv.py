@@ -1004,16 +1004,16 @@ WORKERS=4
             if "SINGLE_VALUE" in os.environ:
                 del os.environ["SINGLE_VALUE"]
 
-    def test_aquila_config_auth_strategies(self):
-        """AquilaConfig.Auth includes strategies with default value."""
+    def test_aquila_config_auth_backends(self):
+        """AquilaConfig.Auth includes backends with default value."""
         from aquilia.pyconfig import AquilaConfig
 
         class TestConfig(AquilaConfig):
             class auth(AquilaConfig.Auth):
-                strategies = ["token"]
+                backends = ["token"]
 
         result = TestConfig.to_dict()
-        assert result["auth"]["strategies"] == ["token"]
+        assert result["auth"]["backends"] == ["token"]
 
 
 # ============================================================================
