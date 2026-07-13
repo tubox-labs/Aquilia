@@ -1022,40 +1022,111 @@ class AquilaConfig:
         """
         Authentication & JWT configuration.
 
-        Maps to the ``auth`` config path.
+        Maps to the ``auth`` config path.  All auth behaviour is driven from
+        here — no separate integration package is required.
 
-        **Algorithm selection:**
+        **Algorithm selection**
 
         Zero-dependency algorithms (stdlib ``hmac`` + ``hashlib``):
+
           * ``"HS256"`` — HMAC-SHA-256  ← **default, no extra packages**
           * ``"HS384"`` — HMAC-SHA-384
           * ``"HS512"`` — HMAC-SHA-512
 
         Asymmetric algorithms (requires ``pip install cryptography``):
+
           * ``"RS256"`` — RSA 3072-bit + SHA-256
           * ``"ES256"`` — ECDSA P-256  + SHA-256
           * ``"EdDSA"`` — Ed25519
 
+        **Store types** (``store_type``)
+
+          * ``"memory"`` — in-process; ephemeral across restarts (default, good for dev/tests)
+          * ``"redis"``  — Redis-backed via the cache integration; required for multi-process prod
+
+        **Backends** (``backends``)
+
+          Ordered list of active identity-resolution backends per request:
+
+          * ``"aquilia.auth.backends.TokenBackend"``   — Bearer JWT in ``Authorization`` header
+          * ``"aquilia.auth.backends.SessionBackend"`` — session cookie managed by ``SessionEngine``
+
         Example::
 
             class auth(AquilaConfig.Auth):
-                # Use HS512 (stdlib, no deps):
-                algorithm = "HS512"
+                secret_key               = Secret(env="AQ_SECRET_KEY", required=True)
+                algorithm                = "HS256"   # or "RS256", "EdDSA"
+                access_token_ttl_minutes = 15
+                refresh_token_ttl_days   = 30
+                require_auth_by_default  = False
+                backends                 = [
+                    "aquilia.auth.backends.TokenBackend",
+                    "aquilia.auth.backends.SessionBackend",
+                ]
 
-                # Use RS256 (requires: pip install cryptography):
-                # algorithm = "RS256"
+                # Rate limiting (brute-force protection)
+                rate_limit_max_attempts    = 5
+                rate_limit_window_seconds  = 900      # 15 min
+                rate_limit_lockout_seconds = 3600     # 1 h
+
+                # MFA
+                mfa_enabled  = False
+                mfa_required = False
+
+                # Clock skew tolerance for token ``nbf`` / ``exp`` validation
+                clock_skew_seconds = 0
+
+                # Audit trail
+                audit_enabled = True
         """
 
         enabled: bool = True
+        #: Identity/credential store backend: ``"memory"`` | ``"redis"``.
         store_type: str = "memory"
+        #: Secret key used for HMAC algorithms.  ``None`` auto-generates a
+        #: 256-bit ephemeral secret (insecure across restarts — always set in prod).
         secret_key: str | None = None
+        #: JWT signing algorithm.  See class docstring for valid values.
         algorithm: str = "HS256"
         issuer: str = "aquilia"
         audience: str = "aquilia-app"
+        #: Access token lifetime in minutes.
         access_token_ttl_minutes: int = 60
+        #: Refresh token lifetime in days.
         refresh_token_ttl_days: int = 30
+        #: When ``True`` all routes require authentication unless explicitly
+        #: marked public.  Defaults to ``False`` (opt-in per route).
         require_auth_by_default: bool = False
-        strategies: list[str] = ["token", "session"]
+        #: Ordered list of identity-resolution backends per request.
+        backends: list[str] = [
+            "aquilia.auth.backends.TokenBackend",
+            "aquilia.auth.backends.SessionBackend",
+        ]
+
+        # ── Rate limiting ────────────────────────────────────────────────────
+        #: Maximum failed authentication attempts before lockout.
+        rate_limit_max_attempts: int = 5
+        #: Rolling window in seconds for attempt counting.
+        rate_limit_window_seconds: int = 900
+        #: Lockout duration in seconds after exceeding ``rate_limit_max_attempts``.
+        rate_limit_lockout_seconds: int = 3600
+
+        # ── MFA ─────────────────────────────────────────────────────────────
+        #: Enable MFA enrollment and verification flows.
+        mfa_enabled: bool = False
+        #: Require MFA for all identities (forces ``AUTH_MFA_REQUIRED`` after
+        #: password verification when the identity has no MFA credential).
+        mfa_required: bool = False
+
+        # ── Clock skew ───────────────────────────────────────────────────────
+        #: Seconds of clock-skew tolerance applied to token ``nbf`` and ``exp``
+        #: validation.  Allows ±N seconds of drift between nodes.
+        clock_skew_seconds: int = 0
+
+        # ── Audit ────────────────────────────────────────────────────────────
+        #: Enable the auth audit trail (emits structured ``AuditEvent`` objects).
+        audit_enabled: bool = True
+
         #: Password hasher — override with an ``AquilaConfig.PasswordHasher`` instance.
         password_hasher: AquilaConfig.PasswordHasher | None = None
 
