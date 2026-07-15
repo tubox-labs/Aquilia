@@ -150,33 +150,81 @@ _init_default_rules()
 # ============================================================================
 
 
+def _detect_cache_backend() -> str:
+    """Return ``"surp"`` if the optional ``surp`` binary-serialization backend
+    is importable, otherwise ``"json"``.
+
+    ``surp`` is an optional dependency (``pip install aquilia[surp]``). When it
+    is absent we fall back to a stdlib ``json`` cache rather than failing — the
+    discovery cache is a pure performance optimization, never a correctness
+    requirement, so its backend must degrade silently.
+    """
+    try:
+        import surp  # noqa: F401  # type: ignore[import-untyped]
+
+        return "surp"
+    except Exception:
+        return "json"
+
+
 class DiscoveryCache:
-    """Maintains file metadata hashes to avoid redundant AST parsing using SURP format."""
+    """Maintains file metadata hashes to avoid redundant AST parsing.
+
+    Uses the optional ``surp`` binary format when installed, transparently
+    falling back to a stdlib ``json`` file otherwise. The absence of ``surp``
+    is expected (it is an optional extra) and never produces a warning — only
+    genuine, unexpected I/O failures are surfaced, and even then non-fatally
+    (the cache simply misses and discovery re-parses).
+    """
 
     def __init__(self, cache_file: Path):
+        self._backend = _detect_cache_backend()
+        # When surp is unavailable, use a sibling ``.json`` path so a stale
+        # ``.surp`` file written by a surp-enabled run is never misread as JSON
+        # (and vice versa).
+        if self._backend == "json" and cache_file.suffix == ".surp":
+            cache_file = cache_file.with_suffix(".json")
         self.cache_file = cache_file
         self._data: dict[str, dict] = {}
         self.load()
 
     def load(self) -> None:
-        if self.cache_file.exists():
-            try:
-                import surp as surp_backend
+        if not self.cache_file.exists():
+            self._data = {}
+            return
+        try:
+            if self._backend == "surp":
+                import surp as surp_backend  # type: ignore[import-untyped]
 
                 self._data = surp_backend.decode_from_file(str(self.cache_file)) or {}
-            except Exception:
-                self._data = {}
-        else:
+            else:
+                import json
+
+                with open(self.cache_file, encoding="utf-8") as fh:
+                    loaded = json.load(fh)
+                self._data = loaded if isinstance(loaded, dict) else {}
+        except Exception as e:
+            # Corrupt/unreadable cache is non-fatal: start empty, re-parse.
+            logger.debug("Discovery cache unreadable (%s) — starting empty.", e)
             self._data = {}
 
     def save(self) -> None:
         try:
             self.cache_file.parent.mkdir(parents=True, exist_ok=True)
-            import surp as surp_backend
+            if self._backend == "surp":
+                import surp as surp_backend  # type: ignore[import-untyped]
 
-            surp_backend.encode_to_file(self._data, str(self.cache_file))
+                surp_backend.encode_to_file(self._data, str(self.cache_file))
+            else:
+                import json
+
+                with open(self.cache_file, "w", encoding="utf-8") as fh:
+                    json.dump(self._data, fh)
         except Exception as e:
-            logger.warning(f"Failed to save discovery cache: {e}")
+            # Saving is best-effort; a failed write only costs a cache miss next
+            # run. Log at debug so an optional-dep or read-only-FS situation
+            # never floods the terminal.
+            logger.debug("Failed to save discovery cache (%s) — continuing without cache.", e)
 
     def get(self, file_path: str) -> dict | None:
         return self._data.get(file_path)
