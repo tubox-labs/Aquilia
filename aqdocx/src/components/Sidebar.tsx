@@ -235,6 +235,7 @@ export const sections: SidebarSection[] = [
       {
         label: 'Authentication', path: '/docs/auth', icon: <Lock className="w-3.5 h-3.5" />,
         children: [
+          { label: 'Overview', path: '/docs/auth' },
           { label: 'Identity Model', path: '/docs/auth/identity' },
           { label: 'Credentials', path: '/docs/auth/credentials' },
           { label: 'Auth Manager', path: '/docs/auth/manager' },
@@ -245,6 +246,7 @@ export const sections: SidebarSection[] = [
           { label: 'Guards', path: '/docs/auth/guards' },
           { label: 'Faults', path: '/docs/auth/faults' },
           { label: 'Integration', path: '/docs/auth/integration' },
+          { label: 'Advanced', path: '/docs/auth/advanced' },
         ]
       },
       {
@@ -469,6 +471,7 @@ export const sections: SidebarSection[] = [
         label: 'CLI', path: '/docs/cli', icon: <Terminal className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/cli' },
+          { label: 'Command Reference', path: '/docs/cli/commands' },
           { label: 'Core Commands', path: '/docs/cli/core' },
           { label: 'Database', path: '/docs/cli/database' },
           { label: 'Inspection', path: '/docs/cli/inspection' },
