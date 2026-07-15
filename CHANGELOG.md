@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0b0] — 2026-07-14 — "Foredeck Watch"
+
+Rebuilds `aquilia.devplatform` (the Aquilia Native Development Platform / ADP) into
+a fully native ASGI development server: a real h11-based HTTP/1.1 transport and a
+dependency-free RFC 6455 WebSocket engine replace the previous toy parser, the
+browser dashboard and Textual TUI are removed in favor of Aquilia's existing
+Inspector, hot-reload's reverse-dependency detection is rewritten on AST-based
+static import analysis (fixing a false-positive bug), and per-request cProfile
+capture is wired into the request pipeline for the first time. See
+[releases/1.4.0b0/](releases/1.4.0b0/README.md) for full documentation.
+
+### Added
+- **Native h11-based ASGI transport** (`aquilia.devplatform.core.h11_transport`): `H11Connection` drives HTTP/1.1 through the `h11` state machine — keep-alive, pipelining, and chunked transfer-encoding all come from `h11` instead of a hand-rolled single-shot parser. `h11` is now an explicit core dependency (previously only pulled in transitively via `uvicorn`).
+- **Native WebSocket engine** (`aquilia.devplatform.core.websocket_transport`): stdlib-only RFC 6455 implementation (handshake, text/binary frames, ping/pong, close) — no `websockets`/`wsproto` dependency required for the default path.
+- **`--http {auto,h11}` flag** on `aq run`/`aq dev`: `h11` (default) uses the new native transport; `auto` uses uvicorn as the HTTP transport with ADP instrumentation wrapped around the app.
+- **`--ws {auto,none}` flag**: `auto` (default) enables the native WebSocket engine; `none` disables upgrade handling.
+- **`--uds PATH` / `--fd N` flags**: bind to a UNIX domain socket or an inherited file descriptor instead of `host:port`.
+- **`aq dev`**: alias for `aq run` (Vite/Next-style naming for the dev-server workflow).
+- **`aq inspector`**: opens (or prints, with `--no-browser`) the URL for Aquilia's Inspector — the live per-request debugging surface — for a currently running dev server.
+- **AST-based reload dependency graph** (`aquilia.devplatform.reload.analyzer`): `_static_import_targets()` parses each loaded module's imports via `ast`, resolves relative imports with `importlib.util.resolve_name`, and matches reverse dependencies by exact fully-qualified module name.
+- **`AutoDiscoveryEngine` integration in hot-reload**: file changes under a workspace's `modules/` tree are diffed through `aquilia.discovery.engine.AutoDiscoveryEngine`'s incremental AST/mtime/hash cache, producing a human-readable `discovery_summary` (e.g. `"Discovery diff: 1 controller, 2 service"`) attached to the `ReloadPlan`.
+- **Per-request CPU profiling wired into the request pipeline** (`ASGIHTTPConnection.execute()` in `aquilia.devplatform.core.protocol`): activated globally via `profiler_enabled=True` / `adp_profiler` config, or per-request via the `X-Aquilia-Profile: true` header. Populates `RequestRecord.profile_stats`.
+- **Graceful shutdown before FULL reload**: `ModuleReloadExecutor._full_reload()` now calls the wrapped `AquiliaServer.graceful_shutdown(timeout=...)` (bounded by `shutdown_timeout`, configurable via `timeout_graceful_shutdown`) before `os.execv()`, so in-flight requests drain and DB pools/effects/tasks close cleanly instead of being dropped mid-restart.
+
+### Changed
+- **`aq run`/`aq dev` transport selection reversed**: previously uvicorn was always used as the transport whenever installed (a core dependency, so effectively always), with the native `AquiliaDevelopmentServer.start()` path only as a fallback for missing uvicorn. Native h11 transport is now the default (`--http h11`); uvicorn is opt-in via `--http auto`.
+- **Config precedence documented for the new network flags**: `--host`/`--port`/`--reload`/`--uds`/`--fd`/`--http`/`--ws` CLI flags > `AquilaConfig.Server` values from `workspace.py` (`adp_uds`, `adp_http`, `adp_ws`) > hardcoded fallback defaults (`http="h11"`, `ws="auto"`, no `uds`/`fd`).
+
+### Removed
+- **`aquilia/devplatform/dashboard/`** (entire directory): the browser dashboard and Textual-based TUI. Aquilia's existing Inspector (`aquilia.inspector`, mounted at `/__aquilia__/inspector`) is the debugging surface for ADP going forward.
+- **`textual` dependency** — dropped from core dependencies; `uv.lock` regenerated (also removes its transitive deps: `rich`, `markdown-it-py`, `mdit-py-plugins`, `mdurl`, `linkify-it-py`, `uc-micro-py`).
+- **`adp_tui` config field** (`AquilaConfig.Server.adp_tui`) and the corresponding CLI wiring in `_build_adp_config`/`_write_adp_runtime_wrapper`.
+- **`aquilia.devplatform.core.http.HTTPTimingMiddleware`**: dead code — never registered in any middleware stack. Request timing is captured by `core/protocol.py`'s `ASGIHTTPConnection`.
+- **`aquilia.devplatform.profiler.engine.ProfilingMiddleware`**: unwired and structurally broken (didn't inherit `aquilia.middleware.Middleware`, so `MiddlewareStack.add()` would have rejected it with `TypeError`). Profiling is now wired at the ASGI level instead (see Added).
+
+### Fixed
+- **Reverse-dependency false positives in hot-reload**: the previous prefix-matching logic in `_imports_module()` treated a bare `import aquilia` as importing *every* `aquilia.*` submodule (`"aquilia.devplatform.config".startswith("aquilia.")` was trivially `True`), inflating `ReloadPlan.affected_modules` with unrelated modules (`aquilia.server`, `aquilia.asgi`, `aquilia.middleware`, ...) on nearly every reload. Fixed by resolving imports to fully-qualified names (including proper relative-import resolution) and matching only exact names.
+
+#### DevPlatform Framework Integration & Security Hardening (Phase 16)
+
+Refactors `aquilia.devplatform` from an isolated component into a first-class Aquilia subsystem: it now reuses the framework's Fault, config, typing, and datastructure conventions instead of a parallel architecture, and closes several real security gaps.
+
+**Native fault system integration**
+- Created `aquilia/devplatform/faults.py` with `DEVPLATFORM_DOMAIN` and the `DevPlatformFault` base plus five concrete faults — `StartupFault`, `ReloadFault`, `InspectorFault`, `WorkerFault`, `ConfigurationFault` — mirroring the `aquilia/tasks/faults.py` structure.
+- Registered `FaultDomain.DEVPLATFORM` as a standard domain in `aquilia/faults/core.py` (plus its `DOMAIN_DEFAULTS` entry, `ERROR`/non-retryable).
+- Replaced every bare `except Exception: pass`/`logger.warning` swallow across `platform.py`, `devserver.py`, `core/lifespan.py`, `reload/*.py`, `plugins/registry.py`, and `diagnostics/*.py` with structured fault construction routed through `report_fault()` — which forwards to the wrapped app's `FaultEngine.process()` when reachable, so DevPlatform faults surface automatically in Inspector's exception lane via the existing fault-bridge (no new Inspector code).
+
+**Native config system integration**
+- `AquiliaDevelopmentConfig` now loads every field through `aquilia.pyconfig.Env` (native env/dotenv resolution with per-field `cast=`) instead of a hand-rolled `os.environ` reader, and validates all values in `__post_init__`, raising `ConfigurationFault` on invalid `http`/`ws`/`log_level` literals, non-positive thresholds, out-of-range ports, or a negative file descriptor.
+- Collapsed the three previously-drifting config-serialization sites into one: `AquiliaDevelopmentConfig.to_dict()` is the single source of truth, consumed by both `_build_adp_config()` and the codegen'd `runtime/_adp_app.py` wrapper (which now round-trips the dict instead of re-listing each field).
+
+**Native typing & datastructures**
+- Added `aquilia/typing/devplatform.py` (`AdpTransport`, `AdpWsMode`, `AdpLogLevel`, `ReloadStrategy`, `Hook`, `RequestRecordDict` + span/SQL TypedDicts), re-exported from `aquilia.typing`, replacing inline `Literal`s and the local `_Hook` alias; removed the `# type: ignore[return-value]` casts in `config.py`.
+- Extracted the six duplicated double-checked-locking singletons (`RuntimeStateStore`, `WebSocketTracker`, `EventLoopMonitor`, `MemoryUsageTracker`, `SQLQueryAnalyzer`, `StateBridgeRegistry`) onto a shared `SingletonMixin` (`core/_base.py`).
+- Added a bounded `BoundedCache[K, V]` (`core/_cache.py`) and used it for the previously-unbounded `_import_cache` in `reload/analyzer.py`; switched `core/protocol.py`'s header redaction onto `aquilia._datastructures.Headers`.
+
+**Deferred features wired up**
+- `SQLQueryAnalyzer` is now fed from `ASGIHTTPConnection.execute()`, which reads each request's completed `Lane.DATABASE` spans (populated by `aquilia.db.engine._notify_inspector()`) and runs N+1/duplicate-query detection into `RequestRecord.n_plus_one_warnings` — with zero new dependency of `aquilia.db` on the dev-only package (devplatform observes core, never the reverse).
+- `WebSocketTracker` is now wired into `core/websocket_transport.serve_websocket()` (register/unregister + inbound/outbound frame counts per connection).
+- Added `GET /__aquilia__/inspector/devplatform/profile/{request_id}/?format=flamegraph|tree` (`AdminController.inspector_profile_api`, `ImportError`-guarded) rendering captured `RequestRecord.profile_stats` via `FlamegraphFormatter` (Speedscope JSON) or `CallTreePrinter` (text).
+- Added a dedicated `Lane.DEVPLATFORM` to `aquilia/inspector/trace.py`.
+- Populated `RequestRecord.request_body_preview` (size-capped, Bearer/Basic/Token-prefix scrubbed via the previously-dead `_SENSITIVE_PREFIXES`) and `query_params`.
+
+### Security Fixes (Phase 16)
+- **HIGH — WebSocket frame-size DoS**: `websocket_transport._WebSocketConnection.read_frame()` read an attacker-controlled 64-bit length prefix and called `readexactly(length)` unconditionally. Added a `_MAX_FRAME_SIZE` (16 MiB) guard that rejects the frame and closes the connection with code 1009 before allocating.
+- **MEDIUM — UDS stale-socket handling**: `AquiliaDevelopmentServer` now unlinks a *stale socket* file before binding (fixing unhandled `EADDRINUSE` after a crash) but refuses to clobber a non-socket file, and `chmod`s the socket to `0o600` (owner-only) after bind.
+- **MEDIUM — inherited-FD family bug**: replaced `socket.fromfd(fd, AF_INET, SOCK_STREAM)` (hardcoded IPv4) with `socket.socket(fileno=fd)`, which infers family/type/proto from the descriptor — fixes FD passing over `AF_UNIX`/`AF_INET6`.
+- **MEDIUM — reload path traversal / symlinks**: `WorkspaceWatcher._filter_paths()` now `.resolve()`s each changed path and enforces it falls within a configured watch root (`_is_within_workspace`) before accepting it for reload.
+- **LOW — `AQUILIA_WORKSPACE` validation**: `reload/analyzer._resolve_workspace_root()` now rejects a non-absolute or non-directory value with `ConfigurationFault` instead of silently accepting it.
+- **LOW — `AQ_DEV_FD=0` bug**: the old `_env_int("FD", 0) or None` coerced the valid descriptor `0` to `None`; the `Env`-based field returns `None` only when unset, so `AQ_DEV_FD=0` now correctly binds fd 0.
+- **LOW — cross-platform `EADDRINUSE`**: replaced the Linux-only `exc.errno == 98` / string match with `errno.EADDRINUSE`.
+- **LOW — global logging clobber**: `_configure_logging()` no longer calls `logging.basicConfig()` on the root logger; it configures only the `aquilia.devplatform` logger tree so an embedding app's logging config is untouched.
+
+### Changed (Phase 16)
+- **ADP is now explicitly development-only.** `AquiliaDevelopmentServer.start()` logs a production warning, the class/package docstrings state it, and `aq run` forces uvicorn in production mode (`mode="prod"`) regardless of `use_adp` — `use_adp` (default `True`) only applies in dev/test mode.
+
+### Fixed (Phase 16)
+- Corrected the stale `WorkspaceWatcher` docstring that claimed a polling fallback which never existed (the real `except ImportError` branch logs and no-ops).
+- Removed misleading references to an external, not-checked-in "design doc §4.3/§2.12" from module docstrings.
+
+### Known limitations
+- `--ws none` and `--http auto` interplay: uvicorn's own WebSocket handling is used automatically when `--http auto` is selected, independent of `--ws`.
+
 ## [1.3.1] — 2026-07-13 — "Backend Refactoring"
 
 ### Added
