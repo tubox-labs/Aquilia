@@ -37,7 +37,7 @@ export function CookiePreferences() {
   if (!isOpen) return null
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-md w-full p-6 backdrop-blur-xl bg-white/70 dark:bg-zinc-950/70 border border-gray-200 dark:border-white/5 shadow-2xl rounded-2xl animate-fade-in-up transition-all duration-300">
+    <div className="fixed bottom-6 right-6 z-50 max-w-md w-full p-6 backdrop-blur-xl bg-white/70 dark:bg-zinc-950/70 border border-gray-200 dark:border-white/5 shadow-2xl rounded-2xl animate-fade-in-up transition-all duration-300 print:hidden">
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
