@@ -211,14 +211,19 @@ class ADPTerminalUI:
             return
 
         # TTY beautiful framed card
-        c_frame = lambda text: _c(text, _GRAY)
-        c_title = lambda text: _c(text, _BOLD, _BRIGHT_WHITE)
-        c_label = lambda text: _c(text, _GRAY)
+        def c_frame(text):
+            return _c(text, _GRAY)
+
+        def c_title(text):
+            return _c(text, _BOLD, _BRIGHT_WHITE)
+
+        def c_label(text):
+            return _c(text, _GRAY)
 
         mode_color = _BRIGHT_YELLOW if self._mode == "dev" else _BRIGHT_GREEN
         reload_color = _BRIGHT_GREEN if cfg.reload else _GRAY
         reload_status = "enabled" if cfg.reload else "disabled"
-        
+
         fields = [
             ("App", bind, _BRIGHT_CYAN),
             ("Environment", self._mode.upper(), mode_color),
@@ -233,10 +238,10 @@ class ADPTerminalUI:
         import shutil
         term_width = shutil.get_terminal_size((80, 20)).columns
         target_width = max(term_width, 80)
-        
+
         box_margin = max(0, (target_width - width) // 2)
         box_indent = " " * box_margin
-        
+
         # Centered green ASCII art
         ascii_art = [
             r" █████╗  ██████╗ ██╗   ██╗██╗██╗     ██╗ █████╗",
@@ -246,38 +251,38 @@ class ADPTerminalUI:
             r"██║  ██║╚██████╔╝╚██████╔╝██║███████╗██║██║  ██║",
             r"╚═╝  ╚═╝ ╚══▀▀═╝  ╚═════╝ ╚═╝╚══════╝╚═╝╚═╝  ╚═╝"
         ]
-        
+
         ascii_margin = max(0, (target_width - 48) // 2)
         ascii_indent = " " * ascii_margin
-        
+
         ascii_lines = []
         for line in ascii_art:
             ascii_lines.append(ascii_indent + _c(line, _BRIGHT_GREEN) + "\n")
-            
+
         subtitle_plain = "Native Development Platform"
         subtitle_margin = max(0, (target_width - 27) // 2)
         subtitle_indent = " " * subtitle_margin
         subtitle_line = subtitle_indent + _c(subtitle_plain, _GRAY) + "\n"
-        
+
         top = box_indent + c_frame("┌" + "─" * (width - 2) + "┐")
-        
+
         card_lines = ["\n"] + ascii_lines + [subtitle_line, "\n", top + "\n"]
-        
+
         for label, val, color in fields:
             max_val_len = 40
             if len(val) > max_val_len:
                 val = "..." + val[-(max_val_len - 3):]
-            
+
             lbl_plain = f"{label:<12}"
             lbl_colored = c_label(lbl_plain)
             val_colored = _c(val, color)
             padding = " " * (width - 4 - len(lbl_plain) - len(val))
-            
+
             card_lines.append(box_indent + c_frame("│ ") + lbl_colored + val_colored + padding + c_frame(" │\n"))
-            
+
         bot = box_indent + c_frame("└" + "─" * (width - 2) + "┘")
         card_lines.append(bot + "\n")
-        
+
         _w("\n" + "".join(card_lines))
         self._render_hint_bar(box_indent + "  ")
 
