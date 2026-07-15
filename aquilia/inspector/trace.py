@@ -28,6 +28,7 @@ class Lane(str, Enum):
     MAIL = "mail"
     TASKS = "tasks"
     SOCKETS = "sockets"
+    DEVPLATFORM = "devplatform"
 
 
 class SpanStatus(str, Enum):

@@ -101,6 +101,7 @@ FaultDomain.TEMPLATE = FaultDomain("template", "Template engine faults")
 FaultDomain.HTTP = FaultDomain("http", "HTTP protocol errors (4xx/5xx)")
 FaultDomain.PROVIDER = FaultDomain("provider", "Cloud provider integration faults")
 FaultDomain.DEPLOY = FaultDomain("deploy", "Deployment orchestration faults")
+FaultDomain.DEVPLATFORM = FaultDomain("devplatform", "Aquilia Native Development Platform faults")
 
 
 class RecoveryStrategy(str, Enum):
@@ -136,6 +137,7 @@ DOMAIN_DEFAULTS = {
     FaultDomain.HTTP: {"severity": Severity.WARN, "retryable": False},
     FaultDomain.PROVIDER: {"severity": Severity.ERROR, "retryable": True},
     FaultDomain.DEPLOY: {"severity": Severity.ERROR, "retryable": False},
+    FaultDomain.DEVPLATFORM: {"severity": Severity.ERROR, "retryable": False},
 }
 
 

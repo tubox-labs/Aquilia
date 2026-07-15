@@ -616,7 +616,25 @@ class AquiliaRuntime:
     # ──────────────────────────────────────────────────────────────────────
 
     def _setup_logging(self) -> None:
-        """Configure structured, mode-aware, coloured logging."""
+        """Configure structured, mode-aware, coloured logging.
+
+        When the Aquilia Native Development Platform's log router is already
+        installed (i.e. we are running under ``aq run`` with ADP), defer to it
+        entirely: the router owns the terminal so the dashboard stays clean and
+        every record is still captured for the Inspector. Only when the router
+        is absent (uvicorn, gunicorn, production, standalone import) does this
+        install its own root ``StreamHandler``.
+        """
+        try:
+            from aquilia.devplatform.logging import ADPLogRouter
+
+            if ADPLogRouter.get_instance().installed:
+                return
+        except Exception:
+            # devplatform unavailable or router not installed — fall through to
+            # the standalone logging setup below.
+            pass
+
         level = logging.DEBUG if self.config.is_dev else logging.INFO
         fmt = (
             "%(asctime)s | %(levelname)-8s | %(name)s — %(message)s"

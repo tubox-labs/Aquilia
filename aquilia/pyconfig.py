@@ -913,6 +913,33 @@ class AquilaConfig:
         # ── HTTP/1.1 ─────────────────────────────────────────────────
         h11_max_incomplete_event_size: int | None = None  # bytes; None = h11 default (16 KiB)
 
+        # ── Aquilia Native Development Platform (ADP) ─────────────────
+        #: Use the ADP native dev server for ``aq run`` / ``aq dev``.
+        #: Only honored in dev/test mode — production mode (``mode="prod"``)
+        #: always uses uvicorn regardless of this flag. The ADP is a
+        #: development tool (hot-reload, Inspector, per-request
+        #: diagnostics), NOT a production ASGI server; deploy with
+        #: uvicorn or another mature server (hypercorn, daphne).
+        use_adp: bool = True
+
+        #: Enable per-request tracing in the ADP inspector.
+        adp_inspector: bool = True
+
+        #: Maximum number of request traces kept in memory.
+        adp_max_request_history: int = 500
+
+        #: Enable cProfile for every request (off by default — high overhead).
+        adp_profiler: bool = False
+
+        #: Auto-run EXPLAIN for SQL queries slower than this threshold (ms).
+        adp_sql_explain_threshold_ms: float = 50.0
+
+        #: Enable N+1 query pattern detection.
+        adp_n_plus_one_detection: bool = True
+
+        #: Interval between tracemalloc memory snapshots (seconds).
+        adp_memory_snapshot_interval_s: float = 30.0
+
     class PasswordHasher:
         """
         Password hashing algorithm configuration.

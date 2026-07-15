@@ -2594,6 +2594,12 @@ class AquiliaServer:
                             "inspector_stream_api_standalone",
                             ctrl.inspector_stream_api,
                         ),
+                        (
+                            "GET",
+                            "/__aquilia__/inspector/devplatform/profile/{request_id}/",
+                            "inspector_profile_api_standalone",
+                            ctrl.inspector_profile_api,
+                        ),
                     ]
                 )
             admin_routes.extend(
