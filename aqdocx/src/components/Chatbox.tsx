@@ -1,12 +1,32 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
 import {
-  X, Send, User, Loader2,
-  Trash2, HelpCircle, BookOpen, Square
+  X, Send,
+  Trash2, HelpCircle, BookOpen, Square, User
 } from 'lucide-react'
 import { CodeBlock } from './CodeBlock'
 import { useTheme } from '../context/ThemeContext'
-import { docsContent } from '../data/docsContent'
+import { docsChunks, type DocChunk } from '../data/docsContent'
 import { marked } from 'marked'
+
+interface MemoryUpdate {
+  topics?: string[]
+  preferences?: Record<string, string>
+  key_facts?: string[]
+}
+
+function parseStreamContent(text: string) {
+  const index = text.indexOf('<memory_update>');
+  if (index !== -1) {
+    const cleanText = text.substring(0, index).trim();
+    let memoryBlock = text.substring(index + '<memory_update>'.length);
+    const endIndex = memoryBlock.indexOf('</memory_update>');
+    if (endIndex !== -1) {
+      memoryBlock = memoryBlock.substring(0, endIndex);
+    }
+    return { cleanText, memoryBlock, isExtracting: true };
+  }
+  return { cleanText: text, memoryBlock: '', isExtracting: false };
+}
 
 interface Message {
   role: 'user' | 'assistant'
@@ -15,58 +35,201 @@ interface Message {
   sources?: { title: string; path: string }[]
 }
 
-interface SearchResult {
-  title: string
-  path: string
-  plainText: string
+interface SearchChunkResult extends DocChunk {
   score: number
 }
 
-// Simple TF-IDF/lexical client-side search helper
-function searchDocs(query: string): SearchResult[] {
-  const terms = query
-    .toLowerCase()
-    .replace(/[^\w\s]/g, '')
-    .split(/\s+/)
-    .filter(t => t.length > 2)
+const STOP_WORDS = new Set([
+  'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', 'as', 'at',
+  'be', 'because', 'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', 'can', 'cannot', 'could',
+  'did', 'do', 'does', 'doing', 'down', 'during', 'each', 'few', 'for', 'from', 'further', 'had', 'has', 'have',
+  'having', 'he', 'her', 'here', 'hers', 'herself', 'him', 'himself', 'his', 'how', 'i', 'if', 'in', 'into', 'is',
+  'it', 'its', 'itself', 'me', 'more', 'most', 'my', 'myself', 'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only',
+  'or', 'other', 'ought', 'our', 'ours', 'ourselves', 'out', 'over', 'own', 'same', 'she', 'should', 'so', 'some',
+  'such', 'than', 'that', 'the', 'their', 'theirs', 'them', 'themselves', 'then', 'there', 'these', 'they', 'this',
+  'those', 'through', 'to', 'too', 'under', 'until', 'up', 'very', 'was', 'we', 'were', 'what', 'when', 'where',
+  'which', 'while', 'who', 'whom', 'why', 'with', 'would', 'you', 'your', 'yours', 'yourself', 'yourselves',
+  'tell', 'buddy', 'aquilia'
+]);
 
-  if (terms.length === 0) return []
+// Advanced client-side search engine
+function searchChunks(query: string): SearchChunkResult[] {
+  const cleanQuery = query.toLowerCase().trim();
+  if (!cleanQuery) return [];
 
-  const results: SearchResult[] = []
+  // Extract raw terms, splitting by whitespace/punctuation but preserving words
+  const rawWords = query.replace(/[^\w\s\-]/g, ' ').split(/\s+/);
+  const termsSet = new Set<string>();
 
-  for (const doc of docsContent) {
-    let score = 0
-    const titleLower = doc.title.toLowerCase()
-    const textLower = doc.plainText.toLowerCase()
+  for (const word of rawWords) {
+    if (!word) continue;
+    
+    // Add lowercase word
+    const wLower = word.toLowerCase();
+    termsSet.add(wLower);
 
+    // Split CamelCase
+    const camelParts = word.split(/(?=[A-Z][a-z])|(?<=[a-z])(?=[A-Z])/);
+    if (camelParts.length > 1) {
+      for (const p of camelParts) {
+        if (p) termsSet.add(p.toLowerCase());
+      }
+    }
+
+    // Split snake_case and hyphenated
+    const subParts = word.split(/[\-_]/);
+    if (subParts.length > 1) {
+      for (const p of subParts) {
+        if (p) termsSet.add(p.toLowerCase());
+      }
+    }
+  }
+
+  // Filter terms with length > 1
+  let terms = Array.from(termsSet).filter(t => t.length > 1);
+  if (terms.length === 0) return [];
+
+  // Filter stop words if there are other terms
+  const filteredTerms = terms.filter(t => !STOP_WORDS.has(t));
+  if (filteredTerms.length > 0) {
+    terms = filteredTerms;
+  }
+
+  // Suffix/Stemming expansion: support plural/singular matching (e.g. blueprints -> blueprint)
+  const finalTermsSet = new Set<string>();
+  for (const t of terms) {
+    finalTermsSet.add(t);
+    if (t.endsWith('s') && t.length > 3) {
+      finalTermsSet.add(t.slice(0, -1));
+      if (t.endsWith('es') && t.length > 4) {
+        finalTermsSet.add(t.slice(0, -2));
+      }
+    }
+  }
+  terms = Array.from(finalTermsSet);
+
+  const results: SearchChunkResult[] = [];
+
+  for (const chunk of docsChunks) {
+    let score = 0;
+    const titleLower = chunk.title.toLowerCase();
+    const pageTitleLower = chunk.pageTitle.toLowerCase();
+    const contentLower = chunk.content.toLowerCase();
+    const pathLower = chunk.path.toLowerCase();
+
+    // 1. Exact phrase matches (highest priority)
+    if (titleLower.includes(cleanQuery)) {
+      score += 150;
+    } else if (pageTitleLower.includes(cleanQuery)) {
+      score += 80;
+    }
+    if (contentLower.includes(cleanQuery)) {
+      score += 50;
+    }
+
+    // Also check for sub-phrase matches if the query contains multiple terms
+    if (terms.length > 1) {
+      // Find consecutive keywords (without stop words) in title or content
+      const phrasePart = terms.join(' ');
+      if (titleLower.includes(phrasePart)) {
+        score += 80;
+      } else if (contentLower.includes(phrasePart)) {
+        score += 30;
+      }
+    }
+
+    // 2. Keyword/Term matching
+    let matchedTermsCount = 0;
     for (const term of terms) {
-      // Exact title match weight
-      if (titleLower.includes(term)) {
-        score += 20
+      let termMatched = false;
+      const escapedTerm = term.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const wordBoundaryRegex = new RegExp('\\b' + escapedTerm + '\\b', 'i');
+
+      if (wordBoundaryRegex.test(titleLower)) {
+        score += 45;
+        termMatched = true;
+      } else if (titleLower.includes(term)) {
+        score += 5;
+        termMatched = true;
       }
       
-      // Match count in title
-      const titleMatches = (titleLower.match(new RegExp(term, 'g')) || []).length
-      score += titleMatches * 10
+      if (wordBoundaryRegex.test(pageTitleLower)) {
+        score += 25;
+        termMatched = true;
+      } else if (pageTitleLower.includes(term)) {
+        score += 3;
+        termMatched = true;
+      }
 
-      // Match count in text content
-      const textMatches = (textLower.match(new RegExp(term, 'g')) || []).length
-      score += textMatches * 1.5
+      if (wordBoundaryRegex.test(pathLower)) {
+        score += 15;
+        termMatched = true;
+      } else if (pathLower.includes(term)) {
+        score += 2;
+        termMatched = true;
+      }
+
+      if (contentLower.includes(term)) {
+        termMatched = true;
+        // Count exact word occurrences to implement TF-like weighting (capped to avoid keyword stuffing)
+        const regex = new RegExp('\\b' + escapedTerm + '\\b', 'gi');
+        const matches = contentLower.match(regex);
+        const count = matches ? matches.length : 0;
+        score += Math.min(10, count) * 4;
+        
+        // If word-boundary search yields 0 but substring match exists
+        if (count === 0 && contentLower.includes(term)) {
+          score += 2;
+        }
+      }
+
+      if (chunk.codeBlocks) {
+        for (const code of chunk.codeBlocks) {
+          if (code.toLowerCase().includes(term)) {
+            score += 12;
+            termMatched = true;
+            break; // Count at most once per term to prevent bias towards large pages
+          }
+        }
+      }
+
+      if (termMatched) {
+        matchedTermsCount++;
+      }
+    }
+
+    // 3. Multi-term coverage multiplier
+    if (matchedTermsCount > 0) {
+      const coverageRatio = matchedTermsCount / terms.length;
+      score *= (1 + coverageRatio * 2.0); // Boosted weight for matching multiple keywords
+    }
+
+    // 4. Version/Release query boost
+    const isReleaseQuery = cleanQuery.includes('release') || cleanQuery.includes('version') || cleanQuery.includes('changelog') || /\b\d+\.\d+\.\d+\b/.test(cleanQuery);
+    const isReleaseChunk = chunk.path.includes('/releases') || chunk.path.includes('/changelogs');
+    if (isReleaseQuery && isReleaseChunk) {
+      score *= 3.0; // Boosted release matching
     }
 
     if (score > 0) {
       results.push({
-        title: doc.title,
-        path: doc.path,
-        plainText: doc.plainText,
+        ...chunk,
         score
-      })
+      });
     }
   }
 
-  // Sort by score descending
-  return results.sort((a, b) => b.score - a.score)
+  // Sort descending by relevance score
+  return results.sort((a, b) => b.score - a.score);
 }
+
+const attractionMessages = [
+  "Ask Aquilia Assistant",
+  "Stuck on DI Containers?",
+  "Need help with ORM Migrations?",
+  "Configure Tasks & Workers",
+  "Discover pluggable authentication"
+];
 
 export function Chatbox() {
   const { theme } = useTheme()
@@ -86,6 +249,19 @@ export function Chatbox() {
   const [isStreaming, setIsStreaming] = useState(false)
   const streamingTextRef = useRef('')
 
+  const [memory, setMemory] = useState<{
+    topics: string[];
+    preferences: Record<string, string>;
+    keyFacts: string[];
+  }>({
+    topics: [],
+    preferences: {},
+    keyFacts: []
+  })
+
+  const [currentMessageIdx, setCurrentMessageIdx] = useState(0)
+  const [showAttractionMessage, setShowAttractionMessage] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -97,6 +273,40 @@ export function Chatbox() {
       }
     }
   }, [])
+
+  useEffect(() => {
+    if (isOpen) {
+      setShowAttractionMessage(false);
+      return;
+    }
+
+    const triggerMessage = (index: number) => {
+      setCurrentMessageIdx(index);
+      setShowAttractionMessage(true);
+      
+      const hideTimer = setTimeout(() => {
+        setShowAttractionMessage(false);
+      }, 5000);
+      return hideTimer;
+    };
+
+    let hideTimerRef: any;
+    const initialTimer = setTimeout(() => {
+      hideTimerRef = triggerMessage(0);
+    }, 2000);
+
+    let cycleCount = 1;
+    const loopInterval = setInterval(() => {
+      hideTimerRef = triggerMessage(cycleCount % attractionMessages.length);
+      cycleCount++;
+    }, 12000);
+
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(loopInterval);
+      if (hideTimerRef) clearTimeout(hideTimerRef);
+    };
+  }, [isOpen]);
 
   const handleStopStreaming = () => {
     if (abortControllerRef.current) {
@@ -114,17 +324,16 @@ export function Chatbox() {
 
   // Smooth typewriter streaming effect
   useEffect(() => {
-    if (displayedText.length >= streamingTextRef.current.length && !isStreaming) {
+    const { cleanText } = parseStreamContent(streamingTextRef.current)
+    if (displayedText.length >= cleanText.length && !isStreaming) {
       return
     }
 
     const timer = setTimeout(() => {
-      const target = streamingTextRef.current
       const currentLength = displayedText.length
-      if (currentLength < target.length) {
-        // Appending 3 characters at a time for smooth but fast typewriter updates
-        const step = Math.min(3, target.length - currentLength)
-        const nextChunk = target.slice(0, currentLength + step)
+      if (currentLength < cleanText.length) {
+        const step = Math.min(3, cleanText.length - currentLength)
+        const nextChunk = cleanText.slice(0, currentLength + step)
         setDisplayedText(nextChunk)
         
         setMessages(prev => {
@@ -144,8 +353,6 @@ export function Chatbox() {
     return () => clearTimeout(timer)
   }, [displayedText, isStreaming])
 
-
-
   const handleClear = () => {
     setMessages([
       {
@@ -154,6 +361,11 @@ export function Chatbox() {
         timestamp: new Date()
       }
     ])
+    setMemory({
+      topics: [],
+      preferences: {},
+      keyFacts: []
+    })
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -182,29 +394,65 @@ export function Chatbox() {
     }
     setMessages(prev => [...prev, newMsg])
 
-    // Find relevant documentation pages
-    const searchResults = searchDocs(userMessage)
-    const topResults = searchResults.slice(0, 3)
+    // Find relevant documentation chunks
+    const searchResults = searchChunks(userMessage)
+    const topResults = searchResults.slice(0, 6)
     
     // Build context
     let contextStr = ''
     if (topResults.length > 0) {
       contextStr = topResults
         .map(
-          (res, idx) =>
-            `[Source #${idx + 1}: ${res.title} (Path: ${res.path})]\n${res.plainText.substring(0, 1500)}...`
+          (res, idx) => {
+            const codeStr = res.codeBlocks && res.codeBlocks.length > 0
+              ? '\nCode Blocks:\n' + res.codeBlocks.map(c => `\`\`\`python\n${c}\n\`\`\``).join('\n\n')
+              : '';
+            return `[Source #${idx + 1}: ${res.title} (URL: ${res.path})]\n${res.content}${codeStr}`
+          }
         )
         .join('\n\n')
+    }
+
+    // Build active session memory context
+    let memoryContextStr = ''
+    if (memory.topics.length > 0 || memory.keyFacts.length > 0 || Object.keys(memory.preferences).length > 0) {
+      memoryContextStr = `### ACTIVE SESSION MEMORY:\n`
+      if (memory.topics.length > 0) {
+        memoryContextStr += `- **Topics Discussed**: ${memory.topics.join(', ')}\n`
+      }
+      if (Object.keys(memory.preferences).length > 0) {
+        memoryContextStr += `- **User Preferences**: ${JSON.stringify(memory.preferences)}\n`
+      }
+      if (memory.keyFacts.length > 0) {
+        memoryContextStr += `- **Key Facts Learned**:\n`
+        memory.keyFacts.forEach(fact => {
+          memoryContextStr += `  * ${fact}\n`
+        })
+      }
     }
 
     const systemPrompt = `You are the Aquilia AI Documentation Assistant, a premium, highly authoritative technical agent designed to answer developer queries about the Aquilia async Python web framework.
 
 ### STRICT GUARDRAILS & DIRECTIVES:
-1. **NO HALLUCINATIONS**: Do NOT guess, speculate, or make up any classes, decorators, methods, settings, command flags, or architectural details of the Aquilia framework.
-2. **SOURCE OF TRUTH**: Read the raw documentation context provided below. This context is your absolute source of truth. If a framework API, configuration, or class is not explicitly documented in the provided context, do NOT assume it exists.
+1. **NO HALLUCINATIONS**: Do NOT guess, speculate, or make up any classes, decorators, methods, settings, command flags, or architectural details of the Aquilia framework. Only use details present in the context.
+2. **SOURCE OF TRUTH**: Read the raw documentation context provided below. This context is your absolute source of truth. If a framework API, configuration, class, or release note is not explicitly documented in the provided context, do NOT assume it exists or works.
 3. **EXPLICIT UNKNOWNS**: If the provided documentation context does not contain enough information to answer the query accurately or if the feature is not explicitly defined in the context, state: "I'm sorry, but that feature or detail is not documented in the Aquilia codebase context." Do not make up examples.
-4. **CODE QUALITY**: Always write production-grade, clean, and modern Python or React code based exactly on the patterns shown in the context.
-5. **FORMATTING**: Format responses beautifully in markdown. Specify the language for all code blocks (e.g. \`python\`, \`typescript\`, \`bash\`, \`yaml\`, \`json\`). Keep explanations concise, technically accurate, and professional.`
+4. **VERSION SPECIFICITY**: When users ask about releases (e.g. 1.3.1) or migration paths, search the context carefully. If the release or feature details are found, explain them exactly as described (e.g. explain pluggable auth backends, permission engine, session hardening, and removed decorators for v1.3.1). If the release details are not in the context, do NOT invent them.
+5. **CODE QUALITY**: Always write production-grade, clean, and modern Python or React code based exactly on the patterns shown in the context.
+6. **FORMATTING**: Format responses beautifully in markdown. Specify the language for all code blocks (e.g. \`python\`, \`typescript\`, \`bash\`, \`yaml\`, \`json\`). Keep explanations concise, technically accurate, and professional.
+7. **GREETINGS & GENERAL CONVERSATION**: You are allowed to respond to standard user greetings (e.g. "hi", "hello", "hey buddy", "how are you") and questions about your own identity or capabilities (e.g. "what can you do?") in a friendly, professional manner without triggering the fallback response. However, for any technical framework query, you MUST strictly adhere to the context-based constraints above.
+
+${memoryContextStr ? `${memoryContextStr}\n` : ''}
+### MEMORY UPDATE INSTRUCTION:
+At the very end of your response, you MUST output a \`<memory_update>\` XML block containing updated facts or context updates about the user's project, preferences, or topics discussed in this turn. Merge new facts with previous ones if relevant. Keep it concise.
+Format exactly as:
+<memory_update>
+{
+  "topics": ["topic1", "topic2"],
+  "preferences": {"key": "value"},
+  "key_facts": ["fact 1", "fact 2"]
+}
+</memory_update>`
 
     const userContent = `Here is my question: "${userMessage}"\n\n` + 
       (contextStr ? `Here is the relevant Aquilia documentation context:\n${contextStr}` : `No direct documentation search results were found for this query.`)
@@ -241,6 +489,10 @@ export function Chatbox() {
           model: model,
           messages: [
             { role: 'system', content: systemPrompt },
+            ...messages.map(msg => ({
+              role: msg.role,
+              content: msg.content
+            })),
             { role: 'user', content: userContent }
           ],
           temperature: 0.2,
@@ -347,6 +599,48 @@ export function Chatbox() {
             }
           ])
           setIsLoading(false)
+        }
+
+        // Clean up assistant message and parse dynamic memory
+        const { cleanText, memoryBlock } = parseStreamContent(streamingTextRef.current)
+        
+        setMessages(prev => {
+          const updated = [...prev]
+          const lastMsg = updated[updated.length - 1]
+          if (lastMsg && lastMsg.role === 'assistant') {
+            updated[updated.length - 1] = {
+              ...lastMsg,
+              content: cleanText
+            }
+          }
+          return updated
+        })
+        setDisplayedText(cleanText)
+
+        if (memoryBlock) {
+          try {
+            let jsonStr = memoryBlock.trim()
+            if (jsonStr.startsWith('```json')) {
+              jsonStr = jsonStr.slice(7)
+            }
+            if (jsonStr.endsWith('```')) {
+              jsonStr = jsonStr.slice(0, -3)
+            }
+            const parsedMemory = JSON.parse(jsonStr.trim()) as MemoryUpdate
+            
+            setMemory(prev => {
+              const newTopics = Array.from(new Set([...prev.topics, ...(parsedMemory.topics || [])]))
+              const newKeyFacts = Array.from(new Set([...prev.keyFacts, ...(parsedMemory.key_facts || [])]))
+              const newPreferences = { ...prev.preferences, ...(parsedMemory.preferences || {}) }
+              return {
+                topics: newTopics,
+                keyFacts: newKeyFacts,
+                preferences: newPreferences
+              }
+            })
+          } catch (e) {
+            console.error("Failed to parse memory update JSON:", e)
+          }
         }
       }
     } catch (err: any) {
@@ -536,226 +830,287 @@ export function Chatbox() {
 
   return (
     <>
-      {/* Circular Floating Chat Button */}
+      {/* Dynamic Attraction Message Balloon */}
+      <div
+        className={`fixed bottom-[34px] right-[88px] z-30 transition-all duration-500 ease-out pointer-events-none select-none flex items-center gap-2 ${
+          showAttractionMessage && !isOpen
+            ? 'opacity-100 translate-x-0'
+            : 'opacity-0 translate-x-4'
+        }`}
+      >
+
+        <span
+          className={`text-[11px] font-mono tracking-wider font-extrabold uppercase ${
+            isDark ? 'text-emerald-400' : 'text-emerald-600'
+          }`}
+        >
+          {attractionMessages[currentMessageIdx]}
+        </span>
+      </div>
+
+      {/* Floating Chat Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 cursor-pointer shadow-lg hover:scale-105 active:scale-95 group border print:hidden ${
-          isDark
-            ? 'bg-zinc-900 hover:bg-zinc-800 border-white/10'
-            : 'bg-white hover:bg-gray-50 border-gray-200'
-        }`}
+        className="fixed bottom-6 right-6 z-40 flex items-center justify-center transition-all duration-300 cursor-pointer hover:scale-110 active:scale-95 group print:hidden bg-transparent border-none outline-none shadow-none"
         title="Chat with AI Assistant"
-        style={{
-          boxShadow: isDark
-            ? '0 10px 30px -10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 255, 255, 0.05)'
-            : '0 10px 30px -10px rgba(0, 0, 0, 0.15)'
-        }}
       >
-        <span className="relative flex h-full w-full items-center justify-center">
-          <img
-            src="/logo.png"
-            alt="Aquilia Logo"
-            className="w-8 h-8 object-contain transition-transform duration-300 group-hover:rotate-12 rounded-xl"
-          />
-        </span>
+        <img
+          src="/logo.png"
+          alt="Aquilia Logo"
+          className="w-14 h-14 object-contain transition-transform duration-300 group-hover:rotate-12"
+        />
       </button>
 
-      {/* Premium Chatbox Panel */}
+      {/* Premium Full-Screen Overlay Chat */}
       <div
-        className={`fixed bottom-24 right-6 w-100 max-w-[calc(100vw-2rem)] h-[620px] max-h-[calc(100vh-8rem)] z-50 rounded-3xl flex flex-col overflow-hidden shadow-2xl transition-all duration-300 transform origin-bottom-right print:hidden ${
+        className={`fixed inset-0 z-50 flex flex-col transition-all duration-500 ease-in-out print:hidden ${
           isOpen
-            ? 'scale-100 opacity-100 translate-y-0 pointer-events-auto'
-            : 'scale-90 opacity-0 translate-y-4 pointer-events-none'
-        } ${isDark ? 'bg-zinc-950/90 border border-white/10' : 'bg-white/95 border border-gray-200'}`}
+            ? 'opacity-100 pointer-events-auto translate-y-0 scale-100'
+            : 'opacity-0 pointer-events-none translate-y-8 scale-[0.98]'
+        } ${isDark ? 'bg-zinc-950/95 text-zinc-100' : 'bg-white/95 text-zinc-900'}`}
         style={{
-          backdropFilter: 'blur(20px)',
-          boxShadow: isDark
-            ? '0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 40px rgba(34, 197, 94, 0.05)'
-            : '0 25px 50px -12px rgba(0, 0, 0, 0.15)'
+          backdropFilter: 'blur(30px)',
         }}
       >
-        {/* Chatbox Header */}
-        <div className={`p-4 flex items-center justify-between border-b ${isDark ? 'border-white/5 bg-white/[0.02]' : 'border-gray-200 bg-gray-50/50'}`}>
-          <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="Aquilia Logo" className="w-8 h-8 object-contain rounded-lg" />
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className={`font-bold text-sm leading-none ${isDark ? 'text-white' : 'text-gray-900'}`}>Aquilia AI Assistant</h3>
+        {/* Ambient glows for depth */}
+        {isDark && (
+          <>
+            <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-aquilia-500/5 blur-[150px] pointer-events-none select-none animate-pulse" style={{ animationDuration: '8s' }} />
+            <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[150px] pointer-events-none select-none animate-pulse" style={{ animationDuration: '12s' }} />
+          </>
+        )}
+
+        {/* Minimalist Top Nav Header */}
+        <header className={`w-full border-b ${isDark ? 'border-white/5' : 'border-zinc-200/80'} backdrop-blur-sm z-10`}>
+          <div className="max-w-4xl mx-auto w-full px-6 h-16 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="Aquilia Logo" className="w-8 h-8 object-contain rounded-lg shadow-sm" />
+              <div>
+                <h2 className="font-bold text-sm leading-none flex items-center gap-2">
+                  Aquilia AI Assistant
+                  <span className={`text-[9px] font-mono font-medium px-1.5 py-0.5 rounded ${isDark ? 'bg-white/5 text-aquilia-400' : 'bg-zinc-100 text-aquilia-600'}`}>
+                    v1.3.1
+                  </span>
+                </h2>
+                <span className={`text-[9px] font-mono uppercase tracking-widest font-semibold block mt-0.5 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                  Documentation Agent
+                </span>
               </div>
-              <span className={`text-[10px] uppercase tracking-wider font-semibold font-mono ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                Docs Context Agent
-              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleClear}
+                className={`p-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+                title="Clear conversation"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className={`p-2 rounded-xl transition-all duration-200 cursor-pointer ${
+                  isDark ? 'text-zinc-400 hover:text-white hover:bg-white/5' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                }`}
+                title="Close chat overlay"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
+        </header>
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleClear}
-              className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
-              title="Clear chat history"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => setIsOpen(false)}
-              className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'}`}
-              title="Minimize chat"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        {/* Chat Stream Viewport */}
+        <div className="flex-1 overflow-y-auto z-10">
+          <div className="max-w-4xl mx-auto w-full px-6 py-12 flex flex-col min-h-full">
+            {messages.length === 1 && (
+              /* Premium Welcome / Hero Introduction */
+              <div className="flex-1 flex flex-col justify-center items-center py-8 text-center select-none max-w-2xl mx-auto">
+                <img src="/logo.png" alt="Aquilia Logo" className="w-16 h-16 object-contain rounded-2xl mb-6 shadow-md shadow-aquilia-500/10" />
+                <h1 className="text-4xl font-extrabold tracking-tight mb-3">
+                  <span className="gradient-text">How can I assist you with</span>
+                  <span className={isDark ? 'text-white' : 'text-zinc-900'}> Aquilia?</span>
+                </h1>
+                <p className={`text-sm leading-relaxed max-w-md mb-8 ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  I have indexed all 288 documentation pages, classes, and release notes. Ask me anything about manifests, DI scopes, ORM querysets, or auth backends.
+                </p>
 
-
-
-        {/* Chat History Viewport */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={`flex gap-3 min-w-0 ${
-                msg.role === 'user' ? 'ml-auto flex-row-reverse max-w-[85%]' : 'mr-auto w-full'
-              }`}
-            >
-              {/* Avatar Icon */}
-              {msg.role === 'user' ? (
-                <div
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border ${
-                    isDark ? 'bg-aquilia-950/20 border-aquilia-500/30' : 'bg-aquilia-50 border-aquilia-200'
-                  }`}
-                >
-                  <User className="w-4 h-4 text-aquilia-400" />
+                {/* Suggestions Grid */}
+                <div className="w-full space-y-2.5 text-left">
+                  <div className={`text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-zinc-500' : 'text-zinc-400'} px-1`}>
+                    SUGGESTED TOPICS
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
+                    {suggestions.map((s, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleSuggestionClick(s)}
+                        className={`text-left text-xs p-4 rounded-2xl border transition-all duration-300 cursor-pointer flex items-start gap-3 ${
+                          isDark
+                            ? 'bg-white/[0.01] border-white/5 text-zinc-300 hover:bg-aquilia-500/5 hover:border-aquilia-500/20 hover:text-white'
+                            : 'bg-zinc-50 border-zinc-200/50 text-zinc-700 hover:bg-aquilia-50 hover:border-aquilia-300 hover:text-zinc-900'
+                        }`}
+                      >
+                        <HelpCircle className="w-4 h-4 text-aquilia-500 shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{s}</span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              ) : (
-                <img src="/logo.png" alt="Bot Logo" className="w-8 h-8 object-contain rounded-lg shrink-0" />
-              )}
+              </div>
+            )}
 
-              {/* Text Bubble / Content */}
-              <div className="flex flex-col gap-1.5 min-w-0 flex-1">
-                {msg.role === 'user' ? (
+            {messages.length > 1 && (
+              /* Active Chat Conversation messages */
+              <div className="space-y-10 flex-1">
+
+                {messages.map((msg, i) => (
                   <div
-                    className={`p-3.5 rounded-2xl rounded-tr-none text-sm text-white ${
-                      isDark ? 'bg-aquilia-900/30 border border-aquilia-500/20' : 'bg-aquilia-600'
+                    key={i}
+                    className={`flex gap-5 min-w-0 ${
+                      msg.role === 'user' ? 'justify-end' : 'justify-start'
                     }`}
                   >
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    {/* Bot Icon on the left for assistant responses (direct logo, no box) */}
+                    {msg.role === 'assistant' && (
+                      <img src="/logo.png" alt="Bot Logo" className="w-8 h-8 object-contain shrink-0 rounded-lg" />
+                    )}
+
+                    {/* Content Section */}
+                    <div className={`flex flex-col gap-2 min-w-0 ${msg.role === 'user' ? 'max-w-[75%]' : 'flex-1'}`}>
+                      {msg.role === 'user' ? (
+                        <div
+                          className={`px-5 py-3 rounded-2xl rounded-tr-none text-sm leading-relaxed ${
+                            isDark
+                              ? 'bg-zinc-100 border border-zinc-200 text-zinc-950 shadow-sm'
+                              : 'bg-zinc-950 border border-zinc-900 text-zinc-50 shadow-md shadow-zinc-950/10'
+                          }`}
+                        >
+                          <p className="whitespace-pre-wrap">{msg.content}</p>
+                        </div>
+                      ) : (
+                        <div className="text-sm leading-relaxed min-w-0 w-full">
+                          <div className="markdown-body w-full overflow-hidden break-words">
+                            {parseMarkdown(msg.content)}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Related Sources capsules (Assistant Only) */}
+                      {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-dashed border-zinc-200/50 dark:border-white/5">
+                          <span className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 mr-1 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                            <BookOpen className="w-3.5 h-3.5 text-emerald-500" /> References
+                          </span>
+                          {msg.sources.map((src, idx) => (
+                            <a
+                              key={idx}
+                              href={src.path}
+                              className={`text-[10px] font-mono px-3 py-1 rounded-full border transition-all duration-300 cursor-pointer flex items-center gap-1.5 hover:scale-105 active:scale-95 shadow-sm ${
+                                isDark
+                                  ? 'bg-emerald-950/20 border-emerald-500/10 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/30'
+                                  : 'bg-emerald-50/50 border-emerald-200/60 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-300'
+                              }`}
+                              title={`Go to: ${src.path}`}
+                            >
+                              <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                              {src.title}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* User Icon on the right for user messages */}
+                    {msg.role === 'user' && (
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 border shadow-sm ${
+                        isDark 
+                          ? 'bg-zinc-100 border-zinc-200 text-zinc-950' 
+                          : 'bg-zinc-950 border-zinc-900 text-zinc-50'
+                      }`}>
+                        <User className="w-4 h-4 shrink-0" />
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div className={`text-sm leading-relaxed min-w-0 w-full ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                    <div className="markdown-body w-full overflow-hidden break-words">
-                      {parseMarkdown(msg.content)}
+                ))}
+
+                {/* Processing Indicator (Direct bot logo, 3 jumping dots) */}
+                {(isLoading || isStreaming) && (
+                  <div className="flex gap-5 w-full items-center text-xs text-zinc-400 pl-1">
+                    <img src="/logo.png" alt="Bot Logo" className="w-8 h-8 object-contain shrink-0 rounded-lg" />
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex items-center gap-1.5 px-1 py-0.5 shrink-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-aquilia-500 dark:bg-aquilia-400 animate-bounce" style={{ animationDelay: '0ms', animationDuration: '0.8s' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-aquilia-500 dark:bg-aquilia-400 animate-bounce" style={{ animationDelay: '150ms', animationDuration: '0.8s' }} />
+                        <div className="w-1.5 h-1.5 rounded-full bg-aquilia-500 dark:bg-aquilia-400 animate-bounce" style={{ animationDelay: '300ms', animationDuration: '0.8s' }} />
+                      </div>
+                      <span className="font-mono text-[10px] tracking-wider uppercase opacity-85">
+                        {isLoading ? 'Retrieving framework context...' : 'Generating response...'}
+                      </span>
                     </div>
                   </div>
                 )}
-
-                {/* Sources list */}
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-1 px-1">
-                    <span className={`text-[10px] font-semibold flex items-center gap-1 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                      <BookOpen className="w-3 h-3" /> Related docs:
-                    </span>
-                    {msg.sources.map((src, idx) => (
-                      <span
-                        key={idx}
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded-lg border ${
-                          isDark
-                            ? 'bg-zinc-900/50 border-white/5 text-gray-400 hover:text-aquilia-400 hover:border-aquilia-400/20'
-                            : 'bg-gray-100 border-gray-200 text-gray-600 hover:text-aquilia-600 hover:border-aquilia-300'
-                        } cursor-help transition-all`}
-                        title={`Path: ${src.path}`}
-                      >
-                        {src.title}
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
-
-          {/* Loading Indicator */}
-          {isLoading && (
-            <div className="flex gap-3 w-full mr-auto items-center text-xs text-gray-400 pl-1">
-              <img src="/logo.png" alt="Bot Logo" className="w-8 h-8 object-contain rounded-lg shrink-0" />
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-aquilia-400 shrink-0" />
-                <span>Searching documentation and preparing response...</span>
-              </div>
-            </div>
-          )}
-
-          {/* Suggested Prompts (Chips) */}
-          {messages.length === 1 && (
-            <div className="pt-2 space-y-2">
-              <div className={`text-xs font-semibold flex items-center gap-1.5 px-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                <HelpCircle className="w-3.5 h-3.5 text-aquilia-500" />
-                <span>Suggested topics:</span>
-              </div>
-              <div className="flex flex-col gap-2">
-                {suggestions.map((s, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSuggestionClick(s)}
-                    className={`w-full text-left text-xs p-3 rounded-2xl border transition-all cursor-pointer ${
-                      isDark
-                        ? 'bg-zinc-900/30 border-white/5 text-gray-300 hover:bg-aquilia-950/20 hover:border-aquilia-500/30 hover:text-white'
-                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-aquilia-300 hover:text-gray-900'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
+            )}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
 
-        {/* Input Bar Form */}
-        <form
-          onSubmit={handleSendMessage}
-          className={`p-3.5 border-t flex items-center gap-2 ${
-            isDark ? 'border-white/5 bg-black/40' : 'border-gray-200 bg-gray-50/50'
-          }`}
-        >
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask a question about Aquilia..."
-            className={`flex-1 px-4 py-2.5 text-sm rounded-2xl outline-none border focus:border-aquilia-500 ${
-              isDark
-                ? 'bg-zinc-900 border-white/10 text-white placeholder-gray-500'
-                : 'bg-white border-gray-300 text-black placeholder-gray-400'
-            }`}
-          />
-          {isStreaming || isLoading ? (
-            <button
-              type="button"
-              onClick={handleStopStreaming}
-              className="p-2.5 rounded-2xl flex items-center justify-center transition-all cursor-pointer bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/30 hover:scale-105 active:scale-95"
-              title="Stop generating"
-            >
-              <Square className="w-4 h-4 fill-current" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className={`p-2.5 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
-                !input.trim()
-                  ? `${isDark ? 'text-gray-600 bg-white/[0.02]' : 'text-gray-400 bg-gray-100'}`
-                  : 'bg-aquilia-600 text-white hover:bg-aquilia-500 hover:scale-105 active:scale-95'
+        {/* Spacious, Floating Bottom Input Panel */}
+        <footer className={`w-full z-10 relative ${
+          isDark 
+            ? 'bg-gradient-to-t from-zinc-950 via-zinc-950/95 to-transparent' 
+            : 'bg-gradient-to-t from-white via-white/95 to-transparent'
+        }`}>
+          <div className="max-w-4xl mx-auto w-full px-6 pb-6 pt-4">
+            <form
+              onSubmit={handleSendMessage}
+              className={`relative flex items-center border transition-all duration-300 rounded-2xl p-2.5 ${
+                isDark
+                  ? 'bg-zinc-900/50 backdrop-blur-xl border-white/10 focus-within:border-aquilia-500/50 focus-within:ring-4 focus-within:ring-aquilia-500/5'
+                  : 'bg-zinc-50 backdrop-blur-xl border-zinc-200 focus-within:border-aquilia-500 focus-within:ring-4 focus-within:ring-aquilia-500/5'
               }`}
-              style={{
-                boxShadow: input.trim() ? '0 0 10px rgba(34, 197, 94, 0.2)' : 'none'
-              }}
             >
-              <Send className="w-4 h-4" />
-            </button>
-          )}
-        </form>
+              <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask a question about Aquilia (e.g. 'how does session serialization change in 1.3.1?')..."
+                className="flex-1 bg-transparent px-3 py-2 text-sm outline-none border-none text-zinc-900 dark:text-zinc-100 placeholder-zinc-500"
+              />
+
+              <div className="flex items-center gap-2 shrink-0 pr-1">
+                {isStreaming || isLoading ? (
+                  <button
+                    type="button"
+                    onClick={handleStopStreaming}
+                    className="p-2.5 rounded-xl flex items-center justify-center transition-all cursor-pointer bg-red-500/10 border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white hover:scale-105 active:scale-95"
+                    title="Stop generating"
+                  >
+                    <Square className="w-3.5 h-3.5 fill-current" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim()}
+                    className={`p-2.5 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                      !input.trim()
+                        ? 'text-zinc-400 dark:text-zinc-600 bg-transparent'
+                        : 'bg-aquilia-600 text-white hover:bg-aquilia-500 shadow-md shadow-aquilia-500/10 hover:scale-105 active:scale-95'
+                    }`}
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <p className={`text-[10px] text-center mt-2.5 font-light ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>
+              Aquilia AI Documentation Assistant makes references directly to local documentation. Verify critical implementation specifications.
+            </p>
+          </div>
+        </footer>
       </div>
     </>
   )
