@@ -425,6 +425,8 @@ class StaticMiddleware(Middleware):
 
     def _serve_file(self, request: Request, directory: Path, relative_path: str) -> Response | None:
         """Attempt to serve a single file.  Returns None on miss."""
+        from aquilia.response import Response
+
         # Canonicalize and prevent traversal
         file_path = (directory / relative_path).resolve()
         try:
@@ -586,6 +588,8 @@ class StaticMiddleware(Middleware):
         base_headers: dict[str, str],
     ) -> Response | None:
         """Handle Range: bytes=start-end header."""
+        from aquilia.response import Response
+
         total = len(content)
         try:
             if not range_header.startswith("bytes="):
