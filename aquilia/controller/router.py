@@ -638,6 +638,20 @@ class ControllerRouter:
         When ``api_version`` is provided and the app uses URL-path versioning,
         the version prefix segment is prepended to the generated path.
         """
+        if name == "static":
+            filename = params.get("filename")
+            if filename:
+                try:
+                    from .base import _get_current_request_ctx
+                    ctx = _get_current_request_ctx()
+                    if ctx and hasattr(ctx, "request") and hasattr(ctx.request, "state"):
+                        template_static = ctx.request.state.get("template_static")
+                        if callable(template_static):
+                            return template_static(filename)
+                except Exception:
+                    pass
+                return f"/static/{filename.lstrip('/')}"
+
         for controller in self.compiled_controllers:
             for route in controller.routes:
                 full_name = f"{route.controller_class.__name__}.{route.route_metadata.handler_name}"
