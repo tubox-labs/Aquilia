@@ -1801,6 +1801,9 @@ class ControllerEngine:
         if isinstance(result, (dict, list, tuple)):
             return Response.json(result)
         elif isinstance(result, str):
+            stripped = result.lstrip()
+            if stripped.startswith("<"):
+                return Response(result, media_type="text/html; charset=utf-8")
             return Response(result, media_type="text/plain")
         elif result is None:
             return Response("", status=204)
