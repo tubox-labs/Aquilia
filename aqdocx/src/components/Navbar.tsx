@@ -165,6 +165,18 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
               <span>Releases</span>
               <div className={`absolute inset-0 -translate-x-full group-hover/rel:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
             </Link>
+
+            <Link
+              to="/releases/1.3.1"
+              className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/relnotes relative overflow-hidden ${location.pathname.startsWith('/releases/')
+                ? 'text-aquilia-400'
+                : `${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`
+                }`}
+            >
+              <FileText className="w-4 h-4 group-hover/relnotes:scale-110 transition-transform duration-200" />
+              <span>Release Notes</span>
+              <div className={`absolute inset-0 -translate-x-full group-hover/relnotes:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
+            </Link>
           </div>
 
           {/* Right actions */}
@@ -239,6 +251,17 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
             >
               <Tag className="w-4 h-4" />
               Releases
+            </Link>
+            <Link
+              to="/releases/1.3.1"
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                location.pathname.startsWith('/releases/')
+                  ? 'text-aquilia-500 bg-aquilia-500/10'
+                  : isDark ? 'text-gray-300 hover:bg-white/5' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Release Notes
             </Link>
           </div>
         </div>

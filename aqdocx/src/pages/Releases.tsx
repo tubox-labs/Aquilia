@@ -597,9 +597,11 @@ export function Releases({ printMode = false }: { printMode?: boolean }) {
                         {/* Release Header */}
                         <div className="mb-6">
                           <div className="flex flex-col sm:flex-row sm:items-baseline gap-3 mb-2">
-                            <h2 className={`text-3xl font-extrabold font-mono tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                              v{release.version}
-                            </h2>
+                            <Link to={`/releases/${release.version}`}>
+                              <h2 className={`text-3xl font-extrabold font-mono tracking-tight ${isDark ? 'text-white hover:text-aquilia-400' : 'text-gray-900 hover:text-aquilia-600'} transition-colors`}>
+                                v{release.version}
+                              </h2>
+                            </Link>
                             <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${tagColors[release.tag]?.bg || 'bg-blue-500/10 text-blue-400'} ${tagColors[release.tag]?.text || 'text-white'}`}>
                               {release.tag}
                             </span>
@@ -612,9 +614,21 @@ export function Releases({ printMode = false }: { printMode?: boolean }) {
                           </div>
                         </div>
 
-                        <p className={`text-sm leading-relaxed mb-6 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                        <p className={`text-sm leading-relaxed mb-4 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
                           {release.summary}
                         </p>
+
+                        <div className="mb-6">
+                          <Link
+                            to={`/releases/${release.version}`}
+                            className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                              isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'
+                            } transition-colors group/view`}
+                          >
+                            <span>Read Release Notes</span>
+                            <ArrowRight className="w-3.5 h-3.5 group-hover/view:translate-x-0.5 transition-transform" />
+                          </Link>
+                        </div>
 
                         {/* Installation */}
                         <div className="mb-6">

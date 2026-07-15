@@ -8,6 +8,7 @@ import { DocsLayout } from './components/DocsLayout'
 import { LandingPage } from './pages/LandingPage'
 import { Changelogs } from './pages/Changelogs'
 import { Releases } from './pages/Releases'
+import { ReleaseDetail } from './pages/ReleaseDetail'
 import { BenchmarkPage } from './pages/Benchmark'
 import { HelpPage } from './pages/Help'
 import { CommunityPage } from './pages/Community'
@@ -337,6 +338,8 @@ export default function App() {
         <Route path="/benchmark" element={<BenchmarkPage />} />
         <Route path="/changelogs" element={<Changelogs />} />
         <Route path="/releases" element={<Releases />} />
+        <Route path="/releases/:version" element={<ReleaseDetail />} />
+        <Route path="/releases/:version/:page" element={<ReleaseDetail />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/community" element={<CommunityPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
