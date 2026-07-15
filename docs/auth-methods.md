@@ -41,97 +41,55 @@ class UsersController(Controller):
     pipeline = [AuthGuard]
 ```
 
-### ApiKeyGuard
+### RoleGuard
 
 Constructor:
 
 ```python
-ApiKeyGuard(auth_manager: AuthManager | None = None, required_scopes: list[str] | None = None)
+RoleGuard(*roles: str, engine: PermissionEngine | None = None, require_all: bool = True)
 ```
 
 Behavior:
-- Authenticates using X-API-Key header.
-- Supports optional required_scopes.
-- Resolves auth_manager from DI when omitted.
+- Asserts that the authenticated identity holds the specified roles.
+- Supports role inheritance when a `PermissionEngine` is resolved or passed.
 
-### AuthzGuard
+### ScopeGuard
 
 Constructor:
 
 ```python
-AuthzGuard(
-    authz_engine: AuthzEngine | None = None,
-    resource_extractor: Callable[[dict[str, Any]], str] | None = None,
-    action: str | None = None,
-    required_scopes: list[str] | None = None,
-    required_roles: list[str] | None = None,
-    policy_id: str | None = None,
+ScopeGuard(*scopes: str, require_all: bool = True)
+```
+
+Behavior:
+- Asserts that the authenticated identity holds the specified OAuth scopes.
+
+### PolicyGuard
+
+Constructor:
+
+```python
+PolicyGuard(key: str, engine: PermissionEngine, resource: Any = None)
+```
+
+Behavior:
+- Enforces a registered custom authorization policy from the `PermissionEngine`.
+
+## 3. Flow Graph Integration
+
+Because all stateless guards in `aquilia.auth.guards` implement the callable protocol (`__call__`), they can be registered directly as nodes inside Aquilia flow pipelines without any adapter classes.
+
+```python
+from aquilia.flow import Flow
+from aquilia.auth.guards import AuthGuard, RoleGuard
+
+admin_flow = (
+    Flow("admin_pipeline")
+    .then(AuthGuard())
+    .then(RoleGuard("admin"))
+    .then(execute_admin_logic)
 )
 ```
-
-Behavior:
-- Requires identity in context.
-- Evaluates scopes, roles, and/or policy.
-
-### ScopeGuard and RoleGuard
-
-Constructors:
-
-```python
-ScopeGuard(required_scopes: list[str])
-RoleGuard(required_roles: list[str])
-```
-
-Behavior:
-- Lightweight scope-only or role-only checks.
-
-## 3. Flow Guard Methods (aquilia.auth.integration.flow_guards)
-
-These are useful when building Flow-style pipelines.
-
-### RequireAuthGuard
-
-```python
-RequireAuthGuard(optional: bool = False)
-```
-
-- optional=False: requires identity.
-- optional=True: allows anonymous access.
-
-### RequireSessionAuthGuard
-
-```python
-RequireSessionAuthGuard(auth_manager: AuthManager | None = None)
-```
-
-- Validates session identity linkage.
-- Resolves auth_manager from DI when omitted.
-
-### RequireTokenAuthGuard
-
-```python
-RequireTokenAuthGuard(auth_manager: AuthManager | None = None)
-```
-
-- Validates Bearer token.
-- Resolves auth_manager from DI when omitted.
-
-### RequireApiKeyGuard
-
-```python
-RequireApiKeyGuard(
-    auth_manager: AuthManager | None = None,
-    required_scopes: list[str] | None = None,
-)
-```
-
-- Validates API key authentication.
-- Resolves auth_manager from DI when omitted.
-
-### RequireScopesGuard / RequireRolesGuard / RequirePermissionGuard / RequirePolicyGuard
-
-Behavior:
-- Additional authorization-level checks for scopes, roles, permissions, or policy rules.
 
 ## 4. Controller-Level vs Route-Level Auth
 
