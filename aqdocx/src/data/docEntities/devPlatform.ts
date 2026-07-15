@@ -1,0 +1,185 @@
+import { registerDocEntities } from '../../lib/docPreview/registry'
+
+registerDocEntities([
+  {
+    id: 'devplatform.config',
+    type: 'class',
+    title: 'AquiliaDevelopmentConfig',
+    description: 'Configuration schema for the Aquilia Native Development Platform (ADP). Built on Env, resolves from CLI flags, environment variables (AQ_DEV_*), and workspace.py server config.',
+    signature: 'class AquiliaDevelopmentConfig:\n    host: str = "127.0.0.1"\n    port: int = 8000\n    uds: str | None = None\n    fd: int | None = None\n    http: AdpTransport = "h11"\n    ws: AdpWsMode = "auto"\n    reload: bool = True\n    reload_dirs: list[Path] = field(default_factory=list)\n    reload_excludes: list[str] = field(default_factory=list)\n    log_level: AdpLogLevel = "INFO"\n    inspector_enabled: bool = True\n    max_request_history: int = 500\n    profiler_enabled: bool = False\n    sql_explain_threshold_ms: float = 50.0\n    n_plus_one_detection: bool = True\n    memory_snapshot_interval_s: float = 30.0\n    timeout_graceful_shutdown: float = 5.0',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/configuration',
+    source: { file: 'aquilia/devplatform/config.py', line: 48 }
+  },
+  {
+    id: 'devplatform.server',
+    type: 'class',
+    title: 'AquiliaDevelopmentServer',
+    description: 'The ASGI development server for Aquilia. Wraps application routes with instrumentation and opens a native TCP acceptor with an h11 state machine.',
+    signature: 'class AquiliaDevelopmentServer:\n    def __init__(self, config: AquiliaDevelopmentConfig) -> None\n    async def start(self, app: Any) -> None\n    async def stop(self) -> None',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/getting-started',
+    source: { file: 'aquilia/devplatform/devserver.py', line: 52 }
+  },
+  {
+    id: 'devplatform.platform',
+    type: 'class',
+    title: 'AquiliaDevelopmentPlatform',
+    description: 'Facade object passed to plugins during initialization. Exposes direct hook registration for request lifecycle and exception events.',
+    signature: 'class AquiliaDevelopmentPlatform:\n    def on_request_start(self, hook: Callable[[dict], None]) -> None\n    def on_request_end(self, hook: Callable[[RequestRecord], None]) -> None\n    def on_exception(self, hook: Callable[[Exception, Any], None]) -> None\n    def get_runtime(self) -> RuntimeStateStore',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/plugins',
+    source: { file: 'aquilia/devplatform/platform.py', line: 23 }
+  },
+  {
+    id: 'devplatform.runtime_state_store',
+    type: 'class',
+    title: 'RuntimeStateStore',
+    description: 'Thread-safe global state store singleton for live development metrics, circular request history (deque), and database pool telemetry.',
+    signature: 'class RuntimeStateStore(SingletonMixin):\n    @classmethod\n    def get_instance(cls) -> RuntimeStateStore\n    def snapshot(self) -> ServerMetrics\n    def record_request(self, record: RequestRecord) -> None\n    def get_recent_requests(self, limit: int = 50) -> list[RequestRecord]',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/diagnostics',
+    source: { file: 'aquilia/devplatform/core/runtime.py', line: 43 }
+  },
+  {
+    id: 'devplatform.request_record',
+    type: 'class',
+    title: 'RequestRecord',
+    description: 'Immutable container representing a completed HTTP request with rich diagnostics including traces, SQL queries, memory delta, and exceptions.',
+    signature: 'class RequestRecord:\n    trace_id: str\n    method: str\n    path: str\n    status_code: int\n    duration_ms: float\n    request_headers: dict[str, str]\n    response_headers: dict[str, str]\n    query_params: dict[str, list[str]]\n    path_params: dict[str, Any]\n    request_body_preview: str | None\n    client_addr: str | None\n    spans: list[TraceSpan]\n    sql_records: list[SQLRecord]\n    n_plus_one_warnings: list[dict[str, Any]]\n    memory_ingress_rss: int\n    memory_egress_rss: int\n    exception_type: str | None\n    exception_message: str | None\n    profile_stats: str | None',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/diagnostics',
+    source: { file: 'aquilia/devplatform/core/state.py', line: 54 }
+  },
+  {
+    id: 'devplatform.trace_span',
+    type: 'class',
+    title: 'TraceSpan',
+    description: 'Timing span representing a single operation inside a request lifecycle, categorized into diagnostic lanes.',
+    signature: 'class TraceSpan:\n    span_id: str\n    name: str\n    lane: str\n    start_time: float\n    end_time: float\n    parent_id: str | None = None\n    status: str = "ok"\n    detail: dict[str, Any] = field(default_factory=dict)\n    source: str | None = None',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/diagnostics',
+    source: { file: 'aquilia/devplatform/core/state.py', line: 22 }
+  },
+  {
+    id: 'devplatform.fault.base',
+    type: 'class',
+    title: 'DevPlatformFault',
+    description: 'Base fault class for the Aquilia Native Development Platform (ADP). Extends Aquilia\'s Fault on the Lane.DEVPLATFORM domain.',
+    signature: 'class DevPlatformFault(Fault):\n    def __init__(self, code: str, message: str, *, severity: Severity = Severity.ERROR, retryable: bool = False, public: bool = False, metadata: dict[str, Any] | None = None)',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 32 }
+  },
+  {
+    id: 'devplatform.fault.startup',
+    type: 'class',
+    title: 'StartupFault',
+    description: 'Raised when ADP fails to boot, typically due to port binding issues (EADDRINUSE) or ASGI lifespan startup timing out.',
+    signature: 'class StartupFault(DevPlatformFault):\n    def __init__(self, reason: str, **kwargs: Any)',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 61 }
+  },
+  {
+    id: 'devplatform.fault.reload',
+    type: 'class',
+    title: 'ReloadFault',
+    description: 'Raised when the hot-reload scheduler or AST executor encounters an unrecoverable error during a module reload cycle.',
+    signature: 'class ReloadFault(DevPlatformFault):\n    def __init__(self, reason: str, **kwargs: Any)',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 79 }
+  },
+  {
+    id: 'devplatform.fault.inspector',
+    type: 'class',
+    title: 'InspectorFault',
+    description: 'Raised by telemetry or diagnostic observer modules when unable to communicate with the central Inspector interface.',
+    signature: 'class InspectorFault(DevPlatformFault):\n    def __init__(self, reason: str, **kwargs: Any)',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 97 }
+  },
+  {
+    id: 'devplatform.fault.worker',
+    type: 'class',
+    title: 'WorkerFault',
+    description: 'Raised when an ADP background thread, monitor thread, or plugin hook callback encounters an unhandled exception.',
+    signature: 'class WorkerFault(DevPlatformFault):\n    def __init__(self, reason: str, **kwargs: Any)',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 115 }
+  },
+  {
+    id: 'devplatform.fault.configuration',
+    type: 'class',
+    title: 'ConfigurationFault',
+    description: 'Raised during startup or hot-reload when configuration values fail schema type/boundary constraints.',
+    signature: 'class ConfigurationFault(DevPlatformFault):\n    def __init__(self, reason: str, **kwargs: Any)',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 133 }
+  },
+  {
+    id: 'devplatform.report_fault',
+    type: 'function',
+    title: 'report_fault',
+    description: 'Reports a non-fatal DevPlatformFault. Routes it through the host app\'s FaultEngine to surface in Inspector, or falls back to logger.',
+    signature: 'def report_fault(fault: DevPlatformFault, app: Any = None) -> None',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/faults',
+    source: { file: 'aquilia/devplatform/faults.py', line: 152 }
+  },
+  {
+    id: 'devplatform.watcher',
+    type: 'class',
+    title: 'WorkspaceWatcher',
+    description: 'Filesystem monitor powered by watchfiles. Listens for modified modules and directories, debounces saves, and initiates the reload cycle.',
+    signature: 'class WorkspaceWatcher:\n    def __init__(self, config: AquiliaDevelopmentConfig, runtime: RuntimeStateStore) -> None\n    def watch(self) -> None',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/hot-reload',
+    source: { file: 'aquilia/devplatform/reload/watcher.py', line: 26 }
+  },
+  {
+    id: 'devplatform.ui',
+    type: 'class',
+    title: 'ADPTerminalUI',
+    description: 'Console-based UI that listens to keyboard interrupts and displays performance statistics.',
+    signature: 'class ADPTerminalUI:\n    def __init__(self, config: AquiliaDevelopmentConfig, runtime: RuntimeStateStore | None = None, mode: str = "dev", on_reload: Callable[[], None] | None = None, on_quit: Callable[[], None] | None = None) -> None',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.4+',
+    docsHref: '/docs/devplatform/terminal-ui',
+    source: { file: 'aquilia/devplatform/ui.py', line: 77 }
+  }
+])
+
