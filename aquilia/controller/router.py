@@ -643,6 +643,7 @@ class ControllerRouter:
             if filename:
                 try:
                     from .base import _get_current_request_ctx
+
                     ctx = _get_current_request_ctx()
                     if ctx and hasattr(ctx, "request") and hasattr(ctx.request, "state"):
                         template_static = ctx.request.state.get("template_static")
