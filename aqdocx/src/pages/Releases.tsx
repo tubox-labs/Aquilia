@@ -372,17 +372,17 @@ export function Releases({ printMode = false }: { printMode?: boolean }) {
     "@graph": [
       {
         "@type": "CollectionPage",
-        "@id": "https://aquilia.tubox.cloud/releases#webpage",
+        "@id": "https://tubox.cloud/releases#webpage",
         "name": "Releases & Version History — Aquilia",
         "description": "Stay up to date with the latest releases, features, bug fixes, and upgrades of the Aquilia Python framework.",
-        "url": "https://aquilia.tubox.cloud/releases"
+        "url": "https://tubox.cloud/releases"
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/releases#breadcrumbs",
+        "@id": "https://tubox.cloud/releases#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Releases", "item": "https://aquilia.tubox.cloud/releases" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Releases", "item": "https://tubox.cloud/releases" }
         ]
       }
     ]

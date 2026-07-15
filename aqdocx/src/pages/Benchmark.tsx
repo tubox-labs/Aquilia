@@ -232,10 +232,10 @@ export function BenchmarkPage() {
     "@graph": [
       {
         "@type": "TechArticle",
-        "@id": "https://aquilia.tubox.cloud/benchmark#article",
+        "@id": "https://tubox.cloud/benchmark#article",
         "headline": "Framework Benchmarks — Aquilia vs FastAPI vs Django",
         "description": "Compare Aquilia performance against FastAPI, Starlette, Django, and Flask. Review throughput, latency, and resource metrics.",
-        "url": "https://aquilia.tubox.cloud/benchmark",
+        "url": "https://tubox.cloud/benchmark",
         "author": {
           "@type": "Organization",
           "name": "Aquilia Team"
@@ -243,10 +243,10 @@ export function BenchmarkPage() {
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/benchmark#breadcrumbs",
+        "@id": "https://tubox.cloud/benchmark#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Benchmarks", "item": "https://aquilia.tubox.cloud/benchmark" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Benchmarks", "item": "https://tubox.cloud/benchmark" }
         ]
       }
     ]

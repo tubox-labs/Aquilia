@@ -64,6 +64,7 @@ def extract_code_blocks(content):
 def split_tsx_into_chunks(filepath, path_url, page_title):
     with open(filepath, 'r', encoding='utf-8') as f:
         raw_content = f.read()
+    raw_content = raw_content.replace('${CONSTANTS.DOMAIN}', 'tubox.cloud').replace('${CONSTANTS.BASE_URL}', 'https://tubox.cloud')
     
     # Extract code blocks before stripping tags
     code_blocks = extract_code_blocks(raw_content)
@@ -355,6 +356,7 @@ def main():
         # Let's extract first <h1> tag or use capitalized path
         with open(abs_src_path, 'r', encoding='utf-8') as f:
             file_code = f.read()
+        file_code = file_code.replace('${CONSTANTS.DOMAIN}', 'tubox.cloud').replace('${CONSTANTS.BASE_URL}', 'https://tubox.cloud')
             
         h1_match = re.search(r'<(?:h1|span\s+className=[^>]*font-bold[^>]*>)([\s\S]*?)</(?:h1|span)>', file_code)
         if h1_match:
@@ -434,6 +436,7 @@ def main():
             print(f"Indexing other page {page_title} ({url_path})")
             with open(page_file, 'r', encoding='utf-8') as f:
                 code = f.read()
+            code = code.replace('${CONSTANTS.DOMAIN}', 'tubox.cloud').replace('${CONSTANTS.BASE_URL}', 'https://tubox.cloud')
                 
             plain_text = clean_text_fully(code)
             code_blocks = extract_code_blocks(code)

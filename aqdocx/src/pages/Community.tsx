@@ -13,17 +13,17 @@ export function CommunityPage() {
     "@graph": [
       {
         "@type": "WebPage",
-        "@id": "https://aquilia.tubox.cloud/community#webpage",
+        "@id": "https://tubox.cloud/community#webpage",
         "name": "Developer Community & Ecosystem — Aquilia",
         "description": "Join the Aquilia framework community. Connect on GitHub, Discord, and Slack, and contribute to the async Python ecosystem.",
-        "url": "https://aquilia.tubox.cloud/community"
+        "url": "https://tubox.cloud/community"
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/community#breadcrumbs",
+        "@id": "https://tubox.cloud/community#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Community", "item": "https://aquilia.tubox.cloud/community" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Community", "item": "https://tubox.cloud/community" }
         ]
       }
     ]

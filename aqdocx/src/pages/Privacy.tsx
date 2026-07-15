@@ -13,17 +13,17 @@ export function PrivacyPage() {
     "@graph": [
       {
         "@type": "WebPage",
-        "@id": "https://aquilia.tubox.cloud/privacy#webpage",
+        "@id": "https://tubox.cloud/privacy#webpage",
         "name": "Privacy Policy — Aquilia",
         "description": "Read the privacy policy and developer controls for the Aquilia documentation site and services.",
-        "url": "https://aquilia.tubox.cloud/privacy"
+        "url": "https://tubox.cloud/privacy"
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/privacy#breadcrumbs",
+        "@id": "https://tubox.cloud/privacy#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Privacy Policy", "item": "https://aquilia.tubox.cloud/privacy" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Privacy Policy", "item": "https://tubox.cloud/privacy" }
         ]
       }
     ]

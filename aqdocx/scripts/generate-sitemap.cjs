@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const DOMAIN = 'https://aquilia.tubox.cloud';
+const DOMAIN = 'https://tubox.cloud';
 const LASTMOD = new Date().toISOString().split('T')[0];
 
 const rootRoutes = [

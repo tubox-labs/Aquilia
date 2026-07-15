@@ -49,12 +49,12 @@ export function LandingPage() {
     "@graph": [
       {
         "@type": "SoftwareApplication",
-        "@id": "https://aquilia.tubox.cloud/#software",
+        "@id": "https://tubox.cloud/#software",
         "name": "Aquilia",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "Cross-platform",
         "description": "Manifest-First, async-native Python web framework with zero boilerplate.",
-        "url": "https://aquilia.tubox.cloud/",
+        "url": "https://tubox.cloud/",
         "downloadUrl": "https://pypi.org/project/aquilia/",
         "softwareVersion": version,
         "programmingLanguage": "Python",
@@ -67,15 +67,15 @@ export function LandingPage() {
       },
       {
         "@type": "WebSite",
-        "@id": "https://aquilia.tubox.cloud/#website",
+        "@id": "https://tubox.cloud/#website",
         "name": "Aquilia",
-        "url": "https://aquilia.tubox.cloud/",
+        "url": "https://tubox.cloud/",
         "publisher": {
           "@type": "Organization",
           "name": "Aquilia Team",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://aquilia.tubox.cloud/logo.png"
+            "url": "https://tubox.cloud/logo.png"
           }
         }
       }

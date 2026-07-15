@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
 import { Github, MessageSquare } from 'lucide-react'
+import { CONSTANTS } from '../data/constants'
 
 export function Footer() {
   const { theme } = useTheme()
@@ -27,7 +28,7 @@ export function Footer() {
           {/* Social Icons */}
           <div className="flex items-center gap-4">
             <a 
-              href="https://github.com/tubox-labs/Aquilia" 
+              href={CONSTANTS.GITHUB_REPO_URL} 
               target="_blank" 
               rel="noopener" 
               className={`transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}
@@ -36,7 +37,7 @@ export function Footer() {
               <Github className="w-4 h-4" />
             </a>
             <a 
-              href="https://github.com/tubox-labs/Aquilia/discussions" 
+              href={CONSTANTS.GITHUB_DISCUSSIONS_URL} 
               target="_blank" 
               rel="noopener" 
               className={`transition-colors ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`}

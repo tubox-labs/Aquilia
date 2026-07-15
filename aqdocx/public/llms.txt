@@ -12,13 +12,13 @@ Aquilia is a high-performance, async-native, manifest-first Python web framework
 
 ## Essential Documentation URLs
 
-- [Documentation Index](https://aquilia.tubox.cloud/docs) — Getting started, installation, architecture.
-- [Installation Guide](https://aquilia.tubox.cloud/docs/installation) — `pip install aquilia` and dependencies.
-- [Quick Start](https://aquilia.tubox.cloud/docs/quickstart) — Building a hello world controller in 5 minutes.
-- [Dependency Injection](https://aquilia.tubox.cloud/docs/di) — Provider lifecycle, scopes, and diagnostics.
-- [ORM Models](https://aquilia.tubox.cloud/docs/models) — Defining fields, relationships, and queries.
-- [CLI Reference](https://aquilia.tubox.cloud/docs/cli) — aq commands, code generators, migrations.
-- [Performance Benchmarks](https://aquilia.tubox.cloud/benchmark) — Aquilia vs FastAPI vs Starlette vs Django.
+- [Documentation Index](https://tubox.cloud/docs) — Getting started, installation, architecture.
+- [Installation Guide](https://tubox.cloud/docs/installation) — `pip install aquilia` and dependencies.
+- [Quick Start](https://tubox.cloud/docs/quickstart) — Building a hello world controller in 5 minutes.
+- [Dependency Injection](https://tubox.cloud/docs/di) — Provider lifecycle, scopes, and diagnostics.
+- [ORM Models](https://tubox.cloud/docs/models) — Defining fields, relationships, and queries.
+- [CLI Reference](https://tubox.cloud/docs/cli) — aq commands, code generators, migrations.
+- [Performance Benchmarks](https://tubox.cloud/benchmark) — Aquilia vs FastAPI vs Starlette vs Django.
 
 ## Extended Knowledge Base
-- [Full Aggregated Documentation text](https://aquilia.tubox.cloud/llms-full.txt) — Raw markdown for LLM context injection.
+- [Full Aggregated Documentation text](https://tubox.cloud/llms-full.txt) — Raw markdown for LLM context injection.

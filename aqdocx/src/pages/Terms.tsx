@@ -13,17 +13,17 @@ export function TermsPage() {
     "@graph": [
       {
         "@type": "WebPage",
-        "@id": "https://aquilia.tubox.cloud/terms#webpage",
+        "@id": "https://tubox.cloud/terms#webpage",
         "name": "Terms of Service — Aquilia",
         "description": "Read the terms of service and acceptable use conditions for the Aquilia documentation site and services.",
-        "url": "https://aquilia.tubox.cloud/terms"
+        "url": "https://tubox.cloud/terms"
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/terms#breadcrumbs",
+        "@id": "https://tubox.cloud/terms#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Terms of Service", "item": "https://aquilia.tubox.cloud/terms" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Terms of Service", "item": "https://tubox.cloud/terms" }
         ]
       }
     ]

@@ -5,10 +5,22 @@
 [build.environment]
   SECRETS_SCAN_OMIT_KEYS = "VITE_OPENROUTER_BASE_URL,VITE_OPENROUTER_MODEL"
 
-# 1. Canonical Domain Redirection (301 redirect from www to non-www)
+# 1. Canonical Domain Redirection (301 redirects for domain migration)
+[[redirects]]
+  from = "https://aquilia.tubox.cloud/*"
+  to = "https://tubox.cloud/:splat"
+  status = 301
+  force = true
+
 [[redirects]]
   from = "https://www.aquilia.tubox.cloud/*"
-  to = "https://aquilia.tubox.cloud/:splat"
+  to = "https://tubox.cloud/:splat"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "https://www.tubox.cloud/*"
+  to = "https://tubox.cloud/:splat"
   status = 301
   force = true
 

@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { useState, useRef } from 'react'
+import { CONSTANTS } from '../data/constants'
 import { Navbar } from './Navbar'
 import { Sidebar, sections } from './Sidebar'
 import { TableOfContents } from './TableOfContents'
@@ -25,9 +26,9 @@ function findItemLabel(items: any[], path: string): string | null {
 }
 
 function getBreadcrumbs(pathname: string): { name: string; url: string }[] {
-  const crumbs = [{ name: 'Home', url: 'https://aquilia.tubox.cloud/' }]
+  const crumbs = [{ name: 'Home', url: `${CONSTANTS.BASE_URL}/` }]
   if (pathname === '/docs' || pathname === '/docs/') {
-    crumbs.push({ name: 'Documentation', url: 'https://aquilia.tubox.cloud/docs' })
+    crumbs.push({ name: 'Documentation', url: `${CONSTANTS.BASE_URL}/docs` })
     return crumbs
   }
 
@@ -48,7 +49,7 @@ function getBreadcrumbs(pathname: string): { name: string; url: string }[] {
     }
     
     if (label) {
-      crumbs.push({ name: label, url: `https://aquilia.tubox.cloud${currentPath}` })
+      crumbs.push({ name: label, url: `${CONSTANTS.BASE_URL}${currentPath}` })
     }
   }
   return crumbs
@@ -81,10 +82,10 @@ export function DocsLayout() {
     "@graph": [
       {
         "@type": "TechArticle",
-        "@id": `https://aquilia.tubox.cloud${location.pathname}#article`,
+        "@id": `${CONSTANTS.BASE_URL}${location.pathname}#article`,
         "headline": title,
         "description": description,
-        "url": `https://aquilia.tubox.cloud${location.pathname}`,
+        "url": `${CONSTANTS.BASE_URL}${location.pathname}`,
         "inLanguage": "en",
         "author": {
           "@type": "Organization",
@@ -93,7 +94,7 @@ export function DocsLayout() {
       },
       {
         "@type": "BreadcrumbList",
-        "@id": `https://aquilia.tubox.cloud${location.pathname}#breadcrumbs`,
+        "@id": `${CONSTANTS.BASE_URL}${location.pathname}#breadcrumbs`,
         "itemListElement": crumbs.map((crumb, index) => ({
           "@type": "ListItem",
           "position": index + 1,

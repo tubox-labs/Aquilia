@@ -1,6 +1,7 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
 import { DocTerm } from '../../../components/docPreview'
+import { CONSTANTS } from '../../../data/constants'
 import {
   Settings, Terminal, Database, Activity,
   Layers, Layout, ShieldCheck, Wrench, AlertTriangle,
@@ -209,7 +210,7 @@ export function AdminSetupPage() {
             <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-2`}>
               Creates a superuser (role: <code>superadmin</code>) inside the database. Superusers possess full administrative rights over modules, custom permissions, settings, and user groups.
             </p>
-            <CodeBlock code={`aq admin createsuperuser --username=admin --email=ops@aquilia.dev --password="SuperSecurePassword123!"`} language="bash" />
+            <CodeBlock code={`aq admin createsuperuser --username=admin --email=ops@${CONSTANTS.DOMAIN} --password="SuperSecurePassword123!"`} language="bash" />
             <div className="flex flex-col gap-2.5 mt-3 text-xs">
               <span className="font-semibold uppercase tracking-wider text-aquilia-500 text-[10px]">Flags & Options</span>
               <div className={`grid grid-cols-[140px_1fr] gap-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -235,7 +236,7 @@ export function AdminSetupPage() {
             <p className={`text-xs leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-2`}>
               Creates a staff user (role: <code>staff</code>). Staff operators have access to the dashboard but cannot manage system permissions, view audit logs, or edit other administrator users.
             </p>
-            <CodeBlock code={`aq admin createstaff --username=moderator --email=mod@aquilia.dev --first-name=Jane`} language="bash" />
+            <CodeBlock code={`aq admin createstaff --username=moderator --email=mod@${CONSTANTS.DOMAIN} --first-name=Jane`} language="bash" />
             <div className="flex flex-col gap-2.5 mt-3 text-xs">
               <span className="font-semibold uppercase tracking-wider text-aquilia-500 text-[10px]">Flags & Options</span>
               <div className={`grid grid-cols-[140px_1fr] gap-4 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>

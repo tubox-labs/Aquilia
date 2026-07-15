@@ -1,5 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { CONSTANTS } from '../data/constants'
 import {
   Sun, Moon, Github, BookOpen, Menu, Tag, Activity, FileText, X, Megaphone, ArrowRight
 } from 'lucide-react'
@@ -195,7 +196,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
               <div className={`absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r ${isDark ? 'from-transparent via-white/5 to-transparent' : 'from-transparent via-gray-200 to-transparent'}`} />
             </button>
             <a
-              href="https://github.com/axiomchronicles/Aquilia"
+              href={CONSTANTS.GITHUB_REPO_URL}
               target="_blank"
               rel="noopener"
               className={`p-2 rounded-lg transition-all duration-200 relative overflow-hidden group ${isDark ? 'hover:bg-white/10 text-gray-400 hover:text-white' : 'hover:bg-gray-200 text-gray-500 hover:text-gray-900'}`}

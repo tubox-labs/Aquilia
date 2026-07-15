@@ -574,17 +574,17 @@ export function Changelogs({ printMode = false }: { printMode?: boolean }) {
     "@graph": [
       {
         "@type": "CollectionPage",
-        "@id": "https://aquilia.tubox.cloud/changelogs#webpage",
+        "@id": "https://tubox.cloud/changelogs#webpage",
         "name": "Changelogs & Developer Logs — Aquilia",
         "description": "Detailed changelogs, API deprecations, migration guides, and release logs for Aquilia framework developers.",
-        "url": "https://aquilia.tubox.cloud/changelogs"
+        "url": "https://tubox.cloud/changelogs"
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/changelogs#breadcrumbs",
+        "@id": "https://tubox.cloud/changelogs#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Changelogs", "item": "https://aquilia.tubox.cloud/changelogs" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Changelogs", "item": "https://tubox.cloud/changelogs" }
         ]
       }
     ]

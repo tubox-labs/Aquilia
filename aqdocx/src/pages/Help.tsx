@@ -14,7 +14,7 @@ export function HelpPage() {
     "@graph": [
       {
         "@type": "FAQPage",
-        "@id": "https://aquilia.tubox.cloud/help#faq",
+        "@id": "https://tubox.cloud/help#faq",
         "mainEntity": [
           {
             "@type": "Question",
@@ -36,10 +36,10 @@ export function HelpPage() {
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://aquilia.tubox.cloud/help#breadcrumbs",
+        "@id": "https://tubox.cloud/help#breadcrumbs",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://aquilia.tubox.cloud/" },
-          { "@type": "ListItem", "position": 2, "name": "Help & Support", "item": "https://aquilia.tubox.cloud/help" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://tubox.cloud/" },
+          { "@type": "ListItem", "position": 2, "name": "Help & Support", "item": "https://tubox.cloud/help" }
         ]
       }
     ]

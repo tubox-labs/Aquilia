@@ -653,7 +653,7 @@ uniquePaths.forEach(p => {
     plainText = docItem ? docItem.plainText : `${pageLabel} documentation page in the Aquilia async Python web framework.`;
   }
 
-  const canonicalUrl = `https://aquilia.tubox.cloud${p === '' ? '/' : p}`;
+  const canonicalUrl = `https://tubox.cloud${p === '' ? '/' : p}`;
 
   // 6. Generate the prerendered HTML content
   let outputHtml = templateHtml;
@@ -684,7 +684,7 @@ uniquePaths.forEach(p => {
       <div style="line-height:1.6;font-size:1.1rem;color:#333;">
         ${plainText}
       </div>
-      <p style="margin-top:3rem;"><a href="https://aquilia.tubox.cloud">Go to Homepage</a></p>
+      <p style="margin-top:3rem;"><a href="https://tubox.cloud">Go to Homepage</a></p>
     </div>
   </noscript>`;
   

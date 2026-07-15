@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, type FormEvent } from 'react'
+import { CONSTANTS } from '../data/constants'
 import {
   X, Send,
   Trash2, HelpCircle, BookOpen, Square, User
@@ -482,7 +483,7 @@ Format exactly as:
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`,
-          'HTTP-Referer': 'https://aquilia.dev',
+          'HTTP-Referer': CONSTANTS.BASE_URL,
           'X-Title': 'Aquilia Docs Assistant'
         },
         body: JSON.stringify({

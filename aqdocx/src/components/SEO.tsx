@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { CONSTANTS } from '../data/constants'
 
 interface SEOProps {
   title: string
@@ -17,7 +18,7 @@ export function SEO({
   keywords,
   canonical,
   ogType = 'website',
-  ogImage = 'https://aquilia.tubox.cloud/logo.png',
+  ogImage = CONSTANTS.LOGO_URL,
   schema,
 }: SEOProps) {
   const location = useLocation()
@@ -47,7 +48,7 @@ export function SEO({
     }
     
     // 3. Set Open Graph (Facebook/LinkedIn) Meta Tags
-    const canonicalUrl = canonical || `https://aquilia.tubox.cloud${location.pathname}`
+    const canonicalUrl = canonical || `${CONSTANTS.BASE_URL}${location.pathname}`
     updateMeta('og:title', title, true)
     updateMeta('og:description', description, true)
     updateMeta('og:type', ogType, true)
