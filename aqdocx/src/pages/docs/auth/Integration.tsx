@@ -111,7 +111,7 @@ container.register(TokenStore, RedisTokenStore(redis_client))
           <span>Auth Middleware Pipeline</span>
         </h2>
         <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          The <DocTerm id="auth.aquil_auth_middleware">AquilAuthMiddleware</DocTerm> performs request authentication sequentially in 6 structured phases:
+          The <DocTerm id="auth.auth_middleware">AuthMiddleware</DocTerm> performs request authentication sequentially in 6 structured phases:
         </p>
 
         {/* Pipeline SVG */}
@@ -119,11 +119,11 @@ container.register(TokenStore, RedisTokenStore(redis_client))
           <svg viewBox="0 0 700 320" className="w-full max-w-2xl h-auto" fill="none" xmlns="http://www.w3.org/2000/svg">
             {[
               { y: 10, label: '1. Resolve Session', desc: 'Resolve SessionEngine cookie or header', color: '#8b5cf6' },
-              { y: 60, label: '2. Extract Auth', desc: 'Parse Authorization Bearer header into active token', color: '#3b82f6' },
-              { y: 110, label: '3. Session Fallback', desc: 'Retrieve principal from active user session', color: '#22c55e' },
+              { y: 60, label: '2. Extract Auth', desc: 'Parse Authorization header (Bearer or ApiKey)', color: '#3b82f6' },
+              { y: 110, label: '3. Pluggable Backends', desc: 'Attempt credentials verification sequentially', color: '#22c55e' },
               { y: 160, label: '4. Check Requirements', desc: 'Halt requests if endpoint authentication is required', color: '#f59e0b' },
-              { y: 210, label: '5. Inject Identity', desc: 'Register Identity in request-scoped DI container', color: '#ef4444' },
-              { y: 260, label: '6. Execute Handler', desc: 'Process endpoint route and commit session updates', color: '#06b6d4' },
+              { y: 210, label: '5. Inject Identity', desc: 'Propagate Identity to request state and context', color: '#ef4444' },
+              { y: 260, label: '6. Commit Session', desc: 'Process endpoint route and commit session updates', color: '#06b6d4' },
             ].map((step, i) => (
               <g key={i}>
                 <rect x="20" y={step.y} width="660" height="40" rx="8" fill={step.color + '0c'} stroke={step.color} strokeWidth="1.5" />
@@ -134,62 +134,42 @@ container.register(TokenStore, RedisTokenStore(redis_client))
           </svg>
         </div>
 
-        <CodeBlock language="python" filename="Middleware Setup">{`from aquilia.auth.integration.middleware import (
-    AquilAuthMiddleware,
-    OptionalAuthMiddleware,
-    SessionMiddleware,
-)
+        <CodeBlock language="python" filename="Middleware Setup">{`from aquilia.auth.middleware import AuthMiddleware
 
 app = Aquilia()
 
-# Main authentication middleware
-app.use(AquilAuthMiddleware(
-    session_engine=session_engine,
+# Main authentication middleware configured with pluggable backends
+app.use(AuthMiddleware(
     auth_manager=auth_manager,
+    session_engine=session_engine,
     require_auth=False,   # Opt-in manually using decorators
-))
-
-# Optional Auth — resolves identities, but doesn't block anonymous clients
-app.use(OptionalAuthMiddleware(
-    session_engine=session_engine,
-    auth_manager=auth_manager,
-))
-
-# Sessions Only — manages cookies/data context without auth evaluations
-app.use(SessionMiddleware(session_engine=session_engine))
-`}</CodeBlock>
+    backends=[
+        "aquilia.auth.backends.TokenBackend",
+        "aquilia.auth.backends.SessionBackend",
+    ]
+))`}</CodeBlock>
       </section>
 
-      {/* Flow Guards */}
+      {/* Composable Guards in Flow Graphs */}
       <section className="space-y-4">
         <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Network className="w-6 h-6 text-amber-500" />
-          <span>Flow Guards</span>
+          <span>Flow Graph Integration</span>
         </h2>
         <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Compose check constraints visually inside Aquilia flow pipelines using specialized Node implementations.
+          Because the new stateless guards in <code className="text-aquilia-500 font-mono text-xs">aquilia.auth.guards</code> implement the callable protocol (<code className="text-aquilia-500 font-mono text-xs">__call__</code>), they can be inserted directly as nodes inside Aquilia flow pipelines without any adapters.
         </p>
-        <CodeBlock language="python" filename="Flow Guard Implementations">{`from aquilia.auth.integration.flow_guards import (
-    RequireAuthGuard,           # Verify authenticated identity presence
-    RequireSessionAuthGuard,    # Assert session authentication state
-    RequireTokenAuthGuard,      # Assert JWT bearer token presence
-    RequireApiKeyGuard,         # Verify valid API key credentials
-    RequireScopesGuard,         # Verify scopes (any or require_all)
-    RequireRolesGuard,          # Verify roles (any or require_all)
-    RequirePolicyGuard,         # Execute ABAC/RBAC Policy validation
-)
-`}</CodeBlock>
 
         <h3 className={`text-lg font-bold pt-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           Flow Graph Assembly
         </h3>
         <CodeBlock language="python" filename="Graph Integration">{`from aquilia.flow import Flow
-from aquilia.auth.integration.flow_guards import require_auth, require_roles
+from aquilia.auth.guards import AuthGuard, RoleGuard
 
 admin_flow = (
     Flow("admin_pipeline")
-    .then(require_auth())
-    .then(require_roles("admin", "superadmin"))
+    .then(AuthGuard())
+    .then(RoleGuard("admin"))
     .then(execute_admin_logic_node)
 )
 `}</CodeBlock>

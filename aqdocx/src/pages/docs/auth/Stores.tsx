@@ -131,20 +131,7 @@ store = RedisTokenStore(
 `}</CodeBlock>
       </section>
 
-      {/* Surp Artifacts */}
-      <section className="space-y-4">
-        <h2 className={`text-2.5xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Surp Artifacts &amp; Audit
-        </h2>
-        <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Auth configuration and audit events can be stored as signed <code className="text-aquilia-500 font-mono text-xs">SurpArtifact</code> objects.
-        </p>
-        <CodeBlock language="python" filename="Surp Integration">{`from aquilia.auth.surp import (
-    KeyArtifact, PolicyArtifact, AuditEventArtifact,
-    ArtifactSigner, AuditLogger, MemoryArtifactStore,
-)
-`}</CodeBlock>
-      </section>
+
 
       <NextSteps />
     </div>

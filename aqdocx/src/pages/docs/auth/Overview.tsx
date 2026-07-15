@@ -91,8 +91,8 @@ export function AuthOverview() {
             { icon: <Lock className="w-5 h-5" />, title: 'manager', desc: 'AuthManager coordinating verification, rate limiting, session binding, and lockout mechanisms.', color: '#22c55e' },
             { icon: <Fingerprint className="w-5 h-5" />, title: 'hashing', desc: 'Argon2id and PBKDF2 hashing functions coupled with password policy enforcement.', color: '#f59e0b' },
             { icon: <Shield className="w-5 h-5" />, title: 'tokens', desc: 'KeyRing rotation, JWT access token generation, and cryptographically signed claims.', color: '#8b5cf6' },
-            { icon: <Shield className="w-5 h-5" />, title: 'guards', desc: 'RoleGuard and ScopeGuard decorators safeguarding API endpoints and handlers.', color: '#ef4444' },
-            { icon: <Shield className="w-5 h-5" />, title: 'authz', desc: 'RBACEngine and ABACEngine mapping policy rules dynamically for permissions.', color: '#06b6d4' },
+            { icon: <Shield className="w-5 h-5" />, title: 'guards', desc: 'Composable stateless guards (AuthGuard, RoleGuard, ScopeGuard, PolicyGuard) safeguarding endpoints via @requires.', color: '#ef4444' },
+            { icon: <Shield className="w-5 h-5" />, title: 'permissions', desc: 'Unified engine (PermissionEngine) combining RBAC, scope-based, and policy-based authorization checks.', color: '#06b6d4' },
             { icon: <Layers className="w-5 h-5" />, title: 'oauth', desc: 'OAuth2Manager supporting authorization codes, PKCE validations, and client credentials.', color: '#ec4899' },
             { icon: <Fingerprint className="w-5 h-5" />, title: 'mfa', desc: 'TOTP provider (RFC 6238) enforcing MFA verification and backup recovery codes.', color: '#14b8a6' },
             { icon: <Database className="w-5 h-5" />, title: 'stores', desc: 'MemoryStore adapters for lightweight configurations and RedisTokenStore for production caches.', color: '#a855f7' },
@@ -187,13 +187,13 @@ class SignInContract(Contract):
               Implement the Auth Controller
             </h3>
           </div>
-          <p className={`text-sm pl-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Build controller methods to handle user creation, token issuance, and protected dashboard paths. Decorating methods with <DocTerm id="auth.authenticated">@authenticated</DocTerm> or <DocTerm id="auth.require_identity">@require_identity</DocTerm> isolates access boundaries.
+    <p className={`text-sm pl-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            Build controller methods to handle user creation, token issuance, and protected dashboard paths. Decorating methods with <DocTerm id="auth.authenticated">@authenticated</DocTerm> or <DocTerm id="auth.roles_required">@roles_required</DocTerm> isolates access boundaries.
           </p>
           <div className="pl-8">
             <CodeBlock language="python" filename="controllers/auth.py">{`from aquilia.controller import Controller, GET, POST
 from aquilia.response import Response
-from aquilia.auth.decorators import authenticated, require_identity
+from aquilia.auth.decorators import authenticated, roles_required
 from aquilia.auth.manager import AuthManager
 from aquilia.auth.core import Identity, IdentityType, IdentityStatus
 from contracts.auth import SignUpContract, SignInContract
@@ -273,7 +273,7 @@ class AuthController(Controller):
         })
 
     @GET("/admin-panel")
-    @require_identity(roles=["admin"])
+    @roles_required("admin")
     async def admin_panel(self, ctx, user: Identity):
         """Admin restricted route."""
         return Response.json({"message": "Welcome, Administrator!"})
@@ -350,7 +350,7 @@ class DatabaseCredentialStore(CredentialStore):
             </h3>
           </div>
           <p className={`text-sm pl-8 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Register your database store overrides in the dependency injection container, append the <DocTerm id="auth.aquil_auth_middleware">AquilAuthMiddleware</DocTerm> stack, and launch the application.
+            Register your database store overrides in the dependency injection container, append the <DocTerm id="auth.auth_middleware">AuthMiddleware</DocTerm> stack, and launch the application.
           </p>
           <div className="pl-8">
             <CodeBlock language="python" filename="app.py">{`from aquilia import Aquilia
@@ -358,7 +358,7 @@ from aquilia.sessions import SessionEngine
 from aquilia.auth.core import IdentityStore, CredentialStore
 from aquilia.auth.manager import AuthManager
 from aquilia.auth.integration.di_providers import register_auth_providers
-from aquilia.auth.integration.middleware import AquilAuthMiddleware, EnhancedRequestScopeMiddleware
+from aquilia.auth.middleware import AuthMiddleware
 from stores.database import DatabaseIdentityStore, DatabaseCredentialStore
 from controllers.auth import AuthController
 
@@ -375,17 +375,14 @@ register_auth_providers(app.container)
 session_engine = app.container.resolve(SessionEngine)
 auth_manager = app.container.resolve(AuthManager)
 
-# 4. Attach request scope container creation middleware
-app.use(EnhancedRequestScopeMiddleware(app.container))
-
-# 5. Apply the main auth middleware to intercept requests
-app.use(AquilAuthMiddleware(
-    session_engine=session_engine,
+# 4. Apply the main auth middleware to intercept requests using pluggable backends
+app.use(AuthMiddleware(
     auth_manager=auth_manager,
+    session_engine=session_engine,
     require_auth=False,  # Enforce opt-in per route using decorators
 ))
 
-# 6. Bind controller endpoints
+# 5. Bind controller endpoints
 app.register_controller(AuthController)
 `}</CodeBlock>
           </div>

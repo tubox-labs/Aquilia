@@ -1,6 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { Shield, Layers, Cpu } from 'lucide-react'
+import { Shield, Layers } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 import { DocTerm } from '../../../components/docPreview/DocTerm'
@@ -24,23 +24,20 @@ export function AuthGuards() {
           </span>
         </h1>
         <p className={`text-lg leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Aquilia provides two separate guard modules: **Controller Decorators &amp; Guards** (<code className="text-aquilia-500 font-mono text-sm">aquilia/auth/decorators.py</code>) for route handler validations, and **Flow Pipeline Guards** (<code className="text-aquilia-500 font-mono text-sm">aquilia/auth/guards.py</code>) for graph-based pipelines.
+          Aquilia provides a unified, context-first endpoint protection suite consisting of **Route Decorators** (<code className="text-aquilia-500 font-mono text-sm">aquilia/auth/decorators.py</code>) and composable **Stateless Guards** (<code className="text-aquilia-500 font-mono text-sm">aquilia/auth/guards.py</code>).
         </p>
       </div>
 
-      {/* 1. Controller Decorators & Guards */}
+      {/* 1. Controller Decorators */}
       <section className="space-y-6">
         <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
           <Layers className="w-6 h-6 text-blue-500" />
-          <span>Controller Decorators &amp; Guards</span>
+          <span>Controller Route Decorators</span>
         </h2>
         <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          These decorators and guards run inside controller endpoints, resolving identities and session structures from active request scopes.
+          Decorators run inside controller endpoints, resolving identities and session structures from active request scopes, injecting resolved parameters into the handler when they are requested.
         </p>
 
-        <h3 className={`text-lg font-bold pt-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Built-in Decorators
-        </h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           <div className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
             <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: '#3b82f6' }}>
@@ -62,16 +59,44 @@ export function AuthGuards() {
             </div>
             <div className="space-y-1">
               <span className="font-bold text-sm font-mono block text-aquilia-500">
-                <DocTerm id="auth.require_identity">@require_identity</DocTerm>
+                <DocTerm id="auth.roles_required">@roles_required</DocTerm>
               </span>
               <p className={`text-xs leading-normal ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                Asserts specific roles, scope capabilities, or custom attributes on the identity before executing the handler.
+                Asserts specific roles (with support for inheritance via <DocTerm id="auth.permission_engine">PermissionEngine</DocTerm>) on the active identity.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
+            <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: '#eab308' }}>
+              <Shield className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <span className="font-bold text-sm font-mono block text-aquilia-500">
+                <DocTerm id="auth.scopes_required">@scopes_required</DocTerm>
+              </span>
+              <p className={`text-xs leading-normal ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Asserts specific OAuth scope capabilities on the identity.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
+            <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: '#a855f7' }}>
+              <Shield className="w-5 h-5" />
+            </div>
+            <div className="space-y-1">
+              <span className="font-bold text-sm font-mono block text-aquilia-500">
+                <DocTerm id="auth.optional_auth">@optional_auth</DocTerm>
+              </span>
+              <p className={`text-xs leading-normal ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                Resolves the identity if present but does not block anonymous clients. Injects identity or session into handler.
               </p>
             </div>
           </div>
         </div>
 
-        <CodeBlock language="python" filename="Controller Decorators">{`from aquilia.auth.decorators import authenticated, require_identity
+        <CodeBlock language="python" filename="Controller Decorators">{`from aquilia.auth.decorators import authenticated, roles_required, scopes_required, optional_auth
 
 @authenticated
 async def get_profile(ctx, user: Identity):
@@ -83,24 +108,32 @@ async def dashboard(ctx, session: Session):
     # Web browsers get redirected to /login?next=/dashboard
     return {"theme": session.get("theme")}
 
-@require_identity(roles=["admin"], scopes=["users:write"])
+@roles_required("admin")
 async def delete_user(ctx, identity: Identity):
     ...
-`}</CodeBlock>
 
-        <h3 className={`text-lg font-bold pt-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Controller Class Guards
-        </h3>
-        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Class-based checks implementing a <code className="text-aquilia-500 font-mono text-xs">check(identity, session)</code> method. Multiple guards can be composed using the `@requires` wrapper.
+@scopes_required("reports:read", require_all=True)
+async def fetch_reports(ctx):
+    ...
+`}</CodeBlock>
+      </section>
+
+      {/* 2. Composable Stateless Guards */}
+      <section className="space-y-6">
+        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+          <Shield className="w-6 h-6 text-green-500" />
+          <span>Composable Stateless Guards</span>
+        </h2>
+        <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          Guards are stateless protocol classes implementing a <code className="text-aquilia-500 font-mono text-xs">check(ctx)</code> method. Multiple guards can be composed on any handler or pipeline using the <code className="text-aquilia-500 font-mono text-xs">@requires</code> decorator.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
           {[
-            { title: 'AdminGuard', desc: 'Validates that the authenticated identity or session possesses the admin role.', termId: 'auth.admin_guard' },
-            { title: 'VerifiedEmailGuard', desc: 'Validates that the email_verified flag matches True.', termId: 'auth.auth_guard' },
-            { title: 'RoleGuard(*roles, require_all=False)', desc: 'Validates roles (matches any role by default, or all).', termId: 'auth.role_guard' },
-            { title: 'ScopeGuard(*scopes, require_all=True)', desc: 'Validates OAuth scopes (all scopes are required by default).', termId: 'auth.scope_guard' },
+            { title: 'AuthGuard(auth_manager=None, optional=False)', desc: 'Asserts authenticated identity. Supports proactive Bearer token extraction and verification.', termId: 'auth.auth_guard' },
+            { title: 'RoleGuard(*roles, engine=None, require_all=True)', desc: 'Asserts active identity holds specified roles. Supports inheritance via PermissionEngine.', termId: 'auth.role_guard' },
+            { title: 'ScopeGuard(*scopes, require_all=True)', desc: 'Asserts active identity holds required OAuth scopes.', termId: 'auth.scope_guard' },
+            { title: 'PolicyGuard(key, engine, resource=None)', desc: 'Evaluates custom authorization policy defined in a PermissionEngine.', termId: 'auth.policy_guard' },
           ].map((g, i) => (
             <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
               <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: '#22c55e' }}>
@@ -118,60 +151,21 @@ async def delete_user(ctx, identity: Identity):
           ))}
         </div>
 
-        <CodeBlock language="python" filename="Controller Guards Composition">{`from aquilia.auth.decorators import requires, AdminGuard, VerifiedEmailGuard
+        <CodeBlock language="python" filename="Controller Guards Composition">{`from aquilia.auth.guards import requires, AuthGuard, RoleGuard, PolicyGuard
+from aquilia.auth.permissions import PermissionEngine
 
-@requires(AdminGuard(), VerifiedEmailGuard())
-async def sensitive_panel(ctx):
-    ...
-`}</CodeBlock>
-      </section>
+permissions = PermissionEngine()
+permissions.register_policy("is_owner", lambda identity, resource: identity.id == resource.owner_id)
 
-      {/* 2. Flow Pipeline Guards */}
-      <section className="space-y-6">
-        <h2 className={`text-2.5xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          <Cpu className="w-6 h-6 text-orange-500" />
-          <span>Flow Pipeline Guards</span>
-        </h2>
-        <p className={`text-sm leading-relaxed ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Flow guards are graph-node instances executing constraints on pipeline context inputs, dynamically resolving stores from DI containers.
-        </p>
+class DocumentController(Controller):
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {[
-            { title: 'AuthGuard(auth_manager=None, optional=False)', desc: 'Extracts Bearer token from authorization header, validates it, and injects "identity" into the flow context.' },
-            { title: 'ApiKeyGuard(auth_manager=None, required_scopes=None)', desc: 'Extracts API key from X-API-Key header and validates scopes.' },
-            { title: 'AuthzGuard(...)', desc: 'Runs full scope, role, and ABAC/RBAC policy check using the AuthzEngine.' },
-            { title: 'ScopeGuard(required_scopes)', desc: 'Asserts token_claims contains the required scopes.' },
-            { title: 'RoleGuard(required_roles, require_all=False)', desc: 'Asserts token_claims contains the required roles.' },
-          ].map((fg, i) => (
-            <div key={i} className="flex gap-4 p-4 rounded-xl hover:bg-aquilia-500/5 transition-all duration-300 group">
-              <div className="mt-1.5 group-hover:scale-110 transition-all duration-300" style={{ color: '#f97316' }}>
-                <Shield className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <span className="font-bold text-xs font-mono block text-orange-500">
-                  {fg.title}
-                </span>
-                <p className={`text-xs leading-normal ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {fg.desc}
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+    @requires(AuthGuard, RoleGuard("editor"))
+    async def edit_document(self, ctx):
+        ...
 
-        <h3 className={`text-lg font-bold pt-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          Flow Shorthands
-        </h3>
-        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-          Shorthand decorators that run the flow-based token parsing pipeline:
-        </p>
-        <CodeBlock language="python" filename="Flow Decorators">{`from aquilia.auth.guards import require_auth, require_scopes, require_roles
-
-@require_auth(auth_manager)
-@require_scopes("orders.read")
-async def get_orders(request, identity: Identity):
-    return {"orders": []}
+    @requires(AuthGuard(), PolicyGuard("is_owner", engine=permissions))
+    async def delete_document(self, ctx):
+        ...
 `}</CodeBlock>
       </section>
 

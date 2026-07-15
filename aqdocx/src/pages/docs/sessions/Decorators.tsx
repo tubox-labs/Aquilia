@@ -209,9 +209,9 @@ class CartController(Controller):
       <section className="mb-16 border-t border-zinc-200 dark:border-zinc-800 pt-12">
         <h2 className={sectionHeaderClass}>Combining with Auth System</h2>
         <p className={textClass}>
-          Combine session decorators with auth helpers like `@authenticated` from the authentication module or permission-checking guards:
+          Combine session decorators with auth helpers like `@authenticated` and `@scopes_required` from the authentication module:
         </p>
-        <CodeBlock language="python" filename="combined.py" highlightLines={[1, 10, 11, 17, 18]}>{`from aquilia.auth import authenticated, guard
+        <CodeBlock language="python" filename="combined.py" highlightLines={[1, 10, 11, 17, 18]}>{`from aquilia.auth import authenticated, scopes_required
 from aquilia.sessions import session
 
 
@@ -220,14 +220,14 @@ class OrderController(Controller):
 
     @Get("/")
     @authenticated                          # Enforces authentication (auth module)
-    @guard("orders:read")                   # Enforces permission (auth module)
-    async def list_orders(self, ctx, principal):
-        orders = await Order.objects.filter(user_id=principal.id)
+    @scopes_required("orders:read")         # Enforces permission (auth module)
+    async def list_orders(self, ctx, user):
+        orders = await Order.objects.filter(user_id=user.id)
         return ctx.json([o.to_dict() for o in orders])
 
     @Post("/")
     @session.require(authenticated=True)    # Enforces session & auth
-    @guard("orders:create")                 # Enforces permission check
+    @scopes_required("orders:write")        # Enforces permission check
     async def create_order(self, ctx, session):
         body = await ctx.request.json()
         order = await Order.create(
