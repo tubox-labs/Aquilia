@@ -36,6 +36,7 @@ import { AuthTutorialPage } from './pages/docs/tutorials/AuthTutorial'
 
 // Controllers
 import { ControllersOverview } from './pages/docs/controllers/Overview'
+import { ControllersAttributes } from './pages/docs/controllers/Attributes'
 import { ControllersDecorators } from './pages/docs/controllers/decorators/Overview'
 import { DecoratorGet } from './pages/docs/controllers/decorators/Get'
 import { DecoratorPost } from './pages/docs/controllers/decorators/Post'
@@ -384,6 +385,7 @@ export default function App() {
           {/* Controllers */}
           <Route path="controllers" element={<ControllersOverview />} />
           <Route path="controllers/overview" element={<ControllersOverview />} />
+          <Route path="controllers/attributes" element={<ControllersAttributes />} />
           <Route path="controllers/decorators" element={<ControllersDecorators />} />
           <Route path="controllers/decorators/get" element={<DecoratorGet />} />
           <Route path="controllers/decorators/post" element={<DecoratorPost />} />

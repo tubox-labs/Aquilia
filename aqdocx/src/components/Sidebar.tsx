@@ -91,6 +91,7 @@ export const sections: SidebarSection[] = [
         label: 'Controllers', path: '/docs/controllers', icon: <Layout className="w-3.5 h-3.5" />,
         children: [
           { label: 'Overview', path: '/docs/controllers/overview' },
+          { label: 'Controller Attributes', path: '/docs/controllers/attributes' },
           { label: 'RequestCtx', path: '/docs/controllers/request-ctx' },
           { label: 'Controller Factory', path: '/docs/controllers/factory' },
           { label: 'Controller Engine', path: '/docs/controllers/engine' },

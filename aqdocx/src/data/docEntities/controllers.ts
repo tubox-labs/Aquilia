@@ -91,5 +91,17 @@ registerDocEntities([
     status: 'stable',
     docsHref: '/docs/controllers/decorators/post',
     source: { file: 'aquilia/controller/decorators.py', line: 230 }
+  },
+  {
+    id: 'controller.attributes',
+    type: 'class',
+    title: 'Attributes',
+    description: 'Fluent builder for Controller class-level configuration. Configures prefix, pipeline, tags, instantiation_mode, version, throttle, interceptors, exception_filters, timeout, and max_body_size at class-definition time via the __set_name__ descriptor protocol with zero request-time overhead.',
+    signature: 'class Attributes:\n    def prefix(self, value: str) -> Attributes\n    def pipeline(self, *nodes: Any) -> Attributes\n    def tags(self, *tag_values: str) -> Attributes\n    def instantiation_mode(self, mode: Literal["per_request", "singleton"]) -> Attributes\n    def version(self, v: str | list[str]) -> Attributes\n    def throttle(self, t: Throttle) -> Attributes\n    def interceptors(self, *items: Interceptor) -> Attributes\n    def exception_filters(self, *items: ExceptionFilter) -> Attributes\n    def timeout(self, seconds: float) -> Attributes\n    def max_body_size(self, bytes_size: int) -> Attributes',
+    language: 'python',
+    status: 'stable',
+    version: 'v1.0+',
+    docsHref: '/docs/controllers/attributes',
+    source: { file: 'aquilia/controller/attrs.py', line: 49 }
   }
 ])
