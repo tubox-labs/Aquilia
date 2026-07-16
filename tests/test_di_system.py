@@ -963,12 +963,19 @@ class TestScopes:
     """Tests for scope validation and rules."""
 
     def test_scope_enum_values(self):
-        assert ServiceScope.SINGLETON == "singleton"
-        assert ServiceScope.APP == "app"
-        assert ServiceScope.REQUEST == "request"
-        assert ServiceScope.TRANSIENT == "transient"
-        assert ServiceScope.POOLED == "pooled"
-        assert ServiceScope.EPHEMERAL == "ephemeral"
+        import pytest
+        with pytest.deprecated_call():
+            assert ServiceScope.SINGLETON == "singleton"
+        with pytest.deprecated_call():
+            assert ServiceScope.APP == "app"
+        with pytest.deprecated_call():
+            assert ServiceScope.REQUEST == "request"
+        with pytest.deprecated_call():
+            assert ServiceScope.TRANSIENT == "transient"
+        with pytest.deprecated_call():
+            assert ServiceScope.POOLED == "pooled"
+        with pytest.deprecated_call():
+            assert ServiceScope.EPHEMERAL == "ephemeral"
 
     def test_singleton_can_inject_into_anything(self):
         s = SCOPES["singleton"]
