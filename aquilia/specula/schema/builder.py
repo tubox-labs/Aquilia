@@ -629,7 +629,8 @@ class SpeculaBuilder:
 
             # 3. Clearance system
             try:
-                from aquilia.auth.clearance import build_merged_clearance, AccessLevel
+                from aquilia.auth.clearance import AccessLevel, build_merged_clearance
+
                 clearance = build_merged_clearance(route.controller_class, handler)
                 if clearance is not None and clearance.effective_level > AccessLevel.PUBLIC:
                     if not security:
@@ -644,7 +645,7 @@ class SpeculaBuilder:
         for route in routes:
             nodes = self._pipeline_nodes(route)
             handler = getattr(route.controller_class, route.route_metadata.handler_name, None)
-            
+
             # Check decorator __authenticated__
             if handler is not None and getattr(handler, "__authenticated__", False):
                 self._security_schemes.setdefault(
@@ -656,7 +657,7 @@ class SpeculaBuilder:
                         "description": "JWT Bearer token authentication",
                     },
                 )
-                
+
             # Check handler __guards__
             guards = getattr(handler, "__guards__", []) if handler is not None else []
             for guard in guards:
@@ -664,7 +665,7 @@ class SpeculaBuilder:
                     name = guard.__name__.lower()
                 else:
                     name = type(guard).__name__.lower()
-                
+
                 if "oauth" in name:
                     self._security_schemes.setdefault(
                         "oauth2",
@@ -711,10 +712,11 @@ class SpeculaBuilder:
                             "description": "JWT Bearer token authentication",
                         },
                     )
-                    
+
             # Check clearance
             try:
-                from aquilia.auth.clearance import build_merged_clearance, AccessLevel
+                from aquilia.auth.clearance import AccessLevel, build_merged_clearance
+
                 clearance = build_merged_clearance(route.controller_class, handler) if handler else None
                 if clearance is not None and clearance.effective_level > AccessLevel.PUBLIC:
                     self._security_schemes.setdefault(
@@ -829,14 +831,14 @@ class SpeculaBuilder:
         # 1. Check if authenticated
         authenticated = getattr(handler, "__authenticated__", False)
         guards = getattr(handler, "__guards__", [])
-        
+
         has_auth_guard = False
         for g in guards:
             g_class = g if isinstance(g, type) else type(g)
             if g_class.__name__ in ("AuthGuard", "RoleGuard", "ScopeGuard", "PolicyGuard", "ClearanceGuard"):
                 has_auth_guard = True
                 break
-                
+
         for node in self._pipeline_nodes(route):
             node_class = node if isinstance(node, type) else type(node)
             if "auth" in node_class.__name__.lower() or "guard" in node_class.__name__.lower():
@@ -850,27 +852,21 @@ class SpeculaBuilder:
         guard_details = []
         for g in guards:
             if isinstance(g, type):
-                guard_details.append({
-                    "name": g.__name__,
-                    "type": "class"
-                })
+                guard_details.append({"name": g.__name__, "type": "class"})
             else:
-                details = {
-                    "name": type(g).__name__,
-                    "type": "instance"
-                }
+                details = {"name": type(g).__name__, "type": "instance"}
                 if hasattr(g, "optional"):
-                    details["optional"] = getattr(g, "optional")
+                    details["optional"] = g.optional
                 if hasattr(g, "roles"):
-                    details["roles"] = list(getattr(g, "roles") or [])
+                    details["roles"] = list(g.roles or [])
                 if hasattr(g, "scopes"):
-                    details["scopes"] = list(getattr(g, "scopes") or [])
+                    details["scopes"] = list(g.scopes or [])
                 if hasattr(g, "require_all"):
-                    details["require_all"] = getattr(g, "require_all")
+                    details["require_all"] = g.require_all
                 if hasattr(g, "key"):
-                    details["key"] = getattr(g, "key")
-                if hasattr(g, "resource") and getattr(g, "resource") is not None:
-                    details["resource"] = str(getattr(g, "resource"))
+                    details["key"] = g.key
+                if hasattr(g, "resource") and g.resource is not None:
+                    details["resource"] = str(g.resource)
                 guard_details.append(details)
 
         if guard_details:
@@ -878,7 +874,8 @@ class SpeculaBuilder:
 
         # 3. Extract Clearance details
         try:
-            from aquilia.auth.clearance import build_merged_clearance, AccessLevel
+            from aquilia.auth.clearance import build_merged_clearance
+
             clearance = build_merged_clearance(route.controller_class, handler)
             if clearance is not None:
                 conditions_names = []

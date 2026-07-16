@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 
-from ..._version import __version__ as framework_version
 from ..config import SpeculaConfig
 from .assets import SPECULA_CSS, SPECULA_JS
 
@@ -89,7 +88,7 @@ class SpeculaRenderer:
             <a class="aq-spec-btn" href="{cfg.export_path}/postman" download title="Export Postman collection">Postman</a>
         </div>
     </header>
- 
+
     <div id="aq-body">
         <nav id="aq-sidebar">
             <div id="aq-sidebar-content">
@@ -106,7 +105,7 @@ class SpeculaRenderer:
         </main>
     </div>
 </div>
- 
+
 <div id="aq-search-modal" class="aq-modal" hidden>
     <div class="aq-modal-backdrop" onclick="Specula.closeSearch()"></div>
     <div class="aq-search-dialog">
@@ -128,7 +127,7 @@ class SpeculaRenderer:
     </div>
     <div id="aq-tryit-body" class="aq-panel-body"></div>
 </div>
- 
+
 <div id="aq-toasts"></div>
 
 <script>

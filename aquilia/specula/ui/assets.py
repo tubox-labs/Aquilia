@@ -753,16 +753,16 @@ const Specula = (() => {
     function createCustomDropdown(container, options, defaultValue, onChange) {
         container.textContent = '';
         const wrapper = el('div', 'aq-custom-select');
-        
+
         const trigger = el('div', 'aq-select-trigger');
         const selectedText = el('span', '', defaultValue ? (options.find(o => o.value === defaultValue)?.label || defaultValue) : (options[0]?.label || ''));
         trigger.appendChild(selectedText);
         wrapper.appendChild(trigger);
-        
+
         const optionsContainer = el('div', 'aq-select-options');
-        
+
         let activeValue = defaultValue || (options[0]?.value);
-        
+
         options.forEach(opt => {
             const optionEl = el('div', 'aq-select-option', opt.label);
             if (opt.value === activeValue) optionEl.classList.add('selected');
@@ -777,9 +777,9 @@ const Specula = (() => {
             });
             optionsContainer.appendChild(optionEl);
         });
-        
+
         wrapper.appendChild(optionsContainer);
-        
+
         trigger.addEventListener('click', (e) => {
             e.stopPropagation();
             document.querySelectorAll('.aq-custom-select').forEach(sel => {
@@ -787,9 +787,9 @@ const Specula = (() => {
             });
             wrapper.classList.toggle('open');
         });
-        
+
         container.appendChild(wrapper);
-        
+
         return {
             getValue: () => activeValue,
             setValue: (val) => {
@@ -807,11 +807,11 @@ const Specula = (() => {
 
     function renderCodeEditor(container, type, op, state) {
         const field = el('div', 'aq-field');
-        
+
         const editorContainer = el('div', 'aq-editor-container');
         const textarea = el('textarea', 'aq-editor-textarea');
         textarea.placeholder = type === 'application/json' ? '{\n  "key": "value"\n}' : 'Enter request body...';
-        
+
         if (type === 'application/json') {
             textarea.value = bodyExample(op) || '{}';
         } else if (type === 'application/xml') {
@@ -820,36 +820,36 @@ const Specula = (() => {
             textarea.value = '';
         }
         state.body = textarea.value;
-        
+
         const pre = el('pre', 'aq-editor-highlight-pre');
         const code = el('code', 'aq-editor-highlight-code');
         pre.appendChild(code);
-        
+
         editorContainer.appendChild(pre);
         editorContainer.appendChild(textarea);
         field.appendChild(editorContainer);
         container.appendChild(field);
-        
+
         const updatePreview = () => {
             let lang = 'plain';
             if (type === 'application/json') lang = 'json';
             else if (type === 'application/xml') lang = 'xml';
-            
+
             code.innerHTML = highlight(textarea.value, lang) + '\n';
             pre.scrollTop = textarea.scrollTop;
             pre.scrollLeft = textarea.scrollLeft;
         };
-        
+
         textarea.addEventListener('scroll', () => {
             pre.scrollTop = textarea.scrollTop;
             pre.scrollLeft = textarea.scrollLeft;
         });
-        
+
         let formatTimeout = null;
         textarea.addEventListener('input', () => {
             state.body = textarea.value;
             updatePreview();
-            
+
             clearTimeout(formatTimeout);
             if (type === 'application/json') {
                 formatTimeout = setTimeout(() => {
@@ -870,7 +870,7 @@ const Specula = (() => {
                 }, 1200);
             }
         });
-        
+
         textarea.addEventListener('blur', () => {
             if (type === 'application/json') {
                 try {
@@ -882,7 +882,7 @@ const Specula = (() => {
                 } catch (e) {}
             }
         });
-        
+
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') {
                 e.preventDefault();
@@ -894,7 +894,7 @@ const Specula = (() => {
                 textarea.dispatchEvent(new Event('input'));
                 return;
             }
-            
+
             const pairs = { '{': '}', '[': ']', '(': ')', '"': '"', "'": "'" };
             if (pairs[e.key] !== undefined) {
                 e.preventDefault();
@@ -902,7 +902,7 @@ const Specula = (() => {
                 const end = textarea.selectionEnd;
                 const text = textarea.value;
                 const closing = pairs[e.key];
-                
+
                 textarea.value = text.substring(0, start) + e.key + closing + text.substring(end);
                 textarea.selectionStart = start + 1;
                 textarea.selectionEnd = start + 1;
@@ -930,7 +930,7 @@ const Specula = (() => {
                 }
             }
         });
-        
+
         updatePreview();
     }
 
@@ -947,16 +947,16 @@ const Specula = (() => {
         headerRow.appendChild(el('th', '', ''));
         thead.appendChild(headerRow);
         table.appendChild(thead);
-        
+
         const tbody = el('tbody');
         table.appendChild(tbody);
         wrapper.appendChild(table);
-        
+
         state.formParams = [];
-        
+
         const addRow = (key = '', val = '', paramType = 'text') => {
             const row = el('tr');
-            
+
             const tdKey = el('td');
             const inputKey = el('input');
             inputKey.type = 'text';
@@ -964,7 +964,7 @@ const Specula = (() => {
             inputKey.value = key;
             tdKey.appendChild(inputKey);
             row.appendChild(tdKey);
-            
+
             let inputType = 'text';
             let tdType = null;
             if (type === 'multipart/form-data') {
@@ -979,13 +979,13 @@ const Specula = (() => {
                 selectType.value = paramType;
                 tdType.appendChild(selectType);
                 row.appendChild(tdType);
-                
+
                 inputType = paramType;
             }
-            
+
             const tdValue = el('td');
             let inputValue = el('input');
-            
+
             const setupValueInput = (pType) => {
                 tdValue.textContent = '';
                 inputValue = el('input');
@@ -997,16 +997,16 @@ const Specula = (() => {
                     inputValue.value = val;
                 }
                 tdValue.appendChild(inputValue);
-                
+
                 inputValue.addEventListener('input', syncParams);
                 if (pType === 'file') {
                     inputValue.addEventListener('change', syncParams);
                 }
             };
-            
+
             setupValueInput(inputType);
             row.appendChild(tdValue);
-            
+
             if (type === 'multipart/form-data') {
                 const selectType = tdType.firstChild;
                 selectType.addEventListener('change', () => {
@@ -1014,7 +1014,7 @@ const Specula = (() => {
                     syncParams();
                 });
             }
-            
+
             const tdAction = el('td');
             const delBtn = el('button', 'aq-icon-btn', '×');
             delBtn.style.color = 'var(--aq-delete)';
@@ -1026,18 +1026,18 @@ const Specula = (() => {
             });
             tdAction.appendChild(delBtn);
             row.appendChild(tdAction);
-            
+
             tbody.appendChild(row);
-            
+
             function syncParams() {
                 state.formParams = [];
                 tbody.querySelectorAll('tr').forEach(r => {
                     const k = r.cells[0].firstChild.value.trim();
                     if (!k) return;
-                    
+
                     let t = 'text';
                     let v = '';
-                    
+
                     if (type === 'multipart/form-data') {
                         const sel = r.cells[1].firstChild;
                         t = sel.value;
@@ -1047,15 +1047,15 @@ const Specula = (() => {
                         const valInput = r.cells[1].firstChild;
                         v = valInput.value;
                     }
-                    
+
                     state.formParams.push({ key: k, value: v, type: t });
                 });
             }
-            
+
             inputKey.addEventListener('input', syncParams);
             syncParams();
         };
-        
+
         let hasPrepopulated = false;
         const media = op.requestBody && op.requestBody.content && op.requestBody.content[type];
         if (media && media.schema) {
@@ -1069,18 +1069,18 @@ const Specula = (() => {
                 }
             }
         }
-        
+
         if (!hasPrepopulated) {
             addRow();
         }
-        
+
         const addParamBtn = el('button', 'aq-spec-btn', '+ Add Parameter');
         addParamBtn.style.marginTop = '8px';
         addParamBtn.addEventListener('click', (e) => {
             e.preventDefault();
             addRow();
         });
-        
+
         wrapper.appendChild(addParamBtn);
         container.appendChild(wrapper);
     }
@@ -1346,14 +1346,14 @@ const Specula = (() => {
         const row = el('div', 'aq-op-row');
         row.appendChild(el('span', 'aq-method aq-method-' + methodCls, isWS ? 'WS' : method.toUpperCase()));
         row.appendChild(el('span', 'aq-op-path', path));
-        
+
         const hasSecurity = (op.security && op.security.length > 0) || (op['x-specula-security'] && op['x-specula-security'].authenticated);
         if (hasSecurity) {
             const badge = el('span', 'aq-lock-badge');
             badge.innerHTML = LOCK_ICON_SVG + ' Protected';
             row.appendChild(badge);
         }
-        
+
         row.appendChild(el('span', 'aq-op-summary', op.summary || ''));
         if (op.deprecated) row.appendChild(el('span', 'aq-deprecated-badge', 'Deprecated'));
         row.appendChild(el('span', 'aq-op-expand', '›'));
@@ -1648,22 +1648,22 @@ const Specula = (() => {
             row.appendChild(el('span', '', Array.isArray(value) ? value.join(', ') : String(value)));
             container.appendChild(row);
         }
-        
+
         const sec = op['x-specula-security'];
         if (sec) {
             const secCard = el('div', 'aq-security-card');
-            
+
             const title = el('div', 'aq-security-title');
             title.innerHTML = LOCK_ICON_SVG + ' Security & Access Control';
             secCard.appendChild(title);
-            
+
             if (sec.authenticated) {
                 const item = el('div', 'aq-security-item');
                 item.appendChild(el('span', 'aq-security-item-label', 'Requires Authentication:'));
                 item.appendChild(el('span', '', 'Yes'));
                 secCard.appendChild(item);
             }
-            
+
             if (sec.guards && sec.guards.length) {
                 const item = el('div', 'aq-security-item');
                 item.appendChild(el('span', 'aq-security-item-label', 'Guards Pipeline:'));
@@ -1679,53 +1679,53 @@ const Specula = (() => {
                         desc += ` [scopes: ${g.scopes.join(', ')}${g.require_all ? ' (all)' : ' (any)'}]`;
                     }
                     if (g.key) desc += ` [policy: ${g.key}]`;
-                    
+
                     const gEl = el('div', 'aq-guard-stage', desc);
                     wrap.appendChild(gEl);
                 });
                 item.appendChild(wrap);
                 secCard.appendChild(item);
             }
-            
+
             if (sec.clearance) {
                 const c = sec.clearance;
                 const clearanceSection = el('div');
                 clearanceSection.style.marginTop = '12px';
                 clearanceSection.style.paddingTop = '12px';
                 clearanceSection.style.borderTop = '1px solid var(--aq-border-subtle)';
-                
+
                 const cTitle = el('div', 'aq-security-item-label');
                 cTitle.style.marginBottom = '8px';
                 cTitle.textContent = 'Clearance Requirements:';
                 clearanceSection.appendChild(cTitle);
-                
+
                 const lvlItem = el('div', 'aq-security-item');
                 lvlItem.appendChild(el('span', 'aq-security-item-label', 'Access Level:'));
                 const badge = el('span', 'aq-clearance-badge level-' + String(c.level).toLowerCase(), c.level);
                 lvlItem.appendChild(badge);
                 clearanceSection.appendChild(lvlItem);
-                
+
                 if (c.entitlements && c.entitlements.length) {
                     const entItem = el('div', 'aq-security-item');
                     entItem.appendChild(el('span', 'aq-security-item-label', 'Entitlements:'));
                     entItem.appendChild(el('span', '', c.entitlements.join(', ')));
                     clearanceSection.appendChild(entItem);
                 }
-                
+
                 if (c.conditions && c.conditions.length) {
                     const condItem = el('div', 'aq-security-item');
                     condItem.appendChild(el('span', 'aq-security-item-label', 'Conditions:'));
                     condItem.appendChild(el('span', '', c.conditions.join(', ')));
                     clearanceSection.appendChild(condItem);
                 }
-                
+
                 if (c.compartment) {
                     const compItem = el('div', 'aq-security-item');
                     compItem.appendChild(el('span', 'aq-security-item-label', 'Compartment:'));
                     compItem.appendChild(el('span', 'aq-pipeline-stage', c.compartment));
                     clearanceSection.appendChild(compItem);
                 }
-                
+
                 secCard.appendChild(clearanceSection);
             }
             container.appendChild(secCard);
@@ -1786,20 +1786,20 @@ const Specula = (() => {
     // ── Try It Out ─────────────────────────────────────────────────────
     function openTryItInline(path, method, op, parentContainer, tryBtn) {
         tryBtn.style.display = 'none';
-        
+
         const tryItDiv = el('div', 'aq-inline-tryit');
         tryItDiv.style.marginTop = '24px';
         tryItDiv.style.padding = '20px 0 0 0';
         tryItDiv.style.border = 'none';
         tryItDiv.style.borderTop = '1px solid var(--aq-border)';
         tryItDiv.style.background = 'transparent';
-        
+
         const header = el('div');
         header.style.display = 'flex';
         header.style.justifyContent = 'space-between';
         header.style.alignItems = 'center';
         header.style.marginBottom = '20px';
-        
+
         const titleSpan = el('span', '', 'Try It Out');
         titleSpan.style.fontSize = '12px';
         titleSpan.style.letterSpacing = '0.08em';
@@ -1807,7 +1807,7 @@ const Specula = (() => {
         titleSpan.style.fontWeight = '700';
         titleSpan.style.color = 'var(--aq-accent)';
         header.appendChild(titleSpan);
-        
+
         const closeBtn = el('button', 'aq-spec-btn');
         closeBtn.textContent = 'Cancel';
         closeBtn.style.padding = '4px 10px';
@@ -1885,13 +1885,13 @@ const Specula = (() => {
         // Request body
         if (op.requestBody) {
             tryItDiv.appendChild(el('div', 'aq-section-title', 'Request body'));
-            
+
             const bodyTypeField = el('div', 'aq-field');
             bodyTypeField.appendChild(el('label', '', 'Content-Type'));
             const bodyTypeSelectContainer = el('div');
             bodyTypeField.appendChild(bodyTypeSelectContainer);
             tryItDiv.appendChild(bodyTypeField);
-            
+
             const bodyOptions = [
                 { label: 'JSON (application/json)', value: 'application/json' },
                 { label: 'Multipart Form (multipart/form-data)', value: 'multipart/form-data' },
@@ -1899,7 +1899,7 @@ const Specula = (() => {
                 { label: 'XML (application/xml)', value: 'application/xml' },
                 { label: 'Plain Text (text/plain)', value: 'text/plain' }
             ];
-            
+
             const specContentTypes = Object.keys(op.requestBody.content || {});
             let defaultBodyType = 'application/json';
             if (specContentTypes.length > 0) {
@@ -1907,35 +1907,35 @@ const Specula = (() => {
                 if (match) defaultBodyType = match.value;
                 else defaultBodyType = specContentTypes[0];
             }
-            
+
             specContentTypes.forEach(t => {
                 if (!bodyOptions.find(o => o.value === t)) {
                     bodyOptions.push({ label: t, value: t });
                 }
             });
-            
+
             const editorArea = el('div', 'aq-body-editor-area');
             tryItDiv.appendChild(editorArea);
-            
+
             let activeBodyType = defaultBodyType;
             state.bodyType = activeBodyType;
-            
+
             const renderEditor = (type) => {
                 editorArea.textContent = '';
                 activeBodyType = type;
                 state.bodyType = type;
-                
+
                 if (type === 'multipart/form-data' || type === 'application/x-www-form-urlencoded') {
                     renderKeyValueEditor(editorArea, type, op, state);
                 } else {
                     renderCodeEditor(editorArea, type, op, state);
                 }
             };
-            
+
             createCustomDropdown(bodyTypeSelectContainer, bodyOptions, defaultBodyType, (val) => {
                 renderEditor(val);
             });
-            
+
             renderEditor(defaultBodyType);
         }
 
@@ -1978,7 +1978,7 @@ const Specula = (() => {
     function buildCurlFromState(server, path, method, state) {
         let cmd = 'curl -X ' + method.toUpperCase() + " '" + buildUrlFromState(server, path, state) + "'";
         if (state.token) cmd += " \\\n  -H 'Authorization: Bearer " + state.token + "'";
-        
+
         if (method.toUpperCase() !== 'GET' && method.toUpperCase() !== 'HEAD') {
             if (state.bodyType === 'multipart/form-data') {
                 (state.formParams || []).forEach(p => {
@@ -2016,7 +2016,7 @@ const Specula = (() => {
         const headers = {};
         if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
         const init = {method: method.toUpperCase(), headers};
-        
+
         if (!['GET', 'HEAD'].includes(init.method)) {
             if (state.bodyType === 'multipart/form-data') {
                 const formData = new FormData();
@@ -2287,7 +2287,7 @@ const Specula = (() => {
         const paths = spec.paths || {};
         let endpointsCount = 0;
         const modulesSet = new Set();
-        
+
         for (const [path, item] of Object.entries(paths)) {
             if (!item || typeof item !== 'object') continue;
             for (const [method, op] of Object.entries(item)) {
@@ -2298,10 +2298,10 @@ const Specula = (() => {
                 }
             }
         }
-        
+
         const schemasCount = Object.keys(spec.components?.schemas || {}).length;
         const modulesCount = modulesSet.size || 1;
-        
+
         const modEl = document.getElementById('aq-stat-modules');
         if (modEl) modEl.textContent = String(modulesCount);
         const endEl = document.getElementById('aq-stat-endpoints');
@@ -2319,7 +2319,7 @@ const Specula = (() => {
         renderHistory();
         updateAverageLatency();
     }
-    
+
     function renderHistory() {
         const list = document.getElementById('aq-history-list');
         if (!list) return;
@@ -2328,37 +2328,37 @@ const Specula = (() => {
             list.appendChild(el('div', 'aq-sidebar-loading', 'No requests recorded yet.'));
             return;
         }
-        
+
         requestHistory.forEach(item => {
             const row = el('div', 'aq-history-item');
             row.addEventListener('click', () => {
                 const opId = findOperationIdByPath(item.path, item.method);
                 if (opId) jumpToOperation(opId);
             });
-            
+
             const top = el('div', 'aq-history-meta');
             const methodSpan = el('span', 'aq-history-method aq-method aq-method-' + item.method.toLowerCase(), item.method);
             methodSpan.style.fontSize = '9px';
             methodSpan.style.padding = '2px 4px';
             methodSpan.style.borderRadius = 'var(--aq-radius-sm)';
             top.appendChild(methodSpan);
-            
+
             const statusSpan = el('span', 'aq-history-status aq-status aq-status-' + statusClass(String(item.status)), String(item.status));
             top.appendChild(statusSpan);
             row.appendChild(top);
-            
+
             const middle = el('div', 'aq-history-path', item.path);
             row.appendChild(middle);
-            
+
             const bottom = el('div', 'aq-history-meta');
             bottom.appendChild(el('span', 'aq-history-time', item.timestamp));
             bottom.appendChild(el('span', 'aq-history-time', item.latency ? item.latency + ' ms' : '--'));
             row.appendChild(bottom);
-            
+
             list.appendChild(row);
         });
     }
-    
+
     function updateAverageLatency() {
         const validLatencies = requestHistory.filter(h => h.latency > 0).map(h => h.latency);
         if (validLatencies.length === 0) return;
