@@ -131,6 +131,7 @@ def controller(service, config) -> SpeculaController:
 
 from aquilia.contracts import Contract, NestedContractFacet
 
+
 class DummyContract(Contract):
     username: str
     password: str
@@ -270,16 +271,16 @@ class TestSpeculaBuilder:
         router.initialize()
 
         spec = SpeculaBuilder(config).build(router)
-        
+
         # Check that both the parent and nested contract are registered in components
         schemas = spec["components"]["schemas"]
         assert "ParentContractInput" in schemas
         assert "SubContractInput" in schemas
-        
+
         # Check that the ref inside ParentContractInput is correctly rewritten to components
         parent_schema = schemas["ParentContractInput"]
         assert parent_schema["properties"]["nested_field"]["$ref"] == "#/components/schemas/SubContractInput"
-        
+
         # Check that $defs was cleaned up from the parent schema
         assert "$defs" not in parent_schema
 
@@ -372,10 +373,13 @@ class TestSpeculaService:
         assert json.loads(text)["openapi"] == "3.1.0"
 
     async def test_spec_yaml_parses(self, service):
-        import yaml
-
         text = await service.get_spec_yaml()
-        assert yaml.safe_load(text)["openapi"] == "3.1.0"
+        try:
+            import yaml
+
+            assert yaml.safe_load(text)["openapi"] == "3.1.0"
+        except ImportError:
+            assert "openapi: 3.1.0" in text or 'openapi: "3.1.0"' in text
 
     async def test_sse_broadcast_on_invalidation(self, service):
         queue: asyncio.Queue = asyncio.Queue()
@@ -834,11 +838,11 @@ class TestModelSchema:
 class TestSpeculaSecurity:
     def test_authenticated_decorator_detected(self):
         from aquilia.auth import authenticated
-        from aquilia.controller import Controller, GET
+        from aquilia.controller import GET, Controller
         from aquilia.controller.compiler import ControllerCompiler
         from aquilia.controller.router import ControllerRouter
-        from aquilia.specula.schema.builder import SpeculaBuilder
         from aquilia.specula.config import SpeculaConfig
+        from aquilia.specula.schema.builder import SpeculaBuilder
 
         class SecureController(Controller):
             prefix = "/secure"
@@ -855,23 +859,23 @@ class TestSpeculaSecurity:
         router.initialize()
 
         spec = SpeculaBuilder(SpeculaConfig()).build(router)
-        
+
         assert "bearerAuth" in spec["components"]["securitySchemes"]
-        
+
         op = spec["paths"]["/secure/me"]["get"]
         assert "security" in op
         assert any("bearerAuth" in s for s in op["security"])
-        
+
         assert "x-specula-security" in op
         assert op["x-specula-security"]["authenticated"] is True
 
     def test_clearance_detected(self):
-        from aquilia.auth.clearance import Clearance, AccessLevel, grant
-        from aquilia.controller import Controller, GET
+        from aquilia.auth.clearance import AccessLevel, Clearance, grant
+        from aquilia.controller import GET, Controller
         from aquilia.controller.compiler import ControllerCompiler
         from aquilia.controller.router import ControllerRouter
-        from aquilia.specula.schema.builder import SpeculaBuilder
         from aquilia.specula.config import SpeculaConfig
+        from aquilia.specula.schema.builder import SpeculaBuilder
 
         class ClearanceController(Controller):
             prefix = "/clear"
@@ -893,11 +897,11 @@ class TestSpeculaSecurity:
         router.initialize()
 
         spec = SpeculaBuilder(SpeculaConfig()).build(router)
-        
+
         staff_op = spec["paths"]["/clear/staff"]["get"]
         assert "security" in staff_op
         assert staff_op["x-specula-security"]["clearance"]["level"] == "INTERNAL"
-        
+
         public_op = spec["paths"]["/clear/public"]["get"]
         assert "security" not in public_op or not public_op["security"]
         assert public_op["x-specula-security"]["clearance"]["level"] == "PUBLIC"

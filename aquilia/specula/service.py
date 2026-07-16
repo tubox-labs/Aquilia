@@ -116,9 +116,92 @@ class SpeculaService:
 
     async def get_spec_yaml(self, version: str | None = None) -> str:
         """Spec serialised as YAML."""
-        import yaml
+        spec_dict = await self.get_spec(version)
+        try:
+            import yaml
 
-        return yaml.dump(await self.get_spec(version), default_flow_style=False, allow_unicode=True)
+            return yaml.dump(spec_dict, default_flow_style=False, allow_unicode=True)
+        except ImportError:
+            return self._to_simple_yaml(spec_dict)
+
+    def _to_simple_yaml(self, data: Any, indent: int = 0) -> str:
+        """Fallback lightweight YAML serializer when pyyaml is not installed."""
+
+        def quote_str(s: str) -> str:
+            special_chars = [
+                ":",
+                "{",
+                "}",
+                "[",
+                "]",
+                ",",
+                "&",
+                "*",
+                "#",
+                "?",
+                "|",
+                "-",
+                "<",
+                ">",
+                "=",
+                "!",
+                "%",
+                "@",
+                "`",
+            ]
+            needs_quoting = (
+                any(c in s for c in special_chars)
+                or s == ""
+                or s.lower() in ("true", "false", "null", "yes", "no")
+                or s.strip() != s
+                or s[0].isdigit()
+            )
+            if needs_quoting:
+                return f'"{s.replace(chr(34), chr(92) + chr(34))}"'
+            return s
+
+        if data is None:
+            return "null"
+        elif isinstance(data, bool):
+            return "true" if data else "false"
+        elif isinstance(data, (int, float)):
+            return str(data)
+        elif isinstance(data, str):
+            return quote_str(data)
+        elif isinstance(data, dict):
+            if not data:
+                return "{}"
+            lines = []
+            for k, v in data.items():
+                key_str = quote_str(str(k))
+                if isinstance(v, (dict, list)):
+                    if not v:
+                        lines.append(f"{' ' * indent}{key_str}: {v == {} and '{}' or '[]'}")
+                    else:
+                        lines.append(f"{' ' * indent}{key_str}:")
+                        lines.append(self._to_simple_yaml(v, indent + 2))
+                else:
+                    lines.append(f"{' ' * indent}{key_str}: {self._to_simple_yaml(v, 0)}")
+            return "\n".join(lines)
+        elif isinstance(data, list):
+            if not data:
+                return "[]"
+            lines = []
+            for item in data:
+                if isinstance(item, (dict, list)):
+                    if isinstance(item, dict):
+                        item_lines = self._to_simple_yaml(item, indent + 2).split("\n")
+                        first_line = item_lines[0].lstrip()
+                        lines.append(f"{' ' * indent}- {first_line}")
+                        for line in item_lines[1:]:
+                            lines.append(line)
+                    else:
+                        item_str = self._to_simple_yaml(item, indent + 2)
+                        lines.append(f"{' ' * indent}- {item_str.lstrip()}")
+                else:
+                    lines.append(f"{' ' * indent}- {self._to_simple_yaml(item, 0)}")
+            return "\n".join(lines)
+        return str(data)
 
     async def get_all_versions(self) -> dict[str, dict[str, Any]]:
         """Specs for all declared API versions (plus ``latest``)."""
