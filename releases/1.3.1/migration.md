@@ -173,3 +173,5 @@ config = {
 * **`AuthManager.logout()`**: Deprecated in favor of `AuthManager.sign_out()`. Calling `logout()` now raises a `DeprecationWarning` but will invoke `sign_out()` internally for backward compatibility.
 * **`OptionalAuthMiddleware`**: Deprecated in favor of `AquilAuthMiddleware(require_auth=False)` or the new `AuthMiddleware` class.
 * **`RateLimiter` relocation**: The `RateLimiter` class has been moved from the `manager` module to `aquilia.auth.manager_types` to prevent circular imports. Update imports if you reference it directly.
+* **`ServiceScope` Enum class**: Deprecated in favor of plain string literals (e.g., `"singleton"`, `"app"`, `"request"`, `"transient"`, `"pooled"`, `"ephemeral"`) paired with `typing.Literal` type hints (`ServiceScopeLiteral`). Using `ServiceScope.SINGLETON` or other members will now emit a `DeprecationWarning`.
+

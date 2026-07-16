@@ -31,10 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Session Security Hardening**: To prevent stale privileges, global session integration now only serializes `identity_id` and `tenant_id` inside sessions. User roles, scopes, and attributes are resolved fresh from the identity store on every request.
 - **Backend Configuration**: Replaced string-based `strategies` in `AquilaConfig.Auth` and `AquilAuthMiddleware` with the `backends` parameter, taking resolved backend references (dotted paths, classes, or short names).
 - **Token Revocation Enhancement**: `AuthManager.revoke_token()` now supports revoking access tokens directly by extracting their `jti` claim and adding it to the revocation blacklist.
+- **DI Service Scopes Optimization**: Migrated the Dependency Injection (DI) service scope definitions (like `"singleton"`, `"app"`, `"request"`, `"transient"`, `"pooled"`, `"ephemeral"`) from `ServiceScope` enum members to high-performance string literals backed by `typing.Literal` type hints (`ServiceScopeLiteral`). This completely eliminates runtime import/lookup overhead and leverages Python's built-in string interning for maximum efficiency during dependency resolution.
 
 ### Deprecated
 - `AuthManager.logout()` is deprecated in favor of `sign_out()`.
 - `OptionalAuthMiddleware` is deprecated in favor of `AquilAuthMiddleware(require_auth=False)`.
+- The `ServiceScope` Enum class is deprecated across both `aquilia.di` and `aquilia.manifest` modules. Calling it or accessing its attributes triggers a `DeprecationWarning`. Use plain string literals (e.g. `"singleton"`, `"app"`) instead.
 
 ### Removed
 - Legacy guard adapters (`flow_guards.py`) and authentication policy DSL (`policy/` directory).

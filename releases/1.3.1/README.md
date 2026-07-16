@@ -29,3 +29,5 @@ Aquilia v1.3.1 introduces a major rewrite of the authentication (`aquilia.auth`)
 2. **Dynamic Privileges**: Resolve permissions, roles, and scopes fresh from the database or cache on every request, preventing privilege escalation through stale session states.
 3. **API Simplification**: Consolidate five parallel authorization subsystems (RBAC, ABAC, Clearance, Policy DSL, and custom adapters) into a single, cohesive `PermissionEngine`.
 4. **Resiliency**: Handle clock drift in distributed clusters by introducing native clock-skew tolerance.
+5. **DI Scope Performance**: Deprecate the class/object-based `ServiceScope` Enum in favor of high-performance raw string literals backed by `typing.Literal` to eliminate import-time namespace scanning and runtime attribute lookup overhead.
+

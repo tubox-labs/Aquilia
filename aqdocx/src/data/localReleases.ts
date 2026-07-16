@@ -30,7 +30,8 @@ Aquilia v1.3.1 introduces a major rewrite of the authentication (\`aquilia.auth\
 1. **Pluggability**: Unify all authentication strategies (Bearer JWTs, Session cookies, Username/Password, API keys) under a single, reusable backend protocol.
 2. **Dynamic Privileges**: Resolve permissions, roles, and scopes fresh from the database or cache on every request, preventing privilege escalation through stale session states.
 3. **API Simplification**: Consolidate five parallel authorization subsystems (RBAC, ABAC, Clearance, Policy DSL, and custom adapters) into a single, cohesive \`PermissionEngine\`.
-4. **Resiliency**: Handle clock drift in distributed clusters by introducing native clock-skew tolerance.`,
+4. **Resiliency**: Handle clock drift in distributed clusters by introducing native clock-skew tolerance.
+5. **DI Scope Performance**: Deprecate the class/object-based \`ServiceScope\` Enum in favor of high-performance raw string literals backed by \`typing.Literal\` to eliminate import-time namespace scanning and runtime attribute lookup overhead.`,
 
     "backends.md": `# Pluggable Authentication Backends
 
@@ -424,7 +425,8 @@ config = {
 
 * **\`AuthManager.logout()\`**: Deprecated in favor of \`AuthManager.sign_out()\`. Calling \`logout()\` now raises a \`DeprecationWarning\` but will invoke \`sign_out()\` internally for backward compatibility.
 * **\`OptionalAuthMiddleware\`**: Deprecated in favor of \`AquilAuthMiddleware(require_auth=False)\` or the new \`AuthMiddleware\` class.
-* **\`RateLimiter\` relocation**: The \`RateLimiter\` class has been moved from the \`manager\` module to \`aquilia.auth.manager_types\` to prevent circular imports. Update imports if you reference it directly.`,
+* **\`RateLimiter\` relocation**: The \`RateLimiter\` class has been moved from the \`manager\` module to \`aquilia.auth.manager_types\` to prevent circular imports. Update imports if you reference it directly.
+* **\`ServiceScope\` Enum class**: Deprecated in favor of plain string literals (e.g., \`"singleton"\`, \`"app"\`, \`"request"\`, \`"transient"\`, \`"pooled"\`, \`"ephemeral"\`) paired with \`typing.Literal\` type hints (\`ServiceScopeLiteral\`). Using \`ServiceScope.SINGLETON\` or other members will now emit a \`DeprecationWarning\`.`,`,
 
     "sessions.md": `# Session Security, AuthManager & RateLimiting
 
