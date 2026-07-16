@@ -144,11 +144,11 @@ class TestProtocolCompliance:
         d = self._check_protocol(CsrfIntegration())
         assert d["_integration_type"] == "csrf"
 
-    def test_openapi(self):
-        from aquilia.integrations import OpenAPIIntegration
+    def test_specula(self):
+        from aquilia.integrations import SpeculaIntegration
 
-        d = self._check_protocol(OpenAPIIntegration())
-        assert d["_integration_type"] == "openapi"
+        d = self._check_protocol(SpeculaIntegration())
+        assert d["_integration_type"] == "specula"
 
     def test_i18n(self):
         from aquilia.integrations import I18nIntegration
@@ -335,10 +335,10 @@ class TestDataclassConstruction:
         c = CsrfIntegration()
         assert c.enabled is True
 
-    def test_openapi_defaults(self):
-        from aquilia.integrations import OpenAPIIntegration
+    def test_specula_defaults(self):
+        from aquilia.integrations import SpeculaIntegration
 
-        o = OpenAPIIntegration()
+        o = SpeculaIntegration()
         assert o.title == "Aquilia API"
         assert o.version == "1.0.0"
 
@@ -967,12 +967,12 @@ class TestToDictCompatibility:
         assert typed["allow_origins"] == legacy["allow_origins"]
         assert typed["max_age"] == legacy["max_age"]
 
-    def test_openapi_compat(self):
+    def test_specula_compat(self):
         from aquilia import Integration
-        from aquilia.integrations import OpenAPIIntegration
+        from aquilia.integrations import SpeculaIntegration
 
-        legacy = Integration.openapi(title="My API", version="2.0.0")
-        typed = OpenAPIIntegration(title="My API", version="2.0.0").to_dict()
+        legacy = Integration.specula(title="My API", version="2.0.0")
+        typed = SpeculaIntegration(title="My API", version="2.0.0").to_dict()
         assert typed["title"] == legacy["title"]
         assert typed["version"] == legacy["version"]
 
@@ -1065,13 +1065,13 @@ class TestEdgeCases:
             I18nIntegration,
             LoggingIntegration,
             MailIntegration,
-            OpenAPIIntegration,
             PatternsIntegration,
             RateLimitIntegration,
             RegistryIntegration,
             RenderIntegration,
             RoutingIntegration,
             SerializersIntegration,
+            SpeculaIntegration,
             StaticFilesIntegration,
             StorageIntegration,
             TasksIntegration,
@@ -1090,7 +1090,7 @@ class TestEdgeCases:
             (CspIntegration, {}),
             (RateLimitIntegration, {}),
             (CsrfIntegration, {}),
-            (OpenAPIIntegration, {}),
+            (SpeculaIntegration, {}),
             (I18nIntegration, {}),
             (VersioningIntegration, {}),
             (RenderIntegration, {}),

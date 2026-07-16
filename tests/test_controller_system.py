@@ -13,7 +13,6 @@ Tests all controller subsystems including:
 - Pagination: PageNumberPagination, LimitOffsetPagination, CursorPagination, NoPagination
 - Renderers: JSONRenderer, XMLRenderer, YAMLRenderer, PlainTextRenderer, HTMLRenderer,
              ContentNegotiator, negotiate()
-- OpenAPI: OpenAPIGenerator, OpenAPIConfig, swagger/redoc HTML generation
 - New Features: versioning, throttle, interceptors, exception filters, timeouts, body size limits
 """
 
@@ -21,7 +20,6 @@ import asyncio
 import inspect
 import json
 import time
-from typing import Any, Optional
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -73,13 +71,6 @@ from aquilia.controller.metadata import (
     ParameterMetadata,
     RouteMetadata,
     extract_controller_metadata,
-)
-from aquilia.controller.openapi import (
-    OpenAPIConfig,
-    _parse_docstring,
-    _python_type_to_schema,
-    generate_redoc_html,
-    generate_swagger_html,
 )
 from aquilia.controller.pagination import (
     BasePagination,
@@ -1515,133 +1506,6 @@ class TestNegotiateFunction:
         assert "application/json" in content_type
         assert status == 200
 
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  SECTION 12: OpenAPI
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-class TestOpenAPITypeMapping:
-    """Tests for Python type → JSON Schema mapping."""
-
-    def test_str(self):
-        assert _python_type_to_schema(str) == {"type": "string"}
-
-    def test_int(self):
-        assert _python_type_to_schema(int) == {"type": "integer"}
-
-    def test_float(self):
-        schema = _python_type_to_schema(float)
-        assert schema["type"] == "number"
-
-    def test_bool(self):
-        assert _python_type_to_schema(bool) == {"type": "boolean"}
-
-    def test_list_of_str(self):
-        schema = _python_type_to_schema(list[str])
-        assert schema["type"] == "array"
-        assert schema["items"] == {"type": "string"}
-
-    def test_dict_of_str_int(self):
-        schema = _python_type_to_schema(dict[str, int])
-        assert schema["type"] == "object"
-        assert schema["additionalProperties"] == {"type": "integer"}
-
-    def test_optional(self):
-        schema = _python_type_to_schema(Optional[str])
-        assert schema["type"] == "string"
-        assert schema["nullable"] is True
-
-    def test_any_returns_empty(self):
-        assert _python_type_to_schema(Any) == {}
-
-
-class TestDocstringParsing:
-    """Tests for docstring parsing."""
-
-    def test_summary_extraction(self):
-        doc = """Get user by ID.
-
-        Returns the user profile.
-
-        Args:
-            user_id: The user ID
-        """
-        parsed = _parse_docstring(doc)
-        assert parsed.summary == "Get user by ID."
-        assert "user_id" in parsed.params
-
-    def test_raises_extraction(self):
-        doc = """Create user.
-
-        Raises:
-            ValueError (400): Invalid input
-            NotFoundError (404): User not found
-        """
-        parsed = _parse_docstring(doc)
-        assert len(parsed.raises) == 2
-
-    def test_empty_docstring(self):
-        parsed = _parse_docstring("")
-        assert parsed.summary == ""
-        assert parsed.params == {}
-
-
-class TestOpenAPIConfig:
-    """Tests for OpenAPIConfig."""
-
-    def test_defaults(self):
-        config = OpenAPIConfig()
-        assert config.title == "Aquilia API"
-        assert config.version == "1.0.0"
-        assert config.enabled is True
-
-    def test_from_dict(self):
-        config = OpenAPIConfig.from_dict(
-            {
-                "title": "My API",
-                "version": "2.0.0",
-                "description": "Test API",
-            }
-        )
-        assert config.title == "My API"
-        assert config.version == "2.0.0"
-
-    def test_from_dict_ignores_private(self):
-        config = OpenAPIConfig.from_dict({"_secret": "hidden"})
-        assert not hasattr(config, "_secret") or config._seen_tags != "hidden"
-
-
-class TestSwaggerHTML:
-    """Tests for Swagger UI HTML generation."""
-
-    def test_generates_html(self):
-        config = OpenAPIConfig(title="Test API")
-        html = generate_swagger_html(config)
-        assert "<!DOCTYPE html>" in html
-        assert "Test API" in html
-        assert "swagger-ui" in html
-
-    def test_dark_theme(self):
-        config = OpenAPIConfig(title="Dark API", swagger_ui_theme="dark")
-        html = generate_swagger_html(config)
-        assert "invert" in html  # Dark theme CSS
-
-
-class TestRedocHTML:
-    """Tests for ReDoc HTML generation."""
-
-    def test_generates_html(self):
-        config = OpenAPIConfig(title="Test API")
-        html = generate_redoc_html(config)
-        assert "<!DOCTYPE html>" in html
-        assert "Test API" in html
-        assert "redoc" in html
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  SECTION 13: Integration — Controller + Decorators + Metadata
-# ═══════════════════════════════════════════════════════════════════════════
 
 
 class TestControllerIntegration:
