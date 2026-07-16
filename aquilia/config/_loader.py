@@ -958,7 +958,7 @@ class ConfigLoader:
                 "response_header_name": "X-API-Version",
                 "include_supported_versions_header": True,
                 "supported_versions_header": "X-API-Supported-Versions",
-                "neutral_paths": ["/_health", "/openapi.json", "/docs", "/redoc"],
+                "neutral_paths": ["/_health", "/specula", "/specula/spec.json"],
             },
         )
 

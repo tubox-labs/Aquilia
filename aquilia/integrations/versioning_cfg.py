@@ -46,7 +46,7 @@ class VersioningIntegration:
     include_version_header: bool = True
     response_header_name: str = "X-API-Version"
     include_supported_versions_header: bool = True
-    neutral_paths: list[str] = field(default_factory=lambda: ["/_health", "/openapi.json", "/docs", "/redoc"])
+    neutral_paths: list[str] = field(default_factory=lambda: ["/_health", "/specula", "/specula/spec.json"])
     enabled: bool = True
 
     def __post_init__(self) -> None:

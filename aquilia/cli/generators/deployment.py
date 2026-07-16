@@ -47,7 +47,7 @@ class WorkspaceIntrospector:
 
     Reads workspace.py, config/*.yaml, pyproject.toml, module manifests,
     and detects ecosystem components (cache, sessions, db, sockets,
-    mail, auth, openapi, templates, security, etc.).
+    mail, auth, specula, templates, security, etc.).
 
     Provides:
     - Deep workspace.py regex parsing for all builder methods
@@ -91,7 +91,7 @@ class WorkspaceIntrospector:
             "has_templates": False,
             "has_static": False,
             "has_migrations": False,
-            "has_openapi": False,
+            "has_specula": False,
             "has_effects": False,
             "has_faults": False,
             "cors_enabled": False,
@@ -316,9 +316,9 @@ class WorkspaceIntrospector:
         if "Integration.static_files" in active:
             data["has_static"] = True
 
-        # OpenAPI
-        if "Integration.openapi" in active:
-            data["has_openapi"] = True
+        # Specula (API Observatory)
+        if "Integration.specula" in active:
+            data["has_specula"] = True
 
         # Faults
         if "Integration.fault_handling" in active:

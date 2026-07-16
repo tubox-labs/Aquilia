@@ -115,9 +115,8 @@ class VersionConfig:
     neutral_paths: list[str] = field(
         default_factory=lambda: [
             "/_health",
-            "/openapi.json",
-            "/docs",
-            "/redoc",
+            "/specula",
+            "/specula/spec.json",
         ]
     )
 

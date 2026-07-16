@@ -25,9 +25,9 @@ _RECOMMENDATIONS = {
         "RenderIntegration(...) for Render deployments; keep provider credentials in provider credential stores/env."
     ],
     "render": ["RenderIntegration(...)", "aq deploy-gen render for deployment planning"],
-    "openapi": [
-        "OpenAPIIntegration(...) or Integration.openapi(...)",
-        "Controller metadata and decorators drive schema generation",
+    "specula": [
+        "SpeculaIntegration(...) or Integration.specula(...)",
+        "Controller metadata and decorators drive OpenAPI 3.1.0 schema generation",
     ],
     "security": [
         "Workspace.security(...)",
