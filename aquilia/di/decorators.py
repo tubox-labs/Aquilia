@@ -167,7 +167,6 @@ def provides(
     return decorator
 
 
-
 def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
     """
     Decorator to auto-inject dependencies into a function.

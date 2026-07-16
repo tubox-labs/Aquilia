@@ -45,7 +45,6 @@ class ServiceScope(str, Enum, metaclass=ServiceScopeMeta):
     EPHEMERAL = "ephemeral"  # Short-lived, request-scoped
 
 
-
 @dataclass
 class Scope:
     """Scope metadata and rules."""
