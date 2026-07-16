@@ -242,11 +242,11 @@ class Integration:
         return _build_integration(StaticFilesIntegration, **kwargs)
 
     @staticmethod
-    def openapi(**kwargs: Any) -> dict[str, Any]:
-        """Configure OpenAPI/Swagger."""
-        from aquilia.integrations.openapi import OpenAPIIntegration
+    def specula(**kwargs: Any) -> dict[str, Any]:
+        """Configure the Specula API Observatory."""
+        from aquilia.integrations.specula import SpeculaIntegration
 
-        return _build_integration(OpenAPIIntegration, **kwargs)
+        return _build_integration(SpeculaIntegration, **kwargs)
 
     @staticmethod
     def i18n(**kwargs: Any) -> dict[str, Any]:

@@ -248,8 +248,6 @@ from .controller import (
     JSONRenderer,
     LimitOffsetPagination,
     NoPagination,
-    OpenAPIConfig,
-    OpenAPIGenerator,
     OrderingFilter,
     # Pagination
     PageNumberPagination,
@@ -491,7 +489,6 @@ from .integrations import (
     MailIntegration,
     MiddlewareChain,
     MiddlewareEntry,
-    OpenAPIIntegration,
     PatternsIntegration,
     RateLimitIntegration,
     RegistryIntegration,
@@ -1140,7 +1137,6 @@ __all__ = [
     "CspIntegration",
     "RateLimitIntegration",
     "CsrfIntegration",
-    "OpenAPIIntegration",
     "I18nIntegration",
     "VersioningIntegration",
     "RenderIntegration",
@@ -1480,6 +1476,12 @@ __all__ = [
     "AdminRecordNotFoundFault",
     "AdminValidationFault",
     "AdminActionFault",
+    # Specula API Observatory (lazy-loaded via __getattr__)
+    "SpeculaConfig",
+    "SpeculaService",
+    "SpeculaBuilder",
+    "SpeculaController",
+    "SpeculaRenderer",
 ]
 
 
@@ -1495,4 +1497,8 @@ def __getattr__(name: str):
             raise ImportError(
                 "Jinja2 is required for template features. Install it with: pip install aquilia[template]"
             ) from e
+    if name in ("SpeculaConfig", "SpeculaService", "SpeculaBuilder", "SpeculaController", "SpeculaRenderer"):
+        import aquilia.specula as _specula
+
+        return getattr(_specula, name)
     raise AttributeError(f"module 'aquilia' has no attribute '{name}'")

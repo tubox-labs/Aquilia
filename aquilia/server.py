@@ -23,7 +23,6 @@ from .auth.integration.middleware import AquilAuthMiddleware
 from .auth.manager import AuthManager
 from .auth.tokens import TokenConfig
 from .config import ConfigLoader
-from .controller.openapi import OpenAPIConfig, OpenAPIGenerator, generate_redoc_html, generate_swagger_html
 from .controller.router import ControllerRouter
 from .faults.domains import (
     ConfigInvalidFault,
@@ -35,7 +34,6 @@ from .health import HealthRegistry, HealthStatus, SubsystemStatus
 from .lifecycle import LifecycleCoordinator
 from .middleware import Middleware, MiddlewareStack
 from .middleware_ext.session_middleware import SessionMiddleware
-from .response import Response
 from .sockets.adapters import InMemoryAdapter
 
 # WebSockets
@@ -1183,9 +1181,8 @@ class AquiliaServer:
                     "neutral_paths",
                     [
                         "/_health",
-                        "/openapi.json",
-                        "/docs",
-                        "/redoc",
+                        "/specula",
+                        "/specula/spec.json",
                     ],
                 ),
             )
@@ -2131,7 +2128,7 @@ class AquiliaServer:
 
         # Step 2: Register OpenAPI/Docs routes if enabled
         if self.config.get("docs_enabled", True):
-            self._register_docs_routes()
+            self._setup_specula()
 
     def _register_controller_versions(self, compiled):
         """
@@ -2213,106 +2210,93 @@ class AquiliaServer:
                 # No route-level version — inherits controller version
                 route.version_metadata = None
 
-    def _register_docs_routes(self):
-        """Register OpenAPI JSON, Swagger UI, and ReDoc routes."""
-        # Build OpenAPIConfig from integration config or fallback to legacy keys
-        openapi_integration = self.config.get("integrations", {}).get("openapi", {})
-        if openapi_integration and openapi_integration.get("enabled", True):
-            openapi_config = OpenAPIConfig.from_dict(openapi_integration)
-        else:
-            # Legacy fallback for backward compatibility
-            openapi_config = OpenAPIConfig(
-                title=self.config.get("api_title", "Aquilia API"),
-                version=self.config.get("api_version", "1.0.0"),
-            )
+    def _setup_specula(self):
+        """
+        Register Specula (the API Observatory) as native Aquilia routes.
 
-        generator = OpenAPIGenerator(config=openapi_config)
+        Reads ``integrations.specula`` and injects every SpeculaController
+        route via the same CompiledRoute pattern as ``_wire_admin_integration``.
+        The SpeculaService and SpeculaConfig are registered as singletons in
+        every DI container so the controller is DI-injectable.
+        """
+        integrations = self.config.get("integrations", {}) or {}
+        cfg_raw = integrations.get("specula", {})
+        if not cfg_raw or not cfg_raw.get("enabled", True):
+            return
 
-        # ── Handler: /openapi.json ───────────────────────────────────────
-        async def openapi_handler(request, ctx):
-            spec = generator.generate(self.controller_router)
-            return Response.json(spec)
+        from .di.providers import ValueProvider
+        from .patterns import PatternCompiler, parse_pattern
+        from .specula.config import SpeculaConfig
+        from .specula.controller import SpeculaController
+        from .specula.manifest import specula_route_table
+        from .specula.service import SpeculaService
 
-        # ── Handler: /docs (Swagger UI) ──────────────────────────────────
-        swagger_html = generate_swagger_html(openapi_config)
+        config = SpeculaConfig.from_dict(cfg_raw)
 
-        async def docs_handler(request, ctx):
-            return Response.html(swagger_html)
+        # Build the singleton service
+        cache_svc = getattr(self, "_cache_service", None)
+        version_strategy = getattr(self, "_version_strategy", None)
+        specula_svc = SpeculaService(
+            router=self.controller_router,
+            config=config,
+            cache=cache_svc,
+            version_strategy=version_strategy,
+        )
 
-        # ── Handler: /redoc ──────────────────────────────────────────────
-        redoc_html = generate_redoc_html(openapi_config)
+        # Register service + config in every DI container as singletons
+        try:
+            for container in self.runtime.di_containers.values():
+                container.register(ValueProvider(specula_svc, SpeculaService, scope="singleton"))
+                container.register(ValueProvider(config, SpeculaConfig, scope="singleton"))
+        except Exception as exc:  # noqa: BLE001 — DI registration is best-effort
+            self.logger.warning("Specula: DI registration failed: %s", exc)
 
-        async def redoc_handler(request, ctx):
-            return Response.html(redoc_html)
+        # Instantiate the controller (holds the service directly)
+        controller = SpeculaController(service=specula_svc, config=config)
 
-        # Register routes via monkeypatched CompiledRoute (same approach as before)
         from .controller.compiler import CompiledRoute
         from .controller.metadata import RouteMetadata
-        from .patterns import PatternCompiler, parse_pattern
 
         pc = PatternCompiler()
+        registered = 0
+        for method, path, handler_name in specula_route_table(config):
+            handler = getattr(controller, handler_name, None)
+            if handler is None:
+                continue
+            try:
+                route = CompiledRoute(
+                    controller_class=SpeculaController,
+                    controller_metadata=None,
+                    route_metadata=RouteMetadata(
+                        http_method=method,
+                        path_template=path,
+                        full_path=path,
+                        handler_name=handler_name,
+                        tags=["_specula"],
+                    ),
+                    compiled_pattern=pc.compile(parse_pattern(path)),
+                    full_path=path,
+                    http_method=method,
+                    specificity=1000,
+                )
+                route.handler = handler
+                self.controller_router.routes_by_method.setdefault(method, []).append(route)
+                registered += 1
+            except Exception as exc:  # noqa: BLE001 — one bad path must not abort startup
+                self.logger.warning("Specula: failed to register %s %s: %s", method, path, exc)
 
-        # OpenAPI JSON
-        route_json = CompiledRoute(
-            controller_class=self.__class__,
-            controller_metadata=None,
-            route_metadata=RouteMetadata(
-                http_method="GET",
-                path_template=openapi_config.openapi_json_path,
-                full_path=openapi_config.openapi_json_path,
-                handler_name="openapi_handler",
-            ),
-            compiled_pattern=pc.compile(parse_pattern(openapi_config.openapi_json_path)),
-            full_path=openapi_config.openapi_json_path,
-            http_method="GET",
-            specificity=1000,
-        )
-        route_json.handler = openapi_handler
-
-        # Swagger UI
-        route_docs = CompiledRoute(
-            controller_class=self.__class__,
-            controller_metadata=None,
-            route_metadata=RouteMetadata(
-                http_method="GET",
-                path_template=openapi_config.docs_path,
-                full_path=openapi_config.docs_path,
-                handler_name="docs_handler",
-            ),
-            compiled_pattern=pc.compile(parse_pattern(openapi_config.docs_path)),
-            full_path=openapi_config.docs_path,
-            http_method="GET",
-            specificity=1000,
-        )
-        route_docs.handler = docs_handler
-
-        # ReDoc
-        route_redoc = CompiledRoute(
-            controller_class=self.__class__,
-            controller_metadata=None,
-            route_metadata=RouteMetadata(
-                http_method="GET",
-                path_template=openapi_config.redoc_path,
-                full_path=openapi_config.redoc_path,
-                handler_name="redoc_handler",
-            ),
-            compiled_pattern=pc.compile(parse_pattern(openapi_config.redoc_path)),
-            full_path=openapi_config.redoc_path,
-            http_method="GET",
-            specificity=1000,
-        )
-        route_redoc.handler = redoc_handler
-
-        self.controller_router.routes_by_method.setdefault("GET", []).append(route_json)
-        self.controller_router.routes_by_method.setdefault("GET", []).append(route_docs)
-        self.controller_router.routes_by_method.setdefault("GET", []).append(route_redoc)
-
-        # Reset the initialized flag so the router rebuilds its fast-path
-        # indexes (static_routes / dynamic_routes) to include the docs routes
-        # that were just appended -- after controller_router.initialize() had
-        # already been called during _load_controllers().
+        # Rebuild router fast-path indexes to include the new routes
         self.controller_router._initialized = False
         self.controller_router.initialize()
+
+        self._specula_service = specula_svc
+        self.logger.info(
+            "Specula API Observatory active: UI=%s  JSON=%s  YAML=%s  (%d routes)",
+            config.ui_path,
+            config.json_path,
+            config.yaml_path,
+            registered,
+        )
 
     def _wire_admin_integration(self):
         """
@@ -2320,7 +2304,7 @@ class AquiliaServer:
 
         Reads the admin integration config from ``self.config["integrations"]["admin"]``
         and mounts all AdminController routes using the same CompiledRoute injection
-        pattern as ``_register_docs_routes()``.
+        pattern as ``_setup_specula()``.
 
         Respects the ``modules`` config to conditionally register only the
         routes for enabled admin modules (ORM, Build, Monitoring, etc.).
