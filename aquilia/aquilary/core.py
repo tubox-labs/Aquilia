@@ -1248,7 +1248,6 @@ class RuntimeRegistry:
         import importlib
 
         from aquilia.di.providers import ClassProvider
-        from aquilia.di.scopes import ServiceScope
 
         for ctx in self.meta.app_contexts:
             # Get container for this app
@@ -1275,7 +1274,7 @@ class RuntimeRegistry:
                     # Create provider (singleton scope)
                     provider = ClassProvider(
                         cls=effect if isinstance(effect, type) else type(effect),
-                        scope=ServiceScope.SINGLETON,
+                        scope="singleton",
                     )
                     container.register(provider)
 

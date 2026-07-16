@@ -54,7 +54,7 @@ Advanced Usage Patterns
 Declaring a complex module with custom DI service registration, priority middleware, and guards:
 
 ```python
-from aquilia.manifest import AppManifest, ServiceConfig, MiddlewareConfig, ServiceScope
+from aquilia.manifest import AppManifest, ServiceConfig, MiddlewareConfig
 
 manifest = AppManifest(
     name="billing",
@@ -62,7 +62,7 @@ manifest = AppManifest(
     services=[
         ServiceConfig(
             class_path="modules.billing.services:PaymentService",
-            scope=ServiceScope.REQUEST,
+            scope="request",
             tag="stripe",
             config={"api_key_env": "STRIPE_API_KEY"},
         )
@@ -89,7 +89,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
 from enum import Enum
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from .typing.manifest import ManifestMetadata
 
@@ -213,9 +213,33 @@ class ComponentRef:
         }
 
 
-class ServiceScope(str, Enum):
+ServiceScopeLiteral = Literal["singleton", "app", "request", "transient", "pooled", "ephemeral"]
+
+
+class ServiceScopeMeta(type(Enum)):
+    def __getattribute__(cls, name):
+        if name in ("SINGLETON", "APP", "REQUEST", "TRANSIENT", "POOLED", "EPHEMERAL"):
+            warnings.warn(
+                f"Using ServiceScope.{name} is deprecated. Use string literal '{name.lower()}' instead.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+        return super().__getattribute__(name)
+
+    def __call__(cls, value, names=None, *args, **kwargs):
+        if names is None:
+            warnings.warn(
+                "ServiceScope Enum is deprecated and will be removed in a future version. "
+                "Use string literals (e.g. 'singleton', 'app') instead.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+        return super().__call__(value, names, *args, **kwargs)
+
+
+class ServiceScope(str, Enum, metaclass=ServiceScopeMeta):
     """
-    Service lifecycle scopes for dependency injection.
+    [DEPRECATED] Service lifecycle scopes for dependency injection.
 
     Defines the instantiation policy and lifespan of services resolved
     by the dependency injection (DI) container.
@@ -296,7 +320,7 @@ class ServiceConfig:
     Parameters:
         class_path: Dotted module path and class name separated by a colon
             (e.g., `"modules.users.services:UsersService"`).
-        scope: Lifecycle scope policy of the service. Defaults to `ServiceScope.APP`.
+        scope: Lifecycle scope policy of the service. Defaults to `"app"`.
         auto_discover: If `True`, automatically wires constructor dependencies.
         lifecycle: Optional custom lifecycle hooks specifically for this service.
         feature_flags: Service is only registered if all listed feature flags are active.
@@ -313,7 +337,7 @@ class ServiceConfig:
         ```python
         config = ServiceConfig(
             class_path="modules.users.services:UsersService",
-            scope=ServiceScope.SINGLETON,
+            scope="singleton",
             config={"max_users": 1000}
         )
         ```
@@ -329,7 +353,7 @@ class ServiceConfig:
     """
 
     class_path: str  # "path.to.module:ClassName"
-    scope: ServiceScope = ServiceScope.APP  # Lifecycle scope
+    scope: ServiceScopeLiteral | ServiceScope = "app"  # Lifecycle scope
 
     # Auto-discovery
     auto_discover: bool = True  # Auto-wire dependencies
@@ -1038,7 +1062,7 @@ class AppManifest:
     Examples:
         Declaring a billing module:
         ```python
-        from aquilia.manifest import AppManifest, ServiceConfig, ServiceScope
+        from aquilia.manifest import AppManifest, ServiceConfig
 
         manifest = AppManifest(
             name="billing",
@@ -1046,7 +1070,7 @@ class AppManifest:
             services=[
                 ServiceConfig(
                     class_path="modules.billing.services:BillingService",
-                    scope=ServiceScope.SINGLETON
+                    scope="singleton"
                 )
             ],
             controllers=[

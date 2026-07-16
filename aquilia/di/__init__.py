@@ -74,6 +74,7 @@ from .scopes import (
     Scope,
     ScopeValidator,
     ServiceScope,
+    ServiceScopeLiteral,
 )
 from .testing import (
     MockProvider,
@@ -99,6 +100,7 @@ __all__ = [
     # Scopes
     "Scope",
     "ServiceScope",
+    "ServiceScopeLiteral",
     "ScopeValidator",
     # Decorators
     "service",

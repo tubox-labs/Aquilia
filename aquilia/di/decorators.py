@@ -7,6 +7,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import TypeVar, get_type_hints
 
+from .scopes import ServiceScopeLiteral
+
 T = TypeVar("T")
 
 
@@ -64,7 +66,7 @@ def inject(
 
 def service(
     *,
-    scope: str = "app",
+    scope: ServiceScopeLiteral = "app",
     tag: str | None = None,
     name: str | None = None,
 ) -> Callable[[type[T]], type[T]]:
@@ -98,7 +100,7 @@ def service(
 
 def factory(
     *,
-    scope: str = "app",
+    scope: ServiceScopeLiteral = "app",
     tag: str | None = None,
     name: str | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
@@ -133,7 +135,7 @@ def factory(
 def provides(
     token: type | str,
     *,
-    scope: str = "app",
+    scope: ServiceScopeLiteral = "app",
     tag: str | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
@@ -163,6 +165,7 @@ def provides(
         return func
 
     return decorator
+
 
 
 def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
