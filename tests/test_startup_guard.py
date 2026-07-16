@@ -1,9 +1,12 @@
-import pytest
 from pathlib import Path
-from unittest.mock import MagicMock, patch, AsyncMock
-from aquilia.server import AquiliaServer
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
 from aquilia.config import ConfigLoader
 from aquilia.faults.domains import SchemaFault
+from aquilia.server import AquiliaServer
+
 
 def _get_test_server():
     cfg = ConfigLoader()
@@ -44,7 +47,7 @@ async def test_startup_guard_fails_when_db_not_ready_and_migrations_exist(tmp_pa
             with patch.object(server, "logger") as mock_logger:
                 # We expect the SchemaFault to bubble up
                 await server._register_models()
-        
+
         assert "[SCHEMA_FAULT]" in str(exc_info.value)
         assert "Database is not ready" in exc_info.value.message
 

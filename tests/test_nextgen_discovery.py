@@ -1,16 +1,15 @@
-import pytest
-from pathlib import Path
-import json
 import time
 
-from aquilia.manifest import ComponentKind
+import pytest
+
 from aquilia.discovery.engine import (
+    ASTClassifier,
     AutoDiscoveryEngine,
     DiscoveryCache,
-    ASTClassifier,
-    register_component_rule,
     _compute_file_hash,
+    register_component_rule,
 )
+from aquilia.manifest import ComponentKind
 
 
 def test_discovery_caching(tmp_path):

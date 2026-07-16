@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import pytest
-from aquilia.models.migration_dsl import ColumnDef, CreateModel, columns as C
+from aquilia.models.migration_dsl import ColumnDef, CreateModel
+from aquilia.models.migration_dsl import columns as C
 from aquilia.models.migration_gen import _render_column_def
 
 

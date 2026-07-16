@@ -11,13 +11,13 @@ Verifies:
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
+
 import pytest
 
-from aquilia.auth.guards import AuthGuard, RoleGuard, ScopeGuard, PolicyGuard, requires
+from aquilia.auth.core import Identity, IdentityStatus, IdentityType
 from aquilia.auth.decorators import authenticated, optional_auth, roles_required, scopes_required
-from aquilia.auth.core import Identity, IdentityType, IdentityStatus
+from aquilia.auth.guards import AuthGuard, RoleGuard, ScopeGuard, requires
 from aquilia.flow import FlowContext, FlowPipeline, FlowStatus
 
 
@@ -48,10 +48,10 @@ async def test_auth_guard_as_class_in_flow_pipeline():
     # 1. Without identity -> must fail/raise
     flow_ctx_anonymous = FlowContext()
     flow_ctx_anonymous.identity = None  # type: ignore[attr-defined]
-    
+
     pipe = FlowPipeline("test_pipe")
     pipe.guard(AuthGuard)
-    
+
     result = await pipe.execute(flow_ctx_anonymous)
     assert result.status == FlowStatus.GUARDED
     from aquilia.auth.faults import AUTH_REQUIRED
@@ -66,7 +66,7 @@ async def test_auth_guard_as_class_in_flow_pipeline():
         status=IdentityStatus.ACTIVE,
     )
     flow_ctx_auth.identity = identity  # type: ignore[attr-defined]
-    
+
     result_auth = await pipe.execute(flow_ctx_auth)
     assert result_auth.status == FlowStatus.SUCCESS
 
@@ -76,10 +76,10 @@ async def test_auth_guard_as_instance_in_flow_pipeline():
     """Verify that passing the AuthGuard() instance works inside a Flow pipeline."""
     flow_ctx_anonymous = FlowContext()
     flow_ctx_anonymous.identity = None  # type: ignore[attr-defined]
-    
+
     pipe = FlowPipeline("test_pipe")
     pipe.guard(AuthGuard(optional=False))
-    
+
     result = await pipe.execute(flow_ctx_anonymous)
     assert result.status == FlowStatus.GUARDED
 
@@ -182,7 +182,7 @@ async def test_ctx_first_decorators():
         attributes={"roles": ["admin"], "scopes": ["write"]},
         status=IdentityStatus.ACTIVE,
     )
-    
+
     @authenticated
     async def get_profile(ctx: Any) -> str:
         return "profile"
@@ -204,7 +204,7 @@ async def test_ctx_first_decorators():
 
     # test @authenticated
     assert await get_profile(ctx_auth) == "profile"
-    from aquilia.auth.faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_ROLE, AUTHZ_INSUFFICIENT_SCOPE
+    from aquilia.auth.faults import AUTH_REQUIRED
     with pytest.raises(AUTH_REQUIRED):
         await get_profile(ctx_anon)
 

@@ -1,5 +1,3 @@
-import pytest
-from pathlib import Path
 
 from aquilia.cli.commands.run import _discover_and_update_manifests
 

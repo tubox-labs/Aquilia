@@ -124,7 +124,7 @@ async def test_url_for_static_in_template(tmp_path):
 
     from aquilia.controller.router import ControllerRouter
     router = ControllerRouter()
-    
+
     html = await TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)])).render(
         "index.html",
         {"url_for": router.url_for}
@@ -134,17 +134,18 @@ async def test_url_for_static_in_template(tmp_path):
 
 
 async def test_url_for_static_with_request_context():
-    from aquilia.controller.router import ControllerRouter
-    from aquilia.controller.base import _set_current_request_ctx, _reset_current_request_ctx
     from unittest.mock import MagicMock
-    
+
+    from aquilia.controller.base import _reset_current_request_ctx, _set_current_request_ctx
+    from aquilia.controller.router import ControllerRouter
+
     router = ControllerRouter()
-    
+
     mock_request = MagicMock()
     mock_request.state = {"template_static": lambda path: f"/assets/custom/{path}"}
     mock_ctx = MagicMock()
     mock_ctx.request = mock_request
-    
+
     token = _set_current_request_ctx(mock_ctx)
     try:
         url = router.url_for("static", filename="js/main.js")

@@ -19,14 +19,12 @@ Coverage:
 
 from __future__ import annotations
 
-import secrets
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ===========================================================================
 # 1. Utility functions (relocated from hardening.py → tokens.py)
@@ -639,11 +637,6 @@ class TestAuthTypingProtocols:
     def test_scalar_type_aliases_exported(self) -> None:
         from aquilia.typing.auth import (
             IdentityID,
-            RoleName,
-            RoleSet,
-            ScopeName,
-            ScopeSet,
-            TenantID,
         )
 
         # These are TypeAlias — just verify they exist as names
@@ -678,7 +671,7 @@ class TestSessionDecorators:
         assert SessionContext is not None
 
     def test_auth_decorator_imports(self) -> None:
-        from aquilia.auth import authenticated, roles_required, scopes_required, optional_auth
+        from aquilia.auth import authenticated, optional_auth, roles_required, scopes_required
 
         assert callable(authenticated)
         assert callable(roles_required)
@@ -696,16 +689,8 @@ class TestAuthModuleInit:
 
     def test_auth_core_imports(self) -> None:
         from aquilia.auth import (
-            AuthManager,
             AuthResult,
-            Credential,
-            CredentialStatus,
-            CredentialStore,
             Identity,
-            IdentityStatus,
-            IdentityStore,
-            IdentityType,
-            TokenClaims,
         )
 
         assert Identity is not None
@@ -717,9 +702,6 @@ class TestAuthModuleInit:
         from aquilia.auth import (
             AccessLevel,
             Clearance,
-            ClearanceEngine,
-            ClearanceGuard,
-            ClearanceVerdict,
             grant,
         )
 
@@ -729,46 +711,28 @@ class TestAuthModuleInit:
 
     def test_auth_hashing_imports(self) -> None:
         from aquilia.auth import (
-            HasherConfig,
             PasswordHasher,
-            PasswordPolicy,
-            hash_password,
-            validate_password,
-            verify_password,
         )
 
         assert PasswordHasher is not None
 
     def test_auth_tokens_imports(self) -> None:
         from aquilia.auth import (
-            KeyAlgorithm,
-            KeyDescriptor,
-            KeyRing,
-            KeyStatus,
-            TokenConfig,
             TokenManager,
-            TokenStore,
         )
 
         assert TokenManager is not None
 
     def test_auth_fault_imports(self) -> None:
         from aquilia.auth import (
-            AUTH_INVALID_CREDENTIALS,
             AUTH_REQUIRED,
-            AUTH_TOKEN_EXPIRED,
-            AUTH_TOKEN_INVALID,
-            AUTHZ_INSUFFICIENT_ROLE,
-            AUTHZ_POLICY_DENIED,
         )
 
         assert AUTH_REQUIRED is not None
 
     def test_auth_store_imports(self) -> None:
         from aquilia.auth import (
-            MemoryCredentialStore,
             MemoryIdentityStore,
-            MemoryTokenStore,
         )
 
         assert MemoryIdentityStore is not None

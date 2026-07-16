@@ -1,8 +1,7 @@
-import pytest
-from aquilia.models import Model, fields, expression
+from aquilia.models import Model, expression, fields
 from aquilia.models.fields_module import UniqueConstraint
-from aquilia.models.schema_snapshot import create_snapshot, _compile_schema_expression
-from aquilia.models.base import ModelMeta
+from aquilia.models.schema_snapshot import _compile_schema_expression, create_snapshot
+
 
 def test_compile_schema_expression():
     class TestModel(Model):

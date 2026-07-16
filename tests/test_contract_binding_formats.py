@@ -10,7 +10,7 @@ import pytest
 
 from aquilia._datastructures import MultiDict
 from aquilia._uploads import FormData
-from aquilia.contracts import Contract, ChoiceFacet, ListFacet, NestedContractFacet, TextFacet
+from aquilia.contracts import ChoiceFacet, Contract, ListFacet, NestedContractFacet, TextFacet
 from aquilia.contracts.sigil import (
     extract_flat_list_mapping,
     extract_nested_mapping,

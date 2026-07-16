@@ -1,9 +1,10 @@
 import json
-import pytest
-from aquilia.admin.site import AdminSite
-from aquilia.models.base import Model, ModelRegistry
-from aquilia.models import fields, expression
+
 from aquilia import models
+from aquilia.admin.site import AdminSite
+from aquilia.models import expression, fields
+from aquilia.models.base import Model, ModelRegistry
+
 
 def test_get_model_schema_with_expression_constraints():
     # Define a temporary model with expression constraint and index
@@ -33,7 +34,7 @@ def test_get_model_schema_with_expression_constraints():
     try:
         # Get schema
         schema = site.get_model_schema()
-        
+
         # Verify JSON serializability
         serialized = json.dumps(schema)
         assert "temp_expr_model" in serialized

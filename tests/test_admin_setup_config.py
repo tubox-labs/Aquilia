@@ -1,6 +1,7 @@
-import pytest
 from pathlib import Path
+
 from click.testing import CliRunner
+
 from aquilia.cli.__main__ import cli
 
 
