@@ -5,9 +5,12 @@ Decorators and injection helpers for ergonomic DI usage.
 import functools
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import TypeVar, get_type_hints
+from typing import TYPE_CHECKING, Any, TypeVar, get_type_hints
 
 from .scopes import ServiceScopeLiteral
+
+if TYPE_CHECKING:
+    from collections.abc import Callable as _Callable
 
 T = TypeVar("T")
 
@@ -69,6 +72,7 @@ def service(
     scope: ServiceScopeLiteral = "app",
     tag: str | None = None,
     name: str | None = None,
+    when: "_Callable[[ConditionContext], bool] | None" = None,
 ) -> Callable[[type[T]], type[T]]:
     """
     Decorator to mark a class as a DI service.
@@ -77,15 +81,30 @@ def service(
         scope: Service scope (singleton, app, request, transient, pooled, ephemeral)
         tag: Optional tag for disambiguation
         name: Optional explicit service name
+        when: Optional registration predicate. Receives a
+            :class:`ConditionContext` (environment + config) and returns
+            ``True`` to register the service, ``False`` to skip it. Enables
+            environment/feature-gated providers (Spring ``@Profile`` /
+            ``@ConditionalOnProperty`` equivalent). Honoured when
+            ``DISettings.enable_conditional_providers`` is on.
 
     Returns:
         Decorator function
 
-    Example:
+    Example::
+
         @service(scope="request", tag="primary")
         class UserService:
             def __init__(self, repo: UserRepo):
                 self.repo = repo
+
+    Conditional example — only in production::
+
+        @service(when=lambda c: c.env == "prod")
+        class RealPaymentGateway: ...
+
+        @service(when=lambda c: c.env != "prod")
+        class FakePaymentGateway: ...
     """
 
     def decorator(cls: type[T]) -> type[T]:
@@ -93,6 +112,8 @@ def service(
         cls.__di_scope__ = scope  # type: ignore
         cls.__di_tag__ = tag  # type: ignore
         cls.__di_name__ = name or cls.__name__  # type: ignore
+        if when is not None:
+            cls.__di_condition__ = when  # type: ignore
         return cls
 
     return decorator
@@ -242,3 +263,112 @@ def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
 
 # Convenience alias
 injectable = service
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  Conditional / environment-gated providers
+# ══════════════════════════════════════════════════════════════════════════
+
+
+@dataclass(frozen=True, slots=True)
+class ConditionContext:
+    """Context handed to a conditional-registration predicate.
+
+    Attributes:
+        env: The active environment label (``AQUILIA_ENV`` or config ``env``).
+        config: The raw config mapping/loader, for property-based conditions.
+
+    Example::
+
+        @conditional(lambda c: c.env == "prod" and c.get("cache.backend") == "redis")
+        class RedisCacheWarmup: ...
+    """
+
+    env: str = "prod"
+    config: Any = None
+
+    def get(self, path: str, default: Any = None) -> Any:
+        """Dot-path lookup into the config (``"cache.backend"``).
+
+        Works with a :class:`~aquilia.config.ConfigLoader` (via its ``get``)
+        or a plain nested dict.
+        """
+        cfg = self.config
+        if cfg is None:
+            return default
+        if hasattr(cfg, "get") and not isinstance(cfg, dict):
+            try:
+                return cfg.get(path, default)
+            except TypeError:
+                pass
+        current: Any = cfg
+        for part in path.split("."):
+            if isinstance(current, dict) and part in current:
+                current = current[part]
+            else:
+                return default
+        return current
+
+    def is_env(self, *names: str) -> bool:
+        """Return whether the active env matches any of *names* (case-insensitive)."""
+        low = self.env.lower()
+        return any(low == n.lower() for n in names)
+
+
+def conditional(
+    predicate: "_Callable[[ConditionContext], bool]",
+) -> Callable[[type[T]], type[T]]:
+    """Class decorator: register the service only when *predicate* is true.
+
+    A standalone form of ``@service(when=...)`` for classes already decorated
+    (or discovered by convention). Honoured when
+    ``DISettings.enable_conditional_providers`` is on.
+
+    Args:
+        predicate: Callable taking a :class:`ConditionContext`, returning
+            ``True`` to register.
+
+    Example::
+
+        @conditional(lambda c: c.is_env("prod", "staging"))
+        class MetricsExporter: ...
+    """
+
+    def decorator(cls: type[T]) -> type[T]:
+        cls.__di_condition__ = predicate  # type: ignore[attr-defined]
+        return cls
+
+    return decorator
+
+
+def should_register(target: Any, ctx: ConditionContext) -> bool:
+    """Evaluate a target's ``@conditional`` / ``when=`` predicate.
+
+    Returns ``True`` when the target has no condition, or its predicate passes.
+    Predicate errors are treated as ``False`` (skip) and never crash the boot.
+
+    Args:
+        target: A class or factory possibly carrying ``__di_condition__``.
+        ctx: The :class:`ConditionContext` to evaluate against.
+
+    Returns:
+        Whether the target should be registered.
+
+    Example::
+
+        if should_register(UserService, ConditionContext(env="prod", config=loader)):
+            container.register(ClassProvider(UserService))
+    """
+    predicate = getattr(target, "__di_condition__", None)
+    if predicate is None:
+        return True
+    try:
+        return bool(predicate(ctx))
+    except Exception:
+        import logging as _log
+
+        _log.getLogger("aquilia.di").warning(
+            "Condition predicate for %r raised; skipping registration.",
+            getattr(target, "__name__", target),
+        )
+        return False
