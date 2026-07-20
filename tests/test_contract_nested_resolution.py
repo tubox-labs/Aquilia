@@ -152,6 +152,7 @@ def test_meta_class_raises_contract_fault():
     from aquilia.contracts.exceptions import ContractFault
 
     with pytest.raises(ContractFault, match="defined 'class Meta'"):
+
         class MetaContract(Contract):
             name: str
 
@@ -186,4 +187,3 @@ def test_generic_subscriptable_nested_contract():
     bp_lazy = LazyUsersContract(data={"name": {"first_name": "Ada", "last_name": "Lovelace"}})
     assert bp_lazy.is_sealed() is True
     assert bp_lazy.validated_data["name"]["first_name"] == "Ada"
-

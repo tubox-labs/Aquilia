@@ -14,18 +14,8 @@ def test_get_model_schema_with_expression_constraints():
         email = fields.EmailField()
 
         class Meta:
-            constraints = [
-                models.UniqueConstraint(
-                    fields=[expression.Lower("email")],
-                    name="temp_email_unique"
-                )
-            ]
-            indexes = [
-                fields.Index(
-                    fields=[expression.Lower("email")],
-                    name="temp_email_lower_idx"
-                )
-            ]
+            constraints = [models.UniqueConstraint(fields=[expression.Lower("email")], name="temp_email_unique")]
+            indexes = [fields.Index(fields=[expression.Lower("email")], name="temp_email_lower_idx")]
 
     # Create admin site and register model
     site = AdminSite()

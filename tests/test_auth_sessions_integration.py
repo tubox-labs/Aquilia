@@ -87,7 +87,7 @@ class TestTokenUtilities:
         oid = generate_opaque_id("sess")
         assert oid.startswith("sess_")
         # random hex part is 32 chars
-        hex_part = oid[len("sess_"):]
+        hex_part = oid[len("sess_") :]
         assert len(hex_part) == 32
         assert all(c in "0123456789abcdef" for c in hex_part)
 

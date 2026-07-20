@@ -1733,8 +1733,6 @@ class TestSessionDecorators:
         with pytest.raises(AUTH_REQUIRED):
             await handler(ctx)
 
-
-
     @pytest.mark.asyncio
     async def test_authenticated_decorator_uses_request_state_session_fallback(self):
         from aquilia.auth.decorators import authenticated
@@ -1922,9 +1920,6 @@ class TestSessionContext:
         assert sess.data["balance"] == 100
 
 
-
-
-
 # ============================================================================
 # Integration / OWASP Compliance Tests
 # ============================================================================
@@ -2073,7 +2068,4 @@ class TestSessionExports:
         """Test that aquilia/__init__.py correctly imports from decorators."""
         from aquilia import SessionContext, authenticated
 
-        assert all(
-            t is not None
-            for t in [SessionContext, authenticated]
-        )
+        assert all(t is not None for t in [SessionContext, authenticated])

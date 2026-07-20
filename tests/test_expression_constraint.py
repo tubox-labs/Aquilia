@@ -31,12 +31,7 @@ def test_unique_constraint_serialization():
 
         class Meta:
             table = "test_users"
-            constraints = [
-                UniqueConstraint(
-                    fields=[expression.Lower("email")],
-                    name="user_email_ci_unique"
-                )
-            ]
+            constraints = [UniqueConstraint(fields=[expression.Lower("email")], name="user_email_ci_unique")]
 
     # Create snapshot -- should not raise TypeError
     snapshot = create_snapshot([TestUser])
@@ -53,41 +48,33 @@ def test_unique_constraint_serialization():
     # Test generate table SQL (should NOT contain the constraint)
     sql = TestUser.generate_create_table_sql()
     assert 'CONSTRAINT "user_email_ci_unique"' not in sql
-    assert 'UNIQUE' not in sql
+    assert "UNIQUE" not in sql
 
     # Test generate index SQL (should contain the unique index statement)
     idx_sql_list = TestUser.generate_index_sql()
     assert len(idx_sql_list) == 1
-    assert idx_sql_list[0] == 'CREATE UNIQUE INDEX IF NOT EXISTS "user_email_ci_unique" ON "test_users" (LOWER("email"));'
+    assert (
+        idx_sql_list[0] == 'CREATE UNIQUE INDEX IF NOT EXISTS "user_email_ci_unique" ON "test_users" (LOWER("email"));'
+    )
 
 
 def test_add_constraint_sqlite_translation():
     from aquilia.models.migration_dsl import AddConstraint
 
-    op = AddConstraint(
-        table="users",
-        constraint_sql='CONSTRAINT "user_email_ci_unique" UNIQUE (LOWER("email"))'
-    )
+    op = AddConstraint(table="users", constraint_sql='CONSTRAINT "user_email_ci_unique" UNIQUE (LOWER("email"))')
     sql_list = op.to_sql(dialect="sqlite")
     assert len(sql_list) == 1
     assert sql_list[0] == 'CREATE UNIQUE INDEX IF NOT EXISTS "user_email_ci_unique" ON "users" (LOWER("email"));'
 
     # Test unnamed unique constraint translation
-    op_unnamed = AddConstraint(
-        table="users",
-        constraint_sql='UNIQUE (LOWER("email"))'
-    )
+    op_unnamed = AddConstraint(table="users", constraint_sql='UNIQUE (LOWER("email"))')
     sql_unnamed = op_unnamed.to_sql(dialect="sqlite")
     assert len(sql_unnamed) == 1
-    assert 'CREATE UNIQUE INDEX IF NOT EXISTS' in sql_unnamed[0]
+    assert "CREATE UNIQUE INDEX IF NOT EXISTS" in sql_unnamed[0]
     assert 'LOWER("email")' in sql_unnamed[0]
 
     # Test non-unique constraint fallback (e.g. CHECK constraint)
-    op_check = AddConstraint(
-        table="users",
-        constraint_sql='CONSTRAINT "check_age" CHECK (age >= 18)'
-    )
+    op_check = AddConstraint(table="users", constraint_sql='CONSTRAINT "check_age" CHECK (age >= 18)')
     sql_check = op_check.to_sql(dialect="sqlite")
     assert len(sql_check) == 1
     assert "Cannot add check/exclude constraint" in sql_check[0]
-

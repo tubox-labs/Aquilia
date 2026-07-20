@@ -8,7 +8,8 @@ from aquilia.cli.__main__ import cli
 def test_admin_setup_config_rewrite(tmp_path):
     # Create mock workspace.py with a multiline parenthesized import block
     workspace_py = tmp_path / "workspace.py"
-    workspace_py.write_text('''"""
+    workspace_py.write_text(
+        '''"""
 Mock workspace
 """
 from aquilia import Workspace, Module
@@ -29,7 +30,9 @@ workspace = (
     .integrate(RegistryIntegration())
     .integrate(StaticFilesIntegration())
 )
-''', encoding="utf-8")
+''',
+        encoding="utf-8",
+    )
 
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):

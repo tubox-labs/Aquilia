@@ -55,6 +55,7 @@ async def test_auth_guard_as_class_in_flow_pipeline():
     result = await pipe.execute(flow_ctx_anonymous)
     assert result.status == FlowStatus.GUARDED
     from aquilia.auth.faults import AUTH_REQUIRED
+
     assert isinstance(result.error, AUTH_REQUIRED)
 
     # 2. With identity -> must pass
@@ -101,6 +102,7 @@ async def test_role_guard_in_flow_pipeline():
     result = await pipe.execute(flow_ctx)
     assert result.status == FlowStatus.GUARDED
     from aquilia.auth.faults import AUTHZ_INSUFFICIENT_ROLE
+
     assert isinstance(result.error, AUTHZ_INSUFFICIENT_ROLE)
 
     # Required role "user" matches -> must pass
@@ -127,6 +129,7 @@ async def test_scope_guard_in_flow_pipeline():
     result = await pipe.execute(flow_ctx)
     assert result.status == FlowStatus.GUARDED
     from aquilia.auth.faults import AUTHZ_INSUFFICIENT_SCOPE
+
     assert isinstance(result.error, AUTHZ_INSUFFICIENT_SCOPE)
 
     # Required scope "read:users" matches -> must pass
@@ -153,6 +156,7 @@ async def test_composable_requires_decorator():
     # Test 1: Anonymous -> raises AUTH_REQUIRED
     ctx_anon = FakeCtx(None)
     from aquilia.auth.faults import AUTH_REQUIRED, AUTHZ_INSUFFICIENT_ROLE
+
     with pytest.raises(AUTH_REQUIRED):
         await handler_admin(ctx_anon)
 
@@ -205,6 +209,7 @@ async def test_ctx_first_decorators():
     # test @authenticated
     assert await get_profile(ctx_auth) == "profile"
     from aquilia.auth.faults import AUTH_REQUIRED
+
     with pytest.raises(AUTH_REQUIRED):
         await get_profile(ctx_anon)
 

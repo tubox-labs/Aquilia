@@ -20,9 +20,7 @@ def test_discovery_caching(tmp_path):
     cache = DiscoveryCache(cache_file)
 
     test_file = tmp_path / "service.py"
-    test_file.write_text(
-        "class UsersService:\n    pass\n", encoding="utf-8"
-    )
+    test_file.write_text("class UsersService:\n    pass\n", encoding="utf-8")
 
     mtime = test_file.stat().st_mtime
     file_hash = _compute_file_hash(test_file)
@@ -52,9 +50,7 @@ def test_discovery_caching(tmp_path):
 
     # Modify file to invalidate cache
     time.sleep(0.01)  # Ensure mtime updates
-    test_file.write_text(
-        "class UsersService:\n    # modified\n    pass\n", encoding="utf-8"
-    )
+    test_file.write_text("class UsersService:\n    # modified\n    pass\n", encoding="utf-8")
     new_hash = _compute_file_hash(test_file)
     assert new_hash != file_hash
 
@@ -70,9 +66,7 @@ def test_extensible_component_rules(tmp_path):
 
     classifier = ASTClassifier()
     test_file = tmp_path / "validator.py"
-    test_file.write_text(
-        "@custom_validator\nclass DataValidator:\n    pass\n", encoding="utf-8"
-    )
+    test_file.write_text("@custom_validator\nclass DataValidator:\n    pass\n", encoding="utf-8")
 
     components = classifier.classify_file(test_file)
     assert len(components) == 1
@@ -115,13 +109,9 @@ def test_workspace_deep_validation(tmp_path):
     )
 
     # Component file inside module a
-    (modules_dir / "mod_a" / "controller.py").write_text(
-        "class DuplicateController:\n    pass\n", encoding="utf-8"
-    )
+    (modules_dir / "mod_a" / "controller.py").write_text("class DuplicateController:\n    pass\n", encoding="utf-8")
     # Component file inside module b (Duplicate class name check)
-    (modules_dir / "mod_b" / "controller.py").write_text(
-        "class DuplicateController:\n    pass\n", encoding="utf-8"
-    )
+    (modules_dir / "mod_b" / "controller.py").write_text("class DuplicateController:\n    pass\n", encoding="utf-8")
 
     engine = AutoDiscoveryEngine(modules_dir)
     workspace_py = tmp_path / "workspace.py"

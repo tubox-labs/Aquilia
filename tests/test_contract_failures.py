@@ -302,10 +302,14 @@ def test_field_positional_default_and_ellipsis():
         Field("hello", "world")
 
     # 4. Test both positional and keyword default should raise ConfigInvalidFault
-    with pytest.raises(ConfigInvalidFault, match="Cannot specify both positional default/Ellipsis and keyword 'default'"):
+    with pytest.raises(
+        ConfigInvalidFault, match="Cannot specify both positional default/Ellipsis and keyword 'default'"
+    ):
         Field("hello", default="world")
 
-    with pytest.raises(ConfigInvalidFault, match="Cannot specify both positional default/Ellipsis and keyword 'default'"):
+    with pytest.raises(
+        ConfigInvalidFault, match="Cannot specify both positional default/Ellipsis and keyword 'default'"
+    ):
         Field(..., default="Login Successfully")
 
 
@@ -325,4 +329,3 @@ def test_contract_with_field_ellipsis_validation():
     bp_pass = UserLoginBP(data={"username": "alice"})
     assert bp_pass.is_sealed() is True
     assert bp_pass.to_dict()["message"] == "Login Successfully"
-

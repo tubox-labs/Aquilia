@@ -123,11 +123,11 @@ async def test_url_for_static_in_template(tmp_path):
     )
 
     from aquilia.controller.router import ControllerRouter
+
     router = ControllerRouter()
 
     html = await TemplateEngine(TemplateLoader(search_paths=[str(tmp_path)])).render(
-        "index.html",
-        {"url_for": router.url_for}
+        "index.html", {"url_for": router.url_for}
     )
 
     assert "/static/css/styles.css" in html
