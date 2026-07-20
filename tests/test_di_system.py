@@ -30,6 +30,7 @@ from aquilia.di.compat import (
     RequestCtx,
     clear_request_container,
     get_request_container,
+    reset_request_container,
     set_request_container,
 )
 
@@ -964,6 +965,7 @@ class TestScopes:
 
     def test_scope_enum_values(self):
         import pytest
+
         with pytest.deprecated_call():
             assert ServiceScope.SINGLETON == "singleton"
         with pytest.deprecated_call():
@@ -1400,11 +1402,11 @@ class TestDecorators:
 
     async def test_auto_inject(self):
         """auto_inject resolves missing params from request container."""
-        from aquilia.di.compat import clear_request_container, set_request_container
+        from aquilia.di.compat import reset_request_container, set_request_container
 
         container = Container(scope="request")
         container.register(ValueProvider("injected_db", str))
-        set_request_container(container)
+        token = set_request_container(container)
 
         try:
 
@@ -1415,20 +1417,20 @@ class TestDecorators:
             result = await handler()
             assert result == "injected_db"
         finally:
-            clear_request_container()
+            reset_request_container(token)
 
     async def test_auto_inject_no_container_raises(self):
         """auto_inject raises if no request container set."""
-        from aquilia.di.compat import clear_request_container
+        from aquilia.di.compat import request_container_scope
 
-        clear_request_container()
+        with request_container_scope(None):
 
-        @auto_inject
-        async def handler(db: str):
-            return db
+            @auto_inject
+            async def handler(db: str):
+                return db
 
-        with pytest.raises(Exception, match="No request container"):
-            await handler()
+            with pytest.raises(Exception, match="No request container"):
+                await handler()
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1735,14 +1737,43 @@ class TestDIErrors:
 class TestCompat:
     """Tests for legacy compatibility layer."""
 
-    def test_get_set_clear_request_container(self):
+    def test_get_set_reset_request_container(self):
         container = Container(scope="request")
         assert get_request_container() is None
 
-        set_request_container(container)
+        token = set_request_container(container)
         assert get_request_container() is container
 
-        clear_request_container()
+        reset_request_container(token)
+        assert get_request_container() is None
+
+    def test_request_container_scope_nesting(self):
+        """Nested scopes unwind to the prior value, not None."""
+        from aquilia.di.compat import request_container_scope
+
+        outer = Container(scope="request")
+        inner = Container(scope="request")
+        assert get_request_container() is None
+        with request_container_scope(outer):
+            assert get_request_container() is outer
+            with request_container_scope(inner):
+                assert get_request_container() is inner
+            # restored to outer, NOT None (nesting-safe)
+            assert get_request_container() is outer
+        assert get_request_container() is None
+
+    def test_clear_request_container_deprecated(self):
+        import warnings
+
+        set_request_container(Container(scope="request"))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", DeprecationWarning)
+            with pytest.raises(DeprecationWarning):
+                clear_request_container()
+        # still functionally clears when warning not escalated
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            clear_request_container()
         assert get_request_container() is None
 
     def test_request_ctx_wraps_container(self):
@@ -1789,13 +1820,13 @@ class TestCompat:
     def test_request_ctx_set_get_current(self):
         container = Container(scope="request")
         ctx = RequestCtx(container)
-        RequestCtx.set_current(ctx)
+        token = RequestCtx.set_current(ctx)
 
         current = RequestCtx.get_current()
         assert current is not None
         assert current.container is container
 
-        clear_request_container()
+        reset_request_container(token)
         assert RequestCtx.get_current() is None
 
     def test_request_ctx_container_setter(self):
