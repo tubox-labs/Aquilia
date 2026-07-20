@@ -71,14 +71,44 @@ class DisposalStrategy(str, Enum):
           Dataclass wrapping startup or teardown callbacks:
         </p>
         <CodeBlock language="python" filename="LifecycleHook Dataclass">{`from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 @dataclass
 class LifecycleHook:
     name: str                    # Hook identifier
     callback: Callable           # Async callable to execute
-    priority: int = 0            # Ascending execution order (lower runs first)
-    phase: Optional[str] = None  # Hook phase category`}</CodeBlock>
+    priority: int = 0            # Higher priority runs FIRST
+    phase: str = "shutdown"      # "startup" or "shutdown"`}</CodeBlock>
+        <p className={`mb-4 mt-4 ${subtleText}`}>
+          Register hooks manually with <code className="text-aquilia-500">on_startup</code> / <code className="text-aquilia-500">on_shutdown</code> (both take <code className="text-aquilia-500">name</code> and <code className="text-aquilia-500">priority</code> keyword args), and cleanup callbacks with <code className="text-aquilia-500">register_finalizer</code>:
+        </p>
+        <CodeBlock language="python" filename="Manual hook registration">{`lifecycle = Lifecycle(
+    disposal_strategy=DisposalStrategy.LIFO,
+    hook_timeout=30.0,   # per-hook timeout in seconds
+)
+
+lifecycle.on_startup(connect_db, name="db.connect", priority=100)   # runs first
+lifecycle.on_startup(warm_cache, name="cache.warm", priority=10)
+lifecycle.on_shutdown(flush_metrics, name="metrics.flush")
+lifecycle.register_finalizer(close_sockets)`}</CodeBlock>
+      </section>
+
+      {/* Hook execution semantics */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Hook Execution Semantics</h2>
+        <div className="space-y-3 text-sm">
+          {[
+            ['Priority ordering', 'Hooks run in descending priority — higher number runs first. Same priority preserves registration order. Sorting happens once, at run time.'],
+            ['Per-hook timeout', 'Each hook is wrapped in asyncio.wait_for(hook_timeout) (default 30s). A hook that overruns is a timeout, not a hang.'],
+            ['Startup failures are fatal', 'If any startup hook raises or times out, failures are collected and a SystemFault (code "STARTUP_HOOKS_FAILED") is raised — the app does not boot half-initialized.'],
+            ['Shutdown failures never raise', 'Shutdown hooks and finalizers log errors and continue, so one failing cleanup cannot block the rest of teardown.'],
+          ].map(([title, desc], i) => (
+            <div key={i} className="flex gap-3">
+              <span className="mt-1.5 w-2 h-2 rounded-full bg-aquilia-500 shrink-0" />
+              <span><strong className={isDark ? 'text-white' : 'text-gray-900'}>{title}.</strong> <span className={subtleText}>{desc}</span></span>
+            </div>
+          ))}
+        </div>
       </section>
 
       {/* Auto-Detection of Lifecycle Methods */}

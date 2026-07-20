@@ -101,6 +101,10 @@ class BaseEnv(AquilaConfig):
         backend     = "memory"
         default_ttl = 300
 
+    class di(AquilaConfig.DI):
+        scope_enforcement   = "warn"    # "warn" | "raise" | "off"
+        parallel_resolution = False
+
     class signing(AquilaConfig.Signing):
         secret = Secret(env="AQ_SECRET_KEY", required=True)
 
@@ -112,6 +116,9 @@ class DevEnv(BaseEnv):
         reload = True
         debug  = True
         log_level = "debug"
+
+    class di(BaseEnv.di):
+        diagnostics_enabled = True      # trace every resolution in dev
 
 # ─── Staging overrides ───────────────────────────────────────────────────────
 class StagingEnv(BaseEnv):
@@ -143,6 +150,10 @@ class ProdEnv(BaseEnv):
         pool_size   = 20
         auto_migrate = True
 
+    class di(BaseEnv.di):
+        scope_enforcement   = "raise"   # fail-fast on captive deps
+        parallel_resolution = True      # resolve independent deps concurrently
+
 # ─── Wire into Workspace ─────────────────────────────────────────────────────
 workspace = (
     Workspace("myapp")
@@ -173,6 +184,7 @@ workspace = (
                 ['AquilaConfig.PasswordHasher', 'algorithm, time_cost, memory_cost, parallelism, bcrypt_rounds, scrypt_n', 'Argon2id / bcrypt / scrypt / PBKDF2 tuning — class-method shortcuts available'],
                 ['AquilaConfig.Database', 'url, pool_size, echo, auto_migrate, auto_connect, migrations_dir', 'Database connection URL and pool/migration settings'],
                 ['AquilaConfig.Cache', 'backend, default_ttl, max_size, eviction_policy, namespace, key_prefix, redis_url', 'Cache backend (memory / redis / composite)'],
+                ['AquilaConfig.DI', 'scope_enforcement, parallel_resolution, diagnostics_enabled, disposal_strategy, pool_max_waiters, enable_plugins, strict_service_registration…', 'Dependency-injection container runtime knobs — populates DISettings at boot'],
                 ['AquilaConfig.Sessions', 'enabled, store_type, cookie_name, cookie_secure, cookie_httponly, ttl_days, idle_timeout_minutes', 'Session store and cookie transport settings'],
                 ['AquilaConfig.Mail', 'enabled, default_from, console_backend, require_tls, retry_max_attempts', 'SMTP connection settings'],
                 ['AquilaConfig.Security', 'cors_enabled, csrf_protection, helmet_enabled, rate_limiting, https_redirect, hsts', 'Security middleware feature flags'],

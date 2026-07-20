@@ -94,6 +94,8 @@ import { DIDiagnostics } from './pages/docs/di/Diagnostics'
 import { DIAdvanced } from './pages/docs/di/DIAdvanced'
 import { DIRequestDAG } from './pages/docs/di/RequestDAG'
 import { DIExtractors } from './pages/docs/di/Extractors'
+import { DIPatterns } from './pages/docs/di/Patterns'
+import { DITroubleshooting } from './pages/docs/di/Troubleshooting'
 
 // Models
 import { ModelsOverview } from './pages/docs/models/Overview'
@@ -424,6 +426,8 @@ export default function App() {
           <Route path="di/extractors" element={<DIExtractors />} />
           <Route path="di/diagnostics" element={<DIDiagnostics />} />
           <Route path="di/advanced" element={<DIAdvanced />} />
+          <Route path="di/patterns" element={<DIPatterns />} />
+          <Route path="di/troubleshooting" element={<DITroubleshooting />} />
 
           {/* Models */}
           <Route path="models" element={<ModelsOverview />} />

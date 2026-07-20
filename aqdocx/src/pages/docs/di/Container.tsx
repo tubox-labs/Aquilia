@@ -93,7 +93,7 @@ request_container = container.create_request_scope()
         <div className="mb-12 border-l-2 border-white/5 pl-6">
           <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">register(provider, *, tag=None)</code></h3>
           <p className={`mb-4 text-sm ${subtleText}`}>
-            Register a <code className="text-aquilia-500">Provider</code> instance. Raises on duplicate token+tag combinations.
+            Register a <code className="text-aquilia-500">Provider</code> instance. A genuine local re-registration of the same token+tag raises a <code className="text-aquilia-500">DIFault</code>, but a child container may <strong>shadow</strong> a provider inherited from its parent. Fires the <code className="text-aquilia-500">on_provider_registered</code> plugin hook.
           </p>
           <CodeBlock language="python">{`from aquilia.di import ClassProvider
 
@@ -142,15 +142,44 @@ class UserController(Controller):
 
         {/* resolve_async */}
         <div className="mb-12 border-l-2 border-white/5 pl-6">
-          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">resolve_async(token, *, tag=None, optional=False)</code></h3>
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">await resolve_async(token, *, tag=None, optional=False)</code></h3>
           <p className={`mb-4 text-sm ${subtleText}`}>
-            <strong>Primary async resolution path.</strong> Optimized for &lt;3&micro;s cached lookups with O(1) cache check and parent container delegation.
+            <strong>Primary async resolution path.</strong> Optimized for &lt;3&micro;s cached lookups with O(1) cache check and parent container delegation. Pass <code className="text-aquilia-500">optional=True</code> to get <code className="text-aquilia-500">None</code> instead of <code className="text-aquilia-500">ProviderNotFoundError</code> when unregistered.
           </p>
           <CodeBlock language="python">{`# Standard resolution
 user_svc = await container.resolve_async(UserService)
 
 # Tagged resolution
-redis = await container.resolve_async(CacheBackend, tag="redis")`}</CodeBlock>
+redis = await container.resolve_async(CacheBackend, tag="redis")
+
+# Optional — None if not registered
+tracer = await container.resolve_async(Tracer, optional=True)`}</CodeBlock>
+        </div>
+
+        {/* resolve (sync) */}
+        <div className="mb-12 border-l-2 border-white/5 pl-6">
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">resolve(token, *, tag=None, optional=False)</code></h3>
+          <p className={`mb-4 text-sm ${subtleText}`}>
+            Synchronous resolution for non-async call sites. Drives the async path on a persistent per-thread event loop. <strong>Raises <code className="text-aquilia-500">DIResolutionFault</code> if called from inside a running event loop</strong> — in async code, always use <code className="text-aquilia-500">resolve_async</code>.
+          </p>
+        </div>
+
+        {/* register_instance */}
+        <div className="mb-12 border-l-2 border-white/5 pl-6">
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">await register_instance(token, instance, scope="request", tag=None)</code></h3>
+          <p className={`mb-4 text-sm ${subtleText}`}>
+            Register a pre-built object (wraps it in a <code className="text-aquilia-500">ValueProvider</code>). Used for request-scoped objects created outside DI — the ASGI layer registers the current <code className="text-aquilia-500">Request</code> this way. Always replaces any existing entry for the token.
+          </p>
+          <CodeBlock language="python">{`session = await engine.open_session(request)
+await container.register_instance(Session, session, scope="request")`}</CodeBlock>
+        </div>
+
+        {/* is_registered */}
+        <div className="mb-12 border-l-2 border-white/5 pl-6">
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">is_registered(token, tag=None)</code></h3>
+          <p className={`mb-4 text-sm ${subtleText}`}>
+            Returns <code className="text-aquilia-500">True</code> if a provider is registered for the token (checks this container and its parent chain).
+          </p>
         </div>
 
         {/* create_request_scope */}
@@ -161,11 +190,35 @@ redis = await container.resolve_async(CacheBackend, tag="redis")`}</CodeBlock>
           </p>
         </div>
 
+        {/* create_child */}
+        <div className="mb-12 border-l-2 border-white/5 pl-6">
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">create_child(scope="app", *, own_lifecycle=True)</code></h3>
+          <p className={`mb-4 text-sm ${subtleText}`}>
+            Generic hierarchical child container (copy-on-write provider dict; parent singletons resolved once at the owning level). Use for per-tenant or multi-level scope trees.
+          </p>
+        </div>
+
+        {/* add_dependency_link */}
+        <div className="mb-12 border-l-2 border-white/5 pl-6">
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">add_dependency_link(app_name, container)</code></h3>
+          <p className={`mb-4 text-sm ${subtleText}`}>
+            Runtime counterpart to a manifest's <code className="text-aquilia-500">depends_on</code>. When a token is missing locally and up the parent chain, resolution falls through to the linked sibling app container. Wired automatically by the runtime; undeclared cross-app deps still raise <code className="text-aquilia-500">ProviderNotFoundError</code>, and link cycles raise <code className="text-aquilia-500">DependencyCycleError</code>.
+          </p>
+        </div>
+
+        {/* replace_provider */}
+        <div className="mb-12 border-l-2 border-white/5 pl-6">
+          <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">await replace_provider(token, provider, *, tag=None)</code></h3>
+          <p className={`mb-4 text-sm ${subtleText}`}>
+            Production-safe atomic hot-swap of a provider (copy-on-write safe, evicts the cached instance). Distinct from the test-only <code className="text-aquilia-500">override_container</code>. Emits a <code className="text-aquilia-500">REGISTRATION</code> diagnostic event.
+          </p>
+        </div>
+
         {/* shutdown */}
         <div className="mb-12 border-l-2 border-white/5 pl-6">
           <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">shutdown()</code></h3>
           <p className={`mb-4 text-sm ${subtleText}`}>
-            Drains finalizers in LIFO order (clean up database connections or file handlers), runs lifecycle shutdown hooks, and clears the instance cache.
+            Runs inline <code className="text-aquilia-500">Dep()</code> generator teardowns (LIFO) first, then drains finalizers in LIFO order (clean up database connections or file handlers), runs lifecycle shutdown hooks, and clears the instance cache.
           </p>
         </div>
       </section>

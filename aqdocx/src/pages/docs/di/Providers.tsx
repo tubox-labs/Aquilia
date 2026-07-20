@@ -117,7 +117,11 @@ provider = PoolProvider(
     HeavyClient,
     max_size=10,
     scope="pooled",
+    max_waiters=256,   # fast-fail once 256 callers queue on an exhausted pool
 )`}</CodeBlock>
+        <p className={`mt-4 text-sm ${subtleText}`}>
+          <code className="text-aquilia-500">max_waiters</code> (default <code className="text-aquilia-500">None</code> = unbounded) caps how many callers may queue against an exhausted pool. Beyond the cap, a burst fast-fails with <code className="text-aquilia-500">DIResolutionFault</code> instead of thundering-herd queueing. The process-wide default comes from the <code className="text-aquilia-500">pool_max_waiters</code> DI setting.
+        </p>
       </section>
 
       {/* ContractProvider */}
@@ -130,6 +134,45 @@ provider = PoolProvider(
 
 # Registers in container
 container.register(ContractProvider(UserContract, scope="request"))`}</CodeBlock>
+      </section>
+
+      {/* AliasProvider */}
+      <section className="mb-16 border-l-2 border-cyan-500/30 pl-6">
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>AliasProvider</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Points one token at another — resolving the alias returns the target's instance. Use it to expose the same service under multiple names or to bind an interface token to a concrete registration.
+        </p>
+        <CodeBlock language="python" filename="AliasProvider Usage">{`from aquilia.di.providers import AliasProvider
+
+# Resolving ILogger returns whatever is registered for StructuredLogger
+container.register(AliasProvider(token=ILogger, target_token=StructuredLogger))`}</CodeBlock>
+      </section>
+
+      {/* LazyProxyProvider */}
+      <section className="mb-16 border-l-2 border-yellow-500/30 pl-6">
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>LazyProxyProvider</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Returns a lazy proxy that defers resolution of its target until first attribute access — the tool for breaking an otherwise-illegal construction cycle. The proxy resolves synchronously on first touch and refuses to resolve inside a running event loop (deadlock guard).
+        </p>
+        <CodeBlock language="python" filename="LazyProxyProvider Usage">{`from aquilia.di.providers import LazyProxyProvider
+
+# ServiceA depends on LazyB; ServiceB is built on first access.
+container.register(LazyProxyProvider(token=LazyB, target_token=ServiceB))`}</CodeBlock>
+        <p className={`mt-3 text-xs ${subtleText}`}>
+          See <Link to="/docs/di/patterns" className="text-aquilia-500 underline">Patterns &amp; Recipes → Lazy Resolution</Link> for the full cycle-breaking recipe.
+        </p>
+      </section>
+
+      {/* ScopedProvider */}
+      <section className="mb-16 border-l-2 border-indigo-500/30 pl-6">
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>ScopedProvider</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          A thin wrapper that re-labels an inner provider's scope — used internally to enforce request/ephemeral semantics on a provider without rewriting it. It copies the inner metadata and overrides only the scope, delegating <code className="text-aquilia-500">instantiate</code> and <code className="text-aquilia-500">shutdown</code> to the inner provider.
+        </p>
+        <CodeBlock language="python" filename="ScopedProvider Usage">{`from aquilia.di.providers import ScopedProvider, ClassProvider
+
+inner = ClassProvider(RequestTracker)         # default "app"
+container.register(ScopedProvider(inner, scope="request"))`}</CodeBlock>
       </section>
 
       {/* Selection Logic */}

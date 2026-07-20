@@ -25,21 +25,29 @@ export function DIScopes() {
         </p>
       </div>
 
-      {/* ServiceScope Enum */}
+      {/* Scope string literals */}
       <section className="mb-16">
-        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>ServiceScope Enum</h2>
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Scope String Literals</h2>
         <p className={`mb-4 ${subtleText}`}>
-          Defined in <code className="text-aquilia-500">aquilia/di/scopes.py</code> as a string-based enum for simple manifest and decorator configurations:
+          Scopes are plain string literals. Pass them anywhere a scope is expected — <code className="text-aquilia-500">@service(scope="request")</code>, provider constructors, or manifest declarations. The canonical type hint is <code className="text-aquilia-500">ServiceScopeLiteral</code>, defined in <code className="text-aquilia-500">aquilia/di/scopes.py</code>:
         </p>
-        <CodeBlock language="python" filename="ServiceScope Definition">{`from aquilia.di.scopes import ServiceScope
+        <CodeBlock language="python" filename="ServiceScopeLiteral">{`from typing import Literal
+from aquilia.di import ServiceScopeLiteral
 
-class ServiceScope(str, Enum):
-    SINGLETON = "singleton"   # Process-wide lifetime
-    APP       = "app"         # Application container lifetime
-    REQUEST   = "request"     # Isolated request lifetime
-    TRANSIENT = "transient"   # Uncached, new instance per resolution
-    POOLED    = "pooled"      # Managed by asyncio.Queue instance pool
-    EPHEMERAL = "ephemeral"   # Request-scoped temporary lifetime`}</CodeBlock>
+ServiceScopeLiteral = Literal[
+    "singleton",   # Process-wide lifetime
+    "app",         # Application container lifetime (alias of singleton)
+    "request",     # Isolated request lifetime
+    "transient",   # Uncached, new instance per resolution
+    "pooled",      # Managed by asyncio.Queue instance pool
+    "ephemeral",   # Request-scoped temporary lifetime
+]`}</CodeBlock>
+
+        <div className="border-l-4 border-yellow-500 bg-yellow-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-sm text-yellow-600 dark:text-yellow-400 leading-relaxed">
+            <strong>Deprecated: the <code className="text-xs">ServiceScope</code> Enum.</strong> Accessing any member (<code className="text-xs">ServiceScope.SINGLETON</code>) or calling the Enum emits a <code className="text-xs">DeprecationWarning</code> and will be removed in a future version. Replace <code className="text-xs">ServiceScope.SINGLETON</code> with the string <code className="text-xs">"singleton"</code>, <code className="text-xs">ServiceScope.REQUEST</code> with <code className="text-xs">"request"</code>, and so on. String literals skip import-time namespace scanning and runtime attribute lookups.
+          </p>
+        </div>
 
         <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl mt-8">
           <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -69,6 +77,33 @@ class ServiceScope(str, Enum):
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Choosing a scope */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Choosing the Right Scope</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Scope is a lifetime decision. Match the instance lifetime to the data it holds:
+        </p>
+        <div className="space-y-3 mb-6 text-sm">
+          {[
+            ['singleton / app', 'Stateless infrastructure shared across the whole process: connection pools, HTTP clients, config, loggers. "app" behaves identically to "singleton" in a single-app project; the distinction matters only across module boundaries.'],
+            ['request', 'State bound to one HTTP request: a unit-of-work / transaction, the current user, a request-scoped logger. Cached in the per-request child container, disposed when the request ends.'],
+            ['transient', 'Cheap stateless objects you want fresh each time: builders, formatters, id generators. Never cached.'],
+            ['pooled', 'Expensive-to-create, reusable resources with capped concurrency: heavy clients, worker connections. Managed by a bounded asyncio.Queue via PoolProvider.'],
+            ['ephemeral', 'Short-lived, request-parented temporaries. Cached like request but with a request→ephemeral parent hierarchy.'],
+          ].map(([scope, desc], i) => (
+            <div key={i} className="flex gap-3">
+              <span className="mt-1.5 w-2 h-2 rounded-full bg-aquilia-500 shrink-0" />
+              <span><code className="text-aquilia-500 text-xs">{scope}</code> <span className={subtleText}>— {desc}</span></span>
+            </div>
+          ))}
+        </div>
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-xs text-aquilia-500/90 leading-relaxed">
+            <strong>Caching &amp; ownership.</strong> Only <code className="text-xs">singleton</code>, <code className="text-xs">app</code>, and <code className="text-xs">request</code> are cacheable. Singleton/app instances are cached at the owning (root) container and delegated upward — one instance for the process. Request instances are cached in the request child container and cleared at request shutdown. Transient and pooled are never cached in the container. Under <code className="text-xs">parallel_resolution</code>, in-flight dedup guarantees concurrent resolvers of the same uncached cacheable token still share one instance.
+          </p>
         </div>
       </section>
 
@@ -156,6 +191,11 @@ class GlobalAnalytics:
     async def track(self, ctx_container, event: str):
         logger = await ctx_container.resolve_async(RequestLogger)
         logger.info(event)`}</CodeBlock>
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-sm text-aquilia-500/90 leading-relaxed">
+            <strong>Enforcement is settings-driven.</strong> The <code className="text-xs">scope_enforcement</code> DI setting controls the outcome: <code className="text-xs">"warn"</code> (default) logs a warning, <code className="text-xs">"raise"</code> raises <code className="text-xs">ScopeViolationError</code> at startup, and <code className="text-xs">"off"</code> skips the check entirely. Configure it in your <code className="text-xs">workspace.py</code> <code className="text-xs">di</code> block — see <Link to="/docs/di/advanced" className="text-aquilia-500 underline">Advanced DI</Link>.
+          </p>
+        </div>
       </section>
 
       {/* Navigation */}

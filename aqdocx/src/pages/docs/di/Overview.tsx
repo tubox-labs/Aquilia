@@ -51,6 +51,9 @@ export function DIOverview() {
             { icon: <GitBranch className="w-5 h-5" />, title: 'Per-Request DAG', desc: 'Dependencies declared natively in route handlers via Dep() form a per-request Directed Acyclic Graph. Shared sub-dependencies are deduplicated and resolved exactly once per request. Independent branches resolve concurrently.' },
             { icon: <Box className="w-5 h-5" />, title: 'Annotation-Driven Inject', desc: 'Inspired by FastAPI, use generic typing like Annotated[DB, Dep(get_db)] to seamlessly wire sub-dependencies inline, avoiding the need for boilerplate provider factory registration.' },
             { icon: <GitBranch className="w-5 h-5" />, title: 'Hierarchical Containers', desc: 'create_request_scope() creates a lightweight child container that shares the parent\'s _providers dict by reference but has its own _cache and a _NullLifecycle. Singleton lookups bubble up to the parent automatically.' },
+            { icon: <ShieldCheck className="w-5 h-5" />, title: 'Typed Settings', desc: 'One immutable DISettings object holds every runtime knob — scope enforcement, parallel resolution, diagnostics, pool bounds — configured declaratively via the di section of workspace.py. Invalid values raise DIConfigFault at boot.' },
+            { icon: <Box className="w-5 h-5" />, title: 'Interceptors & Plugins', desc: 'Provider interceptors wrap instantiation with around-advice (AOP) via intercept(). DIPlugin hooks extend registry construction to auto-register providers and observe container builds — both failure-isolated.' },
+            { icon: <Zap className="w-5 h-5" />, title: 'Conditional Providers', desc: 'Gate registration on the environment or config with @service(when=...) or @conditional(...). The Spring @Profile / @ConditionalOnProperty equivalent — a bad predicate skips the service, never crashing boot.' },
           ].map((card, i) => (
             <div key={i} className="group relative overflow-hidden rounded-2xl bg-white/5 border border-white/5 hover:border-aquilia-500/20 p-6 backdrop-blur-sm transition-all duration-300 hover:translate-y-[-2px] hover:shadow-lg shadow-black/40">
               <div className="absolute top-0 bottom-0 left-0 w-1 bg-gradient-to-b from-aquilia-500 to-transparent opacity-50 group-hover:opacity-100 transition-opacity duration-300" />
@@ -68,7 +71,7 @@ export function DIOverview() {
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Module Map</h2>
         <p className={`mb-4 ${subtleText}`}>
-          The DI system lives under <code className="text-aquilia-500">aquilia/di/</code> and is composed of 13 modules:
+          The DI system lives under <code className="text-aquilia-500">aquilia/di/</code> and is composed of these modules:
         </p>
         <div className="overflow-x-auto rounded-2xl border border-white/5 bg-white/5 backdrop-blur-sm shadow-xl">
           <table className={`w-full text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
@@ -83,10 +86,13 @@ export function DIOverview() {
                 ['__init__.py', 'Public API surface — re-exports everything consumers need.'],
                 ['core.py', 'ProviderMeta, ResolveCtx, Provider protocol, Container, Registry, _NullLifecycleType.'],
                 ['providers.py', 'ClassProvider, FactoryProvider, ValueProvider, PoolProvider, AliasProvider, LazyProxyProvider, ScopedProvider, ContractProvider.'],
-                ['scopes.py', 'ServiceScope enum (6 scopes), Scope dataclass, SCOPES dict, ScopeValidator.'],
-                ['decorators.py', 'Inject, inject(), service(), factory(), provides(), auto_inject(), injectable.'],
-                ['dep.py', 'Dep descriptor for inline parameter injection. HTTP extractors: Header, Query, Body.'],
-                ['request_dag.py', 'Per-request Dependency Graph execution, deduplication, and caching.'],
+                ['scopes.py', 'ServiceScopeLiteral (canonical string-literal type), deprecated ServiceScope enum, Scope dataclass, SCOPES dict, ScopeValidator.'],
+                ['decorators.py', 'Inject, inject(), service(), factory(), provides(), auto_inject(), conditional(), ConditionContext, should_register().'],
+                ['dep.py', 'Dep descriptor for inline parameter injection. HTTP extractors: Header, Query, Body, Cookie, Path.'],
+                ['request_dag.py', 'Thin compatibility shim over container.resolve_dep() — the unified per-request resolution engine now lives in core.py.'],
+                ['settings.py', 'DISettings (typed runtime config), DIConfigFault, configure_di(), get_di_settings(), reset_di_settings().'],
+                ['interceptors.py', 'ProviderInterceptor protocol, InterceptingProvider, InterceptContext, intercept() — provider-level AOP.'],
+                ['plugins.py', 'DIPlugin base, register_plugin(), unregister_plugin(), get_plugins(), clear_plugins().'],
                 ['lifecycle.py', 'DisposalStrategy, LifecycleHook, Lifecycle, LifecycleContext.'],
                 ['diagnostics.py', 'DIEventType, DIEvent, DiagnosticListener protocol, ConsoleDiagnosticListener, DIDiagnostics.'],
                 ['graph.py', 'DependencyGraph — Tarjan\'s SCC detection, Kahn\'s topological sort, DOT export, tree view.'],
@@ -103,7 +109,7 @@ export function DIOverview() {
                   </span>
                 )],
                 ['testing.py', 'MockProvider, TestRegistry, override_container(), pytest fixtures (di_container, request_container, mock_provider).'],
-                ['compat.py', 'RequestCtx legacy wrapper, get_request_container(), set_request_container(), clear_request_container() — ContextVar bridge.'],
+                ['compat.py', 'RequestCtx legacy wrapper, get_request_container(), set_request_container(), reset_request_container(), request_container_scope() — ContextVar bridge.'],
                 ['cli.py', (
                   <span>
                     CLI commands:{' '}
@@ -340,6 +346,11 @@ class UserController(Controller):
             </tbody>
           </table>
         </div>
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl mt-6">
+          <p className="text-xs text-aquilia-500/90 leading-relaxed">
+            <strong>Structured faults at boot.</strong> The DI layer now raises structured <code className="text-xs">DIFault</code>s rather than bare <code className="text-xs">ValueError</code>s. A manifest declaring an unknown <code className="text-xs">scope</code> fails fast with <code className="text-xs">INVALID_SERVICE_SCOPE</code> (always fatal, lists the valid scopes). When <code className="text-xs">strict_service_registration</code> is on, a service that fails to register raises <code className="text-xs">SERVICE_REGISTRATION_FAILED</code> and aborts boot; otherwise it logs a warning and continues. Invalid <code className="text-xs">di</code> config raises <code className="text-xs">DI_CONFIG_INVALID</code>.
+          </p>
+        </div>
       </section>
 
       {/* CLI Tooling */}
@@ -375,6 +386,33 @@ class UserController(Controller):
               ))}
             </tbody>
           </table>
+        </div>
+      </section>
+
+      {/* Explore the docs */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Explore the DI Docs</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            ['Container', '/docs/di/container', 'Registration, resolution, hierarchical containers, hot-swap.'],
+            ['Providers', '/docs/di/providers', 'Class, Factory, Value, Pool, Alias, LazyProxy, Scoped, Contract.'],
+            ['Scopes', '/docs/di/scopes', 'Lifetimes, caching, captive-dependency rules, enforcement.'],
+            ['Decorators', '/docs/di/decorators', '@service, @factory, @provides, conditional providers, Inject.'],
+            ['RequestDAG', '/docs/di/request-dag', 'Inline Dep() injection, dedup, parallel resolution, teardown.'],
+            ['HTTP Extractors', '/docs/di/extractors', 'Header, Query, Cookie, Path, Body with auto-coercion.'],
+            ['Lifecycle', '/docs/di/lifecycle', 'Startup/shutdown hooks, disposal strategies, finalizers.'],
+            ['Advanced', '/docs/di/advanced', 'DISettings, interceptors, plugins, cross-app links, testing.'],
+            ['Patterns & Recipes', '/docs/di/patterns', '15 production recipes from basic wiring to large apps.'],
+            ['Errors & Troubleshooting', '/docs/di/troubleshooting', 'Full fault taxonomy and a debugging playbook.'],
+          ].map(([label, path, desc], i) => (
+            <Link key={i} to={path} className="group rounded-2xl bg-white/5 border border-white/5 hover:border-aquilia-500/30 p-5 backdrop-blur-sm transition-all duration-200 hover:translate-y-[-2px]">
+              <div className="flex items-center gap-2 mb-1">
+                <span className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'} group-hover:text-aquilia-500 transition-colors`}>{label}</span>
+                <ArrowRight className="w-3.5 h-3.5 text-aquilia-500 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
+              <p className={`text-xs ${subtleText}`}>{desc}</p>
+            </Link>
+          ))}
         </div>
       </section>
 

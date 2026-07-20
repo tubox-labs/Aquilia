@@ -25,6 +25,18 @@ export function DIDiagnostics() {
         </p>
       </div>
 
+      {/* Enablement note */}
+      <section className="mb-12">
+        <div className="border-l-4 border-yellow-500 bg-yellow-500/5 pl-6 py-4 rounded-r-xl">
+          <p className={`text-sm leading-relaxed ${subtleText}`}>
+            <strong className="text-yellow-600 dark:text-yellow-400">Opt-in for zero hot-path cost.</strong> Resolution events (<code className="text-aquilia-500">RESOLUTION_START/SUCCESS/FAILURE</code>) are only emitted when the <code className="text-aquilia-500">diagnostics_enabled</code> DI setting is on — keeping the default resolve path free of tracing overhead. Turn it on per-environment in your <code className="text-aquilia-500">workspace.py</code> <code className="text-aquilia-500">di</code> block (commonly <code className="text-aquilia-500">DevEnv</code>):
+          </p>
+          <CodeBlock language="python" filename="workspace.py">{`class DevEnv(BaseEnv):
+    class di(BaseEnv.di):
+        diagnostics_enabled = True`}</CodeBlock>
+        </div>
+      </section>
+
       {/* DIEventType */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>DIEventType</h2>

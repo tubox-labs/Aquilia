@@ -146,6 +146,8 @@ export const sections: SidebarSection[] = [
           { label: 'Lifecycle', path: '/docs/di/lifecycle' },
           { label: 'Diagnostics', path: '/docs/di/diagnostics' },
           { label: 'Advanced', path: '/docs/di/advanced' },
+          { label: 'Patterns & Recipes', path: '/docs/di/patterns' },
+          { label: 'Errors & Troubleshooting', path: '/docs/di/troubleshooting' },
         ]
       },
     ]

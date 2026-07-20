@@ -1,6 +1,6 @@
 import { useTheme } from '../../../context/ThemeContext'
 import { CodeBlock } from '../../../components/CodeBlock'
-import { ArrowLeft, Cpu } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Cpu } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { NextSteps } from '../../../components/NextSteps'
 
@@ -21,7 +21,7 @@ export function DIExtractors() {
           HTTP Parameter Extractors
         </h1>
         <p className={`text-lg leading-relaxed ${subtleText}`}>
-          Bind incoming HTTP metadata directly to your service parameters using the built-in <code className="text-aquilia-500">Header</code>, <code className="text-aquilia-500">Query</code>, and <code className="text-aquilia-500">Body</code> extractors.
+          Bind incoming HTTP metadata directly to your dependency parameters with the built-in <code className="text-aquilia-500">Header</code>, <code className="text-aquilia-500">Query</code>, <code className="text-aquilia-500">Cookie</code>, <code className="text-aquilia-500">Path</code>, and <code className="text-aquilia-500">Body</code> extractors. Values are cast and validated through the Contract facet pipeline.
         </p>
       </div>
 
@@ -58,48 +58,111 @@ class SearchController(Controller):
         return {"status": "ok", "q": query}`}</CodeBlock>
       </section>
 
+      {/* Casting note */}
+      <section className="mb-16">
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-6 py-4 rounded-r-xl">
+          <p className={`text-sm leading-relaxed ${subtleText}`}>
+            <strong className="text-aquilia-500">Automatic coercion.</strong> Extracted raw strings are cast to the annotated type through the Contract facet pipeline — <code className="text-aquilia-500">Annotated[int, Query("page")]</code> yields a real <code className="text-aquilia-500">int</code>, not a string. A failed cast returns a structured <code className="text-aquilia-500">BadRequestFault</code> (HTTP 400). All five extractors accept <code className="text-aquilia-500">alias</code> to map a differently-named source key.
+          </p>
+        </div>
+      </section>
+
       {/* Header */}
       <section className="mb-16 border-l-2 border-aquilia-500/30 pl-6">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Header</h2>
         <p className={`mb-4 ${subtleText}`}>
-          Extracts a specific HTTP header. Header name lookups are case-insensitive.
+          Extracts an HTTP header. Lookups are case-insensitive. <code className="text-aquilia-500">required</code> defaults to <strong>True</strong>.
         </p>
-        <CodeBlock language="python" filename="Header Attributes">{`from aquilia.di import Header
+        <CodeBlock language="python" filename="Header">{`from aquilia.di import Header
 
-@dataclass
+@dataclass(frozen=True)
 class Header:
-    name: str                   # Header name (e.g. "Authorization")
-    alias: Optional[str] = None # Alias key mapping
-    required: bool = True       # Raises ValidationFault if missing
-    default: Any = None         # Fallback value`}</CodeBlock>
+    name: str                    # header name, e.g. "Authorization"
+    alias: str | None = None     # alternate lookup key
+    required: bool = True        # missing -> BadRequestFault (HTTP 400)
+    default: Any = None          # fallback when not required
+
+# Usage
+async def auth(token: Annotated[str, Header("Authorization")]) -> str:
+    return token.removeprefix("Bearer ")`}</CodeBlock>
       </section>
 
       {/* Query */}
       <section className="mb-16 border-l-2 border-orange-500/30 pl-6">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Query</h2>
         <p className={`mb-4 ${subtleText}`}>
-          Extracts values from the query string (`?key=value`).
+          Extracts a query-string value (<code>?key=value</code>). <code className="text-aquilia-500">required</code> defaults to <strong>False</strong>.
         </p>
-        <CodeBlock language="python" filename="Query Attributes">{`from aquilia.di import Query
+        <CodeBlock language="python" filename="Query">{`from aquilia.di import Query
 
-@dataclass
+@dataclass(frozen=True)
 class Query:
-    name: str                   # Key key (e.g. "page")
-    default: Any = None         # Default value
-    required: bool = False      # Raises ValidationFault if missing`}</CodeBlock>
+    name: str | None = None      # query key, e.g. "page"
+    default: Any = None          # value when absent
+    required: bool = False       # missing + required -> BadRequestFault
+    alias: str | None = None     # alternate key
+
+# Usage — cast to int with a default
+async def page(n: Annotated[int, Query("page", default=1)]) -> int:
+    return n`}</CodeBlock>
+      </section>
+
+      {/* Cookie */}
+      <section className="mb-16 border-l-2 border-purple-500/30 pl-6">
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Cookie</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Extracts a cookie value. <code className="text-aquilia-500">required</code> defaults to <strong>False</strong>.
+        </p>
+        <CodeBlock language="python" filename="Cookie">{`from aquilia.di import Cookie
+
+@dataclass(frozen=True)
+class Cookie:
+    name: str | None = None
+    default: Any = None
+    required: bool = False
+    alias: str | None = None
+
+# Usage
+async def sess(sid: Annotated[str, Cookie("session_id")]) -> str:
+    return sid`}</CodeBlock>
+      </section>
+
+      {/* Path */}
+      <section className="mb-16 border-l-2 border-blue-500/30 pl-6">
+        <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Path</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Extracts a route/path parameter. <code className="text-aquilia-500">required</code> defaults to <strong>True</strong>.
+        </p>
+        <CodeBlock language="python" filename="Path">{`from aquilia.di import Path
+
+@dataclass(frozen=True)
+class Path:
+    name: str | None = None
+    default: Any = None
+    required: bool = True
+    alias: str | None = None
+
+# Usage — matches @get("/users/{user_id}"), cast to int
+async def load(user_id: Annotated[int, Path()]) -> int:
+    return user_id`}</CodeBlock>
       </section>
 
       {/* Body */}
       <section className="mb-16 border-l-2 border-green-500/30 pl-6">
         <h2 className={`text-2xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Body</h2>
         <p className={`mb-4 ${subtleText}`}>
-          Directly injects the parsed request body.
+          Injects the parsed request body. Pair with a Contract type for full validation.
         </p>
-        <CodeBlock language="python" filename="Body Attributes">{`from aquilia.di import Body
+        <CodeBlock language="python" filename="Body">{`from aquilia.di import Body
 
-@dataclass
+@dataclass(frozen=True)
 class Body:
-    media_type: str = "application/json"   # Expected content-type`}</CodeBlock>
+    media_type: str = "application/json"
+    embed: bool = False
+
+# Usage
+async def create(data: Annotated[dict, Body()]) -> dict:
+    return data`}</CodeBlock>
       </section>
 
       {/* Errors */}
@@ -107,7 +170,7 @@ class Body:
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Error Handling</h2>
         <div className="border-l-4 border-red-500 bg-red-500/5 pl-4 py-3 rounded-r-xl my-6">
           <p className="text-xs text-red-500/90 leading-relaxed">
-            If an extractor is marked as <code className="text-red-500">required=True</code> and the value doesn't exist in the HTTP request, Aquilia raises a <strong>ValidationFault</strong>. The Fault Engine intercepts this to return a structured HTTP 400 Bad Request to the client automatically.
+            A missing <code className="text-red-500">required</code> value, a null where null is disallowed, or a failed type cast raises <strong>BadRequestFault</strong>. The Fault Engine renders it as a structured HTTP 400 automatically — you never write the 400 yourself.
           </p>
         </div>
       </section>
@@ -117,7 +180,9 @@ class Body:
         <Link to="/docs/di/request-dag" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition font-medium">
           <ArrowLeft className="w-4 h-4" /> RequestDAG
         </Link>
-        <span />
+        <Link to="/docs/di/patterns" className="flex items-center gap-2 text-aquilia-500 hover:text-aquilia-400 transition font-medium">
+          Patterns &amp; Recipes <ArrowRight className="w-4 h-4" />
+        </Link>
       </div>
 
       <NextSteps />

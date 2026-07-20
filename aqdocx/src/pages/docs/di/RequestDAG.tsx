@@ -25,6 +25,15 @@ export function DIRequestDAG() {
         </p>
       </div>
 
+      {/* Unified engine note */}
+      <section className="mb-12">
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-6 py-4 rounded-r-xl">
+          <p className={`text-sm leading-relaxed ${subtleText}`}>
+            <strong className="text-aquilia-500">One engine.</strong> Aquilia previously ran two resolution engines — the <code className="text-aquilia-500">Container</code> and a separate FastAPI-<code className="text-aquilia-500">Depends</code>-style DAG. They are now unified: the container owns the single engine, and <code className="text-aquilia-500">RequestDAG</code> is a thin compatibility shim. The public API is unchanged — <code className="text-aquilia-500">RequestDAG(container, request)</code>, <code className="text-aquilia-500">await dag.resolve(dep, param_type)</code>, and <code className="text-aquilia-500">await dag.teardown()</code> still work — but the real work now lives in <code className="text-aquilia-500">container.resolve_dep(...)</code>. All resolution state (cache, teardowns, resolving-set) is held by the container, so inline <code className="text-aquilia-500">Dep()</code> deps and constructor-injected services share one deduplicated graph.
+          </p>
+        </div>
+      </section>
+
       {/* Core Concepts */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Core Execution Mechanics</h2>

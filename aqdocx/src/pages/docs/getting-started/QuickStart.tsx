@@ -100,6 +100,10 @@ class BaseEnv(AquilaConfig):
         workers = 1
         reload = True
 
+    class di(AquilaConfig.DI):
+        scope_enforcement   = "warn"   # "warn" | "raise" | "off"
+        parallel_resolution = False    # set True in prod for concurrent deps
+
 workspace = (
     Workspace("my-api")
     .env_config(BaseEnv)

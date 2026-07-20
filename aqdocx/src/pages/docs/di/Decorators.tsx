@@ -119,6 +119,76 @@ class UserController(Controller):
         return ctx.json(user)`}</CodeBlock>
       </section>
 
+      {/* Conditional Providers */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Conditional Providers</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Register a service only when a predicate passes — the Spring <code className="text-aquilia-500">@Profile</code> / <code className="text-aquilia-500">@ConditionalOnProperty</code> equivalent. The predicate receives a <code className="text-aquilia-500">ConditionContext</code> carrying the active environment and config. Use the <code className="text-aquilia-500">when=</code> parameter on <code className="text-aquilia-500">@service</code>, or the standalone <code className="text-aquilia-500">@conditional</code> decorator. Both are honoured at registration when <code className="text-aquilia-500">enable_conditional_providers</code> is on (default).
+        </p>
+        <CodeBlock language="python" filename="Environment-gated providers">{`from aquilia.di import service, conditional, ConditionContext
+
+# Register only in production via @service(when=...)
+@service(when=lambda c: c.env == "prod")
+class RealPaymentGateway:
+    ...
+
+# Fake gateway everywhere else
+@service(when=lambda c: c.env != "prod")
+class FakePaymentGateway:
+    ...
+
+# Standalone @conditional — matches prod OR staging (case-insensitive)
+@conditional(lambda c: c.is_env("prod", "staging"))
+class MetricsExporter:
+    ...
+
+# Property-based: dot-path lookup into config
+@conditional(lambda c: c.get("cache.backend") == "redis")
+class RedisCacheWarmup:
+    ...`}</CodeBlock>
+
+        <p className={`mb-4 mt-6 ${subtleText}`}>
+          <code className="text-aquilia-500">ConditionContext</code> is a frozen dataclass with two fields and two helpers:
+        </p>
+        <CodeBlock language="python" filename="ConditionContext API">{`@dataclass(frozen=True, slots=True)
+class ConditionContext:
+    env: str = "prod"          # active env (AQUILIA_ENV or config "env")
+    config: Any = None         # raw config mapping/loader
+
+    def get(self, path: str, default=None) -> Any:  # dot-path lookup: "cache.backend"
+        ...
+    def is_env(self, *names: str) -> bool:          # case-insensitive env match
+        ...`}</CodeBlock>
+
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-xs text-aquilia-500/90 leading-relaxed">
+            <strong>Safe by default:</strong> a service with no condition always registers. If a predicate raises, the service is skipped (treated as <code className="text-xs">False</code>) and boot continues — a bad predicate never crashes startup. Use <code className="text-xs">should_register(target, ctx)</code> to evaluate a predicate manually.
+          </p>
+        </div>
+      </section>
+
+      {/* factory & provides */}
+      <section className="mb-16">
+        <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>@factory &amp; @provides</h2>
+        <p className={`mb-4 ${subtleText}`}>
+          Use <code className="text-aquilia-500">@factory</code> when construction needs logic (async connect, config-driven choice). Use <code className="text-aquilia-500">@provides(Token)</code> when the factory returns an abstract/interface type and you want to bind it under that token. Both take <code className="text-aquilia-500">scope</code> (default <code className="text-aquilia-500">"app"</code>), <code className="text-aquilia-500">tag</code>, and inject their own parameters.
+        </p>
+        <CodeBlock language="python" filename="Factories">{`from aquilia.di import factory, provides
+
+@factory(scope="singleton", name="db_pool")
+async def create_db_pool(config: AppConfig) -> DatabasePool:
+    return await DatabasePool.connect(config.db_url)
+
+@provides(UserRepository, scope="app", tag="sql")
+def build_repo(db: DatabasePool) -> UserRepository:
+    return SqlUserRepository(db)`}</CodeBlock>
+        <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl my-6">
+          <p className="text-xs text-aquilia-500/90 leading-relaxed">
+            <strong>Required annotations.</strong> The <code className="text-xs">ClassProvider</code> reads constructor type hints. A parameter with no annotation and no default raises <code className="text-xs">DIError</code> at build. A parameter with a default is treated as optional and skipped by DI. Define an <code className="text-xs">async def async_init(self)</code> for construction steps that need <code className="text-xs">await</code>.
+          </p>
+        </div>
+      </section>
+
       {/* Decorators Reference */}
       <section className="mb-16">
         <h2 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>Registration Decorators</h2>
@@ -133,9 +203,11 @@ class UserController(Controller):
             </thead>
             <tbody className="divide-y divide-white/5">
               {[
-                { d: '@service', s: 'singleton', desc: 'Registers a class as a singleton app-scoped service.' },
+                { d: '@service', s: 'app', desc: 'Registers a class as an app-scoped service (default scope="app").' },
                 { d: '@service(scope="request")', s: 'request', desc: 'Registers a request-scoped class, created per request.' },
                 { d: '@service(scope="transient")', s: 'transient', desc: 'Registers a transient class, created fresh on every lookup.' },
+                { d: '@service(when=predicate)', s: 'any', desc: 'Registers only when the predicate(ConditionContext) returns True.' },
+                { d: '@conditional(predicate)', s: 'any', desc: 'Standalone conditional registration for already-decorated classes.' },
                 { d: '@factory', s: 'configurable', desc: 'Registers a function as a custom service factory.' },
                 { d: '@provides(Token)', s: 'n/a', desc: 'Exposes a service instance from a custom provider method.' },
                 { d: '@auto_inject', s: 'n/a', desc: 'Enables automatic constructor injection on a class without manifests.' },
