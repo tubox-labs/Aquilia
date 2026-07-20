@@ -15,6 +15,49 @@ from .errors import DIError
 T = TypeVar("T")
 
 
+async def _resolve_dependencies(dependencies: dict[str, dict[str, Any]], ctx: ResolveCtx) -> dict[str, Any]:
+    """Resolve a provider's constructor/factory dependencies.
+
+    Sequential by default. When ``DISettings.parallel_resolution`` is on and
+    there is more than one dependency, independent dependencies resolve
+    concurrently via ``asyncio.gather``. Each concurrent branch gets a forked
+    :class:`ResolveCtx` (copy of the cycle-guard stack) so parallelism cannot
+    corrupt the shared resolution stack.
+    """
+    if not dependencies:
+        return {}
+
+    from .settings import get_di_settings
+
+    if len(dependencies) > 1 and get_di_settings().parallel_resolution:
+        names = list(dependencies.keys())
+
+        async def _one(dep_name: str) -> Any:
+            dep_info = dependencies[dep_name]
+            branch_ctx = ResolveCtx(container=ctx.container)
+            branch_ctx.stack = ctx.stack.copy()  # fork the cycle-guard stack
+            return await ctx.container.resolve_async(
+                dep_info["token"],
+                tag=dep_info.get("tag"),
+                optional=dep_info.get("optional", False),
+                ctx=branch_ctx,
+            )
+
+        results = await asyncio.gather(*(_one(n) for n in names))
+        return dict(zip(names, results, strict=False))
+
+    # Sequential path (shared ctx — correct cycle detection).
+    resolved: dict[str, Any] = {}
+    for dep_name, dep_info in dependencies.items():
+        resolved[dep_name] = await ctx.container.resolve_async(
+            dep_info["token"],
+            tag=dep_info.get("tag"),
+            optional=dep_info.get("optional", False),
+            ctx=ctx,
+        )
+    return resolved
+
+
 def _normalize_optional_token(annotation: Any) -> tuple[Any, bool]:
     """Normalize Optional/union annotations for DI token lookup.
 
@@ -90,20 +133,15 @@ class ClassProvider:
         return self._meta
 
     async def instantiate(self, ctx: ResolveCtx) -> Any:
-        """Instantiate class by resolving dependencies."""
-        # Resolve dependencies
-        resolved_deps = {}
-        for dep_name, dep_info in self._dependencies.items():
-            dep_token = dep_info["token"]
-            dep_tag = dep_info.get("tag")
+        """Instantiate class by resolving dependencies.
 
-            resolved = await ctx.container.resolve_async(
-                dep_token,
-                tag=dep_tag,
-                optional=dep_info.get("optional", False),
-                ctx=ctx,
-            )
-            resolved_deps[dep_name] = resolved
+        When ``DISettings.parallel_resolution`` is enabled and the class has
+        more than one constructor dependency, independent dependencies are
+        resolved concurrently via ``asyncio.gather`` — each on a forked
+        resolution context so the per-branch cycle guard stays correct.
+        Otherwise dependencies resolve sequentially.
+        """
+        resolved_deps = await _resolve_dependencies(self._dependencies, ctx)
 
         # Instantiate
         instance = self._cls(**resolved_deps)
@@ -265,17 +303,12 @@ class FactoryProvider:
         return self._meta
 
     async def instantiate(self, ctx: ResolveCtx) -> Any:
-        """Call factory with resolved dependencies."""
-        # Resolve dependencies
-        resolved_deps = {}
-        for dep_name, dep_info in self._dependencies.items():
-            resolved = await ctx.container.resolve_async(
-                dep_info["token"],
-                tag=dep_info.get("tag"),
-                optional=dep_info.get("optional", False),
-                ctx=ctx,
-            )
-            resolved_deps[dep_name] = resolved
+        """Call factory with resolved dependencies.
+
+        Honours ``DISettings.parallel_resolution`` the same way
+        :meth:`ClassProvider.instantiate` does.
+        """
+        resolved_deps = await _resolve_dependencies(self._dependencies, ctx)
 
         # Call factory
         if self._is_async:
@@ -406,6 +439,8 @@ class PoolProvider:
         "_strategy",
         "_created",
         "_acquire_timeout",
+        "_max_waiters",
+        "_waiters",
     )
 
     def __init__(
@@ -417,6 +452,7 @@ class PoolProvider:
         strategy: str = "FIFO",  # FIFO or LIFO
         tags: tuple[str, ...] = (),
         acquire_timeout: float = 30.0,  # SEC-DI-05: default 30s timeout
+        max_waiters: int | None = None,  # cap concurrent waiters (fast-fail)
     ):
         # SEC-DI-05: Validate pool size
         if max_size < 1:
@@ -432,6 +468,8 @@ class PoolProvider:
         self._pool: asyncio.Queue | None = None
         self._created = 0
         self._acquire_timeout = acquire_timeout
+        self._max_waiters = max_waiters
+        self._waiters = 0
 
         token_str = token if isinstance(token, str) else f"{token.__module__}.{token.__qualname__}"
 
@@ -467,7 +505,21 @@ class PoolProvider:
             self._created += 1
             return instance
 
-        # Wait for available instance (SEC-DI-05: bounded timeout)
+        # Wait for available instance (SEC-DI-05: bounded timeout).
+        # SEC-DI-14: bound the number of concurrent waiters so a burst against
+        # an exhausted pool fast-fails instead of thundering-herd queueing.
+        if self._max_waiters is not None and self._waiters >= self._max_waiters:
+            from ..faults.domains import DIResolutionFault
+
+            raise DIResolutionFault(
+                provider=self._meta.token,
+                reason=(
+                    f"Pool '{self._meta.name}' overloaded: {self._waiters} waiters "
+                    f"already queued (max_waiters={self._max_waiters}, max_size={self._max_size})"
+                ),
+            )
+
+        self._waiters += 1
         try:
             return await asyncio.wait_for(self._pool.get(), timeout=self._acquire_timeout)
         except asyncio.TimeoutError:
@@ -481,6 +533,8 @@ class PoolProvider:
                     f"(max_size={self._max_size})"
                 ),
             )
+        finally:
+            self._waiters -= 1
 
     async def release(self, instance: Any) -> None:
         """Release instance back to pool."""
@@ -622,36 +676,20 @@ class _LazyProxy:
     def _resolve(self):
         """Resolve actual instance on first access.
 
-        SEC-DI-06: Refuse to create throwaway event loops — callers must
-        either resolve eagerly during startup or use the async API.
+        SEC-DI-06: Refuse to resolve inside a running event loop (would
+        deadlock). Outside a loop, drive the async path on a persistent
+        per-thread loop (Bug 8 — no throwaway loop per access).
         """
         if object.__getattribute__(self, "_instance") is None:
-            try:
-                asyncio.get_running_loop()
-            except RuntimeError:
-                pass
-            else:
-                from ..faults.domains import DIResolutionFault
+            from ._sync_bridge import run_sync
 
-                raise DIResolutionFault(
-                    provider=str(object.__getattribute__(self, "_token")),
-                    reason=(
-                        "Cannot lazily resolve synchronously inside a running async "
-                        "event loop. Use 'await container.resolve_async(...)' or "
-                        "resolve eagerly during startup."
-                    ),
-                )
-            # SEC-DI-06: Use a short-lived loop but with a guard
-            _loop = asyncio.new_event_loop()
-            try:
-                instance = _loop.run_until_complete(
-                    object.__getattribute__(self, "_container").resolve_async(
-                        object.__getattribute__(self, "_token"),
-                        tag=object.__getattribute__(self, "_tag"),
-                    )
-                )
-            finally:
-                _loop.close()
+            instance = run_sync(
+                object.__getattribute__(self, "_container").resolve_async(
+                    object.__getattribute__(self, "_token"),
+                    tag=object.__getattribute__(self, "_tag"),
+                ),
+                provider=str(object.__getattribute__(self, "_token")),
+            )
             object.__setattr__(self, "_instance", instance)
         return object.__getattribute__(self, "_instance")
 
