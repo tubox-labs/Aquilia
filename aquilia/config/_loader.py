@@ -812,6 +812,33 @@ class ConfigLoader:
             },
         )
 
+    def get_di_config(self) -> dict:
+        """Get dependency-injection container configuration with defaults.
+
+        Populates :class:`aquilia.di.settings.DISettings` at boot. See
+        :class:`aquilia.pyconfig.AquilaConfig.DI` for the field reference.
+
+        Returns:
+            DI configuration dictionary.
+        """
+        return self.get_subsystem_config(
+            "di",
+            {
+                "enabled": True,
+                "scope_enforcement": "warn",
+                "parallel_resolution": False,
+                "diagnostics_enabled": False,
+                "disposal_strategy": "lifo",
+                "hook_timeout_seconds": 30.0,
+                "pool_acquire_timeout_seconds": 30.0,
+                "pool_max_waiters": None,
+                "type_key_cache_max": 8192,
+                "enable_conditional_providers": True,
+                "enable_plugins": True,
+                "strict_service_registration": False,
+            },
+        )
+
     def get_i18n_config(self) -> dict:
         return self.get_subsystem_config(
             "i18n",

@@ -1217,6 +1217,72 @@ class AquilaConfig:
         catalog_dirs = ["locales"]
         catalog_format: str = "json"
 
+    class DI:
+        """
+        Dependency-injection container configuration.
+
+        Maps to the ``di`` config path and populates
+        :class:`aquilia.di.settings.DISettings` at server boot. Every attribute
+        here is a runtime knob for the DI container — scope enforcement,
+        parallel resolution, diagnostics, pooling bounds, and the module /
+        plugin feature toggles.
+
+        **Scope enforcement** (``scope_enforcement``)
+
+          * ``"warn"``  — log captive-dependency violations ← **default**
+          * ``"raise"`` — raise ``ScopeViolationError`` (fail-fast; recommended
+            for prod once your graph is clean)
+          * ``"off"``   — skip the check (fastest; only when proven safe)
+
+        **Disposal strategy** (``disposal_strategy``) — finalizer ordering:
+
+          * ``"lifo"``     — reverse of creation ← **default**
+          * ``"fifo"``     — creation order
+          * ``"parallel"`` — all finalizers concurrently
+
+        Example (workspace.py)::
+
+            class ProdEnv(BaseEnv):
+                env = "prod"
+
+                class di(AquilaConfig.DI):
+                    scope_enforcement   = "raise"
+                    parallel_resolution = True
+                    diagnostics_enabled = True
+                    pool_max_waiters    = 256
+
+        Example — dev with tracing::
+
+            class DevEnv(BaseEnv):
+                class di(AquilaConfig.DI):
+                    diagnostics_enabled = True   # emit resolution events
+        """
+
+        #: How captive-dependency scope violations are handled.
+        scope_enforcement: str = "warn"
+        #: Resolve independent constructor deps concurrently (asyncio.gather).
+        parallel_resolution: bool = False
+        #: Emit RESOLUTION_START/SUCCESS/FAILURE diagnostic events.
+        diagnostics_enabled: bool = False
+        #: Finalizer disposal ordering: "lifo" | "fifo" | "parallel".
+        disposal_strategy: str = "lifo"
+        #: Per-hook timeout (seconds) for startup/shutdown lifecycle hooks.
+        hook_timeout_seconds: float = 30.0
+        #: Default pool acquire timeout (seconds).
+        pool_acquire_timeout_seconds: float = 30.0
+        #: Optional cap on concurrent waiters against an exhausted pool
+        #: (fast-fail under overload). ``None`` = unbounded.
+        pool_max_waiters: int | None = None
+        #: Upper bound on the global type→key cache before a wholesale flush.
+        type_key_cache_max: int = 8192
+        #: Honour ``@conditional`` / ``when=`` predicates during registration.
+        enable_conditional_providers: bool = True
+        #: Run registered DIPlugin hooks during registry build.
+        enable_plugins: bool = True
+        #: Fail-fast at boot if a service fails to register (import/factory
+        #: error), instead of warning and booting a half-wired app.
+        strict_service_registration: bool = False
+
     class Signing:
         """
         Cryptographic signing engine configuration (``aquilia.signing``).
