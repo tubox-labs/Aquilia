@@ -649,6 +649,15 @@ class WorkspaceGenerator:
                         "aquilia.auth.backends.SessionBackend",
                     ]
 
+                class di(AquilaConfig.DI):
+                    # Dependency-injection container tuning. See AquilaConfig.DI
+                    # for every option and its default.
+                    scope_enforcement   = "warn"   # "warn" | "raise" | "off"
+                    parallel_resolution = False    # gather independent ctor deps
+                    diagnostics_enabled = False    # emit resolution events
+                    # disposal_strategy   = "lifo"   # "lifo" | "fifo" | "parallel"
+                    # pool_max_waiters    = None     # cap waiters on exhausted pools
+
 
             class DevEnv(BaseEnv):
                 """Development — hot-reload, debug pages, single worker."""
@@ -658,6 +667,10 @@ class WorkspaceGenerator:
                     debug   = True
                     reload  = True
                     workers = 1
+
+                class di(BaseEnv.di):
+                    # Trace DI resolution in dev; keep enforcement lenient.
+                    diagnostics_enabled = True
 
 
             class ProdEnv(BaseEnv):
@@ -676,6 +689,12 @@ class WorkspaceGenerator:
 
                 class auth(BaseEnv.auth):
                     secret_key = Secret(env="AQ_SECRET_KEY", required=True)
+
+                class di(BaseEnv.di):
+                    # Fail-fast on captive-dependency scope violations in prod,
+                    # and parallelise independent constructor dependencies.
+                    scope_enforcement   = "raise"
+                    parallel_resolution = True
 
 
             # ── Workspace Structure ──────────────────────────────────────────
@@ -854,6 +873,12 @@ class WorkspaceGenerator:
                     # timeout_keep_alive, backlog, limit_concurrency,
                     # limit_max_requests, proxy_headers, root_path,
                     # ws_max_size, ssl_certfile, ssl_keyfile, loop, http, ...
+
+                # Dependency-injection tuning (optional). See AquilaConfig.DI.
+                # class di(AquilaConfig.DI):
+                #     scope_enforcement   = "warn"   # "warn" | "raise" | "off"
+                #     parallel_resolution = False
+                #     diagnostics_enabled = False
 
 
             # ── Workspace Structure ──────────────────────────────────────────────
