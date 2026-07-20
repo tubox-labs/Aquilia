@@ -29,6 +29,67 @@ interface ChangelogEntry {
 
 const staticChangelogs: ChangelogEntry[] = [
   {
+    version: '1.3.2',
+    codename: 'Deep Current',
+    date: '2026-07-20',
+    tag: 'patch',
+    summary: 'A major rewrite of the dependency-injection subsystem: one unified resolution engine, typed DISettings configuration, provider interceptors, DI plugins, conditional providers, cross-app dependency links, and hardened pooling/sync bridging.',
+    sections: [
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'Typed DI configuration (DISettings): every container runtime knob — scope_enforcement, parallel_resolution, diagnostics_enabled, disposal_strategy, hook_timeout_seconds, pool_acquire_timeout_seconds, pool_max_waiters, type_key_cache_max, enable_conditional_providers, enable_plugins, strict_service_registration — configured declaratively via the new AquilaConfig.DI (the workspace.py "di" block). Invalid values raise DIConfigFault at boot.',
+          'Provider interceptors (AOP): wrap provider instantiation with around-advice via intercept(provider, *interceptors). New public API — ProviderInterceptor, InterceptingProvider, InterceptContext, intercept.',
+          'DI plugins: extend registry construction with DIPlugin hooks (on_registry_build, on_provider_registered, on_container_built). New public API — register_plugin, unregister_plugin, get_plugins, clear_plugins. Failure-isolated — a raising hook never crashes boot.',
+          'Conditional providers: gate registration on environment/config with @service(when=...) and the standalone @conditional(predicate). New public API — conditional, ConditionContext (env + config, with .get() dot-path lookup and .is_env()), should_register.',
+          'Cross-app dependency links: Container.add_dependency_link() wires a manifest depends_on edge so a token missing locally falls through to the linked sibling app container (owning app instantiates its singletons once). Link cycles raise DependencyCycleError instead of deadlocking.',
+          'Container.create_child(scope, *, own_lifecycle=True): generic hierarchical child container (copy-on-write providers) for per-tenant / multi-level scope trees.',
+          'Container.replace_provider(token, provider, *, tag=None): production-safe atomic provider hot-swap (copy-on-write, evicts the cached instance).',
+          'PoolProvider max_waiters cap and the pool_max_waiters setting: a burst against an exhausted pool fast-fails with DIResolutionFault instead of thundering-herd queueing.',
+          'aq init now scaffolds per-environment "di" blocks in generated workspace.py (dev enables diagnostics; prod sets scope_enforcement="raise" and parallel_resolution=True).',
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'Unified resolution engine: the container and the FastAPI-Depends-style RequestDAG are now one engine owned by the container. RequestDAG is a thin compatibility shim over container.resolve_dep(); its public API (RequestDAG(container, request), resolve(), teardown()) is unchanged. Inline Dep() deps and constructor-injected services now share one deduplicated graph.',
+          'Scope enforcement is settings-driven: scope_enforcement="warn" (default) logs, "raise" raises ScopeViolationError, "off" skips the check.',
+          'DI diagnostics events (RESOLUTION_START/SUCCESS/FAILURE) are emitted only when diagnostics_enabled is on, keeping the default resolve path free of tracing overhead.',
+          'Container.register() now allows a child container to shadow a provider inherited from its parent; only a genuine local re-registration raises. Registration fires the on_provider_registered plugin hook.',
+          'compat: set_request_container() and RequestCtx.set_current() now return a Token; added reset_request_container(token) and the request_container_scope() context manager for nesting-safe request-container swaps.',
+          'The DI layer raises structured DIFaults rather than bare ValueErrors throughout (aquilary core and cache providers updated to catch DIFault).',
+          'Sync resolution now reuses one persistent per-thread event loop instead of creating and closing a fresh loop on every call.',
+        ]
+      },
+      {
+        title: 'Deprecated',
+        type: 'deprecated',
+        items: [
+          'ServiceScope Enum: accessing any member (ServiceScope.SINGLETON) or calling the Enum emits a DeprecationWarning. Use the string literals "singleton", "app", "request", "transient", "pooled", "ephemeral" (canonical type hint: ServiceScopeLiteral). Removal is slated for a future version.',
+          'compat.clear_request_container(): emits a DeprecationWarning. Capture the token from set_request_container() and call reset_request_container(token), or use the request_container_scope() context manager.',
+        ]
+      },
+      {
+        title: 'Removed',
+        type: 'removed',
+        items: [
+          'ModuleContainer: cross-app resolution now uses link-based Container.add_dependency_link() instead of nested module containers.',
+        ]
+      },
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Constructor-injected generator dependencies are no longer torn down before the handler runs — Dep() generator teardown is deferred to request-container shutdown (LIFO).',
+          'WebSocket handlers resolve from the correct per-app DI container (RouteMetadata.app_name), and request registration is copy-on-write safe (register_instance) instead of mutating the shared parent provider dict.',
+          'Unknown manifest scopes now fail fast with DIFault INVALID_SERVICE_SCOPE (listing valid scopes) instead of degrading silently.',
+        ]
+      }
+    ]
+  },
+  {
     version: '1.2.2',
     codename: 'Kraken\'s Wake',
     date: '2026-07-01',

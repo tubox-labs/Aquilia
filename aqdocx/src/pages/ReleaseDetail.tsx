@@ -45,10 +45,26 @@ interface StaticRelease {
 
 const staticReleases: StaticRelease[] = [
   {
+    version: '1.3.2',
+    codename: 'Deep Current',
+    date: 'Jul 20, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Dependency-injection rewrite: unified resolution engine, typed DISettings, provider interceptors, DI plugins, conditional providers, hardened pooling and cross-app resolution.',
+    assets: [
+      { name: 'aquilia-1.3.2.tar.gz', size: '2.5 MB', type: 'Source' },
+      { name: 'aquilia-1.3.2-py3-none-any.whl', size: '2.0 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.2',
+    commitCount: '32',
+    contributors: 2
+  },
+  {
     version: '1.3.1',
     codename: 'Backend Refactoring',
     date: 'Jul 15, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Pluggable Authentication Backends, Unified Permission Engine, Session Hardening, clock-skew JWT validation.',
@@ -259,7 +275,10 @@ const PAGE_LABEL_MAP: Record<string, string> = {
   'backends.md': 'Pluggable Auth Backends',
   'guards.md': 'Authorization & Guards',
   'sessions.md': 'Session Hardening',
-  'migration.md': 'Migration Guide'
+  'migration.md': 'Migration Guide',
+  'di-settings.md': 'DI Settings & Configuration',
+  'engine.md': 'Unified Resolution Engine',
+  'extensibility.md': 'Interceptors, Plugins & Conditionals'
 }
 
 function getFileLabel(filename: string): string {
