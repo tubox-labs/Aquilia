@@ -239,9 +239,12 @@ class ControllerFactory:
                                     if isinstance(arg, DepCls):
                                         if arg.is_container_lookup:
                                             return await self._simple_resolve(actual_type, container, tag=arg.tag)
-                                        # Dep with callable → mini resolve
-                                        from aquilia.di.request_dag import RequestDAG
-
+                                        # Dep with callable → resolve via the
+                                        # container's unified engine. Teardown is
+                                        # DEFERRED to request-container shutdown so
+                                        # constructor-injected generator deps stay
+                                        # alive for the whole request (§6.7 fix),
+                                        # not torn down before the handler runs.
                                         request = None
                                         if ctx is not None:
                                             if hasattr(ctx, "request"):
@@ -249,11 +252,7 @@ class ControllerFactory:
                                             else:
                                                 request = ctx
 
-                                        dag = RequestDAG(container, request=request)
-                                        try:
-                                            return await dag.resolve(arg, actual_type)
-                                        finally:
-                                            await dag.teardown()
+                                        return await container.resolve_dep(arg, actual_type, request)
                                 except ImportError:
                                     pass
 

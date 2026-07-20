@@ -81,12 +81,23 @@ class ASGIAdapter:
         server = self.server
 
         async def container_factory(request=None):
-            if not server or not hasattr(server, "runtime"):
-                from .di import Container
+            app_container = None
 
-                container = Container(scope="request")
-            elif server.runtime.di_containers:
-                app_container = next(iter(server.runtime.di_containers.values()))
+            if server and hasattr(server, "runtime") and server.runtime.di_containers:
+                # Resolve the owning app from the handshake request state
+                # (set by the socket runtime from the matched route's app_name),
+                # mirroring the HTTP path's per-app selection (§6.6).
+                app_name = None
+                if request is not None and hasattr(request, "state"):
+                    state = request.state
+                    app_name = state.get("app_name") if isinstance(state, dict) else getattr(state, "app_name", None)
+                if app_name:
+                    app_container = server.runtime.di_containers.get(app_name)
+                if app_container is None:
+                    # Fallback: first-registered app container.
+                    app_container = next(iter(server.runtime.di_containers.values()))
+
+            if app_container is not None:
                 container = app_container.create_request_scope()
             else:
                 from .di import Container
@@ -469,16 +480,12 @@ class ASGIAdapter:
 
             di_container = Container(scope="request")
 
-        # Register Request instance in container for ContractProvider request lookup
-        from .di.providers import ValueProvider
+        # Register Request instance in container for ContractProvider request lookup.
+        # Use register_instance() (COW-safe) instead of writing _providers directly —
+        # a direct write mutates the shared parent app dict (§6.5).
         from .request import Request as RequestClass
 
-        di_container._providers["aquilia.request.Request"] = ValueProvider(
-            token=RequestClass,
-            value=request,
-            scope="request",
-            name="Request_instance",
-        )
+        await di_container.register_instance(RequestClass, request, scope="request")
         di_container._cache["aquilia.request.Request"] = request
 
         # ── Acquire RequestCtx from pool (zero-alloc hot path) ──

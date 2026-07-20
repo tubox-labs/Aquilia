@@ -44,6 +44,7 @@ class RouteMetadata:
     max_connections: int | None
     message_rate_limit: int | None
     max_message_size: int
+    app_name: str | None = None  # Owning app container (for per-app DI scoping)
 
 
 class SocketRouter:
@@ -325,6 +326,17 @@ class AquilaSockets:
         # Create DI container
         container = None
         if self.container_factory:
+            # Propagate the matched route's owning app so the factory scopes
+            # the container to the correct per-app container (§6.6), instead
+            # of always using the first-registered app.
+            if route_metadata.app_name is not None:
+                try:
+                    if isinstance(req.state, dict):
+                        req.state["app_name"] = route_metadata.app_name
+                    else:
+                        req.state.app_name = route_metadata.app_name
+                except Exception:
+                    pass
             # Pass request context if factory supports it
             try:
                 container = await self.container_factory(req)
