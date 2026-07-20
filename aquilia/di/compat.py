@@ -2,7 +2,9 @@
 Compatibility layer with legacy Aquilia DI system.
 """
 
-from contextvars import ContextVar
+import warnings
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
 from typing import Optional
 
 from .core import Container
@@ -67,9 +69,9 @@ class RequestCtx:
         return cls(container)
 
     @classmethod
-    def set_current(cls, ctx: "RequestCtx") -> None:
-        """Set current request context."""
-        _request_container_var.set(ctx._container)
+    def set_current(cls, ctx: "RequestCtx") -> Token:
+        """Set current request context. Returns a reset Token (nesting-safe)."""
+        return _request_container_var.set(ctx._container)
 
     @classmethod
     def get_current(cls) -> Optional["RequestCtx"]:
@@ -90,16 +92,56 @@ def get_request_container() -> Container | None:
     return _request_container_var.get()
 
 
-def set_request_container(container: Container) -> None:
+def set_request_container(container: Container) -> Token:
     """
     Set request container in context.
 
     Args:
         container: Container to set
+
+    Returns:
+        The reset Token — pass it to ``reset_request_container`` to restore
+        the previous value (safe under nesting, unlike a hardcoded clear).
     """
-    _request_container_var.set(container)
+    return _request_container_var.set(container)
+
+
+def reset_request_container(token: Token) -> None:
+    """Restore the previous request container using a Token from ``set``."""
+    _request_container_var.reset(token)
+
+
+@contextmanager
+def request_container_scope(container: Container | None):
+    """Bind *container* as the current request container for the block.
+
+    Nesting-safe: on exit the previous value is restored via the reset
+    Token, not hard-cleared to ``None`` — so nested scopes unwind correctly.
+
+    Example::
+
+        with request_container_scope(req_container):
+            svc = get_request_container().resolve(Service)
+    """
+    token = _request_container_var.set(container)
+    try:
+        yield container
+    finally:
+        _request_container_var.reset(token)
 
 
 def clear_request_container() -> None:
-    """Clear request container from context."""
+    """Clear request container from context.
+
+    .. deprecated::
+        Hard-resets to ``None`` and cannot restore a nested prior value. Use
+        :func:`reset_request_container` with a token, or
+        :func:`request_container_scope`, which unwind correctly under nesting.
+    """
+    warnings.warn(
+        "clear_request_container() is deprecated and nesting-unsafe; use "
+        "reset_request_container(token) or request_container_scope(...).",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     _request_container_var.set(None)

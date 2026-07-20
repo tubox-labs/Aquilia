@@ -17,7 +17,13 @@ Key Features:
 from aquilia._version import __version__  # noqa: F401 — re-exported
 
 # Legacy compatibility
-from .compat import RequestCtx
+from .compat import (
+    RequestCtx,
+    get_request_container,
+    request_container_scope,
+    reset_request_container,
+    set_request_container,
+)
 from .core import (
     Container,
     Provider,
@@ -26,12 +32,15 @@ from .core import (
     ResolveCtx,
 )
 from .decorators import (
+    ConditionContext,
     Inject,
     auto_inject,
+    conditional,
     factory,
     inject,
     provides,
     service,
+    should_register,
 )
 from .dep import (
     Body,
@@ -51,11 +60,24 @@ from .errors import (
 from .graph import (
     DependencyGraph,
 )
+from .interceptors import (
+    InterceptContext,
+    InterceptingProvider,
+    ProviderInterceptor,
+    intercept,
+)
 from .lifecycle import (
     DisposalStrategy,
     Lifecycle,
     LifecycleContext,
     LifecycleHook,
+)
+from .plugins import (
+    DIPlugin,
+    clear_plugins,
+    get_plugins,
+    register_plugin,
+    unregister_plugin,
 )
 from .providers import (
     AliasProvider,
@@ -75,6 +97,13 @@ from .scopes import (
     ScopeValidator,
     ServiceScope,
     ServiceScopeLiteral,
+)
+from .settings import (
+    DIConfigFault,
+    DISettings,
+    configure_di,
+    get_di_settings,
+    reset_di_settings,
 )
 from .testing import (
     MockProvider,
@@ -109,6 +138,9 @@ __all__ = [
     "Inject",
     "provides",
     "auto_inject",
+    "conditional",
+    "ConditionContext",
+    "should_register",
     # Lifecycle
     "Lifecycle",
     "LifecycleHook",
@@ -122,6 +154,23 @@ __all__ = [
     "DependencyCycleError",
     "ScopeViolationError",
     "AmbiguousProviderError",
+    # Settings
+    "DISettings",
+    "DIConfigFault",
+    "configure_di",
+    "get_di_settings",
+    "reset_di_settings",
+    # Interceptors (provider-level AOP)
+    "ProviderInterceptor",
+    "InterceptingProvider",
+    "InterceptContext",
+    "intercept",
+    # Plugins
+    "DIPlugin",
+    "register_plugin",
+    "unregister_plugin",
+    "get_plugins",
+    "clear_plugins",
     # Testing
     "TestRegistry",
     "MockProvider",
@@ -135,4 +184,8 @@ __all__ = [
     "RequestDAG",
     # Legacy
     "RequestCtx",
+    "get_request_container",
+    "set_request_container",
+    "reset_request_container",
+    "request_container_scope",
 ]

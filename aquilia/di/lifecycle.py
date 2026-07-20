@@ -82,7 +82,7 @@ class Lifecycle:
             phase="startup",
         )
         self._startup_hooks.append(hook)
-        self._startup_hooks.sort(key=lambda h: -h.priority)  # Descending
+        # Sorting deferred to run_startup_hooks() (single O(n log n) sort).
 
     def on_shutdown(
         self,
@@ -106,7 +106,7 @@ class Lifecycle:
             phase="shutdown",
         )
         self._shutdown_hooks.append(hook)
-        self._shutdown_hooks.sort(key=lambda h: -h.priority)  # Descending
+        # Sorting deferred to run_shutdown_hooks() (single O(n log n) sort).
 
     def register_finalizer(
         self,
@@ -126,6 +126,7 @@ class Lifecycle:
         """Run all startup hooks in priority order with per-hook timeout (SEC-DI-10)."""
         errors = []
 
+        self._startup_hooks.sort(key=lambda h: -h.priority)  # Descending, once
         for hook in self._startup_hooks:
             try:
                 await asyncio.wait_for(hook.callback(), timeout=self._hook_timeout)
@@ -152,6 +153,7 @@ class Lifecycle:
         """Run all shutdown hooks in priority order with per-hook timeout (SEC-DI-10)."""
         errors = []
 
+        self._shutdown_hooks.sort(key=lambda h: -h.priority)  # Descending, once
         for hook in self._shutdown_hooks:
             try:
                 await asyncio.wait_for(hook.callback(), timeout=self._hook_timeout)
