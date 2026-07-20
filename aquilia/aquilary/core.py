@@ -14,6 +14,34 @@ from typing import Any, Literal
 logger = logging.getLogger("aquilia.aquilary")
 
 
+def _di_condition_passes(target: Any, config: Any) -> bool:
+    """Evaluate a service's DI condition predicate (if any) at registration.
+
+    Honours ``DISettings.enable_conditional_providers``: when conditionals are
+    disabled, every service registers unconditionally.
+
+    Args:
+        target: The service class/factory, possibly carrying ``__di_condition__``.
+        config: Active config (loader or dict), for property-based conditions.
+
+    Returns:
+        Whether the target should be registered.
+    """
+    if getattr(target, "__di_condition__", None) is None:
+        return True
+
+    import os as _os
+
+    from aquilia.di.decorators import ConditionContext, should_register
+    from aquilia.di.settings import get_di_settings
+
+    if not get_di_settings().enable_conditional_providers:
+        return True
+
+    env = _os.environ.get("AQUILIA_ENV", "prod")
+    return should_register(target, ConditionContext(env=env, config=config))
+
+
 class RegistryMode(str, Enum):
     """Registry operational modes."""
 
@@ -1003,6 +1031,7 @@ class RuntimeRegistry:
 
         from aquilia.di import Container
         from aquilia.di.providers import ClassProvider, ValueProvider
+        from aquilia.faults.domains import DIFault
 
         _svc_logger = _log.getLogger("aquilia.aquilary")
 
@@ -1076,7 +1105,7 @@ class RuntimeRegistry:
                         scope="app",
                     )
                 )
-            except ValueError:
+            except DIFault:
                 pass  # Already registered
 
             # Register config as a value provider
@@ -1088,7 +1117,7 @@ class RuntimeRegistry:
                 )
                 try:
                     container.register(config_provider)
-                except ValueError:
+                except DIFault:
                     # Already registered, skip
                     pass
 
@@ -1116,6 +1145,24 @@ class RuntimeRegistry:
                         scope = "app"
                         aliases = []
                         factory = None
+
+                    # ── Validate manifest scope against the known scope set ──
+                    # Catch typos ('produciton', 'singelton') at load time with a
+                    # clear error, instead of silently degrading at first resolve.
+                    if scope is not None:
+                        from aquilia.di.scopes import SCOPES
+
+                        if scope not in SCOPES:
+                            from aquilia.faults.domains import DIFault
+
+                            raise DIFault(
+                                code="INVALID_SERVICE_SCOPE",
+                                message=(
+                                    f"Service {service_path!r} declares unknown scope {scope!r}. "
+                                    f"Valid scopes: {sorted(SCOPES.keys())}"
+                                ),
+                                metadata={"service": str(service_path), "scope": scope},
+                            )
 
                     if factory:
                         # Factory Provider
@@ -1164,6 +1211,16 @@ class RuntimeRegistry:
 
                         module = importlib.import_module(module_path)
                         service_class = getattr(module, class_name)
+
+                        # Conditional providers: skip registration when the
+                        # class carries a @conditional/@service(when=) predicate
+                        # that evaluates False for the active environment.
+                        if not _di_condition_passes(service_class, getattr(self, "config", None)):
+                            _svc_logger.debug(
+                                "Skipping conditional service %s (predicate returned False).",
+                                service_path,
+                            )
+                            continue
 
                         # Override scope if not explicit in config
                         if scope == "app":
@@ -1232,11 +1289,54 @@ class RuntimeRegistry:
                         if tag:
                             container.register(alias_provider, tag=tag)
 
+                except DIFault as df:
+                    # Config-level scope typos are fatal — surface at startup.
+                    # Other DIFaults (e.g. duplicate registration) stay tolerant.
+                    if getattr(df, "code", None) == "INVALID_SERVICE_SCOPE":
+                        raise
+                    from aquilia.di.settings import get_di_settings
+
+                    if get_di_settings().strict_service_registration:
+                        raise
+                    _svc_logger.warning(f"Failed to register service {service_item}: {df}")
                 except Exception as e:
+                    # Unexpected (non-DI) failure: import error, broken factory,
+                    # attribute error. Under strict registration, fail fast at
+                    # startup instead of booting a half-wired app (§6.3).
+                    from aquilia.di.settings import get_di_settings
+
+                    if get_di_settings().strict_service_registration:
+                        from aquilia.faults.domains import DIFault as _DIFault
+
+                        raise _DIFault(
+                            code="SERVICE_REGISTRATION_FAILED",
+                            message=f"Failed to register service {service_item}: {e}",
+                            metadata={"service": str(service_item), "error": str(e)},
+                        ) from e
                     _svc_logger.warning(f"Failed to register service {service_item}: {e}")
 
         # Mark as registered
         self._services_registered = True
+
+        # Wire cross-app dependency links from manifest ``depends_on`` so a
+        # declared cross-app edge is actually resolvable at runtime (static
+        # validation only proves it is *declared*). Each app container gains a
+        # link to every app it depends on; a token missing locally then falls
+        # through to the owning app's container.
+        for ctx in self.meta.app_contexts:
+            consumer = self.di_containers.get(ctx.name)
+            if consumer is None:
+                continue
+            for dep_app in getattr(ctx, "depends_on", []) or []:
+                provider_container = self.di_containers.get(dep_app)
+                if provider_container is not None:
+                    consumer.add_dependency_link(dep_app, provider_container)
+
+        # Plugin hook: notify each fully-built app container (§5).
+        from aquilia.di.plugins import run_container_built
+
+        for container in self.di_containers.values():
+            run_container_built(container)
 
     def _register_effects(self):
         """

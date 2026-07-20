@@ -142,6 +142,22 @@ class AquiliaServer:
         # Create runtime registry (lazy compilation phase)
         self.runtime = RuntimeRegistry.from_metadata(self.aquilary, self.config)
 
+        # Activate DI runtime settings from the ``di`` config section before
+        # any services register, so scope enforcement / parallel resolution /
+        # diagnostics take effect for the whole boot.
+        try:
+            from .di.settings import DISettings, configure_di
+
+            if hasattr(self.config, "get_di_config"):
+                _di_cfg = self.config.get_di_config()
+            elif hasattr(self.config, "get"):
+                _di_cfg = self.config.get("di", None)
+            else:
+                _di_cfg = None
+            configure_di(DISettings.from_mapping(_di_cfg))
+        except Exception as _di_exc:
+            self.logger.warning("Failed to apply DI settings; using defaults: %s", _di_exc)
+
         # CRITICAL: Register services immediately so DI containers are populated
         # before controller factory is created
         self.runtime._register_services()
@@ -3024,6 +3040,7 @@ class AquiliaServer:
                         max_connections=meta.get("max_connections"),
                         message_rate_limit=meta.get("message_rate_limit"),
                         max_message_size=meta.get("max_message_size", 1024 * 1024),
+                        app_name=app_ctx.name,
                     )
 
                     self.socket_router.register(namespace, route_meta)

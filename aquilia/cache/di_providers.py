@@ -164,6 +164,7 @@ def register_cache_providers(container: Any, cache_service: CacheService) -> Non
         cache_service: Configured CacheService instance
     """
     from aquilia.di.providers import ValueProvider
+    from aquilia.faults.domains import DIFault
 
     # Register the CacheService singleton
     try:
@@ -175,11 +176,11 @@ def register_cache_providers(container: Any, cache_service: CacheService) -> Non
                 name="cache_service",
             )
         )
-    except ValueError:
+    except DIFault:
         pass  # Already registered
 
     # Register the backend for direct access
-    with contextlib.suppress(ValueError):
+    with contextlib.suppress(DIFault):
         container.register(
             ValueProvider(
                 value=cache_service.backend,
@@ -190,7 +191,7 @@ def register_cache_providers(container: Any, cache_service: CacheService) -> Non
         )
 
     # Register by string token for compatibility
-    with contextlib.suppress(ValueError):
+    with contextlib.suppress(DIFault):
         container.register(
             ValueProvider(
                 value=cache_service,
