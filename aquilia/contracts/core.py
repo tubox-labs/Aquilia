@@ -1449,7 +1449,10 @@ class Contract(Generic[ModelT], metaclass=ContractMeta):
             JSON Schema dict
         """
         base_schema = cls._sigil.to_json_schema()
-        projection_fields = cls._projections.resolve(projection)
+        if mode == "input" and (projection is None or projection == "__all__"):
+            projection_fields = frozenset(cls._all_facets.keys())
+        else:
+            projection_fields = cls._projections.resolve(projection)
 
         properties: dict[str, Any] = {}
         required: list[str] = []

@@ -6376,7 +6376,7 @@ class AdminSite:
             "mail": "icon-mail",
             "sessions": "icon-key",
             "auth": "icon-shield-check",
-            "openapi": "icon-book-open",
+            "specula": "icon-book-open",
         }
         return icons.get(name, "icon-settings")
 

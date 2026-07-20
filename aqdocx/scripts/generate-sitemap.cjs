@@ -77,7 +77,7 @@ const docSections = [
           { label: 'Controller Engine', path: '/docs/controllers/engine' },
           { label: 'Controller Compiler', path: '/docs/controllers/compiler' },
           { label: 'Controller Router', path: '/docs/controllers/router' },
-          { label: 'OpenAPI Generation', path: '/docs/controllers/openapi' },
+          { label: 'Specula Observatory', path: '/docs/controllers/openapi' },
           { label: 'Body Validation', path: '/docs/controllers/validation' },
           { label: 'Pagination', path: '/docs/controllers/pagination' },
           { label: 'Filtering & Search', path: '/docs/controllers/filters' },
@@ -455,7 +455,7 @@ const docSections = [
         ]
       },
       {
-        label: 'OpenAPI', path: '/docs/openapi',
+        label: 'Specula Observatory', path: '/docs/openapi',
       },
     ]
   },

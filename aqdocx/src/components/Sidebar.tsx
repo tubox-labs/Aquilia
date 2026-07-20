@@ -6,9 +6,9 @@ import {
   BookOpen, Download, Rocket, Zap, Layers, Database, Shield, Settings,
   AlertCircle, Terminal, GitBranch, ChevronDown, ChevronRight,
   Server, Box, Mail, Palette, TestTube, Plug,
-  FileCode, Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
+  Cpu, Globe, Lock, HardDrive, RefreshCw, Wrench, Layout,
   Blocks, Workflow, Binary, Gauge, Network, Boxes, Cog, Tag, X, Languages,
-  Clock, FileText, Radio, Cloud
+  Clock, FileText, Radio, Cloud, Eye
 } from 'lucide-react'
 
 interface SidebarSection {
@@ -97,7 +97,7 @@ export const sections: SidebarSection[] = [
           { label: 'Controller Engine', path: '/docs/controllers/engine' },
           { label: 'Controller Compiler', path: '/docs/controllers/compiler' },
           { label: 'Controller Router', path: '/docs/controllers/router' },
-          { label: 'OpenAPI Generation', path: '/docs/controllers/openapi' },
+          { label: 'Specula Observatory', path: '/docs/controllers/openapi' },
           { label: 'Body Validation', path: '/docs/controllers/validation' },
           { label: 'Pagination', path: '/docs/controllers/pagination' },
           { label: 'Filtering & Search', path: '/docs/controllers/filters' },
@@ -495,7 +495,7 @@ export const sections: SidebarSection[] = [
         ]
       },
       {
-        label: 'OpenAPI', path: '/docs/openapi', icon: <FileCode className="w-3.5 h-3.5" />,
+        label: 'Specula Observatory', path: '/docs/openapi', icon: <Eye className="w-3.5 h-3.5" />,
       },
     ]
   },

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.2] — 2026-07-17 — "Specula API Observatory"
+
+### Added
+- **Specula API Observatory (`aquilia.specula`)**: Replaces the entire legacy, static OpenAPI engine with a first-class, metadata-enriched Specula compiler. Features a modern, CDN-free interactive UI dashboard hosted locally at `/specula`.
+- **Specula Config & Integration**: Accessible via `Integration.specula(...)` or the direct class `SpeculaIntegration` in `workspace.py`, supporting custom paths, themes, cache TTL, and mock parameters.
+- **Dynamic Spec Compilation (`SpeculaBuilder`)**: Directly constructs OpenAPI 3.1.0 specifications from compiler topologies, routing, type annotations, and clearance metadata with zero code scanning.
+- **Interactive Mock Server (`/specula/mock`)**: Automatically serves plausible example payloads computed dynamically from JSON Schema structures up to a configurable recursion depth.
+- **Auto-Detection of Security & Clearance**: Inspects pipeline guards, `@authenticated` decorators, and AccessLevel clearance settings to dynamically define OpenAPI security requirements and populate detailed vendor extensions (`x-specula-security`).
+- **Postman & Insomnia Exports**: Exposes endpoints (`/specula/export/postman` and `/specula/export/insomnia`) to download collections dynamically configured with your API topology.
+- **Server-Sent Events (SSE) Stream (`/specula/stream`)**: Automatically pushes invalidation events to the client browser to refresh the Observatory dashboard during local code hot-reloading.
+
+### Removed
+- Legacy OpenAPI generator engine (`aquilia.controller.openapi`), static swagger/redoc HTML generators, and redirect endpoints `/docs` and `/redoc`.
+- Backward-compatibility aliases for legacy `OpenAPIConfig` and `Integration.openapi(...)`.
+
 ## [1.3.1] — 2026-07-13 — "Backend Refactoring"
 
 ### Added

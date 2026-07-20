@@ -781,8 +781,8 @@ class Workspace:
                 self._security_config["rate_limit"] = integration
             elif integration_type == "static_files":
                 self._integrations["static_files"] = integration
-            elif integration_type == "openapi":
-                self._integrations["openapi"] = integration
+            elif integration_type == "specula":
+                self._integrations["specula"] = integration
             elif integration_type == "mail":
                 self._integrations["mail"] = integration
                 self._mail_config = integration

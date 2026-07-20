@@ -87,9 +87,6 @@ from aquilia.integrations.mw import (
     MiddlewareEntry,
 )
 
-# ── OpenAPI ───────────────────────────────────────────────────────────
-from aquilia.integrations.openapi import OpenAPIIntegration
-
 # ── Render ────────────────────────────────────────────────────────────
 from aquilia.integrations.render import RenderIntegration
 
@@ -113,6 +110,9 @@ from aquilia.integrations.simple import (
     RoutingIntegration,
     SerializersIntegration,
 )
+
+# ── Specula ───────────────────────────────────────────────────────────
+from aquilia.integrations.specula import SpeculaIntegration
 
 # ── Static Files ──────────────────────────────────────────────────────
 from aquilia.integrations.static import StaticFilesIntegration
@@ -167,7 +167,7 @@ __all__ = [
     "RateLimitIntegration",
     "CsrfIntegration",
     # Docs
-    "OpenAPIIntegration",
+    "SpeculaIntegration",
     # i18n
     "I18nIntegration",
     # Versioning

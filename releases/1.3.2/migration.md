@@ -1,20 +1,102 @@
 # Migration Guide: v1.3.1 to v1.3.2
 
-Aquilia v1.3.2 rewrites the dependency-injection subsystem but keeps the public API backward compatible. Existing `@service`, `Dep()`, and `Container` code runs unchanged. This guide covers the deprecations and behavioral changes you should adopt.
+Aquilia v1.3.2 introduces **Specula** (replacing the legacy OpenAPI generator) and rewrites the dependency-injection subsystem while keeping public core APIs backward compatible. This guide covers the deprecations, configuration changes, and migration steps for both subsystems.
 
 ---
 
-## 1. Move DI Flags into the `di` Config Block
+## Part A: OpenAPI to Specula Migration
+
+Aquilia v1.3.2 deprecates and removes the old static OpenAPI/Swagger engine.
+
+### 1. Configuration & Integration Upgrades
+
+The old `OpenAPIIntegration` has been replaced by `SpeculaIntegration`. In your `workspace.py`, update your registrations:
+
+#### Legacy Style (Removed)
+```python
+# Replaced by Specula
+workspace.integrate(Integration.openapi(
+    title="Store API",
+    docs_path="/apidocs",
+    swagger_ui_theme="dark"
+))
+```
+
+#### New Style (Active)
+```python
+from aquilia.integrations import SpeculaIntegration
+
+# Option A: Direct class registration
+workspace.integrate(SpeculaIntegration(
+    title="Store API",
+    ui_path="/apidocs",
+    ui_theme="dark"
+))
+
+# Option B: Fluent helper
+# workspace.integrate(Integration.specula(
+#     title="Store API",
+#     ui_path="/apidocs",
+#     ui_theme="dark"
+# ))
+```
+
+#### Parameter Mapping Table
+
+| Legacy OpenAPI Option | New Specula Option | Notes |
+| :--- | :--- | :--- |
+| `docs_path` | `ui_path` | Default changes from `/docs` to `/specula`. |
+| `openapi_json_path` | `json_path` | Default changes from `/openapi.json` to `/specula/spec.json`. |
+| `redoc_path` | (Removed) | ReDoc is deprecated. Use the unified Specula dashboard. |
+| `swagger_ui_theme` | `ui_theme` | Values: `"auto"`, `"light"`, `"dark"`. |
+| `swagger_ui_config` | (Removed) | Replaced by direct dashboard configuration. |
+
+---
+
+### 2. Replaced Imports & Engines
+
+If you manually generated specs, update your imports and instantiation:
+
+```python
+# --- Legacy Imports (Removed) ---
+# from aquilia.controller.openapi import OpenAPIConfig, OpenAPIGenerator
+# config = OpenAPIConfig(title="API")
+# spec = OpenAPIGenerator(config=config).generate(router)
+
+# --- New Imports (Active) ---
+from aquilia.specula.config import SpeculaConfig
+from aquilia.specula.schema.builder import SpeculaBuilder
+
+config = SpeculaConfig(title="API")
+spec = SpeculaBuilder(config=config).build(router)
+```
+
+---
+
+### 3. Redirects & Endpoint Updates
+
+The automatic redirects mapping legacy paths are no longer registered. Update links:
+
+* **Swagger UI Docs**: Old path `/docs` is replaced by `/specula`.
+* **ReDoc Docs**: Old path `/redoc` is deprecated. Use the unified `/specula` dashboard.
+* **JSON Specification**: Old path `/openapi.json` is replaced by `/specula/spec.json`.
+* **YAML Specification**: Specula now supports rendering YAML natively at `/specula/spec.yaml`.
+
+---
+
+## Part B: Dependency Injection Subsystem Migration
+
+### 4. Move DI Flags into the `di` Config Block
 
 The DI subsystem previously read loose environment flags (e.g. strict-scope enforcement) via `os.environ`. These are replaced by the typed `DISettings` object, configured through a `di` block in `workspace.py`.
 
-### Before (v1.3.1) — environment flags
+#### Before (v1.3.1) — environment flags
 
 ```bash
 export AQUILIA_DI_STRICT_SCOPES=1
 ```
 
-### After (v1.3.2) — typed config
+#### After (v1.3.2) — typed config
 
 ```python
 from aquilia import AquilaConfig
@@ -30,11 +112,11 @@ Invalid values now fail fast at boot with `DIConfigFault` instead of being silen
 
 ---
 
-## 2. `ServiceScope` Enum — Deprecated
+### 5. `ServiceScope` Enum — Deprecated
 
 The `ServiceScope` Enum is deprecated in favor of plain string literals. Accessing any member (`ServiceScope.SINGLETON`) or calling the Enum emits a `DeprecationWarning` and will be removed in a future version.
 
-### Before:
+#### Before:
 
 ```python
 from aquilia.di import ServiceScope
@@ -43,7 +125,7 @@ from aquilia.di import ServiceScope
 class Config: ...
 ```
 
-### After:
+#### After:
 
 ```python
 @service(scope="singleton")   # canonical type hint: ServiceScopeLiteral
@@ -54,11 +136,11 @@ Replace `ServiceScope.SINGLETON` → `"singleton"`, `.APP` → `"app"`, `.REQUES
 
 ---
 
-## 3. `clear_request_container()` — Deprecated
+### 6. `clear_request_container()` — Deprecated
 
 `clear_request_container()` is nesting-unsafe (it hard-resets the request container to `None`) and now emits a `DeprecationWarning`. `set_request_container()` and `RequestCtx.set_current()` now return a `Token`.
 
-### Before:
+#### Before:
 
 ```python
 from aquilia.di import set_request_container, clear_request_container
@@ -70,7 +152,7 @@ finally:
     clear_request_container()
 ```
 
-### After:
+#### After:
 
 ```python
 from aquilia.di import set_request_container, reset_request_container, request_container_scope
@@ -89,7 +171,7 @@ with request_container_scope(container):
 
 ---
 
-## 4. `ModuleContainer` — Removed
+### 7. `ModuleContainer` — Removed
 
 `ModuleContainer` has been removed. Cross-app resolution now uses link-based `Container.add_dependency_link()` instead of nested module containers. This is wired automatically by the runtime from each manifest's `depends_on` — no code change is required unless you instantiated `ModuleContainer` directly.
 
@@ -107,7 +189,7 @@ An undeclared cross-app dependency raises `CrossAppDependencyError` at boot.
 
 ---
 
-## 5. Behavioral Changes to Note
+### 8. Behavioral Changes to Note
 
 These require no code change but alter runtime behavior:
 
@@ -119,7 +201,7 @@ These require no code change but alter runtime behavior:
 
 ---
 
-## 6. New APIs Worth Adopting
+### 9. New APIs Worth Adopting
 
 | API | Use it for |
 |---|---|
