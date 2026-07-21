@@ -115,6 +115,10 @@ import { AtomicContexts } from './pages/docs/models/transactions/AtomicContexts'
 import { Savepoints } from './pages/docs/models/transactions/Savepoints'
 import { Hooks } from './pages/docs/models/transactions/Hooks'
 import { ModelsAggregation } from './pages/docs/models/Aggregation'
+import { WindowFunctions } from './pages/docs/models/WindowFunctions'
+import { CommonTableExpressions } from './pages/docs/models/CommonTableExpressions'
+import { RecursiveCTE } from './pages/docs/models/RecursiveCTE'
+import { BulkOperations } from './pages/docs/models/BulkOperations'
 
 // Contracts
 import { ContractsOverview } from './pages/docs/contracts/Overview'
@@ -461,6 +465,10 @@ export default function App() {
           <Route path="models/transactions/hooks" element={<Hooks />} />
           
           <Route path="models/aggregation" element={<ModelsAggregation />} />
+          <Route path="models/window-functions" element={<WindowFunctions />} />
+          <Route path="models/cte" element={<CommonTableExpressions />} />
+          <Route path="models/recursive-cte" element={<RecursiveCTE />} />
+          <Route path="models/bulk-operations" element={<BulkOperations />} />
 
           {/* Contracts */}
           <Route path="contracts" element={<ContractsOverview />} />

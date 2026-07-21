@@ -189,6 +189,15 @@ export const sections: SidebarSection[] = [
           },
           { label: 'Signals', path: '/docs/models/signals' },
           { label: 'Aggregation', path: '/docs/models/aggregation' },
+          {
+            label: 'Advanced Querying', path: '/docs/models/window-functions',
+            children: [
+              { label: 'Window Functions', path: '/docs/models/window-functions' },
+              { label: 'Common Table Expressions', path: '/docs/models/cte' },
+              { label: 'Recursive CTEs', path: '/docs/models/recursive-cte' },
+              { label: 'Bulk Operations', path: '/docs/models/bulk-operations' },
+            ]
+          },
           { label: 'Migrations', path: '/docs/models/migrations' },
           { label: 'Advanced Usage', path: '/docs/models/advanced' },
         ]
