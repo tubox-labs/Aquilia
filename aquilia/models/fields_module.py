@@ -1460,8 +1460,15 @@ class UUIDField(Field[uuid.UUID]):
             "verbose_name": verbose_name,
         }
         self.auto = auto
-        if auto:
-            kwargs.setdefault("default", uuid.uuid4)
+        if auto and default is UNSET:
+            # Only inject the uuid4 callable when the caller did not supply an
+            # explicit default.  We cannot use kwargs.setdefault() here because
+            # "default" is always present in the dict (set to the UNSET
+            # sentinel above) -- setdefault() only checks key existence, not
+            # whether the value is UNSET, so it would silently do nothing and
+            # leave the sentinel in place, causing NULL to be inserted instead
+            # of a generated UUID.
+            kwargs["default"] = uuid.uuid4
         super().__init__(**kwargs)
 
     def validate(self, value: Any) -> Any:

@@ -55,12 +55,12 @@ Usage:
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import functools
 import inspect
 import logging
 import re
 import uuid
-import weakref
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
 from typing import TYPE_CHECKING
@@ -79,42 +79,48 @@ __all__ = [
     "Atomic",
 ]
 
-# Track nested transaction depth per asyncio Task using a WeakValueDictionary
-# keyed on task. This prevents memory leaks -- when a Task is GC'd, its
-# entry is automatically removed.
-_task_depths: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
-
-
-class _DepthHolder:
-    """Weak-referenceable holder for an integer depth counter."""
-
-    __slots__ = ("value", "__weakref__")
-
-    def __init__(self, value: int = 0):
-        self.value = value
-
-
-def _get_depth_holder() -> _DepthHolder:
-    """
-    Get or create the depth counter for the current asyncio task.
-
-    Uses WeakValueDictionary so entries are cleaned up when the Task
-    is garbage collected -- no memory leak.
-    """
-    try:
-        task = asyncio.current_task()
-        if task is None:
-            # Not inside an async task; use a thread-local fallback
-            return _DepthHolder(0)
-    except RuntimeError:
-        return _DepthHolder(0)
-
-    task_id = id(task)
-    holder = _task_depths.get(task_id)
-    if holder is None:
-        holder = _DepthHolder(0)
-        _task_depths[task_id] = holder
-    return holder
+# Track nested transaction depth per asyncio task using a ContextVar.
+#
+# Why ContextVar instead of WeakValueDictionary keyed on id(task):
+#
+#   The previous implementation used:
+#       _task_depths: WeakValueDictionary = WeakValueDictionary()
+#       task_id = id(task)
+#       _task_depths[task_id] = _DepthHolder()
+#
+#   This is incorrect for three reasons:
+#   1. WeakValueDictionary only holds *values* weakly -- integer keys (from
+#      id(task)) are never garbage-collected automatically, leaking memory for
+#      every task that enters an atomic block.
+#   2. After a Task is GC'd, Python may reuse its id() for a completely new
+#      unrelated Task.  If a stale _DepthHolder remains in the dict (because
+#      the integer key was never removed), the new Task inherits the old task's
+#      depth counter, causing phantom "nested transaction" errors or skipped
+#      outermost BEGIN calls.
+#   3. The pattern contradicts established Aquilia architecture: every other
+#      task-local subsystem (controller, auth, DI, faults, i18n, db engine,
+#      inspector) already uses contextvars.ContextVar for the same purpose.
+#
+# ContextVar[int] with default=0 is the correct solution:
+#   - Each asyncio task context is an independent copy; set() never mutates
+#     a parent task's context -- nesting within the same task works correctly.
+#   - Zero memory overhead after task completion: the context is freed with
+#     the task, no dict entry to clean up.
+#   - Concurrency-safe by construction: no lock needed, no id() reuse risk.
+#   - Consistent with the rest of the Aquilia codebase.
+#
+# Child task inheritance edge-case:
+#   asyncio.create_task() copies the current context at spawn time.  A child
+#   task spawned inside an atomic block inherits the parent's depth (e.g. 1).
+#   This is acceptable: spawning tasks mid-transaction that share the same
+#   DB connection is already unsafe and not a supported pattern.  The depth
+#   value in the child is only relevant if that child also calls atomic(), and
+#   the worst outcome (it sees depth=1 and creates a savepoint rather than a
+#   full transaction) is still safe -- the savepoint is scoped to the child's
+#   own connection, not the parent's.
+_txn_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "aquilia_txn_depth", default=0
+)
 
 
 class Atomic:
@@ -154,7 +160,7 @@ class Atomic:
             readonly: If True, hints the backend this transaction only reads --
                 routes to a reader connection on SQLite instead of contending
                 for the single writer. Ignored for nested (savepoint) blocks.
-            timeout: Seconds before the block is cancelled, rolled back, and a
+            timeout: Seconds before the block is cancelled and rolled back, and a
                 ``QueryFault`` is raised instead of leaving the transaction open.
         """
         self._db = db
@@ -165,7 +171,11 @@ class Atomic:
         self._timeout = timeout
         self._savepoint_id: str | None = None
         self._is_outermost = False
-        self._depth_holder: _DepthHolder | None = None
+        # Token returned by ContextVar.set(); used in __aexit__ to restore the
+        # previous depth rather than blindly decrementing, so that an early
+        # exit (e.g. CancelledError before depth was incremented) can't
+        # underflow to a negative value and corrupt future atomic() calls.
+        self._depth_token: contextvars.Token | None = None
         self._commit_hooks: list[Callable] = []
         self._rollback_hooks: list[Callable] = []
         self._timeout_task: asyncio.Task | None = None
@@ -257,8 +267,7 @@ class Atomic:
         if not db.is_connected:
             await db.connect()
 
-        self._depth_holder = _get_depth_holder()
-        depth = self._depth_holder.value
+        depth = _txn_depth.get()
 
         if depth == 0:
             # Outermost: start transaction
@@ -288,7 +297,7 @@ class Atomic:
             # as ordinary SQL text through execute() -- see module docstring
             # history / CHANGELOG for why the latter silently no-ops.
             await db.begin(isolation=normalized_isolation, readonly=self._readonly)
-            self._depth_holder.value = 1
+            self._depth_token = _txn_depth.set(1)
         else:
             if self._durable:
                 from ..faults.domains import QueryFault
@@ -302,7 +311,7 @@ class Atomic:
                 # Nested: create savepoint with safe alphanumeric name
                 self._savepoint_id = f"sp_{uuid.uuid4().hex[:12]}"
                 await db.savepoint(self._savepoint_id)
-            self._depth_holder.value = depth + 1
+            self._depth_token = _txn_depth.set(depth + 1)
 
         if self._timeout is not None:
             self._timeout_task = asyncio.ensure_future(self._watchdog(asyncio.current_task()))
@@ -395,10 +404,14 @@ class Atomic:
                     # Fire on_commit hooks only at outermost level
                     await self._fire_hooks(self._commit_hooks)
         finally:
-            # Decrement depth
-            if self._depth_holder is not None:
-                new_depth = self._depth_holder.value - 1
-                self._depth_holder.value = max(new_depth, 0)
+            # Restore the depth to its value before this Atomic was entered.
+            # Using reset() rather than a blind decrement guards against
+            # underflow in error paths where __aenter__ raised before the
+            # token was stored (token is None → nothing to restore, depth
+            # is already correct) and ensures the change is strictly local
+            # to this task's context, never affecting sibling or parent tasks.
+            if self._depth_token is not None:
+                _txn_depth.reset(self._depth_token)
 
         if self._timed_out and exc_type is not None and issubclass(exc_type, asyncio.CancelledError):
             from ..faults.domains import QueryFault
