@@ -1,1 +1,0 @@
-"""Release artifact module."""

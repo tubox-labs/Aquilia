@@ -1,1 +1,0 @@
-"""Mail notifications example application."""

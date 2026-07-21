@@ -1,1 +1,0 @@
-"""Template portal example application."""

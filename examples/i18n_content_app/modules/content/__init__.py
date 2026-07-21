@@ -1,1 +1,0 @@
-"""Localized content module."""

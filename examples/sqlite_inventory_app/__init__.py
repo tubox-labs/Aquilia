@@ -1,1 +1,0 @@
-"""SQLite inventory example application."""
