@@ -7,6 +7,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.3] — 2026-07-21 — "Analytical Depths"
+
+### Added
+
+#### ORM — Window Function Support (`aquilia.models.window`)
+- **`Window(expression, *, partition_by, order_by, frame)`** — first-class `OVER (...)` expression. Wraps any aggregate or window function with a full window clause. Integrates with `annotate()`, `order_by()`, `values()`, and `values_list()` without restrictions.
+- **Ranking functions**: `Rank()` → `RANK()`, `DenseRank()` → `DENSE_RANK()`, `RowNumber()` → `ROW_NUMBER()`.
+- **Distribution**: `Ntile(n)` → `NTILE(n)`.
+- **Offset functions**: `Lag(expr, offset=1, default=None)` → `LAG(expr, offset[, default])`, `Lead(expr, offset=1, default=None)` → `LEAD(expr, offset[, default])`.
+- **Value access**: `FirstValue(expr)` → `FIRST_VALUE(expr)`, `LastValue(expr)` → `LAST_VALUE(expr)`, `NthValue(expr, n)` → `NTH_VALUE(expr, n)`.
+- **Aggregate windows**: Any existing aggregate (`Sum`, `Avg`, `Count`, `Max`, `Min`) can be used directly inside `Window(...)` for running totals, cumulative averages, etc.
+- **Frame clauses** via `WindowFrame(frame_type, start, end)` + `FrameBound` helpers (`FrameBound.unbounded_preceding()`, `FrameBound.current_row()`, `FrameBound.unbounded_following()`, `FrameBound.preceding(n)`, `FrameBound.following(n)`). Frame types: `FrameType.ROWS`, `FrameType.RANGE`, `FrameType.GROUPS`.
+- **Partition**: `partition_by` accepts `str`, `F()`, or a list of either — rendered as quoted identifiers.
+- **Ordering**: `order_by` inside the window accepts `str` (prefix `-` for DESC), `OrderBy`, or a list of both.
+- Full `as_sql(dialect)` support across SQLite 3.25+, PostgreSQL 8.4+, MySQL 8.0+.
+
+#### ORM — CTE Support (`aquilia.models.cte`)
+- **`Q.cte(name)`** — creates a `CTE` object from any queryset. Non-executing; wraps the queryset's compiled SQL as a named CTE.
+- **`Q.with_cte(*ctes)`** — registers one or more `CTE` or `RecursiveCTE` objects. Chains additively. Automatically promotes preamble to `WITH RECURSIVE` when any recursive CTE is present.
+- **`CTE`** class — represents `name AS (SELECT ...)`. Call `.col('field')` to get a `CTECol` expression reference for use inside other queries.
+- **`CTECol(cte_name, column)`** — `Expression` subclass rendering `"cte_name"."column"`, for referencing CTE columns in filters and annotations.
+- **`CTEReference`** — used inside recursive lambda to reference the CTE itself. Supports `.col('field')` returning `CTECol`.
+
+#### ORM — Recursive CTE Support (`aquilia.models.cte`)
+- **`Q.recursive_cte(name, anchor, recursive, *, union_all=True)`** — high-level API for `WITH RECURSIVE`. Accepts:
+  - `anchor`: lambda `(Q) → Q` — the base, non-recursive term.
+  - `recursive`: lambda `(CTEReference) → Q` — the recursive term; use `cte_ref.col('id')` for self-referential joins.
+  - `union_all`: `True` (default) for `UNION ALL`, `False` for deduplicating `UNION`.
+- Supports tree traversal (folder trees, comment trees, org charts), dependency graphs, and category hierarchies.
+- **`RecursiveCTE`** class — renders as `name AS (anchor UNION [ALL] recursive_part)`.
+- CTE parameters are prepended before annotation and WHERE parameters in the final bind list, preserving correct positional order.
+- Cyclic-guard: the SQL engine handles cycle termination natively; Aquilia emits the correct `WITH RECURSIVE` syntax.
+
+#### ORM — Bug Fixes (from audit in this release)
+- **`UUIDField(auto=True)` NULL insert bug**: `setdefault` on pre-populated `kwargs` dict was a no-op. Fixed to explicit `UNSET` sentinel check — `auto=True` fields now always generate a UUID default, never `NULL`.
+- **Transaction nesting depth tracker memory leak and `id()` reuse contamination**: Replaced `WeakValueDictionary` keyed on `id(task)` with a `contextvars.ContextVar[int]` — consistent with all other Aquilia subsystems, leak-free, and isolation-safe under `asyncio.gather()`.
+
+### Fixed
+- `UUIDField(auto=True)` produced `NULL` primary keys on `create()` and `save()`. All existing UUID-PK round-trip, FK reference, and multi-create tests pass.
+- Transaction nesting depth could be inherited or corrupted by sibling/child tasks due to `id()` reuse. Depth is now fully task-local via `ContextVar`.
+
+### Tests
+- Added 34 regression tests (`tests/test_uuid_pk_auto.py`) covering UUID field init, validation, serialisation, SQL types, deconstruct, DB create/round-trip, and FK references.
+- Added 19 regression/concurrency tests (`tests/test_txn_depth_contextvar.py`) covering depth tracking, concurrent task isolation, `id()` reuse non-contamination, savepoint behaviour, decorator form, and commit/rollback hooks.
+- Added window function SQL generation and integration tests (`tests/test_window_functions.py`).
+- Added CTE and recursive CTE tests (`tests/test_cte_queries.py`).
+
+### Backend Compatibility
+| Feature | SQLite | PostgreSQL | MySQL/MariaDB |
+|---|---|---|---|
+| Window Functions | ≥ 3.25 | ≥ 8.4 | ≥ 8.0 |
+| CTEs | ≥ 3.8.3 | ≥ 8.4 | ≥ 8.0 |
+| Recursive CTEs | ≥ 3.8.3 | ≥ 8.4 | ≥ 8.0 |
+| Frame Clauses | ≥ 3.25 | ≥ 8.4 | ≥ 8.0 |
+
 ## [1.3.2] — 2026-07-17 — "Specula API Observatory"
 
 ### Added
