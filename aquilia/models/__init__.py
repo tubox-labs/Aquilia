@@ -413,12 +413,24 @@ from .window import (
 )
 
 __all__ = [
-    'Window', 'WindowFunction',
-    'Rank', 'DenseRank', 'RowNumber', 'Ntile',
-    'Lag', 'Lead', 'FirstValue', 'LastValue', 'NthValue',
-    'FrameType', 'FrameBound', 'WindowFrame',
-    'CTE', 'RecursiveCTE', 'CTEReference', 'CTECol',
-
+    "Window",
+    "WindowFunction",
+    "Rank",
+    "DenseRank",
+    "RowNumber",
+    "Ntile",
+    "Lag",
+    "Lead",
+    "FirstValue",
+    "LastValue",
+    "NthValue",
+    "FrameType",
+    "FrameBound",
+    "WindowFrame",
+    "CTE",
+    "RecursiveCTE",
+    "CTEReference",
+    "CTECol",
     # ── New Pure Python Model System ─────────────────────────────────
     "Model",
     "ModelMeta",

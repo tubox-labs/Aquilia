@@ -408,9 +408,8 @@ class Q(Generic[TModel]):
         "_set_operations",
         "_result_cache",
         "_iterator_chunk_size",
-
-        '_ctes',
-        '_has_recursive_cte',
+        "_ctes",
+        "_has_recursive_cte",
     )
 
     def __init__(self, table: str, model_cls: type[TModel], db: AquiliaDatabase):
@@ -1040,6 +1039,7 @@ class Q(Generic[TModel]):
             result = await User.objects.with_cte(active).all()
         """
         from .cte import CTE as _CTE
+
         return _CTE(name=name, queryset=self)
 
     def with_cte(self, *ctes: Any) -> Q[TModel]:
@@ -1058,6 +1058,7 @@ class Q(Generic[TModel]):
             result = await User.objects.with_cte(cte_a, cte_b).all()
         """
         from .cte import RecursiveCTE as _RecursiveCTE
+
         new = self._clone()
         for cte in ctes:
             new._ctes.append(cte)
@@ -1105,7 +1106,8 @@ class Q(Generic[TModel]):
         """
         from .cte import CTEReference
         from .cte import RecursiveCTE as _RecursiveCTE
-        _validate_field_name(name, context='recursive_cte')
+
+        _validate_field_name(name, context="recursive_cte")
         base_qs = self._clone()
         anchor_qs = anchor(base_qs)
         cte_ref = CTEReference(name=name)
@@ -1121,7 +1123,6 @@ class Q(Generic[TModel]):
         result._ctes = [rcte]
         result._has_recursive_cte = True
         return result
-
 
     def _build_select(self, count: bool = False, columns: list[str] | None = None) -> tuple[str, list[Any]]:
         """Build the SELECT SQL and parameter list from all accumulated query state.
@@ -1317,7 +1318,7 @@ class Q(Generic[TModel]):
                     sql += " SKIP LOCKED"
 
         # Prepend CTEs if present
-        if getattr(self, '_ctes', None):
+        if getattr(self, "_ctes", None):
             dialect = self._get_dialect()
             cte_parts = []
             cte_params_list = []
@@ -1325,7 +1326,7 @@ class Q(Generic[TModel]):
                 cte_sql, cte_params = cte.as_sql(dialect)
                 cte_parts.append(cte_sql)
                 cte_params_list.extend(cte_params)
-            keyword = 'WITH RECURSIVE' if getattr(self, '_has_recursive_cte', False) else 'WITH'
+            keyword = "WITH RECURSIVE" if getattr(self, "_has_recursive_cte", False) else "WITH"
             cte_preamble = f"{keyword} {', '.join(cte_parts)}"
             sql = f"{cte_preamble} {sql}"
             params = cte_params_list + params

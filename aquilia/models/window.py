@@ -23,6 +23,7 @@ Usage::
         running_total=Window(Sum('amount'), order_by='created_at')
     ).all()
 """
+
 from __future__ import annotations
 
 import enum
@@ -31,22 +32,34 @@ from typing import Any
 from .expression import Expression, F, OrderBy, _coerce_expression
 
 __all__ = [
-    'Window',
-    'WindowFunction',
-    'Rank', 'DenseRank', 'RowNumber', 'Ntile',
-    'Lag', 'Lead', 'FirstValue', 'LastValue', 'NthValue',
-    'FrameType', 'FrameBound', 'WindowFrame',
+    "Window",
+    "WindowFunction",
+    "Rank",
+    "DenseRank",
+    "RowNumber",
+    "Ntile",
+    "Lag",
+    "Lead",
+    "FirstValue",
+    "LastValue",
+    "NthValue",
+    "FrameType",
+    "FrameBound",
+    "WindowFrame",
 ]
 
+
 class FrameBoundType(str, enum.Enum):
-    UNBOUNDED_PRECEDING = 'UNBOUNDED PRECEDING'
-    PRECEDING = 'PRECEDING'  # N PRECEDING
-    CURRENT_ROW = 'CURRENT ROW'
-    FOLLOWING = 'FOLLOWING'  # N FOLLOWING
-    UNBOUNDED_FOLLOWING = 'UNBOUNDED FOLLOWING'
+    UNBOUNDED_PRECEDING = "UNBOUNDED PRECEDING"
+    PRECEDING = "PRECEDING"  # N PRECEDING
+    CURRENT_ROW = "CURRENT ROW"
+    FOLLOWING = "FOLLOWING"  # N FOLLOWING
+    UNBOUNDED_FOLLOWING = "UNBOUNDED FOLLOWING"
+
 
 class FrameBound:
     """Represents one endpoint of a window frame boundary."""
+
     def __init__(self, bound_type: FrameBoundType, offset: int | None = None):
         self.bound_type = bound_type
         self.offset = offset
@@ -78,13 +91,16 @@ class FrameBound:
     def following(cls, n: int) -> FrameBound:
         return cls(FrameBoundType.FOLLOWING, n)
 
+
 class FrameType(str, enum.Enum):
-    ROWS = 'ROWS'
-    RANGE = 'RANGE'
-    GROUPS = 'GROUPS'
+    ROWS = "ROWS"
+    RANGE = "RANGE"
+    GROUPS = "GROUPS"
+
 
 class WindowFrame:
     """Renders 'ROWS BETWEEN ... AND ...'."""
+
     def __init__(self, frame_type: FrameType, start: FrameBound, end: FrameBound | None = None):
         self.frame_type = frame_type
         self.start = start
@@ -97,89 +113,111 @@ class WindowFrame:
             return f"{self.frame_type.value} BETWEEN {start_sql} AND {end_sql}"
         return f"{self.frame_type.value} {start_sql}"
 
+
 class WindowFunction(Expression):
     """Base for pure window functions."""
-    function: str = ''
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
-        return f'{self.function}()', []
+
+    function: str = ""
+
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        return f"{self.function}()", []
+
 
 class Rank(WindowFunction):
     """RANK() window function."""
-    function = 'RANK'
+
+    function = "RANK"
+
 
 class DenseRank(WindowFunction):
     """DENSE_RANK() window function."""
-    function = 'DENSE_RANK'
+
+    function = "DENSE_RANK"
+
 
 class RowNumber(WindowFunction):
     """ROW_NUMBER() window function."""
-    function = 'ROW_NUMBER'
+
+    function = "ROW_NUMBER"
+
 
 class Ntile(WindowFunction):
     """NTILE(n) window function."""
+
     def __init__(self, num_buckets: int):
         self.num_buckets = num_buckets
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
-        return 'NTILE(?)', [self.num_buckets]
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
+        return "NTILE(?)", [self.num_buckets]
+
 
 class Lag(Expression):
     """LAG(expr, offset[, default]) window function."""
+
     def __init__(self, expression: Any, offset: int = 1, default: Any = None):
         self.expression = _coerce_expression(expression)
         self.offset = offset
         self.default = default
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         params = expr_params + [self.offset]
         if self.default is not None:
             params.append(self.default)
-            return f'LAG({expr_sql}, ?, ?)', params
-        return f'LAG({expr_sql}, ?)', params
+            return f"LAG({expr_sql}, ?, ?)", params
+        return f"LAG({expr_sql}, ?)", params
+
 
 class Lead(Expression):
     """LEAD(expr, offset[, default]) window function."""
+
     def __init__(self, expression: Any, offset: int = 1, default: Any = None):
         self.expression = _coerce_expression(expression)
         self.offset = offset
         self.default = default
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
         params = expr_params + [self.offset]
         if self.default is not None:
             params.append(self.default)
-            return f'LEAD({expr_sql}, ?, ?)', params
-        return f'LEAD({expr_sql}, ?)', params
+            return f"LEAD({expr_sql}, ?, ?)", params
+        return f"LEAD({expr_sql}, ?)", params
+
 
 class FirstValue(Expression):
     """FIRST_VALUE(expr) window function."""
+
     def __init__(self, expression: Any):
         self.expression = _coerce_expression(expression)
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
-        return f'FIRST_VALUE({expr_sql})', expr_params
+        return f"FIRST_VALUE({expr_sql})", expr_params
+
 
 class LastValue(Expression):
     """LAST_VALUE(expr) window function."""
+
     def __init__(self, expression: Any):
         self.expression = _coerce_expression(expression)
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
-        return f'LAST_VALUE({expr_sql})', expr_params
+        return f"LAST_VALUE({expr_sql})", expr_params
+
 
 class NthValue(Expression):
     """NTH_VALUE(expr, n) window function."""
+
     def __init__(self, expression: Any, n: int):
         self.expression = _coerce_expression(expression)
         self.n = n
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         expr_sql, expr_params = self.expression.as_sql(dialect)
-        return f'NTH_VALUE({expr_sql}, ?)', expr_params + [self.n]
+        return f"NTH_VALUE({expr_sql}, ?)", expr_params + [self.n]
+
 
 class Window(Expression):
     """
@@ -193,6 +231,7 @@ class Window(Expression):
             Accepts: str (prefix '-' for DESC), OrderBy, or list of those.
         frame: Optional WindowFrame for ROWS/RANGE frame clause.
     """
+
     def __init__(
         self,
         expression: Expression,
@@ -219,7 +258,7 @@ class Window(Expression):
                 order_by = [order_by]
             for ob in order_by:
                 if isinstance(ob, str):
-                    if ob.startswith('-'):
+                    if ob.startswith("-"):
                         self.order_by.append(OrderBy(F(ob[1:]), descending=True))
                     else:
                         self.order_by.append(OrderBy(F(ob)))
@@ -228,7 +267,7 @@ class Window(Expression):
 
         self.frame = frame
 
-    def as_sql(self, dialect: str = 'sqlite') -> tuple[str, list[Any]]:
+    def as_sql(self, dialect: str = "sqlite") -> tuple[str, list[Any]]:
         """
         Render as 'FUNC() OVER (PARTITION BY ... ORDER BY ... FRAME)'.
         Backend check: raise QueryFault on sqlite < 3.25 conceptually

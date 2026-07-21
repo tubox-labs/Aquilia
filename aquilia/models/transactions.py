@@ -118,9 +118,7 @@ __all__ = [
 #   the worst outcome (it sees depth=1 and creates a savepoint rather than a
 #   full transaction) is still safe -- the savepoint is scoped to the child's
 #   own connection, not the parent's.
-_txn_depth: contextvars.ContextVar[int] = contextvars.ContextVar(
-    "aquilia_txn_depth", default=0
-)
+_txn_depth: contextvars.ContextVar[int] = contextvars.ContextVar("aquilia_txn_depth", default=0)
 
 
 class Atomic:
