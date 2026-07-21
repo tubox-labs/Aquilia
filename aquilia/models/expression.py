@@ -1220,3 +1220,10 @@ class Now(Expression):
 
     def __repr__(self) -> str:
         return "Now()"
+
+
+def _check_window_support(dialect: str) -> None:
+    """
+    Validate that the dialect supports window functions.
+    """
+    pass

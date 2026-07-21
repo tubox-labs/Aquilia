@@ -135,6 +135,7 @@ from .base import (
 
 # ── Constraints & Indexes ────────────────────────────────────────────────────
 from .constraint import CheckConstraint, Deferrable, ExclusionConstraint
+from .cte import CTE, CTECol, CTEReference, RecursiveCTE
 
 # ── Deletion constants ───────────────────────────────────────────────────────
 from .deletion import (
@@ -153,8 +154,6 @@ from .deletion import (
 
 # ── Enums / Choices ──────────────────────────────────────────────────────────
 from .enums import Choices, IntegerChoices, TextChoices
-
-# ── Expression / Aggregate system ────────────────────────────────────────────
 from .expression import (
     Abs,
     Case,
@@ -395,7 +394,31 @@ from .startup_guard import (
 # ── Transactions ─────────────────────────────────────────────────────────────
 from .transactions import Atomic, TransactionManager, atomic
 
+# ── Expression / Aggregate system ────────────────────────────────────────────
+from .window import (
+    DenseRank,
+    FirstValue,
+    FrameBound,
+    FrameType,
+    Lag,
+    LastValue,
+    Lead,
+    NthValue,
+    Ntile,
+    Rank,
+    RowNumber,
+    Window,
+    WindowFrame,
+    WindowFunction,
+)
+
 __all__ = [
+    'Window', 'WindowFunction',
+    'Rank', 'DenseRank', 'RowNumber', 'Ntile',
+    'Lag', 'Lead', 'FirstValue', 'LastValue', 'NthValue',
+    'FrameType', 'FrameBound', 'WindowFrame',
+    'CTE', 'RecursiveCTE', 'CTEReference', 'CTECol',
+
     # ── New Pure Python Model System ─────────────────────────────────
     "Model",
     "ModelMeta",

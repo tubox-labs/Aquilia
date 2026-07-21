@@ -408,6 +408,9 @@ class Q(Generic[TModel]):
         "_set_operations",
         "_result_cache",
         "_iterator_chunk_size",
+
+        '_ctes',
+        '_has_recursive_cte',
     )
 
     def __init__(self, table: str, model_cls: type[TModel], db: AquiliaDatabase):
@@ -447,6 +450,8 @@ class Q(Generic[TModel]):
         self._sfu_nowait: bool = False
         self._sfu_skip_locked: bool = False
         self._is_none: bool = False
+        self._ctes: list[Any] = []
+        self._has_recursive_cte: bool = False
         self._set_operations: list[tuple[str, Q[TModel]]] = []
         self._result_cache: list | None = None
         self._iterator_chunk_size: int | None = None
@@ -1015,10 +1020,108 @@ class Q(Generic[TModel]):
         c._sfu_nowait = self._sfu_nowait
         c._sfu_skip_locked = self._sfu_skip_locked
         c._is_none = self._is_none
+        c._ctes = self._ctes.copy() if self._ctes else []
+        c._has_recursive_cte = self._has_recursive_cte
         c._set_operations = self._set_operations[:] if self._set_operations else []
         c._result_cache = None  # Fresh clone always has empty cache
         c._iterator_chunk_size = self._iterator_chunk_size
         return c
+
+    def cte(self, name: str) -> CTE:
+        """Create a named CTE from this queryset.
+
+        The returned ``CTE`` object can be passed to ``.with_cte()`` on any
+        queryset to include it in the query's WITH clause. Does not execute
+        the query.
+
+        Usage::
+
+            active = User.objects.filter(is_active=True).cte('active_users')
+            result = await User.objects.with_cte(active).all()
+        """
+        from .cte import CTE as _CTE
+        return _CTE(name=name, queryset=self)
+
+    def with_cte(self, *ctes: Any) -> Q[TModel]:
+        """Register one or more CTEs to be prepended as WITH clauses.
+
+        Multiple calls chain additively. CTEs are rendered in the order
+        registered. Any ``RecursiveCTE`` automatically promotes the preamble
+        to ``WITH RECURSIVE``.
+
+        Usage::
+
+            active = User.objects.filter(is_active=True).cte('active_users')
+            result = await User.objects.with_cte(active).all()
+
+            # Multiple CTEs in one call
+            result = await User.objects.with_cte(cte_a, cte_b).all()
+        """
+        from .cte import RecursiveCTE as _RecursiveCTE
+        new = self._clone()
+        for cte in ctes:
+            new._ctes.append(cte)
+            if isinstance(cte, _RecursiveCTE):
+                new._has_recursive_cte = True
+        return new
+
+    def recursive_cte(
+        self,
+        name: str,
+        anchor: Callable,
+        recursive: Callable,
+        *,
+        union_all: bool = True,
+    ) -> Q[TModel]:
+        """Build and register a recursive CTE, returning a queryset that
+        selects from the named CTE table.
+
+        Args:
+            name: CTE name — a valid SQL identifier (validated against
+                ``_SAFE_FIELD_RE``).
+            anchor: Callable ``(Q) -> Q`` returning the base / non-recursive
+                term of the CTE.
+            recursive: Callable ``(CTEReference) -> Q`` returning the
+                recursive term. Use ``cte_ref.col('field')`` to reference
+                columns from the CTE itself.
+            union_all: ``True`` (default) emits ``UNION ALL`` — no
+                deduplication, faster for tree traversal. ``False`` emits
+                ``UNION`` — deduplicates rows, safe for directed graphs with
+                cycles.
+
+        Returns:
+            A new ``Q`` that selects ``FROM <name>`` and carries the
+            ``RecursiveCTE`` in its WITH RECURSIVE clause.
+
+        Usage::
+
+            tree = await Folder.objects.recursive_cte(
+                name='folder_tree',
+                anchor=lambda q: q.filter(parent_id__isnull=True),
+                recursive=lambda cte: Folder.objects.filter(
+                    parent_id=cte.col('id')
+                ),
+            ).all()
+        """
+        from .cte import CTEReference
+        from .cte import RecursiveCTE as _RecursiveCTE
+        _validate_field_name(name, context='recursive_cte')
+        base_qs = self._clone()
+        anchor_qs = anchor(base_qs)
+        cte_ref = CTEReference(name=name)
+        recursive_qs = recursive(cte_ref)
+        rcte = _RecursiveCTE(
+            name=name,
+            anchor_qs=anchor_qs,
+            recursive_qs=recursive_qs,
+            union_all=union_all,
+        )
+        result = self._clone()
+        result._table = name
+        result._ctes = [rcte]
+        result._has_recursive_cte = True
+        return result
+
 
     def _build_select(self, count: bool = False, columns: list[str] | None = None) -> tuple[str, list[Any]]:
         """Build the SELECT SQL and parameter list from all accumulated query state.
@@ -1212,6 +1315,20 @@ class Q(Generic[TModel]):
                     sql += " NOWAIT"
                 elif self._sfu_skip_locked:
                     sql += " SKIP LOCKED"
+
+        # Prepend CTEs if present
+        if getattr(self, '_ctes', None):
+            dialect = self._get_dialect()
+            cte_parts = []
+            cte_params_list = []
+            for cte in self._ctes:
+                cte_sql, cte_params = cte.as_sql(dialect)
+                cte_parts.append(cte_sql)
+                cte_params_list.extend(cte_params)
+            keyword = 'WITH RECURSIVE' if getattr(self, '_has_recursive_cte', False) else 'WITH'
+            cte_preamble = f"{keyword} {', '.join(cte_parts)}"
+            sql = f"{cte_preamble} {sql}"
+            params = cte_params_list + params
 
         return sql, params
 
