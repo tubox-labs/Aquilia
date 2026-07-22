@@ -244,6 +244,11 @@ def register_template_providers(container, engine: TemplateEngine | None = None)
     """
     from aquilia.di.providers import ClassProvider, ValueProvider
 
+    from .engine import TemplateEngine
+
+    if hasattr(container, "is_registered") and container.is_registered(TemplateEngine):
+        return
+
     # Register provider classes as services
     container.register(ClassProvider(TemplateLoaderProvider, scope="app"))
     container.register(ClassProvider(BytecodeCacheProvider, scope="app"))

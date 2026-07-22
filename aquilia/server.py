@@ -103,6 +103,7 @@ class AquiliaServer:
         self.mode = mode
         self._workspace_modules = workspace_modules or {}
         self.workspace_root = Path(workspace_root) if workspace_root else None
+        self.template_engine: Any | None = None
 
         # Bootstrap the signing engine from config so all subsystems
         # (sessions, CSRF, cache, activation links) share a consistent key.
@@ -462,7 +463,15 @@ class AquiliaServer:
 
         # Auto-enable if templates directory exists in root/modules or any app manifest has templates
         if not use_templates:
-            if Path("templates").exists():
+            root_dir = getattr(self, "workspace_root", None) or getattr(self.config, "workspace_root", None) or getattr(self.config, "root_dir", None)
+            if not root_dir and hasattr(self, "aquilary") and hasattr(self.aquilary, "_workspace_root"):
+                try:
+                    root_dir = self.aquilary._workspace_root()
+                except Exception:
+                    pass
+
+            check_path = (Path(root_dir) / "templates") if root_dir else Path("templates")
+            if check_path.exists():
                 use_templates = True
             elif hasattr(self, "aquilary"):
                 for ctx in self.aquilary.app_contexts:
@@ -477,7 +486,8 @@ class AquiliaServer:
                                 break
                         except Exception:
                             pass
-                    if (Path("modules") / ctx.name / "templates").exists():
+                    mod_path = (Path(root_dir) / "modules" / ctx.name / "templates") if root_dir else (Path("modules") / ctx.name / "templates")
+                    if mod_path.exists():
                         use_templates = True
                         break
 
@@ -2182,6 +2192,13 @@ class AquiliaServer:
 
         # Step 1.5: Register fault handlers from manifests
         self._register_fault_handlers()
+
+        # Step 1.6: Register template providers on all compiled app containers
+        if getattr(self, "template_engine", None) is not None:
+            from .templates.di_providers import register_template_providers
+
+            for container in self.runtime.di_containers.values():
+                register_template_providers(container, engine=self.template_engine)
 
         # Step 2: Register OpenAPI/Docs routes if enabled
         if self.config.get("docs_enabled", True):

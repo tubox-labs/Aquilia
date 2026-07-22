@@ -89,7 +89,8 @@ workspace = (
     try:
         runtime = AquiliaRuntime.from_workspace(workspace_root=tmp_path, mode="dev")
         await runtime.server.startup()
-        print("LOADER SEARCH PATHS:", runtime.server.template_engine.loader.search_paths)
+        if getattr(runtime.server, "template_engine", None):
+            print("LOADER SEARCH PATHS:", runtime.server.template_engine.loader.search_paths)
         client = TestClient(runtime.server)
         response = await client.get("/web/")
         assert response.status_code == 200
