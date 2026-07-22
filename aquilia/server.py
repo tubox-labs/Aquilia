@@ -463,7 +463,11 @@ class AquiliaServer:
 
         # Auto-enable if templates directory exists in root/modules or any app manifest has templates
         if not use_templates:
-            root_dir = getattr(self, "workspace_root", None) or getattr(self.config, "workspace_root", None) or getattr(self.config, "root_dir", None)
+            root_dir = (
+                getattr(self, "workspace_root", None)
+                or getattr(self.config, "workspace_root", None)
+                or getattr(self.config, "root_dir", None)
+            )
             if not root_dir and hasattr(self, "aquilary") and hasattr(self.aquilary, "_workspace_root"):
                 try:
                     root_dir = self.aquilary._workspace_root()
@@ -486,7 +490,11 @@ class AquiliaServer:
                                 break
                         except Exception:
                             pass
-                    mod_path = (Path(root_dir) / "modules" / ctx.name / "templates") if root_dir else (Path("modules") / ctx.name / "templates")
+                    mod_path = (
+                        (Path(root_dir) / "modules" / ctx.name / "templates")
+                        if root_dir
+                        else (Path("modules") / ctx.name / "templates")
+                    )
                     if mod_path.exists():
                         use_templates = True
                         break
