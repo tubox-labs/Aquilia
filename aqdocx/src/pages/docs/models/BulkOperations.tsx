@@ -201,6 +201,13 @@ product_map = await Product.objects.in_bulk(db, all_ids)
           </table>
         </div>
 
+        <div className={`rounded-lg border p-4 text-sm mb-6 ${t('border-amber-500/20 bg-amber-500/5 text-amber-300', 'border-amber-300 bg-amber-50 text-amber-800')}`}>
+          <strong>RuntimeWarning:</strong> <code>get_or_create()</code> and <code>update_or_create()</code> emit a
+          <code> RuntimeWarning</code> on every call, since both are a plain SELECT-then-INSERT/UPDATE and not
+          atomic under concurrent access. Prefer <code>find_or_create()</code> when a unique constraint is
+          available — it does not warn.
+        </div>
+
         <h3 className={`text-lg font-semibold mb-3 ${t('text-gray-200', 'text-gray-800')}`}><code>get_or_create()</code></h3>
         <CodeBlock language="python">
 {`# Returns (instance, created: bool)

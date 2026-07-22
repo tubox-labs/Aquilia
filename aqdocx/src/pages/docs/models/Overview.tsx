@@ -85,6 +85,44 @@ await user.save(db, update_fields=["name"])   # UPDATE with update_fields
 await user.delete_instance(db)   # calls delete_instance()`}</CodeBlock>
       </section>
 
+      {/* Identity Map & Unit of Work */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Identity Map and Unit of Work</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Aquilia deliberately does <strong>not</strong> implement an identity map or a deferred-flush unit of
+          work, unlike session-oriented ORMs such as SQLAlchemy (<code>Session</code>), Hibernate
+          (<code>Persistence Context</code>), or Entity Framework Core (<code>DbContext</code>).
+        </p>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          <strong>No identity map:</strong> fetching the same row twice returns two distinct Python objects with
+          independent state.
+        </p>
+        <CodeBlock language="python">{`user_a = await User.get(id=1)
+user_b = await User.get(id=1)
+
+assert user_a is not user_b
+# Mutating user_a has no effect on user_b until saved and re-fetched.`}</CodeBlock>
+        <p className={`mb-4 mt-6 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          <strong>No unit of work:</strong> each <code>.save()</code> persists immediately — there is no deferred
+          change batching or cross-entity flush planning.
+        </p>
+        <CodeBlock language="python">{`await user.save()
+await profile.save()
+await settings.save()
+# each of the above is a separate, immediate write
+
+# atomic() gives transactional consistency, not Session.flush()-style batching
+async with atomic():
+    await user.save()
+    await profile.save()`}</CodeBlock>
+        <p className={`mt-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          This is a deliberate tradeoff, not a missing feature: a session-scoped identity map and unit of work
+          would require task-affinity tracking, session lifecycle management, and cross-request state — all at
+          odds with an async-first framework where request handling routinely spans concurrent tasks. Explicit,
+          immediate persistence keeps behavior predictable regardless of how your async code is scheduled.
+        </p>
+      </section>
+
       {/* Instance methods */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Instance Methods</h2>

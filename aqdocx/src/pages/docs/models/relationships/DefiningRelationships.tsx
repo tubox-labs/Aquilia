@@ -82,6 +82,50 @@ class Article(Model):
     tags = ManyToManyField("Tag", related_name="articles")`}</CodeBlock>
       </section>
 
+      {/* GenericForeignKey */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>GenericForeignKey</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          A polymorphic relation to <em>any</em> registered model — Django's "virtual field" pattern. Unlike
+          <code> ForeignKey</code>, it doesn't own a database column of its own: you declare two real columns
+          yourself (a model-label column and a stringified-PK column), and <code>GenericForeignKey</code>
+          resolves between them.
+        </p>
+        <CodeBlock language="python">{`from aquilia.models import Model, AutoField, CharField, GenericForeignKey
+
+class Comment(Model):
+    id = AutoField(primary_key=True)
+    body = CharField(max_length=1000)
+    content_type = CharField(max_length=255)   # e.g. "User", "Post", "Ticket"
+    object_id = CharField(max_length=255)      # stringified PK -- works for int or UUID PKs
+    target = GenericForeignKey("content_type", "object_id")`}</CodeBlock>
+        <CodeBlock language="python">{`post = await Post.get(pk=1)
+comment = Comment(body="Nice post!")
+Comment.target.attach(comment, post)   # sets content_type="Post", object_id=str(post.pk)
+await comment.save()
+
+# ... later, after loading a row back from the DB:
+reloaded = await Comment.get(pk=comment.pk)
+target = await Comment.target.resolve(reloaded)   # -> the Post instance, or None`}</CodeBlock>
+        <p className={`mb-3 mt-6 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          <strong>Why an explicit async method, not a transparent attribute:</strong> Aquilia is async-native —
+          there's no way to do a lazy synchronous DB fetch on plain attribute access the way Django's sync ORM
+          can. Resolution is always <code>await field.resolve(instance)</code>.
+        </p>
+        <p className={`mb-3 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          <strong>Why no ContentType model:</strong> Django's <code>GenericForeignKey</code> looks up a
+          <code> content_type_id</code> against a database-backed <code>ContentType</code> table. Aquilia reuses
+          the already-existing, in-memory <code>ModelRegistry.get(label)</code> lookup — the same primitive
+          <code> ForeignKey</code> already uses for string-based relation resolution — so no extra table,
+          migration, or registry sync step is needed.
+        </p>
+        <p className={`text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Not a <code>Field</code> subclass — the metaclass's column-collection scan skips it entirely, so it
+          owns no schema column and doesn't appear in generated <code>CREATE TABLE</code> DDL. An unset target
+          resolves to <code>None</code>, not an error.
+        </p>
+      </section>
+
       {/* Navigation */}
       <div className={`flex justify-between items-center pt-8 mt-8 border-t ${t('border-gray-700','border-gray-200')}`}>
         <Link to="/docs/models/queryset" className={`flex items-center gap-2 text-sm font-medium ${t('text-aquilia-400 hover:text-aquilia-300','text-aquilia-600 hover:text-aquilia-500')}`}>

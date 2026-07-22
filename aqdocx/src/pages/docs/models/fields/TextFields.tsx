@@ -49,6 +49,7 @@ export function TextFields() {
                 ['EmailField', 'VARCHAR(254)', 'Validates email formats.'],
                 ['URLField', 'VARCHAR(2048)', 'Validates URL formats.'],
                 ['SlugField', 'VARCHAR(50)', 'Accepts slugs (lowercase letters, numbers, hyphens).'],
+                ['EncryptedField', 'TEXT', 'Transparently encrypted at the storage boundary (see below).'],
               ].map(([f, sql, desc]) => (
                 <tr key={f}>
                   <td className={`px-4 py-3 font-mono text-xs ${t('text-aquilia-400','text-aquilia-600')}`}>{f}</td>
@@ -72,6 +73,43 @@ export function TextFields() {
 class User(Model):
     username = CICharField(max_length=50, unique=True)
     email = CIEmailField(unique=True)`}</CodeBlock>
+      </section>
+
+      {/* Encrypted Fields */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>EncryptedField</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Transparent application-layer encryption at the storage boundary. Plaintext is validated as a normal
+          <code> TextField</code> on assignment; encryption/decryption happens only in <code>to_db()</code>/
+          <code>to_python()</code> — i.e. only on the wire to/from the database.
+        </p>
+        <CodeBlock language="python">{`import os
+from aquilia.models import Model, EncryptedField
+
+# Configure once, at app startup -- before any encrypted field is saved/read.
+EncryptedField.configure_encryption_key(os.environ["ENCRYPTION_KEY"])
+
+class User(Model):
+    email = CharField(max_length=255, unique=True)
+    ssn = EncryptedField(null=True)
+
+user = await User.create(email="a@test.com", ssn="123-45-6789")
+# The "ssn" column holds ciphertext, not plaintext.
+
+reloaded = await User.get(pk=user.pk)
+reloaded.ssn  # "123-45-6789" -- decrypted transparently on read`}</CodeBlock>
+        <p className={`mb-3 mt-6 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          Encryption backend priority: a custom callable pair via <code>configure_encryption()</code>, then
+          Fernet (if the <code>cryptography</code> package is installed) or a stdlib AES-256-GCM fallback via
+          <code> configure_encryption_key()</code>, and — only if nothing was ever configured — a base64
+          placeholder that provides <strong>no confidentiality</strong> and emits a loud <code>UserWarning</code>
+          every time it's used.
+        </p>
+        <div className={`rounded-lg border p-4 text-sm ${t('border-amber-500/20 bg-amber-500/5 text-amber-300', 'border-amber-300 bg-amber-50 text-amber-800')}`}>
+          <strong>Configure before storing secrets:</strong> call <code>configure_encryption_key()</code> or
+          <code> configure_encryption()</code> before any real secret is ever saved. If you see the base64
+          <code>UserWarning</code> in your logs, nothing is actually encrypted yet.
+        </div>
       </section>
 
       {/* Navigation */}

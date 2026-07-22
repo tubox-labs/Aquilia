@@ -265,6 +265,52 @@ user, created = await User.objects.find_or_create(
 )
 ```
 
+### Identity Map and Unit of Work
+
+Aquilia's ORM deliberately does **not** implement an identity map or a
+deferred-flush unit of work, unlike session-oriented ORMs such as
+SQLAlchemy (`Session`), Hibernate (`Persistence Context`), or Entity
+Framework Core (`DbContext`).
+
+**No identity map.** Fetching the same row twice returns two distinct
+Python objects with independent state:
+
+```python
+user_a = await User.get(id=1)
+user_b = await User.get(id=1)
+
+assert user_a is not user_b
+```
+
+Mutating `user_a` has no effect on `user_b` until the change is saved and
+`user_b` is re-fetched.
+
+**No unit of work.** Each `.save()` persists immediately — there is no
+deferred change batching or cross-entity flush planning:
+
+```python
+await user.save()
+await profile.save()
+await settings.save()
+# each of the above is a separate, immediate write
+```
+
+`atomic()` gives you transactional consistency (all-or-nothing), but not
+`Session.flush()`/`SaveChanges()`-style batching:
+
+```python
+async with atomic():
+    await user.save()
+    await profile.save()
+```
+
+This is a deliberate tradeoff, not a missing feature: a session-scoped
+identity map and unit of work would require task-affinity tracking,
+session lifecycle management, and cross-request state — all at odds with
+an async-first framework where request handling routinely spans
+concurrent tasks. Explicit, immediate persistence keeps behavior
+predictable regardless of how your async code is scheduled.
+
 ### Fetching Large Datasets
 
 When working with huge tables, `.all()` can consume too much memory by loading everything into RAM at once.

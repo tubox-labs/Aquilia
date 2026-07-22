@@ -42,6 +42,60 @@ class Product(Model):
     metadata = JSONField(default_factory=dict)`}</CodeBlock>
       </section>
 
+      {/* Spatial Fields */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Spatial Fields</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          <code>PointField</code> and <code>GeometryField</code> are portable, GeoJSON-backed spatial fields —
+          both subclass <code>JSONField</code> and store data as <code>TEXT</code>/<code>JSONB</code> exactly
+          like any other JSON value. No PostGIS extension, no native geometry column type, no new dependency.
+          This trades native spatial indexing/query operators for zero-setup portability across
+          SQLite/PostgreSQL/MySQL.
+        </p>
+        <CodeBlock language="python">{`from aquilia.models import Model, GeometryField, PointField
+
+class Store(Model):
+    name = CharField(max_length=100)
+    location = PointField()
+
+class Region(Model):
+    name = CharField(max_length=100)
+    boundary = GeometryField(null=True)
+
+store = await Store.create(
+    name="Flagship",
+    location={"type": "Point", "coordinates": [-122.4194, 37.7749]},  # [lon, lat]
+)
+
+region = await Region.create(
+    name="Downtown",
+    boundary={
+        "type": "Polygon",
+        "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+    },
+)`}</CodeBlock>
+        <div className="space-y-4 mt-4">
+          <p className={`text-sm ${t('text-gray-300','text-gray-600')}`}>
+            <strong>PointField</strong> requires <code>{'{"type": "Point", "coordinates": [lon, lat]}'}</code> —
+            exactly 2 numeric coordinates. Any other shape or geometry type raises <code>FieldValidationError</code>.
+          </p>
+          <p className={`text-sm ${t('text-gray-300','text-gray-600')}`}>
+            <strong>GeometryField</strong> accepts any standard GeoJSON geometry type: <code>Point</code>,
+            <code> LineString</code>, <code>Polygon</code>, <code>MultiPoint</code>, <code>MultiLineString</code>,
+            <code> MultiPolygon</code>, <code>GeometryCollection</code>.
+          </p>
+        </div>
+        <CodeBlock language="python">{`# Rejected -- wrong geometry type for PointField
+await Store.create(name="X", location={"type": "Polygon", "coordinates": [...]})
+# FieldValidationError: Expected a GeoJSON Point with 2 numeric coordinates [lon, lat] ...`}</CodeBlock>
+        <p className={`text-sm mt-4 ${t('text-gray-300','text-gray-600')}`}>
+          If you need native spatial indexes (PostGIS <code>GIST</code>, MySQL <code>SPATIAL</code>), spatial
+          query operators (<code>ST_Contains</code>, <code>ST_Distance</code>), or geometry validation beyond
+          well-formed GeoJSON shape, you'll want a dedicated PostGIS/spatial-extension integration — that's out
+          of scope for this JSON-backed field pair, which optimizes for portability and zero setup.
+        </p>
+      </section>
+
       {/* PostgreSQL Native Fields */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>PostgreSQL Native Fields</h2>

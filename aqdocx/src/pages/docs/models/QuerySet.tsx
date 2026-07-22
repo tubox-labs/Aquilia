@@ -153,6 +153,50 @@ qs = User.objects.filter(
 qs = User.objects.filter(~Q(suspended=True))`}</CodeBlock>
       </section>
 
+      {/* Raw where/having clauses */}
+      <section className="mb-12">
+        <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>Raw WHERE / HAVING Clauses</h2>
+        <p className={`mb-4 text-sm ${t('text-gray-300','text-gray-600')}`}>
+          <code>.where()</code> and <code>.having()</code> accept a raw SQL fragment for cases the
+          filter/lookup API doesn't cover. Always bind user-supplied values through <code>?</code> placeholders —
+          never string-interpolate them into the clause:
+        </p>
+        <CodeBlock language="python">{`# Positional placeholders
+qs = User.objects.where("age > ?", 18)
+
+# Named placeholders
+qs = User.objects.where(
+    "status = :status AND role = :role",
+    status="active", role="admin",
+)
+
+# HAVING (use after group_by)
+qs = (
+    Order.objects
+    .group_by("customer_id")
+    .having("COUNT(*) > ?", 5)
+)`}</CodeBlock>
+
+        <div className={`rounded-lg border p-4 text-sm mt-4 ${t('border-amber-500/20 bg-amber-500/5 text-amber-300', 'border-amber-300 bg-amber-50 text-amber-800')}`}>
+          <strong>Guardrail, not the defense:</strong> both methods reject clauses containing an unparameterized
+          <code> DROP</code>/<code>ALTER</code>/<code>TRUNCATE</code>/<code>EXEC</code>/<code>EXECUTE</code>/
+          <code>DELETE</code>/<code>INSERT</code>/<code>UPDATE</code>/<code>MERGE</code> keyword, a comment marker
+          (<code>--</code>, <code>/* */</code>), or a bare <code>;</code> — word-boundary matched, so a column
+          named <code>updated_at</code> is not a false positive. This is a secondary safety net, not the actual
+          injection defense: parameter binding is. A clause built by string-interpolating user input can still be
+          unsafe even if it doesn't happen to contain a blocked keyword.
+        </div>
+
+        <CodeBlock language="python">{`# Rejected — SecurityFault, contains an unparameterized DML keyword
+await User.objects.where("id = 1; DELETE FROM users")
+
+# Rejected — comment marker
+await User.objects.where("id = 1 -- bypass rest of clause")
+
+# Fine — the keyword only appears inside an identifier
+await User.objects.where("updated_at > ?", cutoff)`}</CodeBlock>
+      </section>
+
       {/* F Expressions */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 ${t('text-white','text-gray-900')}`}>F Expressions</h2>

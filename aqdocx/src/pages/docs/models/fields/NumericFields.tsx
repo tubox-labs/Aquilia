@@ -87,6 +87,24 @@ export function NumericFields() {
             </p>
             <CodeBlock language="python">{`price = DecimalField(max_digits=10, decimal_places=2)`}</CodeBlock>
           </div>
+
+          <div>
+            <h3 className={`text-lg font-semibold mb-2 ${t('text-white','text-gray-900')}`}>MoneyField</h3>
+            <p className={`text-sm mb-3 ${t('text-gray-300','text-gray-600')}`}>
+              A <code>DecimalField</code> subclass that adds a <code>currency</code> code. Same precision-safe
+              storage as <code>DecimalField</code> (stored as <code>str()</code>, never a binary float) — the
+              currency is metadata carried on the field, not encoded per-row.
+            </p>
+            <CodeBlock language="python">{`total = MoneyField(max_digits=12, decimal_places=2, currency="USD")
+
+order = await Order.create(total="149.99")
+order.total  # Decimal('149.99')`}</CodeBlock>
+            <p className={`text-sm mt-3 ${t('text-gray-300','text-gray-600')}`}>
+              <code>currency</code> only validates the 3-uppercase-letter <em>shape</em> (not a full ISO 4217
+              lookup table) — a well-formed but unrecognized code is accepted on purpose:
+            </p>
+            <CodeBlock language="python">{`MoneyField(currency="dollars")  # raises FieldValidationError immediately`}</CodeBlock>
+          </div>
         </div>
       </section>
 
