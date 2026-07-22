@@ -9,7 +9,20 @@ additive.
 
 ## Breaking Changes
 
-**None.** All changes in this release are additive or fix incorrect behaviour.
+**None**, with one caveat worth a second look: the widened `Q.where()`/
+`Q.having()` raw-SQL blocklist (see [Security & Concurrency
+Hardening](security_hardening.md)) now also rejects `DELETE`, `INSERT`,
+`UPDATE`, `MERGE`, `--`, `/* */`, and bare `;` inside a raw clause string.
+If any of your code passes a raw `.where()`/`.having()` clause containing
+one of these as literal text (not just as a bind parameter value — bind
+parameters are unaffected), it will now raise `SecurityFault` where it
+previously didn't. This is vanishingly unlikely in a correct application
+(these keywords have no legitimate reason to appear in a `WHERE`/`HAVING`
+clause fragment), but worth a `pytest tests/ -k "where or having"`-style
+sanity pass if you have unusual raw-SQL usage.
+
+Everything else in this release is additive or fixes behaviour no correct
+application could have relied on.
 
 ---
 
@@ -68,6 +81,8 @@ from aquilia.models import (
     FrameType, FrameBound, WindowFrame,
     # CTEs
     CTE, RecursiveCTE, CTEReference, CTECol,
+    # Enterprise field types
+    MoneyField, EncryptedField, PointField, GeometryField, GenericForeignKey,
 )
 ```
 
@@ -76,7 +91,10 @@ They are also importable from the sub-modules directly:
 ```python
 from aquilia.models.window import Window, Rank, FrameBound
 from aquilia.models.cte import CTE, RecursiveCTE, CTEReference
+from aquilia.models.fields import MoneyField, EncryptedField, PointField, GeometryField, GenericForeignKey
 ```
+
+See [Enterprise Field Types](enterprise_fields.md) for full usage of each.
 
 ---
 

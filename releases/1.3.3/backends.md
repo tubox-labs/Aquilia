@@ -44,6 +44,21 @@
 |---|---|---|
 | `UUIDField(auto=True)` NULL insert | All prior | 1.3.3 |
 | Transaction depth `WeakValueDictionary` leak | All prior | 1.3.3 |
+| `Q.where()`/`Q.having()` inconsistent/incomplete raw-SQL blocklist | All prior | 1.3.3 |
+| `EncryptedMixin.to_db()` `TypeError` on `dialect=` keyword | All prior (never exercised through `Model.save()` before) | 1.3.3 |
+
+See [Security & Concurrency Hardening](security_hardening.md) for full root-cause detail.
+
+## Enterprise Field Types
+
+| Field | SQLite | PostgreSQL | MySQL/MariaDB | Oracle | New dependency |
+|---|---|---|---|---|---|
+| `MoneyField` | ✓ (`DECIMAL`) | ✓ (`DECIMAL`) | ✓ (`DECIMAL`) | ✓ (`NUMBER`) | None |
+| `EncryptedField` | ✓ (`TEXT`) | ✓ (`TEXT`) | ✓ (`TEXT`) | ✓ (`CLOB`) | None (`cryptography` optional) |
+| `PointField` / `GeometryField` | ✓ (`TEXT`) | ✓ (`JSONB`) | ✓ (`TEXT`) | ✓ (`CLOB`) | None |
+| `GenericForeignKey` | ✓ | ✓ | ✓ | ✓ | None (owns no column) |
+
+See [Enterprise Field Types](enterprise_fields.md) for usage and examples.
 
 ## Checking Your SQLite Version
 
