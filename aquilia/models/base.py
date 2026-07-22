@@ -36,6 +36,7 @@ import hashlib
 import json
 import logging
 import uuid
+import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -609,6 +610,7 @@ class Model(metaclass=ModelMeta):
         Unlike ``get()``, this never raises ``ModelNotFoundFault``.
 
         Usage:
+
             user = await User.get_or_none(pk=1)
             if user is None:
                 ...
@@ -643,10 +645,18 @@ class Model(metaclass=ModelMeta):
             need a race-free upsert backed by ``INSERT ... ON CONFLICT``.
 
         Usage:
+
             user, created = await User.get_or_create(
                 email="alice@test.com", defaults={"name": "Alice"}
             )
         """
+        warnings.warn(
+            f"{cls.__name__}.get_or_create() is not atomic (SELECT-then-INSERT). "
+            f"Under concurrent access this can race. Use find_or_create() for a "
+            f"race-free INSERT ... ON CONFLICT upsert.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         instance = await cls.get_or_none(**lookup)
         if instance is not None:
             return instance, False
@@ -661,6 +671,7 @@ class Model(metaclass=ModelMeta):
         Update an existing record matching ``lookup``, or create one if none exists.
 
         Args:
+
             defaults: Field values to apply. If a record is found, these
                 are set on the instance and persisted via an UPDATE query
                 (filtered by ``lookup``) plus a matching in-memory
@@ -669,19 +680,29 @@ class Model(metaclass=ModelMeta):
             **lookup: Field=value pairs used to find the existing record.
 
         Returns:
+        
             A ``(instance, created)`` tuple: ``created`` is ``True`` only
             when a new record was inserted.
 
         Caveat:
+
             Like ``get_or_create()``, this is SELECT-then-UPDATE-or-INSERT
             and not atomic under concurrent access; prefer
             ``find_or_create()`` when race-freedom matters.
 
         Usage:
+
             user, created = await User.update_or_create(
                 email="alice@test.com", defaults={"name": "Alice 2"}
             )
         """
+        warnings.warn(
+            f"{cls.__name__}.update_or_create() is not atomic (SELECT-then-UPDATE-or-INSERT). "
+            f"Under concurrent access this can race. Use find_or_create() for a "
+            f"race-free INSERT ... ON CONFLICT upsert.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         instance = await cls.get_or_none(**lookup)
         if instance is not None:
             # Update

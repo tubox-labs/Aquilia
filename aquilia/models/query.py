@@ -32,6 +32,31 @@ logger = logging.getLogger("aquilia.models.query")
 # Regex for validating field names in order() to prevent injection
 _SAFE_FIELD_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
+# Keywords/markers that make a raw .where()/.having() clause dangerous when
+# a caller has slipped unparameterized user input into it. Word-boundary
+# matched so identifiers like "updated_at" don't false-positive on "UPDATE".
+_UNSAFE_SQL_RE = re.compile(
+    r"\b(DROP|ALTER|TRUNCATE|EXEC|EXECUTE|DELETE|INSERT|UPDATE|MERGE)\b|--|/\*|\*/|;",
+    re.IGNORECASE,
+)
+
+
+def _reject_unsafe_clause(clause: str, *, code: str, context: str) -> None:
+    """Raise ``SecurityFault`` if *clause* contains a dangerous SQL keyword or comment marker.
+
+    This is a secondary guardrail, not the actual injection defense --
+    parameter binding is. It only catches unparameterized raw clauses.
+    """
+    match = _UNSAFE_SQL_RE.search(clause)
+    if match:
+        from aquilia.faults.domains import SecurityFault
+
+        raise SecurityFault(
+            code=code,
+            message=f"Potentially unsafe {context} clause rejected: contains '{match.group(0).strip()}'. "
+            f"Use parameterized values (?) for user-supplied data.",
+        )
+
 
 def _validate_field_name(name: str, *, context: str = "query") -> None:
     """Validate a field name to prevent identifier injection.
@@ -487,18 +512,7 @@ class Q(Generic[TModel]):
             .where("age > ?", 18)
             .where("status = :status AND role = :role", status="active", role="admin")
         """
-        # Guard: reject clauses with dangerous DDL keywords
-        _upper = clause.upper().strip()
-        _DANGEROUS_DDL = {"DROP ", "ALTER ", "TRUNCATE ", "EXEC ", "EXECUTE "}
-        for kw in _DANGEROUS_DDL:
-            if kw in _upper:
-                from aquilia.faults.domains import SecurityFault
-
-                raise SecurityFault(
-                    code="UNSAFE_WHERE_CLAUSE",
-                    message=f"Potentially unsafe WHERE clause rejected: contains '{kw.strip()}'. "
-                    f"Use Model.raw() for DDL/DCL operations.",
-                )
+        _reject_unsafe_clause(clause, code="UNSAFE_WHERE_CLAUSE", context="WHERE")
 
         new = self._clone()
         if kwargs:
@@ -799,17 +813,7 @@ class Q(Generic[TModel]):
         """
         # Guard: reject clauses with dangerous keywords when no params provided
         if not args:
-            _upper = clause.upper().strip()
-            _DANGEROUS = {"DROP", "ALTER", "TRUNCATE", "EXEC", "EXECUTE", "--", ";"}
-            for kw in _DANGEROUS:
-                if kw in _upper:
-                    from aquilia.faults.domains import SecurityFault
-
-                    raise SecurityFault(
-                        code="UNSAFE_HAVING_CLAUSE",
-                        message=f"Potentially unsafe HAVING clause rejected: contains '{kw}'. "
-                        f"Use parameterized values (?) for user-supplied data.",
-                    )
+            _reject_unsafe_clause(clause, code="UNSAFE_HAVING_CLAUSE", context="HAVING")
         new = self._clone()
         new._having.append(clause)
         new._having_params.extend(args)

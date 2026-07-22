@@ -345,6 +345,55 @@ class TestRawSQLDDLRejection:
             RawSQL("EXECUTE sp_executesql N'SELECT 1'")
 
 
+class TestWhereHavingClauseGuard:
+    """Q.where()/Q.having() must reject unparameterized DML/comment injection, not just DDL."""
+
+    @staticmethod
+    def _qs():
+        from aquilia.models.query import Q
+
+        class FakeModel:
+            _table_name = "t"
+            _pk_attr = "id"
+            _fields = {}
+
+            class _meta:
+                pass
+
+        return Q(model_cls=FakeModel, db=None, table="t")
+
+    @pytest.mark.parametrize("kw", ["DELETE", "INSERT", "UPDATE", "MERGE", "DROP"])
+    def test_where_rejects_dml_and_ddl_keywords(self, kw):
+        from aquilia.faults.domains import SecurityFault
+
+        with pytest.raises(SecurityFault, match="UNSAFE_WHERE_CLAUSE|unsafe WHERE"):
+            self._qs().where(f"id = 1; {kw} TABLE users")
+
+    @pytest.mark.parametrize("marker", ["--", "/*", "*/"])
+    def test_where_rejects_comment_markers(self, marker):
+        from aquilia.faults.domains import SecurityFault
+
+        with pytest.raises(SecurityFault):
+            self._qs().where(f"id = 1 {marker} bypass")
+
+    def test_where_accepts_identifier_substrings(self):
+        """A column named e.g. 'updated_at' must not false-positive on 'UPDATE'."""
+        new_qs = self._qs().where("updated_at > ?", "2024-01-01")
+        assert new_qs._wheres
+
+    @pytest.mark.parametrize("kw", ["DELETE", "INSERT", "UPDATE", "MERGE"])
+    def test_having_rejects_dml_keywords_without_params(self, kw):
+        from aquilia.faults.domains import SecurityFault
+
+        with pytest.raises(SecurityFault, match="UNSAFE_HAVING_CLAUSE|unsafe HAVING"):
+            self._qs().having(f"COUNT(*) > 0 {kw} users")
+
+    def test_having_with_params_bypasses_keyword_scan(self):
+        """Existing semantics: the keyword scan only runs when no bind params are given."""
+        new_qs = self._qs().having("COUNT(*) > ?", 5)
+        assert new_qs._having
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Fix 7 — Q method field validation (group_by, only, defer, values, update)
 # ═══════════════════════════════════════════════════════════════════════════════
