@@ -680,7 +680,7 @@ class Model(metaclass=ModelMeta):
             **lookup: Field=value pairs used to find the existing record.
 
         Returns:
-        
+
             A ``(instance, created)`` tuple: ``created`` is ``True`` only
             when a new record was inserted.
 

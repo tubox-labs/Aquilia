@@ -63,12 +63,14 @@ class TemplateMiddleware(Middleware):
         csrf_token_func: Callable | None = None,
         static_url_prefix: str = "/static",
         static_url_func: Callable | None = None,
+        engine: Any | None = None,
     ):
         self.url_for = url_for or self._default_url_for
         self.config = config
         self.csrf_token_func = csrf_token_func
         self._static_prefix = static_url_prefix.rstrip("/")
         self._static_url_func = static_url_func
+        self.engine = engine
 
     async def __call__(self, request: "Request", ctx: "RequestCtx", next_handler: "Handler") -> "Response":
         """
@@ -85,6 +87,9 @@ class TemplateMiddleware(Middleware):
         # Store middleware data in request state for template engine to access
         if not hasattr(request, "state"):
             request.state = {}
+
+        if self.engine is not None:
+            request.state["template_engine"] = self.engine
 
         # Inject helpers
         request.state["template_url_for"] = self.url_for

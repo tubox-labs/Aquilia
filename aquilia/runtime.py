@@ -511,6 +511,7 @@ class AquiliaRuntime:
                 config=self._config_loader,
                 mode=registry_mode,
                 workspace_modules=self._workspace_modules,
+                workspace_root=self.config.workspace_root,
             )
 
             self._phase = RuntimePhase.READY

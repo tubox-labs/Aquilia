@@ -13,6 +13,7 @@ Architecture v2 additions:
 import contextlib
 import logging
 import os
+from pathlib import Path
 from typing import Any, cast
 
 from .aquilary import Aquilary, AquilaryRegistry, RegistryMode, RuntimeRegistry
@@ -84,6 +85,7 @@ class AquiliaServer:
         mode: RegistryMode = RegistryMode.PROD,
         aquilary_registry: AquilaryRegistry | None = None,
         workspace_modules: dict[str, dict[str, Any]] | None = None,
+        workspace_root: Path | str | None = None,
     ):
         """
         Initialize AquiliaServer with Aquilary registry.
@@ -94,11 +96,13 @@ class AquiliaServer:
             mode: Registry mode (DEV, PROD, TEST)
             aquilary_registry: Pre-built AquilaryRegistry (advanced usage)
             workspace_modules: Module configs from workspace.py (route_prefix, etc.)
+            workspace_root: Absolute path to workspace root directory
         """
         self.config = config or ConfigLoader()
         self.logger = logging.getLogger("aquilia.server")
         self.mode = mode
         self._workspace_modules = workspace_modules or {}
+        self.workspace_root = Path(workspace_root) if workspace_root else None
 
         # Bootstrap the signing engine from config so all subsystems
         # (sessions, CSRF, cache, activation links) share a consistent key.
@@ -454,17 +458,31 @@ class AquiliaServer:
         template_config = self.config.get_template_config()
         use_templates = template_config.get("enabled", False)
 
-        # Auto-enable if any app manifest has templates
-        if not use_templates and hasattr(self, "aquilary"):
-            for ctx in self.aquilary.app_contexts:
-                if hasattr(ctx.manifest, "templates") and ctx.manifest.templates and ctx.manifest.templates.enabled:
-                    use_templates = True
-                    break
+        from pathlib import Path
+
+        # Auto-enable if templates directory exists in root/modules or any app manifest has templates
+        if not use_templates:
+            if Path("templates").exists():
+                use_templates = True
+            elif hasattr(self, "aquilary"):
+                for ctx in self.aquilary.app_contexts:
+                    if hasattr(ctx.manifest, "templates") and ctx.manifest.templates and ctx.manifest.templates.enabled:
+                        use_templates = True
+                        break
+                    manifest_src = getattr(ctx.manifest, "__source__", None)
+                    if manifest_src and isinstance(manifest_src, str):
+                        try:
+                            if (Path(manifest_src).parent / "templates").exists():
+                                use_templates = True
+                                break
+                        except Exception:
+                            pass
+                    if (Path("modules") / ctx.name / "templates").exists():
+                        use_templates = True
+                        break
 
         if use_templates:
             # Step 1: Initialize Engine with config
-            from pathlib import Path
-
             from .templates import TemplateEngine
             from .templates.di_providers import register_template_providers
             from .templates.loader import TemplateLoader
@@ -473,11 +491,37 @@ class AquiliaServer:
             search_paths = []
 
             # 1. Config paths
+            root_dir = (
+                getattr(self, "workspace_root", None)
+                or getattr(self.config, "workspace_root", None)
+                or getattr(self.config, "root_dir", None)
+            )
+            if not root_dir and hasattr(self, "aquilary") and hasattr(self.aquilary, "_workspace_root"):
+                try:
+                    root_dir = self.aquilary._workspace_root()
+                except Exception:
+                    pass
+            if not root_dir and hasattr(self, "runtime") and getattr(self.runtime, "config", None):
+                root_dir = getattr(self.runtime.config, "workspace_root", None) or getattr(
+                    self.runtime.config, "root_dir", None
+                )
+            if not root_dir and hasattr(self.config, "modules_dir") and self.config.modules_dir:
+                root_dir = Path(self.config.modules_dir).parent
+
             if template_config.get("search_paths"):
                 for p in template_config["search_paths"]:
-                    search_paths.append(Path(p))
+                    p_path = Path(p)
+                    if not p_path.is_absolute() and root_dir:
+                        p_path = Path(root_dir) / p
+                    search_paths.append(p_path)
 
-            # 2. Manifest paths (auto-discovery)
+            # 2. Workspace root fallback
+            if root_dir and (Path(root_dir) / "templates").exists():
+                search_paths.append(Path(root_dir) / "templates")
+            elif not root_dir and Path("templates").exists():
+                search_paths.append(Path("templates"))
+
+            # 3. Manifest paths (auto-discovery)
             if hasattr(self, "aquilary"):
                 for ctx in self.aquilary.app_contexts:
                     # Try to derive path from manifest source
@@ -498,7 +542,8 @@ class AquiliaServer:
 
                     if not found_path:
                         # Fallback to convention: /modules/<name>/templates
-                        convention_path = Path("modules") / ctx.name / "templates"
+                        base_mod = Path(root_dir) if root_dir else Path(".")
+                        convention_path = base_mod / "modules" / ctx.name / "templates"
                         if convention_path.exists():
                             search_paths.append(convention_path)
 
@@ -509,18 +554,13 @@ class AquiliaServer:
             loader = TemplateLoader(search_paths=search_paths)
 
             # Create engine with production/dev settings based on config
-            # (Here we use a generic engine, but factory methods in providers.py
-            # allow for customized creation if resolved via DI)
             self.template_engine = TemplateEngine(
                 loader=loader,
-                bytecode_cache=None
-                if template_config.get("cache") == "none"
-                else None,  # Default to memory if not specified or handled by provider logic
+                bytecode_cache=None if template_config.get("cache") == "none" else None,
             )
 
             # Register providers for each container
             for container in self.runtime.di_containers.values():
-                # Pass engine instance
                 register_template_providers(container, engine=self.template_engine)
 
             # Register middleware
@@ -529,6 +569,7 @@ class AquiliaServer:
                     url_for=self.controller_router.url_for,
                     config=self.config,
                     static_url_prefix=self._get_static_prefix(),
+                    engine=self.template_engine,
                 ),
                 scope="global",
                 priority=25,  # Processed after Auth/Session

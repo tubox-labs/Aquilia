@@ -50,6 +50,7 @@ class TemplatesIntegration:
         def __init__(self) -> None:
             super().__init__(
                 {
+                    "_integration_type": "templates",
                     "enabled": True,
                     "search_paths": ["templates"],
                     "cache": "memory",

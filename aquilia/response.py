@@ -971,11 +971,11 @@ class Response:
                 try:
                     from aquilia.templates.engine import TemplateEngine
 
-                    if hasattr(container, "resolve"):
+                    if hasattr(container, "resolve_async"):
+                        engine = await container.resolve_async(TemplateEngine, optional=True)
+                    elif hasattr(container, "resolve"):
                         resolved = container.resolve(TemplateEngine, optional=True)
                         engine = await resolved if inspect.isawaitable(resolved) else resolved
-                    elif hasattr(container, "resolve_async"):
-                        engine = await container.resolve_async(TemplateEngine, optional=True)
                 except Exception:
                     pass
 
