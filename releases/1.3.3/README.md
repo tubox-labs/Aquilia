@@ -27,6 +27,7 @@ types (**MoneyField**, **EncryptedField**, **PointField**/**GeometryField**,
 4. [Bug Fixes](bugfixes.md)
    - UUIDField(auto=True) NULL primary key
    - Transaction nesting depth tracker
+   - Controller `self.render()` TemplateEngine resolution failure (Issue #59)
 5. [Security & Concurrency Hardening](security_hardening.md)
    - Widened raw-SQL keyword blocklist on `Q.where()`/`Q.having()`
    - `get_or_create()`/`update_or_create()` non-atomic `RuntimeWarning`

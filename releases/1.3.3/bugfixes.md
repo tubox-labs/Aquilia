@@ -169,3 +169,39 @@ before the token is stored, `__aexit__` is a safe no-op — no underflow.
 | `TestConcurrencyIsolation` | Two `gather()` tasks see independent depths, sibling tasks start at 0, `id()` reuse doesn't contaminate |
 | `TestStress` | 50 concurrent tasks with nested atomics, no depth corruption |
 | `TestAtomicBehaviourAfterFix` | Commit/rollback still work, savepoint still works, durable rejected when nested, decorator form, on-commit/rollback hooks |
+
+---
+
+## Fix 3 — `Controller.render()` / `TemplateEngine` Resolution Failure (Issue #59)
+
+### Symptom
+
+Calling `return await self.render("index.html")` inside a controller handler raised:
+
+```
+aquilia.response.TemplateRenderError: [TEMPLATE_RENDER_ERROR] No TemplateEngine available.
+Ensure TemplateMiddleware is installed or pass engine parameter.
+```
+
+### Root Cause Analysis
+
+Audit of the template resolution lifecycle revealed five interlocking root causes:
+
+1. **Async Event Loop Bridge Collision**: `Response.render()` checked `hasattr(container, "resolve")` before `hasattr(container, "resolve_async")`. Because `Container` defines both, calling `container.resolve()` inside an active asyncio loop invoked `_sync_bridge.run_sync()`, throwing `RuntimeError: Cannot run sync resolution from inside a running event loop`. The surrounding `try...except Exception: pass` swallowed the exception, leaving `engine = None`.
+2. **Missing `_integration_type` in Builder**: `TemplatesIntegration.builder()` returned a dictionary lacking `"_integration_type": "templates"`, causing builder integration definitions to bypass `Workspace.integrate()` type indexing.
+3. **Template Engine Unstored in Request State**: `TemplateMiddleware` set template context helpers on `request.state`, but did not store `request.state["template_engine"]`.
+4. **Auto-Discovery Timing**: `AquiliaServer` only enabled templates if `template_config["enabled"]` was `True` during `initialize()`, before app manifests were scanned.
+5. **Search Path Resolution**: Relative search paths were resolved against `cwd` rather than `workspace_root`.
+
+### Fix
+
+- **`aquilia/response.py`**: Prioritized `hasattr(container, "resolve_async")` over `container.resolve()` when resolving dependencies inside async `Response.render()`.
+- **`aquilia/integrations/templates.py`**: Set `"_integration_type": "templates"` in `TemplatesIntegration._Builder.__init__()`.
+- **`aquilia/templates/middleware.py`**: Added `engine` parameter to `TemplateMiddleware` and stored `request.state["template_engine"] = self.engine`.
+- **`aquilia/server.py`**: Auto-enabled template rendering whenever a `templates/` directory is detected in workspace root or modules, passed `engine=self.template_engine` to `TemplateMiddleware`, and resolved relative search paths against `workspace_root`.
+
+### Verification — `tests/test_issue59_template_render.py`
+
+| Test | Assertion | Status |
+|---|---|---|
+| `test_issue59_controller_render_resolution` | `await self.render(...)` resolves `TemplateEngine` & returns `200 OK` HTML | Passed |

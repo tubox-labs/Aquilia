@@ -60,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Transaction nesting depth could be inherited or corrupted by sibling/child tasks due to `id()` reuse. Depth is now fully task-local via `ContextVar`.
 - `Q.where()`'s raw-SQL guard missed `DELETE`/`INSERT`/`UPDATE`/`MERGE` and comment-injection markers; `Q.having()`'s guard used the same weak substring matching. Both now share one word-boundary regex guard.
 - `EncryptedMixin.to_db()` signature mismatch (`TypeError` on real `dialect=` keyword calls) — see Enterprise Field Types above.
+- Resolved Issue #59: `Controller.render()` / `Response.render()` raised `[TEMPLATE_RENDER_ERROR] No TemplateEngine available`. Prioritized `container.resolve_async()` over `container.resolve()` in `Response.render()` to prevent event loop sync-bridge failures, added `_integration_type: "templates"` to `TemplatesIntegration._Builder`, stored `template_engine` in `TemplateMiddleware` request state, auto-enabled template discovery when `templates/` exists, and bound template search paths to `workspace_root`.
 
 ### Documentation
 - Documented Aquilia's deliberate lack of an identity map and unit-of-work (no session-scoped object identity, no deferred-flush batching) in `aqdocx/orm_new_pages_content.md`, alongside the existing `get_or_create`/`update_or_create`/`find_or_create` guidance.
