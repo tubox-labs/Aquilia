@@ -45,6 +45,8 @@ import warnings
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
+from ..fields_module import TextField
+
 if TYPE_CHECKING:
     pass
 
@@ -729,7 +731,7 @@ class EncryptedMixin:
         cls._decryption_backend = decrypt
         cls._fernet_instance = None  # custom backends take priority
 
-    def to_db(self, value: Any) -> Any:
+    def to_db(self, value: Any, dialect: str = "sqlite") -> Any:
         """
         Encrypt *value* for storage.
 
@@ -738,6 +740,10 @@ class EncryptedMixin:
                 coerced to ``str`` before encryption (so non-string values
                 round-trip as their string representation, not their
                 original type).
+            dialect: Accepted for signature compatibility with
+                ``Field.to_db(value, dialect=...)`` (every real call site
+                passes it as a keyword argument) -- encryption doesn't vary
+                per dialect, so it's unused.
 
         Returns:
             ``None`` if *value* is ``None`` (no encryption of nulls).
@@ -819,3 +825,23 @@ class EncryptedMixin:
             except Exception:
                 return value
         return value
+
+
+class EncryptedField(EncryptedMixin, TextField):
+    """Transparently-encrypted text field -- ciphertext at rest, plaintext ``str`` in Python.
+
+    Plaintext is validated/length-checked as a normal ``TextField`` on
+    assignment, then encrypted in ``to_db()`` and decrypted in
+    ``to_python()`` via ``EncryptedMixin`` (see its docstring above for the
+    encryption-tier priority and security caveats). Configure a real
+    backend before storing secrets -- without one, values round-trip
+    through a loudly-warned base64 placeholder that provides no
+    confidentiality::
+
+        EncryptedField.configure_encryption_key(os.environ["ENCRYPTION_KEY"])
+
+        class User(Model):
+            ssn = EncryptedField(null=True)
+    """
+
+    _field_type = "ENCRYPTED"

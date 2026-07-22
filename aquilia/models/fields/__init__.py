@@ -120,8 +120,10 @@ from ..fields_module import (
     ForeignKey,
     # Meta/Special
     GeneratedField,
+    GenericForeignKey,
     # IP/Network
     GenericIPAddressField,
+    GeometryField,
     HStoreField,
     ImageField,
     Index,
@@ -130,8 +132,10 @@ from ..fields_module import (
     IntegerRangeField,
     JSONField,
     ManyToManyField,
+    MoneyField,
     OneToOneField,
     OrderWrt,
+    PointField,
     PositiveIntegerField,
     PositiveSmallIntegerField,
     RangeField,
@@ -182,6 +186,7 @@ from .lookups import (
 from .mixins import (
     AutoNowMixin,
     ChoiceMixin,
+    EncryptedField,
     EncryptedMixin,
     IndexedMixin,
     NullableMixin,
@@ -223,6 +228,7 @@ __all__ = [
     "PositiveSmallIntegerField",
     "FloatField",
     "DecimalField",
+    "MoneyField",
     # Text
     "CharField",
     "VarcharField",
@@ -242,11 +248,15 @@ __all__ = [
     # Binary/Special
     "BinaryField",
     "JSONField",
+    "EncryptedField",
+    "PointField",
+    "GeometryField",
     # Relationships
     "RelationField",
     "ForeignKey",
     "OneToOneField",
     "ManyToManyField",
+    "GenericForeignKey",
     # IP/Network
     "GenericIPAddressField",
     "InetAddressField",

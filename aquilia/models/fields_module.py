@@ -1052,6 +1052,80 @@ class DecimalField(Field[decimal.Decimal]):
         return d
 
 
+_CURRENCY_CODE_RE = re.compile(r"^[A-Z]{3}$")
+
+
+class MoneyField(DecimalField):
+    """Currency-aware ``DecimalField`` -- adds a ``currency`` code alongside precise decimal storage.
+
+    Args:
+        currency: ISO 4217-shaped 3-letter currency code (default ``"USD"``).
+            Only the 3-uppercase-letter *shape* is validated, not membership
+            in the actual ISO 4217 list -- there is no bundled currency
+            table, so an unrecognized-but-well-formed code (e.g. a private
+            / test currency) is accepted.
+
+    Behaves exactly like ``DecimalField`` for storage/precision (see that
+    class for ``max_digits``/``decimal_places`` semantics); ``currency`` is
+    metadata carried alongside the amount, not encoded into the column type
+    -- pair it with a sibling column/constant if you need per-row currency.
+
+    Example::
+
+        class Order(Model):
+            total = MoneyField(max_digits=12, decimal_places=2, currency="EUR")
+    """
+
+    _field_type = "MONEY"
+
+    def __init__(
+        self,
+        *,
+        currency: str = "USD",
+        max_digits: int = 10,
+        decimal_places: int = 2,
+        null: bool = False,
+        blank: bool = False,
+        default: Any = UNSET,
+        unique: bool = False,
+        primary_key: bool = False,
+        db_index: bool = False,
+        db_column: str | None = None,
+        choices: Sequence[tuple[Any, str]] | None = None,
+        validators: list[Callable] | None = None,
+        help_text: str = "",
+        editable: bool = True,
+        verbose_name: str | None = None,
+    ):
+        if not _CURRENCY_CODE_RE.match(currency):
+            raise FieldValidationError(
+                "currency", f"Invalid currency code '{currency}' -- expected 3 uppercase letters"
+            )
+        self.currency = currency
+        super().__init__(
+            max_digits=max_digits,
+            decimal_places=decimal_places,
+            null=null,
+            blank=blank,
+            default=default,
+            unique=unique,
+            primary_key=primary_key,
+            db_index=db_index,
+            db_column=db_column,
+            choices=choices,
+            validators=validators,
+            help_text=help_text,
+            editable=editable,
+            verbose_name=verbose_name,
+        )
+
+    def deconstruct(self) -> dict[str, Any]:
+        """Extend ``DecimalField.deconstruct()`` with ``currency`` for migration diffing."""
+        d = super().deconstruct()
+        d["currency"] = self.currency
+        return d
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TEXT / STRING FIELDS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -3511,3 +3585,157 @@ class UniqueConstraint:
             "fields": self.fields,
             "name": self.name,
         }
+
+
+# EncryptedField lives in aquilia/models/fields/mixins.py, next to
+# EncryptedMixin -- not here. fields_module.py must not import anything
+# from the `.fields` package: aquilia.models.fields.__init__ imports
+# Index/UniqueConstraint (defined above) *from this module*, so the
+# dependency can only run one way (fields -> fields_module).
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SPATIAL FIELDS -- portable GeoJSON-over-JSON storage (no PostGIS/native
+# geometry column, no new dependency; every dialect already stores
+# JSONField as TEXT/JSONB, which is exactly what geometry data needs here).
+# ═══════════════════════════════════════════════════════════════════════════════
+
+_GEOJSON_TYPES = {
+    "Point",
+    "LineString",
+    "Polygon",
+    "MultiPoint",
+    "MultiLineString",
+    "MultiPolygon",
+    "GeometryCollection",
+}
+
+
+class GeometryField(JSONField):
+    """Geometry field storing a GeoJSON geometry dict -- e.g. ``{"type": "Polygon", "coordinates": [...]}``.
+
+    Validated as a well-formed GeoJSON geometry object (``type`` one of the
+    standard GeoJSON geometry types, plus a ``coordinates`` list) on top of
+    ``JSONField``'s existing JSON-serializability check. Stored as
+    ``TEXT``/``JSONB`` like any other JSON value -- no PostGIS/spatial DB
+    extension required. Use ``PointField`` when the geometry is always a
+    single point.
+
+    Example::
+
+        class Region(Model):
+            boundary = GeometryField()
+
+        region.boundary = {"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]}
+    """
+
+    _field_type = "GEOMETRY"
+
+    def validate(self, value: Any) -> Any:
+        """Run ``JSONField.validate()``, then require a ``{"type": <GeoJSON type>, "coordinates": [...]}`` shape."""
+        value = super().validate(value)
+        if value is None:
+            return None
+        if (
+            not isinstance(value, dict)
+            or value.get("type") not in _GEOJSON_TYPES
+            or not isinstance(value.get("coordinates"), list)
+        ):
+            raise FieldValidationError(
+                self.name,
+                f"Expected a GeoJSON geometry dict with 'type' in {sorted(_GEOJSON_TYPES)} "
+                f"and a 'coordinates' list, got {value!r}",
+            )
+        return value
+
+
+class PointField(GeometryField):
+    """``GeometryField`` restricted to a single GeoJSON ``Point`` -- ``{"type": "Point", "coordinates": [lon, lat]}``.
+
+    Example::
+
+        class Store(Model):
+            location = PointField()
+
+        store.location = {"type": "Point", "coordinates": [-122.4194, 37.7749]}
+    """
+
+    _field_type = "POINT"
+
+    def validate(self, value: Any) -> Any:
+        """Run ``GeometryField.validate()``, then require ``type == "Point"`` with 2 numeric coordinates."""
+        value = super().validate(value)
+        if value is None:
+            return None
+        coords = value.get("coordinates")
+        if value.get("type") != "Point" or len(coords) != 2 or not all(isinstance(c, (int, float)) for c in coords):
+            raise FieldValidationError(
+                self.name,
+                f"Expected a GeoJSON Point with 2 numeric coordinates [lon, lat], got {value!r}",
+            )
+        return value
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# GENERIC FOREIGN KEY -- a virtual, non-Field relation over two real columns
+# the model declares itself (Django's GenericForeignKey pattern), resolved
+# through the already-existing ModelRegistry string lookup. Deliberately
+# NOT a Field subclass: ModelMeta's `isinstance(value, Field)` column scan
+# (see metaclass.py) then leaves it alone -- it owns no column of its own.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+class GenericForeignKey:
+    """Polymorphic relation to any registered model, keyed by a model-label column + a PK-value column.
+
+    Unlike ``ForeignKey``, a generic relation can't be resolved once at
+    class-definition time (the target model varies per row), so it isn't a
+    transparent attribute descriptor -- Aquilia is async-native and can't do
+    a lazy synchronous DB fetch on attribute access anyway. Instead it's an
+    explicit async lookup over two columns you declare on the model
+    yourself:
+
+        class Comment(Model):
+            id = AutoField(primary_key=True)
+            content_type = CharField(max_length=255)
+            object_id = CharField(max_length=255)
+            target = GenericForeignKey("content_type", "object_id")
+
+        Comment.target.attach(comment, some_user)
+        # ... or, after loading a row:
+        obj = await Comment.target.resolve(comment)  # -> the User, Post, etc.
+
+    Args:
+        ct_field: Name of the column storing the target model's label
+            (``type(target).__name__``, resolved via ``ModelRegistry.get()``
+            -- the same registry ``ForeignKey``/``RelationField`` already
+            use for string-based relation resolution).
+        fk_field: Name of the column storing the target's primary key,
+            stringified (works for both integer and UUID primary keys).
+    """
+
+    def __init__(self, ct_field: str = "content_type", fk_field: str = "object_id"):
+        self.ct_field = ct_field
+        self.fk_field = fk_field
+        self.attr_name = ""
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.attr_name = name
+
+    async def resolve(self, instance: Model) -> Model | None:
+        """Look up the target row for *instance*, or ``None`` if either column is unset or the row is gone."""
+        from .registry import ModelRegistry
+
+        label = getattr(instance, self.ct_field)
+        pk = getattr(instance, self.fk_field)
+        if label is None or pk is None:
+            return None
+        model_cls = ModelRegistry.get(label)
+        if model_cls is None:
+            return None
+        return await model_cls.get_or_none(pk=pk)
+
+    def attach(self, instance: Model, target: Model) -> None:
+        """Set *instance*'s ``ct_field``/``fk_field`` columns to point at *target*."""
+        setattr(instance, self.ct_field, type(target).__name__)
+        setattr(instance, self.fk_field, str(target.pk))
