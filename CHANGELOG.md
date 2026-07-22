@@ -44,15 +44,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`UUIDField(auto=True)` NULL insert bug**: `setdefault` on pre-populated `kwargs` dict was a no-op. Fixed to explicit `UNSET` sentinel check — `auto=True` fields now always generate a UUID default, never `NULL`.
 - **Transaction nesting depth tracker memory leak and `id()` reuse contamination**: Replaced `WeakValueDictionary` keyed on `id(task)` with a `contextvars.ContextVar[int]` — consistent with all other Aquilia subsystems, leak-free, and isolation-safe under `asyncio.gather()`.
 
+#### ORM — Security & Concurrency Hardening (from senior-engineer assessment)
+- **Widened raw-SQL safety guard on `Q.where()`/`Q.having()`** (`aquilia/models/query.py`): both methods previously used two separate, inconsistent keyword blocklists — `where()` only rejected `DROP/ALTER/TRUNCATE/EXEC/EXECUTE` via a trailing-space substring match (vulnerable to false positives like `"AIRDROP "`), `having()` had a wider-but-still-incomplete set and no word-boundary matching. Replaced both with one shared, word-boundary regex guard (`_reject_unsafe_clause`) that additionally blocks `DELETE`, `INSERT`, `UPDATE`, `MERGE`, SQL comment markers (`--`, `/*`, `*/`), and bare `;` (statement-stacking). A column literally named `updated_at` no longer false-positives on `UPDATE`. This is a secondary guardrail, not the actual injection defense — parameter binding remains the real protection; the guard only catches unparameterized raw clauses.
+- **`get_or_create()` / `update_or_create()` now emit `RuntimeWarning`** (`aquilia/models/base.py`): both are a plain SELECT-then-INSERT/UPDATE and were already documented as non-atomic, but nothing surfaced that at runtime. They now warn on every call, pointing at `find_or_create()` (backed by `INSERT ... ON CONFLICT`) for race-free upserts under concurrent access. Fixed once in the canonical `Model` classmethods — `Manager.get_or_create()`/`update_or_create()` and `Q.get_or_create()`/`update_or_create()` both forward into these, so the warning covers all three call sites.
+
+#### ORM — Enterprise Field Types
+- **`MoneyField(DecimalField)`** — currency-aware decimal field. Adds a `currency` parameter (3-letter code, shape-validated, no bundled ISO 4217 table) alongside `DecimalField`'s existing precision-safe storage; `deconstruct()` includes `currency` for migration diffing.
+- **`EncryptedField(EncryptedMixin, TextField)`** — transparent application-layer encryption at the storage boundary, built on the existing (previously unused-in-production) `EncryptedMixin`. Fixed a latent bug found while wiring this up: `EncryptedMixin.to_db()` didn't accept the `dialect` keyword argument every real `Model.save()` call site passes (`field.to_db(value, dialect=dialect)`), so any mixed-in encrypted field would raise `TypeError` the moment it was actually saved through a model — only ever exercised standalone in tests before. `to_db()` now accepts (and ignores) `dialect`.
+- **`PointField` / `GeometryField` (both `JSONField` subclasses)** — portable GeoJSON-backed spatial fields. `GeometryField` validates a `{"type": <GeoJSON type>, "coordinates": [...]}` shape against the standard GeoJSON geometry types; `PointField` further restricts to a single `Point` with 2 numeric coordinates. Stored as `TEXT`/`JSONB` exactly like any other JSON value — no PostGIS/native geometry column and no new dependency.
+- **`GenericForeignKey`** — polymorphic relation to any registered model, Django's "virtual field" pattern: deliberately *not* a `Field` subclass (so `ModelMeta`'s column-collection scan ignores it), attached alongside two real columns the model declares itself (a model-label column + a stringified-PK column). Resolution is an explicit async method — `await field.resolve(instance)` — rather than a transparent attribute, since Aquilia is async-native and can't do a lazy synchronous DB fetch on attribute access. Reuses the existing `ModelRegistry.get(label)` lookup (the same primitive `ForeignKey` already uses for string-based relation resolution) instead of introducing an app-level `ContentType` model.
+- All four field types required no new dependencies and no changes to schema-generation/migration dialect-mapping code — each subclasses an existing field whose `isinstance()`-based SQL-type dispatch already matches subclasses.
+
 ### Fixed
 - `UUIDField(auto=True)` produced `NULL` primary keys on `create()` and `save()`. All existing UUID-PK round-trip, FK reference, and multi-create tests pass.
 - Transaction nesting depth could be inherited or corrupted by sibling/child tasks due to `id()` reuse. Depth is now fully task-local via `ContextVar`.
+- `Q.where()`'s raw-SQL guard missed `DELETE`/`INSERT`/`UPDATE`/`MERGE` and comment-injection markers; `Q.having()`'s guard used the same weak substring matching. Both now share one word-boundary regex guard.
+- `EncryptedMixin.to_db()` signature mismatch (`TypeError` on real `dialect=` keyword calls) — see Enterprise Field Types above.
+
+### Documentation
+- Documented Aquilia's deliberate lack of an identity map and unit-of-work (no session-scoped object identity, no deferred-flush batching) in `aqdocx/orm_new_pages_content.md`, alongside the existing `get_or_create`/`update_or_create`/`find_or_create` guidance.
 
 ### Tests
 - Added 34 regression tests (`tests/test_uuid_pk_auto.py`) covering UUID field init, validation, serialisation, SQL types, deconstruct, DB create/round-trip, and FK references.
 - Added 19 regression/concurrency tests (`tests/test_txn_depth_contextvar.py`) covering depth tracking, concurrent task isolation, `id()` reuse non-contamination, savepoint behaviour, decorator form, and commit/rollback hooks.
 - Added window function SQL generation and integration tests (`tests/test_window_functions.py`).
 - Added CTE and recursive CTE tests (`tests/test_cte_queries.py`).
+- Added `TestWhereHavingClauseGuard` to `tests/test_orm_security.py` covering DML/DDL keyword rejection, comment-marker rejection, and identifier-substring false-positive avoidance on `Q.where()`/`Q.having()`.
+- Added `tests/test_orm_concurrency_warnings.py` covering the new `get_or_create()`/`update_or_create()` `RuntimeWarning` and confirming `find_or_create()` does not warn.
+- Added `tests/test_orm_enterprise_fields.py` (14 tests) covering `MoneyField` precision/currency validation, `EncryptedField` round-trips (including the `dialect=` regression), `PointField`/`GeometryField` GeoJSON validation, and a live-DB `GenericForeignKey` attach/resolve round-trip.
 
 ### Backend Compatibility
 | Feature | SQLite | PostgreSQL | MySQL/MariaDB |
@@ -61,6 +80,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 | CTEs | ≥ 3.8.3 | ≥ 8.4 | ≥ 8.0 |
 | Recursive CTEs | ≥ 3.8.3 | ≥ 8.4 | ≥ 8.0 |
 | Frame Clauses | ≥ 3.25 | ≥ 8.4 | ≥ 8.0 |
+| `MoneyField` / `EncryptedField` | ✓ | ✓ | ✓ |
+| `PointField` / `GeometryField` | ✓ (TEXT) | ✓ (JSONB) | ✓ (TEXT) |
+| `GenericForeignKey` | ✓ | ✓ | ✓ |
 
 ## [1.3.2] — 2026-07-17 — "Specula API Observatory"
 
