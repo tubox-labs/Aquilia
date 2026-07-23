@@ -6,6 +6,8 @@ import {
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { UniversalSearch } from './UniversalSearch'
+import { useVersion } from '../hooks/useVersion'
+import { getLatestAnnouncement } from '../constants/announcements'
 
 interface NavbarProps {
   onToggleSidebar?: () => void
@@ -18,10 +20,18 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
   const isDark = theme === 'dark'
   const navRef = useRef<HTMLDivElement>(null)
 
+  const currentVersion = useVersion()
+  const announcement = getLatestAnnouncement(currentVersion)
+
   const [showBanner, setShowBanner] = useState(() => {
-    const saved = localStorage.getItem('aquilia-v13-rename-banner')
+    const saved = localStorage.getItem(`aquilia-announcement-banner-${announcement.version}`)
     return saved !== 'dismissed'
   })
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`aquilia-announcement-banner-${announcement.version}`)
+    setShowBanner(saved !== 'dismissed')
+  }, [announcement.version])
 
   // Measure dynamic navbar height and set CSS variable
   useEffect(() => {
@@ -39,7 +49,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
   }, [showBanner])
 
   const dismissBanner = () => {
-    localStorage.setItem('aquilia-v13-rename-banner', 'dismissed')
+    localStorage.setItem(`aquilia-announcement-banner-${announcement.version}`, 'dismissed')
     setShowBanner(false)
   }
 
@@ -55,14 +65,14 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
           <div className="flex-grow flex flex-wrap items-center justify-center gap-x-2 gap-y-1 relative z-10 text-center">
             <Megaphone className="w-3.5 h-3.5 text-yellow-300 animate-pulse shrink-0 inline" />
             <span className="font-medium tracking-tight">
-              <span className="font-bold bg-white/20 px-1.5 py-0.5 rounded mr-1.5 text-[9px] uppercase tracking-wider inline-block">V1.3.0 Release</span>
-              Aquilia's major validation/molding primitive has been renamed: <strong className="font-semibold text-yellow-200">Blueprint → Contract</strong>
+              <span className="font-bold bg-white/20 px-1.5 py-0.5 rounded mr-1.5 text-[9px] uppercase tracking-wider inline-block">{announcement.badgeText}</span>
+              {announcement.title} <strong className="font-semibold text-yellow-200">{announcement.highlightText}</strong>
             </span>
             <Link 
-              to="/docs/contracts/overview" 
+              to={announcement.linkTo} 
               className="inline-flex items-center gap-0.5 ml-1 font-bold hover:text-yellow-200 transition-colors group/link underline decoration-yellow-200/40 hover:decoration-yellow-200 shrink-0"
             >
-              <span>Learn More</span>
+              <span>{announcement.linkText}</span>
               <ArrowRight className="w-3 h-3 group-hover/link:translate-x-0.5 transition-transform duration-200" />
             </Link>
           </div>
@@ -168,7 +178,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
             </Link>
 
             <Link
-              to="/releases/1.3.1"
+              to={`/releases/${currentVersion}`}
               className={`hidden md:flex items-center gap-1.5 px-3 py-2 text-sm font-medium transition-all duration-200 rounded-lg group/relnotes relative overflow-hidden ${location.pathname.startsWith('/releases/')
                 ? 'text-aquilia-400'
                 : `${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-900'}`
@@ -254,7 +264,7 @@ export function Navbar({ onToggleSidebar }: NavbarProps) {
               Releases
             </Link>
             <Link
-              to="/releases/1.3.1"
+              to={`/releases/${currentVersion}`}
               className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 location.pathname.startsWith('/releases/')
                   ? 'text-aquilia-500 bg-aquilia-500/10'

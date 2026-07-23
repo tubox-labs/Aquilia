@@ -1,8 +1,21 @@
 import { useState, useEffect } from 'react'
+import { AQUILIA_VERSION } from '../constants/version'
 
-let cachedVersion = '1.2.2'
+let cachedVersion = AQUILIA_VERSION
 let isFetching = false
 const listeners = new Set<(v: string) => void>()
+
+function isGreaterOrEqual(v1: string, v2: string): boolean {
+  const p1 = v1.split('.').map(Number)
+  const p2 = v2.split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    const num1 = (p1[i] !== undefined && !isNaN(p1[i])) ? p1[i] : 0
+    const num2 = (p2[i] !== undefined && !isNaN(p2[i])) ? p2[i] : 0
+    if (num1 > num2) return true
+    if (num1 < num2) return false
+  }
+  return true
+}
 
 export function useVersion() {
   const [version, setVersion] = useState<string>(cachedVersion)
@@ -11,7 +24,7 @@ export function useVersion() {
     const handleUpdate = (v: string) => setVersion(v)
     listeners.add(handleUpdate)
 
-    if (cachedVersion === '1.2.2' && !isFetching) {
+    if (!isFetching) {
       isFetching = true
       fetch('https://api.github.com/repos/tubox-labs/Aquilia/tags')
         .then(res => {
@@ -20,20 +33,21 @@ export function useVersion() {
         })
         .then(data => {
           if (Array.isArray(data) && data.length > 0) {
-            // Find first tag that is NOT a pre-release (doesn't contain a, b, rc, dev, pre)
             const stableTag = data.find((tag: any) => {
               const v = tag.name.replace(/^v/, '')
               return !/[ab]|rc|dev|pre/i.test(v)
             })
             if (stableTag) {
               const cleanV = stableTag.name.replace(/^v/, '')
-              cachedVersion = cleanV
-              listeners.forEach(l => l(cleanV))
+              if (isGreaterOrEqual(cleanV, AQUILIA_VERSION)) {
+                cachedVersion = cleanV
+                listeners.forEach(l => l(cleanV))
+              }
             }
           }
         })
-        .catch(err => {
-          console.error('Failed to fetch latest stable version from GitHub:', err)
+        .catch(() => {
+          // Keep AQUILIA_VERSION on fetch error
         })
     }
 
