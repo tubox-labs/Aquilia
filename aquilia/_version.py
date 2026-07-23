@@ -20,10 +20,10 @@ numeric version and appear in CLI banners, docs, and metadata.
 """
 
 #: Framework version — single source of truth.
-__version__: str = "1.3.2"
+__version__: str = "1.3.3"
 
 #: Version tuple for programmatic comparison.
-VERSION: tuple[int, int, int] = (1, 3, 2)
+VERSION: tuple[int, int, int] = (1, 3, 3)
 
 #: Human-friendly release name (pirate-themed).
 RELEASE_NAME: str = "Ironclad Anchor"
