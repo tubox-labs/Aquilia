@@ -1,24 +1,130 @@
-# Aquilia Async Python Web Framework
+# Aquilia Async Python Web Framework — Documentation Index
 
-Aquilia is a high-performance, async-native, manifest-first Python web framework designed for building zero-boilerplate, production-ready APIs from day one.
+Aquilia is a high-performance, async-native, manifest-first Python web framework designed for building zero-boilerplate, production-ready APIs and enterprise services.
 
-## Core Architectural Pillars
+## Core Framework Pillars
+- **Manifest-First Architecture**: Central configuration in `manifest.py` for modules, controllers, and services. Dynamic scanning, auto-discovery, and ASGI deployment.
+- **Dynamic Dependency Injection**: Type-driven container with `SINGLETON`, `REQUEST`, and `TRANSIENT` lifecycles powered by `RequestDAG`.
+- **Data Layer (ORM)**: Clean async models, sqlite/PostgreSQL engine pooling, automated schema snapshot migrations, signals, window functions, CTEs, and bulk operations.
+- **Security & Hardening**: Built-in OAuth2/OIDC, Multi-Factor Authentication (MFA), JWT tokens, pluggable session stores, cryptographic signers, and RBAC/ABAC guards.
+- **Realtime & Network**: WebSockets, Server-Sent Events (SSE), streaming API, and typed outbound HTTP Client.
+- **Tooling & Operations**: Background job worker (`@task`), file/storage abstractions, internationalization (`i18n`), Jinja2 sandboxed templates, mail service, CLI generators (`aq`), and Specula OpenAPI observatory.
 
-- **Manifest-First**: Describe modules, controllers, and services in a central configuration. Aquilia scans your workspace, auto-discovers dependencies, sets up routes, and builds ASGI deployment manifests.
-- **Advanced Dependency Injection**: Strong, typed container supporting Singleton, Request, and Transient lifecycles, mapped via dynamic RequestDAG.
-- **Data Layer (ORM)**: Clean models, sqlite/postgreSQL engine pooling, automated schema migrations, entity signals, and transaction decorators.
-- **Security Hardening**: Built-in OAuth2/OIDC, Multi-Factor Authentication (MFA), JWT tokens, pluggable session stores, and RBAC guards.
-- **Tooling & Operations**: Background job worker (@task), SQLite connection pool, CLI generators, and auto-generated OpenAPI schemas.
+## Comprehensive Documentation Sitemap
 
-## Essential Documentation URLs
+### Getting Started & Basics
+- [Documentation Home](https://tubox.cloud/docs) — Overview and architecture principles.
+- [Installation Guide](https://tubox.cloud/docs/installation) — Package installation and driver setup.
+- [Quick Start](https://tubox.cloud/docs/quickstart) — Build a complete REST API in under 5 minutes.
+- [Developer Guide](https://tubox.cloud/docs/developer-guide) — Code conventions and workflow best practices.
+- [Framework Architecture](https://tubox.cloud/docs/architecture) — Internals, request lifecycle, and execution pipeline.
+- [Project Structure](https://tubox.cloud/docs/project-structure) — Recommended repository layout and module bounds.
+- [Admin Panel Setup](https://tubox.cloud/docs/admin-panel) — Built-in admin dashboard and user management.
 
-- [Documentation Index](https://tubox.cloud/docs) — Getting started, installation, architecture.
-- [Installation Guide](https://tubox.cloud/docs/installation) — `pip install aquilia` and dependencies.
-- [Quick Start](https://tubox.cloud/docs/quickstart) — Building a hello world controller in 5 minutes.
-- [Dependency Injection](https://tubox.cloud/docs/di) — Provider lifecycle, scopes, and diagnostics.
-- [ORM Models](https://tubox.cloud/docs/models) — Defining fields, relationships, and queries.
-- [CLI Reference](https://tubox.cloud/docs/cli) — aq commands, code generators, migrations.
-- [Performance Benchmarks](https://tubox.cloud/benchmark) — Aquilia vs FastAPI vs Starlette vs Django.
+### Tutorials
+- [Tutorials Overview](https://tubox.cloud/docs/tutorials/overview) — Step-by-step application walkthroughs.
+- [Todo REST API Application](https://tubox.cloud/docs/tutorials/todo-app) — Build a CRUD service with SQLite and ORM models.
+- [Authentication & JWT App](https://tubox.cloud/docs/tutorials/auth-app) — Build a secure auth system with OAuth2 and RBAC.
 
-## Extended Knowledge Base
+### Core Subsystems & Server
+- [AquiliaServer & Bootstrapping](https://tubox.cloud/docs/server) — Server configuration and launch hooks.
+- [ASGI Specification & Adapters](https://tubox.cloud/docs/server/asgi) — Uvicorn/Hypercorn ASGI integration.
+- [Server Lifecycle Hooks](https://tubox.cloud/docs/server/lifecycle) — Startup/shutdown events and cleanup tasks.
+- [Configuration System](https://tubox.cloud/docs/config) — `AquilaConfig`, typed loaders, and workspace settings.
+- [Env & Environment Files](https://tubox.cloud/docs/config/dotenv) — Environment variable management and secrets.
+- [Workspace & Module Builders](https://tubox.cloud/docs/config/workspace) — Declarative workspace definition.
+- [AppManifest Specification](https://tubox.cloud/docs/config/manifest) — Module manifest declaration and discovery.
+- [Typed Integrations](https://tubox.cloud/docs/config/integrations) — Integration builders for DB, cache, mail, storage.
+
+### Request & Response Processing
+- [Request API](https://tubox.cloud/docs/request-response/request) — Query params, headers, cookies, JSON body parsing.
+- [Response API](https://tubox.cloud/docs/request-response/response) — HTML, JSON, StreamingResponse, status codes.
+- [Data Structures](https://tubox.cloud/docs/request-response/data-structures) — MultiDict, HeaderDict, and State containers.
+- [File Uploads](https://tubox.cloud/docs/request-response/uploads) — Multipart form processing, stream parsing, and chunking.
+
+### Controllers & Routing
+- [Controllers Overview](https://tubox.cloud/docs/controllers/overview) — Class-based controllers and handler binding.
+- [Controller Attributes](https://tubox.cloud/docs/controllers/attributes) — Class-level options, prefixes, and middleware.
+- [RequestCtx Context](https://tubox.cloud/docs/controllers/request-ctx) — Thread-safe/async request context reference.
+- [Controller Factory & Engine](https://tubox.cloud/docs/controllers/factory) — Execution pipeline and instantiation.
+- [Compiler & Router](https://tubox.cloud/docs/controllers/compiler) — Route compilation and radix tree routing.
+- [OpenAPI Schema Specula](https://tubox.cloud/docs/controllers/openapi) — Automated Swagger/ReDoc OpenAPI generation.
+- [Body Validation](https://tubox.cloud/docs/controllers/validation) — Contract schema validation and payload molding.
+- [Pagination](https://tubox.cloud/docs/controllers/pagination) — Limit/offset and cursor-based pagination.
+- [Filtering & Search](https://tubox.cloud/docs/controllers/filters) — Query filters, field lookups, and search params.
+- [Content Negotiation & Renderers](https://tubox.cloud/docs/controllers/renderers) — Media type negotiation (JSON, XML, HTML).
+- [Route Decorators Reference](https://tubox.cloud/docs/controllers/decorators) — `@GET`, `@POST`, `@PUT`, `@PATCH`, `@DELETE`, `@HEAD`, `@OPTIONS`, `@WS`, `@route`.
+
+### Dependency Injection (DI)
+- [DI Container Overview](https://tubox.cloud/docs/di) — Inversion of Control (IoC) architecture.
+- [DI Container API](https://tubox.cloud/docs/di/container) — Service registration, factory providers, and resolution.
+- [Providers](https://tubox.cloud/docs/di/providers) — Class providers, value providers, factory providers, alias providers.
+- [Scopes & Lifecycles](https://tubox.cloud/docs/di/scopes) — `SINGLETON`, `REQUEST`, and `TRANSIENT` lifetime semantics.
+- [DI Decorators](https://tubox.cloud/docs/di/decorators) — `@Service`, `@Inject`, `@Injectable`, `@Factory`.
+- [RequestDAG & Graph Resolution](https://tubox.cloud/docs/di/request-dag) — Dependency graph validation, cycle detection.
+- [HTTP Extractors](https://tubox.cloud/docs/di/extractors) — Header, Query, Path, Body injection into parameters.
+- [Lifecycle Hooks](https://tubox.cloud/docs/di/lifecycle) — `@OnStartup`, `@OnShutdown`, post-construct hooks.
+- [DI Diagnostics](https://tubox.cloud/docs/di/diagnostics) — Inspecting graph dependencies and provider status.
+- [Advanced DI Recipes](https://tubox.cloud/docs/di/advanced) — Abstract classes, multi-binding, and module overrides.
+- [Patterns & Best Practices](https://tubox.cloud/docs/di/patterns) — Clean architecture DI patterns.
+- [DI Errors & Troubleshooting](https://tubox.cloud/docs/di/troubleshooting) — Resolving unhandled dependency errors.
+
+### Data Layer & ORM (Models)
+- [Models & ORM Overview](https://tubox.cloud/docs/models/overview) — Async ORM, field types, and QuerySet.
+- [Fields Reference](https://tubox.cloud/docs/models/fields/overview) — Base Field descriptors, validation, nullability.
+- [Numeric Fields](https://tubox.cloud/docs/models/fields/numeric) — Integer, Float, Decimal, BigInteger.
+- [Text & String Fields](https://tubox.cloud/docs/models/fields/text) — String, Text, UUID, Email, Slug.
+- [Date & Time Fields](https://tubox.cloud/docs/models/fields/datetime) — Date, Time, DateTime, Duration, Auto-now.
+- [Structured & JSON Fields](https://tubox.cloud/docs/models/fields/structured) — JSONField, ArrayField, CompositeField, EncryptedField.
+- [QuerySet API](https://tubox.cloud/docs/models/queryset) — `filter()`, `exclude()`, `select_related()`, `prefetch_related()`.
+- [Relationships & Foreign Keys](https://tubox.cloud/docs/models/relationships/defining) — ForeignKey, OneToOne, ManyToMany.
+- [Hydration Primitives](https://tubox.cloud/docs/models/relationships/hydration) — Lazy loading, eagerly fetched join trees.
+- [Many-to-Many Operations](https://tubox.cloud/docs/models/relationships/m2m) — `.add()`, `.remove()`, `.clear()`, through models.
+- [Transactions & Atomic Contexts](https://tubox.cloud/docs/models/transactions/atomic) — `@atomic` decorator, transaction managers.
+- [Savepoints & Nesting](https://tubox.cloud/docs/models/transactions/savepoints) — Nested transactions and manual savepoints.
+- [Lifecycle & Transaction Hooks](https://tubox.cloud/docs/models/transactions/hooks) — `on_commit()`, `on_rollback()` callbacks.
+- [Signals & Event Observers](https://tubox.cloud/docs/models/signals) — `pre_save`, `post_save`, `pre_delete`, `post_delete`.
+- [Aggregation & Grouping](https://tubox.cloud/docs/models/aggregation) — `Sum`, `Avg`, `Count`, `Min`, `Max`, `annotate()`.
+- [Window Functions](https://tubox.cloud/docs/models/window-functions) — `Window()`, `Rank`, `DenseRank`, `RowNumber`, `Lag`, `Lead`, `Ntile`.
+- [Common Table Expressions (CTEs)](https://tubox.cloud/docs/models/cte) — `WithCTE`, CTE queries, subquery reuse.
+- [Recursive CTEs](https://tubox.cloud/docs/models/recursive-cte) — Tree and graph traversal using recursive SQL CTEs.
+- [Bulk Operations](https://tubox.cloud/docs/models/bulk-operations) — `bulk_create()`, `bulk_update()`, `bulk_delete()`.
+- [Database Migrations](https://tubox.cloud/docs/models/migrations) — `aq makemigrations`, `aq migrate`, schema snapshots.
+- [Advanced ORM Usage](https://tubox.cloud/docs/models/advanced) — Raw SQL queries, custom expressions, index tuning.
+- [Database Engine & Drivers](https://tubox.cloud/docs/database) — Connection pooling, engine configs, multi-db routing.
+- [SQLite async Engine](https://tubox.cloud/docs/sqlite/overview) — High-throughput async SQLite pooling and WAL mode.
+
+### Security, Auth & Sessions
+- [Authentication Overview](https://tubox.cloud/docs/auth) — Authentication engine and identity context.
+- [Identity Model](https://tubox.cloud/docs/auth/identity) — User principal, identity interfaces, clearance levels.
+- [Credentials & Password Hashing](https://tubox.cloud/docs/auth/credentials) — Argon2, bcrypt, password strength policy.
+- [Auth Manager](https://tubox.cloud/docs/auth/manager) — Central auth service, token generation, user verification.
+- [OAuth2 & OIDC](https://tubox.cloud/docs/auth/oauth) — Social logins, authorization code flow, JWT validation.
+- [Multi-Factor Auth (MFA)](https://tubox.cloud/docs/auth/mfa) — TOTP authenticator app support and recovery codes.
+- [Tokens & Keys](https://tubox.cloud/docs/auth/tokens) — Access tokens, refresh tokens, asymmetric key signing.
+- [Auth Stores](https://tubox.cloud/docs/auth/stores) — Redis, Database, and Memory authentication stores.
+- [Authorization & Access Control](https://tubox.cloud/docs/authz) — Security guards, clearance levels, permissions.
+- [Role-Based Access Control (RBAC)](https://tubox.cloud/docs/authz/rbac) — Roles, permissions, `@RoleRequired` guards.
+- [Attribute-Based Access Control (ABAC)](https://tubox.cloud/docs/authz/abac) — Contextual rules, resource ownership guards.
+- [Authorization Policies](https://tubox.cloud/docs/authz/policies) — Policy evaluation engine and custom rules.
+- [Sessions Subsystem](https://tubox.cloud/docs/sessions/overview) — Cookie and header session management.
+- [Cryptographic Signing](https://tubox.cloud/docs/signing/overview) — URL signing, payload tamper protection, secret key rotation.
+
+### Middleware & Subsystems
+- [Middleware System](https://tubox.cloud/docs/middleware/overview) — Middleware pipeline, stack ordering, execution flow.
+- [Built-in Middleware](https://tubox.cloud/docs/middleware/built-in) — Static files, CORS, Rate Limiting, CSP, CSRF, HSTS.
+- [HTTP Outbound Client](https://tubox.cloud/docs/http) — Asynchronous HTTP client, connection pooling, retries.
+- [WebSockets & Realtime](https://tubox.cloud/docs/websockets) — `@Socket` controllers, event subscriptions, scaling adapters.
+- [Server-Sent Events (SSE)](https://tubox.cloud/docs/sse/overview) — Text/JSON streams, OpenAI streaming proxy, resource control.
+- [Caching Subsystem](https://tubox.cloud/docs/cache) — Redis/Memory backends, `@cached` decorators, TTL management.
+- [Storage & Filesystem](https://tubox.cloud/docs/storage/overview) — Local, S3, GCS, Azure Blob storage abstractions.
+- [Localization & i18n](https://tubox.cloud/docs/i18n/overview) — Multi-language catalogs, locale negotiation, pluralization.
+- [Templates & Mail](https://tubox.cloud/docs/templates) — Jinja2 sandboxed templates and SMTP/API email dispatch.
+- [Background Jobs & Tasks](https://tubox.cloud/docs/tasks/overview) — `@task` workers, retry policies, periodic cron scheduling.
+- [CLI Reference (`aq`)](https://tubox.cloud/docs/cli) — CLI commands, generator scaffolding, database tools.
+- [Testing & Debugging](https://tubox.cloud/docs/testing) — `TestClient`, `WebSocketTestClient`, test runner (`aq test`).
+- [Cloud Providers & Deployment](https://tubox.cloud/docs/providers/overview) — Render PaaS, Docker, Kubernetes, Nginx.
+- [Specula API Observatory](https://tubox.cloud/docs/openapi) — Live API introspection and interactive doc UI.
+
+## Full Consolidated Text
 - [Full Aggregated Documentation text](https://tubox.cloud/llms-full.txt) — Raw markdown for LLM context injection.

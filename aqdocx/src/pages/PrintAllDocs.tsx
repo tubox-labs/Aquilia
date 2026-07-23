@@ -28,6 +28,7 @@ import { ResponsePage } from './docs/request-response/Response'
 import { DataStructuresPage } from './docs/request-response/DataStructures'
 import { UploadsPage } from './docs/request-response/Uploads'
 import { ControllersOverview } from './docs/controllers/Overview'
+import { ControllersAttributes } from './docs/controllers/Attributes'
 import { ControllersRequestCtx } from './docs/controllers/RequestCtx'
 import { ControllersFactory } from './docs/controllers/Factory'
 import { ControllersEngine } from './docs/controllers/Engine'
@@ -61,6 +62,8 @@ import { DIExtractors } from './docs/di/Extractors'
 import { DILifecycle } from './docs/di/Lifecycle'
 import { DIDiagnostics } from './docs/di/Diagnostics'
 import { DIAdvanced } from './docs/di/DIAdvanced'
+import { DIPatterns } from './docs/di/Patterns'
+import { DITroubleshooting } from './docs/di/Troubleshooting'
 import { ModelsOverview } from './docs/models/Overview'
 import { FieldsOverview } from './docs/models/fields/FieldsOverview'
 import { NumericFields } from './docs/models/fields/NumericFields'
@@ -78,6 +81,10 @@ import { ModelsSignals } from './docs/models/Signals'
 import { ModelsAggregation } from './docs/models/Aggregation'
 import { ModelsMigrations } from './docs/models/Migrations'
 import { ModelsAdvanced } from './docs/models/Advanced'
+import { WindowFunctions } from './docs/models/WindowFunctions'
+import { CommonTableExpressions } from './docs/models/CommonTableExpressions'
+import { RecursiveCTE } from './docs/models/RecursiveCTE'
+import { BulkOperations } from './docs/models/BulkOperations'
 import { DatabaseOverview } from './docs/database/Overview'
 import { DatabaseEngine } from './docs/database/Engine'
 import { DatabaseConfigs } from './docs/database/Configs'
@@ -311,6 +318,7 @@ export function PrintAllDocs() {
         <div className="print-page-break"><DataStructuresPage /></div>
         <div className="print-page-break"><UploadsPage /></div>
         <div className="print-page-break"><ControllersOverview /></div>
+        <div className="print-page-break"><ControllersAttributes /></div>
         <div className="print-page-break"><ControllersRequestCtx /></div>
         <div className="print-page-break"><ControllersFactory /></div>
         <div className="print-page-break"><ControllersEngine /></div>
@@ -344,6 +352,8 @@ export function PrintAllDocs() {
         <div className="print-page-break"><DILifecycle /></div>
         <div className="print-page-break"><DIDiagnostics /></div>
         <div className="print-page-break"><DIAdvanced /></div>
+        <div className="print-page-break"><DIPatterns /></div>
+        <div className="print-page-break"><DITroubleshooting /></div>
         <div className="print-page-break"><ModelsOverview /></div>
         <div className="print-page-break"><FieldsOverview /></div>
         <div className="print-page-break"><NumericFields /></div>
@@ -361,6 +371,10 @@ export function PrintAllDocs() {
         <div className="print-page-break"><ModelsAggregation /></div>
         <div className="print-page-break"><ModelsMigrations /></div>
         <div className="print-page-break"><ModelsAdvanced /></div>
+        <div className="print-page-break"><WindowFunctions /></div>
+        <div className="print-page-break"><CommonTableExpressions /></div>
+        <div className="print-page-break"><RecursiveCTE /></div>
+        <div className="print-page-break"><BulkOperations /></div>
         <div className="print-page-break"><DatabaseOverview /></div>
         <div className="print-page-break"><DatabaseEngine /></div>
         <div className="print-page-break"><DatabaseConfigs /></div>

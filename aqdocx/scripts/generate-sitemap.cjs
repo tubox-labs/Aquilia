@@ -19,21 +19,27 @@ const docSections = [
   {
     title: 'Getting Started',
     items: [
-      { label: 'Introduction', path: '/docs' },
-      { label: 'Installation', path: '/docs/installation' },
-      { label: 'Quick Start', path: '/docs/quickstart' },
-      { label: 'Developer Guide', path: '/docs/developer-guide' },
-      { label: 'Architecture', path: '/docs/architecture' },
-      { label: 'Project Structure', path: '/docs/project-structure' },
-      { label: 'Admin Panel Setup', path: '/docs/admin-panel' },
+      { label: 'Introduction', path: '/docs',},
+      { label: 'Installation', path: '/docs/installation',},
+      { label: 'Quick Start', path: '/docs/quickstart',},
+      { label: 'Developer Guide', path: '/docs/developer-guide',},
+      { label: 'Architecture', path: '/docs/architecture',},
+      { label: 'Project Structure', path: '/docs/project-structure',},
+      { label: 'Admin Panel Setup', path: '/docs/admin-panel',},
     ]
   },
   {
     title: 'Tutorials',
     items: [
-      { label: 'Overview', path: '/docs/tutorials/overview' },
-      { label: 'Todo Application', path: '/docs/tutorials/todo-app' },
-      { label: 'Authentication App', path: '/docs/tutorials/auth-app' },
+      {
+        label: 'Tutorials',
+        path: '/docs/tutorials',
+        children: [
+          { label: 'Overview', path: '/docs/tutorials/overview' },
+          { label: 'Todo Application', path: '/docs/tutorials/todo-app' },
+          { label: 'Authentication App', path: '/docs/tutorials/auth-app' },
+        ]
+      }
     ]
   },
   {
@@ -72,6 +78,7 @@ const docSections = [
         label: 'Controllers', path: '/docs/controllers',
         children: [
           { label: 'Overview', path: '/docs/controllers/overview' },
+          { label: 'Controller Attributes', path: '/docs/controllers/attributes' },
           { label: 'RequestCtx', path: '/docs/controllers/request-ctx' },
           { label: 'Controller Factory', path: '/docs/controllers/factory' },
           { label: 'Controller Engine', path: '/docs/controllers/engine' },
@@ -107,8 +114,13 @@ const docSections = [
           { label: 'URL Generation', path: '/docs/routing/urls' },
         ]
       },
+    ]
+  },
+  {
+    title: 'Dependency Injection',
+    items: [
       {
-        label: 'Dependency Injection', path: '/docs/di',
+        label: 'DI System', path: '/docs/di',
         children: [
           { label: 'Overview', path: '/docs/di' },
           { label: 'Container', path: '/docs/di/container' },
@@ -120,6 +132,8 @@ const docSections = [
           { label: 'Lifecycle', path: '/docs/di/lifecycle' },
           { label: 'Diagnostics', path: '/docs/di/diagnostics' },
           { label: 'Advanced', path: '/docs/di/advanced' },
+          { label: 'Patterns & Recipes', path: '/docs/di/patterns' },
+          { label: 'Errors & Troubleshooting', path: '/docs/di/troubleshooting' },
         ]
       },
     ]
@@ -160,6 +174,15 @@ const docSections = [
           },
           { label: 'Signals', path: '/docs/models/signals' },
           { label: 'Aggregation', path: '/docs/models/aggregation' },
+          {
+            label: 'Advanced Querying', path: '/docs/models/window-functions',
+            children: [
+              { label: 'Window Functions', path: '/docs/models/window-functions' },
+              { label: 'Common Table Expressions', path: '/docs/models/cte' },
+              { label: 'Recursive CTEs', path: '/docs/models/recursive-cte' },
+              { label: 'Bulk Operations', path: '/docs/models/bulk-operations' },
+            ]
+          },
           { label: 'Migrations', path: '/docs/models/migrations' },
           { label: 'Advanced Usage', path: '/docs/models/advanced' },
         ]
@@ -207,6 +230,7 @@ const docSections = [
       {
         label: 'Authentication', path: '/docs/auth',
         children: [
+          { label: 'Overview', path: '/docs/auth' },
           { label: 'Identity Model', path: '/docs/auth/identity' },
           { label: 'Credentials', path: '/docs/auth/credentials' },
           { label: 'Auth Manager', path: '/docs/auth/manager' },
@@ -257,11 +281,11 @@ const docSections = [
   },
   {
     title: 'Middleware',
-    items: [
+    items: [ 
       {
         label: 'Middleware System', path: '/docs/middleware',
         children: [
-          { label: 'Overview', path: '/docs/middleware/overview' },
+          { label: "Overview", path: '/docs/middleware/overview'},
           { label: 'MiddlewareStack', path: '/docs/middleware/stack' },
           { label: 'Built-in Middleware', path: '/docs/middleware/built-in' },
           { label: 'Static Files', path: '/docs/middleware/static' },
@@ -434,6 +458,7 @@ const docSections = [
         label: 'CLI', path: '/docs/cli',
         children: [
           { label: 'Overview', path: '/docs/cli' },
+          { label: 'Command Reference', path: '/docs/cli/commands' },
           { label: 'Core Commands', path: '/docs/cli/core' },
           { label: 'Database', path: '/docs/cli/database' },
           { label: 'Inspection', path: '/docs/cli/inspection' },
@@ -457,6 +482,21 @@ const docSections = [
       {
         label: 'Specula Observatory', path: '/docs/openapi',
       },
+    ]
+  },
+  {
+    title: 'Deployment & Providers',
+    items: [
+      {
+        label: 'Cloud Providers',
+        path: '/docs/providers',
+        children: [
+          { label: 'Overview', path: '/docs/providers/overview' },
+          { label: 'Render PaaS', path: '/docs/providers/render' },
+          { label: 'Credential Security', path: '/docs/providers/security' },
+          { label: 'CLI Reference', path: '/docs/providers/cli' },
+        ]
+      }
     ]
   },
   {
