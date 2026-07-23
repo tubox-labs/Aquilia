@@ -36,10 +36,78 @@ interface ReleaseEntry {
 
 const staticReleases: ReleaseEntry[] = [
   {
+    version: '1.3.3',
+    codename: 'Analytical Depths',
+    date: 'Jul 21, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'ORM Window functions OVER (...), Common Table Expressions (CTEs), Recursive CTEs, security hardening, and enterprise field types.',
+    highlights: ['Window Functions', 'Common Table Expressions', 'Recursive CTEs'],
+    assets: [
+      { name: 'aquilia-1.3.3.tar.gz', size: '2.6 MB', type: 'Source' },
+      { name: 'aquilia-1.3.3-py3-none-any.whl', size: '2.1 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.3',
+    commitCount: '54',
+    contributors: 2
+  },
+  {
+    version: '1.3.2',
+    codename: 'Specula Observatory',
+    date: 'Jul 20, 2026',
+    tag: 'stable',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'API Spec Compilation & Schema Inference Engine, Specula API Observatory.',
+    highlights: ['Spec Compilation', 'Specula Observatory'],
+    assets: [
+      { name: 'aquilia-1.3.2.tar.gz', size: '2.5 MB', type: 'Source' },
+      { name: 'aquilia-1.3.2-py3-none-any.whl', size: '2.0 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.2',
+    commitCount: '32',
+    contributors: 2
+  },
+  {
+    version: '1.3.1',
+    codename: 'Backend Refactoring',
+    date: 'Jul 18, 2026',
+    tag: 'stable',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Pluggable Authentication Backends, Unified Permission Engine, Session Hardening, clock-skew JWT validation.',
+    highlights: ['Auth Backends', 'PermissionEngine DAG', 'Session Hardening'],
+    assets: [
+      { name: 'aquilia-1.3.1.tar.gz', size: '2.5 MB', type: 'Source' },
+      { name: 'aquilia-1.3.1-py3-none-any.whl', size: '2.0 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.1',
+    commitCount: '48',
+    contributors: 2
+  },
+  {
+    version: '1.3.0',
+    codename: 'Blueprint Contract',
+    date: 'Jul 15, 2026',
+    tag: 'stable',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Validation primitive rename from Blueprint to Contract, Facets validation system, Context-First Decorators.',
+    highlights: ['Blueprint → Contract', 'Facets Validation'],
+    assets: [
+      { name: 'aquilia-1.3.0.tar.gz', size: '2.5 MB', type: 'Source' },
+      { name: 'aquilia-1.3.0-py3-none-any.whl', size: '2.0 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.0',
+    commitCount: '62',
+    contributors: 2
+  },
+  {
     version: '1.2.2',
     codename: 'Kraken\'s Wake',
     date: 'Jul 01, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Database integrate configuration, ORM schema expressions, CLI auto-discovery sync.',

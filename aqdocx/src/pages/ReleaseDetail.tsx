@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useTheme } from '../context/ThemeContext'
+import { AQUILIA_VERSION } from '../constants/version'
+import { useVersion } from '../hooks/useVersion'
 import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import { TableOfContents } from '../components/TableOfContents'
@@ -45,10 +47,26 @@ interface StaticRelease {
 
 const staticReleases: StaticRelease[] = [
   {
-    version: '1.3.2',
-    codename: 'Deep Current',
-    date: 'Jul 20, 2026',
+    version: '1.3.3',
+    codename: 'Analytical Depths',
+    date: 'Jul 21, 2026',
     tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'ORM Window functions OVER (...), Common Table Expressions (CTEs), Recursive CTEs, security hardening, and enterprise field types.',
+    assets: [
+      { name: 'aquilia-1.3.3.tar.gz', size: '2.6 MB', type: 'Source' },
+      { name: 'aquilia-1.3.3-py3-none-any.whl', size: '2.1 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.3',
+    commitCount: '54',
+    contributors: 2
+  },
+  {
+    version: '1.3.2',
+    codename: 'Specula Observatory',
+    date: 'Jul 20, 2026',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'Dependency-injection rewrite: unified resolution engine, typed DISettings, provider interceptors, DI plugins, conditional providers, hardened pooling and cross-app resolution.',
@@ -302,10 +320,12 @@ function supportsFolderNotes(versionStr: string): boolean {
 }
 
 export function ReleaseDetail() {
-  const { version = '1.3.1', page = 'README.md' } = useParams<{ version: string; page: string }>()
+  const { version: paramVersion = AQUILIA_VERSION, page = 'README.md' } = useParams<{ version: string; page: string }>()
   const navigate = useNavigate()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const latestVersion = useVersion()
+  const version = (paramVersion === 'latest' || !paramVersion) ? latestVersion : paramVersion
 
   const [files, setFiles] = useState<{ name: string; label: string }[]>([])
   const [content, setContent] = useState<string>('')
