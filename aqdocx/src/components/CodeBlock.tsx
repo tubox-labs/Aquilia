@@ -16,6 +16,7 @@ import 'prismjs/components/prism-toml'
 import 'prismjs/components/prism-docker'
 import { useTheme } from '../context/ThemeContext'
 import { aquiliaDarkTheme, aquiliaLightTheme } from '../lib/prismThemes'
+import { MermaidDiagram } from './MermaidDiagram'
 
 if (!Prism.languages.plain) {
   const plainGrammar = {}
@@ -153,6 +154,10 @@ export function CodeBlock({ code, children, language = 'python', filename, title
 
   const codeContent = (code || children || '').trim()
   const normalizedLanguage = language.trim().toLowerCase()
+
+  if (normalizedLanguage === 'mermaid') {
+    return <MermaidDiagram chart={codeContent} title={title || filename} />
+  }
 
   // Map language aliases so Prism can highlight everything
   const prismLanguage = (() => {
