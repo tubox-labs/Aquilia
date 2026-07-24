@@ -387,6 +387,51 @@ env_var_name = BaseEnv.auth.secret_key.env_name      # → "AQ_SECRET_KEY"`} />
         </div>
       </section>
 
+      {/* Secret - Value vs. Env-Var Disambiguation */}
+      <section className="mb-12" id="secret-disambiguation">
+        <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>
+          <Lock className="w-5 h-5 text-aquilia-400" />
+          Secret — Value vs. Env-Var Disambiguation <span className="bg-aquilia-500/20 text-aquilia-300 text-xs px-2 py-1 rounded font-mono">v1.3.4</span>
+        </h2>
+        <p className={`mb-4 leading-relaxed ${txt}`}>
+          In v1.3.4, the <code>Secret</code> API was clarified to distinguish between literal values and environment variable names. Previously, a single positional argument was silently treated as an env-var name, leading to confusion.
+        </p>
+        <p className={`mb-4 leading-relaxed ${txt}`}>
+          Now, ALL_CAPS identifiers without explicit kwargs emit a <code>DeprecationWarning</code>. You should explicitly use <code>env=...</code> or <code>value=...</code>.
+        </p>
+        <div className={`mb-6 rounded-xl border overflow-hidden ${border}`}>
+          <table className="w-full text-sm">
+            <thead><tr className={thead}>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Old code</th>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>Problem</th>
+              <th className={`text-left px-4 py-2 font-semibold text-xs ${th}`}>New code</th>
+            </tr></thead>
+            <tbody className={`divide-y ${divider}`}>
+              <tr className={hov}>
+                <td className="px-4 py-2 font-mono text-xs text-aquilia-400">Secret("MY_DB_PASS")</td>
+                <td className={`px-4 py-2 text-xs ${subtxt}`}>Silently looked up env-var MY_DB_PASS</td>
+                <td className="px-4 py-2 font-mono text-xs text-aquilia-300">Secret(env="MY_DB_PASS")</td>
+              </tr>
+              <tr className={hov}>
+                <td className="px-4 py-2 font-mono text-xs text-aquilia-400">Secret("literal-value")</td>
+                <td className={`px-4 py-2 text-xs ${subtxt}`}>Broke if no env-var named 'literal-value' exists</td>
+                <td className="px-4 py-2 font-mono text-xs text-aquilia-300">Secret("literal-value")</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <CodeBlock language="python" code={`class auth(AquilaConfig.Auth):
+    # Old broken behavior: Secret("MY_DB_PASS")
+    # New correct usage for environment variables:
+    secret_key = Secret(env="MY_DB_PASS")
+
+    # Correct usage for literal values (is literally that value):
+    dev_token = Secret("literal-value")
+
+    # Emits DeprecationWarning for ALL_CAPS identifiers:
+    # warning_key = Secret("ALL_CAPS_KEY")`} />
+      </section>
+
       {/* PasswordHasher */}
       <section className="mb-12">
         <h2 className={`text-2xl font-bold mb-4 flex items-center gap-2 ${head}`}>

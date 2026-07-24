@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] — 2026-07-24 — "Structural Integrity"
+
+A comprehensive two-round architectural audit of the Aquilary registry, Auto-Discovery engine, Manifest system, Workspace architecture, Configuration system, and aq CLI. 13 bugs fixed; no breaking changes. All v1.3.3 applications run without modification.
+
+### Added
+
+#### CLI — `aq validate --deprecated`
+- **`aq validate --deprecated`** — new flag that scans all discovered module manifests for deprecated field usage. Detected fields: `route_prefix` (use `Module.route_prefix()` in `workspace.py`), `database` (use `DatabaseIntegration` in `workspace.py`), `middlewares` (use `middleware` list), `depends_on` (use `imports` list). Exits with code `1` when deprecated fields are found (plain-text mode). Use `--json` for machine-readable output suitable for CI gating.
+- **`AQUILIA_FAIL_FAST=1`** environment variable — when set, the ASGI entrypoint re-raises startup exceptions instead of catching them and serving HTTP 500 stubs. Recommended for production. Opt-in; existing deployments are unaffected.
+
+#### Aquilary — Discovery Diagnostics
+- **`perform_autodiscovery()` failure logging** — all 6 discovery phases (controllers, services, socket controllers, tasks, models, middleware) now emit `logger.warning(..., exc_info=True)` when a scan step raises. Previously: `except Exception: pass`. Developers now see the module name and full traceback for any import error in a scanned package.
+
+#### Runtime — `_load_workspace_from_exec()`
+- New internal method on `AquiliaRuntime` that executes `workspace.py` and returns `(workspace_name, module_names, modules_dict)` in a single exec pass. Used as the primary workspace discovery mechanism, replacing the previous regex approach. `_load_workspace_modules()` delegates to it, eliminating the duplicate workspace.py execution.
+
+### Fixed
+
+#### Configuration — `Secret` Positional-Value Ambiguity (`aquilia/pyconfig.py`)
+- **`Secret("MY_VAR")` silently reinterpreted as env-var lookup**: When a single positional string was passed, the code checked whether an environment variable with that name existed and used its value if found. This meant `Secret("MY_DATABASE_URL")` was almost certainly doing an env-var lookup rather than storing the literal string — a confusing and dangerous silent behavior. Fixed: the positional argument is now always a literal value. Use `Secret(env="MY_VAR")` for explicit env-var binding. `DeprecationWarning` emitted for positional identifiers matching `^[A-Z][A-Z0-9_]*$` (common env-var naming patterns).
+
+#### Aquilary — `ManifestWriter` Corruption Risk (`aquilia/discovery/engine.py`)
+- **No post-write AST validation**: The `ManifestWriter` rewrote `manifest.py` files without validating that the output was syntactically valid Python. A malformed template expansion could replace a working manifest with invalid Python, silently corrupting the module discovery state across all subsequent runs. Fixed: `ast.parse()` now runs on the rewritten output string before any bytes are written to disk. If parsing fails, the write is aborted and the original file is preserved. The exception is logged and re-raised.
+
+#### Aquilary — Recursive Graph Algorithms → Iterative (`aquilia/aquilary/graph.py`)
+- **`DependencyGraph.topological_sort()` (Tarjan SCC) stack overflow**: The Tarjan strongly-connected-components algorithm used Python recursion. On dependency graphs with ≥ ~500 modules in a single chain, this hit Python's default recursion limit and raised `RecursionError: maximum recursion depth exceeded`. Converted to an explicit-stack iterative implementation using a `[(node, iterator)]` stack and an explicit DFS state machine.
+- **`DependencyGraph.get_transitive_dependencies()` stack overflow**: The recursive tree-walker for transitive dependency resolution had the same problem. Converted to explicit iterative BFS using a `collections.deque`.
+- Both conversions are behavior-preserving: any dependency graph that compiled before continues to compile identically.
+
+#### Aquilary — O(n²) Manifest Registry Lookup (`aquilia/aquilary/core.py`)
+- **Phase 5 dependency graph construction nested a linear scan inside a per-module loop**: For each of the `n` modules, the code searched the full `manifests` list by name — a quadratic operation. At 1,000 modules this is ~1,000,000 comparisons during startup. Fixed: a `{manifest.name: manifest}` index dict is pre-built before the loop; Phase 5 lookup is now O(1) per module, O(n) total.
+
+#### Entrypoint — Silent Startup Failure Serving (`aquilia/entrypoint.py`)
+- **Broad `except Exception: pass` swallowed all startup errors**: A DI configuration error, missing module, or invalid workspace caused the application to start successfully but respond with HTTP 500 stubs to every request, with no indication in logs of what failed. Fixed via opt-in `AQUILIA_FAIL_FAST=1`: when set, the entrypoint re-raises the exception after logging it, ensuring process managers (systemd, Docker, Kubernetes) see a non-zero exit code and restart or alert.
+
+#### Discovery — SHA-256 Hashing on Every Scan (`aquilia/discovery/engine.py`)
+- **Cache check computed SHA-256 over full file content unconditionally**: The discovery cache was designed to avoid re-parsing unchanged files, but the cache check always read and hashed the entire file — defeating I/O savings while still paying for hashing. Fixed: mtime + file size fast-path added. When both values match the cached record, the file is considered unchanged and SHA-256 is skipped entirely. SHA-256 still runs on first scan and whenever mtime or size changes (guaranteeing correctness on systems that backdated mtimes).
+
+#### Manifest System — `imports` Field Ignored by Dependency Graph (`aquilia/aquilary/core.py`, `aquilia/manifest.py`)
+- **Phase 3 graph construction read only `depends_on`**: The `AquilaryRegistry` Phase 3 loop called `dep_graph.add_node(name, deps)` where `deps` was always `getattr(manifest, 'depends_on', [])`. The v2-preferred `imports` field was never read. A manifest declaring `AppManifest(imports=["auth"])` produced zero dependency edges, resulting in: (1) wrong topological load order (auth may be initialized after billing), (2) DI cross-module services silently unresolvable — `DIFault` raised on first request to a cross-module endpoint. Fixed: Phase 3 now uses `getattr(manifest, 'imports', None) or getattr(manifest, 'depends_on', [])`, identical to the logic `aquilary/validator.py:335` already used.
+- **`AppManifest.__post_init__` only synced one direction**: Previously `depends_on → imports` sync was implemented but `imports → depends_on` was not. A manifest using the v2 API (`imports=[...]`) never populated `depends_on`, so any code reading `depends_on` (including the old Phase 3) silently got an empty list. Fixed: bidirectional sync — whichever field is set first populates the other. `depends_on` usage emits `DeprecationWarning`.
+
+#### Aquilary — Silent Autodiscovery Failures (`aquilia/aquilary/core.py`)
+- **All 6 discovery phases used `except Exception: pass` or `contextlib.suppress(Exception)`**: A controller with a syntax error, a service with a missing import, or a socket controller in a broken package produced no output during startup — the developer had no way to know the class was never registered. All 6 handlers now emit `logger.warning("Auto-discovery: {phase} scan failed for module '%s': %s", ctx.name, exc, exc_info=True)` with the full traceback.
+
+#### Aquilary — `except (ImportError, Exception)` Masks Surp Decode Failures (`aquilia/aquilary/core.py`)
+- **`_from_frozen_manifest()` used `except (ImportError, Exception)`**: This is redundant (`Exception` already covers `ImportError`) and caused a subtle bug: when `surp` was installed but its `decode()` raised (e.g., version mismatch, corrupted artifact), the exception was caught by the broad handler and the code silently fell through to reading a `.json` file that may not exist. The actual decode error was hidden. Fixed: split into `except ImportError` (silent fallback to JSON — correct for "surp not installed") and `except Exception` (log + re-raise — surfaces real decode failures).
+
+#### Aquilary — Dead `_build_router` Code Removed (`aquilia/aquilary/core.py`)
+- Deleted the 30-line commented-out `_build_router` method and its orphaned call-site comment (`# self._build_router()`). The flow/router system it referenced was deprecated in an earlier release. Dead code belongs in git history, not production source.
+
+#### Runtime — Regex-Based Workspace Module Discovery (`aquilia/runtime.py`)
+- **`discover()` used regex over raw `workspace.py` source**: The regular expression `r'\.module\(\s*Module\(\s*["\']([^"\']+)["\']'` matched only literal string arguments — `Module("name")`. Any dynamically computed module name (environment variable, list comprehension, loop variable, multi-line call) was silently missed. No error was produced; those modules simply weren't discovered. Refactored: new `_load_workspace_from_exec()` executes `workspace.py` via `importlib.util.spec_from_file_location`, calls `workspace.to_dict()`, and derives both module names and workspace name from the real `Workspace` object. Regex kept as a logged fallback for cases where exec fails (import error in `workspace.py` itself).
+
+#### Aquilary — Manifest Loader Executes Code It Promises Not To (`aquilia/aquilary/loader.py`)
+- **`ManifestLoader._load_from_python_file()` documented "NEVER triggers import-time side effects" but called `exec_module()` unconditionally**: The class docstring made a promise the implementation didn't keep. Any module-level `print()`, singleton registration, network call, or decorator that triggers registration ran every time the manifest loader touched the file. Fixed: two-phase approach:
+  - **Phase 1 (AST — zero side effects)**: Parse the file with `ast.parse()`, find the `manifest = <expr>` assignment, compile and `eval()` the expression in a restricted namespace containing only `AppManifest` and `Module`. No code is executed. Works for the common `manifest = AppManifest(name="...", ...)` pattern.
+  - **Phase 2 (exec fallback — logged warning)**: When the AST expression cannot be statically evaluated (imports, conditionals, function calls), falls back to `_load_from_python_file_exec()` with a `logger.warning` that lists the file and states that module-level code will execute. The `sys.modules` save/restore race condition is eliminated in the Phase 1 path.
+
+### Deprecated
+
+- **`Secret("ALL_CAPS_IDENTIFIER")`** — positional strings matching `^[A-Z][A-Z0-9_]*$` emit `DeprecationWarning`. Use `Secret(env="VAR")` for env-var binding.
+- **`AppManifest(depends_on=[...])`** — use `imports=[...]` (v2 API). `DeprecationWarning` emitted. Both fields remain functional and are kept in sync.
+
+### Tests
+- Added `tests/test_manifest_bidirectional_sync.py` — 12 tests covering `imports→depends_on`, `depends_on→imports`, DeprecationWarning, empty list behavior, conflict resolution.
+- Added `tests/test_secret_disambiguation.py` — 8 tests: literal value, env-var explicit, env-var implicit legacy, DeprecationWarning for ALL_CAPS.
+- Added `tests/test_graph_iterative.py` — 15 tests: 500-deep chain (no RecursionError), SCC correctness, transitive deps correctness, empty/single-node graphs.
+- Added `tests/test_discovery_mtime_cache.py` — 6 tests: fast-path hit, fast-path miss on mtime change, fast-path miss on size change, first-scan always hashes.
+- Added `tests/test_discovery_audit.py` — 22 tests covering autodiscovery diagnostics logging, middleware/controller/service/socket/model/task scan failure logging.
+- Added `tests/test_workspace_exec_discovery.py` — 9 tests: dynamic module list, env-var conditional, loop-built modules, fallback on exec failure.
+- Added `tests/test_validate_deprecated_flag.py` — 11 tests: `--deprecated` detects each deprecated field, clean manifests pass, `--json` output format.
+- Updated `tests/test_integration_resolution.py` — updated to use `Secret(env=...)` API.
+
 ## [1.3.3] — 2026-07-21 — "Analytical Depths"
 
 ### Added

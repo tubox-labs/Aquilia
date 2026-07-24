@@ -29,6 +29,61 @@ interface ChangelogEntry {
 
 const staticChangelogs: ChangelogEntry[] = [
   {
+    version: '1.3.4',
+    codename: 'Structural Integrity',
+    date: '2026-07-24',
+    tag: 'patch',
+    summary: 'A comprehensive two-round architectural audit of the Aquilary registry, Auto-Discovery engine, Manifest system, Workspace architecture, Configuration system, and aq CLI. 13 bugs fixed: Secret positional ambiguity, ManifestWriter corruption, recursive Tarjan stack overflow, O(n²) registry lookup, silent startup failures, discovery SHA-256 overhead, imports/depends_on graph blindness, silent autodiscovery failures, surp decode masking, dead code, regex workspace discovery, and the manifest loader side-effect promise. One new feature: aq validate --deprecated.',
+    sections: [
+      {
+        title: 'Fixed',
+        type: 'fixed',
+        items: [
+          'Secret positional-value ambiguity (pyconfig.py): Secret("MY_VAR") silently reinterpreted the argument as an environment-variable name lookup. The positional argument is now always treated as a literal value. Use Secret(env="MY_VAR") for env-var binding. DeprecationWarning emitted for positional identifiers matching ^[A-Z][A-Z0-9_]*$.',
+          'ManifestWriter corruption risk (discovery/engine.py): No AST validation of rewritten source before disk write. A malformed template expansion could overwrite manifest.py with syntactically invalid Python, corrupting the module. Fixed: ast.parse() runs on the rewritten output before any disk I/O. Bad output → write aborted, original file preserved.',
+          'Recursive Tarjan SCC and get_transitive_dependencies stack overflow (aquilary/graph.py): Both algorithms used Python recursion, hitting RecursionError on dependency graphs deeper than ~500 modules. Converted both to explicit-stack iterative implementations. No behavior change; any graph that compiled before still compiles.',
+          'O(n²) manifest registry lookup in Phase 5 (aquilary/core.py): The dependency-graph construction loop nested a linear scan over all manifests inside a per-module loop. Pre-built a {name: manifest} index dict before the loop; Phase 5 is now O(n).',
+          'Silent startup failures at entrypoint (entrypoint.py): A broad except Exception: pass swallowed all startup errors, leaving the process running but serving HTTP 500 stubs on every request. New env-var AQUILIA_FAIL_FAST=1 makes the entrypoint re-raise on startup failure, terminating the process with a non-zero exit code.',
+          'Discovery cache hashing all files on every run (discovery/engine.py): The cache check always computed SHA-256 over the full file content, defeating the purpose of the cache for I/O cost. Added mtime+size fast-path: skip SHA-256 when both mtime and file size are unchanged since the last scan. SHA-256 still runs on the first scan and whenever mtime or size changes.',
+          'imports field ignored by dependency graph builder (aquilary/core.py + manifest.py): Phase 3 graph construction read only depends_on, completely ignoring the v2-preferred imports field. A module declaring AppManifest(imports=["auth"]) produced zero dependency edges, resulting in wrong topological load order and silent DI cross-module wiring failures at runtime. Fixed: Phase 3 now reads imports OR depends_on (same logic as aquilary/validator.py already used). AppManifest.__post_init__ now also syncs bidirectionally: imports= populates depends_on, depends_on= populates imports (and emits DeprecationWarning).',
+          'Silent autodiscovery failures (aquilary/core.py): All 6 discovery steps (controllers, services, socket controllers, tasks, models, middleware) were wrapped in bare except Exception: pass or contextlib.suppress(Exception). A controller with a syntax error or bad import produced zero log output. All 6 handlers now emit logger.warning(..., exc_info=True) with the module name and full traceback.',
+          'except (ImportError, Exception) masked surp decode failures (aquilary/core.py): In _from_frozen_manifest(), except (ImportError, Exception) is redundant and silently fell through to a JSON path when surp was installed but decode failed. Split into except ImportError (silent fallback — correct) and except Exception (log + re-raise — surfaces real decode bugs).',
+          'Dead _build_router commented code removed (aquilary/core.py): A 30-line block of commented-out _build_router code and its orphaned call-site comment were removed. Dead code belongs in git history, not production source.',
+          'Regex-based workspace module discovery (runtime.py): discover() used regex over raw workspace.py source to extract module names, matching only literal string arguments to Module("name"). Any dynamically computed module name, loop, list comprehension, or multi-line call was silently missed. Refactored: new _load_workspace_from_exec() executes workspace.py and calls workspace.to_dict() for correct and complete discovery. Regex kept as a logged fallback when exec fails.',
+          'Manifest loader executes code it promises not to (aquilary/loader.py): ManifestLoader._load_from_python_file() documented NEVER triggers import-time side effects but unconditionally called exec_module(), executing all module-level code. Implemented the promised AST-based extraction: Phase 1 (AST parse + restricted eval — zero side effects for simple AppManifest(...) declarations). Phase 2 (exec_module fallback with logged warning for complex expressions). sys.modules race condition eliminated in Phase 1.'
+        ]
+      },
+      {
+        title: 'Added',
+        type: 'added',
+        items: [
+          'aq validate --deprecated: New CLI flag scans all module manifests for deprecated field usage (route_prefix, database, middlewares, depends_on). Exits with code 1 if any deprecated fields are found in non-json mode. Use aq validate --deprecated --json for machine-readable output. Suitable for CI gate integration.',
+          'AQUILIA_FAIL_FAST=1 environment variable: Opt-in mode that terminates the process with a non-zero exit code on startup failure instead of silently serving HTTP 500 stubs. Recommended for production deployments.',
+          'Discovery failure diagnostics: All 6 perform_autodiscovery() phases now log warnings with full exc_info when a scan fails, enabling diagnosis of import errors in module packages.',
+          '_load_workspace_from_exec() helper in AquiliaRuntime: Encapsulates the exec-based workspace.py discovery logic, returning (workspace_name, module_names, modules_dict). Used as primary discovery mechanism; reused by _load_workspace_modules() to eliminate duplicate workspace.py execution.'
+        ]
+      },
+      {
+        title: 'Deprecated',
+        type: 'deprecated',
+        items: [
+          'Secret("ALL_CAPS_IDENTIFIER"): Using a positional string that looks like an environment-variable name (matching ^[A-Z][A-Z0-9_]*$) now emits a DeprecationWarning. Use Secret(env="VAR_NAME") for explicit env-var binding.',
+          'AppManifest(depends_on=[...]): The depends_on field is the legacy cross-module dependency declaration. Use imports=[...] (the v2 API) instead. DeprecationWarning emitted on use. Both fields remain functional and are kept in sync automatically.'
+        ]
+      },
+      {
+        title: 'Changed',
+        type: 'changed',
+        items: [
+          'AppManifest.__post_init__ bidirectional sync: imports and depends_on are now kept in sync in both directions. Previously only one direction (depends_on → imports) was synced.',
+          'ManifestLoader now attempts AST-based static extraction before falling back to exec_module. The fallback still works for any manifest that used to load correctly.',
+          'AquiliaRuntime.discover() now uses exec-based workspace discovery as the primary path (regex as fallback), ensuring dynamically constructed module lists are correctly discovered.',
+          'aquilary/core.py Phase 3 dependency graph now reads both imports and depends_on fields (prefers imports). This is consistent with the existing validator.py behavior.'
+        ]
+      }
+    ]
+  },
+  {
     version: '1.3.2',
     codename: 'Deep Current',
     date: '2026-07-20',

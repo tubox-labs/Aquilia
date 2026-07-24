@@ -99,9 +99,67 @@ if report.has_errors():
                 <td className="py-3.5 px-4">Topology</td>
                 <td className="py-3.5 px-4">Raised when circular dependencies exist between module imports.</td>
               </tr>
+              <tr className="hover:bg-white/2 transition-colors">
+                <td className="py-3.5 px-4 font-mono text-aquilia-300">DeprecationWarning</td>
+                <td className="py-3.5 px-4">Legacy</td>
+                <td className="py-3.5 px-4">Emitted when using the deprecated <code>depends_on</code> argument instead of <code>imports</code>.</td>
+              </tr>
             </tbody>
           </table>
         </div>
+      </section>
+
+      {/* Bidirectional Sync */}
+      <section className="mb-16" id="imports-sync">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6 flex items-center gap-2`}>
+          Bidirectional Sync — imports ↔ depends_on <span className="bg-aquilia-500/20 text-aquilia-300 text-xs px-2 py-1 rounded">v1.3.4</span>
+        </h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The <code>AppManifest.__post_init__</code> hook now keeps <code>imports</code> and <code>depends_on</code> in sync automatically.
+        </p>
+        <ul className={`list-disc list-inside mb-6 space-y-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <li>Using <code>imports=[...]</code> is preferred, and auto-populates <code>depends_on</code>.</li>
+          <li>Using <code>depends_on=[...]</code> auto-populates <code>imports</code> but emits a <code>DeprecationWarning</code>.</li>
+        </ul>
+        <CodeBlock language="python" filename="manifest_sync.py">{`from aquilia import AppManifest
+
+# Preferred
+manifest1 = AppManifest(
+    name="users",
+    imports=["auth"] # depends_on automatically set to ["auth"]
+)
+
+# Deprecated (emits warning)
+manifest2 = AppManifest(
+    name="billing",
+    depends_on=["users"] # imports automatically set to ["users"]
+)`}</CodeBlock>
+      </section>
+
+      {/* Two-Phase Manifest Loading */}
+      <section className="mb-16" id="two-phase-loading">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6 flex items-center gap-2`}>
+          Two-Phase Manifest Loading <span className="bg-aquilia-500/20 text-aquilia-300 text-xs px-2 py-1 rounded">v1.3.4</span>
+        </h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The <code>ManifestLoader</code> now uses a two-phase loading strategy: an AST-based primary path and an exec fallback.
+        </p>
+        <ul className={`list-disc list-inside mb-6 space-y-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <li><strong>Phase 1: AST path</strong> — Handles simple manifests with zero side effects, fast and safe.</li>
+          <li><strong>Phase 2: exec fallback</strong> — Handles complex manifests (e.g., dynamic imports). Emits a logged warning.</li>
+        </ul>
+        <CodeBlock language="python" filename="two_phase_loading.py">{`# Phase 1: Resolved via AST (Fast, safe)
+manifest = AppManifest(
+    name="auth",
+    version="1.0.0"
+)
+
+# Phase 2: Falls back to exec (Logs warning about side effects)
+DYNAMIC_VERSION = os.getenv("VERSION", "1.0.0")
+manifest = AppManifest(
+    name="billing",
+    version=DYNAMIC_VERSION
+)`}</CodeBlock>
       </section>
 
       {/* Navigation */}

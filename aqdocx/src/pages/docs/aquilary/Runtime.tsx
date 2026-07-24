@@ -52,6 +52,50 @@ export function AquilaryRuntime() {
         </div>
       </section>
 
+      {/* Discovery Failure Diagnostics */}
+      <section className="mb-16" id="discovery-diagnostics">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6 flex items-center gap-2`}>
+          Discovery Failure Diagnostics <span className="bg-aquilia-500/20 text-aquilia-300 text-xs px-2 py-1 rounded">v1.3.4</span>
+        </h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          All 6 discovery steps now emit a <code>logger.warning(..., exc_info=True)</code> instead of silently swallowing errors. This makes it much easier to debug faulty modules.
+        </p>
+        <ul className={`list-disc list-inside mb-6 space-y-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <li><strong>Before (v1.3.3):</strong> No output when a controller has a bad import.</li>
+          <li><strong>After (v1.3.4):</strong> Warning log with full traceback and module name.</li>
+        </ul>
+        <CodeBlock language="bash" code={`# Example log output
+[WARNING] Auto-discovery failed for module 'users.controllers': 
+Traceback (most recent call last):
+  ...
+ModuleNotFoundError: No module named 'missing_dependency'`} />
+        <p className={`mt-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          When you see this warning, check the file mentioned in the traceback and ensure all its imports are valid and installed.
+        </p>
+      </section>
+
+      {/* Workspace Module Discovery */}
+      <section className="mb-16" id="workspace-discovery">
+        <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6 flex items-center gap-2`}>
+          Workspace Module Discovery <span className="bg-aquilia-500/20 text-aquilia-300 text-xs px-2 py-1 rounded">v1.3.4</span>
+        </h2>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          The new exec-based discovery has replaced regex parsing, allowing for more complex, dynamic module resolutions in your workspace.
+        </p>
+        <ul className={`list-disc list-inside mb-6 space-y-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          <li><strong>Old behavior:</strong> Regex missed dynamic module lists.</li>
+          <li><strong>New behavior:</strong> Executes <code>workspace.py</code> and calls <code>workspace.to_dict()</code>. Fallbacks to exec failure when invalid.</li>
+        </ul>
+        <p className={`mb-6 leading-relaxed ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+          Example of a <code>workspace.py</code> that old regex would have missed:
+        </p>
+        <CodeBlock language="python" filename="workspace.py">{`# This would have been MISSED by regex in v1.3.3
+ENVIRONMENT_MODULES = ["users", "billing"] if os.getenv("ENABLE_BILLING") else ["users"]
+workspace = Workspace(
+    modules=[Module(name) for name in ENVIRONMENT_MODULES]
+)`}</CodeBlock>
+      </section>
+
       {/* Code Example */}
       <section className="mb-16">
         <h2 className={`text-xl font-mono text-aquilia-400 uppercase tracking-wider mb-6`}>Bootstrapping</h2>

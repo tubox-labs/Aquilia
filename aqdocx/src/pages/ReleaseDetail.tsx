@@ -47,10 +47,26 @@ interface StaticRelease {
 
 const staticReleases: StaticRelease[] = [
   {
+    version: '1.3.4',
+    codename: 'Structural Integrity',
+    date: 'Jul 24, 2026',
+    tag: 'latest',
+    python: ['3.10', '3.11', '3.12', '3.13'],
+    license: 'MIT',
+    summary: 'Two-round architectural audit: 13 bugs fixed across Aquilary registry, Auto-Discovery, Manifest system, Workspace, Config, and CLI subsystems. No breaking changes.',
+    assets: [
+      { name: 'aquilia-1.3.4.tar.gz', size: '2.6 MB', type: 'Source' },
+      { name: 'aquilia-1.3.4-py3-none-any.whl', size: '2.1 MB', type: 'Wheel' }
+    ],
+    installCmd: 'pip install aquilia==1.3.4',
+    commitCount: '47',
+    contributors: 2
+  },
+  {
     version: '1.3.3',
     codename: 'Analytical Depths',
     date: 'Jul 21, 2026',
-    tag: 'latest',
+    tag: 'stable',
     python: ['3.10', '3.11', '3.12', '3.13'],
     license: 'MIT',
     summary: 'ORM Window functions OVER (...), Common Table Expressions (CTEs), Recursive CTEs, security hardening, and enterprise field types.',
