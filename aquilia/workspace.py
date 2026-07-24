@@ -70,7 +70,7 @@ workspace = (
                     host=Env("SMTP_HOST"),
                     port=Env("SMTP_PORT", cast=int),
                     username=Env("SMTP_USER"),
-                    password=Secret("SMTP_PASS")
+                    password=Secret(env="SMTP_PASS")
                 )
             ]
         )

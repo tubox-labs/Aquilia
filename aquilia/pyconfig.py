@@ -161,11 +161,37 @@ class Secret:
         self._default: str | None = default
         self._required: bool = required
 
+        # BUG FIX (audit §11 #1): The previous implementation silently
+        # reinterpreted a positional literal value that looked like a Python
+        # identifier (e.g. Secret("mypassword123")) as an environment-variable
+        # name instead of storing it as the literal secret.  This caused silent
+        # None resolution when the env-var was unset — a security-adjacent
+        # correctness bug that was entirely undocumented.
+        #
+        # New behaviour: the positional value is ALWAYS treated as a literal.
+        # If the caller intended an env-var lookup they must use the explicit
+        # keyword argument:  Secret(env="MY_VAR").
+        #
+        # A DeprecationWarning is emitted when the positional value looks like
+        # an env-var name (ALL_CAPS or mixed identifier) so that existing code
+        # that relied on the old implicit behaviour is surfaced during testing.
         if env is None and value is not None:
             import re
 
-            if isinstance(value, str) and re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", value):
-                self._env_name = value
+            if isinstance(value, str) and re.match(r"^[A-Z][A-Z0-9_]*$", value):
+                # All-uppercase identifier — very likely intended as env-var name.
+                import warnings
+
+                warnings.warn(
+                    f"Secret({value!r}) received a value that looks like an environment-variable "
+                    f"name. The value will be stored as a LITERAL secret. "
+                    f"If you intended to read from an environment variable, use "
+                    f"Secret(env={value!r}) explicitly. "
+                    f"The old implicit behaviour (reinterpreting positional strings as env-var "
+                    f"names) has been removed to prevent silent None resolution.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
 
     def reveal(self) -> str | None:
         """
