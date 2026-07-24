@@ -8,12 +8,13 @@ First-class Jinja2-based template rendering system for Aquilia, designed for pro
 from aquilia import Controller, GET
 from aquilia.templates import TemplateEngine
 
+
 class ProfileController(Controller):
     prefix = "/profile"
-    
+
     def __init__(self, templates: TemplateEngine):
         self.templates = templates
-    
+
     @GET("/")
     async def view(self, ctx):
         return self.render("profile.html", {"user": ctx.identity}, ctx)
@@ -140,6 +141,7 @@ class BlogController(Controller):
 ```python
 def format_date(dt, format="%Y-%m-%d"):
     return dt.strftime(format)
+
 
 engine.register_filter("format_date", format_date)
 ```

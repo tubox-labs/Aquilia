@@ -39,9 +39,11 @@ compiled = compiler.compile(ast)
 matcher = PatternMatcher()
 matcher.add_pattern(compiled)
 
+
 async def match_request():
     result = await matcher.match("/users/42")
     print(result.params)  # {'id': 42}
+
 
 asyncio.run(match_request())
 ```
@@ -84,8 +86,8 @@ asyncio.run(match_request())
 ### Transforms
 
 ```python
-{username:str@lower}              # Apply lowercase transform
-{title:str@strip}                 # Strip whitespace
+{username: str @ lower}  # Apply lowercase transform
+{title: str @ strip}  # Strip whitespace
 ```
 
 ### Complete Examples
@@ -93,13 +95,14 @@ asyncio.run(match_request())
 ```python
 # Basic routes
 "/users/{id:int}"
+
 "/files/*path"
 "/blog/{slug:slug}"
 
 # With constraints
 "/articles/{year:int|min=1900|max=2100}"
 "/products/{cat:str|in=(electronics,books,toys)}"
-"/archive/{date:str|re=\"^\\d{4}-\\d{2}-\\d{2}$\"}"
+'/archive/{date:str|re="^\\d{4}-\\d{2}-\\d{2}$"}'
 
 # Optional groups
 "/api/{version:str}/items[/{id:int}]"
@@ -178,12 +181,7 @@ patterns = [
     (compiled_pattern2, "POST", "create_user"),
 ]
 
-spec = patterns_to_openapi_spec(
-    patterns,
-    title="My API",
-    version="1.0.0",
-    description="Generated from AquilaPatterns"
-)
+spec = patterns_to_openapi_spec(patterns, title="My API", version="1.0.0", description="Generated from AquilaPatterns")
 
 # Save to file
 with open("openapi.json", "w") as f:
@@ -221,11 +219,13 @@ Register custom types:
 from aquilia.patterns import register_type
 import re
 
+
 @register_type("email", lambda v: validate_email(v))
 def email_type(value: str) -> str:
-    if not re.match(r'^[^@]+@[^@]+\.[^@]+$', value):
+    if not re.match(r"^[^@]+@[^@]+\.[^@]+$", value):
         raise ValueError("Invalid email")
     return value.lower()
+
 
 # Use in patterns
 "/users/{email:email}"
@@ -240,9 +240,11 @@ Register custom transforms:
 ```python
 from aquilia.patterns import register_transform
 
+
 @register_transform("slugify")
 def slugify(value: str) -> str:
     return value.lower().replace(" ", "-")
+
 
 # Use in patterns
 "/posts/{title:str@slugify}"
