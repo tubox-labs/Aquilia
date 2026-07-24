@@ -351,7 +351,13 @@ class Aquilary:
         # Phase 3: Build dependency graph
         dep_graph = DependencyGraph()
         for manifest in loaded_manifests:
-            deps = getattr(manifest, "depends_on", [])
+            # BUG FIX (audit \u00a73.4 \u2014 HIGH): Previously only `depends_on` was read here,
+            # silently ignoring the v2-preferred `imports` field.  A manifest using
+            # AppManifest(imports=["auth"]) would see zero dependency edges, breaking
+            # cycle detection, topological ordering, and DI cross-module wiring.
+            # Fix: prefer `imports` (v2), fall back to `depends_on` (legacy), identical
+            # to what aquilary/validator.py:335 already does correctly.
+            deps = getattr(manifest, "imports", None) or getattr(manifest, "depends_on", [])
             dep_graph.add_node(manifest.name, deps)
 
         # Phase 4: Detect cycles and compute topological order
@@ -367,8 +373,14 @@ class Aquilary:
         app_contexts = []
         ws_modules = workspace_modules or {}
 
+        # PERF FIX (audit \u00a711 #4): Build an O(1) lookup dict before the loop.
+        # The previous code used next(m for m in loaded_manifests if m.name == app_name)
+        # inside an O(n) loop, yielding O(n\u00b2) total cost.  Pre-indexing reduces
+        # Phase 5 to O(n) for any number of modules.
+        manifests_by_name: dict[str, object] = {m.name: m for m in loaded_manifests}
+
         for i, app_name in enumerate(load_order):
-            manifest = next(m for m in loaded_manifests if m.name == app_name)
+            manifest = manifests_by_name[app_name]
             lifecycle_cfg = getattr(manifest, "lifecycle", None)
             lifecycle_startup = getattr(lifecycle_cfg, "on_startup", None) if lifecycle_cfg else None
             lifecycle_shutdown = getattr(lifecycle_cfg, "on_shutdown", None) if lifecycle_cfg else None
@@ -419,7 +431,10 @@ class Aquilary:
                 models=getattr(manifest, "models", []),
                 # Prefer 'middleware' (new format) over 'middlewares' (legacy)
                 middlewares=getattr(manifest, "middleware", None) or getattr(manifest, "middlewares", []),
-                depends_on=getattr(manifest, "depends_on", []),
+                # BUG FIX (audit \u00a73.4): Use same imports-first resolution as Phase 3
+                # so AppContext.depends_on reflects what the graph actually used for
+                # cross-app DI container linking (_register_services dependency links).
+                depends_on=(getattr(manifest, "imports", None) or getattr(manifest, "depends_on", [])),
                 # Prefer lifecycle config hooks over legacy top-level hooks.
                 on_startup=lifecycle_startup or getattr(manifest, "on_startup", None),
                 on_shutdown=lifecycle_shutdown or getattr(manifest, "on_shutdown", None),
@@ -468,10 +483,23 @@ class Aquilary:
                 import surp as surp_backend
 
                 data = surp_backend.decode(surp_path.read_bytes())
-            except (ImportError, Exception):
+            except ImportError:
+                # surp package not installed — fall through to JSON
                 import json
 
                 data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except Exception as _surp_err:
+                # BUG FIX (audit §3.5): surp is installed but decode failed.
+                # Previously this silently fell through to a JSON path that may
+                # not exist, hiding the real error.  Now log + re-raise so the
+                # operator sees the actual decode failure.
+                logger.error(
+                    "Failed to decode frozen manifest .surp at '%s': %s — "
+                    "ensure the file was written by the same version of Aquilia.",
+                    surp_path,
+                    _surp_err,
+                )
+                raise
         else:
             import json
 
@@ -583,15 +611,23 @@ class RuntimeRegistry:
                     predicate=lambda cls: cls.__name__.endswith("Controller") or issubclass(cls, Controller),
                     recursive=True,
                     max_depth=5,  # Deep nesting support
-                    use_cache=False,
+                    use_cache=False,  # intentionally no cache: discovery must be fresh each run (dynamic sys.path)
                 )
 
                 non_local = [c for c in ctx.controllers if not c.startswith(f"{base_package}.")]
                 discovered_paths = [f"{cls.__module__}:{cls.__name__}" for cls in controllers]
                 ctx.controllers = non_local + [p for p in discovered_paths if p not in non_local]
 
-            except Exception:
-                pass
+            except Exception as _exc:
+                # BUG FIX (audit §3.2): Previously silently swallowed — developers
+                # got zero signal when a controller module had a syntax error or
+                # bad import.  Now emits a warning with the full exception.
+                logger.warning(
+                    "Auto-discovery: controller scan failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
 
             # 2. Discover Services (Recursive)
             try:
@@ -600,7 +636,7 @@ class RuntimeRegistry:
                     predicate=lambda cls: cls.__name__.endswith("Service") or hasattr(cls, "__di_scope__"),
                     recursive=True,
                     max_depth=5,
-                    use_cache=False,
+                    use_cache=False,  # intentionally no cache: discovery must be fresh each run (dynamic sys.path)
                 )
 
                 def is_local_service(s) -> bool:
@@ -611,10 +647,13 @@ class RuntimeRegistry:
                 discovered_paths = [f"{cls.__module__}:{cls.__name__}" for cls in services]
                 ctx.services = non_local + [p for p in discovered_paths if p not in non_local]
 
-            except Exception:
-                pass
-
-            # 3. Discover Socket Controllers (Recursive)
+            except Exception as _exc:
+                logger.warning(
+                    "Auto-discovery: service scan failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
             try:
                 # Scan for classes with @Socket decorator (__socket_metadata__ attribute)
                 socket_controllers = scanner.scan_package(
@@ -624,7 +663,7 @@ class RuntimeRegistry:
                     ),
                     recursive=True,
                     max_depth=5,
-                    use_cache=False,
+                    use_cache=False,  # intentionally no cache: discovery must be fresh each run (dynamic sys.path)
                 )
 
                 # Add to manifest's socket_controllers if not already present
@@ -641,24 +680,42 @@ class RuntimeRegistry:
                     existing.clear()
                     existing.extend(ctx.manifest.socket_controllers)
 
-            except Exception:
-                pass
-
+            except Exception as _exc:
+                logger.warning(
+                    "Auto-discovery: socket controller scan failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
             # 4. Discover Background Tasks (import tasks.py to trigger @task registration)
             try:
-                import importlib
+                import importlib as _importlib
 
-                tasks_module_name = f"{base_package}.tasks"
+                _tasks_module = f"{base_package}.tasks"
                 try:
-                    importlib.import_module(tasks_module_name)
+                    _importlib.import_module(_tasks_module)
                 except ImportError:
                     pass  # No tasks.py — that's fine
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.warning(
+                    "Auto-discovery: task import failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
 
             # 5. Discover Model Files (Filesystem scan)
-            with contextlib.suppress(Exception):
+            # BUG FIX (audit §3.2): Was contextlib.suppress(Exception) — fully silent.
+            # Now emits a warning so filesystem scan failures are diagnosable.
+            try:
                 self._discover_models(ctx)
+            except Exception as _exc:
+                logger.warning(
+                    "Auto-discovery: model scan failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
 
             # 6. Discover Middleware (Recursive)
             try:
@@ -670,7 +727,7 @@ class RuntimeRegistry:
                     predicate=lambda cls: cls.__name__.endswith("Middleware") or issubclass(cls, Middleware),
                     recursive=True,
                     max_depth=5,
-                    use_cache=False,
+                    use_cache=False,  # intentionally no cache: discovery must be fresh each run (dynamic sys.path)
                 )
 
                 def is_local_mw(mw) -> bool:
@@ -688,8 +745,13 @@ class RuntimeRegistry:
                 if hasattr(ctx.manifest, "middleware") and isinstance(ctx.manifest.middleware, list):
                     ctx.manifest.middleware.clear()
                     ctx.manifest.middleware.extend(ctx.middlewares)
-            except Exception:
-                pass
+            except Exception as _exc:
+                logger.warning(
+                    "Auto-discovery: middleware scan failed for module '%s': %s",
+                    ctx.name,
+                    _exc,
+                    exc_info=True,
+                )
 
     def _workspace_root(self):
         """Resolve workspace root deterministically (independent of process cwd)."""
@@ -751,44 +813,7 @@ class RuntimeRegistry:
                 message="Route compilation failed:\n" + "\n".join(errors),
             )
 
-        # Build router from compiled routes
-        # Router building removed - flow system deprecated
-        # Use controller-based routing instead
-        # self._build_router()
-
         self._compiled = True
-
-    # Legacy flow router builder - removed (flows deprecated)
-    # def _build_router(self):
-    #     """Build router from compiled route table."""
-    #     from aquilia.router import Router
-    #     from aquilia.flow import Flow, FlowNode, FlowNodeType
-    #
-    #     self.router = Router()
-    #
-    #     if not self.route_table or not hasattr(self.route_table, 'routes'):
-    #         return
-    #
-    #     for route in self.route_table.routes:
-    #         # Create Flow instance from route
-    #         flow = Flow(pattern=route.pattern, method=route.method)
-    #
-    #         # Create handler node with wrapped handler
-    #         handler_node = FlowNode(
-    #             type=FlowNodeType.HANDLER,
-    #             callable=route.handler,  # Already wrapped with DI
-    #             name=route.handler_name or route.handler.__name__,
-    #             effects=getattr(route, 'effects', []),
-    #             dependencies=getattr(route, 'dependencies', []),
-    #         )
-    #
-    #         flow.add_node(handler_node)
-    #         flow.metadata['handler_name'] = route.handler_name or route.handler.__name__
-    #         flow.metadata['module'] = getattr(route.handler, '__module__', 'unknown')
-    #         flow.metadata['app_name'] = route.app_name if hasattr(route, 'app_name') else 'unknown'
-    #
-    #         # Add flow to router
-    #         self.router.add_flow(flow)
 
     def _discover_models(self, ctx) -> None:
         """
