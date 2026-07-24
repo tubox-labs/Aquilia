@@ -1206,6 +1206,15 @@ class AppManifest:
             )
             self.imports = list(self.depends_on)
 
+        # BUG FIX (audit §3.4): Sync imports → depends_on so the legacy field
+        # always mirrors the v2-preferred one.  Without this, any code path that
+        # reads `depends_on` directly (including older third-party integrations)
+        # sees an empty list when only `imports` was set by the developer.
+        # This is the reverse of the block above; together they guarantee that
+        # `imports` and `depends_on` are always consistent after __post_init__.
+        if self.imports and not self.depends_on:
+            self.depends_on = list(self.imports)
+
         # v2: Deprecate route_prefix in manifest (should be in workspace.py)
         if self.route_prefix != "/":
             warnings.warn(
