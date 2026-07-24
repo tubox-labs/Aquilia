@@ -30,7 +30,10 @@ def test_secret_resolution(monkeypatch):
     """Verify Secret resolution in integrations."""
     monkeypatch.setenv("EMAIL_HOST_PASSWORD", "secret_pass_123")
 
-    provider = SMTPProvider(password=Secret("EMAIL_HOST_PASSWORD"))
+    # Use explicit env= kwarg — the old positional-implicit-env-var behaviour
+    # (Secret("EMAIL_HOST_PASSWORD") silently treating the identifier as an
+    # env-var name) was a bug and has been removed.  Bug fix: audit §11 #1.
+    provider = SMTPProvider(password=Secret(env="EMAIL_HOST_PASSWORD"))
     assert provider.password == "secret_pass_123"
 
     d = provider.to_dict()
