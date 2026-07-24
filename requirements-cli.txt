@@ -3,9 +3,6 @@
 # Core CLI framework
 click>=8.1.0
 
-# YAML parsing for manifests
-pyyaml>=6.0.0
-
 # Optional: Enhanced terminal output
 rich>=13.0.0
 

@@ -136,12 +136,6 @@ full = [
     "aquilia[auth,multipart,redis,mail,mail-ses,mail-sendgrid,server,postgres,otel,template,surp]",
 ]
 
-
-# Absolutely everything
-all = [
-    "aquilia[full]",
-]
-
 # Testing & development
 testing = [
     "pytest>=8.0.0",
