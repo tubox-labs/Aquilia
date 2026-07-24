@@ -618,6 +618,26 @@ class ManifestWriter:
                     changes += 1
 
         if changes > 0 and not dry_run:
+            # BUG FIX (audit \u00a711 #2): Validate the rewritten source with the
+            # Python AST parser before committing it to disk.  The regex-based
+            # patching in _add_component/_remove_component can produce invalid
+            # Python in edge cases (nested brackets, trailing comments, etc.).
+            # If the result does not parse, we abort the write and leave the
+            # original file intact so the developer's source is never corrupted.
+            try:
+                import ast as _ast
+
+                _ast.parse(source, filename=str(manifest_path))
+            except SyntaxError as _syn_err:
+                logger.error(
+                    "ManifestWriter: generated source for %s is not valid Python "
+                    "(%s). Write aborted. Original file preserved. "
+                    "Please manually add/remove the following components: %s",
+                    manifest_path,
+                    _syn_err,
+                    [a.component.import_path for a in actions],
+                )
+                return 0
             manifest_path.write_text(source, encoding="utf-8")
 
         return changes
@@ -722,11 +742,38 @@ class AutoDiscoveryEngine:
         for file_path in files:
             try:
                 mtime = file_path.stat().st_mtime
-                file_hash = _compute_file_hash(file_path)
-                cached_entry = cache.get(str(file_path))
 
-                if cached_entry and cached_entry.get("mtime") == mtime and cached_entry.get("hash") == file_hash:
-                    # Load components from cache
+                # PERF FIX (audit \u00a713): Use mtime as a cheap first guard before
+                # computing the SHA-256 hash.  The previous code always hashed
+                # every file on every run before consulting the cache, meaning
+                # the cache only saved AST-parse cost, not file I/O cost.
+                # Now we only hash when mtime changed, avoiding full reads on
+                # unchanged files (the common case on repeated discovery runs).
+                cached_entry = cache.get(str(file_path))
+                if cached_entry and cached_entry.get("mtime") == mtime:
+                    # mtime match — skip hashing, load from cache directly.
+                    for c_data in cached_entry.get("components", []):
+                        comp = ClassifiedComponent(
+                            name=c_data["name"],
+                            kind=ComponentKind(c_data["kind"]),
+                            file_path=Path(c_data["file_path"]),
+                            line=c_data["line"],
+                            import_path=c_data.get("import_path", ""),
+                            bases=c_data.get("bases", []),
+                            decorators=c_data.get("decorators", []),
+                        )
+                        result.components.append(comp)
+                    continue
+
+                # mtime changed (or no cache entry) — now compute hash for
+                # the secondary content-equality check (guards against CI
+                # checkouts that reset mtime without changing content).
+                file_hash = _compute_file_hash(file_path)
+
+                if cached_entry and cached_entry.get("hash") == file_hash:
+                    # Content identical despite mtime change; update stored mtime
+                    # and load from cache without re-parsing.
+                    cached_entry["mtime"] = mtime
                     for c_data in cached_entry.get("components", []):
                         comp = ClassifiedComponent(
                             name=c_data["name"],
