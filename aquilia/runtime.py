@@ -398,11 +398,41 @@ class AquiliaRuntime:
         try:
             workspace_content = self.config.workspace_file.read_text(encoding="utf-8")
 
-            # 1. Extract workspace name
-            self._workspace_name = self._extract_workspace_name(workspace_content)
+            # BUG FIX (audit §3.6 — MEDIUM-HIGH): Replace fragile regex-based workspace
+            # parsing with the exec-based path already used by _load_workspace_modules().
+            #
+            # Old approach: regex over raw source text matched ONLY literal string
+            # arguments to Module("name") — any dynamically computed module name,
+            # loop, list comprehension, or multi-line call was silently missed, with
+            # no error produced (the regex just didn't match).
+            #
+            # New approach: execute workspace.py and call workspace.to_dict(),
+            # then derive module names + workspace name from the actual data structure.
+            # The regex is kept as a fast fallback for the case where exec fails
+            # (e.g. workspace.py has a broken import at configure time).
+            ws_exec_result = self._load_workspace_from_exec()
 
-            # 2. Extract declared module names
-            self._module_names = self._extract_module_names(workspace_content)
+            if ws_exec_result is not None:
+                # Primary path: exec-based, correct and complete
+                exec_name, exec_modules, ws_modules_dict = ws_exec_result
+                self._workspace_name = exec_name or self._extract_workspace_name(workspace_content)
+                self._module_names = exec_modules
+                # Store for phase 7 (skip re-execution below)
+                self._workspace_modules = ws_modules_dict
+                _logger.debug(
+                    "Workspace '%s' discovered via exec: %d module(s)",
+                    self._workspace_name,
+                    len(self._module_names),
+                )
+            else:
+                # Fallback: regex approach (less reliable — emits a warning)
+                _logger.warning(
+                    "Could not exec workspace.py; falling back to regex-based module "
+                    "discovery. Dynamically computed module names will be missed."
+                )
+                self._workspace_name = self._extract_workspace_name(workspace_content)
+                self._module_names = self._extract_module_names(workspace_content)
+                self._workspace_modules = {}
 
             # 3. Ensure apps namespace
             if "apps" not in self._config_loader.config_data:
@@ -458,7 +488,9 @@ class AquiliaRuntime:
             self._config_loader._build_apps_namespace()
 
             # 7. Load workspace module configs (route_prefix, etc.)
-            self._workspace_modules = self._load_workspace_modules()
+            # Only call _load_workspace_modules() if not already populated by exec path.
+            if not hasattr(self, "_workspace_modules") or self._workspace_modules is None:
+                self._workspace_modules = self._load_workspace_modules()
 
         except Exception:
             self._phase = RuntimePhase.FAILED
@@ -680,15 +712,34 @@ class AquiliaRuntime:
 
     def _load_workspace_modules(self) -> dict[str, dict[str, Any]]:
         """Load module configs from ``workspace.py`` Workspace object."""
+        result = self._load_workspace_from_exec()
+        if result is None:
+            return {}
+        _name, _modules, modules_dict = result
+        return modules_dict
+
+    def _load_workspace_from_exec(
+        self,
+    ) -> tuple[str | None, list[str], dict[str, dict[str, Any]]] | None:
+        """
+        Execute ``workspace.py`` and return ``(workspace_name, module_names, modules_dict)``.
+
+        This is the primary, correct mechanism for discovering declared modules.
+        Returns ``None`` if execution fails so callers can fall back to the
+        regex-based approach.
+
+        BUG FIX (audit §3.6): This result now drives `discover()` phase 1+2 instead
+        of the fragile regex approach that missed dynamically computed module names.
+        """
         ws_file = self.config.workspace_file
         if not ws_file.exists():
-            return {}
+            return None
 
         try:
             spec = importlib.util.spec_from_file_location("_aq_runtime_ws_loader", ws_file)
             if spec is None or spec.loader is None:
                 _logger.warning("Failed to create module spec for workspace.py")
-                return {}
+                return None
 
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
@@ -696,15 +747,23 @@ class AquiliaRuntime:
             workspace = getattr(module, "workspace", None)
             if workspace is None:
                 _logger.warning("No 'workspace' object found in workspace.py")
-                return {}
+                return None
 
             ws_dict = workspace.to_dict()
-            modules_list = ws_dict.get("modules", [])
-            return {m["name"]: m for m in modules_list if "name" in m}
+            workspace_name: str | None = ws_dict.get("name")
+            modules_list: list[dict] = ws_dict.get("modules", [])
+            modules_dict: dict[str, dict[str, Any]] = {m["name"]: m for m in modules_list if "name" in m}
+            # Preserve declaration order; exclude internal pseudo-modules ("starter")
+            module_names: list[str] = [m["name"] for m in modules_list if "name" in m and m["name"] != "starter"]
+            return workspace_name, module_names, modules_dict
 
         except Exception as exc:
-            _logger.warning("Failed to load workspace modules: %s", exc)
-            return {}
+            _logger.warning(
+                "Failed to exec workspace.py for module discovery: %s — "
+                "falling back to regex-based discovery (less reliable).",
+                exc,
+            )
+            return None
 
     # ──────────────────────────────────────────────────────────────────────
     # Dunder Methods
