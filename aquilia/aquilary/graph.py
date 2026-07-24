@@ -2,6 +2,9 @@
 Dependency graph analysis with Tarjan's algorithm for cycle detection.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 
@@ -108,8 +111,16 @@ class DependencyGraph:
 
         Returns:
             List of node names forming cycle, or None if no cycle
+
+        Implementation note
+        -------------------
+        BUG FIX (audit \u00a711 #3): the previous implementation used a
+        recursive inner function (strongconnect) which risked RecursionError
+        on deep-but-acyclic dependency chains due to CPython's default
+        recursion limit (~1000 frames).  This version uses an explicit work-
+        stack so depth is limited only by heap memory, not the call stack.
+        Semantics are identical to the recursive Tarjan SCC algorithm.
         """
-        # Tarjan's algorithm state
         index_counter = [0]
         stack: list[str] = []
         lowlinks: dict[str, int] = {}
@@ -117,56 +128,60 @@ class DependencyGraph:
         on_stack: set[str] = set()
         cycles: list[list[str]] = []
 
-        def strongconnect(node_name: str) -> None:
-            """Tarjan's strongconnect subroutine."""
-            index[node_name] = index_counter[0]
-            lowlinks[node_name] = index_counter[0]
-            index_counter[0] += 1
-            stack.append(node_name)
-            on_stack.add(node_name)
+        # Work-stack entry: (node_name, iterator_over_its_neighbours, started)
+        # 'started' is True once we have assigned index/lowlink to this node.
+        def _strongconnect_iterative(root: str) -> None:
+            # Each frame: (node_name, dep_iterator)
+            frame_stack: list[tuple[str, Iterator[str]]] = []
 
-            # Process dependencies
-            for dep_name in self._adjacency.get(node_name, []):
+            def _enter(node_name: str) -> None:
+                index[node_name] = index_counter[0]
+                lowlinks[node_name] = index_counter[0]
+                index_counter[0] += 1
+                stack.append(node_name)
+                on_stack.add(node_name)
+                frame_stack.append((node_name, iter(self._adjacency.get(node_name, []))))
+
+            _enter(root)
+
+            while frame_stack:
+                node_name, dep_iter = frame_stack[-1]
+
+                try:
+                    dep_name = next(dep_iter)
+                except StopIteration:
+                    # All neighbours processed — check if this is an SCC root.
+                    frame_stack.pop()
+                    if frame_stack:
+                        parent_name = frame_stack[-1][0]
+                        lowlinks[parent_name] = min(lowlinks[parent_name], lowlinks[node_name])
+                    if lowlinks[node_name] == index[node_name]:
+                        component: list[str] = []
+                        while True:
+                            w = stack.pop()
+                            on_stack.remove(w)
+                            component.append(w)
+                            if w == node_name:
+                                break
+                        if len(component) > 1:
+                            cycles.append(component)
+                        elif len(component) == 1:
+                            single = component[0]
+                            if single in self._adjacency.get(single, []):
+                                cycles.append([single, single])
+                    continue
+
                 if dep_name not in index:
-                    strongconnect(dep_name)
-                    lowlinks[node_name] = min(
-                        lowlinks[node_name],
-                        lowlinks[dep_name],
-                    )
+                    _enter(dep_name)
                 elif dep_name in on_stack:
-                    lowlinks[node_name] = min(
-                        lowlinks[node_name],
-                        index[dep_name],
-                    )
+                    lowlinks[node_name] = min(lowlinks[node_name], index[dep_name])
 
-            # If node is root of SCC, pop the cycle
-            if lowlinks[node_name] == index[node_name]:
-                component: list[str] = []
-                while True:
-                    w = stack.pop()
-                    on_stack.remove(w)
-                    component.append(w)
-                    if w == node_name:
-                        break
-
-                # If component has more than 1 node, it's a cycle.
-                # If it's exactly 1 node, check if that node has a self-loop.
-                if len(component) > 1:
-                    cycles.append(component)
-                elif len(component) == 1:
-                    single_node = component[0]
-                    if single_node in self._adjacency.get(single_node, []):
-                        cycles.append([single_node, single_node])
-
-        # Run Tarjan's algorithm
         for node_name in self._nodes:
             if node_name not in index:
-                strongconnect(node_name)
+                _strongconnect_iterative(node_name)
 
-        # Return first cycle found
         if cycles:
             return cycles[0]
-
         return None
 
     def get_dependencies(self, node_name: str) -> list[str]:
@@ -190,17 +205,21 @@ class DependencyGraph:
 
         Returns:
             Set of all transitive dependency names
+
+        Implementation note
+        -------------------
+        BUG FIX (audit \u00a711 #3 companion): the previous recursive visit()
+        also risked RecursionError on deep chains.  Replaced with iterative
+        DFS using an explicit work-stack.
         """
         visited: set[str] = set()
-
-        def visit(name: str) -> None:
-            if name in visited:
-                return
-            visited.add(name)
-            for dep in self._adjacency.get(name, []):
-                visit(dep)
-
-        visit(node_name)
+        work_stack = list(self._adjacency.get(node_name, []))
+        while work_stack:
+            current = work_stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            work_stack.extend(self._adjacency.get(current, []))
         visited.discard(node_name)  # Remove self
         return visited
 
