@@ -971,8 +971,13 @@ def generate_controller(
 @click.option("--strict", is_flag=True, help="Strict validation (prod-level)")
 @click.option("--module", type=str, help="Validate single module")
 @click.option("--json", "as_json", is_flag=True, help="Output results as JSON")
+@click.option(
+    "--deprecated",
+    is_flag=True,
+    help="Surface deprecated manifest fields (route_prefix, database, middlewares, depends_on) as CLI warnings.",
+)
 @click.pass_context
-def validate(ctx, strict: bool, module: str | None, as_json: bool):
+def validate(ctx, strict: bool, module: str | None, as_json: bool, deprecated: bool):
     """
     Validate workspace manifests.
 
@@ -981,6 +986,7 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool):
       aq validate --strict
       aq validate --module=users
       aq validate --json
+      aq validate --deprecated
     """
     from .commands.validate import validate_workspace
 
@@ -989,6 +995,7 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool):
             strict=strict,
             module_filter=module,
             verbose=ctx.obj["verbose"],
+            check_deprecated=deprecated,
         )
 
         if as_json:
@@ -1004,6 +1011,7 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool):
                         "fingerprint": str(result.fingerprint)[:24] if result.fingerprint else None,
                         "faults": result.faults if hasattr(result, "faults") else [],
                         "warnings": result.warnings if hasattr(result, "warnings") else [],
+                        "deprecated": result.deprecated_usages if hasattr(result, "deprecated_usages") else [],
                     },
                     indent=2,
                 )
@@ -1029,6 +1037,17 @@ def validate(ctx, strict: bool, module: str | None, as_json: bool):
                     section("Warnings")
                     for w in result.warnings:
                         bullet(w, fg="yellow")
+                # Show deprecated field usages
+                if deprecated and hasattr(result, "deprecated_usages") and result.deprecated_usages:
+                    click.echo()
+                    section("Deprecated Fields")
+                    for d in result.deprecated_usages:
+                        bullet(d, fg="yellow")
+                    click.echo()
+                    bullet(
+                        "Run 'aq manifest migrate' or update these fields to remove deprecation warnings.",
+                        fg="yellow",
+                    )
             else:
                 error(f"  {_CROSS} Validation failed")
                 click.echo()

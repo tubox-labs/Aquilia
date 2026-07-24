@@ -28,6 +28,8 @@ class ValidationResult:
     faults: list[str]
     warnings: list[str] = field(default_factory=list)
     fingerprint: str | None = None
+    # FEATURE (audit \u00a714): Deprecated field usages found during --deprecated lint pass.
+    deprecated_usages: list[str] = field(default_factory=list)
 
 
 def _load_manifest_object(module_name: str, manifest_path: Path):
@@ -62,6 +64,7 @@ def validate_workspace(
     strict: bool = False,
     module_filter: str | None = None,
     verbose: bool = False,
+    check_deprecated: bool = False,
 ) -> ValidationResult:
     """
     Validate workspace manifests using the Aquilary pipeline.
@@ -70,11 +73,15 @@ def validate_workspace(
     Phase 2 -- Manifest: load each AppManifest, validate fields
     Phase 3 -- Pipeline: RegistryValidator → DependencyGraph
     Phase 4 -- Strict: controller/service import resolution, fingerprint
+    Phase 5 -- Deprecated: surface legacy field usage at CLI-time (--deprecated)
 
     Args:
         strict: Enable strict (production-level) validation
         module_filter: Validate only specific module
         verbose: Enable verbose output
+        check_deprecated: When True, scan for deprecated manifest fields and
+            report them in ValidationResult.deprecated_usages instead of
+            silently waiting for runtime DeprecationWarnings.
 
     Returns:
         ValidationResult with validation status, statistics, and optional fingerprint
@@ -93,6 +100,7 @@ def validate_workspace(
     route_count = 0
     provider_count = 0
     fingerprint = None
+    deprecated_usages: list[str] = []
 
     # Ensure workspace root is importable
     ws_abs = str(workspace_root.resolve())
@@ -238,6 +246,36 @@ def validate_workspace(
                 if fault_config is None:
                     warnings.append(f"Module '{module_name}' has no fault handling configured")
 
+            # FEATURE (audit \u00a714): Deprecated field lint pass.
+            # Surface every legacy field usage at CLI-time so developers get
+            # actionable feedback without having to run the server and read
+            # runtime DeprecationWarnings buried in log output.
+            if check_deprecated:
+                _DEPRECATED_FIELDS = [
+                    (
+                        "route_prefix",
+                        "Use Module.route_prefix() in workspace.py instead",
+                    ),
+                    (
+                        "database",
+                        "Ignored at runtime; use Workspace.database() instead",
+                    ),
+                    (
+                        "middlewares",
+                        "Renamed to 'middleware' (without the 's')",
+                    ),
+                    (
+                        "depends_on",
+                        "Legacy alias for 'imports'; use 'imports' for clarity",
+                    ),
+                ]
+                for dep_field, dep_hint in _DEPRECATED_FIELDS:
+                    val = getattr(manifest_obj, dep_field, None)
+                    if val is not None and val not in ([], "", "/", None):
+                        deprecated_usages.append(
+                            f"Module '{module_name}': deprecated field '{dep_field}' is set ({val!r}). {dep_hint}."
+                        )
+
         except Exception as e:
             faults.append(f"Invalid manifest in module '{module_name}': {e}")
 
@@ -331,4 +369,5 @@ def validate_workspace(
         faults=faults,
         warnings=warnings,
         fingerprint=fingerprint,
+        deprecated_usages=deprecated_usages,
     )
