@@ -182,6 +182,21 @@ except FileNotFoundError as _e:
 except Exception as _e:
     _logger.error("Aquilia entrypoint failed: %s", _e, exc_info=True)
 
+    # BUG FIX (audit \u00a711 #5): The bare except here converts ALL startup
+    # failures (including programming errors and genuine framework bugs) into
+    # a generic 500-stub that makes the process appear healthy to orchestrators
+    # (Kubernetes, ECS, etc.) while serving nothing.  This silently masks a
+    # whole class of failures that should instead crash-and-restart loudly.
+    #
+    # Fix: honour the AQUILIA_FAIL_FAST environment variable.  When set to a
+    # truthy value ("1", "true", "yes") the exception is re-raised so the
+    # process exits with a non-zero code and the orchestrator can
+    # restart / alert.  In environments without this variable the existing
+    # graceful-degradation behaviour is preserved for backward compatibility.
+    _fail_fast = os.environ.get("AQUILIA_FAIL_FAST", "").lower() in ("1", "true", "yes")
+    if _fail_fast:
+        raise
+
     async def app(scope, receive, send):  # type: ignore[misc]
         if scope["type"] == "http":
             await send(
@@ -194,7 +209,7 @@ except Exception as _e:
             await send(
                 {
                     "type": "http.response.body",
-                    "body": b'{"error":"Application startup failed","hint":"Check logs"}',
+                    "body": b'{"error":"Application startup failed","hint":"Check logs or set AQUILIA_FAIL_FAST=1 to crash-fast"}',
                 }
             )
         elif scope["type"] == "lifespan":
