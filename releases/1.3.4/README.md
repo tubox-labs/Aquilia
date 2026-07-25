@@ -54,6 +54,12 @@ This release combines **Phase 1** (registry, workspace, config, and runtime audi
     - `ReadOnlyResource`, `CRUDResource`, and Mixins
 11. [Migration Guide](migration.md)
     - Complete migration guide for all Phase 1 & Phase 2 changes
+12. [Phase 2: DI String Token Unwrapping & RequestDAG Fixes](di_annotated_token_fix.md)
+    - `Annotated[Any, Inject("token")]` string token unwrapping
+    - Direct `Inject` instance token resolution
+    - RequestDAG unified descriptor unwrapping
+    - `@auto_inject` `include_extras=True` type hint preservation
+    - Detailed docstrings across `Inject`, `Dep`, `RequestDAG`, and core DAG APIs
 
 ---
 
@@ -108,6 +114,17 @@ aq discover --strict
 AQUILIA_FAIL_FAST=1 uvicorn entrypoint:app
 ```
 
+### DI Annotated String Token Injection
+```python
+from typing import Annotated, Any
+from aquilia.di import Container, Inject
+
+# Resolve string tokenized cross-module services cleanly from Annotated type hints
+cross_app = await container.resolve_async(
+    Annotated[Any, Inject("modules.auth.services:CrossAppService")]
+)
+```
+
 ---
 
 ## Complete Overview of Changes
@@ -131,6 +148,11 @@ AQUILIA_FAIL_FAST=1 uvicorn entrypoint:app
 | `controller/resource.py` | Controller | Phase 2 | `Resource[T]`, `CRUDResource`, `ReadOnlyResource`, `@action` |
 | `controller/throttle.py` | Controller | Phase 2 | `ThrottleBackend`, `MemoryThrottleBackend`, `RedisThrottleBackend`, factory |
 | `auth/manager.py` | Auth | Phase 2 | `issue_tokens=False` parameter on `authenticate_password()` |
+| `di/core.py` | DI | Phase 2 | `Container._unwrap_token()` for `Annotated[Any, Inject("token")]` and `Inject` objects, docstrings |
+| `di/dep.py` | DI | Phase 2 | `_unpack_annotation()` respects `Inject.token`, detailed `Dep` docstring |
+| `di/decorators.py` | DI | Phase 2 | `@auto_inject` uses `include_extras=True`, detailed `Inject`/`inject` docstrings |
+| `di/request_dag.py` | DI | Phase 2 | `RequestDAG` adapter unification & detailed docstring overhaul |
+| `tests/test_di_annotated_inject_fix.py` | DI / Testing | Phase 2 | 9 brutal regression tests for DI Annotated string token resolution |
 
 ---
 
@@ -157,3 +179,5 @@ AQUILIA_FAIL_FAST=1 uvicorn entrypoint:app
 | Strict discovery mode | Discovery | Runtime import-based discovery (`aq discover --strict`) resolves true MRO. |
 | Distributed throttling | Controller | Pluggable Redis and Memory rate limiting backends. |
 | Resource / ViewSet controllers | Controller | Declarative CRUD controller abstractions (`Resource[T]`). |
+| DI `Annotated[Any, Inject("token")]` string token resolution | DI | Added `Container._unwrap_token()` to unwrap Annotated aliases & Inject markers. |
+| `RequestDAG` unification & docstrings | DI | Unified descriptor unwrapping and completed comprehensive docstrings across Inject, Dep, RequestDAG. |
