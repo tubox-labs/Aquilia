@@ -200,3 +200,43 @@ async def test_cross_app_linked_container_annotated_token():
     )
     assert resolved is auth_svc
     assert resolved.name == "linked_auth_svc"
+
+
+@pytest.mark.asyncio
+async def test_user_reported_dashboard_controller_injection():
+    from aquilia.controller import Controller
+    from aquilia.controller.factory import ControllerFactory
+    from aquilia.faults.integrations.di import patch_di_container
+
+    patch_di_container()
+
+    class DashboardService:
+        pass
+
+    class TemplateEngine:
+        pass
+
+    class DashboardController(Controller):
+        prefix = "/"
+        tags = ["dashboard"]
+
+        def __init__(
+            self,
+            service: DashboardService,
+            templates: TemplateEngine,
+            cross_app: Annotated[Any, Inject("modules.auth.services:CrossAppService")],
+        ) -> None:
+            self.service = service or DashboardService
+            self.templates = templates
+            self.cross_app = cross_app
+
+    container = Container()
+    cross_app_svc = CrossAppService("dashboard_cross_app")
+    await container.register_instance("modules.auth.services:CrossAppService", cross_app_svc)
+    await container.register_instance(DashboardService, DashboardService())
+    await container.register_instance(TemplateEngine, TemplateEngine())
+
+    factory = ControllerFactory(app_container=container)
+    ctrl = await factory.create(DashboardController)
+    assert ctrl.cross_app is cross_app_svc
+    assert ctrl.cross_app.name == "dashboard_cross_app"
