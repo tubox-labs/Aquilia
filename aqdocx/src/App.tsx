@@ -57,6 +57,8 @@ import { ControllersValidation } from './pages/docs/controllers/Validation'
 import { ControllersPagination } from './pages/docs/controllers/Pagination'
 import { ControllersFilters } from './pages/docs/controllers/Filters'
 import { ControllersRenderers } from './pages/docs/controllers/Renderers'
+import { ControllersResource } from './pages/docs/controllers/Resource'
+import { ControllersThrottle } from './pages/docs/controllers/Throttle'
 
 // Server
 import { ServerOverview } from './pages/docs/server/Overview'
@@ -408,6 +410,8 @@ export default function App() {
           <Route path="controllers/compiler" element={<ControllersCompiler />} />
           <Route path="controllers/router" element={<ControllersRouter />} />
           <Route path="controllers/openapi" element={<ControllersOpenAPI />} />
+          <Route path="controllers/resource" element={<ControllersResource />} />
+          <Route path="controllers/throttle" element={<ControllersThrottle />} />
           <Route path="controllers/validation" element={<ControllersValidation />} />
           <Route path="controllers/pagination" element={<ControllersPagination />} />
           <Route path="controllers/filters" element={<ControllersFilters />} />

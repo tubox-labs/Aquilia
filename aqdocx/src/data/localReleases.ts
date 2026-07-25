@@ -1,4 +1,79 @@
 export const localReleases: Record<string, Record<string, string>> = {
+  "1.3.4": {
+    "README.md": `# Aquilia v1.3.4 Release Notes — "Structural Integrity & Controller Expansion"
+
+Aquilia v1.3.4 is a major architecture audit and feature release focusing on framework stability, registry correctness, controller integrity, workspace discovery robustness, and scalability.
+
+This release combines Phase 1 (registry, workspace, config, and runtime audit fixes) with Phase 2 (controller system audit fixes, strict resolved-import discovery mode, distributed throttle backends, and Resource / ViewSet CRUD controllers).
+
+## Table of Contents
+
+1. [Phase 1: Round 1 Bugfixes](bugfixes_r1.md)
+2. [Phase 1: Round 2 Bugfixes](bugfixes_r2.md)
+3. [Phase 1: Performance Improvements](performance.md)
+4. [Phase 1: Manifest System Changes](manifest_system.md)
+5. [Phase 1: Workspace Discovery Enhancements](workspace_discovery.md)
+6. [Phase 1: CLI Updates](cli.md)
+7. [Phase 2: Controller System Audit Fixes](controller_audit.md)
+8. [Phase 2: Strict Resolved-Import Discovery Mode](strict_discovery.md)
+9. [Phase 2: Distributed Throttle Backends](distributed_throttle.md)
+10. [Phase 2: Resource / ViewSet CRUD Controllers](resource_viewset.md)
+11. [Migration Guide](migration.md)
+`,
+    "controller_audit.md": `# Controller System Audit Fixes
+
+Details of the fixes applied to ControllerEngine, AuthManager, and routing in Aquilia v1.3.4 (§6.1–§8 of architectural audit report).
+
+## §6.1 Lifecycle Hook Bypass (CRITICAL)
+is_simple check now consults _has_lifecycle_hooks cache. Simple routes on controllers with custom on_request/on_response execute hooks unconditionally.
+
+## §6.2 Unintended Token Generation (SECURITY)
+Added issue_tokens: bool = True to authenticate_password() and SignInProvisionPolicy. Set False for session-only auth without minting JWTs.
+
+## §6.3 Forward-Reference Type Resolution (BUG)
+Exact string match replaces substring matching in _extract_method_params(). Fallback to __annotations__ when get_type_hints() raises.
+
+## §6.4 Dynamic Segment Route Conflict False Positives (BUG)
+_routes_conflict() compares type castors. /<id:int> and /<slug:str> are no longer flagged as conflicts.
+
+## §5.3 Class-Level Cache Contamination (ARCH)
+Added clear_caches() classmethods to ControllerEngine and ControllerFactory to flush id()-keyed caches between test runs.
+`,
+    "strict_discovery.md": `# Strict Resolved-Import Discovery Mode
+
+Runtime-import-based discovery engine (StrictDiscoveryEngine) using importlib and inspect.getmro().
+
+- Resolves transitive inheritance chains and aliased imports (e.g. Controller as Base)
+- CLI usage: aq discover --strict
+- Programmatic usage: engine.discover(strict=True)
+- Handles ImportError gracefully per file with log warning
+`,
+    "distributed_throttle.md": `# Distributed Throttle Backends
+
+Pluggable ThrottleBackend architecture supporting single-instance and multi-worker cluster rate limiting.
+
+- MemoryThrottleBackend: sliding window with asyncio.Lock and LRU eviction
+- RedisThrottleBackend: Redis sorted set sliding window with fail_open graceful degradation
+- Ergonomic factories: Throttle.with_redis() and Throttle.with_memory()
+`,
+    "resource_viewset.md": `# Resource & ViewSet CRUD Controllers
+
+Declarative CRUD controller abstraction via Resource[T], CRUDResource[T], ReadOnlyResource[T], and @action decorator.
+
+- Auto-registers list (GET /), retrieve (GET /{id}), create (POST /), update (PUT /{id}), partial_update (PATCH /{id}), destroy (DELETE /{id})
+- Custom routes via @action(detail=True/False)
+`,
+    "migration.md": `# Migration Guide — Aquilia v1.3.4
+
+Complete migration instructions for all v1.3.4 changes.
+
+- Secret(env="VAR") explicit environment variable lookup
+- AppManifest(imports=[...]) v2 API preference
+- AQUILIA_FAIL_FAST=1 startup error option
+- authenticate_password(issue_tokens=False) session auth pattern
+- Throttle.with_redis() distributed rate limiting upgrade
+`
+  },
   "1.3.2": {
     "README.md": `# Aquilia v1.3.2 Release Notes — "Specula API Observatory"
 

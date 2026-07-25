@@ -78,6 +78,8 @@ const docSections = [
         label: 'Controllers', path: '/docs/controllers',
         children: [
           { label: 'Overview', path: '/docs/controllers/overview' },
+          { label: 'Resource & ViewSets', path: '/docs/controllers/resource' },
+          { label: 'Throttling Backends', path: '/docs/controllers/throttle' },
           { label: 'Controller Attributes', path: '/docs/controllers/attributes' },
           { label: 'RequestCtx', path: '/docs/controllers/request-ctx' },
           { label: 'Controller Factory', path: '/docs/controllers/factory' },

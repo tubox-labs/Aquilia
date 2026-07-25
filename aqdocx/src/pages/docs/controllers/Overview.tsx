@@ -191,6 +191,12 @@ class ProductsController(Controller):
       <section className="space-y-4">
         <h2 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>In This Section</h2>
         <div className="flex flex-col gap-2">
+          <Link to="/docs/controllers/resource" className={`text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}>
+            → Resource &amp; ViewSets: Declarative CRUD Controllers (Resource[T], CRUDResource, @action)
+          </Link>
+          <Link to="/docs/controllers/throttle" className={`text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}>
+            → Distributed Throttle Backends: Redis &amp; Memory rate limiters
+          </Link>
           <Link to="/docs/controllers/decorators" className={`text-sm font-medium ${isDark ? 'text-aquilia-400 hover:text-aquilia-300' : 'text-aquilia-600 hover:text-aquilia-500'}`}>
             → Route Decorators: GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS, WS
           </Link>

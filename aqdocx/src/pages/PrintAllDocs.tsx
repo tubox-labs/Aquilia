@@ -39,6 +39,8 @@ import { ControllersValidation } from './docs/controllers/Validation'
 import { ControllersPagination } from './docs/controllers/Pagination'
 import { ControllersFilters } from './docs/controllers/Filters'
 import { ControllersRenderers } from './docs/controllers/Renderers'
+import { ControllersResource } from './docs/controllers/Resource'
+import { ControllersThrottle } from './docs/controllers/Throttle'
 import { ControllersDecorators } from './docs/controllers/decorators/Overview'
 import { DecoratorGet } from './docs/controllers/decorators/Get'
 import { DecoratorPost } from './docs/controllers/decorators/Post'
@@ -329,6 +331,8 @@ export function PrintAllDocs() {
         <div className="print-page-break"><ControllersPagination /></div>
         <div className="print-page-break"><ControllersFilters /></div>
         <div className="print-page-break"><ControllersRenderers /></div>
+        <div className="print-page-break"><ControllersResource /></div>
+        <div className="print-page-break"><ControllersThrottle /></div>
         <div className="print-page-break"><ControllersDecorators /></div>
         <div className="print-page-break"><DecoratorGet /></div>
         <div className="print-page-break"><DecoratorPost /></div>

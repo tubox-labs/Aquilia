@@ -104,6 +104,7 @@ aq discover --sync --dry-run`}</CodeBlock>
               {[
                 ['--path', 'Custom directories scan path.'],
                 ['--sync', 'Auto-write discovered components directly into manifest.py.'],
+                ['--strict', 'Use runtime-import discovery mode (resolves aliased imports and transitive MRO chains).'],
                 ['--dry-run', 'Preview changes without modifying manifest files.'],
                 ['--json', 'Outputs discovered items as a structured JSON object.']
               ].map(([opt, desc], i) => (
