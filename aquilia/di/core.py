@@ -1305,7 +1305,7 @@ class Container:
         tag: str | None,
     ) -> Provider | None:
         """
-        Lookup provider in current container or parent.
+        Lookup provider in current container or parent, with dynamic importlib fallback.
 
         Returns:
             Provider or None if not found
@@ -1327,6 +1327,30 @@ class Container:
                 alt_key = self._make_cache_key(alt_token, tag)
                 if alt_key in self._providers:
                     return self._providers[alt_key]
+
+            # Dynamic importlib fallback for python module path tokens
+            if ":" in token or "." in token:
+                try:
+                    if ":" in token:
+                        mod_path, symbol_name = token.rsplit(":", 1)
+                    else:
+                        mod_path, symbol_name = token.rsplit(".", 1)
+
+                    import importlib
+
+                    mod = importlib.import_module(mod_path)
+                    cls = getattr(mod, symbol_name, None)
+
+                    if isinstance(cls, type):
+                        cls_key = self._make_cache_key(self._token_to_key(cls), tag)
+                        if cls_key in self._providers:
+                            # Auto-alias string token to provider for O(1) future lookups
+                            provider = self._providers[cls_key]
+                            if self._providers_owned:
+                                self._providers[key] = provider
+                            return provider
+                except (ImportError, AttributeError, ValueError):
+                    pass
 
         # Check parent
         if self._parent:

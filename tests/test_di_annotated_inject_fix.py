@@ -240,3 +240,21 @@ async def test_user_reported_dashboard_controller_injection():
     ctrl = await factory.create(DashboardController)
     assert ctrl.cross_app is cross_app_svc
     assert ctrl.cross_app.name == "dashboard_cross_app"
+
+
+@pytest.mark.asyncio
+async def test_importlib_dynamic_string_token_fallback():
+    from aquilia.di.providers import ClassProvider
+
+    class LocalDummy:
+        pass
+
+    container = Container()
+    # Register Container class provider ONLY under class type
+    provider = ClassProvider(LocalDummy, scope="app")
+    container.register(provider)
+
+    # Resolve using string import path token (not pre-registered as string)
+    module_path = f"{LocalDummy.__module__}:{LocalDummy.__qualname__}"
+    resolved = await container.resolve_async(Annotated[Any, Inject(module_path)])
+    assert isinstance(resolved, LocalDummy)
