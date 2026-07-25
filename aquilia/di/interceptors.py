@@ -47,12 +47,27 @@ if TYPE_CHECKING:
 
 
 class InterceptContext:
-    """Context passed to a :class:`ProviderInterceptor`.
+    """
+    Context passed to a :class:`ProviderInterceptor` during provider instantiation.
 
-    Attributes:
-        provider: The provider being instantiated.
-        resolve_ctx: The active :class:`~aquilia.di.core.ResolveCtx`.
-        meta: The provider's :class:`~aquilia.di.core.ProviderMeta`.
+    Args:
+        provider: The underlying target :class:`~aquilia.di.core.Provider` being instantiated.
+        resolve_ctx: The active resolution context (:class:`~aquilia.di.core.ResolveCtx`).
+
+    Returns:
+        An :class:`InterceptContext` containing provider metadata and active resolution state.
+
+    Note:
+        Provides access to ``meta``, ``resolve_ctx``, and the target ``provider`` instance.
+
+    Usage::
+
+        from aquilia.di.interceptors import InterceptContext, ProviderInterceptor
+
+        class MetricsInterceptor(ProviderInterceptor):
+            async def around_instantiate(self, ctx: InterceptContext, nxt):
+                print(f"Instantiating {ctx.meta.name}")
+                return await nxt()
     """
 
     __slots__ = ("provider", "resolve_ctx", "meta")
@@ -65,22 +80,27 @@ class InterceptContext:
 
 @runtime_checkable
 class ProviderInterceptor(Protocol):
-    """Around-advice for provider instantiation.
+    """
+    Protocol contract for aspect-oriented around-advice executed during provider instantiation.
 
-    Implement :meth:`around_instantiate`; call ``nxt()`` to proceed to the next
-    interceptor (or the real instantiation) and return the (possibly wrapped)
-    instance. Skip the ``nxt()`` call to short-circuit with your own object.
+    Args:
+        None (Protocol specification).
 
-    Example::
+    Returns:
+        Interface specification for instantiation interceptors.
 
-        class TimingInterceptor(ProviderInterceptor):
-            async def around_instantiate(self, ctx, nxt):
-                import time
-                t0 = time.monotonic()
-                obj = await nxt()
-                dur = time.monotonic() - t0
-                logger.info("built %s in %.4fs", ctx.meta.name, dur)
-                return obj
+    Note:
+        Implement :meth:`around_instantiate`. Call ``nxt()`` to invoke the next interceptor frame or real provider.
+
+    Usage::
+
+        from aquilia.di.interceptors import ProviderInterceptor, InterceptContext
+
+        class LoggingInterceptor(ProviderInterceptor):
+            async def around_instantiate(self, ctx: InterceptContext, nxt):
+                instance = await nxt()
+                print(f"Created: {ctx.meta.name}")
+                return instance
     """
 
     async def around_instantiate(
@@ -93,21 +113,27 @@ class ProviderInterceptor(Protocol):
 
 
 class InterceptingProvider:
-    """A provider that runs a chain of :class:`ProviderInterceptor` around another.
-
-    Transparent to the container: exposes the same :class:`ProviderMeta` as the
-    wrapped provider, so tokens, scope, and tags are unchanged. Interceptors run
-    in registration order (first-registered is outermost).
+    """
+    Provider wrapper executing an ordered chain of :class:`ProviderInterceptor`s around instantiation.
 
     Args:
-        inner: The provider whose instantiation is intercepted.
-        interceptors: Ordered interceptors (outermost first).
+        inner: Target :class:`~aquilia.di.core.Provider` being wrapped.
+        interceptors: Non-empty list of :class:`ProviderInterceptor` instances (outermost first).
 
-    Example::
+    Returns:
+        An :class:`InterceptingProvider` exposing identical metadata as the wrapped provider.
+
+    Note:
+        Preserves scope, token, and tags of the inner provider while decorating its instantiation.
+
+    Usage::
+
+        from aquilia.di import ClassProvider
+        from aquilia.di.interceptors import InterceptingProvider, intercept
 
         wrapped = InterceptingProvider(
-            ClassProvider(PaymentService, scope="app"),
-            [TimingInterceptor(), TracingInterceptor()],
+            ClassProvider(UserService, scope="app"),
+            [LoggingInterceptor(), TimingInterceptor()],
         )
         container.register(wrapped)
     """
@@ -179,19 +205,26 @@ def _bind(
 
 
 def intercept(provider: Provider, *interceptors: ProviderInterceptor) -> InterceptingProvider:
-    """Wrap *provider* with one or more interceptors.
-
-    Convenience constructor for :class:`InterceptingProvider`.
+    """
+    Convenience factory constructing an :class:`InterceptingProvider` around a target provider.
 
     Args:
-        provider: The provider to wrap.
-        *interceptors: One or more interceptors (outermost first).
+        provider: Target provider instance to wrap.
+        *interceptors: One or more :class:`ProviderInterceptor` instances (outermost first).
 
     Returns:
-        An :class:`InterceptingProvider`.
+        An :class:`InterceptingProvider` decorating the target provider.
 
-    Example::
+    Note:
+        Can be chained with container registration.
 
-        container.register(intercept(ClassProvider(UserService), LogInterceptor()))
+    Usage::
+
+        from aquilia.di import ClassProvider, intercept
+
+        container.register(
+            intercept(ClassProvider(UserService), LoggingInterceptor(), TimingInterceptor())
+        )
     """
+    return InterceptingProvider(provider, list(interceptors))
     return InterceptingProvider(provider, list(interceptors))

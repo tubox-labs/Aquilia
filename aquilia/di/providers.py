@@ -87,9 +87,27 @@ def _normalize_optional_token(annotation: Any) -> tuple[Any, bool]:
 
 class ClassProvider:
     """
-    Provider that instantiates a class by resolving constructor dependencies.
+    DI provider that instantiates a target class by recursively resolving constructor dependencies.
 
-    Supports async __init__ via async_init() convention.
+    Args:
+        cls: Target class to instantiate.
+        scope: Lifetime scope for instantiated instances (defaults to ``"app"``).
+        tags: Optional tuple of container tags for disambiguation.
+        allow_lazy: Whether to allow lazy proxy resolution for circular dependency cycles.
+
+    Returns:
+        A :class:`ClassProvider` instance.
+
+    Note:
+        Inspects `__init__` constructor parameter type hints. Supports parallel resolution of independent
+        dependencies via ``asyncio.gather`` when ``DISettings.parallel_resolution`` is enabled.
+
+    Usage::
+
+        from aquilia.di.providers import ClassProvider
+
+        provider = ClassProvider(UserService, scope="app", tags=("core",))
+        container.register(provider)
     """
 
     __slots__ = ("_meta", "_cls", "_dependencies", "_has_async_init")
@@ -254,9 +272,30 @@ class ClassProvider:
 
 class FactoryProvider:
     """
-    Provider that calls a factory function to produce instances.
+    DI provider that invokes a synchronous or asynchronous factory function to create instances.
 
-    Supports both sync and async factories.
+    Args:
+        factory: Sync function, async function, or generator callable producing the dependency.
+        scope: Lifetime scope for factory results (defaults to ``"app"``).
+        tags: Optional tuple of container tags for disambiguation.
+        name: Optional explicit registration name.
+
+    Returns:
+        A :class:`FactoryProvider` instance.
+
+    Note:
+        If *factory* is a generator, teardown code following `yield` is automatically registered
+        as a finalizer and executed in LIFO order when the scope closes.
+
+    Usage::
+
+        from aquilia.di.providers import FactoryProvider
+
+        async def build_db_pool(config: AppConfig) -> DatabasePool:
+            return await DatabasePool.connect(config.db_url)
+
+        provider = FactoryProvider(build_db_pool, scope="singleton")
+        container.register(provider)
     """
 
     __slots__ = ("_meta", "_factory", "_is_async", "_dependencies")
@@ -390,7 +429,29 @@ class FactoryProvider:
 
 
 class ValueProvider:
-    """Provider that returns a pre-bound constant value."""
+    """
+    DI provider returning a pre-bound static instance or primitive value.
+
+    Args:
+        value: The static object or primitive value to register.
+        token: Type or string key identifier under which the value is bound.
+        name: Optional explicit registration name (defaults to ``"value"``).
+        scope: Lifetime scope (defaults to ``"singleton"``).
+        tags: Optional tuple of container tags for disambiguation.
+
+    Returns:
+        A :class:`ValueProvider` instance.
+
+    Note:
+        Always returns *value* immediately without dependency resolution overhead.
+
+    Usage::
+
+        from aquilia.di.providers import ValueProvider
+
+        provider = ValueProvider(config_instance, token=AppConfig, scope="singleton")
+        container.register(provider)
+    """
 
     __slots__ = ("_meta", "_value")
 
@@ -426,9 +487,35 @@ class ValueProvider:
 
 class PoolProvider:
     """
-    Provider that manages a pool of instances.
+    DI provider managing a bounded queue pool of reusable asynchronous resource instances.
 
-    Uses asyncio.Queue for FIFO/LIFO pooling.
+    Args:
+        factory: Async callable returning a new resource instance.
+        max_size: Maximum capacity of the instance queue pool.
+        token: Type or string key identifier under which the pool is registered.
+        strategy: Pooling strategy (``"fifo"`` or ``"lifo"``, defaults to ``"fifo"``).
+        acquire_timeout: Timeout in seconds for acquiring an instance from the pool.
+        max_waiters: Maximum number of concurrent callers waiting for an instance.
+        scope: Lifetime scope for the pool (defaults to ``"app"``).
+        name: Optional explicit registration name.
+
+    Returns:
+        A :class:`PoolProvider` instance.
+
+    Note:
+        Maintains an internal ``asyncio.Queue``. On container shutdown, closes all active pooled resources.
+
+    Usage::
+
+        from aquilia.di.providers import PoolProvider
+
+        provider = PoolProvider(
+            factory=create_connection,
+            max_size=10,
+            token=DBConnection,
+            strategy="fifo",
+        )
+        container.register(provider)
     """
 
     __slots__ = (
@@ -577,7 +664,28 @@ class PoolProvider:
 
 
 class AliasProvider:
-    """Provider that aliases one token to another."""
+    """
+    DI provider aliasing one lookup token to another target provider token in the container.
+
+    Args:
+        token: Alias token key under which this provider is registered.
+        target_token: Target provider token key to resolve.
+        target_tag: Optional container tag for target lookup disambiguation.
+        name: Optional explicit registration name (defaults to ``"alias"``).
+
+    Returns:
+        An :class:`AliasProvider` instance.
+
+    Note:
+        Does not instantiate new objects directly; delegates resolution to *target_token*.
+
+    Usage::
+
+        from aquilia.di.providers import AliasProvider
+
+        provider = AliasProvider(token="modules.auth.services:CrossAppService", target_token=CrossAppService)
+        container.register(provider)
+    """
 
     __slots__ = ("_meta", "_target_token", "_target_tag")
 
@@ -618,9 +726,26 @@ class AliasProvider:
 
 class LazyProxyProvider:
     """
-    Provider that creates a lazy proxy for cycle resolution.
+    DI provider wrapping a target token in a dynamic lazy proxy for circular dependency resolution.
 
-    Only use when explicitly allowed in manifest.
+    Args:
+        token: Token key under which the proxy is registered.
+        target_token: Target provider token key to lazily resolve on first property access.
+        target_tag: Optional target tag for disambiguation.
+        name: Optional explicit registration name (defaults to ``"lazy_proxy"``).
+
+    Returns:
+        A :class:`LazyProxyProvider` instance.
+
+    Note:
+        Returns a lazy proxy object that defers actual container resolution until attribute access or invocation.
+
+    Usage::
+
+        from aquilia.di.providers import LazyProxyProvider
+
+        provider = LazyProxyProvider(token=ServiceA, target_token=ServiceB)
+        container.register(provider)
     """
 
     __slots__ = ("_meta", "_target_token", "_target_tag")
@@ -704,9 +829,24 @@ class _LazyProxy:
 
 class ScopedProvider:
     """
-    Wrapper provider that enforces scope semantics.
+    Wrapper provider enforcing explicit lifetime scope semantics over an inner provider.
 
-    Used for request/ephemeral scopes.
+    Args:
+        inner: Target :class:`~aquilia.di.core.Provider` being wrapped.
+        scope: Lifetime scope string (e.g. ``"request"``, ``"ephemeral"``).
+
+    Returns:
+        A :class:`ScopedProvider` instance with overridden scope metadata.
+
+    Note:
+        Used during request container construction to adapt application providers to request lifetime scopes.
+
+    Usage::
+
+        from aquilia.di.providers import ScopedProvider, ClassProvider
+
+        scoped = ScopedProvider(ClassProvider(UserContext), scope="request")
+        container.register(scoped)
     """
 
     __slots__ = ("_meta", "_inner_provider", "_scope")
@@ -744,30 +884,25 @@ class ScopedProvider:
 
 class ContractProvider:
     """
-    DI Provider that creates Contract instances with request context.
+    DI provider constructing request-bound Contract instances populated from request context payload.
 
-    When resolved, the provider:
-    1. Parses the request body (JSON or form data)
-    2. Creates the Contract with ``data=body`` and a context dict
-       containing ``request``, ``container``, and ``identity``
-    3. Returns the **Contract instance** (not yet sealed)
+    Args:
+        contract_cls: The target :class:`Contract` class to instantiate.
+        scope: Lifetime scope (defaults to ``"request"``).
+        auto_seal: If ``True``, automatically seals the contract during resolution.
 
-    The handler can then call ``contract.is_sealed()`` and ``contract.imprint()``.
+    Returns:
+        A :class:`ContractProvider` instance.
+
+    Note:
+        Parses request body (JSON/form data) and attaches context dict containing request, container, and identity.
 
     Usage::
 
-        from aquilia.di import Container
         from aquilia.di.providers import ContractProvider
 
-        container.register(
-            ContractProvider(UserContract, scope="request")
-        )
-
-        # In handler:
-        async def create_user(self, ctx, contract: UserContract):
-            contract.is_sealed(raise_fault=True)
-            user = await contract.imprint()
-            return Response.json(UserContract(instance=user).data, status=201)
+        provider = ContractProvider(UserContract, scope="request", auto_seal=True)
+        container.register(provider)
     """
 
     __slots__ = ("_meta", "_contract_cls", "_auto_seal")

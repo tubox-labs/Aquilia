@@ -186,20 +186,29 @@ def factory(
     name: str | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
-    Decorator to mark a function as a DI factory.
+    Decorator marking a function or generator as a DI factory provider.
 
     Args:
-        scope: Service scope
-        tag: Optional tag for disambiguation
-        name: Optional explicit factory name
+        scope: Lifetime scope for the produced dependency (e.g. ``"app"``, ``"singleton"``, ``"request"``).
+        tag: Optional container tag for disambiguating between multiple implementations.
+        name: Optional explicit registration name for manifest and diagnostics indexing.
 
     Returns:
-        Decorator function
+        A decorator function that attaches DI factory metadata to the target callable.
 
-    Example:
-        @factory(scope="singleton", name="db_pool")
-        async def create_db_pool(config: Config) -> DatabasePool:
-            return await DatabasePool.connect(config.db_url)
+    Note:
+        Factory return type annotations dictate the resolution token unless overridden by :func:`provides`.
+        Generator factories yielding a resource have their teardown automatically managed.
+
+    Usage::
+
+        from aquilia.di import factory
+
+        @factory(scope="singleton", name="redis_client")
+        async def create_redis_client(config: AppConfig) -> RedisClient:
+            client = RedisClient(config.redis_url)
+            await client.connect()
+            return client
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
@@ -220,22 +229,27 @@ def provides(
     tag: str | None = None,
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
-    Decorator to explicitly declare what a factory provides.
-
-    Useful when return type annotation is generic or abstract.
+    Decorator explicitly binding a factory function to a target interface or token key.
 
     Args:
-        token: Type or string key that this factory provides
-        scope: Service scope
-        tag: Optional tag
+        token: Interface type or string key under which the factory result is registered.
+        scope: Lifetime scope for the produced dependency.
+        tag: Optional container tag for disambiguating lookups.
 
     Returns:
-        Decorator function
+        A decorator function that configures the target factory binding.
 
-    Example:
-        @provides(UserRepository, scope="app", tag="sql")
-        def create_sql_repo(db: Database) -> UserRepository:
-            return SqlUserRepository(db)
+    Note:
+        Essential when the factory returns a concrete implementation subclass while consumers
+        request an abstract base class or interface token.
+
+    Usage::
+
+        from aquilia.di import provides
+
+        @provides(IUserRepository, scope="app", tag="postgres")
+        def create_postgres_repo(db: Database) -> PostgresUserRepository:
+            return PostgresUserRepository(db)
     """
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
@@ -250,18 +264,29 @@ def provides(
 
 def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
     """
-    Decorator to auto-inject dependencies into a function.
+    Decorator automatically resolving annotated parameters from the active context container.
 
-    Looks up dependencies from a thread-local container.
+    Args:
+        func: The target synchronous or asynchronous callable to decorate.
 
-    WARNING: This is convenience sugar with some overhead.
-    Prefer explicit dependency passing in hot paths.
+    Returns:
+        An async wrapper function that resolves unpassed annotated parameters at call time.
 
-    Example:
+    Note:
+        Preserves ``Annotated[T, Inject(...)]`` metadata by invoking ``get_type_hints(func, include_extras=True)``.
+        Looks up the active request container via contextvars; raises ``DIResolutionFault`` if no container is active.
+
+    Usage::
+
+        from typing import Annotated, Any
+        from aquilia.di import auto_inject, Inject
+
         @auto_inject
-        async def my_handler(request: Request, db: Database):
-            # db is automatically resolved from request container
-            ...
+        async def handle_request(
+            user_id: str,
+            auth: Annotated[Any, Inject("modules.auth.services:AuthService")],
+        ):
+            return await auth.verify_user(user_id)
     """
     from .compat import get_request_container
 

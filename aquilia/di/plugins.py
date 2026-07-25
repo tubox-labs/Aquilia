@@ -42,25 +42,37 @@ if TYPE_CHECKING:
 
 
 class DIPlugin:
-    """Base class for DI plugins.
+    """
+    Extensible lifecycle base class for DI container compilation and registration plugins.
 
-    Subclass and override the hooks you need. Give each plugin a stable
-    :attr:`name` (used for de-duplication and diagnostics). All hooks are
-    optional; the base implementations do nothing.
+    Args:
+        None (Base class instantiation).
 
-    Attributes:
-        name: Stable plugin identifier.
+    Returns:
+        A :class:`DIPlugin` instance.
+
+    Note:
+        Subclass and override lifecycle hooks (``on_registry_build``, ``on_provider_registered``,
+        ``on_container_built``). Plugins are active when ``DISettings.enable_plugins`` is enabled.
+
+    Usage::
+
+        from aquilia.di.plugins import DIPlugin, register_plugin
+
+        class CustomAutoRegistrationPlugin(DIPlugin):
+            name = "custom-autoreg"
+
+            def on_registry_build(self, registry):
+                registry.add_provider(ClassProvider(AuditService, scope="app"))
+
+        register_plugin(CustomAutoRegistrationPlugin())
     """
 
     #: Stable identifier for this plugin (override in subclasses).
     name: str = "di-plugin"
 
     def on_registry_build(self, registry: Registry) -> None:
-        """Called after providers load, before the dependency graph is built.
-
-        Use :meth:`Registry.add_provider` to contribute providers, or inspect
-        ``registry._providers`` to rewrite metadata.
-        """
+        """Called after providers load, before the dependency graph is built."""
 
     def on_provider_registered(self, container: Container, provider: Provider) -> None:
         """Called as each provider is registered into a container."""
@@ -75,20 +87,21 @@ _plugins: list[DIPlugin] = []
 
 
 def register_plugin(plugin: DIPlugin) -> None:
-    """Register a :class:`DIPlugin` for the process.
-
-    Idempotent by :attr:`DIPlugin.name` — re-registering a plugin with the
-    same name replaces the previous instance.
+    """
+    Register a :class:`DIPlugin` instance in the global process registry.
 
     Args:
-        plugin: The plugin instance to register.
+        plugin: The :class:`DIPlugin` instance to register.
 
-    Raises:
-        DIFault: If *plugin* is not a :class:`DIPlugin`.
+    Returns:
+        None.
 
-    Example::
+    Note:
+        Idempotent by :attr:`DIPlugin.name`. Re-registering a plugin with an existing name replaces it.
 
-        register_plugin(MyPlugin())
+    Usage::
+
+        register_plugin(MyCustomPlugin())
     """
     if not isinstance(plugin, DIPlugin):
         raise DIFault(
@@ -105,7 +118,22 @@ def register_plugin(plugin: DIPlugin) -> None:
 
 
 def unregister_plugin(name: str) -> bool:
-    """Remove a registered plugin by name. Returns whether one was removed."""
+    """
+    Unregister a plugin by its unique string name.
+
+    Args:
+        name: The string identifier of the plugin to remove.
+
+    Returns:
+        ``True`` if a matching plugin was found and removed, ``False`` otherwise.
+
+    Note:
+        Useful for test fixture cleanup and dynamic plugin unloading.
+
+    Usage::
+
+        was_removed = unregister_plugin("custom-autoreg")
+    """
     for i, existing in enumerate(_plugins):
         if existing.name == name:
             del _plugins[i]
@@ -114,12 +142,21 @@ def unregister_plugin(name: str) -> bool:
 
 
 def get_plugins() -> list[DIPlugin]:
-    """Return the active plugins (empty when plugins are disabled in settings).
+    """
+    Retrieve all currently registered active DI plugins.
 
-    Example::
+    Args:
+        None.
 
-        for plugin in get_plugins():
-            plugin.on_registry_build(registry)
+    Returns:
+        A list of active :class:`DIPlugin` instances (empty if ``DISettings.enable_plugins`` is False).
+
+    Note:
+        Returns a shallow copy of the active process plugin list.
+
+    Usage::
+
+        active_plugins = get_plugins()
     """
     from .settings import get_di_settings
 
@@ -129,7 +166,22 @@ def get_plugins() -> list[DIPlugin]:
 
 
 def clear_plugins() -> None:
-    """Remove all registered plugins. Intended for test teardown."""
+    """
+    Clear all registered plugins from the process global registry.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+
+    Note:
+        Intended for testing teardown to restore process isolation.
+
+    Usage::
+
+        clear_plugins()
+    """
     _plugins.clear()
 
 

@@ -192,12 +192,31 @@ class Dep:
 
 @dataclass(frozen=True, slots=True)
 class Header:
-    """Extract a header value from the current request.
+    """
+    Request parameter extractor for HTTP headers.
+
+    Args:
+        name: Header key name to extract (case-insensitive lookup).
+        alias: Optional alternative header key alias.
+        required: Whether to raise a ``BadRequestFault`` if the header is missing.
+        default: Fallback value if missing and not required.
+
+    Returns:
+        A frozen :class:`Header` metadata marker instance for use inside ``Annotated[...]``.
+
+    Note:
+        Evaluated automatically during per-request DAG dependency resolution or serializer default casting.
 
     Usage::
 
-        async def get_token(auth: Annotated[str, Header("Authorization")]) -> str:
-            return auth.removeprefix("Bearer ")
+        from typing import Annotated
+        from aquilia.di import Header
+
+        async def authenticate(
+            auth: Annotated[str, Header("Authorization")],
+            user_agent: Annotated[str | None, Header("User-Agent", required=False)] = None,
+        ) -> str:
+            return auth
     """
 
     name: str
@@ -243,12 +262,31 @@ class Header:
 
 @dataclass(frozen=True, slots=True)
 class Query:
-    """Extract a query parameter from the current request.
+    """
+    Request parameter extractor for HTTP query string parameters.
+
+    Args:
+        name: Optional explicit query parameter key name (inferred from parameter name if ``None``).
+        default: Fallback value if missing.
+        required: Whether to raise a ``BadRequestFault`` if the query parameter is missing.
+        alias: Optional alternative query key alias.
+
+    Returns:
+        A frozen :class:`Query` metadata marker instance for use inside ``Annotated[...]``.
+
+    Note:
+        Supports automatic type coercion (e.g. string to int/bool/UUID) during request DAG extraction.
 
     Usage::
 
-        async def get_page(page: Annotated[int, Query("page", default=1)]) -> int:
-            return page
+        from typing import Annotated
+        from aquilia.di import Query
+
+        async def get_items(
+            page: Annotated[int, Query(default=1)],
+            search: Annotated[str | None, Query("q", required=False)] = None,
+        ):
+            return {"page": page, "search": search}
     """
 
     name: str | None = None
@@ -286,11 +324,30 @@ class Query:
 
 @dataclass(frozen=True, slots=True)
 class Cookie:
-    """Extract a cookie value from the current request.
+    """
+    Request parameter extractor for HTTP cookies.
+
+    Args:
+        name: Optional explicit cookie key name (inferred from parameter name if ``None``).
+        default: Fallback value if cookie is not present.
+        required: Whether to raise a ``BadRequestFault`` if cookie is missing.
+        alias: Optional alternative cookie name alias.
+
+    Returns:
+        A frozen :class:`Cookie` metadata marker instance for use inside ``Annotated[...]``.
+
+    Note:
+        Extracted directly from the incoming ASGI request cookies dictionary.
 
     Usage::
 
-        session_id: Annotated[str, Cookie()]
+        from typing import Annotated
+        from aquilia.di import Cookie
+
+        async def get_session(
+            session_id: Annotated[str, Cookie("sid", required=True)],
+        ) -> str:
+            return session_id
     """
 
     name: str | None = None
@@ -326,11 +383,30 @@ class Cookie:
 
 @dataclass(frozen=True, slots=True)
 class Path:
-    """Extract a path/route parameter from the current request.
+    """
+    Request parameter extractor for URL path route parameters.
+
+    Args:
+        name: Optional explicit route parameter key name (inferred from parameter name if ``None``).
+        default: Fallback value if missing.
+        required: Whether to enforce presence (defaults to ``True``).
+        alias: Optional alternative parameter key alias.
+
+    Returns:
+        A frozen :class:`Path` metadata marker instance for use inside ``Annotated[...]``.
+
+    Note:
+        Extracted from the request's compiled route path parameters.
 
     Usage::
 
-        id: Annotated[int, Path()]
+        from typing import Annotated
+        from aquilia.di import Path
+
+        async def get_user_by_id(
+            user_id: Annotated[int, Path()],
+        ):
+            return {"user_id": user_id}
     """
 
     name: str | None = None
@@ -361,12 +437,28 @@ class Path:
 
 @dataclass(frozen=True, slots=True)
 class Body:
-    """Mark a parameter as coming from the request body.
+    """
+    Request parameter extractor marking payload extraction from HTTP request body.
+
+    Args:
+        media_type: Expected content-type media header (defaults to ``"application/json"``).
+        embed: If ``True``, embeds parameter under its parameter key rather than binding full body.
+
+    Returns:
+        A frozen :class:`Body` metadata marker instance for use inside ``Annotated[...]``.
+
+    Note:
+        Resolved asynchronously during Request DAG execution from ``request.json()`` or ``request.form()``.
 
     Usage::
 
-        async def parse_payload(data: Annotated[dict, Body()]) -> dict:
-            return data
+        from typing import Annotated
+        from aquilia.di import Body
+
+        async def create_item(
+            payload: Annotated[dict, Body()],
+        ):
+            return payload
     """
 
     media_type: str = "application/json"

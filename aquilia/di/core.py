@@ -100,10 +100,28 @@ class ProviderMeta:
 
 class ResolveCtx:
     """
-    Context for resolution operations.
+    State context tracking active dependency resolution operations.
 
-    Tracks resolution stack for cycle detection and diagnostics.
-    Uses __slots__ for minimal allocation overhead.
+    Args:
+        container: The root or request-scoped :class:`Container` performing the resolution.
+
+    Returns:
+        A :class:`ResolveCtx` instance holding the stack trace, cycle guards, and branch cache.
+
+    Note:
+        Uses ``__slots__`` for minimal allocation overhead during sub-microsecond resolution.
+        When parallel dependency resolution is enabled, child contexts are forked per concurrent
+        async branch so cycle detection remains correct across parallel branches.
+
+    Usage::
+
+        from aquilia.di.core import Container, ResolveCtx
+
+        container = Container(scope="app")
+        ctx = ResolveCtx(container=container)
+        ctx.push("modules.auth.services:AuthService")
+        assert ctx.in_cycle("modules.auth.services:AuthService")
+        ctx.pop()
     """
 
     __slots__ = ("container", "stack", "cache")
@@ -133,9 +151,32 @@ class ResolveCtx:
 @runtime_checkable
 class Provider(Protocol):
     """
-    Provider protocol - how to instantiate a dependency.
+    Protocol defining the fundamental lifecycle and instantiation contract for DI providers.
 
-    All providers must implement this interface.
+    Args:
+        None (Protocol contract).
+
+    Returns:
+        Interface specification for all custom and built-in DI provider strategies.
+
+    Note:
+        All DI provider implementations (e.g. :class:`ClassProvider`, :class:`FactoryProvider`,
+        :class:`ValueProvider`) must implement ``meta``, ``instantiate()``, and ``shutdown()``.
+
+    Usage::
+
+        from aquilia.di.core import Provider, ProviderMeta, ResolveCtx
+
+        class CustomProvider(Provider):
+            @property
+            def meta(self) -> ProviderMeta:
+                return ProviderMeta(name="custom", token="CustomService", scope="app")
+
+            async def instantiate(self, ctx: ResolveCtx) -> Any:
+                return CustomService()
+
+            async def shutdown(self) -> None:
+                pass
     """
 
     @property
@@ -1456,9 +1497,26 @@ class Container:
 
 class Registry:
     """
-    Registry - builds and validates provider graph from manifests.
+    Compiler and validator that builds immutable dependency graphs from module manifests.
 
-    Performs static analysis, cycle detection, and generates manifest JSON.
+    Args:
+        config: Optional application or workspace configuration object.
+
+    Returns:
+        A compiled :class:`Registry` instance containing validated providers and topological load graphs.
+
+    Note:
+        Executes static analysis, Tarjan SCC cycle detection, cross-app boundary validation,
+        and plugin hooks (:class:`~aquilia.di.plugins.DIPlugin`) during startup compilation.
+
+    Usage::
+
+        from aquilia.di.core import Registry
+
+        registry = Registry.from_manifests(
+            manifests=[auth_manifest, billing_manifest],
+            enforce_cross_app=True,
+        )
     """
 
     def __init__(self, config: Any | None = None):
