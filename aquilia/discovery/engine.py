@@ -414,6 +414,111 @@ class ASTClassifier:
 
 
 # ============================================================================
+# Strict Classifier
+# ============================================================================
+
+
+class StrictClassifier:
+    """Classifies Python classes using runtime imports and MRO checks."""
+
+    def classify_file(self, file_path: Path, module_name: str) -> list[ClassifiedComponent]:
+        import importlib.util
+        import inspect
+        import sys
+
+        spec = importlib.util.spec_from_file_location(module_name, str(file_path))
+        if spec is None or spec.loader is None:
+            return []
+
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+
+        try:
+            spec.loader.exec_module(module)
+        except Exception as e:
+            logger.warning(f"Failed to import {file_path} for strict discovery: {e}")
+            sys.modules.pop(module_name, None)
+            return []
+
+        components = []
+        has_all = hasattr(module, "__all__")
+        if has_all:
+            names_to_check = list(module.__all__)
+        else:
+            names_to_check = [name for name in dir(module) if not name.startswith("_")]
+
+        for name in names_to_check:
+            obj = getattr(module, name, None)
+            if not inspect.isclass(obj):
+                continue
+
+            # Only classify classes **defined** in this module.  Without this
+            # guard, imported or re-exported classes would appear in multiple
+            # scan results, producing duplicates.  The class's own defining
+            # file will yield the canonical component entry.
+            if getattr(obj, "__module__", None) != module_name:
+                continue
+
+            kind = self._classify_class(obj, name)
+            if kind is not None:
+                try:
+                    line = inspect.getsourcelines(obj)[1]
+                except (TypeError, OSError):
+                    line = 0
+
+                bases = [b.__name__ for b in obj.__bases__]
+                components.append(
+                    ClassifiedComponent(
+                        name=name,
+                        kind=kind,
+                        file_path=file_path,
+                        line=line,
+                        bases=bases,
+                        decorators=[],
+                    )
+                )
+
+        sys.modules.pop(module_name, None)
+        return components
+
+    def _classify_class(self, cls: type, name: str) -> ComponentKind | None:
+        import inspect
+
+        try:
+            mro = inspect.getmro(cls)
+        except Exception:
+            return None
+
+        mro_names = {b.__name__ for b in mro}
+
+        for kind in [
+            ComponentKind.SOCKET_CONTROLLER,
+            ComponentKind.CONTROLLER,
+            ComponentKind.GUARD,
+            ComponentKind.PIPE,
+            ComponentKind.INTERCEPTOR,
+            ComponentKind.MIDDLEWARE,
+            ComponentKind.MODEL,
+            ComponentKind.TASK,
+            ComponentKind.EVENT_HANDLER,
+            ComponentKind.INTEGRATION,
+            ComponentKind.COMMAND,
+            ComponentKind.VALIDATOR,
+            ComponentKind.SERVICE,
+        ]:
+            rule = _RULES_REGISTRY.get(kind)
+            if not rule:
+                continue
+
+            if mro_names & rule.base_classes:
+                return kind
+            if any(name.endswith(suffix) for suffix in rule.name_suffixes):
+                return kind
+
+        return None
+
+
+# ============================================================================
 # File Scanner
 # ============================================================================
 
@@ -727,8 +832,13 @@ class AutoDiscoveryEngine:
         self,
         module_name: str,
         patterns: list[str] | None = None,
+        strict: bool = False,
     ) -> DiscoveryResult:
         """Discover all components in a module directory."""
+        if strict:
+            engine = StrictDiscoveryEngine(self.modules_dir)
+            return engine.discover(module_name, patterns)
+
         result = DiscoveryResult(module_name=module_name)
         module_dir = self.modules_dir / module_name
 
@@ -833,6 +943,7 @@ class AutoDiscoveryEngine:
         self,
         module_name: str,
         dry_run: bool = False,
+        strict: bool = False,
     ) -> SyncReport:
         """Sync discovered components into the module's manifest.py."""
         manifest_path = self.modules_dir / module_name / "manifest.py"
@@ -847,7 +958,7 @@ class AutoDiscoveryEngine:
             return report
 
         manifest_refs = self._parse_manifest_refs(manifest_path)
-        discovery = self.discover(module_name, patterns=manifest_refs.get("discover_patterns"))
+        discovery = self.discover(module_name, patterns=manifest_refs.get("discover_patterns"), strict=strict)
 
         module_prefix = f"{self.differ.root_package}.{module_name}"
         actions = self.differ.diff(discovery.components, manifest_refs, module_prefix)
@@ -1012,3 +1123,57 @@ class AutoDiscoveryEngine:
                     classes[key] = f"{mod} ({comp.file_path.name}:{comp.line})"
 
         return {"errors": errors, "warnings": warnings}
+
+
+class StrictDiscoveryEngine(AutoDiscoveryEngine):
+    """Runtime-import-based discovery engine."""
+
+    def __init__(self, modules_dir: Path):
+        super().__init__(modules_dir)
+        self.classifier = StrictClassifier()
+
+    def discover(
+        self,
+        module_name: str,
+        patterns: list[str] | None = None,
+        strict: bool = False,
+    ) -> DiscoveryResult:
+        import sys
+
+        result = DiscoveryResult(module_name=module_name)
+        module_dir = self.modules_dir / module_name
+
+        files = self.scanner.scan_module(module_name, patterns)
+        result.files_scanned = len(files)
+
+        project_root = str(self.modules_dir.parent)
+        added_to_path = False
+        if project_root not in sys.path:
+            sys.path.insert(0, project_root)
+            added_to_path = True
+
+        try:
+            for file_path in files:
+                relative = file_path.resolve().relative_to(self.modules_dir.parent)
+                dotted = ".".join(relative.with_suffix("").parts)
+                components = self.classifier.classify_file(file_path, dotted)
+                for comp in components:
+                    comp.import_path = self._compute_import_path(file_path, module_dir, module_name, comp.name)
+                    result.components.append(comp)
+        finally:
+            if added_to_path:
+                sys.path.remove(project_root)
+
+        # Deduplicate: same class may appear in both its defining file and a
+        # re-export module that lists it in __all__.  Keep the first occurrence
+        # (which is the canonical defining file).
+        seen: set[str] = set()
+        unique: list[ClassifiedComponent] = []
+        for comp in result.components:
+            key = comp.import_path
+            if key not in seen:
+                seen.add(key)
+                unique.append(comp)
+        result.components = unique
+
+        return result

@@ -1500,6 +1500,11 @@ def ws_kick(ctx, conn: str, reason: str, redis_url: str | None):
 @click.option("--fix", is_flag=True, help="Fix stale registry/import references automatically")
 @click.option("--clean", is_flag=True, help="Purge obsolete and empty configuration values")
 @click.option("--graph", "graph_path", type=str, default=None, help="Path to output dependency graph DOT file")
+@click.option(
+    "--strict",
+    is_flag=True,
+    help="Use strict resolved-import discovery mode (slower but catches transitive inheritance and aliased imports)",
+)
 @click.pass_context
 def discover(
     ctx,
@@ -1511,6 +1516,7 @@ def discover(
     fix: bool,
     clean: bool,
     graph_path: str | None,
+    strict: bool,
 ):
     """Inspect auto-discovered modules in workspace.
 
@@ -1538,6 +1544,7 @@ def discover(
             clean=clean,
             graph_path=graph_path,
             as_json=as_json,
+            strict=strict,
         )
     except Exception as e:
         error(f"  {_CROSS} Discovery failed: {e}")

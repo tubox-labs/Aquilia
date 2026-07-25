@@ -46,6 +46,7 @@ class DiscoveryInspector:
         clean: bool = False,
         graph_path: str | None = None,
         as_json: bool = False,
+        strict: bool = False,
     ) -> None:
         """Run discovery inspection and optionally sync, validate, fix, or clean."""
         discovered = self.generator._discover_modules()
@@ -83,7 +84,7 @@ class DiscoveryInspector:
             for mod_name in discovered:
                 res["components"][mod_name] = [
                     {"name": c.name, "kind": c.kind.value, "import_path": c.import_path}
-                    for c in engine.discover(mod_name).components
+                    for c in engine.discover(mod_name, strict=strict).components
                 ]
             click.echo(json.dumps(res, indent=2))
             if all_errors:
@@ -103,6 +104,7 @@ class DiscoveryInspector:
             dry_run=dry_run,
             clean=clean,
             fix=fix,
+            strict=strict,
         )
 
         if all_errors and (validate or sync or fix or clean):
@@ -130,6 +132,7 @@ class DiscoveryInspector:
         dry_run: bool = False,
         clean: bool = False,
         fix: bool = False,
+        strict: bool = False,
     ) -> None:
         """Run AST-based auto-discovery and sync/fix/clean operations."""
         import click
@@ -138,7 +141,11 @@ class DiscoveryInspector:
         if not modules_dir.is_dir():
             return
 
-        results = engine.discover_all()
+        results = {}
+        for module_name in engine.scanner.discover_modules():
+            patterns = engine._module_discover_patterns(module_name)
+            results[module_name] = engine.discover(module_name, patterns=patterns, strict=strict)
+
         if not results:
             return
 
@@ -208,7 +215,10 @@ class DiscoveryInspector:
                 if dry_run:
                     info("  Dry run -- no files modified.")
 
-                reports = engine.sync_all(dry_run=dry_run)
+                reports = []
+                for module_name in engine.scanner.discover_modules():
+                    reports.append(engine.sync_manifest(module_name, dry_run=dry_run, strict=strict))
+
                 for report in reports:
                     if report.has_changes:
                         action_str = "would add" if dry_run else "added"

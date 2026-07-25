@@ -33,6 +33,7 @@ from .engine import (
     FileScanner,
     ManifestDiffer,
     ManifestWriter,
+    StrictDiscoveryEngine,
     SyncAction,
     SyncReport,
 )
@@ -40,6 +41,7 @@ from .engine import (
 __all__ = [
     "PackageScanner",
     "AutoDiscoveryEngine",
+    "StrictDiscoveryEngine",
     "ASTClassifier",
     "FileScanner",
     "ManifestDiffer",
