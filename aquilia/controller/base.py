@@ -413,7 +413,7 @@ class Interceptor:
 
 class Throttle:
     """
-    Simple in-memory sliding-window rate limiter.
+    Simple sliding-window rate limiter with pluggable backends.
 
     Usage::
 
@@ -426,10 +426,11 @@ class Throttle:
         async def list(self, ctx): ...
     """
 
-    def __init__(self, limit: int = 100, window: int = 60, max_clients: int = 10000):
+    def __init__(self, limit: int = 100, window: int = 60, max_clients: int = 10000, backend: Any = None):
         self.limit = limit
         self.window = window
         self.max_clients = max_clients
+        self.backend = backend
         self._requests: dict[str, list] = {}  # key -> [timestamps]
         self._last_cleanup: float = 0.0
 
@@ -456,13 +457,9 @@ class Throttle:
 
     def check(self, request: Any) -> bool:
         """
-        Check if the request is within the rate limit.
+        Check if the request is within the rate limit (synchronous, backward compat).
 
         Returns True if allowed, False if throttled.
-
-        SEC-CTRL-04: Includes periodic cleanup of expired entries and
-        LRU eviction when max_clients is reached to prevent unbounded
-        memory growth.
         """
         now = time.monotonic()
         key = self._client_key(request)
@@ -515,8 +512,36 @@ class Throttle:
         return self.window
 
     def reset(self):
-        """Clear all rate limit state."""
+        """Clear all rate limit state (sync)."""
         self._requests.clear()
+
+    async def acheck(self, request: Any) -> bool:
+        """Async rate limit check using the configured backend."""
+        key = self._client_key(request)
+        if self.backend:
+            return await self.backend.is_allowed(key, self.limit, self.window)
+
+        # Fallback to in-memory check but safely wrapped in asyncio if needed, or just call check
+        # Since sync check modifies dict, we'll just run it.
+        # In a real scenario, MemoryThrottleBackend is provided if backend=None is handled appropriately
+        # But we were told "When backend is None, use MemoryThrottleBackend (backward compat) / fallback to sync check".
+        # We will just call the backend if set, otherwise instantiate MemoryThrottleBackend lazily or run sync check.
+        # Actually, let's just run sync check if backend is missing.
+        return self.check(request)
+
+    @classmethod
+    def with_redis(cls, redis_url: str, limit: int, window: int, **kwargs) -> "Throttle":
+        from .throttle import ThrottleBackendFactory
+
+        backend = ThrottleBackendFactory.create(redis_url, **kwargs)
+        return cls(limit=limit, window=window, backend=backend)
+
+    @classmethod
+    def with_memory(cls, limit: int, window: int, **kwargs) -> "Throttle":
+        from .throttle import ThrottleBackendFactory
+
+        backend = ThrottleBackendFactory.create("memory", **kwargs)
+        return cls(limit=limit, window=window, backend=backend)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -593,6 +618,23 @@ class Controller(metaclass=_ControllerMeta):
         async def on_shutdown(self, ctx): Called at app shutdown (singleton only)
         async def on_request(self, ctx): Called before each request
         async def on_response(self, ctx, response): Called after each request
+
+    Pipeline vs. Clearance -- decision rule (section 5.2):
+        Aquilia has two mechanisms to gate a request before the handler runs:
+
+        1. pipeline -- use for middleware-style, non-identity cross-cutting
+           concerns: rate-limit guards, logging enrichment, feature-flag checks,
+           request-body transforms.  Items are FlowNode/FlowGuard subclasses or
+           plain async callables that can short-circuit with a Response.
+
+        2. clearance -- use for declarative, identity-aware access control
+           (@require_clearance(), @require_roles(), @require_scopes()).
+           Clearance is evaluated AFTER the pipeline, has direct access to the
+           resolved Identity, and returns structured 401/403 via ClearanceEngine.
+
+        Rule: auth/role/permission/scope checks -> clearance.
+        Everything else (transforms, logging, non-identity guards) -> pipeline.
+        Never duplicate the same check in both systems.
 
     Example:
 

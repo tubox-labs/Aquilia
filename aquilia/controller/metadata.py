@@ -347,7 +347,10 @@ def _extract_method_params(
     params = []
 
     try:
-        type_hints = get_type_hints(method, include_extras=True)
+        try:
+            type_hints = get_type_hints(method, include_extras=True)
+        except Exception:
+            type_hints = getattr(method, "__annotations__", {})
 
         # Extract path parameter names from full_path
         path_params = set()
@@ -371,7 +374,12 @@ def _extract_method_params(
                 or (hasattr(param_type, "__name__") and param_type.__name__ in ("RequestCtx", "Request", "FlowContext"))
                 or (
                     isinstance(param_type, str)
-                    and any(x in param_type for x in ("RequestCtx", "Request", "FlowContext"))
+                    # §6.3 FIX: use exact word-match, not substring containment.
+                    # Substring "Request" wrongly matched RequestLog, PasswordResetRequest, etc.
+                    and any(
+                        param_type == x or param_type.endswith(f".{x}")
+                        for x in ("RequestCtx", "Request", "FlowContext")
+                    )
                 )
             )
 

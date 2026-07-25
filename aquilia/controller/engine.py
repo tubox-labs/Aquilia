@@ -209,7 +209,7 @@ class ControllerEngine:
 
         try:
             # ── Throttle enforcement ──
-            throttle_response = self._check_throttle(controller_class, route_metadata, request)
+            throttle_response = await self._check_throttle(controller_class, route_metadata, request)
             if throttle_response is not None:
                 return throttle_response
 
@@ -285,9 +285,32 @@ class ControllerEngine:
             if isinstance(clearance_result, Response):
                 return clearance_result
 
+            # ── Lifecycle hook detection (needed for both paths) ──
+            # Cache per-class whether on_request / on_response are overridden.
+            # MUST be computed before the is_simple check because lifecycle hooks
+            # disqualify a route from the fast path (§6.1 fix).
+            hooks = ControllerEngine._has_lifecycle_hooks.get(controller_class)
+            if hooks is None:
+                has_on_request = "on_request" in controller_class.__dict__ or any(
+                    "on_request" in B.__dict__
+                    for B in controller_class.__mro__[1:]
+                    if B is not Controller and B is not object
+                )
+                has_on_response = "on_response" in controller_class.__dict__ or any(
+                    "on_response" in B.__dict__
+                    for B in controller_class.__mro__[1:]
+                    if B is not Controller and B is not object
+                )
+                hooks = (has_on_request, has_on_response)
+                ControllerEngine._has_lifecycle_hooks[controller_class] = hooks
+
+            has_on_request, has_on_response = hooks
+
             # ── Fast path for simple handlers ──
-            # Handlers with no pipeline, no contract, and only ctx/path params
-            # can skip the full _bind_parameters machinery.
+            # Handlers with no pipeline, no contract, no filters, no lifecycle
+            # hooks, and only ctx/path params can skip _bind_parameters.
+            # §6.1 FIX: lifecycle hook presence disqualifies fast path so hooks
+            # are never silently skipped.
             route_id = id(route)
             is_simple = ControllerEngine._simple_route_cache.get(route_id)
             if is_simple is None:
@@ -319,12 +342,17 @@ class ControllerEngine:
                     and not route_metadata.pipeline
                     and not has_contract
                     and not has_filters_or_pagination
+                    # §6.1: routes on classes with lifecycle hooks are NOT simple;
+                    # this ensures on_request/on_response are always invoked.
+                    and not has_on_request
+                    and not has_on_response
                     and (not params or all(_is_special_param(p) or p.source == "path" for p in params))
                 )
                 ControllerEngine._simple_route_cache[route_id] = is_simple
 
             if is_simple:
-                # Direct call -- skip _bind_parameters, lifecycle hooks, contract
+                # Direct call -- skip _bind_parameters, contract, lifecycle hooks
+                # (confirmed absent by is_simple check above).
                 try:
                     final_kwargs = {**path_params}
                     self._bind_special_parameters(handler_method, request, ctx, final_kwargs)
@@ -378,28 +406,9 @@ class ControllerEngine:
                 container,
             )
 
-            # Execute handler
+            # Execute handler (full path — has_on_request/has_on_response already
+            # computed above before the is_simple branch).
             try:
-                # Check lifecycle hooks (cached per class)
-                # We check if the method is actually OVERRIDDEN from Controller base,
-                # since Controller defines on_request/on_response as no-ops.
-                hooks = ControllerEngine._has_lifecycle_hooks.get(controller_class)
-                if hooks is None:
-                    has_on_request = "on_request" in controller_class.__dict__ or any(
-                        "on_request" in B.__dict__
-                        for B in controller_class.__mro__[1:]
-                        if B is not Controller and B is not object
-                    )
-                    has_on_response = "on_response" in controller_class.__dict__ or any(
-                        "on_response" in B.__dict__
-                        for B in controller_class.__mro__[1:]
-                        if B is not Controller and B is not object
-                    )
-                    hooks = (has_on_request, has_on_response)
-                    ControllerEngine._has_lifecycle_hooks[controller_class] = hooks
-
-                has_on_request, has_on_response = hooks
-
                 if has_on_request:
                     await self._safe_call(controller.on_request, ctx)
 
@@ -1573,7 +1582,7 @@ class ControllerEngine:
 
     # ── Throttle ─────────────────────────────────────────────────────
 
-    def _check_throttle(
+    async def _check_throttle(
         self,
         controller_class: type,
         route_metadata: Any,
@@ -1598,7 +1607,12 @@ class ControllerEngine:
         if throttle is None:
             return None
 
-        if not throttle.check(request):
+        if hasattr(throttle, "acheck"):
+            is_allowed = await throttle.acheck(request)
+        else:
+            is_allowed = throttle.check(request)
+
+        if not is_allowed:
             return Response.json(
                 {"error": "Too many requests", "retry_after": throttle.retry_after},
                 status=429,

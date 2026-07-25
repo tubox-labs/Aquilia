@@ -584,14 +584,21 @@ class ControllerCompiler:
 
             # Both dynamic
             else:
-                pass
+                # §6.4 FIX: compare the inferred type of each dynamic segment.
+                # Routes like /items/<id:int> and /items/<slug:uuid> share the
+                # same segment position but NEVER match the same request because
+                # the router casts the segment value and rejects on type mismatch.
+                # Only treat them as conflicting when the types are compatible.
+                if info1 != info2:
+                    # Different types (int vs uuid, str vs float, …) – not a conflict.
+                    return False
 
         # If ambiguity comes from static-vs-dynamic segments, it's not a
         # true conflict -- the router resolves it via static-first priority.
         if has_mixed_static_dynamic:
             return False
 
-        # If we got here, all segments potentially overlap (both-dynamic)
+        # If we got here, all segments potentially overlap (both-dynamic, same type)
         return True
 
     def export_routes(self, controllers: list[CompiledController]) -> dict[str, Any]:

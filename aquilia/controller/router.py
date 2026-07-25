@@ -85,6 +85,9 @@ class ControllerRouter:
         self._dynamic_routes: dict[str, list[tuple[Any, CompiledRoute, list[str]]]] = {}
         # {method: _TrieNode}  -- trie for segment-based matching
         self._tries: dict[str, _TrieNode] = {}
+        # §11.11 / §7 url_for() index: name -> CompiledRoute (O(1) reverse lookup)
+        # Keys: "ControllerName.handler_name" and bare "handler_name"
+        self._name_index: dict[str, CompiledRoute] = {}
 
     def add_controller(self, compiled_controller: CompiledController):
         """Add a compiled controller to the router."""
@@ -154,6 +157,17 @@ class ControllerRouter:
             self._static_routes[method] = static_map
             self._dynamic_routes[method] = dynamic_list
             self._tries[method] = trie_root
+
+        # ── Build name index for O(1) url_for() lookups (§7 / §11.11) ──
+        self._name_index.clear()
+        for method_routes in self.routes_by_method.values():
+            for route in method_routes:
+                full_name = f"{route.controller_class.__name__}.{route.route_metadata.handler_name}"
+                handler_name = route.route_metadata.handler_name
+                # Full name wins; bare name only when not already taken
+                self._name_index[full_name] = route
+                if handler_name not in self._name_index:
+                    self._name_index[handler_name] = route
 
         self._initialized = True
 
@@ -637,6 +651,8 @@ class ControllerRouter:
 
         When ``api_version`` is provided and the app uses URL-path versioning,
         the version prefix segment is prepended to the generated path.
+
+        §7 / §11.11: uses the _name_index built at initialize() time for O(1) lookup.
         """
         if name == "static":
             filename = params.get("filename")
@@ -653,37 +669,39 @@ class ControllerRouter:
                     pass
                 return f"/static/{filename.lstrip('/')}"
 
-        for controller in self.compiled_controllers:
-            for route in controller.routes:
-                full_name = f"{route.controller_class.__name__}.{route.route_metadata.handler_name}"
-                if full_name == name or route.route_metadata.handler_name == name:
-                    path = route.full_path
-                    query_params = {}
+        # Ensure index is built
+        if not self._initialized:
+            self.initialize()
 
-                    for k, v in params.items():
-                        # Handle both {param} and <param> / <param:type> syntax
-                        replaced = False
-                        for pattern in (f"{{{k}}}", f"<{k}>"):
-                            if pattern in path:
-                                path = path.replace(pattern, str(v))
-                                replaced = True
-                                break
-                        if not replaced:
-                            # Try <param:type> pattern
-                            import re
+        route = self._name_index.get(name)
+        if route is not None:
+            path = route.full_path
+            query_params = {}
 
-                            typed_re = re.compile(rf"<{re.escape(k)}:[^>]+>")
-                            new_path = typed_re.sub(str(v), path)
-                            if new_path != path:
-                                path = new_path
-                                replaced = True
-                        if not replaced:
-                            query_params[k] = v
+            for k, v in params.items():
+                # Handle both {param} and <param> / <param:type> syntax
+                replaced = False
+                for pattern in (f"{{{k}}}", f"<{k}>"):
+                    if pattern in path:
+                        path = path.replace(pattern, str(v))
+                        replaced = True
+                        break
+                if not replaced:
+                    # Try <param:type> pattern
+                    import re
 
-                    if query_params:
-                        query_str = "&".join(f"{k}={v}" for k, v in query_params.items())
-                        path += f"?{query_str}"
-                    return path
+                    typed_re = re.compile(rf"<{re.escape(k)}:[^>]+>")
+                    new_path = typed_re.sub(str(v), path)
+                    if new_path != path:
+                        path = new_path
+                        replaced = True
+                if not replaced:
+                    query_params[k] = v
+
+            if query_params:
+                query_str = "&".join(f"{k}={v}" for k, v in query_params.items())
+                path += f"?{query_str}"
+            return path
 
         if name.startswith("/"):
             return name

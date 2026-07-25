@@ -730,7 +730,7 @@ class TestEngineCaches:
 class TestEngineThrottle:
     """Tests for engine-level throttle integration."""
 
-    def test_check_throttle_no_throttle(self):
+    async def test_check_throttle_no_throttle(self):
         factory = ControllerFactory()
         engine = ControllerEngine(factory)
 
@@ -740,10 +740,10 @@ class TestEngineThrottle:
         meta = MagicMock()
         meta._raw_metadata = {}
         meta.throttle = None
-        result = engine._check_throttle(NoThrottle, meta, _make_request())
+        result = await engine._check_throttle(NoThrottle, meta, _make_request())
         assert result is None
 
-    def test_check_throttle_class_level(self):
+    async def test_check_throttle_class_level(self):
         factory = ControllerFactory()
         engine = ControllerEngine(factory)
 
@@ -756,11 +756,11 @@ class TestEngineThrottle:
         req = _make_request()
 
         # First request: OK
-        result = engine._check_throttle(Throttled, meta, req)
+        result = await engine._check_throttle(Throttled, meta, req)
         assert result is None
 
         # Second request: throttled
-        result = engine._check_throttle(Throttled, meta, req)
+        result = await engine._check_throttle(Throttled, meta, req)
         assert result is not None
         assert result.status == 429
 

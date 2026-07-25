@@ -92,7 +92,19 @@ from .renderers import (
     YAMLRenderer,
     negotiate,
 )
+from .resource import (
+    CRUDResource,
+    ReadOnlyResource,
+    Resource,
+    action,
+)
 from .router import ControllerRouter
+from .throttle import (
+    MemoryThrottleBackend,
+    RedisThrottleBackend,
+    ThrottleBackend,
+    ThrottleBackendFactory,
+)
 from .validation import RequestBodyValidationFault, ValidationFault, validate_body
 
 __all__ = [
@@ -103,6 +115,10 @@ __all__ = [
     "ExceptionFilter",
     "Interceptor",
     "Throttle",
+    "ThrottleBackend",
+    "MemoryThrottleBackend",
+    "RedisThrottleBackend",
+    "ThrottleBackendFactory",
     # Decorators
     "GET",
     "POST",
@@ -115,6 +131,11 @@ __all__ = [
     "WS",
     "route",
     "VALID_HTTP_METHODS",
+    # Resources
+    "Resource",
+    "ReadOnlyResource",
+    "CRUDResource",
+    "action",
     # Metadata
     "ControllerMetadata",
     "RouteMetadata",

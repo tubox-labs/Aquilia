@@ -133,6 +133,10 @@ class SignInProvisionPolicy:
     - Bootstrap is only used when a trusted Identity seed is provided.
     - Missing identity and password credential are backfilled once.
     - Existing credentials are never overwritten unless explicitly requested.
+
+    §6.2 addition:
+    - ``issue_tokens``: set to False for session-only auth flows; prevents
+      minting long-lived refresh tokens that have no safe storage place.
     """
 
     enable_identity_seed: bool = True
@@ -140,6 +144,9 @@ class SignInProvisionPolicy:
     backfill_password_credential: bool = True
     overwrite_password_credential: bool = False
     allow_username_bootstrap: bool = True
+    # §6.2: control whether sign_in should issue JWT tokens.
+    # Set to False for pure server-side-session auth flows.
+    issue_tokens: bool = True
 
     @classmethod
     def secure_defaults(cls, env: str | None = None) -> SignInProvisionPolicy:
@@ -448,13 +455,14 @@ class AuthManager:
         | None = None,
         session_id: str | None = None,
         client_metadata: dict[str, Any] | None = None,
+        issue_tokens: bool = True,
     ) -> AuthResult:
-        """Verify username and password credentials to issue tokens.
+        """Verify username and password credentials and optionally issue tokens.
 
         First checks the IP and username-based rate limits to prevent brute-force
         attacks. If verified, resolves the identity and verifies the password hash
-        using the configured ``PasswordHasher``. Finally, issues appropriate JWT
-        access and opaque refresh tokens.
+        using the configured ``PasswordHasher``. When ``issue_tokens=True`` (the
+        default) it also issues JWT access and opaque refresh tokens.
 
         Args:
             username: The unique identifier (username, email, phone number, etc.).
@@ -462,9 +470,13 @@ class AuthManager:
             scopes: Scopes requested for the session or token.
             session_id: Optional session identifier to bind the issued token to.
             client_metadata: Optional dict of client-specific context like IP or User-Agent.
+            issue_tokens: When False, skip JWT access/refresh token issuance entirely
+                (session-only flows). Returned AuthResult will have access_token=None
+                and refresh_token=None. Default is True.
 
         Returns:
-            An ``AuthResult`` instance containing the identity, access token, and refresh token.
+            An ``AuthResult`` instance. When issue_tokens=True (default) it includes
+            the access and refresh tokens; when False, those fields are None.
 
         Raises:
             AUTH_INVALID_CREDENTIALS: If the password check fails or the username does not exist.
@@ -474,15 +486,19 @@ class AuthManager:
 
         Example::
 
-            try:
-                auth_result = await auth_manager.authenticate_password(
-                    username="user@example.com",
-                    password="my_secure_password",
-                    scopes=["read", "write"]
-                )
-                print(f"Logged in: {auth_result.identity.id}")
-            except AUTH_INVALID_CREDENTIALS:
-                print("Invalid username or password")
+            # Standard token-bearing sign-in
+            auth_result = await auth_manager.authenticate_password(
+                username="user@example.com",
+                password="my_secure_password",
+                scopes=["read", "write"]
+            )
+
+            # Session-only auth — no tokens minted
+            auth_result = await auth_manager.authenticate_password(
+                username="user@example.com",
+                password="my_secure_password",
+                issue_tokens=False,
+            )
         """
         username = self._normalize_username_identifier(username, key="auth.authenticate_password.username")
         self._validate_password_input(password, key="auth.authenticate_password.password")
@@ -550,22 +566,27 @@ class AuthManager:
         elif not isinstance(roles, list):
             roles = [roles] if roles else []
 
-        # Issue tokens
-        access_token = await self.token_manager.issue_access_token(
-            identity_id=identity.id,
-            scopes=normalized_scopes or ["profile"],
-            roles=roles,
-            session_id=session_id,
-            tenant_id=identity.tenant_id,
-        )
+        # Issue tokens only when caller requests them (§6.2 fix: session-only callers
+        # should not receive long-lived refresh tokens they have no safe storage for).
+        if issue_tokens:
+            access_token = await self.token_manager.issue_access_token(
+                identity_id=identity.id,
+                scopes=normalized_scopes or ["profile"],
+                roles=roles,
+                session_id=session_id,
+                tenant_id=identity.tenant_id,
+            )
 
-        refresh_token = await self.token_manager.issue_refresh_token(
-            identity_id=identity.id,
-            scopes=normalized_scopes or ["profile"],
-            session_id=session_id,
-            roles=roles,
-            tenant_id=identity.tenant_id,
-        )
+            refresh_token = await self.token_manager.issue_refresh_token(
+                identity_id=identity.id,
+                scopes=normalized_scopes or ["profile"],
+                session_id=session_id,
+                roles=roles,
+                tenant_id=identity.tenant_id,
+            )
+        else:
+            access_token = None
+            refresh_token = None
 
         # Django-like ergonomics for Aquilia: when auth runs inside request scope,
         # the identity is bound to the active session automatically.
@@ -576,7 +597,7 @@ class AuthManager:
             access_token=access_token,
             refresh_token=refresh_token,
             session_id=session_id,
-            expires_in=self.token_manager.config.access_token_ttl,
+            expires_in=self.token_manager.config.access_token_ttl if issue_tokens else 0,
             metadata={
                 "auth_method": "password",
                 "client_metadata": client_metadata,
@@ -684,6 +705,7 @@ class AuthManager:
                 scopes=scopes,
                 session_id=explicit_session_id,
                 client_metadata=client_metadata,
+                issue_tokens=policy.issue_tokens,
             )
         except AUTH_INVALID_CREDENTIALS:
             # Secure-default ergonomics: when auth stores are empty/misaligned,
@@ -706,6 +728,7 @@ class AuthManager:
                 scopes=scopes,
                 session_id=explicit_session_id,
                 client_metadata=client_metadata,
+                issue_tokens=policy.issue_tokens,
             )
 
     async def _provision_from_identity_seed(

@@ -379,9 +379,16 @@ class ControllerFactory:
 
         except ScopeViolationError:
             raise
-        except Exception:
-            # If validation fails due to inspection issues, log warning but allow proceed
-            pass
+        except Exception as _scope_exc:
+            # §8 FIX: The comment promised a warning but nothing logged it.
+            # Log now so operators can detect when scope validation itself fails
+            # (e.g. a custom container missing an expected introspection method).
+            logger.warning(
+                "Scope validation for %s could not complete due to inspection error: %s. "
+                "Proceeding, but request-scoped state leaks into singletons may go undetected.",
+                controller_class.__name__,
+                _scope_exc,
+            )
 
     def _get_type_hints(self, cls):
         try:
