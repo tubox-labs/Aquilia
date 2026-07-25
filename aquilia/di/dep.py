@@ -60,20 +60,61 @@ from typing import (
 
 @dataclass(frozen=True, slots=True)
 class Dep:
-    """Dependency descriptor for Annotated[]-based injection.
+    """
+    Composable dependency descriptor for annotation-driven DI and Request DAG.
 
-    Attributes:
-        call:      Optional callable (sync/async function, generator, or class).
-                   If None, resolves from container by type annotation.
-        cached:    Whether to cache the result in the per-request DAG.
-                   True by default -- a shared ``get_db`` appears once in
-                   the DAG even if multiple parameters depend on it.
-        scope:     Optional scope override. When set, the dependency is
-                   resolved/instantiated in the given scope regardless of
-                   the callable's own scope hints.
-        tag:       Container tag for disambiguation (same semantics as Inject.tag).
-        use_cache: Whether to check the container's own instance cache
-                   before calling the factory. True by default.
+    Args:
+        call: Optional callable (sync/async function, generator, or class). If
+            ``None``, resolves directly from container by target type or tag.
+        cached: Whether to cache the resolved result in the per-request DAG context.
+            Defaults to ``True`` so shared dependencies (e.g. ``get_db``) are executed
+            only once per request.
+        scope: Optional scope override string (e.g. ``"request"``, ``"app"``). When set,
+            overrides the callable's own scope hints.
+        tag: Container tag for disambiguating container lookups (same semantics as
+            ``Inject.tag``).
+        use_cache: Whether to check the container's internal instance cache before
+            invoking the factory callable. Defaults to ``True``.
+
+    Returns:
+        A frozen :class:`Dep` descriptor instance for use inside ``Annotated[...]``.
+
+    Note:
+        Generator callables (yielding a resource) have their teardown automatically
+        registered and executed in LIFO order during request scope shutdown.
+        Sub-dependencies inside ``call`` parameters are recursively analyzed and
+        resolved in parallel where independent.
+
+    Usage::
+
+        from typing import Annotated
+        from aquilia.di import Dep, Header
+
+        # Simple callable dependency
+        async def get_db() -> Database:
+            return await Database.connect(...)
+
+        # Sub-dependency chaining with parameter extraction
+        async def get_current_user(
+            db: Annotated[Database, Dep(get_db)],
+            token: Annotated[str, Header("Authorization")],
+        ) -> User:
+            return await db.find_user_by_token(token)
+
+        # Handler with generator dependency (automatic teardown)
+        async def get_session():
+            session = Session()
+            try:
+                yield session
+            finally:
+                await session.close()
+
+        @GET("/me")
+        async def me(
+            user: Annotated[User, Dep(get_current_user)],
+            session: Annotated[Session, Dep(get_session)],
+        ):
+            return user
     """
 
     call: Callable[..., Any] | None = None
@@ -375,11 +416,13 @@ def _unpack_annotation(annotation: Any) -> tuple[type, Any]:
                 if isinstance(meta, Dep):
                     return (base_type, meta)
                 # Backwards compat: treat Inject as Dep()
-                if isinstance(meta, _get_inject_class()):
+                if isinstance(meta, _get_inject_class()) or hasattr(meta, "_inject_token"):
+                    injected_tok = getattr(meta, "_inject_token", None) or getattr(meta, "token", None)
+                    target_type = injected_tok if injected_tok is not None else base_type
                     return (
-                        base_type,
+                        target_type,
                         Dep(
-                            tag=getattr(meta, "tag", None),
+                            tag=getattr(meta, "tag", None) or getattr(meta, "_inject_tag", None),
                         ),
                     )
                 # Header/Query/Body/Cookie/Path are handled by RequestDAG

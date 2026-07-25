@@ -417,7 +417,7 @@ class Container:
         Resolve a dependency (hot path - optimized).
 
         Args:
-            token: Type or string key
+            token: Type, string key, Annotated alias, or Inject/Dep marker.
             tag: Optional tag for disambiguation
             optional: If True, return None if not found instead of raising
 
@@ -427,7 +427,7 @@ class Container:
         Raises:
             ProviderNotFoundError: If provider not found and not optional
         """
-        # Convert type to string key
+        token, tag, optional = self._unwrap_token(token, tag, optional)
         token_key = self._token_to_key(token)
         cache_key = self._make_cache_key(token_key, tag)
 
@@ -469,6 +469,8 @@ class Container:
         - No method call overhead for the >99% cached-hit case.
         - _should_cache uses frozenset constant.
         """
+        token, tag, optional = self._unwrap_token(token, tag, optional)
+
         # ── Inline token_to_key for speed ──
         if isinstance(token, str):
             token_key = token
@@ -882,19 +884,25 @@ class Container:
     # ══════════════════════════════════════════════════════════════════
 
     async def resolve_dep(self, dep: Any, param_type: type, request: Any = None) -> Any:
-        """Resolve a ``Dep(...)`` descriptor against this container.
-
-        Sub-dependencies are deduplicated in a request-local cache,
-        independent branches resolve in parallel, and generator
-        dependencies register teardown that runs at ``shutdown()``.
+        """
+        Resolve a Dep descriptor, executing callables, de-duplicating branches, and managing teardowns.
 
         Args:
-            dep:        The ``Dep(...)`` descriptor.
-            param_type: Base type from ``Annotated[T, Dep(...)]``.
-            request:    Current request for Header/Query/Body extraction.
+            dep: The ``Dep(...)`` descriptor instance.
+            param_type: Base type or Annotated alias from ``Annotated[T, Dep(...)]``.
+            request: Current request context for parameter extraction.
 
         Returns:
             The resolved dependency value.
+
+        Note:
+            Handles bare container lookups, cached request-scoped DAG values, in-flight
+            deduplication across concurrent resolution tasks, circular dependency guards,
+            and async generator teardown tracking.
+
+        Usage::
+
+            user = await container.resolve_dep(Dep(get_current_user), User, request)
         """
         # Bare Dep() — resolve by type from the container.
         if dep.is_container_lookup:
@@ -960,7 +968,18 @@ class Container:
             self._dep_inflight.pop(cache_key, None)
 
     async def _invoke_dep_guarded(self, dep: Any, cache_key: str, param_type: type, request: Any) -> Any:
-        """Invoke an uncached dep with only ancestor-based cycle detection."""
+        """
+        Invoke an uncached Dep descriptor with cycle detection.
+
+        Args:
+            dep: Dep descriptor.
+            cache_key: Unique cache key for cycle tracking.
+            param_type: Parameter type annotation.
+            request: Active request context.
+
+        Returns:
+            Resolved dependency result.
+        """
         ancestors = _dep_ancestors.get()
         if cache_key in ancestors:
             from ..faults.domains import DIResolutionFault
@@ -976,7 +995,16 @@ class Container:
             _dep_ancestors.reset(token)
 
     async def _invoke_dep(self, dep: Any, request: Any) -> Any:
-        """Invoke a Dep callable after resolving its sub-dependencies."""
+        """
+        Invoke a Dep callable after resolving its sub-dependencies.
+
+        Args:
+            dep: Dep descriptor.
+            request: Active request context.
+
+        Returns:
+            Result of calling dep.call with resolved keyword arguments.
+        """
         assert dep.call is not None
 
         sub_deps = dep.get_sub_dependencies()
@@ -993,7 +1021,16 @@ class Container:
             return result
 
     async def _resolve_sub_deps(self, sub_deps: dict[str, tuple], request: Any) -> dict[str, Any]:
-        """Resolve sub-dependencies, parallelising independent branches."""
+        """
+        Resolve sub-dependencies concurrently for independent branches.
+
+        Args:
+            sub_deps: Mapping of parameter name to (param_type, sub_dep_meta).
+            request: Active request context.
+
+        Returns:
+            Dictionary mapping parameter names to resolved values.
+        """
         if not sub_deps:
             return {}
 
@@ -1011,7 +1048,18 @@ class Container:
         return dict(zip(keys, results, strict=False))
 
     async def _resolve_single_dep(self, pname: str, ptype: type, sub_dep: Any, request: Any) -> Any:
-        """Resolve a single sub-dependency parameter."""
+        """
+        Resolve a single sub-dependency parameter.
+
+        Args:
+            pname: Parameter name.
+            ptype: Parameter type annotation.
+            sub_dep: Sub-dependency descriptor (Header/Query/Body/Cookie/Path or Dep).
+            request: Active request context.
+
+        Returns:
+            Resolved parameter value.
+        """
         from .dep import Body, Cookie, Dep, Header, Path, Query, _unpack_annotation
         from .request_dag import _get_base_type, _is_contract_type
 
@@ -1036,7 +1084,18 @@ class Container:
         return await self._resolve_from_container(ptype, tag=None)
 
     async def _resolve_extracted_parameter(self, pname: str, ptype: type, sub_dep: Any, request: Any) -> Any:
-        """Resolve a Header/Query/Body/Cookie/Path extractor parameter."""
+        """
+        Resolve a Header/Query/Body/Cookie/Path parameter from request.
+
+        Args:
+            pname: Parameter name.
+            ptype: Parameter type annotation.
+            sub_dep: Extractor descriptor.
+            request: Active request context.
+
+        Returns:
+            Extracted and validated parameter value.
+        """
         from .dep import Body
         from .request_dag import _get_base_type, _is_contract_type
 
@@ -1057,7 +1116,16 @@ class Container:
         return _resolve_extracted_parameter_sync(request, pname, ptype, sub_dep, body=body)
 
     async def _invoke_dep_generator(self, dep: Any, kwargs: dict[str, Any]) -> Any:
-        """Invoke a generator Dep and register its teardown."""
+        """
+        Invoke a generator Dep callable and register its iterator for LIFO teardown.
+
+        Args:
+            dep: Dep descriptor containing the generator function.
+            kwargs: Resolved keyword arguments for the generator function.
+
+        Returns:
+            The yielded resource value from the generator.
+        """
         if self._dep_teardowns is None:
             self._dep_teardowns = []
 
@@ -1080,12 +1148,22 @@ class Container:
             )
 
     async def _resolve_from_container(self, param_type: type, tag: str | None) -> Any:
-        """Resolve from this container by type, with qualified-name fallback."""
+        """
+        Resolve from this container by type or Annotated alias, with qualified-name fallback.
+
+        Args:
+            param_type: Target type hint or Annotated alias (e.g. Annotated[Any, Inject(...)]).
+            tag: Optional container tag for disambiguation.
+
+        Returns:
+            Resolved service instance from container.
+        """
         try:
             return await self.resolve_async(param_type, tag=tag, optional=False)
         except Exception:
-            if isinstance(param_type, type):
-                key = f"{param_type.__module__}.{param_type.__qualname__}"
+            unwrapped, _, _ = self._unwrap_token(param_type, tag)
+            if isinstance(unwrapped, type):
+                key = f"{unwrapped.__module__}.{unwrapped.__qualname__}"
                 try:
                     return await self.resolve_async(key, tag=tag, optional=False)
                 except Exception:
@@ -1124,24 +1202,94 @@ class Container:
                 _log.getLogger("aquilia.di.dag").warning(f"Error during Dep teardown: {exc}")
         self._dep_teardowns = None
 
+    def _unwrap_token(
+        self,
+        token: Any,
+        tag: str | None = None,
+        optional: bool = False,
+    ) -> tuple[Any, str | None, bool]:
+        """
+        Unwrap Annotated[T, Inject(...)] / Annotated[T, Dep(...)] / Inject(...) / Dep(...) / Optional[T].
+
+        Args:
+            token: Type, string key, Annotated alias, or Inject/Dep marker instance.
+            tag: Optional tag override for container lookup.
+            optional: Optional fallback flag (True returns None if not found).
+
+        Returns:
+            Tuple of ``(unwrapped_token, effective_tag, effective_optional)``.
+        """
+        from typing import get_args, get_origin
+
+        # Handle direct Inject instance or object with DI metadata attributes
+        if hasattr(token, "_inject_token") or hasattr(token, "_inject_tag") or hasattr(token, "_inject_optional"):
+            tok = getattr(token, "_inject_token", None) or getattr(token, "token", None)
+            tg = tag if tag is not None else (getattr(token, "_inject_tag", None) or getattr(token, "tag", None))
+            opt = optional or getattr(token, "_inject_optional", False) or getattr(token, "optional", False)
+            if tok is not None and tok is not token:
+                return self._unwrap_token(tok, tag=tg, optional=opt)
+            return token, tg, opt
+
+        origin = get_origin(token)
+        if origin is not None:
+            try:
+                from typing import Annotated
+
+                if origin is Annotated:
+                    args = get_args(token)
+                    base_type = args[0]
+                    eff_token = base_type
+                    eff_tag = tag
+                    eff_optional = optional
+
+                    for meta in args[1:]:
+                        if (
+                            hasattr(meta, "_inject_token")
+                            or hasattr(meta, "_inject_tag")
+                            or hasattr(meta, "_inject_optional")
+                            or hasattr(meta, "token")
+                            or hasattr(meta, "tag")
+                        ):
+                            injected_tok = getattr(meta, "_inject_token", None) or getattr(meta, "token", None)
+                            if injected_tok is not None:
+                                eff_token = injected_tok
+                            if eff_tag is None:
+                                eff_tag = getattr(meta, "_inject_tag", None) or getattr(meta, "tag", None)
+                            if not eff_optional:
+                                eff_optional = getattr(meta, "_inject_optional", False) or getattr(meta, "optional", False)
+                        elif hasattr(meta, "is_container_lookup"):
+                            if eff_tag is None and getattr(meta, "tag", None) is not None:
+                                eff_tag = meta.tag
+
+                    return self._unwrap_token(eff_token, tag=eff_tag, optional=eff_optional)
+            except ImportError:
+                pass
+
+        from .providers import _normalize_optional_token
+
+        normalized_token, opt_from_type = _normalize_optional_token(token)
+        return normalized_token, tag, optional or opt_from_type
+
     def _token_to_key(self, token: type | str) -> str:
-        """Convert type or string to cache key.
+        """Convert type, string, Annotated alias, or Inject descriptor to cache key.
 
         Performance: type→key results are cached in a module-level dict
         to avoid repeated f-string formatting (~0.12µs → ~0.04µs).
         """
-        if isinstance(token, str):
-            return token
+        unwrapped, _, _ = self._unwrap_token(token)
 
-        if isinstance(token, type):
-            key = _type_key_cache.get(token)
+        if isinstance(unwrapped, str):
+            return unwrapped
+
+        if isinstance(unwrapped, type):
+            key = _type_key_cache.get(unwrapped)
             if key is None:
-                key = f"{token.__module__}.{token.__qualname__}"
-                _cache_type_key(token, key)
+                key = f"{unwrapped.__module__}.{unwrapped.__qualname__}"
+                _cache_type_key(unwrapped, key)
             return key
 
         # Handle typing generics
-        return str(token)
+        return str(unwrapped)
 
     def _make_cache_key(self, token: str, tag: str | None) -> str:
         """Create cache key from token and tag."""

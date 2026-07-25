@@ -18,11 +18,59 @@ T = TypeVar("T")
 @dataclass
 class Inject:
     """
-    Injection metadata marker.
+    Injection metadata marker for parameter-level dependency injection.
 
-    Usage:
-        def __init__(self, repo: Annotated[UserRepo, Inject(tag="repo")]):
-            ...
+    Args:
+        token: Explicit provider token (type or string key). Inferred from
+            the base type hint if ``None``.
+        tag: Optional container tag for disambiguating between multiple providers
+            registered for the same interface or token.
+        optional: If ``True``, resolves to ``None`` if no provider is found in the
+            container, rather than raising a ``ProviderNotFoundError``.
+
+    Returns:
+        An ``Inject`` metadata marker instance for use inside ``Annotated[...]``.
+
+    Note:
+        When used as ``Annotated[typing.Any, Inject("modules.auth.services:CrossAppService")]``,
+        the DI container unwraps the metadata marker and resolves the target string
+        or class token directly from the container registry.
+
+    Usage::
+
+        from typing import Annotated, Any
+        from aquilia.di import Inject, inject
+
+        # Simple type-inferred injection
+        class UserService:
+            def __init__(self, repo: UserRepo):
+                self.repo = repo
+
+        # Tagged injection for disambiguation
+        class OrderService:
+            def __init__(
+                self,
+                primary_db: Annotated[Database, Inject(tag="primary")],
+                replica_db: Annotated[Database, Inject(tag="readonly")],
+            ):
+                self.primary_db = primary_db
+                self.replica_db = replica_db
+
+        # String token cross-module injection
+        class AuthController:
+            def __init__(
+                self,
+                cross_app: Annotated[Any, Inject("modules.auth.services:CrossAppService")],
+            ):
+                self.cross_app = cross_app
+
+        # Optional injection fallback
+        class CacheManager:
+            def __init__(
+                self,
+                redis: Annotated[RedisClient, Inject(optional=True)],
+            ):
+                self.redis = redis
     """
 
     token: type | str | None = None
@@ -47,20 +95,32 @@ def inject(
     optional: bool = False,
 ) -> Inject:
     """
-    Create injection metadata.
+    Factory function creating injection metadata markers for type annotations.
 
     Args:
-        token: Optional explicit token (inferred from type hint if None)
-        tag: Optional tag for disambiguation
-        optional: If True, inject None if provider not found
+        token: Optional explicit provider token (type or string key). Inferred
+            from base type hint if ``None``.
+        tag: Optional container tag for disambiguating between multiple implementations.
+        optional: If ``True``, resolves to ``None`` if the provider is not found
+            in the container, preventing resolution errors.
 
     Returns:
-        Inject metadata object
+        An :class:`Inject` metadata object configured with the specified parameters.
 
-    Example:
+    Note:
+        This is a lower-case helper equivalent to instantiating :class:`Inject` directly.
+        It integrates with ``Annotated[T, inject(...)]`` across controllers, services,
+        and request DAG dependency resolution.
+
+    Usage::
+
+        from typing import Annotated
+        from aquilia.di import inject
+
         def handler(
             db: Annotated[Database, inject(tag="readonly")],
             cache: Annotated[Cache, inject(optional=True)],
+            auth: Annotated[Any, inject("modules.auth.services:CrossAppService")],
         ):
             ...
     """
@@ -205,8 +265,11 @@ def auto_inject(func: Callable[..., T]) -> Callable[..., T]:
     """
     from .compat import get_request_container
 
-    sig = func.__signature__ if hasattr(func, "__signature__") else None
-    hints = get_type_hints(func) if sig is None else None
+    sig = getattr(func, "__signature__", None)
+    try:
+        hints = get_type_hints(func, include_extras=True) if sig is None else None
+    except Exception:
+        hints = getattr(func, "__annotations__", {})
 
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
