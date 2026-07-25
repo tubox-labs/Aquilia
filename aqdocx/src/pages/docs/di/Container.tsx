@@ -144,10 +144,15 @@ class UserController(Controller):
         <div className="mb-12 border-l-2 border-white/5 pl-6">
           <h3 className={`text-lg font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}><code className="text-aquilia-500 text-lg">await resolve_async(token, *, tag=None, optional=False)</code></h3>
           <p className={`mb-4 text-sm ${subtleText}`}>
-            <strong>Primary async resolution path.</strong> Optimized for &lt;3&micro;s cached lookups with O(1) cache check and parent container delegation. Pass <code className="text-aquilia-500">optional=True</code> to get <code className="text-aquilia-500">None</code> instead of <code className="text-aquilia-500">ProviderNotFoundError</code> when unregistered.
+            <strong>Primary async resolution path.</strong> Accepts concrete types, string tokens (e.g. <code className="text-aquilia-500 font-mono">"modules.auth.services:CrossAppService"</code>), <code className="text-aquilia-500 font-mono">Annotated[T, Inject(...)]</code> aliases, or direct <code className="text-aquilia-500 font-mono">Inject(...)</code> markers. Automatically unwraps descriptor metadata via <code className="text-aquilia-500 font-mono">_unwrap_token()</code>. Optimized for &lt;3&micro;s cached lookups with O(1) cache check and parent container delegation. Pass <code className="text-aquilia-500">optional=True</code> to get <code className="text-aquilia-500">None</code> instead of <code className="text-aquilia-500">ProviderNotFoundError</code> when unregistered.
           </p>
-          <CodeBlock language="python">{`# Standard resolution
+          <CodeBlock language="python">{`# Standard type resolution
 user_svc = await container.resolve_async(UserService)
+
+# String tokenized cross-module resolution
+auth_svc = await container.resolve_async(
+    Annotated[Any, Inject("modules.auth.services:CrossAppService")]
+)
 
 # Tagged resolution
 redis = await container.resolve_async(CacheBackend, tag="redis")

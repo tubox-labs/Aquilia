@@ -60,9 +60,28 @@ class OrderService:
         self.cache = cache
         self.metrics = metrics`}</CodeBlock>
 
+        <h3 className={`text-lg font-semibold mb-3 mt-6 ${isDark ? 'text-white' : 'text-gray-900'}`}>String Token &amp; Cross-App Resolution</h3>
+        <p className={`mb-4 ${subtleText}`}>
+          String tokens allow resolving cross-module services or registered string identifiers without tight class imports:
+        </p>
+        <CodeBlock language="python" filename="String Token Injection">{`from typing import Annotated, Any
+from aquilia.di import Inject, inject
+
+class AuthController:
+    def __init__(
+        self,
+        # Container unwraps Inject("modules.auth.services:CrossAppService") directly
+        cross_app: Annotated[Any, Inject("modules.auth.services:CrossAppService")],
+        
+        # Shorthand inject() helper with tag and optional fallback
+        auth_service: Annotated[Any, inject("modules.auth.services:AuthService", optional=True)],
+    ):
+        self.cross_app = cross_app
+        self.auth_service = auth_service`}</CodeBlock>
+
         <div className="border-l-4 border-aquilia-500 bg-aquilia-500/5 pl-4 py-3 rounded-r-xl my-6">
           <p className="text-xs text-aquilia-500/90 leading-relaxed">
-            <strong>Internal Extraction:</strong> The container uses <code className="text-xs">typing.get_type_hints(cls.__init__)</code> to extract these metadata markers during manifest processing, creating highly optimized static execution plans.
+            <strong>Internal Unwrapping:</strong> In Aquilia v1.3.4+, <code className="text-xs">Container._unwrap_token()</code> automatically unwraps <code className="text-xs">Annotated[T, Inject("token")]</code> aliases and direct <code className="text-xs">Inject("token")</code> markers, resolving target string tokens cleanly from container registries.
           </p>
         </div>
       </section>
