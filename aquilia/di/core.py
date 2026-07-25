@@ -1299,6 +1299,48 @@ class Container:
             return f"{token}#{tag}"
         return token
 
+    def _resolve_string_token_symbol(self, token: str) -> type | None:
+        """
+        Dynamically resolve a string path token to its underlying Python class.
+        Supports both 'pkg.mod:Outer.Inner' and 'pkg.mod.Outer.Inner' formats,
+        traversing nested attribute paths and trying progressive module imports.
+        """
+        import importlib
+
+        # Case 1: Explicit colon format 'module_path:Attr.Child'
+        if ":" in token:
+            mod_path, attr_path = token.split(":", 1)
+            try:
+                mod = importlib.import_module(mod_path)
+                curr: Any = mod
+                for part in attr_path.split("."):
+                    curr = getattr(curr, part, None)
+                    if curr is None:
+                        break
+                if isinstance(curr, type):
+                    return curr
+            except (ImportError, AttributeError, ValueError):
+                pass
+
+        # Case 2: Pure dot format or fallback 'pkg.sub.mod.Outer.Inner'
+        parts = token.split(".") if ":" not in token else token.replace(":", ".").split(".")
+        for i in range(len(parts) - 1, 0, -1):
+            mod_path = ".".join(parts[:i])
+            attr_path = ".".join(parts[i:])
+            try:
+                mod = importlib.import_module(mod_path)
+                curr: Any = mod
+                for part in attr_path.split("."):
+                    curr = getattr(curr, part, None)
+                    if curr is None:
+                        break
+                if isinstance(curr, type):
+                    return curr
+            except (ImportError, AttributeError, ValueError):
+                continue
+
+        return None
+
     def _lookup_provider(
         self,
         token: str,
@@ -1321,36 +1363,27 @@ class Container:
             if ":" in token:
                 alt_token = token.replace(":", ".")
             elif "." in token:
-                alt_token = token.replace(".", ":")
+                parts = token.rsplit(".", 1)
+                alt_token = f"{parts[0]}:{parts[1]}"
 
             if alt_token is not None:
                 alt_key = self._make_cache_key(alt_token, tag)
                 if alt_key in self._providers:
                     return self._providers[alt_key]
 
-            # Dynamic importlib fallback for python module path tokens
+            # Dynamic importlib fallback for nested attributes and python path tokens
             if ":" in token or "." in token:
-                try:
-                    if ":" in token:
-                        mod_path, symbol_name = token.rsplit(":", 1)
-                    else:
-                        mod_path, symbol_name = token.rsplit(".", 1)
+                cls = self._resolve_string_token_symbol(token)
+                if cls is not None:
+                    cls_key = self._make_cache_key(self._token_to_key(cls), tag)
+                    colon_key = self._make_cache_key(f"{cls.__module__}:{cls.__qualname__}", tag)
 
-                    import importlib
-
-                    mod = importlib.import_module(mod_path)
-                    cls = getattr(mod, symbol_name, None)
-
-                    if isinstance(cls, type):
-                        cls_key = self._make_cache_key(self._token_to_key(cls), tag)
-                        if cls_key in self._providers:
-                            # Auto-alias string token to provider for O(1) future lookups
-                            provider = self._providers[cls_key]
-                            if self._providers_owned:
-                                self._providers[key] = provider
-                            return provider
-                except (ImportError, AttributeError, ValueError):
-                    pass
+                    provider = self._providers.get(cls_key) or self._providers.get(colon_key)
+                    if provider is not None:
+                        # Auto-alias string token to provider for O(1) future lookups
+                        if self._providers_owned:
+                            self._providers[key] = provider
+                        return provider
 
         # Check parent
         if self._parent:

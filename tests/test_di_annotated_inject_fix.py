@@ -258,3 +258,44 @@ async def test_importlib_dynamic_string_token_fallback():
     module_path = f"{LocalDummy.__module__}:{LocalDummy.__qualname__}"
     resolved = await container.resolve_async(Annotated[Any, Inject(module_path)])
     assert isinstance(resolved, LocalDummy)
+
+
+class OuterNamespace:
+    class NestedService:
+        pass
+
+
+@pytest.mark.asyncio
+async def test_nested_class_importlib_dynamic_resolution():
+    from aquilia.di.providers import ClassProvider
+
+    container = Container()
+    provider = ClassProvider(OuterNamespace.NestedService, scope="app")
+    container.register(provider)
+
+    # 1. Colon with nested dot: 'tests.test_di_annotated_inject_fix:OuterNamespace.NestedService'
+    token_colon = f"{OuterNamespace.NestedService.__module__}:OuterNamespace.NestedService"
+    resolved_colon = await container.resolve_async(Annotated[Any, Inject(token_colon)])
+    assert isinstance(resolved_colon, OuterNamespace.NestedService)
+
+    # 2. Pure dot format: 'tests.test_di_annotated_inject_fix.OuterNamespace.NestedService'
+    token_dot = f"{OuterNamespace.NestedService.__module__}.OuterNamespace.NestedService"
+    resolved_dot = await container.resolve_async(Annotated[Any, Inject(token_dot)])
+    assert isinstance(resolved_dot, OuterNamespace.NestedService)
+
+
+@pytest.mark.asyncio
+async def test_multi_dot_last_separator_swap():
+    from aquilia.di.providers import ClassProvider
+
+    container = Container()
+    provider = ClassProvider(OuterNamespace.NestedService, scope="app")
+    # Register explicitly under colon format
+    colon_token = f"{OuterNamespace.NestedService.__module__}:OuterNamespace.NestedService"
+    await container.register_instance(colon_token, OuterNamespace.NestedService())
+
+    # Request via multi-dot format: 'tests.test_di_annotated_inject_fix.OuterNamespace.NestedService'
+    # Swapping last dot transforms it to colon_token above
+    dot_token = f"{OuterNamespace.NestedService.__module__}.OuterNamespace.NestedService"
+    resolved = await container.resolve_async(Annotated[Any, Inject(dot_token)])
+    assert isinstance(resolved, OuterNamespace.NestedService)
