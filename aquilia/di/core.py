@@ -1256,7 +1256,9 @@ class Container:
                             if eff_tag is None:
                                 eff_tag = getattr(meta, "_inject_tag", None) or getattr(meta, "tag", None)
                             if not eff_optional:
-                                eff_optional = getattr(meta, "_inject_optional", False) or getattr(meta, "optional", False)
+                                eff_optional = getattr(meta, "_inject_optional", False) or getattr(
+                                    meta, "optional", False
+                                )
                         elif hasattr(meta, "is_container_lookup"):
                             if eff_tag is None and getattr(meta, "tag", None) is not None:
                                 eff_tag = meta.tag
