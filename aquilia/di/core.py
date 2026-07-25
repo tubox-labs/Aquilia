@@ -1315,6 +1315,19 @@ class Container:
         if key in self._providers:
             return self._providers[key]
 
+        # Try colon/dot token format variations if token is a string
+        if isinstance(token, str):
+            alt_token = None
+            if ":" in token:
+                alt_token = token.replace(":", ".")
+            elif "." in token:
+                alt_token = token.replace(".", ":")
+
+            if alt_token is not None:
+                alt_key = self._make_cache_key(alt_token, tag)
+                if alt_key in self._providers:
+                    return self._providers[alt_key]
+
         # Check parent
         if self._parent:
             return self._parent._lookup_provider(token, tag)

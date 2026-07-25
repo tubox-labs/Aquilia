@@ -394,7 +394,7 @@ class ControllerFactory:
         try:
             from typing import get_type_hints
 
-            return get_type_hints(cls.__init__)
+            return get_type_hints(cls.__init__, include_extras=True)
         except Exception:
             return {}
 

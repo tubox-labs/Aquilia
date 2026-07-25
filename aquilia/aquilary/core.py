@@ -1294,6 +1294,22 @@ class RuntimeRegistry:
 
                     alias_target = alias_target_token if alias_target_token is not None else service_class
 
+                    # Always register service_path and colon/dot string variations as aliases
+                    if isinstance(service_path, str):
+                        string_aliases = {service_path, service_path.replace(":", "."), service_path.replace(".", ":")}
+                        for str_alias in string_aliases:
+                            try:
+                                alias_prov = AliasProvider(
+                                    token=str_alias,
+                                    target_token=alias_target,
+                                    target_tag=tag,
+                                )
+                                container.register(alias_prov)
+                                if tag:
+                                    container.register(alias_prov, tag=tag)
+                            except Exception:
+                                pass
+
                     for alias in aliases:
                         # Resolve alias token (class or string)
                         alias_token = alias

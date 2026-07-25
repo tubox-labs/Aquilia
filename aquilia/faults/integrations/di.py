@@ -77,9 +77,11 @@ def patch_di_container():
         try:
             return original_resolve(self, token, tag=tag, optional=optional)
         except OldProviderNotFoundError as e:
-            # Convert to structured fault
+            # Convert to structured fault using unwrapped token name
+            unwrapped, _, _ = self._unwrap_token(token) if hasattr(self, "_unwrap_token") else (token, None, False)
+            tok_name = getattr(e, "token", None) or (unwrapped if isinstance(unwrapped, str) else str(unwrapped))
             raise ProviderNotFoundFault(
-                provider_name=str(token),
+                provider_name=tok_name,
                 metadata={
                     "tag": tag,
                     "candidates": e.candidates if hasattr(e, "candidates") else [],
@@ -96,9 +98,11 @@ def patch_di_container():
         try:
             return await original_resolve_async(self, token, tag=tag, optional=optional, ctx=ctx)
         except OldProviderNotFoundError as e:
-            # Convert to structured fault
+            # Convert to structured fault using unwrapped token name
+            unwrapped, _, _ = self._unwrap_token(token) if hasattr(self, "_unwrap_token") else (token, None, False)
+            tok_name = getattr(e, "token", None) or (unwrapped if isinstance(unwrapped, str) else str(unwrapped))
             raise ProviderNotFoundFault(
-                provider_name=str(token),
+                provider_name=tok_name,
                 metadata={
                     "tag": tag,
                     "candidates": e.candidates if hasattr(e, "candidates") else [],
