@@ -291,7 +291,7 @@ aq ws kick [--conn VALUE] [--reason VALUE] [--redis-url VALUE]
 Inspect auto-discovered modules in workspace.
 
 ```bash
-aq discover [--path VALUE] [--sync] [--dry-run] [--json]
+aq discover [--path VALUE] [--sync] [--dry-run] [--strict] [--json]
 ```
 
 | Kind | Name | Flags | Required | Default |
@@ -299,6 +299,7 @@ aq discover [--path VALUE] [--sync] [--dry-run] [--json]
 | Option | `path` | `--path` | False | `` |
 | Option | `sync` | `--sync` | False | `False` |
 | Option | `dry_run` | `--dry-run` | False | `False` |
+| Option | `strict` | `--strict` | False | `False` |
 | Option | `as_json` | `--json` | False | `False` |
 
 ### `aq analytics`

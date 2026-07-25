@@ -79,6 +79,47 @@ A comprehensive two-round architectural audit of the Aquilary registry, Auto-Dis
 - Added `tests/test_validate_deprecated_flag.py` — 11 tests: `--deprecated` detects each deprecated field, clean manifests pass, `--json` output format.
 - Updated `tests/test_integration_resolution.py` — updated to use `Secret(env=...)` API.
 
+#### Discovery — Strict Resolved-Import Mode
+- **`StrictDiscoveryEngine`** (`aquilia/discovery/engine.py`): New discovery engine subclass that uses `importlib.util.spec_from_file_location` and actual `inspect.getmro()` to discover workspace components instead of the default AST parsing.
+- Correctly discovers classes using transitive inheritance, aliased imports (`Controller as Base`), and re-exports (`__all__`).
+- Safe execution: handles `ImportError` gracefully per-file with a warning log, allowing discovery to continue.
+- **`AutoDiscoveryEngine.discover(strict=True)`** — explicitly invoke strict discovery.
+- **`aq discover --strict`** — CLI flag to use strict discovery mode.
+
+#### Controllers — Distributed Throttle Backends
+- **`ThrottleBackend` Protocol** (`aquilia/controller/throttle.py`): New abstraction for rate limiting with `is_allowed`, `get_count`, `reset`, and `close` async methods.
+- **`MemoryThrottleBackend`**: Async-safe sliding window tracking using `asyncio.Lock`, with LRU eviction and periodic cleanup.
+- **`RedisThrottleBackend`**: Redis-backed sliding window using sorted sets, with lazy connection and `fail_open` degradation support (requires `redis.asyncio`).
+- **`Throttle` Updates**: Added `backend` parameter, `async def acheck(request)`, and ergonomic factories: `Throttle.with_memory(limit, window)` and `Throttle.with_redis(url, limit, window)`.
+- **`ThrottleConfig`**: New dataclass in `aquilia.integrations.throttle` for dependency injection.
+
+#### Controllers — Resource / ViewSet CRUD
+- **`Resource[T]`** (`aquilia/controller/resource.py`): Generic base class that auto-registers CRUD routes based on the presence of `list`, `retrieve`, `create`, `update`, `partial_update`, and `destroy` methods via `__init_subclass__`.
+- Supports explicit `id_param` and `id_type` configuration (defaults: `"id"` and `"int"`).
+- **`@action` decorator**: Registers custom routes on a `Resource` with `detail=True` (mounts on `/{id}/...`) or `detail=False`.
+- Pre-composed mixins (`ListMixin`, `RetrieveMixin`, etc.) and classes (`ReadOnlyResource[T]`, `CRUDResource[T]`).
+- Routes integrate seamlessly with existing `ControllerCompiler` logic.
+
+### Fixed (Phase 2)
+
+#### Controllers — Lifecycle Hook Bypass (CRITICAL)
+- **`ControllerEngine` fast-path skipped `on_request`/`on_response` for "simple" routes**: A route that required no pipeline, contract, or filters was executed via a fast path that completely ignored controller-level lifecycle hooks. Fixed: `is_simple` now consults the `_has_lifecycle_hooks` cache; any route belonging to a controller with custom lifecycle hooks is safely removed from the fast path.
+
+#### Authentication — Unintended Token Generation (SECURITY)
+- **`AuthManager.authenticate_password()` always issued JWTs**: Even in session-only authentication flows, successful authentication generated access and refresh tokens unnecessarily. Fixed: Added `issue_tokens: bool = True` to both `authenticate_password()` and `SignInProvisionPolicy`. Passing `False` skips token generation while fully resolving the identity.
+
+#### Dependency Injection — Forward-Reference Type Resolution (BUG)
+- **`metadata.py` `_extract_method_params()` misclassified types**: Used naive substring matching (`"Request" in param_type`) to detect the context request, which caused valid domain types like `PasswordResetRequest` to be silently stripped from the payload body parameters. Fixed: Upgraded to exact suffix matching. Added an `__annotations__` fallback for when `get_type_hints()` fails due to unresolvable forward references.
+
+#### Controllers — Dynamic Segment Route Conflicts (BUG)
+- **`ControllerCompiler` false-positive conflicts**: Controllers registering routes at the exact same path position with different type castors (e.g., `/<id:int>` vs `/<slug:str>`) raised a conflict error. Fixed: `_routes_conflict()` now considers type castors; mismatched types are no longer considered conflicting routes.
+
+#### Controllers — Class-Level Cache Contamination (ARCH)
+- **Stale cache entries from `id()` reuse**: Both `ControllerEngine` and `ControllerFactory` maintained `id()`-keyed caches (`_simple_route_cache`, `_clearance_cache`, etc.). Garbage-collected objects could have their memory addresses reused by new objects, serving them stale cached values. Fixed: Added `clear_caches()` classmethods to both classes for deterministic flushing between application tests/reloads.
+
+#### Controllers — Router Performance (PERF)
+- **`ControllerRouter.url_for()` O(n·m) linear scan**: Generating URLs required scanning the entire registered route list. Fixed: Added `_name_index` dictionary populated at initialization. `url_for()` lookups are now O(1).
+
 ## [1.3.3] — 2026-07-21 — "Analytical Depths"
 
 ### Added

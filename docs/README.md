@@ -13,6 +13,12 @@ This documentation is generated from the current `aquilia/` source tree and the 
 7. [Examples](examples.md) indexes checked examples under `examples/`.
 8. [Coverage Report](documentation-coverage-report.md) records what was audited and rebuilt.
 
+## Feature Guides
+
+* [Resource ViewSets](controllers/resource-viewset.md): Auto-generate CRUD routes with `Resource[T]`.
+* [Distributed Throttle Backends](controllers/throttle-backends.md): Configure Redis rate-limiting across multi-instance deployments.
+* [Strict Discovery Mode](discovery-strict.md): Use runtime imports for 100% accurate component discovery.
+
 ## Module Map
 
 | Module | Role | Files | Classes | Functions | API | CLI |
